@@ -2,13 +2,20 @@
 
 An experimental native Discourse client, built with Flutter.
 
-Currently targets **iOS** and **macOS**. Android, Windows and Linux are planned;
-see [Adding a platform](#adding-a-platform).
+Currently targets **iOS**, **macOS** and **Linux**. Android and Windows are
+planned; see [Adding a platform](#adding-a-platform).
 
 ## Requirements
 
 - Flutter 3.44+ (`brew install --cask flutter`)
 - Xcode 26+ with the command line tools, for the iOS and macOS builds
+- For the Linux build, on Debian or Ubuntu:
+
+  ```sh
+  sudo apt install clang cmake ninja-build pkg-config \
+                   libgtk-3-dev liblzma-dev libstdc++-12-dev \
+                   libwebkit2gtk-4.1-dev libsoup-3.0-dev libsecret-1-dev
+  ```
 
 Run `flutter doctor` to check the toolchain.
 
@@ -672,10 +679,85 @@ Bundle identifier: `org.discourse.native`.
 Dependencies are managed with Swift Package Manager rather than CocoaPods, which
 is the default for Flutter 3.44 projects.
 
+## Linux
+
+`webkit2gtk-4.1` and `libsoup-3.0` are hard requirements, not optional extras.
+`desktop_webview_window` links them into the binary, so a machine without them
+cannot start the app at all — `ld.so` fails at exec and a desktop launcher shows
+nothing. They are also what makes signing in work: the web view intercepts the
+`discourse://auth_redirect` callback in-process, so unlike a system-browser flow
+there is no URL scheme to register with the desktop and no site setting to
+change.
+
+`libsecret` needs a **running Secret Service** — gnome-keyring, or KWallet with
+its Secret Service bridge. Without one every keychain read fails, and since
+`SecureStore` has no fallback the app appears to sign in and then forgets.
+
+`APPLICATION_ID` in `linux/CMakeLists.txt` is `org.discourse.native`, matching
+the macOS bundle identifier. It is not cosmetic: `flutter_secure_storage_linux`
+compiles it into the libsecret schema name, so changing it after a release
+orphans every user's API key and RSA key pair with no way back.
+
+The window has no custom title bar. `ShellTitleBar` is macOS-only, because it
+exists to keep the traffic lights clear of the rail on a window that hides its
+own title bar. Linux has no traffic lights, and dropping the GTK header bar to
+match would mean reimplementing the window controls, drag-to-move and the
+resize handles for no functional gain.
+
+### Installing a build
+
+The build is a relocatable archive. Extract it anywhere, then:
+
+```sh
+./install-desktop-entry.sh
+```
+
+which writes a launcher into `$XDG_DATA_HOME/applications` with `Exec=` pointing
+at wherever you put it, and copies the icon tree. No root, and safe to re-run.
+
+### Updates
+
+Linux builds update themselves. The rail carries a check-for-updates button
+below the `+`; it is the only app-level surface in the shell, so it is there at
+every window size, signed out, and with no sites connected. The sheet behind it
+has a **Stable / Canary** switch, and the choice is remembered.
+
+The chain is `app-archive.json` → `release.json` → `app.zip`, each descriptor
+signed with Ed25519 and verified against keys pinned into the build. Manifests
+are served from GitHub Pages; the artifacts are GitHub Release assets.
+
+Three things have to be true before any of it turns on, and if any is false the
+button is simply absent:
+
+1. The platform is Linux — `DesktopUpdaterAdapter.supportsPlatform`. iOS is out
+   by App Store rule; macOS would replace a signed bundle with an unsigned copy,
+   changing the code signature the keychain ACL is bound to.
+2. The build carries a version, stamped by `--dart-define` in the release
+   workflow. A `flutter run` has none, so a developer is never offered an update
+   over their own working tree.
+3. The build carries pinned release keys. A build that cannot verify what it
+   downloads must not install it — an updater with no keys is worse than none.
+
+Everything goes through the `Updater` interface in `lib/src/data/updater.dart`,
+and `lib/src/data/desktop_updater_adapter.dart` is the only file allowed to
+import `package:desktop_updater`. That seam is there for tests first — the
+widget suite builds the whole app a hundred times and must not stand up a plugin
+to do it — and only incidentally because the library calls its own Linux support
+preview-grade.
+
+Publishing, key handling and what to do about a bad build are in
+[docs/release-runbook.md](docs/release-runbook.md).
+
 ## Adding a platform
 
 The Xcode/Gradle/CMake runners are generated, not hand written. To add one:
 
 ```sh
-flutter create --platforms=android,windows,linux .
+flutter create --platforms=android,windows .
 ```
+
+Then re-run `tool/generate_app_icons.sh`, which only writes icons for platforms
+that are really scaffolded — it tests for the Gradle project and the CMake
+project rather than the bare directory, because writing icons into a directory
+with no build system behind it is what left orphan `android/` and `windows/`
+trees here in the first place.
