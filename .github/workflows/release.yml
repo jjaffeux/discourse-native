@@ -38,6 +38,12 @@ env:
 jobs:
   linux:
     runs-on: ubuntu-24.04
+    # Container jobs default to `sh -e {0}`, not bash, and dash has no
+    # pipefail -- so every `set -euo pipefail` below dies on the set line
+    # before running anything. Named here once rather than per step.
+    defaults:
+      run:
+        shell: bash
     # Built against Ubuntu 22.04's glibc 2.35 so the binary also runs on Debian
     # 12 and Ubuntu 22.04. Deliberately decoupled from the runner image, which
     # GitHub rotates on its own schedule.
