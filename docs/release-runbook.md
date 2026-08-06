@@ -64,26 +64,38 @@ has to verify whichever one the user switches to.
    orphans every install and every user has to re-download by hand.
 
    ```bash
-   export DU_PASSPHRASE='…a real passphrase from a password manager…'
+   export DU_PASSPHRASE="$(op read 'op://Employee/discourse-native desktop/password')"
 
    dart run desktop_updater:release keys export \
      --key-profile desktop_updater.keys.stable.json \
+     --base-url https://jjaffeux.github.io/discourse-native/stable \
      --output release-key-stable.dukey \
      --passphrase-env DU_PASSPHRASE
 
    dart run desktop_updater:release keys export \
      --key-profile desktop_updater.keys.canary.json \
+     --base-url https://jjaffeux.github.io/discourse-native/canary \
      --output release-key-canary.dukey \
      --passphrase-env DU_PASSPHRASE
    ```
 
-   `--key-profile` is not optional here. Every key command defaults to
-   `desktop_updater.keys.json`, which does not exist — there are two profiles,
-   one per channel, and the command has to be told which.
+   **Every key command needs both flags**, and neither is guessable from the
+   other:
+
+   - `--base-url` because the command loads the publish config before it looks
+     at anything else, and derives the feed URL from it. There is no
+     `desktop_updater.yaml` here for it to fall back to.
+   - `--key-profile` because the default is `desktop_updater.keys.json`, which
+     does not exist — there are two profiles, one per channel.
+
+   The two have to agree: the profile's own `feedUrl` is the channel's archive,
+   so pairing the stable profile with the canary base URL is a mistake the tool
+   will catch.
 
    The passphrase is read from the named variable and is never accepted as an
    argument, so it cannot land in a shell history or a process listing. Put the
-   bundles somewhere with a second custodian.
+   bundles somewhere with a second custodian — a 1Password document item beside
+   the passphrase is a reasonable home.
 
 4. **Put the bundles in CI**, base64 of the `.dukey` file:
 
