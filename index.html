@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discourse Native</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: 3rem 1.25rem;
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  h1 { font-size: 1.75rem; margin-bottom: .25rem; }
+  .sub { opacity: .7; margin-top: 0; }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  pre {
+    padding: .85rem 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    background: rgba(127, 127, 127, .12);
+  }
+  .note {
+    border-left: 3px solid rgba(127, 127, 127, .45);
+    padding: .1rem 0 .1rem 1rem;
+    margin: 1.5rem 0;
+  }
+  footer { margin-top: 3rem; opacity: .65; font-size: .9rem; }
+</style>
+</head>
+<body>
+
+<h1>Discourse Native</h1>
+<p class="sub">An experimental native Discourse client, built with Flutter.</p>
+
+<p>
+  Linux builds are published on
+  <a href="https://github.com/jjaffeux/discourse-native/releases">GitHub Releases</a>.
+  Once installed, the app updates itself &mdash; there is a Stable/Canary switch in
+  the app's own update panel.
+</p>
+
+<div class="note">
+  <p><strong>No builds published yet.</strong> This page is the update feed's home; it
+  will list downloads once the release pipeline runs.</p>
+</div>
+
+<h2>Runtime requirements (Linux)</h2>
+
+<p>The build is a relocatable archive, so nothing resolves these for you. On a
+Debian or Ubuntu system:</p>
+
+<pre><code>sudo apt install libgtk-3-0 libglib2.0-0 libwebkit2gtk-4.1-0 \
+                 libsoup-3.0-0 libsecret-1-0 xdg-utils</code></pre>
+
+<p>
+  You also need a running Secret Service provider &mdash; <code>gnome-keyring</code>, or
+  KWallet with its Secret Service bridge. Account keys are stored there, and without
+  one the app cannot keep you signed in.
+</p>
+
+<p>
+  WebKitGTK is linked, not loaded on demand: without
+  <code>libwebkit2gtk-4.1-0</code> the app will not start at all.
+</p>
+
+<h2>Installing</h2>
+
+<p>Extract the archive anywhere, then register the launcher and icons:</p>
+
+<pre><code>./install-desktop-entry.sh</code></pre>
+
+<footer>
+  <a href="https://github.com/jjaffeux/discourse-native">Source on GitHub</a>
+  &middot; MIT licensed
+</footer>
+
+</body>
+</html>
