@@ -14,7 +14,8 @@ planned; see [Adding a platform](#adding-a-platform).
   ```sh
   sudo apt install clang cmake ninja-build pkg-config \
                    libgtk-3-dev liblzma-dev libstdc++-12-dev \
-                   libwebkit2gtk-4.1-dev libsoup-3.0-dev libsecret-1-dev
+                   libwebkit2gtk-4.1-dev libsoup-3.0-dev libsecret-1-dev \
+                   libssl-dev
   ```
 
 Run `flutter doctor` to check the toolchain.

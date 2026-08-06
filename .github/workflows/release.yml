@@ -84,9 +84,17 @@ jobs:
           apt-get install -y --no-install-recommends \
             clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-12-dev \
-            libwebkit2gtk-4.1-dev libsoup-3.0-dev libsecret-1-dev
+            libwebkit2gtk-4.1-dev libsoup-3.0-dev libsecret-1-dev \
+            libssl-dev
           # Fail here rather than 200 lines into a cmake log.
-          pkg-config --exists gtk+-3.0 webkit2gtk-4.1 libsoup-3.0 libsecret-1
+          #
+          # libcrypto is desktop_updater's: its native component does
+          # find_package(OpenSSL REQUIRED COMPONENTS Crypto) to hash the
+          # artifact it stages. Its CURL dependency is gated behind
+          # DESKTOP_UPDATER_NATIVE_RUNTIME, which defaults off, so that one is
+          # not needed here.
+          pkg-config --exists gtk+-3.0 webkit2gtk-4.1 libsoup-3.0 libsecret-1 \
+                              libcrypto
 
       - uses: subosito/flutter-action@v2
         with:
