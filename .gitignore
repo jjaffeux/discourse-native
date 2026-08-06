@@ -22,6 +22,8 @@ migrate_working_dir/
 # this one is local overrides and should not be.
 .claude/settings.local.json
 
+# linux/ has its own .gitignore for flutter/ephemeral, as ios/ and macos/ do.
+
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
 # is commented out by default.

@@ -1,0 +1,26 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Discourse
+GenericName=Forum Client
+Comment=Native Discourse client
+Exec=@EXEC@
+Icon=org.discourse.native
+Terminal=false
+Categories=Network;Chat;
+Keywords=discourse;forum;community;
+StartupNotify=true
+StartupWMClass=org.discourse.native
+
+# Exec is a placeholder. The build ships as a relocatable archive the user
+# extracts wherever they like, so there is no absolute path to hardcode --
+# install-desktop-entry.sh substitutes the real one.
+#
+# StartupWMClass must equal what the runner passes to g_set_prgname(), which is
+# APPLICATION_ID (see linux/runner/my_application.cc). If the two disagree the
+# running window shows up as a second, iconless entry in the dock.
+#
+# Deliberately no MimeType=x-scheme-handler/discourse. Nothing in lib/ reads
+# dart_entrypoint_arguments yet, so registering the scheme would mean a browser
+# handing off a discourse:// link opened a second, silent instance. Sign-in does
+# not need it either -- the web view intercepts the redirect in-process.

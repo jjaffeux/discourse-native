@@ -168,6 +168,12 @@ for size in 16 32 64 128 256 512 1024; do
 done
 
 # --- Android ----------------------------------------------------------------
+#
+# Skipped unless the platform is really scaffolded. Testing for the Gradle
+# project rather than the directory, because writing icons into a bare
+# android/ leaves something that looks like a platform and builds nothing —
+# which is exactly the state this repo was in before the test was added.
+if [ -f android/settings.gradle ] || [ -f android/settings.gradle.kts ]; then
 
 ANDROID_RES="android/app/src/main/res"
 
@@ -212,7 +218,10 @@ EOF
 rm -f "$ANDROID_RES/values/ic_launcher_background.xml"
 rmdir "$ANDROID_RES/values" 2>/dev/null || true
 
-# Play Store listing icon: 512x512, no transparency.
+fi
+
+# Play Store listing icon: 512x512, no transparency. Outside the gate above —
+# it is a store listing asset that lives in assets/, not Android platform code.
 emit_opaque "$WORK/square.png" 512 "assets/store/play_store_512.png"
 
 # --- Windows ----------------------------------------------------------------
@@ -222,6 +231,9 @@ emit_opaque "$WORK/square.png" 512 "assets/store/play_store_512.png"
 # makes the 256px frame alone ~260KB — and this file is linked into the .exe as
 # a resource. Windows has read PNG-compressed frames since Vista and Flutter
 # needs Windows 10, so every frame goes in as PNG.
+
+# Gated on the CMake project for the same reason as Android above.
+if [ -f windows/CMakeLists.txt ]; then
 
 WINDOWS_RES="windows/runner/resources"
 mkdir -p "$WINDOWS_RES"
@@ -257,6 +269,8 @@ with open(dest, 'wb') as out:
     out.write(struct.pack('<HHH', 0, 1, len(frames)) + directory + payload)
 PY
 
+fi
+
 # --- Linux ------------------------------------------------------------------
 #
 # Laid out the way freedesktop wants it installed, so packaging just copies the
@@ -267,7 +281,7 @@ LINUX_ICONS="linux/icons/hicolor"
 
 for size in 16 24 32 48 64 128 256 512; do
   emit_opaque "$WORK/square.png" "$size" \
-    "$LINUX_ICONS/${size}x${size}/apps/discourse_native.png"
+    "$LINUX_ICONS/${size}x${size}/apps/org.discourse.native.png"
 done
 
 mkdir -p "$LINUX_ICONS/scalable/apps"
@@ -286,19 +300,28 @@ mkdir -p "$LINUX_ICONS/scalable/apps"
   grep '<path' "$SRC" | sed 's/^  /    /'
   echo '  </svg>'
   echo '</svg>'
-} > "$LINUX_ICONS/scalable/apps/discourse_native.svg"
+} > "$LINUX_ICONS/scalable/apps/org.discourse.native.svg"
 
 # --- shrink -----------------------------------------------------------------
 
 if command -v oxipng >/dev/null; then
-  oxipng -q -o 4 --strip safe \
-    "$IOS_SET"/*.png \
-    "$MACOS_SET"/*.png \
-    "$ANDROID_RES"/mipmap-*/*.png \
-    assets/store/play_store_512.png \
+  shrink=(
+    "$IOS_SET"/*.png
+    "$MACOS_SET"/*.png
+    assets/store/play_store_512.png
     "$LINUX_ICONS"/*/apps/*.png
+  )
+  # Only if the Android block ran; under `set -u` an unset ANDROID_RES is fatal,
+  # and the glob would not have expanded to anything either way.
+  if [ -n "${ANDROID_RES:-}" ]; then
+    shrink+=("$ANDROID_RES"/mipmap-*/*.png)
+  fi
+  oxipng -q -o 4 --strip safe "${shrink[@]}"
 else
   echo "note: oxipng not installed, PNGs left unoptimized" >&2
 fi
 
-echo "Regenerated icons for iOS, macOS, Android, Windows and Linux"
+did=(iOS macOS Linux)
+if [ -n "${ANDROID_RES:-}" ]; then did+=(Android); fi
+if [ -n "${WINDOWS_RES:-}" ]; then did+=(Windows); fi
+echo "Regenerated icons for ${did[*]}"
