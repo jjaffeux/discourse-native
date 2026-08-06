@@ -59,6 +59,26 @@ abstract final class AppRelease {
   static const String releasesUrl =
       'https://github.com/jjaffeux/discourse-native/releases';
 
+  /// The Ed25519 public keys a release descriptor's signature must verify
+  /// against, keyed by the id the signing tool stamps into the descriptor.
+  ///
+  /// Every channel's keys go in, because the channel is chosen at runtime and
+  /// a build has to be able to verify whichever one the user switches to. The
+  /// signing profile is bound to a channel's archive URL, so a leaked canary
+  /// key still cannot sign a stable release.
+  ///
+  /// Empty until `desktop_updater:release keygen` has been run — which is why
+  /// [canVerifyReleases] gates the whole feature on it. Public material only;
+  /// safe to commit.
+  static const Map<String, String> trustedReleaseKeys = {};
+
+  /// False when there is nothing to check a signature against.
+  ///
+  /// Its own gate rather than something the adapter assumes, because a build
+  /// that cannot verify what it downloads must not offer to install it. An
+  /// updater with no pinned keys is worse than no updater.
+  static bool get canVerifyReleases => trustedReleaseKeys.isNotEmpty;
+
   /// False for anything built without the release pipeline: a `flutter run`, a
   /// local `flutter build linux`, a test.
   static bool get isReleaseBuild => version.isNotEmpty;

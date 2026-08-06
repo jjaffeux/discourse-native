@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/app_release.dart';
+import 'package:discourse_native/src/data/desktop_updater_adapter.dart';
 import 'package:discourse_native/src/data/updater.dart';
+import 'package:flutter/foundation.dart';
 import 'package:discourse_native/src/shell/update_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -84,6 +86,24 @@ void main() {
   });
 
   group('what can update', () {
+    test('only Linux can be updated in place', () {
+      for (final platform in TargetPlatform.values) {
+        expect(
+          DesktopUpdaterAdapter.supportsPlatform(platform),
+          platform == TargetPlatform.linux,
+          reason: '$platform',
+        );
+      }
+    });
+
+    test('a build that cannot verify a signature does not offer updates', () {
+      // The gate that matters most: pinned keys are the only thing standing
+      // between the update feed and arbitrary code execution, so a build
+      // without them must not offer to install anything at all.
+      expect(AppRelease.canVerifyReleases, isFalse);
+      expect(DesktopUpdaterAdapter().isSupported, isFalse);
+    });
+
     test('a build with no updater behind it says so rather than pretending', () {
       const updater = UnsupportedUpdater();
 

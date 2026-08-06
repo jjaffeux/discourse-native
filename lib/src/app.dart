@@ -5,6 +5,7 @@ import 'data/discourse_api.dart';
 import 'data/draft_store.dart';
 import 'data/instance_store.dart';
 import 'data/site_tracker.dart';
+import 'data/desktop_updater_adapter.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
 import 'shell/adaptive_shell.dart';
@@ -48,9 +49,9 @@ class _DiscourseAppState extends State<DiscourseApp>
     authenticator: widget.authenticator ?? Authenticator(),
     drafts: widget.drafts ?? DraftStore(),
     trackers: widget.trackers ?? SiteTracker.new,
-    // Swapped for DesktopUpdaterAdapter once that lands. Until then this is
-    // also the honest answer everywhere but Linux.
-    updater: widget.updater ?? const UnsupportedUpdater(),
+    // Reports that it cannot update on everything but Linux, and on Linux
+    // until the build carries a version and pinned release keys.
+    updater: widget.updater ?? DesktopUpdaterAdapter(),
     updateStore: widget.updateStore ?? UpdateStore(),
   );
 
