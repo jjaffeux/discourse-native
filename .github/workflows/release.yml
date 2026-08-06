@@ -1,0 +1,292 @@
+name: release
+
+# Stable is a tag; canary is every push to main.
+#
+# NOT YET RUN END TO END. It has never had a green run -- GitHub Actions was in
+# a major outage when it was written, and the Linux build itself has only ever
+# been analysed, never compiled. Treat the first canary run as the test, and
+# see docs/release-runbook.md before pointing it at stable.
+on:
+  push:
+    branches: [main]
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Channel to publish
+        type: choice
+        options: [canary, stable]
+        default: canary
+
+permissions:
+  contents: write
+
+# Two channels never write the same index file, but two canaries can. Serialise
+# per channel so the gh-pages merge cannot lose an entry.
+concurrency:
+  group: release-${{ github.ref_type == 'tag' && 'stable' || 'canary' }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: 3.44.8
+  APP_NAME: Discourse
+  PACKAGE_ID: org.discourse.native
+  BINARY_NAME: discourse_native
+  PAGES_BRANCH: gh-pages
+  FEED_BASE: https://jjaffeux.github.io/discourse-native
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    # Built against Ubuntu 22.04's glibc 2.35 so the binary also runs on Debian
+    # 12 and Ubuntu 22.04. Deliberately decoupled from the runner image, which
+    # GitHub rotates on its own schedule.
+    container:
+      image: ubuntu:22.04
+
+    steps:
+      # Must be first. The container is bare, and actions/checkout silently
+      # degrades to a tarball download without git -- which would leave
+      # `git rev-list --count` with no history and make build numbers garbage.
+      - name: Container prerequisites
+        run: |
+          set -eux
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates curl git unzip xz-utils zip file sudo jq
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Trust the workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Build dependencies
+        run: |
+          set -eux
+          apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libwebkit2gtk-4.1-dev libsoup-3.0-dev libsecret-1-dev
+          # Fail here rather than 200 lines into a cmake log.
+          pkg-config --exists gtk+-3.0 webkit2gtk-4.1 libsoup-3.0 libsecret-1
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Resolve channel and version
+        id: v
+        run: |
+          set -euo pipefail
+          if [ "${{ github.ref_type }}" = tag ]; then
+            CHANNEL=stable
+          else
+            CHANNEL="${{ inputs.channel || 'canary' }}"
+          fi
+
+          BASE=$(grep -m1 '^version:' pubspec.yaml \
+                 | sed -E 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          BUILD=$(git rev-list --count HEAD)
+
+          if [ "$CHANNEL" = stable ]; then
+            TAG="${GITHUB_REF_NAME}"
+            # The tag and the pubspec disagreeing means one of them is a
+            # mistake, and shipping either is worse than failing here.
+            if [ "${TAG#v}" != "$BASE" ]; then
+              echo "::error::tag $TAG does not match pubspec version $BASE"
+              exit 1
+            fi
+            VERSION="$BASE"
+            PRERELEASE=false
+          else
+            # Semver orders 1.3.0-canary.412 < 1.3.0, so canary always sorts
+            # above the last stable and strictly below the next one.
+            VERSION="${BASE}-canary.${BUILD}"
+            TAG="v${VERSION}"
+            PRERELEASE=true
+          fi
+
+          {
+            echo "channel=$CHANNEL"
+            echo "version=$VERSION"
+            echo "build=$BUILD"
+            echo "tag=$TAG"
+            echo "prerelease=$PRERELEASE"
+          } >> "$GITHUB_OUTPUT"
+
+      - run: flutter pub get
+
+      # A broken canary that installs itself is worse than no canary.
+      - name: Analyze and test
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Build
+        run: |
+          set -eux
+          flutter build linux --release \
+            --build-name "${{ steps.v.outputs.version }}" \
+            --build-number "${{ steps.v.outputs.build }}" \
+            --dart-define=DISCOURSE_NATIVE_VERSION=${{ steps.v.outputs.version }} \
+            --dart-define=DISCOURSE_NATIVE_CHANNEL=${{ steps.v.outputs.channel }} \
+            --dart-define=DISCOURSE_NATIVE_FEED_URL=${{ env.FEED_BASE }}
+
+      - name: Check the bundle
+        working-directory: build/linux/x64/release/bundle
+        run: |
+          set -eux
+          test -x "${{ env.BINARY_NAME }}"
+          test -x install-desktop-entry.sh
+          test -f "data/desktop/${{ env.PACKAGE_ID }}.desktop"
+          test -d data/desktop/icons/hicolor/scalable/apps
+          # Catches a dependency change silently dropping onto the 4.0/libsoup2
+          # branch, which aborts at runtime rather than at build time.
+          ldd "${{ env.BINARY_NAME }}" | grep -q libwebkit2gtk-4.1
+
+      - name: Package
+        id: pkg
+        run: |
+          set -euo pipefail
+          V="${{ steps.v.outputs.version }}"
+          NAME="${{ env.APP_NAME }}-$V-linux-x64.zip"
+          OUT="$RUNNER_TEMP/out"
+          mkdir -p "$OUT"
+
+          # -y keeps symlinks as symlinks. The zip is what the updater unpacks,
+          # so the unix mode bits have to survive in it.
+          ( cd build/linux/x64/release/bundle && zip -qry "$OUT/$NAME" . )
+
+          # The assertion that matters most in this file: the difference
+          # between "the update installed" and "the update installed and the
+          # app will never start again". The bundle check above tested the
+          # tree; this tests the archive.
+          zipinfo -l "$OUT/$NAME" \
+            | grep -E '^-rwx.*[[:space:]]${{ env.BINARY_NAME }}$'
+
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "zip=$OUT/$NAME" >> "$GITHUB_OUTPUT"
+          echo "sha=$(sha256sum "$OUT/$NAME" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "len=$(stat -c%s "$OUT/$NAME")" >> "$GITHUB_OUTPUT"
+
+      # The release CLI derives every URL from a single --base-url and has no
+      # way to point the artifact somewhere else, so `publish` cannot put the
+      # zip on Releases. Writing the descriptor by hand and signing it is what
+      # keeps the manifests on Pages (KB-scale, versioned in git) and the
+      # artifacts on Releases (no bandwidth cap, no repo bloat).
+      - name: Write the release descriptor
+        id: desc
+        run: |
+          set -euo pipefail
+          V="${{ steps.v.outputs.version }}"
+          DIR="$RUNNER_TEMP/feed/${{ steps.v.outputs.channel }}/releases/$V/linux"
+          mkdir -p "$DIR"
+
+          jq -n \
+            --arg pkg    "${{ env.PACKAGE_ID }}" \
+            --arg app    "${{ env.APP_NAME }}" \
+            --arg ver    "$V" \
+            --argjson bn ${{ steps.v.outputs.build }} \
+            --arg chan   "${{ steps.v.outputs.channel }}" \
+            --arg url    "https://github.com/${{ github.repository }}/releases/download/${{ steps.v.outputs.tag }}/${{ steps.pkg.outputs.name }}" \
+            --arg sha    "${{ steps.pkg.outputs.sha }}" \
+            --argjson len ${{ steps.pkg.outputs.len }} \
+            --arg now    "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" \
+            '{
+              schemaVersion: 3,
+              packageId: $pkg, appName: $app, version: $ver, buildNumber: $bn,
+              platform: "linux", channel: $chan,
+              artifact: {kind: "zip", url: $url, sha256: $sha, length: $len},
+              install: {strategy: "wholeDirectoryReplace"},
+              minimumUpdaterVersion: "2.0.0",
+              minimumOS: {linux: "glibc-2.35"},
+              generatedAt: $now
+            }' > "$DIR/release.json"
+
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+
+      # 3.1.1 keeps release keys as local files under XDG_DATA_HOME; it has no
+      # export/import command, so the secret is a tar of that directory made on
+      # the workstation that ran `release keygen`. See docs/release-runbook.md.
+      - name: Restore the signing key
+        env:
+          KEYS_TAR_B64: ${{ secrets[format('DU_KEYS_{0}',
+                            steps.v.outputs.channel == 'stable' && 'STABLE' || 'CANARY')] }}
+        run: |
+          set -eu
+          if [ -z "${KEYS_TAR_B64:-}" ]; then
+            echo "::error::no signing key secret for ${{ steps.v.outputs.channel }}"
+            exit 1
+          fi
+          umask 077
+          mkdir -p "$HOME/.local/share/desktop_updater"
+          printf '%s' "$KEYS_TAR_B64" | base64 -d \
+            | tar -xz -C "$HOME/.local/share/desktop_updater"
+
+      - name: Sign the descriptor
+        run: |
+          set -eux
+          dart run desktop_updater:release sign \
+            --release "${{ steps.desc.outputs.dir }}/release.json" \
+            --base-url "${{ env.FEED_BASE }}/${{ steps.v.outputs.channel }}"
+
+      # The artifact goes up before the index that points at it, so a client
+      # can never see an entry whose download 404s.
+      - name: Publish the artifact
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.v.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ env.APP_NAME }} ${{ steps.v.outputs.version }}
+          prerelease: ${{ steps.v.outputs.prerelease }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: ${{ steps.pkg.outputs.zip }}
+
+      - name: Update the channel index
+        run: |
+          set -euo pipefail
+          CH="${{ steps.v.outputs.channel }}"
+          V="${{ steps.v.outputs.version }}"
+          P="$RUNNER_TEMP/pages"
+
+          git clone --depth 1 --branch "${{ env.PAGES_BRANCH }}" \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$P"
+
+          mkdir -p "$P/$CH/releases/$V/linux"
+          cp "${{ steps.desc.outputs.dir }}/release.json" "$P/$CH/releases/$V/linux/"
+
+          # upsert merges into the existing index rather than replacing it. The
+          # archive is a history of every release, so a rewrite would strip
+          # every version but this one.
+          dart run desktop_updater:app_archive upsert \
+            --archive "$P/$CH/app-archive.json" \
+            --app-name "${{ env.APP_NAME }}" \
+            --version "$V" \
+            --build-number "${{ steps.v.outputs.build }}" \
+            --platform linux \
+            --channel "$CH" \
+            --release-url "${{ env.FEED_BASE }}/$CH/releases/$V/linux/release.json"
+
+          dart run desktop_updater:release sign \
+            --app-archive "$P/$CH/app-archive.json" \
+            --base-url "${{ env.FEED_BASE }}/$CH"
+
+          cd "$P"
+          touch .nojekyll
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && { echo "nothing to publish"; exit 0; }
+          git commit -m "$CH: $V (${{ github.sha }})"
+          # concurrency serialises us, but a hand edit to gh-pages can still
+          # race. Rebase and retry rather than force.
+          for _ in 1 2 3; do
+            git push && exit 0
+            git pull --rebase
+          done
+          exit 1
