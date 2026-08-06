@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 3,
+  "appName": "Discourse",
+  "items": [
+    {
+      "version": "1.0.0-canary.20",
+      "buildNumber": 20,
+      "platform": "linux",
+      "channel": "canary",
+      "mandatory": false,
+      "release": "https://jjaffeux.github.io/discourse-native/canary/releases/1.0.0-canary.20/linux/release.json"
+    }
+  ],
+  "signature": {
+    "algorithm": "ed25519",
+    "publicKeyId": "release-305aa96ebc8eaaf8a17bb251",
+    "value": "HhpHw2rjYeuLfhsqQXmLuerY0WdTERzxgQEPgg2miEYyV0S/Vc02pAohL2c834LVI11Pxg3zqn3cGD9xJCXcBA=="
+  }
+}
