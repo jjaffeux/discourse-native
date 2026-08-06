@@ -82,12 +82,31 @@ Per-topic unread state does *not* need a separate call — `/latest.json` is
 personalized when authenticated and each topic carries `unread_posts` and
 `last_read_post_number`.
 
+### Bookmarks
+
+The bookmarks tab reads `/u/{username}/user-menu-bookmarks.json`, which is the
+menu's own route rather than the paged list behind the activity page. It answers
+with **two** lists in one envelope: `notifications`, the bookmark reminders that
+have fired and not been read, and `bookmarks`, filling whatever is left of a
+twenty-row budget with the reminders' own bookmarks excluded so nothing appears
+twice. Both are drawn in that order, the reminders through the same row as the
+notifications tab uses — one of them read anywhere is marked read in both.
+
+The route is the account's own and names it: Discourse raises `InvalidAccess`
+for any other username, so signed out there is nothing to ask for.
+
+Only the keys `UserBookmarkBaseSerializer` declares are read. Which serializer
+answers depends on what was bookmarked — a post, a topic, a chat message, or a
+plugin's own bookmarkable — and only the base's keys are common to all of them.
+Navigation goes through `bookmarkable_url`, which every one of them builds, so a
+bookmark on something this app has never heard of still opens.
+
 ### Topic lists
 
 `latest`, `new`, `unread`, `top` and `messages` all share one envelope
 (`topic_list.topics` plus a `users` array), so they go through a single
-`DiscourseApi.topicList(path:)`. `bookmarks` has a different shape and still
-falls back to the placeholder.
+`DiscourseApi.topicList(path:)`. `messages` is the exception only in that its
+path is named after the account, so signed out it falls back to the placeholder.
 
 Lists are cached per site and destination — revisiting one does not refetch;
 pull-to-refresh forces it. They work signed out too, since `/latest.json` is
@@ -115,10 +134,141 @@ reports it as `/latest?no_definitions=true&page=1` — **no extension**, and tha
 route serves HTML. `TopicList.nextPagePath` inserts `.json` before the query.
 
 The next page is requested from a scroll notification rather than from
-`itemBuilder`, keeping the request out of the build phase, and starts a
-screenful early so rows are usually there before the user reaches them.
-Topics already held are dropped by id when a page arrives: a topic bumped
-between fetches shifts the window and comes back on the following page.
+`itemBuilder`, keeping the request off the hot path of building rows, and
+starts a screenful early so rows are usually there before the user reaches
+them. Topics already held are dropped by id when a page arrives: a topic
+bumped between fetches shifts the window and comes back on the following page.
+
+A scroll notification is **not** outside the frame, which is easy to assume and
+wrong. A viewport whose scroll position ends up past the end of its content —
+the window grew, the list shrank, a jump overshot — corrects that by starting a
+scroll from inside its own `performLayout`, and the notification is dispatched
+right there. So the load-more handler runs during layout, and the state change
+it asks for would mark the tree dirty mid-frame:
+
+```
+Build scheduled during frame.
+```
+
+`ShellController._notify` is what makes that safe, by deferring a notification
+raised during `SchedulerPhase.persistentCallbacks` to the end of the frame. It
+is handled at that one funnel rather than at the thirty-odd call sites, none of
+which can know which phase they are running in — `TopicView` reaches the same
+handler the same way.
+
+### Live updates
+
+Everything on a Discourse that changes without being asked rides on
+[message_bus](https://github.com/discourse/message_bus), and this client speaks
+it through [dart-message-bus](https://github.com/jjaffeux/dart-message-bus) —
+long polling, chunked streaming and the reference client's backoff schedule, in
+pure Dart. It is a git dependency because it is not on pub.dev yet; the commit
+is pinned by `pubspec.lock`.
+
+One [`SiteTracker`](lib/src/data/site_tracker.dart) per site owns the
+connection, and every channel rides the same poll — which is why it is one
+object rather than one per feature. message_bus multiplexes; a second client
+would mean a second connection held open for the same site.
+
+| Channel                     | Carries                          | Drives                     |
+| --------------------------- | -------------------------------- | -------------------------- |
+| `/latest`, `/new`           | topics created and bumped        | the banner on a topic list |
+| `/notification/{user}`      | every count for the account      | the dot on the avatar      |
+| `/reviewable_counts/{user}` | what has appeared in the queue   | the same dot               |
+
+#### New topics
+
+The banner at the top of a topic list — *See 3 new or updated topics* — fetches
+them and puts them on top when tapped. The shape is core's, from
+`app/models/topic-tracking-state.js`:
+
+| Channel   | Message type | Published when                | Counts for      |
+| --------- | ------------ | ----------------------------- | --------------- |
+| `/new`    | `new_topic`  | a topic is created            | `latest`, `new` |
+| `/latest` | `latest`     | a post bumps an existing one  | `latest`        |
+
+That split is why the two lists word it differently: only `latest` counts a
+bump, and a bump is a topic *updated*, not a new one. `/new` is subscribed to
+only when there is a key, as in core — a reader with no account has no "new".
+Both start at `-1`, core's `messageBusDefaultNewMessageId`: what matters is
+what has arrived since the list on screen was fetched.
+
+[`IncomingTopics`](lib/src/models/incoming_topics.dart) is the counting half of
+core's class and only that half. Core's also keeps a per-topic read/unread state
+map feeding every badge in the app; a banner needs none of it. Two consequences
+worth knowing:
+
+- **Muted categories, tags and topics are not filtered out**, because that needs
+  state we do not carry. A muted topic is counted and then does not come back
+  when the list is fetched, so the banner can overstate by a row. It resolves
+  itself — ids are cleared whether or not they produced a topic, so a banner
+  that can never be satisfied cannot form.
+- **Unread topics are not counted.** Core counts an `unread` message as incoming
+  only when the topic's state says it was fully read before, which is exactly
+  the state map that is missing.
+
+Tapping asks the *list* route for those ids — `/latest.json?topic_ids=1,2` — the
+same as core's `TopicList.loadBefore`, so each row arrives with its posters and
+its unread counts rather than as a bare topic. Anything already held with those
+ids is dropped before prepending, since a bumped topic is already somewhere
+further down.
+
+#### Counters
+
+`/notification/{user_id}` is published by `User#publish_notifications_state`
+every time anything about the account's notifications changes — an arrival, a
+read, a dismissal. It keeps [`NotificationTotals`](lib/src/models/notification_totals.dart)
+live, which is the one thing behind the rail badge, the user menu's tab counts
+and the dot on the avatar that opens it. A dot rather than the number core's
+header shows: the rail already carries the count for every site.
+
+The arithmetic is the trap. The message carries its own `unread_notifications`,
+and it is **not** the field `/notifications/totals.json` returns under that
+name — `UserNotificationTotalSerializer` derives that one as
+`all_unread_notifications_count - new_personal_messages_notifications_count`, so
+private messages are counted once, under their own name. Reading the message's
+field straight across makes the number jump the moment the first message
+arrives and never agree with the endpoint again.
+
+`/reviewable_counts/{user_id}` is a second channel for the review queue, and
+only staff ever get one. `reviewable_count` is the size of the queue;
+`unseen_reviewable_count` is what has appeared in it since the user last
+looked, and that is the one anything here counts.
+
+Two counts stay as they were, refreshed only by the totals call: chat, which is
+published on a channel of its own, and the sidebar's unread and new topic
+counts, which core derives from the per-topic state map this app does not keep.
+
+The rows in the menu are not patched from the message either. Core splices the
+`last_notification` it carries into its cached list and applies the read flags
+in `recent`; here the tab refetches every time it is opened, so there is never
+a stale list to reconcile — only a count, which is what the dot needs.
+
+Both channels are named after the account, so they need its id — which meant
+storing one. Sites connected before that get healed on the next launch: finding
+a stored user without an id, `ShellController` asks `/session/current.json`
+once and writes the answer back.
+
+Three things about the connection:
+
+- **One at a time.** A tracker is kept for every site visited, but only the one
+  on screen is polling — the web only ever has one site, and a long poll per
+  site in the rail is a held connection per site. Cursors survive being
+  stopped, so returning to a site asks for what it published while it was away.
+- **It is paced off the app lifecycle.** `DiscourseApp` maps `paused` and
+  `detached` — and only those; `inactive` fires for the app switcher — onto
+  `ShellController.setForeground`, which is wired to the client's
+  `shouldLongPoll` and `pollNow`. Without it a backgrounded app holds a
+  connection open that is usually dead by the time it comes back.
+- **No new consent is involved.** `POST /message-bus/*/poll` is inside the
+  `notifications` scope this app already asks for, which `RouteMatcher`
+  special-cases since it is not a Rails route. The poll carries `User-Api-Key`
+  and nothing else of `DiscourseApi.authHeaders` — that one sends `Dont-Chunk`,
+  which would switch off the streaming this transport exists for.
+
+Trackers are injectable (`ShellController.trackers`) for the same reason the API
+client is: a widget test that builds a shell must not dial out, and the test
+binding fails outright on the poll's backoff timer outliving the tree.
 
 ### Topics
 
@@ -145,6 +295,57 @@ Two things worth knowing if you touch the lists:
 `HtmlWidget` renders into a bare `RichText`, which `find.text` and
 `find.textContaining` both ignore — widget tests need a `byWidgetPredicate`
 finder to assert on post content.
+
+### Likes
+
+There is no `like_count` on a post. Likes arrive in `actions_summary`, the array
+Discourse reports *every* post action in — the like is id 2 and the rest of that
+table is flags. Missing keys are the ordinary case rather than a malformed
+payload: `count` is dropped when it is zero, and `can_act`, `acted` and
+`can_undo` are only written when they are true. The whole row is left out when
+none of them apply, which is what your own post looks like, and what everyone's
+looks like read signed out.
+
+`can_act` and `can_undo` are never both set — liking spends one and grants the
+other — so `Post.canToggleLike` picks whichever applies. A like can also be
+neither: Discourse's undo window runs out, and the heart has to stop being
+offered while the count still says the post was liked.
+
+Writing goes through `/post_actions`, once each way: `POST` with the post id and
+the type, `DELETE /post_actions/{id}` to take it back. Both answer with the post
+itself, **unwrapped** — the controller serializes with `root: false`, so unlike
+every other write here there is no envelope to look inside. Undoing can also
+answer `204` when the post has stopped being visible to the reader, which is a
+success with nothing to draw from.
+
+The count is drawn before the request leaves and put back if the site refuses.
+It is the one write here worth guessing at: a single tap people make while
+reading, often several in a row, where a heart that waits for a round trip reads
+as a broken button rather than a slow one. Nothing is lost if the guess is
+wrong, which is what makes it safe — unlike a reply, where guessing would mean
+showing a post that was never made. Discourse's own client does the same, in the
+same order (`app/models/action-summary.js`).
+
+One payload lies, and it is worth knowing which. `PostsController#update` — the
+answer to an edit — serializes the post **without the reader's own post
+actions**: no `topic_view`, no `post_actions`, unlike `render_post_json`. So
+`actions_summary` comes back with no `acted`, and with a `can_act: true` that is
+simply wrong on a post they have already liked. Taken literally it empties the
+heart of anyone who fixes a typo, and the next tap earns an
+`action_already_performed`. `Post.withLikesOf` is what stops that, and it is the
+same thing `merge` does for `raw`: a copy that could not have known keeps what
+it could not have known.
+
+Who liked a post is a separate route, `/post_action_users`, asked for only when
+someone opens the list — the stream carries how many, never which. It is capped
+at 25 here; a much-liked post would otherwise answer with a couple of hundred
+accounts for a popup that shows a handful, and the post's own count remains the
+total so the difference can be named.
+
+The count sits under the post rather than in the action menu, which is where the
+reactions plugin puts its row of emoji. A like is that row with one entry in it,
+and the entry is always a heart — so the emoji and the panel's header are the
+two things left out for now.
 
 ### Links
 
@@ -309,8 +510,20 @@ and the connect flow reports "could not connect". The file-based keychain needs
 no entitlement. Once the macOS target is signed with a team, switch the flag
 back and add the entitlement together.
 
-`integration_test/keychain_test.dart` covers this — it is the only place the
-failure is visible, since unit tests never touch a real keychain.
+Opting out of that keychain leaves one sharp edge, which is why
+`SecureStore.deleteApiKey` reads before it deletes. The plugin deletes twice,
+once per synchronizable variant, and the synchronizable query is the one that
+needs the data protection keychain — so it answers -34018. Harmless while the
+other delete succeeds, since either one succeeding is reported as success; but
+when there is no entry the other one only finds nothing, and -34018 becomes the
+answer. So *deleting a key that was never written* fails while every other
+keychain call works, which is exactly what removing a site you never connected
+to asks for.
+
+`integration_test/keychain_test.dart` covers both — it is the only place either
+failure is visible, since unit tests never touch a real keychain. Note the
+round-trip test cannot catch the delete case on its own: there the entry is
+always there to delete.
 
 API keys live in the keychain via `flutter_secure_storage`, keyed by site URL —
 never in preferences. (DiscourseMobile keeps them in AsyncStorage, which is not
@@ -366,6 +579,36 @@ Three ways to show something, and they are not interchangeable:
 
 Back unwinds the content stack first, and only then returns to the sidebar.
 
+### Removing a site
+
+The rail is a column of icons with nowhere to hang a button, so what can be
+done to a site lives behind the gesture each platform already means "what else
+can this do" — a right click with a pointer, a long press on a touch screen
+(`instance_actions.dart`).
+
+The two do not lead to the same place, deliberately:
+
+| | Gesture | Menu holds | Then |
+| ---------- | ----------- | -------------- | ------------------------------ |
+| desktop | right click | **Remove forum** | confirmation |
+| touch | long press | More Options | sheet → **Remove forum** → confirmation |
+
+A pointer lands on a small menu row exactly where it was aimed; a thumb does
+not, and the press that opened the menu ends up somewhere inside it. So on
+touch the destructive button is one deliberate tap further away, full width in
+a sheet. Both paths end at the same confirmation — removing a site signs it out
+(see [Disconnecting revokes](#disconnecting-revokes)) and nothing here should be
+able to do that by accident.
+
+The rail item's tooltip is set to `TooltipTriggerMode.manual` because its
+default trigger on a touch screen is *also* a long press, which would otherwise
+name the site under the menu that just opened. Hover ignores the trigger mode,
+so the desktop tooltip is unaffected.
+
+Removing a site the user is not looking at leaves them where they are;
+`ShellController.removeInstance` follows the selected site to its new index
+rather than resetting to its default destination.
+
 ### Chrome
 
 Two pieces of chrome sit outside the column structure, both assembled by
@@ -396,16 +639,19 @@ lib/
     shell/
       adaptive_shell.dart      breakpoints and column assembly
       instance_rail.dart       far-left instance column
+      instance_actions.dart    right-click / long-press actions on a rail item
       instance_sidebar.dart    per-instance navigation
       main_content.dart        the single main region
       cooked_html.dart         renders a post's cooked HTML
+      post_likes.dart          the like count under a post, and who liked it
+      anchored_layout.dart     places a floating panel against what it is about
       onebox.dart              native rendering of aside.onebox
       code_block.dart          native rendering of pre
       syntax.dart              tokenizes code via package:highlight
       external_link.dart       opens links in the platform browser
-      right_sidebar.dart       optional details panel
       shell_panel.dart         rounded panel wrapping everything but the rail
-      user_bar.dart            floating account card
+      title_bar.dart           full-width strip on platforms that hide their own
+      user_menu_button.dart    the account avatar and its menu
       shell_sheet.dart         bottom sheet presentation
       add_instance_sheet.dart  the + flow
       empty_state.dart         shown while no sites are connected

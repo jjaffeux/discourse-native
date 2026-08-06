@@ -38,6 +38,74 @@ class NotificationTotals {
     _ => 0,
   };
 
+  static int? _intOrNull(Object? value) => switch (value) {
+    final num n => n.toInt(),
+    final String s => int.tryParse(s),
+    _ => null,
+  };
+
+  /// Folds a `/notification/{id}` message onto these totals.
+  ///
+  /// Published by `User#publish_notifications_state` every time anything about
+  /// the account's notifications changes. Returns a value equal to this one
+  /// when the message says nothing we hold, so the caller can skip a redraw.
+  ///
+  /// The arithmetic is the trap. The message carries its own
+  /// `unread_notifications`, and it is **not** the one this class holds:
+  /// `UserNotificationTotalSerializer` derives that field as
+  /// `all_unread_notifications_count - new_personal_messages_notifications_count`,
+  /// so private messages are counted once, under their own name. Reading the
+  /// message's field straight across would make the number jump the moment the
+  /// first message arrived and never agree with the endpoint again.
+  NotificationTotals withNotification(Object? message) {
+    if (message is! Map) return this;
+
+    final all = _intOrNull(message['all_unread_notifications_count']);
+    final messages = _intOrNull(
+      message['new_personal_messages_notifications_count'],
+    );
+    if (all == null && messages == null) return this;
+
+    final personal = messages ?? unreadPersonalMessages;
+    return copyWith(
+      unreadNotifications: all == null ? null : (all - personal).clamp(0, all),
+      unreadPersonalMessages: personal,
+    );
+  }
+
+  /// Folds a `/reviewable_counts/{id}` message onto these totals.
+  ///
+  /// A separate channel from the notifications one, and published only to
+  /// staff, so most accounts never see one. `reviewable_count` is the size of
+  /// the queue and `unseen_reviewable_count` is what has appeared in it since
+  /// the user last looked — the second is the one anything here counts.
+  NotificationTotals withReviewableCounts(Object? message) {
+    if (message is! Map) return this;
+
+    final unseen = _intOrNull(message['unseen_reviewable_count']);
+    if (unseen == null) return this;
+    return copyWith(unseenReviewables: unseen);
+  }
+
+  NotificationTotals copyWith({
+    int? unreadNotifications,
+    int? unreadPersonalMessages,
+    int? unseenReviewables,
+    int? chatNotifications,
+  }) {
+    return NotificationTotals(
+      unreadNotifications: unreadNotifications ?? this.unreadNotifications,
+      unreadPersonalMessages:
+          unreadPersonalMessages ?? this.unreadPersonalMessages,
+      unseenReviewables: unseenReviewables ?? this.unseenReviewables,
+      chatNotifications: chatNotifications ?? this.chatNotifications,
+      topicTrackingUnread: topicTrackingUnread,
+      topicTrackingNew: topicTrackingNew,
+      username: username,
+      hasChatEnabled: hasChatEnabled,
+    );
+  }
+
   final int unreadNotifications;
   final int unreadPersonalMessages;
   final int unseenReviewables;

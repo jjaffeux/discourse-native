@@ -1,10 +1,11 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/user_card.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
+import 'anchored_layout.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'external_link.dart';
@@ -153,7 +154,12 @@ class _UserCardPopup extends StatelessWidget {
       child: Focus(
         autofocus: true,
         child: CustomSingleChildLayout(
-          delegate: _AnchoredLayout(anchor: anchor, gap: _gap, margin: _margin),
+          delegate: AnchoredLayout(
+            anchor: anchor,
+            maxWidth: width,
+            gap: _gap,
+            margin: _margin,
+          ),
           child: ListenableBuilder(
             listenable: controller,
             builder: (context, _) => _CardSurface(
@@ -164,54 +170,6 @@ class _UserCardPopup extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Places the card under the anchor, flipping above it when there is no room.
-class _AnchoredLayout extends SingleChildLayoutDelegate {
-  const _AnchoredLayout({
-    required this.anchor,
-    required this.gap,
-    required this.margin,
-  });
-
-  final Rect? anchor;
-  final double gap;
-  final double margin;
-
-  @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    final available = constraints.maxWidth - margin * 2;
-    return BoxConstraints.loose(
-      Size(
-        math.min(_UserCardPopup.width, math.max(0, available)),
-        math.max(0, constraints.maxHeight - margin * 2),
-      ),
-    );
-  }
-
-  @override
-  Offset getPositionForChild(Size size, Size childSize) {
-    final target = anchor;
-    if (target == null) {
-      return Offset(
-        (size.width - childSize.width) / 2,
-        (size.height - childSize.height) / 2,
-      );
-    }
-
-    final below = target.bottom + gap;
-    final fitsBelow = below + childSize.height <= size.height - margin;
-    final top = fitsBelow
-        ? below
-        : math.max(margin, target.top - gap - childSize.height);
-
-    final maxLeft = math.max(margin, size.width - childSize.width - margin);
-    return Offset(target.left.clamp(margin, maxLeft), top);
-  }
-
-  @override
-  bool shouldRelayout(_AnchoredLayout oldDelegate) =>
-      oldDelegate.anchor != anchor;
 }
 
 class _CardSurface extends StatelessWidget {
@@ -382,7 +340,7 @@ class _CardContent extends StatelessWidget {
                 onPressed: siteUrl == null
                     ? null
                     : () => openExternalLink('$siteUrl${card.path}'),
-                icon: const Icon(Icons.open_in_new, size: 16),
+                icon: const DIcon(DIcons.upRightFromSquare, size: 16),
                 label: const Text('View profile'),
               ),
             ),

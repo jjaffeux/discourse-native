@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 
+import '../data/store.dart';
+
 /// A row in a topic list.
 ///
 /// Unread state rides along with the list rather than needing its own request:
 /// the list endpoints are personalized once authenticated.
 @immutable
-class Topic {
+class Topic with Storable<Topic> {
   const Topic({
     required this.id,
     required this.title,
@@ -89,6 +91,44 @@ class Topic {
 
   /// Canonical path on the site.
   String get path => '/t/$slug/$id';
+
+  @override
+  Object get storeId => id;
+
+  /// A later copy wins, except where it simply has less to say.
+  ///
+  /// The lists all serve the same shape, so this is nearly always a straight
+  /// replacement. The exception is a topic asked for by id — `?topic_ids=` for
+  /// the incoming banner — which comes back without the `users` array the
+  /// avatars are resolved from. Taking that literally would blank the faces on
+  /// a row that had them.
+  @override
+  Topic merge(Topic incoming) => incoming.posterAvatars.isEmpty
+      ? incoming.copyWith(posterAvatars: posterAvatars)
+      : incoming;
+
+  Topic copyWith({
+    String? title,
+    int? postsCount,
+    List<String>? posterAvatars,
+    bool markRead = false,
+  }) => Topic(
+    id: id,
+    title: title ?? this.title,
+    slug: slug,
+    categoryId: categoryId,
+    postsCount: postsCount ?? this.postsCount,
+    replyCount: replyCount,
+    views: views,
+    likeCount: likeCount,
+    bumpedAt: bumpedAt,
+    pinned: pinned,
+    closed: closed,
+    unreadPosts: markRead ? 0 : unreadPosts,
+    newPosts: markRead ? 0 : newPosts,
+    seen: markRead ? true : seen,
+    posterAvatars: posterAvatars ?? this.posterAvatars,
+  );
 }
 
 /// One page of a topic list, plus what the rows need to render.
@@ -144,7 +184,7 @@ class TopicList {
 
 /// Just enough of a category to draw its badge.
 @immutable
-class TopicCategory {
+class TopicCategory with Storable<TopicCategory> {
   const TopicCategory({
     required this.id,
     required this.name,
@@ -167,4 +207,7 @@ class TopicCategory {
   final String slug;
 
   int get colorValue => int.tryParse('FF$color', radix: 16) ?? 0xFF888888;
+
+  @override
+  Object get storeId => id;
 }

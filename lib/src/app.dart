@@ -4,6 +4,7 @@ import 'data/authenticator.dart';
 import 'data/discourse_api.dart';
 import 'data/draft_store.dart';
 import 'data/instance_store.dart';
+import 'data/site_tracker.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
@@ -20,35 +21,53 @@ class DiscourseApp extends StatefulWidget {
     this.api,
     this.authenticator,
     this.drafts,
+    this.trackers,
   });
 
   final InstanceStore? store;
   final DiscourseApi? api;
   final Authenticator? authenticator;
   final DraftStore? drafts;
+  final SiteTrackerFactory? trackers;
 
   @override
   State<DiscourseApp> createState() => _DiscourseAppState();
 }
 
-class _DiscourseAppState extends State<DiscourseApp> {
+class _DiscourseAppState extends State<DiscourseApp>
+    with WidgetsBindingObserver {
   late final ShellController _controller = ShellController(
-    store: widget.store ?? InstanceStore(),
+    instanceStore: widget.store ?? InstanceStore(),
     api: widget.api ?? DiscourseApi(),
     authenticator: widget.authenticator ?? Authenticator(),
     drafts: widget.drafts ?? DraftStore(),
+    trackers: widget.trackers ?? SiteTracker.new,
   );
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller.load();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Only `paused` and `detached` count as being in the background, and the
+  /// distinction matters because the live connection is paced off it.
+  /// `inactive` fires for anything transient — the app switcher, a system
+  /// dialog, a notification pulled down — and dropping the connection every
+  /// time the user glanced away would cost more than it saves.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _controller.setForeground(
+      state != AppLifecycleState.paused && state != AppLifecycleState.detached,
+    );
   }
 
   @override

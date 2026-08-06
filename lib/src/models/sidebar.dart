@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../theme/d_icon.dart';
+
 /// A single tappable entry in the instance sidebar.
 ///
 /// [color] is set for entries that Discourse renders with a category badge
@@ -18,7 +20,7 @@ class SidebarDestination {
 
   final String id;
   final String label;
-  final IconData icon;
+  final DIconData icon;
   final Color? color;
 }
 

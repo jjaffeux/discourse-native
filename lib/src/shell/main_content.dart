@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../models/content_route.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
 import 'composer_panel.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
+import 'title_bar.dart';
 import 'topic_list_view.dart';
 import 'topic_view.dart';
+import 'user_menu_button.dart';
 
 /// The main region. There is only ever one of these on screen; navigating
 /// deeper replaces what it shows rather than opening beside it.
@@ -80,7 +84,7 @@ class _ContentHeader extends StatelessWidget {
             IconButton(
               onPressed: () =>
                   controller.handleBack(canReturnToSidebar: layout.isCompact),
-              icon: const Icon(Icons.arrow_back, size: 20),
+              icon: const DIcon(DIcons.arrowLeft, size: 20),
               tooltip: 'Back',
             )
           else
@@ -98,7 +102,7 @@ class _ContentHeader extends StatelessWidget {
           else
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: Icon(
+              child: DIcon(
                 route.icon,
                 size: 18,
                 color: theme.colorScheme.onSurfaceVariant,
@@ -132,22 +136,13 @@ class _ContentHeader extends StatelessWidget {
           if (route.isTopic && controller.canReplyHere)
             IconButton(
               onPressed: () => controller.openReply(),
-              icon: const Icon(Icons.reply, size: 20),
+              icon: const DIcon(DIcons.reply, size: 20),
               tooltip: 'Reply to this topic',
             ),
-          if (layout == ShellLayout.expanded && route.isTopic)
-            IconButton(
-              onPressed: controller.toggleRightSidebar,
-              icon: Icon(
-                controller.rightSidebarVisible
-                    ? Icons.view_sidebar
-                    : Icons.view_sidebar_outlined,
-                size: 20,
-              ),
-              tooltip: controller.rightSidebarVisible
-                  ? 'Hide details'
-                  : 'Show details',
-            ),
+          // Only where there is no title bar above to hold it: this is the
+          // furthest right the shell goes once the strip is gone.
+          if (ShellTitleBar.columnsCarryUserMenu)
+            UserMenuButton(ringColor: theme.shell.content),
         ],
       ),
     );
@@ -173,7 +168,7 @@ class _ContentPlaceholder extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            DIcon(
               route.icon,
               size: 56,
               color: route.color ?? theme.colorScheme.primary,
@@ -205,11 +200,11 @@ class _ContentPlaceholder extends StatelessWidget {
                     ContentRoute(
                       id: '${route.id}-$depth',
                       title: 'Topic $depth',
-                      icon: Icons.article_outlined,
+                      icon: DIcons.comments,
                       subtitle: 'opened from ${route.title}',
                     ),
                   ),
-                  icon: const Icon(Icons.open_in_new, size: 18),
+                  icon: const DIcon(DIcons.upRightFromSquare, size: 18),
                   label: const Text('Replace with deeper view'),
                 ),
                 OutlinedButton.icon(
@@ -224,7 +219,7 @@ class _ContentPlaceholder extends StatelessWidget {
                       style: theme.textTheme.bodyMedium,
                     ),
                   ),
-                  icon: const Icon(Icons.vertical_align_top, size: 18),
+                  icon: const DIcon(DIcons.arrowUp, size: 18),
                   label: const Text('Show sheet'),
                 ),
               ],

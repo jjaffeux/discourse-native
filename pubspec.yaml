@@ -52,6 +52,16 @@ dependencies:
   # platform surface. See lib/src/shell/syntax.dart.
   highlight: ^0.7.0
   super_sliver_list: ^0.4.1
+  super_editor: 0.3.0-dev.52
+  markdown: ^7.3.1
+  # message_bus is the transport every live update on a Discourse rides on, so
+  # anything that has to change without being asked — the incoming-topics
+  # banner today, presence and post streams later — goes through this. Pure
+  # Dart, and a git dependency only because it is not on pub.dev yet;
+  # pubspec.lock pins the commit. See lib/src/data/topic_tracker.dart.
+  message_bus_client:
+    git:
+      url: https://github.com/jjaffeux/dart-message-bus.git
 
 dev_dependencies:
   flutter_test:
@@ -68,11 +78,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
-
-# The following section is specific to Flutter packages.
 flutter:
 
   # The following line ensures that the Material Icons font is

@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'composer_controller.dart';
+import 'composer_marks.dart';
+import 'rich_composer_field.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 
@@ -47,35 +51,70 @@ class ComposerPanel extends StatelessWidget {
                   controller.submitComposer,
               const SingleActivator(LogicalKeyboardKey.escape):
                   controller.closeComposer,
+              // A bold button with no Cmd+B is a strange thing on a desktop.
+              const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
+                  composer.toggleMark(ComposerMark.bold),
+              const SingleActivator(
+                LogicalKeyboardKey.keyB,
+                control: true,
+              ): () =>
+                  composer.toggleMark(ComposerMark.bold),
+              const SingleActivator(LogicalKeyboardKey.keyI, meta: true): () =>
+                  composer.toggleMark(ComposerMark.italic),
+              const SingleActivator(
+                LogicalKeyboardKey.keyI,
+                control: true,
+              ): () =>
+                  composer.toggleMark(ComposerMark.italic),
             },
             child: Column(
               children: [
-                _Header(target: target, onClose: controller.closeComposer),
+                _Header(
+                  target: target,
+                  mode: composer.mode,
+                  // Offered only for text a document model returns unchanged.
+                  // Refusing is the feature: the alternative is silently
+                  // rewriting someone's post.
+                  onToggleMode:
+                      composer.mode == ComposerMode.rich ||
+                          composer.canUseRichMode
+                      ? composer.toggleMode
+                      : null,
+                  onClose: controller.closeComposer,
+                ),
+                _Toolbar(composer: composer),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    child: TextField(
-                      controller: composer.text,
-                      focusNode: composer.focus,
-                      autofocus: true,
-                      // The three together are what fills a bounded box;
-                      // `maxLines: null` alone grows from one line instead.
-                      expands: true,
-                      maxLines: null,
-                      minLines: null,
-                      textAlignVertical: TextAlignVertical.top,
-                      keyboardType: TextInputType.multiline,
-                      textCapitalization: TextCapitalization.sentences,
-                      style: theme.textTheme.bodyMedium,
-                      decoration: InputDecoration.collapsed(
-                        hintText: target.replyToUsername == null
-                            ? 'Write a reply…'
-                            : 'Reply to @${target.replyToUsername}…',
-                        hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
+                    child: composer.mode == ComposerMode.rich
+                        ? RichComposerField(composer: composer)
+                        : TextField(
+                            controller: composer.text,
+                            focusNode: composer.focus,
+                            autofocus: true,
+                            // The three together are what fills a bounded box;
+                            // `maxLines: null` alone grows from one line instead.
+                            expands: true,
+                            maxLines: null,
+                            minLines: null,
+                            textAlignVertical: TextAlignVertical.top,
+                            keyboardType: TextInputType.multiline,
+                            textCapitalization: TextCapitalization.sentences,
+                            style: theme.textTheme.bodyMedium,
+                            decoration: InputDecoration.collapsed(
+                              hintText: switch (target) {
+                                _ when composer.loadingBody =>
+                                  'Loading that post…',
+                                _ when target.isEdit => 'Edit this post…',
+                                _ when target.replyToUsername != null =>
+                                  'Reply to @${target.replyToUsername}…',
+                                _ => 'Write a reply…',
+                              },
+                              hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
                   ),
                 ),
                 _Footer(
@@ -93,10 +132,15 @@ class ComposerPanel extends StatelessWidget {
                   isError: error != null,
                   busy:
                       composer.submitting ||
-                      composer.state == ComposerState.checking,
+                      composer.state == ComposerState.checking ||
+                      composer.loadingBody,
                   // After a failure that could not be checked, the button
                   // stops offering to send and offers to look instead.
-                  label: composer.canRecheck ? 'Check again' : 'Reply',
+                  label: switch (composer) {
+                    _ when composer.canRecheck => 'Check again',
+                    _ when target.isEdit => 'Save',
+                    _ => 'Reply',
+                  },
                   onSubmit: switch (composer) {
                     _ when composer.canRecheck => controller.recheckComposer,
                     _ when composer.canSubmit => controller.submitComposer,
@@ -113,9 +157,16 @@ class ComposerPanel extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.target, required this.onClose});
+  const _Header({
+    required this.target,
+    required this.mode,
+    required this.onToggleMode,
+    required this.onClose,
+  });
 
   final ComposerTarget target;
+  final ComposerMode mode;
+  final VoidCallback? onToggleMode;
   final VoidCallback onClose;
 
   @override
@@ -129,17 +180,19 @@ class _Header extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
         child: Row(
           children: [
-            Icon(
-              Icons.reply,
+            DIcon(
+              target.isEdit ? DIcons.pencil : DIcons.reply,
               size: 16,
               color: theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                replyTo == null
-                    ? 'Reply to ${target.topicTitle}'
-                    : 'Reply to @$replyTo',
+                switch ((target.editingPostNumber, replyTo)) {
+                  (final number?, _) => 'Edit post #$number',
+                  (_, final username?) => 'Reply to @$username',
+                  _ => 'Reply to ${target.topicTitle}',
+                },
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelLarge?.copyWith(
@@ -148,8 +201,22 @@ class _Header extends StatelessWidget {
               ),
             ),
             IconButton(
+              onPressed: onToggleMode,
+              // The pair Discourse puts on its own composer toggle switch: the
+              // markdown mark for the raw side, a letter A for the rich one.
+              icon: DIcon(
+                mode == ComposerMode.rich ? DIcons.fabMarkdown : DIcons.a,
+                size: 18,
+              ),
+              tooltip: switch ((mode, onToggleMode)) {
+                (ComposerMode.rich, _) => 'Edit the markdown',
+                (_, null) => 'Rich editing is not available for this post',
+                _ => 'Edit richly',
+              },
+            ),
+            IconButton(
               onPressed: onClose,
-              icon: const Icon(Icons.close, size: 18),
+              icon: const DIcon(DIcons.xmark, size: 18),
               tooltip: 'Close composer',
             ),
           ],
@@ -157,6 +224,43 @@ class _Header extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The formatting actions.
+///
+/// One button per mark, whichever surface is showing — the difference between
+/// wrapping text in `**` and applying an attribution belongs in the composer,
+/// not in the button.
+class _Toolbar extends StatelessWidget {
+  const _Toolbar({required this.composer});
+
+  final ComposerController composer;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+      child: Row(
+        children: [
+          for (final (mark, icon, label) in const [
+            (ComposerMark.bold, DIcons.bold, 'Bold'),
+            (ComposerMark.italic, DIcons.italic, 'Italic'),
+          ])
+            IconButton(
+              onPressed: () => composer.toggleMark(mark),
+              icon: DIcon(icon, size: 18),
+              tooltip: '$label  ${_shortcutHint(label)}',
+              visualDensity: VisualDensity.compact,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+        ],
+      ),
+    );
+  }
+
+  static String _shortcutHint(String label) => label == 'Bold' ? '⌘B' : '⌘I';
 }
 
 class _Footer extends StatelessWidget {

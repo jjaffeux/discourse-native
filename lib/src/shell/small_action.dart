@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/post.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'relative_time.dart';
@@ -14,7 +16,7 @@ import 'relative_time.dart';
 class SmallActionDescription {
   const SmallActionDescription({required this.icon, required this.phrase});
 
-  final IconData icon;
+  final DIconData icon;
 
   /// The sentence after the actor's name, e.g. `closed this topic`.
   final String phrase;
@@ -25,7 +27,7 @@ class SmallActionDescription {
     final code = post.actionCode;
     if (code == null) return null;
     return SmallActionDescription(
-      icon: _icons[code] ?? Icons.info_outline,
+      icon: _icons[code] ?? fallbackIcon,
       phrase: _phrase(code, post.actionCodeWho),
     );
   }
@@ -62,33 +64,39 @@ class SmallActionDescription {
     };
   }
 
-  static const Map<String, IconData> _icons = {
-    'closed.enabled': Icons.lock_outline,
-    'autoclosed.enabled': Icons.lock_outline,
-    'closed.disabled': Icons.lock_open_outlined,
-    'autoclosed.disabled': Icons.lock_open_outlined,
-    'archived.enabled': Icons.archive_outlined,
-    'archived.disabled': Icons.unarchive_outlined,
-    'pinned.enabled': Icons.push_pin_outlined,
-    'pinned.disabled': Icons.push_pin_outlined,
-    'pinned_globally.enabled': Icons.push_pin_outlined,
-    'pinned_globally.disabled': Icons.push_pin_outlined,
-    'banner.enabled': Icons.campaign_outlined,
-    'banner.disabled': Icons.campaign_outlined,
-    'visible.enabled': Icons.visibility_outlined,
-    'visible.disabled': Icons.visibility_off_outlined,
-    'split_topic': Icons.call_split,
-    'moved_post': Icons.call_split,
-    'invited_user': Icons.person_add_outlined,
-    'invited_group': Icons.group_add_outlined,
-    'removed_user': Icons.person_remove_outlined,
-    'removed_group': Icons.group_remove_outlined,
-    'user_left': Icons.logout_outlined,
-    'autobumped': Icons.arrow_upward,
-    'public_topic': Icons.public,
-    'private_topic': Icons.mail_outline,
-    'open_topic': Icons.comment_outlined,
-    'forwarded': Icons.forward_to_inbox_outlined,
+  /// What Discourse falls back to for an action code it has no icon for.
+  static const DIconData fallbackIcon = DIcons.exclamation;
+
+  /// Straight from `ICONS` in Discourse's `components/post/small-action.gjs`,
+  /// so a notice carries the same icon here as it does on the web. `forwarded`
+  /// is ours: Discourse has no entry for it and would fall back.
+  static const Map<String, DIconData> _icons = {
+    'closed.enabled': DIcons.lock,
+    'autoclosed.enabled': DIcons.lock,
+    'closed.disabled': DIcons.unlock,
+    'autoclosed.disabled': DIcons.unlock,
+    'archived.enabled': DIcons.folder,
+    'archived.disabled': DIcons.folderOpen,
+    'pinned.enabled': DIcons.thumbtack,
+    'pinned.disabled': DIcons.thumbtack,
+    'pinned_globally.enabled': DIcons.thumbtack,
+    'pinned_globally.disabled': DIcons.thumbtack,
+    'banner.enabled': DIcons.thumbtack,
+    'banner.disabled': DIcons.thumbtack,
+    'visible.enabled': DIcons.farEye,
+    'visible.disabled': DIcons.farEyeSlash,
+    'split_topic': DIcons.rightFromBracket,
+    'moved_post': DIcons.rightFromBracket,
+    'invited_user': DIcons.circlePlus,
+    'invited_group': DIcons.circlePlus,
+    'removed_user': DIcons.circleMinus,
+    'removed_group': DIcons.circleMinus,
+    'user_left': DIcons.circleMinus,
+    'autobumped': DIcons.handPointRight,
+    'public_topic': DIcons.comment,
+    'private_topic': DIcons.envelope,
+    'open_topic': DIcons.comment,
+    'forwarded': DIcons.envelope,
   };
 }
 
@@ -115,8 +123,8 @@ class SmallActionTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
-                description?.icon ?? Icons.info_outline,
+              DIcon(
+                description?.icon ?? SmallActionDescription.fallbackIcon,
                 size: 16,
                 color: muted,
               ),

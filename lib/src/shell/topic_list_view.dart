@@ -4,6 +4,8 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
@@ -89,25 +91,62 @@ class _TopicListViewState extends State<TopicListView> {
     super.dispose();
   }
 
+  /// Fetches the topics the banner is counting, then goes up to them.
+  ///
+  /// The web puts its banner inside the list, so tapping it can only happen
+  /// from the top. This one is pinned above the list and is reachable from
+  /// anywhere in it, which makes the jump part of the action rather than a
+  /// separate thing the reader has to do.
+  Future<void> _showIncoming(
+    ShellController controller,
+    String destination,
+  ) async {
+    await controller.showIncoming(destination);
+    if (!mounted || _destination != destination) return;
+
+    // The rows only exist after the frame that draws them.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _destination != destination) return;
+      final scroll = _scroll;
+      if (scroll != null && scroll.hasClients) scroll.jumpTo(0);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final controller = ShellScope.of(context);
+    final destination = controller.destinationId ?? 'latest';
+    final incoming = controller.incomingCount(destination);
+
+    return Column(
+      children: [
+        // Above the list rather than scrolling with it, so it is still there
+        // when the topics it is announcing are twenty rows up.
+        if (incoming > 0)
+          _IncomingBanner(
+            count: incoming,
+            destination: destination,
+            loading: widget.feed.loadingIncoming,
+            onTap: () => _showIncoming(controller, destination),
+          ),
+        Expanded(child: _body(controller, destination)),
+      ],
+    );
+  }
+
+  Widget _body(ShellController controller, String destination) {
     final feed = widget.feed;
 
-    if (feed.loading && feed.topics.isEmpty) {
+    if (feed.loading && feed.topicIds.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
     if (feed.error case final error?) {
-      return _Message(icon: Icons.cloud_off, text: error);
+      return _Message(icon: DIcons.triangleExclamation, text: error);
     }
     if (feed.isEmpty) {
-      return const _Message(
-        icon: Icons.inbox_outlined,
-        text: 'Nothing here yet.',
-      );
+      return const _Message(icon: DIcons.inbox, text: 'Nothing here yet.');
     }
 
-    final controller = ShellScope.of(context);
-    final destination = controller.destinationId ?? 'latest';
     _syncControllers(destination);
     _restore(controller, destination);
 
@@ -115,7 +154,11 @@ class _TopicListViewState extends State<TopicListView> {
       onRefresh: () => controller.loadFeed(destination, force: true),
       child: NotificationListener<ScrollNotification>(
         // Fetching on a scroll notification rather than from itemBuilder keeps
-        // the request out of the build phase.
+        // the request off the hot path of building rows. It does not keep it
+        // out of the frame — a viewport applying new content dimensions starts
+        // a scroll from inside its own layout, and this runs there too. What
+        // makes that safe is ShellController deferring the notification it
+        // raises, not anything here.
         onNotification: (notification) {
           // Opening a topic tears this list down, so the position has to be
           // handed to the controller as it changes rather than on dispose.
@@ -144,25 +187,20 @@ class _TopicListViewState extends State<TopicListView> {
           // rows near the viewport exist — a list of thousands costs the same
           // as a list of thirty.
           // Spinner only while fetching; see TopicView for why.
-          itemCount: feed.topics.length + (feed.loadingMore ? 1 : 0),
+          itemCount: feed.topicIds.length + (feed.loadingMore ? 1 : 0),
           separatorBuilder: (context, _) =>
               Divider(height: 1, color: Theme.of(context).shell.divider),
           itemBuilder: (context, index) {
-            if (index >= feed.topics.length) return const _LoadingMoreRow();
+            if (index >= feed.topicIds.length) return const _LoadingMoreRow();
 
             // The end is in view; fetch before the user gets there.
-            if (index == feed.topics.length - 1 && feed.hasMore) {
+            if (index == feed.topicIds.length - 1 && feed.hasMore) {
               WidgetsBinding.instance.addPostFrameCallback(
                 (_) => controller.loadMoreFeed(destination),
               );
             }
 
-            final topic = feed.topics[index];
-            return _TopicRow(
-              topic: topic,
-              category: controller.categoryFor(topic.categoryId),
-              onTap: () => controller.openTopic(topic),
-            );
+            return _TopicRow(topicId: feed.topicIds[index]);
           },
         ),
       ),
@@ -172,6 +210,80 @@ class _TopicListViewState extends State<TopicListView> {
   /// How close to the end triggers the next page. Roughly a screenful, so the
   /// rows are usually there before the user reaches them.
   static const double _loadMoreThreshold = 800;
+}
+
+/// "See 3 new topics" — the strip the site's live updates put at the top of a
+/// list, and the only thing in the shell that appears without being asked for.
+class _IncomingBanner extends StatelessWidget {
+  const _IncomingBanner({
+    required this.count,
+    required this.destination,
+    required this.loading,
+    required this.onTap,
+  });
+
+  final int count;
+  final String destination;
+  final bool loading;
+  final VoidCallback onTap;
+
+  /// Core's `topic_count_latest` and `topic_count_new`, which differ for a
+  /// reason worth keeping: only the latest list counts topics that were merely
+  /// bumped, and a bump is an update rather than something new.
+  String get _label {
+    final noun = destination == 'latest' ? 'new or updated topic' : 'new topic';
+    return 'See $count $noun${count == 1 ? '' : 's'}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final foreground = theme.colorScheme.onPrimaryContainer;
+
+    // Its own Material: the ink has to splash on the banner rather than on the
+    // content surface underneath it, which is a different colour.
+    return Material(
+      color: theme.colorScheme.primaryContainer,
+      child: InkWell(
+        // Tapping again mid-fetch would ask for the same ids a second time.
+        onTap: loading ? null : onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: theme.shell.divider)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (loading)
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: foreground,
+                  ),
+                )
+              else
+                DIcon(DIcons.arrowUp, size: 14, color: foreground),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  _label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: foreground,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _LoadingMoreRow extends StatelessWidget {
@@ -190,8 +302,41 @@ class _LoadingMoreRow extends StatelessWidget {
   );
 }
 
+/// One row, drawing the topic the store holds under [topicId].
+///
+/// The list only ever knew which topics were in it and in what order; the topic
+/// itself comes from the store, watched rather than passed in. So reading a
+/// topic — which clears its unread state wherever that topic appears — redraws
+/// this row alone, without the list it is in being rebuilt or even told.
 class _TopicRow extends StatelessWidget {
-  const _TopicRow({
+  const _TopicRow({required this.topicId});
+
+  final int topicId;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ShellScope.of(context);
+    final siteUrl = controller.currentInstance?.url;
+    if (siteUrl == null) return const SizedBox.shrink();
+
+    return ValueListenableBuilder<Topic?>(
+      valueListenable: controller.topicRef(siteUrl, topicId),
+      builder: (context, topic, _) => topic == null
+          // The id is in a list, so the topic was stored with it. A gap here
+          // means the site was just disconnected and this list is one frame
+          // from being torn down.
+          ? const SizedBox.shrink()
+          : _TopicRowBody(
+              topic: topic,
+              category: controller.categoryFor(topic.categoryId),
+              onTap: () => controller.openTopic(topic),
+            ),
+    );
+  }
+}
+
+class _TopicRowBody extends StatelessWidget {
+  const _TopicRowBody({
     required this.topic,
     required this.category,
     required this.onTap,
@@ -221,8 +366,8 @@ class _TopicRow extends StatelessWidget {
                       if (topic.pinned)
                         Padding(
                           padding: const EdgeInsets.only(right: 6),
-                          child: Icon(
-                            Icons.push_pin,
+                          child: DIcon(
+                            DIcons.thumbtack,
                             size: 14,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -249,15 +394,9 @@ class _TopicRow extends StatelessWidget {
                         _CategoryBadge(category: category),
                         const SizedBox(width: 10),
                       ],
-                      _Stat(
-                        icon: Icons.mode_comment_outlined,
-                        value: topic.replyCount,
-                      ),
+                      _Stat(icon: DIcons.reply, value: topic.replyCount),
                       const SizedBox(width: 10),
-                      _Stat(
-                        icon: Icons.visibility_outlined,
-                        value: topic.views,
-                      ),
+                      _Stat(icon: DIcons.farEye, value: topic.views),
                       if (topic.bumpedAt case final bumpedAt?) ...[
                         const SizedBox(width: 10),
                         Text(
@@ -320,7 +459,7 @@ class _CategoryBadge extends StatelessWidget {
 class _Stat extends StatelessWidget {
   const _Stat({required this.icon, required this.value});
 
-  final IconData icon;
+  final DIconData icon;
   final int value;
 
   @override
@@ -331,7 +470,7 @@ class _Stat extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: color),
+        DIcon(icon, size: 13, color: color),
         const SizedBox(width: 3),
         Text(
           _short(value),
@@ -376,8 +515,8 @@ class _Posters extends StatelessWidget {
                     size: 24,
                     fallback: ColoredBox(
                       color: Theme.of(context).shell.floating,
-                      child: Icon(
-                        Icons.person,
+                      child: DIcon(
+                        DIcons.user,
                         size: 13,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -421,7 +560,7 @@ class _UnreadPill extends StatelessWidget {
 class _Message extends StatelessWidget {
   const _Message({required this.icon, required this.text});
 
-  final IconData icon;
+  final DIconData icon;
   final String text;
 
   @override
@@ -434,7 +573,7 @@ class _Message extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 40, color: theme.colorScheme.onSurfaceVariant),
+            DIcon(icon, size: 40, color: theme.colorScheme.onSurfaceVariant),
             const SizedBox(height: 12),
             Text(
               text,

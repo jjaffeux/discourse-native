@@ -4,12 +4,10 @@ import 'empty_state.dart';
 import 'instance_rail.dart';
 import 'instance_sidebar.dart';
 import 'main_content.dart';
-import 'right_sidebar.dart';
 import 'shell_controller.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'title_bar.dart';
-import 'user_bar.dart';
 
 /// How much horizontal room the shell has to work with.
 enum ShellLayout {
@@ -34,19 +32,6 @@ enum ShellLayout {
   bool get isCompact => this == ShellLayout.compact;
 }
 
-/// Grows the bottom padding the columns see, so their contents end above the
-/// user bar drawn on top of them. Their backgrounds still run to the bottom
-/// edge, which is what makes the bar read as floating rather than as a row.
-Widget reserveForUserBar(BuildContext context, {required Widget child}) {
-  final media = MediaQuery.of(context);
-  return MediaQuery(
-    data: media.copyWith(
-      padding: media.padding.copyWith(bottom: UserBar.reservedHeight(context)),
-    ),
-    child: child,
-  );
-}
-
 /// The application frame. The rail is present at every size; everything to the
 /// right of it is what changes.
 class AdaptiveShell extends StatelessWidget {
@@ -55,7 +40,6 @@ class AdaptiveShell extends StatelessWidget {
   static const double railWidth = 72;
   static const double compactRailWidth = 64;
   static const double sidebarWidth = 240;
-  static const double rightSidebarWidth = 280;
 
   @override
   Widget build(BuildContext context) {
@@ -88,69 +72,50 @@ class _CompactShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = ShellScope.of(context);
 
-    // The bar belongs to the navigation side, so when the main content takes
-    // over the pane it gets the full height instead.
-    final showUserBar = controller.mobilePane == MobilePane.sidebar;
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         controller.handleBack();
       },
-      child: Stack(
+      child: Row(
         children: [
-          Positioned.fill(
-            child: _maybeReserve(
-              context,
-              reserve: showUserBar,
-              child: Row(
-                children: [
-                  const SizedBox(
-                    width: AdaptiveShell.compactRailWidth,
-                    child: InstanceRail(),
+          const SizedBox(
+            width: AdaptiveShell.compactRailWidth,
+            child: InstanceRail(),
+          ),
+          Expanded(
+            child: ShellPanel(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: _slide,
+                child: switch ((
+                  controller.hasInstances,
+                  controller.mobilePane,
+                )) {
+                  (false, _) => const EmptyState(
+                    key: ValueKey(MobilePane.sidebar),
                   ),
-                  Expanded(
-                    child: ShellPanel(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: _slide,
-                        child: switch ((
-                          controller.hasInstances,
-                          controller.mobilePane,
-                        )) {
-                          (false, _) => const EmptyState(
-                            key: ValueKey(MobilePane.sidebar),
-                          ),
-                          (true, MobilePane.sidebar) => const InstanceSidebar(
-                            key: ValueKey(MobilePane.sidebar),
-                          ),
-                          (true, MobilePane.content) => const MainContent(
-                            key: ValueKey(MobilePane.content),
-                            layout: ShellLayout.compact,
-                          ),
-                        },
-                      ),
-                    ),
+                  // Only one pane is on screen at a time here, so whichever one
+                  // it is carries the avatar — unless the title bar has it.
+                  (true, MobilePane.sidebar) => InstanceSidebar(
+                    key: const ValueKey(MobilePane.sidebar),
+                    showUserMenu: ShellTitleBar.columnsCarryUserMenu,
                   ),
-                ],
+                  (true, MobilePane.content) => const MainContent(
+                    key: ValueKey(MobilePane.content),
+                    layout: ShellLayout.compact,
+                  ),
+                },
               ),
             ),
           ),
-          if (showUserBar)
-            const Positioned(left: 0, right: 0, bottom: 0, child: UserBar()),
         ],
       ),
     );
   }
-
-  static Widget _maybeReserve(
-    BuildContext context, {
-    required bool reserve,
-    required Widget child,
-  }) => reserve ? reserveForUserBar(context, child: child) : child;
 
   /// Content arrives from the right, the sidebar from the left, so the swap
   /// reads as moving in and out of a hierarchy rather than a crossfade.
@@ -178,55 +143,25 @@ class _WideShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.of(context);
-    // Details are about a single topic, so lists — and anything else that is
-    // not a topic — get the full width instead.
-    final showRightSidebar =
-        layout == ShellLayout.expanded &&
-        controller.rightSidebarVisible &&
-        (controller.currentContent?.isTopic ?? false);
 
-    return Stack(
+    return Row(
       children: [
-        Positioned.fill(
-          child: Row(
-            children: [
-              // The rail sits directly on the backdrop, with no panel of its own.
-              SizedBox(
-                width: AdaptiveShell.railWidth,
-                child: reserveForUserBar(context, child: const InstanceRail()),
-              ),
-              Expanded(
-                child: ShellPanel(
-                  child: controller.hasInstances
-                      ? Row(
-                          children: [
-                            SizedBox(
-                              width: AdaptiveShell.sidebarWidth,
-                              child: reserveForUserBar(
-                                context,
-                                child: const InstanceSidebar(),
-                              ),
-                            ),
-                            Expanded(child: MainContent(layout: layout)),
-                            if (showRightSidebar)
-                              const SizedBox(
-                                width: AdaptiveShell.rightSidebarWidth,
-                                child: RightSidebar(),
-                              ),
-                          ],
-                        )
-                      : const EmptyState(),
-                ),
-              ),
-            ],
+        // The rail sits directly on the backdrop, with no panel of its own.
+        const SizedBox(width: AdaptiveShell.railWidth, child: InstanceRail()),
+        Expanded(
+          child: ShellPanel(
+            child: controller.hasInstances
+                ? Row(
+                    children: [
+                      const SizedBox(
+                        width: AdaptiveShell.sidebarWidth,
+                        child: InstanceSidebar(),
+                      ),
+                      Expanded(child: MainContent(layout: layout)),
+                    ],
+                  )
+                : const EmptyState(),
           ),
-        ),
-        // Floats over the rail and the sidebar, but not the main content.
-        const Positioned(
-          left: 0,
-          bottom: 0,
-          width: AdaptiveShell.railWidth + AdaptiveShell.sidebarWidth,
-          child: UserBar(),
         ),
       ],
     );

@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
+import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/empty_state.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -83,10 +85,10 @@ void main() {
       'the topic list to load',
       () =>
           find.byType(TopicListView).evaluate().isNotEmpty &&
-          (controller().currentFeed?.topics.isNotEmpty ?? false),
+          (controller().currentFeed?.topicIds.isNotEmpty ?? false),
     );
 
-    final firstPage = controller().currentFeed!.topics.length;
+    final firstPage = controller().currentFeed!.topicIds.length;
     expect(firstPage, greaterThan(0));
     expect(controller().currentFeed!.hasMore, isTrue);
 
@@ -106,7 +108,7 @@ void main() {
     await pumpUntil(
       tester,
       'a second page to append',
-      () => (controller().currentFeed?.topics.length ?? 0) > firstPage,
+      () => (controller().currentFeed?.topicIds.length ?? 0) > firstPage,
     );
 
     // Back to the top: after scrolling this far the earlier rows have been
@@ -122,7 +124,12 @@ void main() {
     await tester.pump();
 
     // Opening a topic fetches it and replaces the list.
-    final firstTitle = controller().currentFeed!.topics.first.title;
+    final firstTitle = controller().store
+        .read<Topic>(
+          controller().currentInstance!.url,
+          controller().currentFeed!.topicIds.first,
+        )!
+        .title;
     await pumpUntil(
       tester,
       'the first row to be back on screen',
@@ -134,13 +141,16 @@ void main() {
     await pumpUntil(
       tester,
       'the topic and its posts to load',
-      () => (controller().currentTopic?.posts.isNotEmpty ?? false),
+      () => controller().currentPostIds.isNotEmpty,
     );
 
     expect(find.byType(TopicView), findsOneWidget);
     expect(find.byType(TopicListView), findsNothing);
+    final siteUrl = controller().currentInstance!.url;
     expect(
-      controller().currentTopic!.posts.every((p) => p.cooked.isNotEmpty),
+      controller().currentPostIds.every(
+        (id) => controller().store.read<Post>(siteUrl, id)!.cooked.isNotEmpty,
+      ),
       isTrue,
     );
 

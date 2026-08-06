@@ -3,6 +3,13 @@ import 'package:flutter/material.dart';
 /// The tertiary color of Discourse's default light scheme.
 const Color discourseBlue = Color(0xFF0088CC);
 
+/// What Discourse paints a like — `$love` in its stylesheets.
+///
+/// One value for both brightnesses, unlike everything in [ShellColors]: a
+/// heart that changed color with the theme would stop reading as the same
+/// thing, and it is drawn on a floating surface either way.
+const Color discourseLove = Color(0xFFFA6C8D);
+
 /// The stacked neutral surfaces the shell is built from.
 ///
 /// These live outside [ColorScheme] because the shell needs several distinct
@@ -18,6 +25,8 @@ class ShellColors extends ThemeExtension<ShellColors> {
     required this.panel,
     required this.divider,
     required this.floating,
+    required this.hover,
+    required this.placeholder,
   });
 
   final Color rail;
@@ -31,6 +40,16 @@ class ShellColors extends ThemeExtension<ShellColors> {
   /// happens to sit.
   final Color floating;
 
+  /// Wash laid over [content] for the row the pointer is on. Opaque rather than
+  /// a translucent tint so a hovered row does not go see-through over whatever
+  /// happens to be painted behind the column.
+  final Color hover;
+
+  /// Text for anything the UI shows but cannot do yet: fake rows, stand-in
+  /// counts, destinations with nothing behind them. Nothing that actually works
+  /// is ever drawn in it, so anything orange on screen is a to-do list item.
+  final Color placeholder;
+
   static const ShellColors dark = ShellColors(
     rail: Color(0xFF131417),
     sidebar: Color(0xFF1A1C20),
@@ -38,6 +57,8 @@ class ShellColors extends ThemeExtension<ShellColors> {
     panel: Color(0xFF1A1C20),
     divider: Color(0xFF2B2E35),
     floating: Color(0xFF272B32),
+    hover: Color(0xFF262A30),
+    placeholder: Color(0xFFFF9E4D),
   );
 
   static const ShellColors light = ShellColors(
@@ -47,6 +68,8 @@ class ShellColors extends ThemeExtension<ShellColors> {
     panel: Color(0xFFF1F3F5),
     divider: Color(0xFFDBDFE4),
     floating: Color(0xFFFFFFFF),
+    hover: Color(0xFFF6F8F9),
+    placeholder: Color(0xFFC25400),
   );
 
   @override
@@ -57,6 +80,8 @@ class ShellColors extends ThemeExtension<ShellColors> {
     Color? panel,
     Color? divider,
     Color? floating,
+    Color? hover,
+    Color? placeholder,
   }) {
     return ShellColors(
       rail: rail ?? this.rail,
@@ -65,6 +90,8 @@ class ShellColors extends ThemeExtension<ShellColors> {
       panel: panel ?? this.panel,
       divider: divider ?? this.divider,
       floating: floating ?? this.floating,
+      hover: hover ?? this.hover,
+      placeholder: placeholder ?? this.placeholder,
     );
   }
 
@@ -78,6 +105,8 @@ class ShellColors extends ThemeExtension<ShellColors> {
       panel: Color.lerp(panel, other.panel, t)!,
       divider: Color.lerp(divider, other.divider, t)!,
       floating: Color.lerp(floating, other.floating, t)!,
+      hover: Color.lerp(hover, other.hover, t)!,
+      placeholder: Color.lerp(placeholder, other.placeholder, t)!,
     );
   }
 }

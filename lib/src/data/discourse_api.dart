@@ -3,11 +3,14 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
+import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
+import '../models/post_likers.dart';
 import '../models/topic.dart';
 import '../models/user_card.dart';
 
@@ -259,6 +262,10 @@ class DiscourseApi {
 
     return DiscourseUser(
       username: user['username'] as String,
+      id: switch (user['id']) {
+        final num id => id.toInt(),
+        _ => null,
+      },
       name: user['name'] as String?,
       avatarUrl: _avatarUrl(user['avatar_template'] as String?, siteUrl),
     );
@@ -297,6 +304,94 @@ class DiscourseApi {
     );
   }
 
+  /// The notifications behind the user menu's first tab.
+  ///
+  /// `recent=true` asks for the menu's own view of the list — the newest
+  /// [limit], unread first — rather than the paged history behind the
+  /// notifications page. Discourse caps it at 60.
+  ///
+  /// Asking also moves the account's "seen" marker, which is what clears the
+  /// unseen bubble on the web when the menu is opened. That is deliberate: this
+  /// is the same act. Read state is a separate thing and is not touched, so the
+  /// rows stay unread until they are tapped.
+  Future<List<DiscourseNotification>> notifications({
+    required String siteUrl,
+    required String apiKey,
+    int limit = 30,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse('$siteUrl/notifications.json?recent=true&limit=$limit'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return [
+      for (final entry in body['notifications'] as List<dynamic>? ?? const [])
+        DiscourseNotification.fromJson(entry as Map<String, dynamic>),
+    ];
+  }
+
+  /// The bookmarks behind the user menu's bookmarks tab.
+  ///
+  /// `/u/{username}/user-menu-bookmarks` rather than the paged bookmark list
+  /// behind the activity page: it is the route the menu itself uses, and it
+  /// answers with the two lists the tab is made of — the bookmark reminders
+  /// that have fired and not been read, and then as many bookmarks as its
+  /// twenty-row budget has left over, with the reminders' own bookmarks left
+  /// out so nothing appears twice.
+  ///
+  /// [username] has to be the account the key belongs to; Discourse refuses
+  /// anybody else's, which is why this asks for one rather than there being a
+  /// `/my` form of the route to fall back on.
+  Future<BookmarkPayload> bookmarks({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse(
+        '$siteUrl/u/${Uri.encodeComponent(username)}/user-menu-bookmarks.json',
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (
+      reminders: [
+        for (final entry in body['notifications'] as List<dynamic>? ?? const [])
+          DiscourseNotification.fromJson(entry as Map<String, dynamic>),
+      ],
+      bookmarks: [
+        for (final entry in body['bookmarks'] as List<dynamic>? ?? const [])
+          Bookmark.fromJson(entry as Map<String, dynamic>),
+      ],
+    );
+  }
+
+  /// Marks one notification read.
+  ///
+  /// Takes an id rather than defaulting to "all of them" the way the route
+  /// does: omitting the parameter dismisses the user's entire inbox, which is
+  /// not something a mistyped call should be able to do.
+  Future<void> markNotificationRead({
+    required String siteUrl,
+    required String apiKey,
+    required int id,
+    String? clientId,
+  }) => _write(
+    Uri.parse('$siteUrl/notifications/mark-read.json'),
+    method: 'PUT',
+    apiKey: apiKey,
+    clientId: clientId,
+    body: {'id': id},
+  );
+
   /// One page of a topic list. [path] is the list route, e.g. `/latest.json`.
   ///
   /// The same envelope serves latest, new, unread, top and private messages,
@@ -321,7 +416,7 @@ class DiscourseApi {
   }
 
   /// A topic with its first chunk of posts (20) and the full list of post ids.
-  Future<TopicDetail> topic({
+  Future<TopicPayload> topic({
     required String siteUrl,
     required String slug,
     required int id,
@@ -339,7 +434,7 @@ class DiscourseApi {
       clientId: clientId,
     );
 
-    return TopicDetail.fromJson(
+    return TopicDetail.parse(
       jsonDecode(response.body) as Map<String, dynamic>,
       siteUrl,
     );
@@ -479,6 +574,152 @@ class DiscourseApi {
     return PostCreation.fromJson(body, siteUrl);
   }
 
+  /// Rewrites an existing post, and returns it as the site now holds it.
+  ///
+  /// Safe to retry, unlike [createPost]: the same raw sent twice leaves the
+  /// post saying the same thing, so a timeout here needs no reconciliation.
+  Future<Post> updatePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String raw,
+    String? editReason,
+    String? clientId,
+  }) async {
+    final body = await _write(
+      Uri.parse('$siteUrl/posts/$postId.json'),
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      // Nested, which is what the controller reads — a top-level `raw` is
+      // ignored and the post comes back unchanged.
+      body: {
+        'post': {'raw': raw, 'edit_reason': ?editReason},
+      },
+    );
+
+    final post = body['post'] as Map<String, dynamic>?;
+    if (post == null) throw const WriteException(WriteFailure.unreachable);
+    return Post.fromJson(post, siteUrl);
+  }
+
+  /// Deletes a post.
+  ///
+  /// What that means is the site's business, not ours, and it is not one thing:
+  /// staff get a soft delete they can undo, an author deleting their own post
+  /// gets a placeholder that is swept away later, and the last post in some
+  /// topics goes for good. So nothing is returned — the caller re-reads the
+  /// post to find out which of those happened.
+  Future<void> deletePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) => _write(
+    Uri.parse('$siteUrl/posts/$postId.json'),
+    method: 'DELETE',
+    apiKey: apiKey,
+    clientId: clientId,
+    body: const {},
+  );
+
+  /// Likes a post, and returns it as the site now holds it.
+  ///
+  /// Safe to retry: a second like from the same account is refused as one it
+  /// already has, and the post is left saying what it said.
+  Future<Post?> likePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) async => _actedPost(
+    await _write(
+      Uri.parse('$siteUrl/post_actions.json'),
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'id': postId, 'post_action_type_id': Post.likeActionId},
+    ),
+    siteUrl,
+  );
+
+  /// Takes a like back, and returns the post as the site now holds it.
+  ///
+  /// The type goes in the query string rather than the body. Discourse reads
+  /// it out of either, and a DELETE is the one request whose body nothing
+  /// between here and the site is obliged to forward.
+  Future<Post?> unlikePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) async => _actedPost(
+    await _write(
+      Uri.parse(
+        '$siteUrl/post_actions/$postId.json'
+        '?post_action_type_id=${Post.likeActionId}',
+      ),
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    ),
+    siteUrl,
+  );
+
+  /// The post a like route answered with, or null when it answered with none.
+  ///
+  /// Unlike every other write here the post arrives unwrapped — the controller
+  /// serializes it with `root: false` — so there is no envelope to look inside
+  /// and the id is what says a post came back at all. Undoing answers with no
+  /// content when the post has since stopped being visible to the reader,
+  /// which is a success there is simply nothing to draw from.
+  static Post? _actedPost(Map<String, dynamic> body, String siteUrl) =>
+      body['id'] == null ? null : Post.fromJson(body, siteUrl);
+
+  /// Who liked a post, oldest like first.
+  ///
+  /// [limit] is what stops a much-liked post from answering with a few hundred
+  /// accounts for a popup that shows a handful. The post's own like count
+  /// stays the total, so the caller can say how many were left out.
+  Future<PostLikers> postLikers({
+    required String siteUrl,
+    required int postId,
+    int limit = 25,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse(
+        '$siteUrl/post_action_users.json'
+        '?id=$postId&post_action_type_id=${Post.likeActionId}&limit=$limit',
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    return PostLikers.parse(
+      jsonDecode(response.body) as Map<String, dynamic>,
+      postId: postId,
+      siteUrl: siteUrl,
+    );
+  }
+
+  /// Puts a deleted post back, where the site allows it.
+  Future<void> recoverPost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) => _write(
+    Uri.parse('$siteUrl/posts/$postId/recover.json'),
+    method: 'PUT',
+    apiKey: apiKey,
+    clientId: clientId,
+    body: const {},
+  );
+
   /// Saves the draft of a reply, and returns the sequence to save the next one
   /// against.
   ///
@@ -562,7 +803,9 @@ class DiscourseApi {
     }
 
     final decoded = _decode(response.body);
-    if (response.statusCode == 200) return decoded;
+    // Any 2xx, not 200 alone: a delete answers with no content, and which of
+    // the empty-success statuses that is depends on the route.
+    if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
 
     final errors = [
       for (final error in decoded['errors'] as List<dynamic>? ?? const [])
@@ -665,11 +908,15 @@ class DiscourseApi {
     }
   }
 
+  /// How this client names itself, everywhere it talks to a site — including
+  /// the message_bus poll, which does not go through here.
+  static const String userAgent = 'DiscourseNative/1.0';
+
   /// Headers every authenticated request carries, matching DiscourseMobile.
   static Map<String, String> authHeaders(String apiKey, {String? clientId}) => {
     'User-Api-Key': apiKey,
     'User-Api-Client-Id': ?clientId,
-    'User-Agent': 'DiscourseNative/1.0',
+    'User-Agent': userAgent,
     'Content-Type': 'application/json',
     'Dont-Chunk': 'true',
   };

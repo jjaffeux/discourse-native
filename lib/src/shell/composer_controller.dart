@@ -4,6 +4,9 @@ import 'package:flutter/widgets.dart';
 
 import '../data/discourse_api.dart';
 import '../models/composer_draft.dart';
+import 'package:super_editor/super_editor.dart';
+
+import 'composer_marks.dart';
 
 /// What a composer is writing to.
 ///
@@ -20,6 +23,8 @@ class ComposerTarget {
     required this.topicTitle,
     this.replyToPostNumber,
     this.replyToUsername,
+    this.editingPostId,
+    this.editingPostNumber,
   });
 
   final String siteUrl;
@@ -31,6 +36,15 @@ class ComposerTarget {
   final int? replyToPostNumber;
 
   final String? replyToUsername;
+
+  /// The post being rewritten, when this composer is editing rather than
+  /// replying. Null for a reply.
+  final int? editingPostId;
+
+  /// Its number in the topic, for saying which post is being edited.
+  final int? editingPostNumber;
+
+  bool get isEdit => editingPostId != null;
 
   /// What Discourse files a draft for this topic under.
   String get draftKey => 'topic_$topicId';
@@ -88,6 +102,17 @@ enum ComposerState {
   /// The check could not be completed, so whether it posted is still unknown.
   /// Sending is held back — a second attempt would be a second post.
   unresolved,
+}
+
+/// Which editing surface the composer is showing.
+enum ComposerMode {
+  /// The markdown itself, in a plain field. Always available, and always what
+  /// gets posted.
+  plain,
+
+  /// A document model over the same markdown. Only offered for text that
+  /// survives the round trip unchanged.
+  rich,
 }
 
 /// How the draft of an open composer is getting on.
@@ -172,11 +197,136 @@ class ComposerController extends ChangeNotifier {
   /// than earning a second refusal.
   bool get rateLimited => _rateLimited;
 
+  ComposerMode _mode = ComposerMode.plain;
+  ComposerMode get mode => _mode;
+
+  /// Whether what is written can be edited richly without being rewritten.
+  ///
+  /// Asked of the text as it stands, not once at open: pasting a table takes
+  /// rich mode away again, which is the honest answer.
+  bool get canUseRichMode => richModeAvailable(text.text);
+
+  /// Swaps surfaces, refusing to enter rich mode for text it would rewrite.
+  void toggleMode() {
+    if (_disposed) return;
+    if (_mode == ComposerMode.rich) {
+      _mode = ComposerMode.plain;
+    } else {
+      if (!canUseRichMode) return;
+      _mode = ComposerMode.rich;
+    }
+    _notify();
+  }
+
+  Editor? _richEditor;
+  DocumentComposer? _richDocumentComposer;
+
+  /// Lets the rich surface make itself reachable, so the toolbar can drive it
+  /// without the panel having to thread the editor through every button.
+  void attachRichEditor(Editor editor, DocumentComposer documentComposer) {
+    _richEditor = editor;
+    _richDocumentComposer = documentComposer;
+  }
+
+  void detachRichEditor(Editor editor) {
+    if (!identical(_richEditor, editor)) return;
+    _richEditor = null;
+    _richDocumentComposer = null;
+  }
+
+  /// Turns [mark] on or off, whichever surface is showing.
+  void toggleMark(ComposerMark mark) {
+    if (_disposed) return;
+    switch (_mode) {
+      case ComposerMode.plain:
+        text.value = toggleMarkdownMark(text.value, mark.marker);
+      case ComposerMode.rich:
+        _toggleRichMark(mark);
+    }
+  }
+
+  void _toggleRichMark(ComposerMark mark) {
+    final editor = _richEditor;
+    final selection = _richDocumentComposer?.selection;
+    if (editor == null || selection == null) return;
+
+    if (selection.isCollapsed) {
+      // No selection yet: arm it for whatever gets typed next, the way every
+      // other editor does.
+      _richDocumentComposer?.preferences.toggleStyle(mark.attribution);
+      return;
+    }
+
+    editor.execute([
+      ToggleTextAttributionsRequest(
+        documentRange: selection,
+        attributions: {mark.attribution},
+      ),
+    ]);
+  }
+
+  /// Takes the markdown the rich surface produced.
+  ///
+  /// Goes through [text] like anything else, so drafts, the typing clock and
+  /// the send button all behave exactly as they do when someone types.
+  void setRawFromRichEditor(String markdown) {
+    if (_disposed || text.text == markdown) return;
+    text.value = TextEditingValue(
+      text: markdown,
+      selection: TextSelection.collapsed(offset: markdown.length),
+    );
+  }
+
   bool _canSubmit = false;
 
-  /// Whether there is anything worth sending. Blank is not a post.
+  bool _loadingBody = false;
+
+  /// True while the post being edited is still being fetched.
+  ///
+  /// The stream carries cooked HTML only, so an edit composer opens empty and
+  /// fills in once the markdown arrives.
+  bool get loadingBody => _loadingBody;
+
+  String? _originalRaw;
+
+  /// Whether there is anything worth sending. Blank is not a post, and neither
+  /// is an edit nobody has changed — the site refuses that anyway.
+  ///
+  /// An edit has one more way of being not worth sending: the body may not
+  /// have arrived yet, and saving then would replace the post with nothing.
   bool get canSubmit =>
-      _canSubmit && _state == ComposerState.editing && !_rateLimited;
+      _canSubmit &&
+      _state == ComposerState.editing &&
+      !_rateLimited &&
+      !_loadingBody;
+
+  /// Marks an edit composer as waiting for the post it is going to rewrite.
+  void beginLoadingBody() {
+    if (_disposed) return;
+    _loadingBody = true;
+    _notify();
+  }
+
+  /// Puts the post's own markdown in front of the user to edit.
+  void loadedBody(String raw) {
+    if (_disposed) return;
+    _loadingBody = false;
+    _originalRaw = raw.trim();
+    text.value = TextEditingValue(
+      text: raw,
+      selection: TextSelection.collapsed(offset: raw.length),
+    );
+    _notify();
+  }
+
+  /// The post could not be fetched, so there is nothing to edit. Sending stays
+  /// disabled: an empty field here would blank the post rather than leave it.
+  void bodyLoadFailed() {
+    if (_disposed) return;
+    _loadingBody = false;
+    _error = const WriteException(WriteFailure.unreachable);
+    _notify();
+  }
 
   Duration get typingDuration => _typing.elapsed;
   Duration get openDuration => _now().difference(_openedAt);
@@ -198,6 +348,10 @@ class ComposerController extends ChangeNotifier {
   /// True once the sync has stopped trying, so the panel can say the site does
   /// not have this yet.
   bool get draftsGaveUp => _draftsGaveUp;
+
+  /// Whether a save is waiting out the debounce, so text neither the site nor
+  /// this device has yet can be flushed before this composer is thrown away.
+  bool get draftPending => _draftTimer?.isActive ?? false;
 
   /// This composer's contents, in the shape Discourse stores drafts in.
   ComposerDraft get draft => ComposerDraft(
@@ -361,8 +515,10 @@ class ComposerController extends ChangeNotifier {
     _scheduleDraft();
 
     // Only the send button depends on this, so notifying per keystroke would
-    // rebuild the panel for nothing.
-    final next = text.text.trim().isNotEmpty;
+    // rebuild the panel for nothing. Which means it has to be computed here
+    // rather than read off the text: an edit typed back to what it said is a
+    // change to the button with no change to whether the field is empty.
+    final next = raw.isNotEmpty && raw != _originalRaw;
     if (next == _canSubmit) return;
     _canSubmit = next;
     _notify();

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'sidebar.dart';
 
 /// One entry in the main content stack.
@@ -30,7 +32,7 @@ class ContentRoute {
     return ContentRoute(
       id: 'topic-$topicId',
       title: title,
-      icon: Icons.article_outlined,
+      icon: DIcons.comments,
       subtitle: subtitle,
       color: color,
       topicId: topicId,
@@ -50,7 +52,7 @@ class ContentRoute {
 
   final String id;
   final String title;
-  final IconData icon;
+  final DIconData icon;
   final String? subtitle;
   final Color? color;
 

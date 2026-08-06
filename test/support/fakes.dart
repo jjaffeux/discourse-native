@@ -6,11 +6,17 @@ import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
+import 'package:discourse_native/src/data/site_tracker.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/incoming_topics.dart';
+import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
+import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 
@@ -36,8 +42,7 @@ class FakeInstanceStore implements InstanceStore {
 class FakeDraftStore implements DraftStore {
   final Map<String, String> saved = {};
 
-  static String _key(String siteUrl, String draftKey) =>
-      '$siteUrl::$draftKey';
+  static String _key(String siteUrl, String draftKey) => '$siteUrl::$draftKey';
 
   @override
   Future<String?> read(String siteUrl, String draftKey) async =>
@@ -54,6 +59,108 @@ class FakeDraftStore implements DraftStore {
   }
 }
 
+/// A tracker with no connection behind it.
+///
+/// Tests publish to it by hand — `tracker.deliver(...)` stands in for a
+/// message coming off the bus. Real ones hold a long poll open, which a widget
+/// test must not, and which the test binding fails outright on: the poll's
+/// backoff timer outlives the tree.
+class FakeSiteTracker implements SiteTracker {
+  FakeSiteTracker({
+    required this.siteUrl,
+    required this.onIncomingTopics,
+    required this.onNotifications,
+    required this.onReviewableCounts,
+    this.userId,
+    this.apiKey,
+  });
+
+  /// Every tracker built during a test, newest last, so a test can reach the
+  /// one belonging to the site it is looking at.
+  static final List<FakeSiteTracker> built = [];
+
+  /// Hands [factory] out and empties [built]. Call from `setUp`.
+  static SiteTrackerFactory reset() {
+    built.clear();
+    return factory;
+  }
+
+  static SiteTracker factory({
+    required String siteUrl,
+    required void Function() onIncomingTopics,
+    required void Function(Object? data) onNotifications,
+    required void Function(Object? data) onReviewableCounts,
+    int? userId,
+    String? apiKey,
+    String? clientId,
+    bool Function()? shouldLongPoll,
+  }) {
+    final tracker = FakeSiteTracker(
+      siteUrl: siteUrl,
+      onIncomingTopics: onIncomingTopics,
+      onNotifications: onNotifications,
+      onReviewableCounts: onReviewableCounts,
+      userId: userId,
+      apiKey: apiKey,
+    );
+    built.add(tracker);
+    return tracker;
+  }
+
+  @override
+  final String siteUrl;
+
+  @override
+  final void Function() onIncomingTopics;
+
+  @override
+  final void Function(Object? data) onNotifications;
+
+  @override
+  final void Function(Object? data) onReviewableCounts;
+
+  /// Null when the account id is not known, which is what decides whether a
+  /// real tracker subscribes to the counter channels at all.
+  @override
+  final int? userId;
+
+  /// Null when the site is not connected, which is what decides whether a real
+  /// tracker subscribes to `/new`.
+  final String? apiKey;
+
+  @override
+  final IncomingTopics incoming = IncomingTopics();
+
+  bool polling = true;
+  int pollNowCalls = 0;
+  bool disposed = false;
+
+  /// One `/latest` or `/new` message, exactly as it would arrive.
+  void deliver(Object? message) {
+    if (incoming.notify(message)) onIncomingTopics();
+  }
+
+  /// One `/notification/{id}` message.
+  void deliverNotification(Object? message) => onNotifications(message);
+
+  /// One `/reviewable_counts/{id}` message.
+  void deliverReviewableCounts(Object? message) => onReviewableCounts(message);
+
+  @override
+  void start() => polling = true;
+
+  @override
+  void stop() => polling = false;
+
+  @override
+  void pollNow() => pollNowCalls++;
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+  }
+}
+
 /// Answers lookups from a map of term to result, with no network involved.
 class FakeDiscourseApi implements DiscourseApi {
   FakeDiscourseApi({
@@ -61,6 +168,9 @@ class FakeDiscourseApi implements DiscourseApi {
     this.failure,
     this.user,
     this.totals,
+    this.notificationList,
+    this.bookmarkList,
+    this.reminderList = const [],
     this.feeds = const {},
     this.categoryList = const [],
     this.nextPages = const {},
@@ -71,6 +181,11 @@ class FakeDiscourseApi implements DiscourseApi {
     this.creation,
     this.writeFailure,
     this.draftFailure,
+    this.likeResponses = const {},
+    this.likeFailure,
+    this.likeGate,
+    this.likersById = const {},
+    this.likerGate,
   });
 
   final Map<String, DiscourseInstance> results;
@@ -82,8 +197,24 @@ class FakeDiscourseApi implements DiscourseApi {
   /// Returned by [notificationTotals]; null means the call fails.
   final NotificationTotals? totals;
 
+  /// Returned by [notifications]; null means the call fails.
+  final List<DiscourseNotification>? notificationList;
+
+  /// Returned by [bookmarks]; null means the call fails.
+  final List<Bookmark>? bookmarkList;
+
+  /// The reminders [bookmarks] answers with, alongside [bookmarkList].
+  final List<DiscourseNotification> reminderList;
+
   final List<String> revoked = [];
   int totalsCalls = 0;
+  int notificationCalls = 0;
+
+  /// Usernames passed to [bookmarks], in order.
+  final List<String> bookmarksRequested = [];
+
+  /// Ids passed to [markNotificationRead], in order.
+  final List<int> markedRead = [];
 
   /// Returned by [topicList], keyed by path; a missing path fails.
   final Map<String, List<Topic>> feeds;
@@ -99,7 +230,7 @@ class FakeDiscourseApi implements DiscourseApi {
   final Completer<void>? gate;
 
   /// Returned by [topic], keyed by topic id.
-  final Map<int, TopicDetail> topics;
+  final Map<int, TopicPayload> topics;
 
   /// Returned by [posts], keyed by post id.
   final Map<int, Post> postsById;
@@ -126,6 +257,38 @@ class FakeDiscourseApi implements DiscourseApi {
   /// Every [createPost] call, in order, as the arguments it was given.
   final List<Map<String, Object?>> created = [];
 
+  /// Every [updatePost] call, in order.
+  final List<Map<String, Object?>> updated = [];
+
+  /// Post ids passed to [deletePost] and [recoverPost], in order.
+  final List<int> deleted = [];
+  final List<int> recovered = [];
+
+  /// Post ids passed to [likePost] and [unlikePost], in order.
+  final List<int> liked = [];
+  final List<int> unliked = [];
+
+  /// What a like route answers with, keyed by post id. Nothing for a post
+  /// means the route answered without one — which real ones do, and which
+  /// leaves the caller's own guess at the count standing.
+  final Map<int, Post> likeResponses;
+
+  /// Thrown by [likePost] and [unlikePost] instead of answering.
+  final WriteException? likeFailure;
+
+  /// When set, both like routes wait on it — lets a test press the heart twice
+  /// before either write has come back.
+  final Completer<void>? likeGate;
+
+  /// Returned by [postLikers], keyed by post id; a missing one fails.
+  final Map<int, List<PostLiker>> likersById;
+
+  /// Post ids passed to [postLikers], in order.
+  final List<int> likersRequested = [];
+
+  /// When set, [postLikers] waits on it, so a test can hold the list in flight.
+  final Completer<void>? likerGate;
+
   /// Thrown by [saveDraft] instead of answering.
   final WriteException? draftFailure;
 
@@ -149,7 +312,10 @@ class FakeDiscourseApi implements DiscourseApi {
     required String apiKey,
     String? clientId,
   }) async =>
-      user ?? const DiscourseUser(username: 'joffreyj', name: 'Joffrey');
+      user ??
+      // With an id, because that is what names the account's message_bus
+      // channels — a user without one gets no live counters.
+      const DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
 
   @override
   Future<NotificationTotals> notificationTotals({
@@ -163,6 +329,48 @@ class FakeDiscourseApi implements DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return result;
+  }
+
+  @override
+  Future<List<DiscourseNotification>> notifications({
+    required String siteUrl,
+    required String apiKey,
+    int limit = 30,
+    String? clientId,
+  }) async {
+    notificationCalls++;
+    final result = notificationList;
+    if (result == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return result;
+  }
+
+  @override
+  Future<BookmarkPayload> bookmarks({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    bookmarksRequested.add(username);
+    final result = bookmarkList;
+    if (result == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return (reminders: reminderList, bookmarks: result);
+  }
+
+  @override
+  Future<void> markNotificationRead({
+    required String siteUrl,
+    required String apiKey,
+    required int id,
+    String? clientId,
+  }) async {
+    markedRead.add(id);
+    final failure = writeFailure;
+    if (failure != null) throw failure;
   }
 
   @override
@@ -191,7 +399,7 @@ class FakeDiscourseApi implements DiscourseApi {
   }
 
   @override
-  Future<TopicDetail> topic({
+  Future<TopicPayload> topic({
     required String siteUrl,
     required String slug,
     required int id,
@@ -280,6 +488,99 @@ class FakeDiscourseApi implements DiscourseApi {
   }
 
   @override
+  Future<Post> updatePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String raw,
+    String? editReason,
+    String? clientId,
+  }) async {
+    updated.add({'siteUrl': siteUrl, 'postId': postId, 'raw': raw});
+
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+
+    final existing = postsById[postId];
+    return Post(
+      id: postId,
+      postNumber: existing?.postNumber ?? 1,
+      username: existing?.username ?? 'joffreyj',
+      cooked: '<p>$raw</p>',
+      canEdit: true,
+    );
+  }
+
+  @override
+  Future<void> deletePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) async {
+    deleted.add(postId);
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> recoverPost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) async {
+    recovered.add(postId);
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<Post?> likePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) async {
+    liked.add(postId);
+    if (likeGate != null) await likeGate!.future;
+    final failure = likeFailure ?? writeFailure;
+    if (failure != null) throw failure;
+    return likeResponses[postId];
+  }
+
+  @override
+  Future<Post?> unlikePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) async {
+    unliked.add(postId);
+    if (likeGate != null) await likeGate!.future;
+    final failure = likeFailure ?? writeFailure;
+    if (failure != null) throw failure;
+    return likeResponses[postId];
+  }
+
+  @override
+  Future<PostLikers> postLikers({
+    required String siteUrl,
+    required int postId,
+    int limit = 25,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    likersRequested.add(postId);
+    if (likerGate != null) await likerGate!.future;
+    final found = likersById[postId];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return PostLikers(postId: postId, likers: found);
+  }
+
+  @override
   Future<int?> saveDraft({
     required String siteUrl,
     required String apiKey,
@@ -311,10 +612,15 @@ DiscourseInstance instance(String host, {String? title}) => DiscourseInstance(
 
 /// Runs the handshake without a browser or a keychain.
 class FakeAuthenticator implements Authenticator {
-  FakeAuthenticator({this.credentials, this.failure});
+  FakeAuthenticator({this.credentials, this.failure, this.disconnectFailure});
 
   final UserApiCredentials? credentials;
   final UserApiAuthFailure? failure;
+
+  /// Thrown by [disconnect] instead of answering. A keychain really can refuse
+  /// — an unsigned macOS build answers `errSecMissingEntitlement` — and that
+  /// must not be able to hold a site in the rail.
+  final Object? disconnectFailure;
 
   final List<String> connected = [];
   final List<String> disconnected = [];
@@ -333,6 +639,7 @@ class FakeAuthenticator implements Authenticator {
 
   @override
   Future<void> disconnect(String siteUrl) async {
+    if (disconnectFailure != null) throw disconnectFailure!;
     disconnected.add(siteUrl);
     keys.remove(siteUrl);
   }
@@ -352,3 +659,32 @@ class FakeAuthenticator implements Authenticator {
   @override
   SecureStore get store => throw UnimplementedError();
 }
+
+/// A topic payload, in the shape a fetch answers with: the topic, and the
+/// posts that came down with it.
+///
+/// [stream] and [postsCount] default to exactly the posts given, which is what
+/// a short topic looks like. Pass them to describe a topic with more to fetch.
+TopicPayload topicPayload({
+  required int id,
+  String title = '',
+  List<Post> posts = const [],
+  List<int>? stream,
+  int? postsCount,
+  int? categoryId,
+  bool canCreatePost = false,
+  ComposerDraft? draft,
+  int draftSequence = 0,
+}) => (
+  detail: TopicDetail(
+    id: id,
+    title: title,
+    stream: stream ?? [for (final post in posts) post.id],
+    postsCount: postsCount ?? posts.length,
+    categoryId: categoryId,
+    canCreatePost: canCreatePost,
+    draft: draft,
+    draftSequence: draftSequence,
+  ),
+  posts: posts,
+);

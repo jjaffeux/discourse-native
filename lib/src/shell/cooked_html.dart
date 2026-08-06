@@ -3,6 +3,7 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import 'code_block.dart';
+import 'inline_code.dart';
 import 'onebox.dart';
 import 'open_link.dart';
 import 'quote.dart';
@@ -22,18 +23,34 @@ class CookedHtml extends StatelessWidget {
   final String html;
   final TextStyle? textStyle;
 
-  static Widget? _customWidget(dom.Element element) =>
-      oneboxWidgetBuilder(element) ??
-      quoteWidgetBuilder(element) ??
-      codeBlockWidgetBuilder(element);
+  /// Inline code sizes itself against the prose around it, so unlike the other
+  /// builders this one needs the style the widget was given.
+  static Widget? Function(dom.Element) _customWidget(TextStyle? textStyle) =>
+      (element) =>
+          oneboxWidgetBuilder(element) ??
+          quoteWidgetBuilder(element) ??
+          codeBlockWidgetBuilder(element) ??
+          inlineCodeWidgetBuilder(element, textStyle);
+
+  /// Discourse leaves links undecorated and lets colour carry them, but
+  /// [HtmlWidget] underlines every `a[href]` by default. Inline styles are the
+  /// only styling it reads, so the override has to arrive as one.
+  static Map<String, String>? _customStyles(dom.Element element) =>
+      element.localName == 'a' ? const {'text-decoration': 'none'} : null;
 
   @override
   Widget build(BuildContext context) {
+    final style = textStyle ?? Theme.of(context).textTheme.bodyMedium;
+
     return HtmlWidget(
       html,
-      textStyle: textStyle ?? Theme.of(context).textTheme.bodyMedium,
+      textStyle: style,
       renderMode: RenderMode.column,
-      customWidgetBuilder: _customWidget,
+      customWidgetBuilder: _customWidget(style),
+      customStylesBuilder: _customStyles,
+      // The builders close over [style], and [HtmlWidget] caches what they
+      // built — so a change of style has to say so to reach the inline code.
+      rebuildTriggers: [style],
       onTapUrl: (url) => openLink(context, url),
     );
   }

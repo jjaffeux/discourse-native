@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
 
 /// Shown in place of the sidebar and content while no sites are connected.
@@ -22,8 +24,8 @@ class EmptyState extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.forum_outlined,
+                  DIcon(
+                    DIcons.comments,
                     size: 56,
                     color: theme.colorScheme.primary,
                   ),
@@ -44,7 +46,7 @@ class EmptyState extends StatelessWidget {
                   const SizedBox(height: 24),
                   FilledButton.icon(
                     onPressed: () => showAddInstanceSheet(context),
-                    icon: const Icon(Icons.add, size: 18),
+                    icon: const DIcon(DIcons.plus, size: 18),
                     label: const Text('Add a site'),
                   ),
                 ],

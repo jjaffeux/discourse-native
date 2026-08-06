@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../data/discourse_api.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 
@@ -92,7 +94,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           onSubmitted: (_) => _connect(),
           decoration: InputDecoration(
             hintText: 'meta.discourse.org',
-            prefixIcon: const Icon(Icons.language, size: 20),
+            prefixIcon: const DIcon(DIcons.globe, size: 20),
             border: const OutlineInputBorder(),
             errorText: _error,
             // Keeps the sheet from resizing as the message appears.

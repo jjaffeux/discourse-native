@@ -6,7 +6,9 @@ import 'dart:io';
 import 'package:discourse_native/src/data/avatar_loader.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
+import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -186,38 +188,56 @@ void liveTopic() {
     );
     final busy = list.topics.firstWhere((t) => t.postsCount > 25);
 
-    final topic = await api.topic(
+    final fetched = await api.topic(
       siteUrl: 'https://meta.discourse.org',
       slug: busy.slug,
       id: busy.id,
     );
+    final topic = fetched.detail;
 
-    expect(topic.posts, isNotEmpty);
-    expect(topic.posts.every((p) => p.cooked.isNotEmpty), isTrue);
-    expect(topic.posts.every((p) => p.username.isNotEmpty), isTrue);
-    expect(topic.stream.length, greaterThan(topic.posts.length));
-    expect(topic.hasMore, isTrue);
+    expect(fetched.posts, isNotEmpty);
+    expect(fetched.posts.every((p) => p.cooked.isNotEmpty), isTrue);
+    expect(fetched.posts.every((p) => p.username.isNotEmpty), isTrue);
+    expect(topic.stream.length, greaterThan(fetched.posts.length));
     // ignore: avoid_print
     print(
-      'TOPIC "${topic.title}": ${topic.posts.length} of '
-      '${topic.stream.length} posts, first by ${topic.posts.first.username}',
+      'TOPIC "${topic.title}": ${fetched.posts.length} of '
+      '${topic.stream.length} posts, first by ${fetched.posts.first.username}',
     );
+
+    // What the app does with a payload: file the posts under their own ids and
+    // page by asking the stream which ids are still missing.
+    final store = Store();
+    store.putAll('https://meta.discourse.org', fetched.posts);
+
+    List<int> pending() => [
+      for (final id in topic.stream)
+        if (store.read<Post>('https://meta.discourse.org', id) == null) id,
+    ];
+
+    expect(pending(), isNotEmpty);
 
     final more = await api.posts(
       siteUrl: 'https://meta.discourse.org',
       topicId: topic.id,
-      ids: topic.pendingIds.take(5).toList(),
+      ids: pending().take(5).toList(),
     );
 
     expect(more, hasLength(5));
-    final merged = topic.withMorePosts(more);
-    expect(merged.posts.length, topic.posts.length + 5);
-    // Merged in post order, not append order.
-    final numbers = merged.posts.map((p) => p.postNumber).toList();
+    store.putAll('https://meta.discourse.org', more);
+
+    final loaded = [
+      for (final id in topic.stream)
+        if (store.read<Post>('https://meta.discourse.org', id) != null) id,
+    ];
+    expect(loaded.length, fetched.posts.length + 5);
+    // In stream order, which is post order, not the order they arrived in.
+    final numbers = [
+      for (final id in loaded)
+        store.read<Post>('https://meta.discourse.org', id)!.postNumber,
+    ];
     expect(numbers, orderedEquals([...numbers]..sort()));
     // ignore: avoid_print
-    print(
-      'AFTER PAGING: ${merged.posts.length} posts, hasMore=${merged.hasMore}',
-    );
+    print('AFTER PAGING: ${loaded.length} posts, pending=${pending().length}');
   });
 }

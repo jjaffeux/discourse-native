@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../data/store.dart';
 import 'post.dart' show resolveAvatarUrl;
 
 /// The summary of an account behind `/u/{username}/card.json`.
@@ -7,7 +8,7 @@ import 'post.dart' show resolveAvatarUrl;
 /// Deliberately much less than a full profile: this is what fits in a popup
 /// next to the avatar that was clicked.
 @immutable
-class UserCard {
+class UserCard with Storable<UserCard> {
   const UserCard({
     required this.username,
     this.name,
@@ -74,4 +75,10 @@ class UserCard {
 
   /// Where the full profile lives on the site.
   String get path => '/u/$username';
+
+  /// Accounts are identified by name here, not by id: a post carries the
+  /// username of whoever wrote it and nothing else, so that is the only handle
+  /// the thing wanting the card ever has.
+  @override
+  Object get storeId => username;
 }

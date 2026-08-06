@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/d_icons.dart';
 import 'discourse_user.dart';
 import 'sidebar.dart';
 
@@ -118,35 +119,17 @@ class DiscourseInstance {
     SidebarSection(
       title: 'Community',
       destinations: [
+        // `layer-group` is what Discourse's own sidebar gives Everything.
+        // The id stays `latest` — it is the feed this entry reads.
         SidebarDestination(
           id: 'latest',
-          label: 'Latest',
-          icon: Icons.forum_outlined,
-        ),
-        SidebarDestination(
-          id: 'new',
-          label: 'New',
-          icon: Icons.fiber_new_outlined,
-        ),
-        SidebarDestination(
-          id: 'unread',
-          label: 'Unread',
-          icon: Icons.mark_chat_unread_outlined,
-        ),
-        SidebarDestination(
-          id: 'top',
-          label: 'Top',
-          icon: Icons.trending_up_outlined,
-        ),
-        SidebarDestination(
-          id: 'bookmarks',
-          label: 'Bookmarks',
-          icon: Icons.bookmark_outline,
+          label: 'Topics',
+          icon: DIcons.layerGroup,
         ),
         SidebarDestination(
           id: 'messages',
           label: 'Messages',
-          icon: Icons.mail_outline,
+          icon: DIcons.inbox,
         ),
       ],
     ),

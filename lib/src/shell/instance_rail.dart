@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
 import 'avatar_image.dart';
+import 'instance_actions.dart';
 import 'shell_scope.dart';
 
 /// The far-left column of Discourse instances. Visible at every window size,
@@ -84,40 +87,49 @@ class _RailItem extends StatelessWidget {
             ),
           ),
           Center(
-            child: Tooltip(
-              message: '${instance.title}\n${instance.host}',
-              waitDuration: const Duration(milliseconds: 500),
-              child: InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(16),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      curve: Curves.easeOutCubic,
-                      width: 44,
-                      height: 44,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? instance.accentColor
-                            : instance.accentColor.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(selected ? 14 : 22),
+            child: InstanceActions(
+              instance: instance,
+              child: Tooltip(
+                message: '${instance.title}\n${instance.host}',
+                waitDuration: const Duration(milliseconds: 500),
+                // Hovering still shows it — that path ignores the trigger mode
+                // — but holding the item is how the actions are reached on a
+                // touch screen, and the tooltip must not answer that too.
+                triggerMode: TooltipTriggerMode.manual,
+                child: InkWell(
+                  onTap: onTap,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? instance.accentColor
+                              : instance.accentColor.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(
+                            selected ? 14 : 22,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: _InstanceAvatar(
+                          instance: instance,
+                          selected: selected,
+                        ),
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      child: _InstanceAvatar(
-                        instance: instance,
-                        selected: selected,
-                      ),
-                    ),
-                    if (badgeCount > 0)
-                      Positioned(
-                        right: -2,
-                        bottom: -2,
-                        child: _UnreadBadge(count: badgeCount),
-                      ),
-                  ],
+                      if (badgeCount > 0)
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: _UnreadBadge(count: badgeCount),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -174,7 +186,7 @@ class _AddInstanceButton extends StatelessWidget {
             color: theme.colorScheme.primary.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(22),
           ),
-          child: Icon(Icons.add, size: 22, color: theme.colorScheme.primary),
+          child: DIcon(DIcons.plus, size: 22, color: theme.colorScheme.primary),
         ),
       ),
     );

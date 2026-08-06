@@ -127,6 +127,18 @@ class CodeLine {
   String get text => tokens.map((token) => token.text).join();
 }
 
+/// Monospace across the platforms this app targets, in preference order.
+///
+/// Shared with inline `<code>`, so a setting name reads the same whether it is
+/// quoted mid-sentence or shown in a fence.
+const List<String> monospaceFallback = [
+  'Menlo',
+  'SF Mono',
+  'Consolas',
+  'Roboto Mono',
+  'monospace',
+];
+
 /// Maps a highlight.js scope onto one of the six colors the theme defines.
 ///
 /// highlight.js emits around forty class names; grouping them keeps a block
@@ -189,15 +201,6 @@ class CodeBlock extends StatefulWidget {
 
   final CodeBlockData data;
 
-  /// Monospace across the platforms this app targets, in preference order.
-  static const List<String> _monospace = [
-    'Menlo',
-    'SF Mono',
-    'Consolas',
-    'Roboto Mono',
-    'monospace',
-  ];
-
   /// Room under the code for the horizontal scrollbar, so the thumb sits below
   /// the last line rather than over it.
   static const double _scrollbarLane = 12;
@@ -225,7 +228,7 @@ class _CodeBlockState extends State<CodeBlock> {
     if (data.lines.isEmpty) return const SizedBox();
 
     final style = TextStyle(
-      fontFamilyFallback: CodeBlock._monospace,
+      fontFamilyFallback: monospaceFallback,
       fontSize: 12,
       height: 1.4,
       color: theme.colorScheme.onSurface,

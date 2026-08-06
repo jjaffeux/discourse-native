@@ -63,8 +63,22 @@ class SecureStore {
   Future<void> writeApiKey(String siteUrl, String key) =>
       _storage.write(key: _apiKeyEntry(siteUrl), value: key);
 
-  Future<void> deleteApiKey(String siteUrl) =>
-      _storage.delete(key: _apiKeyEntry(siteUrl));
+  /// Looks before deleting, because on macOS deleting nothing is not free.
+  ///
+  /// The plugin deletes twice, once for each synchronizable variant, and the
+  /// synchronizable query needs the data protection keychain we deliberately
+  /// do not use (see [_macOptions]) — so it answers `errSecMissingEntitlement`
+  /// (-34018). That is harmless while the other delete succeeds, since either
+  /// one succeeding is reported as success. When there is no entry to delete
+  /// the other one only finds nothing, and -34018 becomes the answer.
+  ///
+  /// Which makes removing a site that was never connected — the one case where
+  /// there is certainly no key — the case that fails. A read is exact where a
+  /// delete is not, so ask first.
+  Future<void> deleteApiKey(String siteUrl) async {
+    if (await readApiKey(siteUrl) == null) return;
+    await _storage.delete(key: _apiKeyEntry(siteUrl));
+  }
 
   /// URL-safe random token, used for both the client id and the nonce.
   static String randomToken([int bytes = 16]) {

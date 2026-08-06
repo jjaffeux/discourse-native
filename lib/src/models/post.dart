@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
 
+import '../data/store.dart';
 import 'composer_draft.dart';
 
 /// One post in a topic.
 @immutable
-class Post {
+class Post with Storable<Post> {
   const Post({
     required this.id,
     required this.postNumber,
@@ -16,9 +17,18 @@ class Post {
     this.userTitle,
     this.replyCount = 0,
     this.isStaff = false,
+    this.canEdit = false,
+    this.canDelete = false,
+    this.canRecover = false,
+    this.deletedAt,
+    this.userDeleted = false,
     this.postType = regularPostType,
     this.actionCode,
     this.actionCodeWho,
+    this.likeCount = 0,
+    this.liked = false,
+    this.canLike = false,
+    this.canUnlike = false,
     this.raw,
   });
 
@@ -27,7 +37,13 @@ class Post {
   static const int regularPostType = 1;
   static const int smallActionPostType = 3;
 
+  /// The like's row in `actions_summary`, and the `post_action_type_id` the
+  /// like routes take. It is `PostActionType::LIKE_POST_ACTION_ID` server side
+  /// and 2 everywhere, flags being the other numbers in that table.
+  static const int likeActionId = 2;
+
   factory Post.fromJson(Map<String, dynamic> json, String siteUrl) {
+    final like = _likeSummary(json['actions_summary']);
     return Post(
       id: _int(json['id']),
       postNumber: _int(json['post_number']),
@@ -41,15 +57,54 @@ class Post {
       userTitle: _nonEmpty(json['user_title']),
       replyCount: _int(json['reply_count']),
       isStaff: json['admin'] == true || json['moderator'] == true,
+      // The whole permission question, answered by the site's guardian: it has
+      // already weighed ownership, staff, trust level, the edit time window and
+      // whether the topic is closed or archived. Absent when read signed out,
+      // which is also the right answer.
+      canEdit: json['can_edit'] == true,
+      canDelete: json['can_delete'] == true,
+      canRecover: json['can_recover'] == true,
+      // Only staff are ever shown a deleted post; for everyone else Discourse
+      // leaves it out of the stream entirely.
+      deletedAt: DateTime.tryParse((json['deleted_at'] ?? '') as String),
+      userDeleted: json['user_deleted'] == true,
       postType: json['post_type'] == null
           ? regularPostType
           : _int(json['post_type']),
       actionCode: _nonEmpty(json['action_code']),
       actionCodeWho: _nonEmpty(json['action_code_who']),
+      likeCount: like.count,
+      liked: like.acted,
+      canLike: like.canAct,
+      canUnlike: like.canUndo,
       // Only present when asked for. Reading needs the cooked HTML; writing
       // needs this, because it is the thing that was actually typed.
       raw: _nonEmpty(json['raw']),
     );
+  }
+
+  /// The like's row of `actions_summary`, which is where Discourse reports
+  /// every post action — likes alongside the flags, each under its type id.
+  ///
+  /// Absent keys are the ordinary case rather than a malformed payload:
+  /// `count` is dropped when it is zero, and `can_act`, `acted` and `can_undo`
+  /// are only written when they are true. The whole row is left out when none
+  /// of them apply, which is what a post nobody has liked and this reader may
+  /// not like — their own, or anyone's while signed out — looks like.
+  static ({int count, bool acted, bool canAct, bool canUndo}) _likeSummary(
+    Object? summaries,
+  ) {
+    for (final entry in summaries as List<dynamic>? ?? const []) {
+      if (entry is! Map<String, dynamic>) continue;
+      if (_int(entry['id']) != likeActionId) continue;
+      return (
+        count: _int(entry['count']),
+        acted: entry['acted'] == true,
+        canAct: entry['can_act'] == true,
+        canUndo: entry['can_undo'] == true,
+      );
+    }
+    return (count: 0, acted: false, canAct: false, canUndo: false);
   }
 
   static int _int(Object? value) => switch (value) {
@@ -76,6 +131,23 @@ class Post {
   final String? userTitle;
   final int replyCount;
   final bool isStaff;
+
+  /// Whether this reader may rewrite this post.
+  final bool canEdit;
+
+  /// Whether this reader may delete it, and — once it is gone — put it back.
+  final bool canDelete;
+  final bool canRecover;
+
+  /// When it was deleted, for the staff who can still see it.
+  final DateTime? deletedAt;
+
+  /// Deleted by its own author. Discourse keeps the row for a while before
+  /// removing it for good, and shows a placeholder in the meantime.
+  final bool userDeleted;
+
+  bool get isDeleted => deletedAt != null || userDeleted;
+
   final int postType;
 
   /// What the moderator action was, e.g. `closed.enabled` or `invited_user`.
@@ -84,6 +156,27 @@ class Post {
 
   /// The user or group the action was taken on, for the codes that name one.
   final String? actionCodeWho;
+
+  /// How many people have liked this post, this reader's own like included.
+  ///
+  /// Anyone they have ignored is already left out — the site subtracts those
+  /// before serializing, so the number here is the one to draw.
+  final int likeCount;
+
+  /// Whether this reader is one of them.
+  final bool liked;
+
+  /// Whether they may add a like, and whether they may take theirs back.
+  ///
+  /// Two questions rather than one because they are never both true: liking
+  /// spends the one and grants the other. Both are false on a post nobody may
+  /// act on — your own, or anyone's while signed out — and [canUnlike] is also
+  /// false once the site's undo window has run out on a like already given.
+  final bool canLike;
+  final bool canUnlike;
+
+  /// Whether tapping the heart would do anything.
+  bool get canToggleLike => liked ? canUnlike : canLike;
 
   /// The markdown this post was written as, when it was asked for.
   ///
@@ -97,6 +190,86 @@ class Post {
   bool get isSmallAction => postType == smallActionPostType;
 
   String get displayName => name ?? username;
+
+  @override
+  Object get storeId => id;
+
+  /// A later copy wins, except that markdown already in hand is never given up.
+  ///
+  /// [raw] is only present when it was asked for, so an ordinary re-read — the
+  /// refetch after a reply, say — carries a null that means "not requested"
+  /// rather than "no longer has one". Letting that through would send the
+  /// composer back to the site for a body it already had.
+  @override
+  Post merge(Post incoming) =>
+      incoming.raw == null && raw != null ? incoming.withRaw(raw!) : incoming;
+
+  Post withRaw(String raw) => copyWith(raw: raw);
+
+  /// The post as it would be with this reader's like added or taken back.
+  ///
+  /// Drawn before the request is sent, so the heart answers the tap rather than
+  /// the network. The permissions are flipped with it — a like just given can
+  /// be taken back and not given again — which is the same guess Discourse's
+  /// own client makes, and the site's answer overwrites all of it a moment
+  /// later either way.
+  ///
+  /// The count is floored at zero. It is a number the site sent, and unliking a
+  /// post whose count arrived stale would otherwise show -1.
+  Post withLike(bool liked) => copyWith(
+    liked: liked,
+    likeCount: liked ? likeCount + 1 : (likeCount > 0 ? likeCount - 1 : 0),
+    canLike: !liked,
+    canUnlike: liked,
+  );
+
+  /// This post, but with [other]'s answer to what this reader did about it.
+  ///
+  /// For the two places a copy of a post arrives that cannot have known: an
+  /// edit, whose payload Discourse serializes without the reader's own post
+  /// actions at all, and a like this client is putting back after the site
+  /// refused it. Taking either literally would say a post you liked is one you
+  /// have not.
+  Post withLikesOf(Post other) => copyWith(
+    likeCount: other.likeCount,
+    liked: other.liked,
+    canLike: other.canLike,
+    canUnlike: other.canUnlike,
+  );
+
+  /// Only the fields anything here has reason to change. Everything else is
+  /// the site's to say, and is carried across untouched.
+  Post copyWith({
+    String? raw,
+    int? likeCount,
+    bool? liked,
+    bool? canLike,
+    bool? canUnlike,
+  }) => Post(
+    id: id,
+    postNumber: postNumber,
+    username: username,
+    cooked: cooked,
+    name: name,
+    avatarUrl: avatarUrl,
+    createdAt: createdAt,
+    userTitle: userTitle,
+    replyCount: replyCount,
+    isStaff: isStaff,
+    canEdit: canEdit,
+    canDelete: canDelete,
+    canRecover: canRecover,
+    deletedAt: deletedAt,
+    userDeleted: userDeleted,
+    postType: postType,
+    actionCode: actionCode,
+    actionCodeWho: actionCodeWho,
+    likeCount: likeCount ?? this.likeCount,
+    liked: liked ?? this.liked,
+    canLike: canLike ?? this.canLike,
+    canUnlike: canUnlike ?? this.canUnlike,
+    raw: raw ?? this.raw,
+  );
 }
 
 /// Avatar templates are site-relative and carry a `{size}` placeholder.
@@ -108,13 +281,26 @@ String? resolveAvatarUrl(String? template, String siteUrl) {
   return '$siteUrl${sized.startsWith('/') ? '' : '/'}$sized';
 }
 
-/// A topic and the posts fetched so far.
+/// What a topic fetch answers with.
+///
+/// Two things, kept apart: the topic, and the first chunk of its posts. They
+/// are stored separately — the posts under their own ids, so the same post
+/// fetched again from anywhere is the same record — and this is the shape that
+/// carries them from the parser to whoever does the storing.
+typedef TopicPayload = ({TopicDetail detail, List<Post> posts});
+
+/// A topic, and the order its posts go in.
+///
+/// Deliberately holds no [Post]. The posts live in the [Store] under their own
+/// ids and this holds [stream] — every post id in the topic, fetched or not —
+/// which is both the paging cursor and the running order. That is what makes
+/// editing a post a one-record write rather than a rebuild of the topic, and
+/// what lets a post fetched for one reason be found by another.
 @immutable
-class TopicDetail {
+class TopicDetail with Storable<TopicDetail> {
   const TopicDetail({
     required this.id,
     required this.title,
-    required this.posts,
     required this.stream,
     this.postsCount = 0,
     this.categoryId,
@@ -123,42 +309,47 @@ class TopicDetail {
     this.draftSequence = 0,
   });
 
-  factory TopicDetail.fromJson(Map<String, dynamic> json, String siteUrl) {
-    final stream = json['post_stream'] as Map<String, dynamic>? ?? const {};
+  /// Reads a topic payload into the topic and its posts.
+  static TopicPayload parse(Map<String, dynamic> json, String siteUrl) {
+    final postStream = json['post_stream'] as Map<String, dynamic>? ?? const {};
     final details = json['details'] as Map<String, dynamic>? ?? const {};
-    return TopicDetail(
-      id: Post._int(json['id']),
-      title: (json['title'] ?? json['fancy_title'] ?? '') as String,
-      posts: (stream['posts'] as List<dynamic>? ?? const [])
+    return (
+      detail: TopicDetail(
+        id: Post._int(json['id']),
+        title: (json['title'] ?? json['fancy_title'] ?? '') as String,
+        // Every post id in the topic, even the ones not fetched yet — this is
+        // what makes paging through a long topic possible.
+        stream: (postStream['stream'] as List<dynamic>? ?? const [])
+            .map(Post._int)
+            .toList(),
+        postsCount: Post._int(json['posts_count']),
+        categoryId: json['category_id'] == null
+            ? null
+            : Post._int(json['category_id']),
+        // The only question worth asking before showing a reply button, and the
+        // whole question: the guardian behind it has already folded in closed,
+        // archived and the trust levels that are allowed past them. Checking
+        // `closed` again here would hide the button from the moderators who can
+        // still use it. Absent when read signed out, which is also the right
+        // answer — there is no key to post with.
+        canCreatePost: details['can_create_post'] == true,
+        // The topic payload already carries any draft for it, so opening a
+        // composer needs no request of its own.
+        draft: ComposerDraft.decode(json['draft']),
+        draftSequence: Post._int(json['draft_sequence']),
+      ),
+      posts: (postStream['posts'] as List<dynamic>? ?? const [])
           .map((p) => Post.fromJson(p as Map<String, dynamic>, siteUrl))
           .toList(),
-      // Every post id in the topic, even the ones not fetched yet — this is
-      // what makes paging through a long topic possible.
-      stream: (stream['stream'] as List<dynamic>? ?? const [])
-          .map(Post._int)
-          .toList(),
-      postsCount: Post._int(json['posts_count']),
-      categoryId: json['category_id'] == null
-          ? null
-          : Post._int(json['category_id']),
-      // The only question worth asking before showing a reply button, and the
-      // whole question: the guardian behind it has already folded in closed,
-      // archived and the trust levels that are allowed past them. Checking
-      // `closed` again here would hide the button from the moderators who can
-      // still use it. Absent when read signed out, which is also the right
-      // answer — there is no key to post with.
-      canCreatePost: details['can_create_post'] == true,
-      // The topic payload already carries any draft for it, so opening a
-      // composer needs no request of its own.
-      draft: ComposerDraft.decode(json['draft']),
-      draftSequence: Post._int(json['draft_sequence']),
     );
   }
 
   final int id;
   final String title;
-  final List<Post> posts;
+
+  /// Every post id in the topic, in reading order.
   final List<int> stream;
+
   final int postsCount;
   final int? categoryId;
 
@@ -171,55 +362,30 @@ class TopicDetail {
   /// What the next draft save must be sequenced against.
   final int draftSequence;
 
-  /// Post ids not yet fetched, oldest first.
-  List<int> get pendingIds {
-    final have = posts.map((p) => p.id).toSet();
-    return stream.where((id) => !have.contains(id)).toList();
-  }
+  @override
+  Object get storeId => id;
 
-  bool get hasMore => pendingIds.isNotEmpty;
-
-  TopicDetail withMorePosts(List<Post> more) {
-    final have = posts.map((p) => p.id).toSet();
-    final merged = [...posts, ...more.where((p) => !have.contains(p.id))]
-      ..sort((a, b) => a.postNumber.compareTo(b.postNumber));
-    return TopicDetail(
-      id: id,
-      title: title,
-      posts: merged,
-      stream: stream,
-      postsCount: postsCount,
-      categoryId: categoryId,
-      canCreatePost: canCreatePost,
-      draft: draft,
-      draftSequence: draftSequence,
-    );
-  }
-
-  /// Appends a post that was just created here.
+  /// Records a post that did not exist a moment ago.
   ///
-  /// [withMorePosts] cannot do this. It merges posts the stream already knew
-  /// about and copies `stream` and `postsCount` through untouched, which is
-  /// right for paging and wrong for a post that did not exist a moment ago.
+  /// The post itself goes to the store; this is only the topic's side of it —
+  /// where it sits in the order, and one more on the count. Idempotent, so a
+  /// reply that also arrives in a refetch is not counted twice, and an edit,
+  /// whose id the stream already holds, does not move the count at all.
+  TopicDetail withPostId(int postId) => stream.contains(postId)
+      ? this
+      : copyWith(stream: [...stream, postId], postsCount: postsCount + 1);
+
+  /// Drops a post the site no longer serves.
   ///
-  /// Idempotent, so a reply that also arrives in a refetch is not counted
-  /// twice.
-  TopicDetail withNewPost(Post post) {
-    final known = stream.contains(post.id);
-    final merged = [...posts.where((p) => p.id != post.id), post]
-      ..sort((a, b) => a.postNumber.compareTo(b.postNumber));
-    return TopicDetail(
-      id: id,
-      title: title,
-      posts: merged,
-      stream: known ? stream : [...stream, post.id],
-      postsCount: known ? postsCount : postsCount + 1,
-      categoryId: categoryId,
-      canCreatePost: canCreatePost,
-      draft: draft,
-      draftSequence: draftSequence,
-    );
-  }
+  /// Only for one that is genuinely gone. A post deleted by staff, or by its
+  /// own author, is still in the stream — deleted posts are shown to the people
+  /// who can undo it, and hiding them here would take the undo away.
+  TopicDetail withoutPostId(int postId) => stream.contains(postId)
+      ? copyWith(
+          stream: stream.where((id) => id != postId).toList(),
+          postsCount: postsCount > 0 ? postsCount - 1 : 0,
+        )
+      : this;
 
   /// Records the draft this topic now has, so the cache keeps saying what the
   /// payload would say if it were fetched again.
@@ -227,40 +393,41 @@ class TopicDetail {
   /// Without it, saving a draft and reopening the composer would find nothing:
   /// the local copy is deleted once the site has the text, and the topic in
   /// hand was fetched before the draft existed.
-  TopicDetail withDraft(ComposerDraft? draft, int sequence) => TopicDetail(
-    id: id,
-    title: title,
-    posts: posts,
-    stream: stream,
-    postsCount: postsCount,
-    categoryId: categoryId,
-    canCreatePost: canCreatePost,
+  TopicDetail withDraft(ComposerDraft? draft, int sequence) => copyWith(
     draft: draft,
+    clearDraft: draft == null,
     draftSequence: sequence,
   );
 
-  /// Takes a freshly fetched copy's stream without dropping the posts already
-  /// in hand.
+  /// A refetched copy wins, except that it may not have caught up.
   ///
-  /// Replacing outright would lose the reply just made at the end of a long
-  /// topic: the fetch answers with the *first* chunk of posts plus the whole
-  /// stream, so a post at position 400 comes back as an id and nothing else.
-  TopicDetail withRefreshed(TopicDetail fresh) {
-    final byId = {
-      for (final post in posts) post.id: post,
-      for (final post in fresh.posts) post.id: post,
-    };
-    return TopicDetail(
-      id: fresh.id,
-      title: fresh.title,
-      posts: byId.values.toList()
-        ..sort((a, b) => a.postNumber.compareTo(b.postNumber)),
-      stream: fresh.stream,
-      postsCount: fresh.postsCount,
-      categoryId: fresh.categoryId,
-      canCreatePost: fresh.canCreatePost,
-      draft: fresh.draft,
-      draftSequence: fresh.draftSequence,
-    );
+  /// A reply made a moment ago can be missing from the stream the site answers
+  /// with — it was read before the post landed, or from a replica — and taking
+  /// that literally would make the post vanish the instant it appeared. Ids
+  /// only held here are kept, at the end, which is where a new post is.
+  @override
+  TopicDetail merge(TopicDetail incoming) {
+    final arrived = incoming.stream.toSet();
+    final missing = stream.where((id) => !arrived.contains(id));
+    if (missing.isEmpty) return incoming;
+    return incoming.copyWith(stream: [...incoming.stream, ...missing]);
   }
+
+  TopicDetail copyWith({
+    String? title,
+    List<int>? stream,
+    int? postsCount,
+    ComposerDraft? draft,
+    bool clearDraft = false,
+    int? draftSequence,
+  }) => TopicDetail(
+    id: id,
+    title: title ?? this.title,
+    stream: stream ?? this.stream,
+    postsCount: postsCount ?? this.postsCount,
+    categoryId: categoryId,
+    canCreatePost: canCreatePost,
+    draft: clearDraft ? null : (draft ?? this.draft),
+    draftSequence: draftSequence ?? this.draftSequence,
+  );
 }

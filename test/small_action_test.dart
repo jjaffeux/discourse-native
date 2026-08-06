@@ -4,6 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/small_action.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
+
+import 'support/finders.dart';
 
 Post smallAction(
   String actionCode, {
@@ -115,7 +118,7 @@ void main() {
       await pumpAction(tester, smallAction('closed.enabled'));
 
       expect(renderedText('martin closed this topic'), findsOneWidget);
-      expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+      expect(find.dIcon(DIcons.lock), findsOneWidget);
     });
 
     testWidgets('draws a custom message underneath', (tester) async {
@@ -133,7 +136,7 @@ void main() {
       await pumpAction(tester, smallAction('pinned.enabled'));
 
       expect(renderedText('martin pinned this topic'), findsOneWidget);
-      expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
+      expect(find.dIcon(DIcons.thumbtack), findsOneWidget);
     });
   });
 }

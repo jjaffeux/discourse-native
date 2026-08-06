@@ -27,6 +27,19 @@ void main() {
     expect(await store.readApiKey(site), isNull);
   });
 
+  test('deleting a key that was never written is not an error', () async {
+    final store = SecureStore();
+
+    // Removing a site that was never connected asks for exactly this, and on
+    // macOS it is the delete that finds nothing which reports -34018 — see
+    // [SecureStore.deleteApiKey]. The round-trip above never reaches it,
+    // because there the entry is always there to delete.
+    await expectLater(
+      store.deleteApiKey('https://never-connected.invalid'),
+      completes,
+    );
+  });
+
   test('the client id is created once and then reused', () async {
     final store = SecureStore();
 

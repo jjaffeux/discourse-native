@@ -2,15 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../models/sidebar.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
+import 'user_menu_button.dart';
 
 /// Navigation within the selected instance. On compact layouts this fills the
 /// whole area next to the rail; on wider ones it sits between the rail and the
 /// main content.
 class InstanceSidebar extends StatelessWidget {
-  const InstanceSidebar({super.key});
+  const InstanceSidebar({super.key, this.showUserMenu = false});
+
+  /// Whether the header carries the account avatar. Only true where the
+  /// sidebar is the column reaching the top right corner — on compact layouts
+  /// the main content is not on screen to hold it.
+  final bool showUserMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +34,11 @@ class InstanceSidebar extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _SidebarHeader(name: instance.title, host: instance.host),
+            _SidebarHeader(
+              name: instance.title,
+              host: instance.host,
+              showUserMenu: showUserMenu,
+            ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -49,10 +61,15 @@ class InstanceSidebar extends StatelessWidget {
 }
 
 class _SidebarHeader extends StatelessWidget {
-  const _SidebarHeader({required this.name, required this.host});
+  const _SidebarHeader({
+    required this.name,
+    required this.host,
+    required this.showUserMenu,
+  });
 
   final String name;
   final String host;
+  final bool showUserMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +85,9 @@ class _SidebarHeader extends StatelessWidget {
       ),
       child: Container(
         height: shellHeaderHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        // The avatar keeps the main content header's inset, so it does not
+        // shift when a compact layout swaps one pane for the other.
+        padding: EdgeInsets.only(left: 16, right: showUserMenu ? 8 : 16),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: theme.shell.divider)),
         ),
@@ -98,11 +117,15 @@ class _SidebarHeader extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(
-              Icons.expand_more,
+            DIcon(
+              DIcons.chevronDown,
               size: 20,
               color: theme.colorScheme.onSurfaceVariant,
             ),
+            if (showUserMenu) ...[
+              const SizedBox(width: 4),
+              const UserMenuButton(),
+            ],
           ],
         ),
       ),
@@ -199,7 +222,7 @@ class _DestinationTile extends StatelessWidget {
                   ),
                 )
               else
-                Icon(destination.icon, size: 18, color: foreground),
+                DIcon(destination.icon, size: 18, color: foreground),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(

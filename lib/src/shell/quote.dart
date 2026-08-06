@@ -3,6 +3,8 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'open_link.dart';
@@ -204,7 +206,7 @@ class _Header extends StatelessWidget {
           ),
         if (link != null) ...[
           const SizedBox(width: 4),
-          Icon(Icons.north_east, size: 12, color: muted),
+          DIcon(DIcons.arrowUp, size: 12, color: muted),
         ],
       ],
     );

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -249,6 +250,310 @@ void _authGroups() {
     });
   });
 
+  group('notifications', () {
+    test('reads the list the user menu shows', () async {
+      Uri? url;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          url = request.url;
+          return http.Response(
+            jsonEncode({
+              'notifications': [
+                {
+                  'id': 12,
+                  'notification_type': 2,
+                  'read': false,
+                  'created_at': '2026-08-06T09:00:00.000Z',
+                  'post_number': 4,
+                  'topic_id': 77,
+                  'slug': 'better-image-handling',
+                  'fancy_title': 'Better &ldquo;image&rdquo; handling',
+                  'data': {
+                    'topic_title': 'Better “image” handling',
+                    'display_username': 'sam',
+                  },
+                },
+                {
+                  'id': 13,
+                  'notification_type': 19,
+                  'read': true,
+                  'data': {'username': 'david', 'count': 3},
+                },
+              ],
+              'seen_notification_id': 12,
+            }),
+            200,
+            // Titles carry whatever the site's typographer did to them, which
+            // does not survive the latin-1 a response defaults to.
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+
+      final notifications = await api.notifications(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+      );
+
+      // The menu's own view of the list, not the paged history.
+      expect(url?.path, '/notifications.json');
+      expect(url?.queryParameters['recent'], 'true');
+      expect(url?.queryParameters['limit'], '30');
+
+      expect(notifications.first.kind, NotificationKind.replied);
+      expect(notifications.first.topicId, 77);
+      expect(notifications.first.postNumber, 4);
+      expect(notifications.first.actor, 'sam');
+      expect(notifications.first.title, 'Better “image” handling');
+      expect(notifications.first.isUnread, isTrue);
+
+      // The consolidated kinds name the actor in `username` instead.
+      expect(notifications.last.kind, NotificationKind.likedConsolidated);
+      expect(notifications.last.actor, 'david');
+      expect(notifications.last.count, 3);
+      expect(notifications.last.isUnread, isFalse);
+    });
+
+    test('falls back to the title Discourse wrote for a browser', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'notifications': [
+                {
+                  'id': 1,
+                  'notification_type': 5,
+                  'fancy_title': 'Tea &amp; biscuits &hellip;',
+                  'data': {'display_username': 'sam'},
+                },
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final notifications = await api.notifications(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+      );
+
+      // Entities and all: `fancy_title` is HTML, and only a browser reads it
+      // as the string it stands for.
+      expect(notifications.single.title, 'Tea & biscuits …');
+    });
+
+    test('a kind we have never heard of is still a row', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'notifications': [
+                {
+                  'id': 1,
+                  'notification_type': 4242,
+                  'topic_id': 9,
+                  'data': {'topic_title': 'From some plugin'},
+                },
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final notifications = await api.notifications(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+      );
+
+      expect(notifications.single.kind, NotificationKind.unknown);
+      expect(notifications.single.title, 'From some plugin');
+      expect(notifications.single.path, '/t/topic/9');
+    });
+  });
+
+  group('bookmarks', () {
+    test('reads both lists the bookmarks tab is made of', () async {
+      Uri? url;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          url = request.url;
+          return http.Response(
+            jsonEncode({
+              'notifications': [
+                {
+                  'id': 41,
+                  'notification_type': 24,
+                  'read': false,
+                  'topic_id': 77,
+                  'slug': 'better-image-handling',
+                  'data': {'topic_title': 'Better image handling'},
+                },
+              ],
+              'bookmarks': [
+                {
+                  'id': 8,
+                  'name': 'read this properly',
+                  'reminder_at': '2026-08-09T09:00:00.000Z',
+                  'title': 'Thinking about the next project',
+                  'fancy_title': 'Thinking about the next project',
+                  'bookmarkable_id': 300,
+                  'bookmarkable_type': 'Post',
+                  'bookmarkable_url':
+                      'https://meta.discourse.org/t/next-project/91/3',
+                  'topic_id': 91,
+                  'user': {'id': 5, 'username': 'sam', 'name': 'Sam'},
+                },
+                {
+                  'id': 9,
+                  'name': null,
+                  'fancy_title': 'Tea &amp; biscuits &hellip;',
+                  'bookmarkable_type': 'Topic',
+                  'bookmarkable_url': 'https://meta.discourse.org/t/tea/92/1',
+                  'user': {'id': 6, 'username': 'david'},
+                },
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+
+      final payload = await api.bookmarks(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        username: 'joffreyj',
+      );
+
+      // The menu's own route, which is the account's own: Discourse refuses
+      // anybody else's username here.
+      expect(url?.path, '/u/joffreyj/user-menu-bookmarks.json');
+
+      // A reminder is a notification, and reads as one.
+      expect(payload.reminders.single.kind, NotificationKind.bookmarkReminder);
+      expect(payload.reminders.single.path, '/t/better-image-handling/77');
+
+      final first = payload.bookmarks.first;
+      expect(first.title, 'Thinking about the next project');
+      expect(first.name, 'read this properly');
+      expect(first.author, 'sam');
+      // Site-relative, so the shell resolves it against the site being read
+      // rather than against whatever `Discourse.base_url` happens to say.
+      expect(first.path, '/t/next-project/91/3');
+      expect(first.reminderAt, DateTime.utc(2026, 8, 9, 9));
+
+      // No plain title, so the one Discourse wrote for a browser is unescaped.
+      expect(payload.bookmarks.last.title, 'Tea & biscuits …');
+      expect(payload.bookmarks.last.name, isNull);
+      expect(payload.bookmarks.last.reminderAt, isNull);
+    });
+
+    test(
+      'a bookmark on something we have never heard of is still a row',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'bookmarks': [
+                  {
+                    'id': 3,
+                    // A plugin's own bookmarkable, with none of the keys a post
+                    // or a topic carries.
+                    'bookmarkable_type': 'SomePluginThing',
+                    'bookmarkable_url': 'https://example.com/plugin/thing/1',
+                    'title': 'Something a plugin keeps',
+                  },
+                ],
+              }),
+              200,
+            ),
+          ),
+        );
+
+        final payload = await api.bookmarks(
+          siteUrl: 'https://example.com',
+          apiKey: 'k',
+          username: 'joffreyj',
+        );
+
+        expect(payload.reminders, isEmpty);
+        expect(payload.bookmarks.single.title, 'Something a plugin keeps');
+        expect(payload.bookmarks.single.author, isNull);
+        // Left exactly as it came: a plugin's bookmarkable can point anywhere,
+        // and this app has nowhere but the browser to open it either way.
+        expect(
+          payload.bookmarks.single.path,
+          'https://example.com/plugin/thing/1',
+        );
+      },
+    );
+
+    test(
+      'a topic keeps its path, not the host the site wrote it against',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'bookmarks': [
+                  {
+                    'id': 1,
+                    'title': 'Yelling topic title',
+                    'bookmarkable_type': 'Post',
+                    // What a development site writes: `Discourse.base_url` is
+                    // the site's own idea of where it lives, and the app is
+                    // connected to a different one of its ports.
+                    'bookmarkable_url':
+                        'http://localhost:4200/t/yelling-topic-title/119/3',
+                  },
+                ],
+              }),
+              200,
+            ),
+          ),
+        );
+
+        final payload = await api.bookmarks(
+          siteUrl: 'http://localhost:3000',
+          apiKey: 'k',
+          username: 'eviltrout',
+        );
+
+        expect(payload.bookmarks.single.path, '/t/yelling-topic-title/119/3');
+      },
+    );
+  });
+
+  group('markNotificationRead', () {
+    test('names the one notification to mark', () async {
+      String? method;
+      String? path;
+      String? body;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          method = request.method;
+          path = request.url.path;
+          body = request.body;
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.markNotificationRead(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        id: 12,
+      );
+
+      expect(method, 'PUT');
+      expect(path, '/notifications/mark-read.json');
+      // An id, and only an id: the same route with none dismisses the lot.
+      expect(jsonDecode(body!), {'id': 12});
+    });
+  });
+
   group('revokeApiKey', () {
     test('posts the key back to the site', () async {
       String? path;
@@ -453,7 +758,7 @@ void _feedGroups() {
       ).topic(siteUrl: 'https://example.com', slug: 'a-real-topic', id: 12);
 
       expect(paths, ['/t/a-real-topic/12.json']);
-      expect(topic.title, 'A real topic');
+      expect(topic.detail.title, 'A real topic');
     });
 
     test('asks by id alone when the link carried no slug', () async {
@@ -609,11 +914,9 @@ void _writeGroups() {
         );
       });
 
-      await DiscourseApi(client: serving()).posts(
-        siteUrl: 'https://meta.discourse.org',
-        topicId: 12,
-        ids: [2],
-      );
+      await DiscourseApi(
+        client: serving(),
+      ).posts(siteUrl: 'https://meta.discourse.org', topicId: 12, ids: [2]);
       expect(asked.query, isNot(contains('include_raw')));
 
       final posts = await DiscourseApi(client: serving()).posts(
@@ -802,25 +1105,28 @@ void _writeGroups() {
       expect(body['composer_open_duration_msecs'], 30000);
     });
 
-    test('reports an enqueued post as enqueued rather than as posted', () async {
-      final creation = await create(
-        DiscourseApi(
-          client: accepting(
-            envelope: {
-              'success': true,
-              'action': 'enqueued',
-              'pending_count': 1,
-              'message': 'Your post is in the queue.',
-            },
+    test(
+      'reports an enqueued post as enqueued rather than as posted',
+      () async {
+        final creation = await create(
+          DiscourseApi(
+            client: accepting(
+              envelope: {
+                'success': true,
+                'action': 'enqueued',
+                'pending_count': 1,
+                'message': 'Your post is in the queue.',
+              },
+            ),
           ),
-        ),
-      );
+        );
 
-      // Success, 200, and nothing to put in the stream.
-      expect(creation.isEnqueued, isTrue);
-      expect(creation.post, isNull);
-      expect(creation.message, 'Your post is in the queue.');
-    });
+        // Success, 200, and nothing to put in the stream.
+        expect(creation.isEnqueued, isTrue);
+        expect(creation.post, isNull);
+        expect(creation.message, 'Your post is in the queue.');
+      },
+    );
 
     test('reads a refusal off the status, since success is absent', () async {
       final api = DiscourseApi(
@@ -970,6 +1276,296 @@ void _writeGroups() {
       // A user API key gets no idempotency from Discourse, so a retry after an
       // ambiguous timeout publishes the post twice.
       expect(calls, 1);
+    });
+  });
+
+  group('updatePost', () {
+    test('nests raw under post, and reads the rewritten post back', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'post': {
+                'id': 42,
+                'post_number': 7,
+                'username': 'sam',
+                'cooked': '<p>changed</p>',
+                'can_edit': true,
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final post = await api.updatePost(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postId: 42,
+        raw: 'changed',
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/posts/42.json');
+
+      // A top-level `raw` is ignored by the controller, and the post comes
+      // back unchanged with nothing to say it was.
+      final body = jsonDecode(sent.body) as Map<String, dynamic>;
+      expect(body['post'], {'raw': 'changed'});
+
+      expect(post.id, 42);
+      expect(post.cooked, '<p>changed</p>');
+      expect(post.canEdit, isTrue);
+    });
+
+    test('refuses to invent a post when the answer carries none', () async {
+      final api = DiscourseApi(
+        client: MockClient((request) async => http.Response('{}', 200)),
+      );
+
+      await expectLater(
+        api.updatePost(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postId: 42,
+          raw: 'changed',
+        ),
+        throwsA(isA<WriteException>()),
+      );
+    });
+  });
+
+  group('deletePost and recoverPost', () {
+    test('take the empty answers those routes give', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          // No content, which is what a delete answers with — and why success
+          // cannot be read as "200 with a JSON body".
+          return http.Response('', 204);
+        }),
+      );
+
+      await api.deletePost(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postId: 42,
+      );
+      await api.recoverPost(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postId: 42,
+      );
+
+      expect(sent.map((r) => r.method), ['DELETE', 'PUT']);
+      expect(sent.map((r) => r.url.path), [
+        '/posts/42.json',
+        '/posts/42/recover.json',
+      ]);
+    });
+
+    test('report a refusal the way every other write does', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (request) async => http.Response(
+            jsonEncode({
+              'errors': [
+                'You are not permitted to view the requested resource.',
+              ],
+            }),
+            403,
+          ),
+        ),
+      );
+
+      await expectLater(
+        api.deletePost(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postId: 42,
+        ),
+        throwsA(
+          isA<WriteException>().having(
+            (e) => e.failure,
+            'failure',
+            WriteFailure.forbidden,
+          ),
+        ),
+      );
+    });
+  });
+
+  group('likePost and unlikePost', () {
+    /// What the routes answer with: the post itself, unwrapped.
+    String likedPost({required int count, required bool acted}) => jsonEncode({
+      'id': 42,
+      'post_number': 7,
+      'username': 'sam',
+      'cooked': '<p>hi</p>',
+      'actions_summary': [
+        {
+          'id': 2,
+          'count': count,
+          if (acted) 'acted': true,
+          if (acted) 'can_undo': true,
+          if (!acted) 'can_act': true,
+        },
+      ],
+    });
+
+    test(
+      'names the post and the action type, and reads the post back',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(likedPost(count: 4, acted: true), 200);
+          }),
+        );
+
+        final post = await api.likePost(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postId: 42,
+        );
+
+        expect(sent.method, 'POST');
+        expect(sent.url.path, '/post_actions.json');
+        // `id` is the post, and 2 is the like among Discourse's post actions —
+        // the rest of that table is flags.
+        expect(jsonDecode(sent.body), {'id': 42, 'post_action_type_id': 2});
+
+        expect(post?.likeCount, 4);
+        expect(post?.liked, isTrue);
+      },
+    );
+
+    test('undoes against the post, with the type in the query', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(likedPost(count: 3, acted: false), 200);
+        }),
+      );
+
+      final post = await api.unlikePost(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postId: 42,
+      );
+
+      expect(sent.method, 'DELETE');
+      expect(sent.url.path, '/post_actions/42.json');
+      // In the query rather than the body: a DELETE is the one request whose
+      // body nothing in between is obliged to carry.
+      expect(sent.url.queryParameters['post_action_type_id'], '2');
+
+      expect(post?.liked, isFalse);
+      expect(post?.likeCount, 3);
+    });
+
+    test('takes the empty answer undoing can give as a success', () async {
+      // 204, which is what the route answers when the post has stopped being
+      // visible to the reader. It worked; there is simply nothing to draw.
+      final api = DiscourseApi(
+        client: MockClient((request) async => http.Response('', 204)),
+      );
+
+      expect(
+        await api.unlikePost(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postId: 42,
+        ),
+        isNull,
+      );
+    });
+
+    test('reports a refusal the way every other write does', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (request) async => http.Response(
+            jsonEncode({
+              'errors': ["You can't like your own post"],
+            }),
+            403,
+          ),
+        ),
+      );
+
+      await expectLater(
+        api.likePost(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postId: 42,
+        ),
+        throwsA(
+          isA<WriteException>().having(
+            (e) => e.message,
+            'message',
+            "You can't like your own post",
+          ),
+        ),
+      );
+    });
+  });
+
+  group('postLikers', () {
+    test('asks the post action route for the like, capped', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'post_action_users': [
+                {
+                  'id': 3,
+                  'username': 'sam',
+                  'name': 'Sam Saffron',
+                  'avatar_template': '/user_avatar/meta/sam/{size}/1.png',
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final likers = await api.postLikers(
+        siteUrl: 'https://meta.discourse.org',
+        postId: 42,
+        apiKey: 'the-key',
+      );
+
+      expect(sent.method, 'GET');
+      expect(sent.url.path, '/post_action_users.json');
+      expect(sent.url.queryParameters, {
+        'id': '42',
+        'post_action_type_id': '2',
+        // The route would answer with up to 200 accounts, which is a payload
+        // no popup has any use for.
+        'limit': '25',
+      });
+
+      expect(likers.postId, 42);
+      expect(likers.likers.single.displayName, 'Sam Saffron');
+    });
+
+    test('fails the way every other read does', () async {
+      final api = DiscourseApi(
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      await expectLater(
+        api.postLikers(siteUrl: 'https://meta.discourse.org', postId: 42),
+        throwsA(isA<SiteLookupException>()),
+      );
     });
   });
 }
