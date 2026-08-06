@@ -23,6 +23,13 @@ enum UserApiAuthFailure {
   /// The user closed the browser without authorizing.
   cancelled,
 
+  /// The browser never opened, so the user was never asked.
+  ///
+  /// Distinct from [cancelled] because the user did not choose it and trying
+  /// again will not help. On Linux this is a missing or broken WebKitGTK;
+  /// anywhere else it is a plugin that did not answer.
+  launchFailed,
+
   /// The reply did not decrypt, or its nonce was not the one we sent — either
   /// a mismatched key pair or a reply we did not ask for.
   badReply,
@@ -36,6 +43,8 @@ class UserApiAuthException implements Exception {
 
   String get message => switch (failure) {
     UserApiAuthFailure.cancelled => 'Connection cancelled.',
+    UserApiAuthFailure.launchFailed =>
+      'Could not open the sign-in window. Check that a web view is installed.',
     UserApiAuthFailure.badReply =>
       "The site's reply could not be verified. Please try again.",
   };

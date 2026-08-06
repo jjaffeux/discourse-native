@@ -1396,6 +1396,20 @@ void main() {
       expect(find.textContaining('could not be verified'), findsOneWidget);
     });
 
+    testWidgets('a browser that never opened is surfaced', (tester) async {
+      final auth = FakeAuthenticator(failure: UserApiAuthFailure.launchFailed);
+
+      await pumpShell(tester, desktop, authenticator: auth);
+
+      await tester.tap(userMenu);
+      await tester.pumpAndSettle();
+
+      // The distinction that matters: the user did not choose this, so unlike
+      // a cancellation it cannot pass silently.
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.textContaining('Could not open'), findsOneWidget);
+    });
+
     testWidgets('counters appear once connected', (tester) async {
       final api = FakeDiscourseApi(
         totals: const NotificationTotals(

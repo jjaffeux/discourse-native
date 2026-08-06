@@ -1852,9 +1852,14 @@ class ShellController extends ChangeNotifier {
       unawaited(_refreshOne(connected));
     } on UserApiAuthException catch (e) {
       // Backing out of the browser is a normal thing to do, not an error.
-      _connectError = e.failure == UserApiAuthFailure.cancelled
-          ? null
-          : e.message;
+      // Everything else has to be said out loud, or the button simply stops
+      // spinning and the user is left guessing. A switch rather than a
+      // ternary so the analyzer flags the next value someone adds.
+      _connectError = switch (e.failure) {
+        UserApiAuthFailure.cancelled => null,
+        UserApiAuthFailure.launchFailed ||
+        UserApiAuthFailure.badReply => e.message,
+      };
     } on SiteLookupException catch (e) {
       _connectError = e.message;
     } catch (e) {
