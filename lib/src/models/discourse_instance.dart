@@ -16,7 +16,6 @@ class DiscourseInstance {
     this.iconUrl,
     this.apiVersion = 0,
     this.loginRequired = false,
-    this.unreadCount = 0,
     this.user,
   });
 
@@ -40,7 +39,6 @@ class DiscourseInstance {
     String? iconUrl,
     int? apiVersion,
     bool? loginRequired,
-    int? unreadCount,
     DiscourseUser? user,
     bool clearUser = false,
   }) {
@@ -51,7 +49,6 @@ class DiscourseInstance {
       iconUrl: iconUrl ?? this.iconUrl,
       apiVersion: apiVersion ?? this.apiVersion,
       loginRequired: loginRequired ?? this.loginRequired,
-      unreadCount: unreadCount ?? this.unreadCount,
       user: clearUser ? null : (user ?? this.user),
     );
   }
@@ -64,9 +61,6 @@ class DiscourseInstance {
   final String? iconUrl;
   final int apiVersion;
   final bool loginRequired;
-
-  /// Not persisted — refreshed from the site once we can authenticate.
-  final int unreadCount;
 
   /// Who we are on this site, or null if not connected. Safe to persist; the
   /// API key itself lives in the keychain, never here.
@@ -85,15 +79,25 @@ class DiscourseInstance {
   };
 
   /// Host and port, which is what identifies a site to a human.
-  String get host {
-    final uri = Uri.parse(url);
-    return uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
-  }
+  String get host => _authority(Uri.parse(url));
+
+  /// True when [link] is a page on this site.
+  ///
+  /// Host and port decide it, not scheme: an old `http://` link to a site now
+  /// served over https is still that site, while two forums running on
+  /// localhost during development differ only by their port.
+  bool serves(Uri link) => link.hasAuthority && _authority(link) == host;
+
+  static String _authority(Uri uri) =>
+      uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
 
   /// Stand-in for the site's own color scheme, which needs an authenticated
   /// request to read. Derived from [url] so a given site keeps its color.
   Color get accentColor {
-    final hash = url.codeUnits.fold<int>(0, (sum, unit) => (sum * 31 + unit) & 0xFFFFFF);
+    final hash = url.codeUnits.fold<int>(
+      0,
+      (sum, unit) => (sum * 31 + unit) & 0xFFFFFF,
+    );
     return HSLColor.fromAHSL(1, (hash % 360).toDouble(), 0.55, 0.5).toColor();
   }
 
@@ -138,6 +142,11 @@ class DiscourseInstance {
           id: 'bookmarks',
           label: 'Bookmarks',
           icon: Icons.bookmark_outline,
+        ),
+        SidebarDestination(
+          id: 'messages',
+          label: 'Messages',
+          icon: Icons.mail_outline,
         ),
       ],
     ),

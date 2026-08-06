@@ -4,6 +4,9 @@ import 'package:flutter/widgets.dart';
 ///
 /// [color] is set for entries that Discourse renders with a category badge
 /// rather than an icon; when it is null the [icon] is drawn instead.
+///
+/// Badge counts are deliberately not here — they are live state, read from
+/// `ShellController.sidebarBadgeFor`.
 @immutable
 class SidebarDestination {
   const SidebarDestination({
@@ -11,14 +14,12 @@ class SidebarDestination {
     required this.label,
     required this.icon,
     this.color,
-    this.badgeCount = 0,
   });
 
   final String id;
   final String label;
   final IconData icon;
   final Color? color;
-  final int badgeCount;
 }
 
 /// A titled group of destinations, e.g. "Categories" or "Chat".

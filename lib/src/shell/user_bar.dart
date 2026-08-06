@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/discourse_user.dart';
 import '../theme/app_theme.dart';
+import 'avatar_image.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 
@@ -58,13 +59,15 @@ class UserBar extends StatelessWidget {
     final user = instance?.user;
 
     final String title;
-    final String subtitle;
+    // The host is already on the sidebar header, so the card names the account
+    // rather than repeating it.
+    final String? subtitle;
     if (controller.connecting) {
       title = 'Connecting…';
-      subtitle = instance?.host ?? '';
+      subtitle = null;
     } else if (user != null) {
       title = user.displayName;
-      subtitle = instance!.host;
+      subtitle = '@${user.username}';
     } else {
       title = 'Not signed in';
       subtitle = instance == null
@@ -99,25 +102,26 @@ class UserBar extends StatelessWidget {
                       : _showAccountSheet(context),
             child: SizedBox(
               height: cardHeight,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Row(
-                    children: [
-                      _Avatar(user: user, connecting: controller.connecting),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  children: [
+                    _Avatar(user: user, connecting: controller.connecting),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
                             ),
+                          ),
+                          if (subtitle != null)
                             Text(
                               subtitle,
                               maxLines: 1,
@@ -128,18 +132,18 @@ class UserBar extends StatelessWidget {
                                     : theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(Icons.settings_outlined, size: 18),
-                        tooltip: 'Settings',
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.settings_outlined, size: 18),
+                      tooltip: 'Settings',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
                 ),
+              ),
             ),
           ),
         ),
@@ -171,26 +175,33 @@ class _Avatar extends StatelessWidget {
       );
     }
 
-    final avatarUrl = user?.avatarUrl;
-    return CircleAvatar(
-      radius: 15,
-      backgroundColor: user == null
+    final fallback = ColoredBox(
+      color: user == null
           ? theme.colorScheme.surfaceContainerHighest
           : theme.colorScheme.primary,
-      foregroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl),
-      child: user == null
-          ? Icon(
-              Icons.person_outline,
-              size: 18,
-              color: theme.colorScheme.onSurfaceVariant,
-            )
-          : Text(
-              user!.username.characters.first.toUpperCase(),
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onPrimary,
-                fontWeight: FontWeight.w700,
+      child: Center(
+        child: user == null
+            ? Icon(
+                Icons.person_outline,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              )
+            : Text(
+                user!.username.characters.first.toUpperCase(),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.onPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
+      ),
+    );
+
+    return ClipOval(
+      child: SizedBox(
+        width: 30,
+        height: 30,
+        child: AvatarImage(url: user?.avatarUrl, size: 30, fallback: fallback),
+      ),
     );
   }
 }

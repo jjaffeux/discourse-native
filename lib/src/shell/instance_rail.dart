@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
-import 'adaptive_shell.dart';
 import 'add_instance_sheet.dart';
+import 'avatar_image.dart';
 import 'shell_scope.dart';
 
 /// The far-left column of Discourse instances. Visible at every window size,
@@ -23,10 +23,9 @@ class InstanceRail extends StatelessWidget {
         // The add button trails the instances inside the scrollable list, the
         // way Discord does it, rather than being pinned to the bottom.
         child: ListView.builder(
-          padding: EdgeInsets.only(
-            top: 12 + AdaptiveShell.windowControlsInset(context),
-            bottom: 12,
-          ),
+          // The traffic lights are cleared by the title bar above the shell, so
+          // the rail only needs its own padding here.
+          padding: const EdgeInsets.symmetric(vertical: 12),
           itemCount: controller.instances.length + 1,
           itemBuilder: (context, index) {
             if (index == controller.instances.length) {
@@ -35,9 +34,11 @@ class InstanceRail extends StatelessWidget {
                 child: Center(child: _AddInstanceButton()),
               );
             }
+            final instance = controller.instances[index];
             return _RailItem(
-              instance: controller.instances[index],
+              instance: instance,
               selected: index == controller.instanceIndex,
+              badgeCount: controller.railBadgeFor(instance),
               onTap: () => controller.selectInstance(index),
             );
           },
@@ -51,11 +52,13 @@ class _RailItem extends StatelessWidget {
   const _RailItem({
     required this.instance,
     required this.selected,
+    required this.badgeCount,
     required this.onTap,
   });
 
   final DiscourseInstance instance;
   final bool selected;
+  final int badgeCount;
   final VoidCallback onTap;
 
   @override
@@ -108,11 +111,11 @@ class _RailItem extends StatelessWidget {
                         selected: selected,
                       ),
                     ),
-                    if (instance.unreadCount > 0)
+                    if (badgeCount > 0)
                       Positioned(
                         right: -2,
                         bottom: -2,
-                        child: _UnreadBadge(count: instance.unreadCount),
+                        child: _UnreadBadge(count: badgeCount),
                       ),
                   ],
                 ),
@@ -147,20 +150,7 @@ class _InstanceAvatar extends StatelessWidget {
       ),
     );
 
-    final iconUrl = instance.iconUrl;
-    if (iconUrl == null) return monogram;
-
-    return Image.network(
-      iconUrl,
-      fit: BoxFit.cover,
-      width: 44,
-      height: 44,
-      errorBuilder: (context, error, stackTrace) => monogram,
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded || frame != null) return child;
-        return monogram;
-      },
-    );
+    return AvatarImage(url: instance.iconUrl, size: 44, fallback: monogram);
   }
 }
 

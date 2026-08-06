@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'empty_state.dart';
@@ -9,6 +8,7 @@ import 'right_sidebar.dart';
 import 'shell_controller.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
+import 'title_bar.dart';
 import 'user_bar.dart';
 
 /// How much horizontal room the shell has to work with.
@@ -57,21 +57,24 @@ class AdaptiveShell extends StatelessWidget {
   static const double sidebarWidth = 240;
   static const double rightSidebarWidth = 280;
 
-  /// Clearance for the traffic lights, which float over the top of the rail
-  /// now that the macOS window has no title bar of its own.
-  static double windowControlsInset(BuildContext context) =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS ? 28 : 0;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final layout = ShellLayout.forWidth(constraints.maxWidth);
-          return layout.isCompact
-              ? const _CompactShell()
-              : _WideShell(layout: layout);
-        },
+      body: Column(
+        children: [
+          // Spans every column, above the rail as well as the panel.
+          const ShellTitleBar(),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final layout = ShellLayout.forWidth(constraints.maxWidth);
+                return layout.isCompact
+                    ? const _CompactShell()
+                    : _WideShell(layout: layout);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -175,8 +178,12 @@ class _WideShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.of(context);
+    // Details are about a single topic, so lists — and anything else that is
+    // not a topic — get the full width instead.
     final showRightSidebar =
-        layout == ShellLayout.expanded && controller.rightSidebarVisible;
+        layout == ShellLayout.expanded &&
+        controller.rightSidebarVisible &&
+        (controller.currentContent?.isTopic ?? false);
 
     return Stack(
       children: [

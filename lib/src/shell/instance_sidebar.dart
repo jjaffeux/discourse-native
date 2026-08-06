@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/sidebar.dart';
 import '../theme/app_theme.dart';
+import 'shell_metrics.dart';
+import 'shell_panel.dart';
 import 'shell_scope.dart';
 
 /// Navigation within the selected instance. On compact layouts this fills the
@@ -33,6 +35,7 @@ class InstanceSidebar extends StatelessWidget {
                     _Section(
                       section: section,
                       selectedId: controller.destinationId,
+                      badgeFor: controller.sidebarBadgeFor,
                       onSelect: controller.selectDestination,
                     ),
                 ],
@@ -58,8 +61,13 @@ class _SidebarHeader extends StatelessWidget {
     return InkWell(
       // Site switcher / site settings menu, once there is something to show.
       onTap: () {},
+      // The sidebar is the panel's left column, so this header sits in the
+      // panel's rounded corner — the highlight has to follow it.
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(ShellPanel.cornerRadius),
+      ),
       child: Container(
-        height: 52,
+        height: shellHeaderHeight,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: theme.shell.divider)),
@@ -106,11 +114,13 @@ class _Section extends StatelessWidget {
   const _Section({
     required this.section,
     required this.selectedId,
+    required this.badgeFor,
     required this.onSelect,
   });
 
   final SidebarSection section;
   final String? selectedId;
+  final int Function(String destinationId) badgeFor;
   final ValueChanged<SidebarDestination> onSelect;
 
   @override
@@ -135,6 +145,7 @@ class _Section extends StatelessWidget {
           _DestinationTile(
             destination: destination,
             selected: destination.id == selectedId,
+            badgeCount: badgeFor(destination.id),
             onTap: () => onSelect(destination),
           ),
       ],
@@ -146,11 +157,13 @@ class _DestinationTile extends StatelessWidget {
   const _DestinationTile({
     required this.destination,
     required this.selected,
+    required this.badgeCount,
     required this.onTap,
   });
 
   final SidebarDestination destination;
   final bool selected;
+  final int badgeCount;
   final VoidCallback onTap;
 
   @override
@@ -199,7 +212,7 @@ class _DestinationTile extends StatelessWidget {
                   ),
                 ),
               ),
-              if (destination.badgeCount > 0)
+              if (badgeCount > 0)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
@@ -210,7 +223,7 @@ class _DestinationTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(9),
                   ),
                   child: Text(
-                    '${destination.badgeCount}',
+                    '$badgeCount',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onError,
                       fontWeight: FontWeight.w700,
@@ -224,4 +237,3 @@ class _DestinationTile extends StatelessWidget {
     );
   }
 }
-

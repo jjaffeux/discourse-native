@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
-import 'shell_scope.dart';
+import 'shell_metrics.dart';
 
 /// Optional context panel, shown only on expanded layouts and only when the
 /// user has not collapsed it. Never appears on compact — that content belongs
@@ -12,7 +12,6 @@ class RightSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -25,7 +24,7 @@ class RightSidebar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              height: 48,
+              height: shellHeaderHeight,
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
@@ -44,13 +43,6 @@ class RightSidebar extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      controller.currentContent?.title ?? '',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
                     Text(
                       'Participants, category info or topic timeline will live '
                       'here.',

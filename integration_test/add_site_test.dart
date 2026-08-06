@@ -6,6 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/shell/empty_state.dart';
+import 'package:discourse_native/src/shell/instance_rail.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_view.dart';
 
 /// Exercises the add-a-site flow on a real device against the real network,
 /// which is the one seam the unit tests cannot cover: real HTTP, real
@@ -67,5 +72,83 @@ void main() {
     expect(stored.single.url, 'https://meta.discourse.org');
     expect(stored.single.title, 'Discourse Meta');
     expect(stored.single.iconUrl, isNotNull);
+
+    // Anchored on the rail, which is present at every size and never replaced
+    // — unlike the list, which the topic view takes over from.
+    ShellController controller() =>
+        ShellScope.of(tester.element(find.byType(InstanceRail)));
+
+    await pumpUntil(
+      tester,
+      'the topic list to load',
+      () =>
+          find.byType(TopicListView).evaluate().isNotEmpty &&
+          (controller().currentFeed?.topics.isNotEmpty ?? false),
+    );
+
+    final firstPage = controller().currentFeed!.topics.length;
+    expect(firstPage, greaterThan(0));
+    expect(controller().currentFeed!.hasMore, isTrue);
+
+    // Scrolling to the end pulls the next page over the real network.
+    //
+    // drag, not fling: a fling leaves a deceleration animation running, and
+    // ScrollAwareImageProvider defers image resolution while it does, so the
+    // callbacks outlive the test and the binding reports them as a leak.
+    await tester.drag(
+      find.descendant(
+        of: find.byType(TopicListView),
+        matching: find.byType(ListView),
+      ),
+      const Offset(0, -6000),
+    );
+
+    await pumpUntil(
+      tester,
+      'a second page to append',
+      () => (controller().currentFeed?.topics.length ?? 0) > firstPage,
+    );
+
+    // Back to the top: after scrolling this far the earlier rows have been
+    // disposed, which is the list being lazy — their titles are not in the
+    // tree to tap.
+    await tester.drag(
+      find.descendant(
+        of: find.byType(TopicListView),
+        matching: find.byType(ListView),
+      ),
+      const Offset(0, 12000),
+    );
+    await tester.pump();
+
+    // Opening a topic fetches it and replaces the list.
+    final firstTitle = controller().currentFeed!.topics.first.title;
+    await pumpUntil(
+      tester,
+      'the first row to be back on screen',
+      () => find.text(firstTitle).evaluate().isNotEmpty,
+    );
+    await tester.tap(find.text(firstTitle).first);
+    await tester.pump();
+
+    await pumpUntil(
+      tester,
+      'the topic and its posts to load',
+      () => (controller().currentTopic?.posts.isNotEmpty ?? false),
+    );
+
+    expect(find.byType(TopicView), findsOneWidget);
+    expect(find.byType(TopicListView), findsNothing);
+    expect(
+      controller().currentTopic!.posts.every((p) => p.cooked.isNotEmpty),
+      isTrue,
+    );
+
+    // Let anything still in flight finish before teardown.
+    await pumpUntil(
+      tester,
+      'the topic to go quiet',
+      () => !controller().loadingMorePosts,
+    );
   });
 }

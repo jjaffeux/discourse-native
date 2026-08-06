@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 import 'sidebar.dart';
 
@@ -15,7 +15,28 @@ class ContentRoute {
     required this.icon,
     this.subtitle,
     this.color,
+    this.topicId,
+    this.slug,
   });
+
+  /// A specific topic, opened from a list.
+  factory ContentRoute.topic({
+    required int topicId,
+    required String slug,
+    required String title,
+    String? subtitle,
+    Color? color,
+  }) {
+    return ContentRoute(
+      id: 'topic-$topicId',
+      title: title,
+      icon: Icons.article_outlined,
+      subtitle: subtitle,
+      color: color,
+      topicId: topicId,
+      slug: slug,
+    );
+  }
 
   /// The route a sidebar entry opens.
   ContentRoute.fromDestination(SidebarDestination destination)
@@ -23,13 +44,21 @@ class ContentRoute {
       title = destination.label,
       icon = destination.icon,
       subtitle = null,
-      color = destination.color;
+      color = destination.color,
+      topicId = null,
+      slug = null;
 
   final String id;
   final String title;
   final IconData icon;
   final String? subtitle;
   final Color? color;
+
+  /// Set when this route is a topic rather than a list.
+  final int? topicId;
+  final String? slug;
+
+  bool get isTopic => topicId != null;
 
   @override
   bool operator ==(Object other) =>

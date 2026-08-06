@@ -66,6 +66,12 @@ class Authenticator {
 
   Future<String?> apiKeyFor(String siteUrl) => store.readApiKey(siteUrl);
 
+  /// This install's client id.
+  ///
+  /// Exposed here rather than reached for through [store], because callers want
+  /// the identity, not the storage it happens to live in.
+  Future<String> clientId() => store.readOrCreateClientId();
+
   Future<void> disconnect(String siteUrl) => store.deleteApiKey(siteUrl);
 
   /// The key pair is per-install, not per-site: generated once, reused for

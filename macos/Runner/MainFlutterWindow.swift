@@ -13,8 +13,8 @@ class MainFlutterWindow: NSWindow {
     self.center()
 
     // No title bar: the shell draws its own chrome and runs the full height of
-    // the window. The traffic lights stay, floating over the rail, which is why
-    // the rail reserves room for them (see AdaptiveShell.windowControlsInset).
+    // the window. The traffic lights stay, floating over the strip the shell
+    // reserves across the top (see ShellTitleBar).
     self.styleMask.insert(.fullSizeContentView)
     self.titlebarAppearsTransparent = true
     self.titleVisibility = .hidden

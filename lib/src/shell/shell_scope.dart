@@ -16,4 +16,9 @@ class ShellScope extends InheritedNotifier<ShellController> {
     assert(scope != null, 'No ShellScope found above this widget');
     return scope!.notifier!;
   }
+
+  /// The controller, or null where the shell is not an ancestor — widgets that
+  /// also render outside it, such as a quote in a test.
+  static ShellController? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ShellScope>()?.notifier;
 }

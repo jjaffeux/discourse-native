@@ -3,6 +3,7 @@ library;
 
 import 'dart:io';
 
+import 'package:discourse_native/src/data/avatar_loader.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
@@ -27,6 +28,10 @@ void main() {
   });
 
   liveAuthUrl();
+  liveFeeds();
+  livePaging();
+  liveAvatars();
+  liveTopic();
 
   test('rejects a non-Discourse host', () async {
     await expectLater(
@@ -58,9 +63,161 @@ void liveAuthUrl() {
     // Signed out, Discourse stashes the destination and sends us to /login.
     // A 400/403 would mean it rejected our parameters.
     // ignore: avoid_print
-    print('AUTH URL STATUS: ${response.statusCode} -> '
-        '${response.headers.value('location')}');
+    print(
+      'AUTH URL STATUS: ${response.statusCode} -> '
+      '${response.headers.value('location')}',
+    );
     expect(response.statusCode, anyOf(200, 302));
     expect(response.statusCode, isNot(403));
+  });
+}
+
+/// Parses meta's real payloads, which is the only way to catch a field name
+/// that differs from what the fixtures assume.
+void liveFeeds() {
+  test('parses meta latest.json', () async {
+    final list = await DiscourseApi().topicList(
+      siteUrl: 'https://meta.discourse.org',
+      path: '/latest.json',
+    );
+
+    expect(list.topics, isNotEmpty);
+    final withTitle = list.topics.where((t) => t.title.isNotEmpty);
+    expect(withTitle.length, list.topics.length);
+    expect(list.topics.every((t) => t.id > 0), isTrue);
+    expect(list.topics.every((t) => t.slug.isNotEmpty), isTrue);
+    // Avatars must have resolved to absolute URLs.
+    final avatars = list.topics.expand((t) => t.posterAvatars);
+    expect(avatars, isNotEmpty);
+    expect(avatars.every((a) => a.startsWith('http')), isTrue);
+
+    final sample = list.topics.first;
+    // ignore: avoid_print
+    print(
+      'TOPIC: ${sample.title} | replies ${sample.replyCount} | '
+      'views ${sample.views} | cat ${sample.categoryId} | '
+      'bumped ${sample.bumpedAt} | avatars ${sample.posterAvatars.length}',
+    );
+  });
+
+  test('parses meta categories.json including subcategories', () async {
+    final categories = await DiscourseApi().categories(
+      siteUrl: 'https://meta.discourse.org',
+    );
+
+    expect(categories.length, greaterThan(11));
+    expect(categories.every((c) => c.name.isNotEmpty), isTrue);
+    expect(categories.every((c) => c.colorValue != 0), isTrue);
+    // ignore: avoid_print
+    print(
+      'CATEGORIES: ${categories.length}, e.g. '
+      '${categories.take(3).map((c) => "${c.name}#${c.color}").join(", ")}',
+    );
+  });
+}
+
+/// Confirms real pagination: the URL rewrite works and page two is different
+/// content, not the same page served again.
+void livePaging() {
+  test('pages through meta latest', () async {
+    final api = DiscourseApi();
+    final first = await api.topicList(
+      siteUrl: 'https://meta.discourse.org',
+      path: '/latest.json',
+    );
+
+    expect(first.nextPagePath, isNotNull);
+    // ignore: avoid_print
+    print('NEXT PAGE: ${first.moreTopicsUrl} -> ${first.nextPagePath}');
+    expect(first.nextPagePath, contains('.json'));
+
+    final second = await api.topicList(
+      siteUrl: 'https://meta.discourse.org',
+      path: first.nextPagePath!,
+    );
+
+    expect(second.topics, isNotEmpty);
+    final firstIds = first.topics.map((t) => t.id).toSet();
+    final fresh = second.topics.where((t) => !firstIds.contains(t.id));
+    // ignore: avoid_print
+    print('PAGE 2: ${second.topics.length} topics, ${fresh.length} new');
+    expect(fresh, isNotEmpty, reason: 'page two should not repeat page one');
+  });
+}
+
+/// Discourse serves some avatars as SVG from a `.png` URL, which is why
+/// avatars go through AvatarLoader instead of NetworkImage.
+void liveAvatars() {
+  test('detects meta serving an SVG avatar from a .png url', () async {
+    final loader = AvatarLoader();
+    final result = await loader.load(
+      'https://meta.discourse.org/user_avatar/meta.discourse.org/discourse/90/148734_2.png',
+    );
+
+    expect(result, isNotNull);
+    // ignore: avoid_print
+    print('AVATAR: ${result!.bytes.length} bytes, isSvg=${result.isSvg}');
+    expect(result.isSvg, isTrue, reason: 'the .png url serves image/svg+xml');
+  });
+
+  test('loads an ordinary raster avatar through its redirects', () async {
+    final loader = AvatarLoader();
+    final result = await loader.load(
+      'https://meta.discourse.org/user_avatar/meta.discourse.org/codinghorror/90/5297_2.png',
+    );
+
+    expect(result, isNotNull, reason: 'a normal avatar must still load');
+    // ignore: avoid_print
+    print(
+      'RASTER AVATAR: ${result!.bytes.length} bytes, isSvg=${result.isSvg}',
+    );
+    expect(result.isSvg, isFalse);
+    expect(result.bytes.length, greaterThan(1000));
+  });
+}
+
+/// Parses a real topic and pages its posts by id.
+void liveTopic() {
+  test('loads a meta topic and its remaining posts', () async {
+    final api = DiscourseApi();
+    final list = await api.topicList(
+      siteUrl: 'https://meta.discourse.org',
+      path: '/latest.json',
+    );
+    final busy = list.topics.firstWhere((t) => t.postsCount > 25);
+
+    final topic = await api.topic(
+      siteUrl: 'https://meta.discourse.org',
+      slug: busy.slug,
+      id: busy.id,
+    );
+
+    expect(topic.posts, isNotEmpty);
+    expect(topic.posts.every((p) => p.cooked.isNotEmpty), isTrue);
+    expect(topic.posts.every((p) => p.username.isNotEmpty), isTrue);
+    expect(topic.stream.length, greaterThan(topic.posts.length));
+    expect(topic.hasMore, isTrue);
+    // ignore: avoid_print
+    print(
+      'TOPIC "${topic.title}": ${topic.posts.length} of '
+      '${topic.stream.length} posts, first by ${topic.posts.first.username}',
+    );
+
+    final more = await api.posts(
+      siteUrl: 'https://meta.discourse.org',
+      topicId: topic.id,
+      ids: topic.pendingIds.take(5).toList(),
+    );
+
+    expect(more, hasLength(5));
+    final merged = topic.withMorePosts(more);
+    expect(merged.posts.length, topic.posts.length + 5);
+    // Merged in post order, not append order.
+    final numbers = merged.posts.map((p) => p.postNumber).toList();
+    expect(numbers, orderedEquals([...numbers]..sort()));
+    // ignore: avoid_print
+    print(
+      'AFTER PAGING: ${merged.posts.length} posts, hasMore=${merged.hasMore}',
+    );
   });
 }

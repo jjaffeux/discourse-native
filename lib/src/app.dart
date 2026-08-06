@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'data/authenticator.dart';
 import 'data/discourse_api.dart';
+import 'data/draft_store.dart';
 import 'data/instance_store.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/shell_controller.dart';
@@ -13,11 +14,18 @@ import 'theme/app_theme.dart';
 /// [store] and [api] exist so tests can supply fakes; production uses the real
 /// implementations.
 class DiscourseApp extends StatefulWidget {
-  const DiscourseApp({super.key, this.store, this.api, this.authenticator});
+  const DiscourseApp({
+    super.key,
+    this.store,
+    this.api,
+    this.authenticator,
+    this.drafts,
+  });
 
   final InstanceStore? store;
   final DiscourseApi? api;
   final Authenticator? authenticator;
+  final DraftStore? drafts;
 
   @override
   State<DiscourseApp> createState() => _DiscourseAppState();
@@ -28,6 +36,7 @@ class _DiscourseAppState extends State<DiscourseApp> {
     store: widget.store ?? InstanceStore(),
     api: widget.api ?? DiscourseApi(),
     authenticator: widget.authenticator ?? Authenticator(),
+    drafts: widget.drafts ?? DraftStore(),
   );
 
   @override

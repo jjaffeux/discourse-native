@@ -41,6 +41,17 @@ dependencies:
   basic_utils: ^5.8.2
   url_launcher: ^6.3.2
   pointycastle: ^4.0.0
+  flutter_svg: ^2.3.0
+  flutter_widget_from_html_core: ^0.17.2
+  # Used directly to read onebox markup out of cooked posts; also the DOM
+  # flutter_widget_from_html_core hands to its custom builders.
+  html: ^0.15.6
+  # Syntax highlighting for code blocks. The Dart port of highlight.js, so it
+  # knows the same ~190 languages and the same names Discourse writes. Last
+  # published in 2021, which is tolerable for a pure-Dart tokenizer with no
+  # platform surface. See lib/src/shell/syntax.dart.
+  highlight: ^0.7.0
+  super_sliver_list: ^0.4.1
 
 dev_dependencies:
   flutter_test:

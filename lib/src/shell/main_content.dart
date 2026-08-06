@@ -3,8 +3,12 @@ import 'package:flutter/material.dart';
 import '../models/content_route.dart';
 import '../theme/app_theme.dart';
 import 'adaptive_shell.dart';
+import 'composer_panel.dart';
+import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
+import 'topic_list_view.dart';
+import 'topic_view.dart';
 
 /// The main region. There is only ever one of these on screen; navigating
 /// deeper replaces what it shows rather than opening beside it.
@@ -28,7 +32,20 @@ class MainContent extends StatelessWidget {
         child: Column(
           children: [
             _ContentHeader(layout: layout, route: route),
-            Expanded(child: _ContentPlaceholder(route: route)),
+            Expanded(
+              child: switch ((route.isTopic, controller.currentFeed)) {
+                // A topic route wins over the list it was opened from.
+                (true, _) => const TopicView(),
+                // Destinations backed by a topic list show the real thing;
+                // the rest keep the placeholder until they have a screen.
+                (false, final feed?) => TopicListView(feed: feed),
+                (false, null) => _ContentPlaceholder(route: route),
+              },
+            ),
+            // Takes room from the stream rather than covering it, so the topic
+            // stays readable while a reply is being written.
+            if (controller.visibleComposer case final composer?)
+              ComposerPanel(composer: composer),
           ],
         ),
       ),
@@ -52,7 +69,7 @@ class _ContentHeader extends StatelessWidget {
     final showBack = layout.isCompact || controller.canPopContent;
 
     return Container(
-      height: 48,
+      height: shellHeaderHeight,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.shell.divider)),
@@ -112,7 +129,13 @@ class _ContentHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (layout == ShellLayout.expanded)
+          if (route.isTopic && controller.canReplyHere)
+            IconButton(
+              onPressed: () => controller.openReply(),
+              icon: const Icon(Icons.reply, size: 20),
+              tooltip: 'Reply to this topic',
+            ),
+          if (layout == ShellLayout.expanded && route.isTopic)
             IconButton(
               onPressed: controller.toggleRightSidebar,
               icon: Icon(

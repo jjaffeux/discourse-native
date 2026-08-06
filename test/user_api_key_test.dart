@@ -10,7 +10,9 @@ String encryptLikeDiscourse(Map<String, dynamic> payload, String publicPem) {
   final cipher = PKCS1Encoding(RSAEngine())
     ..init(
       true,
-      PublicKeyParameter<RSAPublicKey>(CryptoUtils.rsaPublicKeyFromPem(publicPem)),
+      PublicKeyParameter<RSAPublicKey>(
+        CryptoUtils.rsaPublicKeyFromPem(publicPem),
+      ),
     );
   return base64Encode(cipher.process(utf8.encode(jsonEncode(payload))));
 }
@@ -26,7 +28,8 @@ void main() {
     test('carries everything the site needs to answer', () {
       final url = protocol.authUrl(
         siteUrl: 'https://meta.discourse.org',
-        publicKeyPem: '-----BEGIN PUBLIC KEY-----\nabc\n-----END PUBLIC KEY-----',
+        publicKeyPem:
+            '-----BEGIN PUBLIC KEY-----\nabc\n-----END PUBLIC KEY-----',
         nonce: 'nonce-123',
         clientId: 'client-abc',
         applicationName: 'Discourse Native',
@@ -46,7 +49,9 @@ void main() {
   group('payloadFromCallback', () {
     test('pulls the payload out of the redirect', () {
       expect(
-        protocol.payloadFromCallback('discourse://auth_redirect?payload=abc%3D'),
+        protocol.payloadFromCallback(
+          'discourse://auth_redirect?payload=abc%3D',
+        ),
         'abc=',
       );
     });

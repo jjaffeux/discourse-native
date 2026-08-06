@@ -1,0 +1,137 @@
+import 'package:discourse_native/src/shell/onebox.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:html/dom.dart' as dom;
+import 'package:html/parser.dart' as html;
+
+/// Real cooked output from meta.discourse.org, trimmed of nothing that matters.
+const String genericOnebox = '''
+<aside class="onebox allowlistedgeneric" data-onebox-src="https://forum.adunanza.net">
+  <header class="source">
+      <img src="https://cdn.example.com/icon.png" class="site-icon" alt="" width="32" height="32">
+      <a href="https://forum.adunanza.net" target="_blank" rel="noopener">AduForum</a>
+  </header>
+  <article class="onebox-body">
+    <div class="aspect-image" style="--aspect-ratio:136/66;"><img src="https://cdn.example.com/thumb.png" class="thumbnail" alt="" width="136" height="66"></div>
+<h3><a href="https://forum.adunanza.net" target="_blank" rel="noopener">AduForum</a></h3>
+  <p>Il network P2P ad alte prestazioni</p>
+  </article>
+  <div class="onebox-metadata">
+  </div>
+  <div style="clear: both"></div>
+</aside>
+''';
+
+const String twitterOnebox = '''
+<aside class="onebox twitterstatus" data-onebox-src="https://twitter.com/codinghorror/status/1056641824733855744">
+  <header class="source">
+      <a href="https://twitter.com/codinghorror/status/1056641824733855744" target="_blank" rel="noopener">twitter.com</a>
+  </header>
+  <article class="onebox-body">
+    <img src="https://cdn.example.com/avatar.jpeg" class="thumbnail onebox-avatar" alt="" width="48" height="48">
+<h4><a href="https://twitter.com/codinghorror/status/1056641824733855744" target="_blank" rel="noopener">Jeff Atwood</a></h4>
+<div class="twitter-screen-name"><a href="#" target="_blank" rel="noopener">@codinghorror</a></div>
+<div class="tweet"><span class="tweet-description">250k followers?</span></div>
+  </article>
+</aside>
+''';
+
+OneboxData parse(String source) {
+  final aside = html.parse(source).querySelector('aside.onebox')!;
+  return OneboxData.from(aside);
+}
+
+void main() {
+  group('OneboxData', () {
+    test('reads the envelope every engine shares', () {
+      final data = parse(genericOnebox);
+
+      expect(data.url, 'https://forum.adunanza.net');
+      expect(data.siteName, 'AduForum');
+      expect(data.siteIcon, 'https://cdn.example.com/icon.png');
+      expect(data.title, 'AduForum');
+      expect(data.titleUrl, 'https://forum.adunanza.net');
+    });
+
+    test('takes the thumbnail out of its aspect-image wrapper', () {
+      final thumbnail = parse(genericOnebox).thumbnail!;
+
+      expect(thumbnail.src, 'https://cdn.example.com/thumb.png');
+      expect(thumbnail.aspectRatio, closeTo(136 / 66, 0.001));
+      expect(thumbnail.isAvatar, isFalse);
+    });
+
+    test('leaves the body it did not claim for HtmlWidget', () {
+      final data = parse(genericOnebox);
+
+      // The title and the whole aspect-image wrapper are drawn natively, so
+      // they must not be rendered a second time.
+      expect(data.bodyHtml, contains('Il network P2P'));
+      expect(data.bodyHtml, isNot(contains('aspect-image')));
+      expect(data.bodyHtml, isNot(contains('<h3')));
+    });
+
+    test('recognises an engine that leads with an avatar', () {
+      final data = parse(twitterOnebox);
+
+      expect(data.siteName, 'twitter.com');
+      expect(data.siteIcon, isNull);
+      expect(data.title, 'Jeff Atwood');
+      expect(data.thumbnail!.isAvatar, isTrue);
+      // Everything the parser has no opinion about still reaches the reader.
+      expect(data.bodyHtml, contains('@codinghorror'));
+      expect(data.bodyHtml, contains('250k followers?'));
+    });
+
+    test('survives an engine with no header, title or image', () {
+      final data = parse(
+        '<aside class="onebox unknownengine" data-onebox-src="https://e.com">'
+        '<article class="onebox-body"><p>Something new</p></article></aside>',
+      );
+
+      expect(data.url, 'https://e.com');
+      expect(data.siteName, isNull);
+      expect(data.title, isNull);
+      expect(data.thumbnail, isNull);
+      expect(data.bodyHtml, contains('Something new'));
+    });
+  });
+
+  group('oneboxWidgetBuilder', () {
+    test('claims oneboxes and nothing else', () {
+      dom.Element element(String source) =>
+          html.parse(source).querySelector('body')!.children.first;
+
+      expect(
+        oneboxWidgetBuilder(element('<aside class="onebox"></aside>')),
+        isA<OneboxCard>(),
+      );
+      // Quotes are asides too, and are not ours.
+      expect(
+        oneboxWidgetBuilder(element('<aside class="quote"></aside>')),
+        isNull,
+      );
+      expect(oneboxWidgetBuilder(element('<p>hello</p>')), isNull);
+    });
+  });
+
+  group('OneboxCard', () {
+    testWidgets('draws the site, title and remaining body', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: OneboxCard(data: parse(genericOnebox))),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('AduForum'), findsNWidgets(2)); // header and title
+      // The leftover body goes through HtmlWidget, which paints RichText.
+      expect(
+        find.textContaining('Il network P2P', findRichText: true),
+        findsOneWidget,
+      );
+    });
+  });
+}
