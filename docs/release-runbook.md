@@ -48,8 +48,18 @@ dart run desktop_updater:release keygen \
 ```
 
 Keygen binds a profile to that channel's archive URL, which is why there are
-two — and why a leaked canary key still cannot sign a stable release. The
-`desktop_updater.keys.*.json` files hold **public material only** and are
+two: the canary release job physically cannot sign a stable descriptor.
+
+**Do not over-read that.** Verification in the app is *not* channel-bound — it
+looks the key id up in `AppRelease.trustedReleaseKeys` and checks the
+signature, with no test that the key belongs to the channel being installed.
+Both keys are trusted by every build. So a stolen canary private key plus write
+access to the stable feed still produces something the app accepts. Two keys
+limit what a compromised release job can do; they are not cryptographic
+isolation between channels, and the thing actually protecting stable is who can
+push to `gh-pages` and who can read `DU_KEY_STABLE`.
+
+The `desktop_updater.keys.*.json` files hold **public material only** and are
 committed. The private halves live in a 0600 file under
 `~/Library/Application Support/desktop_updater/release-keys` (on Linux,
 `$XDG_DATA_HOME/desktop_updater/release-keys`) and never leave it.

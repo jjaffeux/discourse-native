@@ -62,10 +62,18 @@ abstract final class AppRelease {
   /// The Ed25519 public keys a release descriptor's signature must verify
   /// against, keyed by the id the signing tool stamps into the descriptor.
   ///
-  /// Every channel's keys go in, because the channel is chosen at runtime and
-  /// a build has to be able to verify whichever one the user switches to. The
-  /// signing profile is bound to a channel's archive URL, so a leaked canary
-  /// key still cannot sign a stable release.
+  /// Every channel's key goes in, because the channel is chosen at runtime and
+  /// a build has to be able to verify whichever one the user switches to.
+  ///
+  /// Be precise about what the two keys buy, because it is less than it looks:
+  /// the *signing profile* is bound to one channel's archive URL, so the canary
+  /// release job cannot sign a stable descriptor. Verification here is not
+  /// bound that way — `ReleaseSignatureVerifier` looks the key id up in this
+  /// map and checks the signature, with no test that the key belongs to the
+  /// channel being installed. So a stolen canary private key, plus write access
+  /// to the stable feed, would still produce something this app accepts. The
+  /// separation limits what a compromised release job can do; it is not
+  /// cryptographic isolation between the channels.
   ///
   /// Public material only; safe to commit. Copied verbatim from
   /// `desktop_updater.keys.stable.json` and `desktop_updater.keys.canary.json`,

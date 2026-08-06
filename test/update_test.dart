@@ -105,7 +105,10 @@ void main() {
         AppRelease.trustedReleaseKeys,
         hasLength(UpdateChannel.values.length),
       );
-      // Distinct, so a leaked canary key cannot sign a stable release.
+      // Distinct, so the canary release job cannot sign a stable descriptor --
+      // its signing profile is bound to the canary feed. Note this is not a
+      // client-side guarantee: verification looks a key up by id and does not
+      // check it against the channel. See AppRelease.trustedReleaseKeys.
       expect(
         AppRelease.trustedReleaseKeys.values.toSet(),
         hasLength(UpdateChannel.values.length),
