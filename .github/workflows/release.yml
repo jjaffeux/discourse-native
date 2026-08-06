@@ -65,8 +65,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Trust the workspace
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      # The checkout, the Flutter SDK and pub's git-dependency clones are all
+      # owned by a different uid than the one these steps run as, so git refuses
+      # each of them as "dubious ownership" and anything shelling out to git
+      # fails with exit 128.
+      #
+      # A wildcard rather than three paths: the SDK's location is the action's
+      # to change, and pub clones message_bus_client somewhere under PUB_CACHE
+      # that is not ours to predict. Naming them individually is whack-a-mole,
+      # and this container is ephemeral, single-purpose, and running as root
+      # over a tree we just checked out ourselves.
+      - name: Trust the checkouts
+        run: git config --global --add safe.directory '*'
 
       - name: Build dependencies
         run: |
