@@ -49,3 +49,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Exported release signing bundles. Encrypted, but private material -- back
+# them up out of band, never in the repo.
+*.dukey

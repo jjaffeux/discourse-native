@@ -33,44 +33,74 @@ PR; CI derives everything else, so no bot commit ever races a branch.
 
 ## One-time setup
 
-None of this is done yet. In order:
+**Done:** steps 1 and 2. Both key profiles exist and their public halves are
+pinned in the app.
 
-1. **Generate a signing key per channel**, on a trusted workstation, never in
-   CI. `desktop_updater.yaml`'s `updates.baseUrl` has to point at that channel's
-   feed first, because keygen binds the profile to the archive URL:
+```bash
+# stable
+dart run desktop_updater:release keygen \
+  --base-url https://jjaffeux.github.io/discourse-native/stable \
+  --key-profile desktop_updater.keys.stable.json
+# canary
+dart run desktop_updater:release keygen \
+  --base-url https://jjaffeux.github.io/discourse-native/canary \
+  --key-profile desktop_updater.keys.canary.json
+```
+
+Keygen binds a profile to that channel's archive URL, which is why there are
+two — and why a leaked canary key still cannot sign a stable release. The
+`desktop_updater.keys.*.json` files hold **public material only** and are
+committed. The private halves live in a 0600 file under
+`~/Library/Application Support/desktop_updater/release-keys` (on Linux,
+`$XDG_DATA_HOME/desktop_updater/release-keys`) and never leave it.
+
+Their public halves are copied verbatim into `AppRelease.trustedReleaseKeys`,
+both channels in one map, because the channel is chosen at runtime and a build
+has to verify whichever one the user switches to.
+
+**Still to do:**
+
+3. **Back both private keys up — today.** There is no recovery. A lost key
+   orphans every install and every user has to re-download by hand.
 
    ```bash
-   dart run desktop_updater:release keygen --base-url https://jjaffeux.github.io/discourse-native/stable
+   export DU_PASSPHRASE='…20+ chars from a password manager…'
+   dart run desktop_updater:release keys export \
+     --output release-key-stable.dukey \
+     --passphrase-env DU_PASSPHRASE \
+     --base-url https://jjaffeux.github.io/discourse-native/stable
    ```
 
-2. **Copy the public key map** it prints into `AppRelease.trustedReleaseKeys`
-   in `lib/src/data/app_release.dart`, both channels in the one map — the
-   channel is chosen at runtime, so a build has to be able to verify whichever
-   one the user switches to. Public material only; safe to commit. Until this
-   is done `AppRelease.canVerifyReleases` is false and the whole feature stays
-   off, which is deliberate.
+   and the same for canary. The passphrase is read from the named variable and
+   is never accepted as an argument, so it cannot land in a shell history or a
+   process listing. Put the bundle somewhere with a second custodian.
 
-3. **Put the private keys in CI.** 3.1.1 stores them as local files and has no
-   export command, so the secret is a tarball of the key directory:
+4. **Put the bundles in CI**, base64 of the `.dukey` file:
 
-   ```bash
-   tar -czf - -C ~/.local/share/desktop_updater release-keys | base64 -w0
-   ```
+   | Secret | Value |
+   |---|---|
+   | `DU_KEY_STABLE` | `base64 -w0 release-key-stable.dukey` |
+   | `DU_PASSPHRASE_STABLE` | the passphrase |
+   | `DU_KEY_CANARY` | `base64 -w0 release-key-canary.dukey` |
+   | `DU_PASSPHRASE_CANARY` | the passphrase |
 
-   into `DU_KEYS_STABLE` and `DU_KEYS_CANARY`. On macOS the directory is
-   `~/Library/Application Support/desktop_updater/release-keys`, and CI restores
-   it to the Linux path, so tar it from inside its parent as above.
+   The workflow restores them with `keys import --passphrase-env`.
 
-4. **Put `DU_KEYS_STABLE` behind a GitHub Environment with required reviewers.**
-   Anyone who can push a workflow file to `main` can otherwise read it, and that
-   key is what lets you install arbitrary code on every user's machine. It is
-   the highest-value control here. Canary can stay repo-level.
+5. **Put the stable secrets behind a GitHub Environment with required
+   reviewers.** Anyone who can push a workflow file to `main` can otherwise
+   read them, and that key is what lets you install arbitrary code on every
+   user's machine. Highest-value control here. Canary can stay repo-level.
 
-5. **Rehearse a yank** against canary with a deliberately broken build.
+6. **Rehearse a yank** against canary with a deliberately broken build.
 
-Two things to internalise while it is cheap: a lost private key is
-unrecoverable and orphans every install, and there is no rotation command in
-3.1.1 — so back the key up somewhere with a second custodian, today.
+### Rotation
+
+`keys rotate` mints a pending key while the current one keeps signing; `keys
+activate` switches over. The gap between them is the whole point: ship a
+release whose `trustedReleaseKeys` carries **both** before activating, or every
+client that missed it is stranded permanently. For a desktop app with no forced
+updates, think months — so start the rotation you might need long before you
+need it.
 
 ## Yanking a bad release
 

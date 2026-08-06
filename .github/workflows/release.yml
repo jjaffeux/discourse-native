@@ -209,29 +209,39 @@ jobs:
 
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
 
-      # 3.1.1 keeps release keys as local files under XDG_DATA_HOME; it has no
-      # export/import command, so the secret is a tar of that directory made on
-      # the workstation that ran `release keygen`. See docs/release-runbook.md.
+      # The bundle is what `release keys export` produced on the workstation
+      # that ran keygen. Secrets go through env rather than being spliced into
+      # the script -- that would be an injection surface and would leak under
+      # `set -x`, which is why this step alone runs without it.
       - name: Restore the signing key
         env:
-          KEYS_TAR_B64: ${{ secrets[format('DU_KEYS_{0}',
+          KEY_B64: ${{ secrets[format('DU_KEY_{0}',
+                      steps.v.outputs.channel == 'stable' && 'STABLE' || 'CANARY')] }}
+          # Read by name, never passed as an argument: the CLI refuses a
+          # passphrase on the command line precisely so it cannot land in a
+          # process listing or a shell history.
+          DU_PASSPHRASE: ${{ secrets[format('DU_PASSPHRASE_{0}',
                             steps.v.outputs.channel == 'stable' && 'STABLE' || 'CANARY')] }}
         run: |
           set -eu
-          if [ -z "${KEYS_TAR_B64:-}" ]; then
+          if [ -z "${KEY_B64:-}" ]; then
             echo "::error::no signing key secret for ${{ steps.v.outputs.channel }}"
             exit 1
           fi
           umask 077
-          mkdir -p "$HOME/.local/share/desktop_updater"
-          printf '%s' "$KEYS_TAR_B64" | base64 -d \
-            | tar -xz -C "$HOME/.local/share/desktop_updater"
+          printf '%s' "$KEY_B64" | base64 -d > "$RUNNER_TEMP/release-key.dukey"
+          dart run desktop_updater:release keys import \
+            --input "$RUNNER_TEMP/release-key.dukey" \
+            --passphrase-env DU_PASSPHRASE \
+            --base-url "${{ env.FEED_BASE }}/${{ steps.v.outputs.channel }}"
+          rm -f "$RUNNER_TEMP/release-key.dukey"
 
       - name: Sign the descriptor
         run: |
           set -eux
           dart run desktop_updater:release sign \
             --release "${{ steps.desc.outputs.dir }}/release.json" \
+            --key-profile "desktop_updater.keys.${{ steps.v.outputs.channel }}.json" \
             --base-url "${{ env.FEED_BASE }}/${{ steps.v.outputs.channel }}"
 
       # The artifact goes up before the index that points at it, so a client
@@ -274,6 +284,7 @@ jobs:
 
           dart run desktop_updater:release sign \
             --app-archive "$P/$CH/app-archive.json" \
+            --key-profile "$GITHUB_WORKSPACE/desktop_updater.keys.$CH.json" \
             --base-url "${{ env.FEED_BASE }}/$CH"
 
           cd "$P"

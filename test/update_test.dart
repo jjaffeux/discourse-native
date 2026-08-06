@@ -96,11 +96,25 @@ void main() {
       }
     });
 
-    test('a build that cannot verify a signature does not offer updates', () {
-      // The gate that matters most: pinned keys are the only thing standing
-      // between the update feed and arbitrary code execution, so a build
-      // without them must not offer to install anything at all.
-      expect(AppRelease.canVerifyReleases, isFalse);
+    test('a key is pinned for every channel', () {
+      // Pinned keys are the only thing between the update feed and arbitrary
+      // code execution. One per channel, because the channel is chosen at
+      // runtime and a build has to verify whichever one the user switches to.
+      expect(AppRelease.canVerifyReleases, isTrue);
+      expect(
+        AppRelease.trustedReleaseKeys,
+        hasLength(UpdateChannel.values.length),
+      );
+      // Distinct, so a leaked canary key cannot sign a stable release.
+      expect(
+        AppRelease.trustedReleaseKeys.values.toSet(),
+        hasLength(UpdateChannel.values.length),
+      );
+    });
+
+    test('having keys is not on its own enough to offer updates', () {
+      // Still false here, because `flutter test` stamps no version. Keys are
+      // one of three gates, not the whole of it.
       expect(DesktopUpdaterAdapter().isSupported, isFalse);
     });
 

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "profileId": "c19f8fa9436a2f8e1a1e17e91a335cf3",
+  "feedUrl": "https://jjaffeux.github.io/discourse-native/canary/app-archive.json",
+  "activeKeyId": "release-305aa96ebc8eaaf8a17bb251",
+  "publicKeys": {
+    "release-305aa96ebc8eaaf8a17bb251": "A5kk18HKHJJbAJCQA2KxSPpVKPD5eXCcWo8pB4yMYjI="
+  }
+}

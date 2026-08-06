@@ -67,10 +67,17 @@ abstract final class AppRelease {
   /// signing profile is bound to a channel's archive URL, so a leaked canary
   /// key still cannot sign a stable release.
   ///
-  /// Empty until `desktop_updater:release keygen` has been run — which is why
-  /// [canVerifyReleases] gates the whole feature on it. Public material only;
-  /// safe to commit.
-  static const Map<String, String> trustedReleaseKeys = {};
+  /// Public material only; safe to commit. Copied verbatim from
+  /// `desktop_updater.keys.stable.json` and `desktop_updater.keys.canary.json`,
+  /// which `release keygen` wrote — do not hand-edit the ids.
+  static const Map<String, String> trustedReleaseKeys = {
+    // stable — feed .../stable/app-archive.json
+    'release-53f8dbf3173c8829fe44e9d9':
+        'MZ7r1Y2HgBf9G8Lw99kJv+VkDGzsc3SZ2RR6gr2kRCk=',
+    // canary — feed .../canary/app-archive.json
+    'release-305aa96ebc8eaaf8a17bb251':
+        'A5kk18HKHJJbAJCQA2KxSPpVKPD5eXCcWo8pB4yMYjI=',
+  };
 
   /// False when there is nothing to check a signature against.
   ///

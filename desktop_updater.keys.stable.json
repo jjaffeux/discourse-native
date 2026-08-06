@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "profileId": "73742ae64dcb9ae4e65934f1cddbc174",
+  "feedUrl": "https://jjaffeux.github.io/discourse-native/stable/app-archive.json",
+  "activeKeyId": "release-53f8dbf3173c8829fe44e9d9",
+  "publicKeys": {
+    "release-53f8dbf3173c8829fe44e9d9": "MZ7r1Y2HgBf9G8Lw99kJv+VkDGzsc3SZ2RR6gr2kRCk="
+  }
+}
