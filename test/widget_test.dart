@@ -11,6 +11,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/updater.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
@@ -3960,6 +3961,453 @@ void main() {
       // Discourse deletes its own copy when it accepts a post; ours has to go
       // too, or reopening the composer offers to write the reply again.
       expect(drafts.saved, isEmpty);
+    });
+  });
+
+  group('the update button', () {
+    Finder updateButton() => find.dIcon(DIcons.arrowsRotate);
+
+    testWidgets('is absent where an update cannot be installed', (
+      tester,
+    ) async {
+      await pumpShell(tester, desktop);
+
+      expect(find.byType(InstanceRail), findsOneWidget);
+      expect(updateButton(), findsNothing);
+    });
+
+    testWidgets('is in the rail at every window size', (tester) async {
+      for (final size in [phone, laptop, desktop]) {
+        await pumpShell(
+          tester,
+          size,
+          updater: FakeUpdater(isSupported: true),
+          updateStore: FakeUpdateStore(lastChecked: DateTime.now()),
+        );
+
+        expect(updateButton(), findsOneWidget, reason: 'at $size');
+      }
+    });
+
+    testWidgets('is in the rail with no sites connected', (tester) async {
+      // The one that proves it is app-level rather than per-site: the rail is
+      // the only surface that survives having nothing to show.
+      await pumpShell(
+        tester,
+        desktop,
+        instances: const [],
+        updater: FakeUpdater(isSupported: true),
+        updateStore: FakeUpdateStore(lastChecked: DateTime.now()),
+      );
+
+      expect(find.byType(EmptyState), findsOneWidget);
+      expect(updateButton(), findsOneWidget);
+    });
+
+    testWidgets('says nothing until a check finds something', (tester) async {
+      await pumpShell(
+        tester,
+        desktop,
+        updater: FakeUpdater(isSupported: true),
+        updateStore: FakeUpdateStore(lastChecked: DateTime.now()),
+      );
+
+      expect(updateButton(), findsOneWidget);
+      expect(find.dIcon(DIcons.download), findsNothing);
+    });
+
+    testWidgets('offers the release a launch check found', (tester) async {
+      await pumpShell(
+        tester,
+        desktop,
+        updater: FakeUpdater(
+          isSupported: true,
+          releases: {
+            UpdateChannel.stable: const UpdateRelease(
+              version: '1.4.0',
+              channel: UpdateChannel.stable,
+            ),
+          },
+        ),
+        // No last-checked stamp, so load() looks straight away.
+        updateStore: FakeUpdateStore(),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.dIcon(DIcons.download), findsOneWidget);
+      expect(find.byTooltip('Update to 1.4.0'), findsOneWidget);
+    });
+
+    testWidgets('tapping it opens the sheet rather than installing', (
+      tester,
+    ) async {
+      final updater = FakeUpdater(
+        isSupported: true,
+        releases: {
+          UpdateChannel.stable: const UpdateRelease(
+            version: '1.4.0',
+            channel: UpdateChannel.stable,
+          ),
+        },
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        updater: updater,
+        updateStore: FakeUpdateStore(),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.dIcon(DIcons.download));
+      await tester.pumpAndSettle();
+
+      expect(find.text('App updates'), findsOneWidget);
+      expect(updater.installCount, 0);
+    });
+  });
+
+  group('checking for updates', () {
+    Future<void> openSheet(
+      WidgetTester tester, {
+      required FakeUpdater updater,
+      FakeUpdateStore? store,
+    }) async {
+      await pumpShell(
+        tester,
+        desktop,
+        updater: updater,
+        updateStore: store ?? FakeUpdateStore(lastChecked: DateTime.now()),
+      );
+      await tester.tap(find.dIcon(DIcons.arrowsRotate));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the sheet says which channel is being followed', (
+      tester,
+    ) async {
+      await openSheet(tester, updater: FakeUpdater(isSupported: true));
+
+      expect(find.textContaining('stable channel'), findsOneWidget);
+      expect(find.text('Stable'), findsOneWidget);
+      expect(find.text('Canary'), findsOneWidget);
+    });
+
+    testWidgets('a check that finds nothing says so', (tester) async {
+      await openSheet(tester, updater: FakeUpdater(isSupported: true));
+
+      await tester.tap(find.text('Check for updates'));
+      await tester.pumpAndSettle();
+
+      expect(find.text("You're up to date."), findsOneWidget);
+    });
+
+    testWidgets('a check that finds a release offers it by version', (
+      tester,
+    ) async {
+      await openSheet(
+        tester,
+        updater: FakeUpdater(
+          isSupported: true,
+          releases: {
+            UpdateChannel.stable: const UpdateRelease(
+              version: '1.4.0',
+              channel: UpdateChannel.stable,
+            ),
+          },
+        ),
+      );
+
+      await tester.tap(find.text('Check for updates'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Download 1.4.0'), findsOneWidget);
+    });
+
+    testWidgets('a check in flight disables the button and spins', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      await openSheet(
+        tester,
+        updater: FakeUpdater(isSupported: true, gate: gate),
+      );
+
+      await tester.tap(find.text('Check for updates'));
+      await tester.pump();
+
+      expect(find.text('Check for updates'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a check that cannot reach the server offers the releases '
+        'page instead', (tester) async {
+      final launched = watchBrowser(tester);
+      await openSheet(
+        tester,
+        updater: FakeUpdater(
+          isSupported: true,
+          checkFailure: const UpdateException(UpdateFailure.unreachable),
+        ),
+      );
+
+      await tester.tap(find.text('Check for updates'));
+      await tester.pumpAndSettle();
+
+      // The exact string, not a substring: the topic list behind the sheet is
+      // also failing to reach a site, and says so in nearly the same words.
+      expect(find.text("Couldn't reach the update server."), findsOneWidget);
+
+      await tester.tap(find.text('Open the releases page'));
+      await tester.pumpAndSettle();
+
+      expect(launched.single, contains('/releases'));
+    });
+
+    testWidgets('a signature that does not verify is not reported as a '
+        'network problem', (tester) async {
+      await openSheet(
+        tester,
+        updater: FakeUpdater(
+          isSupported: true,
+          checkFailure: const UpdateException(UpdateFailure.untrusted),
+        ),
+      );
+
+      await tester.tap(find.text('Check for updates'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('signature'), findsOneWidget);
+      expect(find.text("Couldn't reach the update server."), findsNothing);
+    });
+
+    testWidgets('a check nobody asked for fails quietly', (tester) async {
+      await pumpShell(
+        tester,
+        desktop,
+        updater: FakeUpdater(
+          isSupported: true,
+          checkFailure: const UpdateException(UpdateFailure.unreachable),
+        ),
+        updateStore: FakeUpdateStore(),
+      );
+      await tester.pumpAndSettle();
+
+      // The launch check failed. Nobody asked, so nothing is said.
+      //
+      // Scoped to the rail: the topic list behind it uses the same warning
+      // icon for its own unrelated failure to reach a site.
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(InstanceRail),
+          matching: find.dIcon(DIcons.triangleExclamation),
+        ),
+        findsNothing,
+      );
+    });
+  });
+
+  group('downloading an update', () {
+    FakeUpdater offering({
+      List<double> progressSteps = const [0.25, 0.5, 1.0],
+      UpdateException? downloadFailure,
+    }) => FakeUpdater(
+      isSupported: true,
+      progressSteps: progressSteps,
+      downloadFailure: downloadFailure,
+      releases: {
+        UpdateChannel.stable: const UpdateRelease(
+          version: '1.4.0',
+          channel: UpdateChannel.stable,
+        ),
+      },
+    );
+
+    Future<void> openOffer(WidgetTester tester, FakeUpdater updater) async {
+      await pumpShell(
+        tester,
+        desktop,
+        updater: updater,
+        updateStore: FakeUpdateStore(),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.dIcon(DIcons.download));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a finished download offers to restart', (tester) async {
+      final updater = offering();
+      await openOffer(tester, updater);
+
+      await tester.tap(find.text('Download 1.4.0'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Restart and install'), findsOneWidget);
+      expect(updater.downloadCount, 1);
+    });
+
+    testWidgets('restarting hands the app over to the updater', (tester) async {
+      final updater = offering();
+      await openOffer(tester, updater);
+
+      await tester.tap(find.text('Download 1.4.0'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Restart and install'));
+      // pump, not pumpAndSettle: a successful install never comes back, so the
+      // panel is left on an indeterminate spinner on purpose and there is no
+      // settled state to wait for.
+      await tester.pump();
+
+      expect(updater.installCount, 1);
+    });
+
+    testWidgets('a download that fails leaves the release still on offer', (
+      tester,
+    ) async {
+      await openOffer(
+        tester,
+        offering(
+          downloadFailure: const UpdateException(UpdateFailure.untrusted),
+        ),
+      );
+
+      await tester.tap(find.text('Download 1.4.0'));
+      await tester.pumpAndSettle();
+
+      // The same button, so trying again is the obvious thing to do.
+      expect(find.text('Download 1.4.0'), findsOneWidget);
+    });
+
+    testWidgets('a download survives the sheet being closed and reopened', (
+      tester,
+    ) async {
+      // The deviation from _AddInstanceForm earns its own test: a site lookup
+      // may die with the sheet that started it, but a download must not.
+      final held = Completer<void>();
+      final updater = FakeUpdater(
+        isSupported: true,
+        downloadGate: held,
+        progressSteps: const [0.4],
+        releases: {
+          UpdateChannel.stable: const UpdateRelease(
+            version: '1.4.0',
+            channel: UpdateChannel.stable,
+          ),
+        },
+      );
+      await openOffer(tester, updater);
+
+      await tester.tap(find.text('Download 1.4.0'));
+      await tester.pump();
+      expect(find.textContaining('Downloading'), findsOneWidget);
+
+      // Close the sheet with the download still in flight.
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Downloading'), findsNothing);
+
+      await tester.tap(find.byType(CircularProgressIndicator).last);
+      await tester.pumpAndSettle();
+
+      // Still the same download, at the same point, not restarted.
+      expect(find.text('Downloading — 40%'), findsOneWidget);
+      expect(updater.downloadCount, 1);
+
+      held.complete();
+      await tester.pumpAndSettle();
+    });
+  });
+
+  group('the release channel', () {
+    testWidgets('defaults to the channel the build was made on', (
+      tester,
+    ) async {
+      await pumpShell(
+        tester,
+        desktop,
+        updater: FakeUpdater(isSupported: true),
+        updateStore: FakeUpdateStore(lastChecked: DateTime.now()),
+      );
+
+      await tester.tap(find.dIcon(DIcons.arrowsRotate));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('stable channel'), findsOneWidget);
+    });
+
+    testWidgets('a stored channel wins over the built-in one', (tester) async {
+      await pumpShell(
+        tester,
+        desktop,
+        updater: FakeUpdater(isSupported: true),
+        updateStore: FakeUpdateStore(
+          rawChannel: 'canary',
+          lastChecked: DateTime.now(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.dIcon(DIcons.arrowsRotate));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('canary channel'), findsOneWidget);
+    });
+
+    testWidgets('switching channels persists it and asks the new one', (
+      tester,
+    ) async {
+      final updater = FakeUpdater(isSupported: true);
+      final store = FakeUpdateStore(lastChecked: DateTime.now());
+      await pumpShell(
+        tester,
+        desktop,
+        updater: updater,
+        updateStore: store,
+      );
+
+      await tester.tap(find.dIcon(DIcons.arrowsRotate));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Canary'));
+      await tester.pumpAndSettle();
+
+      expect(store.rawChannel, 'canary');
+      expect(updater.discardCount, 1);
+      expect(updater.lastCheckedChannel, UpdateChannel.canary);
+    });
+
+    testWidgets('going back to an older stable says switch, not update', (
+      tester,
+    ) async {
+      final updater = FakeUpdater(
+        isSupported: true,
+        releases: {
+          UpdateChannel.stable: const UpdateRelease(
+            version: '1.3.2',
+            channel: UpdateChannel.stable,
+            isDowngrade: true,
+          ),
+        },
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        updater: updater,
+        updateStore: FakeUpdateStore(
+          rawChannel: 'canary',
+          lastChecked: DateTime.now(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.dIcon(DIcons.arrowsRotate));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Stable'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Switch to 1.3.2'), findsOneWidget);
     });
   });
 }

@@ -79,6 +79,11 @@ italic
 fab-markdown
 a
 
+# --- Updates
+arrows-rotate
+download
+far-circle-check
+
 # --- Aliases, from Discourse's REPLACEMENTS in lib/icon-library.js
 d-liked = heart
 d-unliked = far-heart

@@ -54,6 +54,7 @@ class FakeUpdater implements Updater {
     this.installFailure,
     this.progressSteps = const [0.25, 0.5, 1.0],
     this.gate,
+    this.downloadGate,
   });
 
   @override
@@ -70,9 +71,13 @@ class FakeUpdater implements Updater {
   /// Fractions handed to `onProgress`, in order.
   final List<double> progressSteps;
 
-  /// Held open so a test can assert on the in-flight state. Mirrors
+  /// Holds [check] open so a test can assert on the in-flight state. Mirrors
   /// [FakeDiscourseApi.gate].
   final Completer<void>? gate;
+
+  /// Holds [download] open. Separate from [gate] so a test can let the check
+  /// through and still catch the download mid-flight.
+  final Completer<void>? downloadGate;
 
   int checkCount = 0;
   int downloadCount = 0;
@@ -97,10 +102,10 @@ class FakeUpdater implements Updater {
   }) async {
     downloadCount++;
     lastDownloaded = release;
-    if (gate != null) await gate!.future;
     for (final step in progressSteps) {
       onProgress?.call(step);
     }
+    if (downloadGate != null) await downloadGate!.future;
     if (downloadFailure != null) throw downloadFailure!;
   }
 

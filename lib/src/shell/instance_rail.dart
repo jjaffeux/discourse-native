@@ -8,6 +8,8 @@ import 'add_instance_sheet.dart';
 import 'avatar_image.dart';
 import 'instance_actions.dart';
 import 'shell_scope.dart';
+import 'update_controller.dart';
+import 'update_sheet.dart';
 
 /// The far-left column of Discourse instances. Visible at every window size,
 /// including on phones.
@@ -32,10 +34,7 @@ class InstanceRail extends StatelessWidget {
           itemCount: controller.instances.length + 1,
           itemBuilder: (context, index) {
             if (index == controller.instances.length) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: Center(child: _AddInstanceButton()),
-              );
+              return const _RailFooter();
             }
             final instance = controller.instances[index];
             return _RailItem(
@@ -47,6 +46,144 @@ class InstanceRail extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+/// What trails the sites: the add button, and the update button when this build
+/// can update itself.
+///
+/// One list item holding a column rather than two items, so the list's
+/// `itemCount` arithmetic stays as it was.
+class _RailFooter extends StatelessWidget {
+  const _RailFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    final updates = ShellScope.of(context).updates;
+
+    return Column(
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 4),
+          child: Center(child: _AddInstanceButton()),
+        ),
+        // Not inside the ListenableBuilder below: whether this build can update
+        // at all is decided at compile time and cannot change while running.
+        if (updates.isSupported)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: Center(child: _UpdateButton()),
+          ),
+      ],
+    );
+  }
+}
+
+/// The rail's update affordance.
+///
+/// Tapping always opens the sheet and never installs. Restarting the app out
+/// from under someone is not something a single tap in a rail should be able to
+/// do.
+class _UpdateButton extends StatelessWidget {
+  const _UpdateButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final updates = ShellScope.of(context).updates;
+
+    // Subscribed here rather than through ShellScope, so that finding an update
+    // re-badges this button without rebuilding the sidebar, the topic list and
+    // everything else in the shell. Same reasoning as ComposerPanel.
+    return ListenableBuilder(
+      listenable: updates,
+      builder: (context, _) {
+        final version = updates.available?.version;
+
+        final (tooltip, icon, color, filled) = switch (updates.status) {
+          UpdateStatus.available => (
+            'Update to $version',
+            DIcons.download,
+            theme.colorScheme.primary,
+            true,
+          ),
+          UpdateStatus.readyToInstall => (
+            'Restart to finish updating',
+            DIcons.farCircleCheck,
+            theme.colorScheme.primary,
+            true,
+          ),
+          UpdateStatus.failed => (
+            updates.error ?? 'The last update check failed',
+            DIcons.triangleExclamation,
+            theme.colorScheme.error,
+            false,
+          ),
+          _ => (
+            'Check for updates',
+            DIcons.arrowsRotate,
+            theme.colorScheme.onSurfaceVariant,
+            false,
+          ),
+        };
+
+        // An update waiting is not a problem, so the dot is the primary colour
+        // rather than the error red _UnreadBadge uses. Same position and the
+        // same 2px ring against the rail, so the two read as one family.
+        final wants =
+            updates.status == UpdateStatus.available ||
+            updates.status == UpdateStatus.readyToInstall;
+
+        return Tooltip(
+          message: tooltip,
+          child: InkWell(
+            onTap: () => showUpdateSheet(context),
+            borderRadius: BorderRadius.circular(22),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: filled
+                        ? color.withValues(alpha: 0.14)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: updates.status == UpdateStatus.downloading
+                      ? SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            value: updates.progress,
+                            strokeWidth: 2,
+                            color: theme.colorScheme.primary,
+                          ),
+                        )
+                      : DIcon(icon, size: 20, color: color),
+                ),
+                if (wants)
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: theme.shell.rail, width: 2),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
