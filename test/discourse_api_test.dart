@@ -776,6 +776,63 @@ void _feedGroups() {
     );
   });
 
+  group('customEmojis', () {
+    test('reads a payload shaped as an object of name to url', () async {
+      final paths = <String>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          paths.add(request.url.path);
+          return http.Response(
+            jsonEncode({
+              'party_blob': 'https://example.com/uploads/party.png',
+              'shipit': '/uploads/default/shipit.png',
+            }),
+            200,
+          );
+        }),
+      );
+
+      final emojis = await api.customEmojis(siteUrl: 'https://example.com');
+
+      expect(paths, ['/site/custom_emojis.json']);
+      expect(emojis, {
+        'party_blob': 'https://example.com/uploads/party.png',
+        'shipit': '/uploads/default/shipit.png',
+      });
+    });
+
+    test('reads a payload shaped as a list of entries', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode([
+              {'name': 'party_blob', 'url': 'https://example.com/u/p.png'},
+              // Malformed rows are dropped rather than read loosely.
+              {'name': 'no_url'},
+              'not a row',
+            ]),
+            200,
+          ),
+        ),
+      );
+
+      final emojis = await api.customEmojis(siteUrl: 'https://example.com');
+
+      expect(emojis, {'party_blob': 'https://example.com/u/p.png'});
+    });
+
+    test('an answer it cannot read is a failure, not an empty map', () async {
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('nope', 500)),
+      );
+
+      expect(
+        () => api.customEmojis(siteUrl: 'https://example.com'),
+        throwsA(isA<SiteLookupException>()),
+      );
+    });
+  });
+
   group('toggleReaction', () {
     Map<String, dynamic> reacted() => {
       'id': 1,

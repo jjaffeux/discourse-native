@@ -119,8 +119,9 @@ class SiteConfig {
   /// a build constant with no JSON endpoint to read it from — it busts caches
   /// and nothing else, and `EmojiCache` is the cache here.
   ///
-  /// Custom emoji are uploads and are not at this address. They 404 here, which
-  /// is what tells the caller to go looking for them.
+  /// Custom emoji are uploads and are not at this address — they would 404
+  /// here. Callers go through `ShellController.emojiUrlFor`, which consults
+  /// the site's own map of them before falling back to this.
   String emojiUrl(String name, {required String siteUrl}) {
     final base = externalEmojiUrl ?? '$siteUrl/images/emoji';
     return '$base/$emojiSet/${_toned(name)}.png';
@@ -139,12 +140,21 @@ class SiteConfig {
   /// The two settings are independent, and the default pair leaves `heart` —
   /// the default main reaction — out of the offered list entirely. A picker
   /// that cannot offer the site's own like would be a strange thing to draw.
+  ///
+  /// Accepts a pipe-separated string or a list, and treats anything else as
+  /// empty rather than throwing: a decode failure here costs the caller an
+  /// attempt, and after enough of those the site is drawn as core for the
+  /// rest of the session.
   static List<String> _offered(Object? raw, String? main) {
-    final listed = ((raw as String?) ?? '')
-        .split('|')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+    final parts = switch (raw) {
+      final String text => text.split('|'),
+      final List<dynamic> list => [for (final item in list) '$item'],
+      _ => const <String>[],
+    };
+    final listed = [
+      for (final part in parts)
+        if (part.trim().isNotEmpty) part.trim(),
+    ];
     if (main == null || listed.contains(main)) return listed;
     return [main, ...listed];
   }

@@ -27,7 +27,9 @@ import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
@@ -662,6 +664,22 @@ void main() {
         1,
         reason: 'cached lists should not be refetched',
       );
+    });
+
+    testWidgets('tapping the destination on screen asks for it again', (
+      tester,
+    ) async {
+      // A mouse cannot pull to refresh, so the destination is its own
+      // affordance: tapping what is already there re-fetches the list.
+      final api = FakeDiscourseApi(feeds: {'/latest.json': latest});
+
+      await pumpShell(tester, desktop, api: api);
+      expect(api.feedPaths, ['/latest.json']);
+
+      await tester.tap(sidebarDestination('Topics'));
+      await tester.pumpAndSettle();
+
+      expect(api.feedPaths, ['/latest.json', '/latest.json']);
     });
 
     testWidgets('unread topics carry a count', (tester) async {
@@ -3877,6 +3895,7 @@ void main() {
       bool canAct = true,
       bool canUndo = false,
       bool plugin = true,
+      bool canEdit = false,
     }) => Post.fromJson({
       'id': id,
       'post_number': id,
@@ -3884,6 +3903,7 @@ void main() {
       // The first post keeps the body every other group uses, so `hoverPost`
       // finds it the same way.
       'cooked': id == 1 ? '<p>First post body</p>' : '<p>Post $id body</p>',
+      if (canEdit) 'can_edit': true,
       'actions_summary': [
         {
           'id': 2,
@@ -3908,6 +3928,7 @@ void main() {
       WidgetTester tester, {
       required List<Post> posts,
       SiteConfig? config,
+      Map<String, String> customEmojis = const {},
       Map<String, PostReactors> reactorsById = const {},
       Map<int, Post> postsById = const {},
       Map<int, Post> reactionResponses = const {},
@@ -3926,6 +3947,9 @@ void main() {
           ),
         },
         siteConfigs: config == null ? const {} : {site: config},
+        customEmojisBySite: customEmojis.isEmpty
+            ? const {}
+            : {site: customEmojis},
         postsById: postsById,
         reactorsById: reactorsById,
         reactionResponses: reactionResponses,
@@ -3994,6 +4018,39 @@ void main() {
 
       expect(find.byType(PostLikes), findsOneWidget);
       expect(find.byType(ReactionsRow), findsNothing);
+    });
+
+    testWidgets('a custom emoji is drawn from its upload, not the set', (
+      tester,
+    ) async {
+      // Custom emoji are uploads: they 404 at the set's address, which is
+      // what used to leave the pill drawing its name as text. The site's own
+      // map is what knows where they live.
+      const upload = 'https://meta.discourse.org/uploads/default/party.png';
+      await openTopic(
+        tester,
+        config: configured,
+        customEmojis: const {'party_blob': upload},
+        posts: [
+          post(reactions: [(id: 'party_blob', count: 1)], userCount: 1),
+        ],
+      );
+
+      expect(find.byType(ReactionsRow), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is EmojiImage && widget.url == upload,
+        ),
+        findsOneWidget,
+      );
+      // And nothing asks the set for it — that request would 404.
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is EmojiImage && widget.url.contains('/images/emoji/'),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('the menu offers a reaction and never a like', (tester) async {
@@ -4172,6 +4229,130 @@ void main() {
 
       // Taking one back is one tap; the picker is not involved.
       expect(api.reacted, [(postId: 1, reaction: 'clap')]);
+    });
+
+    testWidgets('a reaction can be picked from the grid', (tester) async {
+      // The main reaction is not the only one a site allows, and the menu's
+      // toggle can only give it or take back what is held — the grid is where
+      // the rest are chosen.
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [post()],
+      );
+
+      await hoverPost(tester);
+      await tester.tap(find.byTooltip('Pick a reaction'));
+      await tester.pumpAndSettle();
+
+      // The site's list, main reaction first: heart, +1, clap.
+      final cells = find.descendant(
+        of: find.byType(ReactionGrid),
+        matching: find.byType(InkWell),
+      );
+      expect(cells, findsNWidgets(3));
+
+      await tester.tap(cells.at(1));
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, [(postId: 1, reaction: '+1')]);
+      expect(pill('1'), findsOneWidget);
+    });
+
+    testWidgets('the write answer updates the reader and not the counts', (
+      tester,
+    ) async {
+      // The plugin builds `reactions` one way for a read and another for a
+      // write, and the write's copy drops reactions whose emoji no longer
+      // exists — so its counts are not the row's. Only what the answer says
+      // about this reader is taken.
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(reactions: [(id: 'heart', count: 2)], userCount: 2),
+        ],
+        reactionResponses: {
+          1: post(
+            reactions: [(id: 'heart', count: 9)],
+            mine: 'heart',
+            userCount: 9,
+            canUndo: true,
+            canAct: false,
+          ),
+        },
+      );
+
+      final gesture = await hoverPost(tester);
+      await tester.tap(find.byTooltip('Like this post'));
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, [(postId: 1, reaction: 'heart')]);
+      // The pill keeps the count it was drawn with — the optimistic one — and
+      // never shows the nine the write's answer carries.
+      expect(pill('3'), findsOneWidget);
+      expect(pill('9'), findsNothing);
+
+      // What the answer says about the reader stands: the menu names the
+      // reaction they now hold.
+      await gesture.moveTo(tester.getCenter(renderedText('First post body')));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Remove your heart reaction'), findsOneWidget);
+    });
+
+    testWidgets('editing a post you reacted to leaves the reaction alone', (
+      tester,
+    ) async {
+      // The edit answer is serialized without the reader's post actions, and
+      // for the plugin that means the reaction itself: taken literally it
+      // would swap the footer back to the like one — whose heart writes
+      // through a route that destroys the reaction.
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(
+            reactions: [(id: 'clap', count: 1)],
+            mine: 'clap',
+            userCount: 1,
+            canUndo: true,
+            canAct: false,
+            canEdit: true,
+          ),
+        ],
+        postsById: {
+          1: const Post(
+            id: 1,
+            postNumber: 1,
+            username: 'sam',
+            cooked: '<p>First post body</p>',
+            canEdit: true,
+            raw: 'First post body',
+          ),
+        },
+      );
+
+      final gesture = await hoverPost(tester);
+      await tester.tap(find.byTooltip('Edit this post'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'First post body!');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(api.updated, hasLength(1));
+      expect(renderedText('First post body!'), findsOneWidget);
+      // The reaction survived the typo fix: the row, its count, and what the
+      // menu names.
+      expect(find.byType(ReactionsRow), findsOneWidget);
+      expect(pill('1'), findsOneWidget);
+
+      await gesture.moveTo(
+        tester.getCenter(renderedText('First post body!')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Remove your clap reaction'), findsOneWidget);
     });
 
     testWidgets('resting on a pill says who gave that one', (tester) async {

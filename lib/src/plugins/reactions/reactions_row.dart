@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../models/post.dart';
-import '../../models/site_config.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/emoji.dart';
 import '../../shell/hover_panel.dart';
@@ -123,7 +122,6 @@ class _ReactionPillState extends State<ReactionPill> {
     final theme = Theme.of(context);
     final controller = ShellScope.of(context);
     final siteUrl = controller.currentInstance?.url ?? '';
-    final config = controller.currentSiteConfig;
 
     return GestureDetector(
       // Long press is the touch way in. The post underneath opens its own
@@ -163,10 +161,7 @@ class _ReactionPillState extends State<ReactionPill> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     EmojiImage(
-                      url: config.emojiUrl(
-                        widget.reaction.id,
-                        siteUrl: siteUrl,
-                      ),
+                      url: controller.emojiUrlFor(siteUrl, widget.reaction.id),
                       size: 16,
                       alt: ':${widget.reaction.id}:',
                       style: theme.textTheme.labelSmall,
@@ -253,7 +248,6 @@ class ReactorList extends StatelessWidget {
           context,
           controller.reactions,
           controller.currentInstance?.url ?? '',
-          controller.currentSiteConfig,
         ),
       ),
     );
@@ -263,7 +257,6 @@ class ReactorList extends StatelessWidget {
     BuildContext context,
     ReactionsController reactions,
     String siteUrl,
-    SiteConfig config,
   ) {
     final theme = Theme.of(context);
     final held = reactions.reactors(siteUrl, post.id, filter: filter);
@@ -305,7 +298,7 @@ class ReactorList extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (final reactor in held.reactors)
-            _ReactorRow(reactor: reactor, siteUrl: siteUrl, config: config),
+            _ReactorRow(reactor: reactor, siteUrl: siteUrl),
           if (hidden > 0)
             Padding(
               padding: const EdgeInsets.only(top: 6, left: 2),
@@ -323,19 +316,15 @@ class ReactorList extends StatelessWidget {
 }
 
 class _ReactorRow extends StatelessWidget {
-  const _ReactorRow({
-    required this.reactor,
-    required this.siteUrl,
-    required this.config,
-  });
+  const _ReactorRow({required this.reactor, required this.siteUrl});
 
   final PostReactor reactor;
   final String siteUrl;
-  final SiteConfig config;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final controller = ShellScope.of(context);
 
     return UserCardTarget(
       username: reactor.username,
@@ -379,7 +368,7 @@ class _ReactorRow extends StatelessWidget {
             // one, because the sheet's title is a count rather than a picture.
             const SizedBox(width: 8),
             EmojiImage(
-              url: config.emojiUrl(reactor.reaction, siteUrl: siteUrl),
+              url: controller.emojiUrlFor(siteUrl, reactor.reaction),
               size: 14,
               alt: ':${reactor.reaction}:',
               style: theme.textTheme.labelSmall,

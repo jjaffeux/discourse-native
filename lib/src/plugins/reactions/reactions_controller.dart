@@ -32,6 +32,13 @@ class ReactionsController extends ChangeNotifier {
   final Set<String> _loading = {};
   final Map<String, String> _errors = {};
 
+  /// Bumped per site on [forget], so a fetch in flight when a site was
+  /// disconnected can tell on arrival that the store it fetched for has been
+  /// emptied since, and put nothing back into it.
+  final Map<String, int> _siteEpochs = {};
+
+  int _siteEpoch(String siteUrl) => _siteEpochs[siteUrl] ?? 0;
+
   bool _disposed = false;
 
   static String _key(String siteUrl, int postId, String? filter) =>
@@ -59,6 +66,7 @@ class ReactionsController extends ChangeNotifier {
   }) async {
     final key = _key(siteUrl, postId, filter);
     if (!_loading.add(key)) return;
+    final epoch = _siteEpoch(siteUrl);
     _notify();
 
     try {
@@ -73,10 +81,13 @@ class ReactionsController extends ChangeNotifier {
         apiKey: await authenticator.apiKeyFor(siteUrl),
         clientId: await authenticator.clientId(),
       );
-      if (_disposed) return;
+      // A disconnect in flight empties the store; the epoch says whether one
+      // happened while this was away.
+      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
       store.put(siteUrl, fetched);
       _errors.remove(key);
     } catch (_) {
+      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
       // Names already on screen are better than an error where they were: they
       // were true a moment ago, and the next open asks again.
       if (reactors(siteUrl, postId, filter: filter) == null) {
@@ -91,10 +102,12 @@ class ReactionsController extends ChangeNotifier {
   /// Forgets what was being asked for one site, for a disconnect.
   ///
   /// The lists themselves are the [Store]'s to forget; these are only the
-  /// questions in flight.
+  /// questions in flight. Bumping the epoch is what tells an answer still on
+  /// its way that it arrives too late.
   void forget(String siteUrl) {
     _loading.removeWhere((key) => key.startsWith('$siteUrl~'));
     _errors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _siteEpochs[siteUrl] = _siteEpoch(siteUrl) + 1;
   }
 
   /// No scheduler-phase guard, unlike `ShellController._notify`. Everything

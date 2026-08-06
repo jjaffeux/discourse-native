@@ -115,9 +115,11 @@ bookmark on something this app has never heard of still opens.
 `DiscourseApi.topicList(path:)`. `messages` is the exception only in that its
 path is named after the account, so signed out it falls back to the placeholder.
 
-Lists are cached per site and destination — revisiting one does not refetch;
-pull-to-refresh forces it. They work signed out too, since `/latest.json` is
-public; unread state simply arrives as zero.
+Lists are cached per site and destination — revisiting one does not refetch.
+Two things force it anyway: pull-to-refresh, and tapping the destination you
+are already looking at — the second exists because a mouse cannot pull, and a
+desktop list would otherwise be session-stale. They work signed out too, since
+`/latest.json` is public; unread state simply arrives as zero.
 
 Two things the payload makes you handle:
 
@@ -262,11 +264,11 @@ Three things about the connection:
   on screen is polling — the web only ever has one site, and a long poll per
   site in the rail is a held connection per site. Cursors survive being
   stopped, so returning to a site asks for what it published while it was away.
-- **It is paced off the app lifecycle.** `DiscourseApp` maps `paused` and
-  `detached` — and only those; `inactive` fires for the app switcher — onto
-  `ShellController.setForeground`, which is wired to the client's
-  `shouldLongPoll` and `pollNow`. Without it a backgrounded app holds a
-  connection open that is usually dead by the time it comes back.
+- **It is paced off the app lifecycle.** `DiscourseApp` maps `hidden`,
+  `paused` and `detached` onto `ShellController.setForeground`, which is
+  wired to the client's `shouldLongPoll` and `pollNow`. `inactive` is left
+  out because it fires for the app switcher. Without it a backgrounded app
+  holds a connection open that is usually dead by the time it comes back.
 - **No new consent is involved.** `POST /message-bus/*/poll` is inside the
   `notifications` scope this app already asks for, which `RouteMatcher`
   special-cases since it is not a Rails route. The poll carries `User-Api-Key`
@@ -481,7 +483,10 @@ Reactions need the other direction — a name, not a `src` — which is
 site}/images/emoji/{emoji_set}/{name}.png`, with a `:tN` tone suffix becoming a
 `/N` path segment. The `?v=` core appends is a build constant with no JSON
 endpoint to read it from; it busts caches and nothing else, and `EmojiCache` is
-the cache here.
+the cache here. Custom emoji are the exception: they are uploads, and 404 at
+that address, so the controller consults the site's own map of them
+(`/site/custom_emojis.json`, fetched beside the settings) before falling back
+to it.
 
 ### Links
 

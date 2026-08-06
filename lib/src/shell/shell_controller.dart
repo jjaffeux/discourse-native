@@ -489,8 +489,11 @@ class ShellController extends ChangeNotifier {
     _feedRows.remove(key);
     // And whatever was announced as incoming is about to arrive in the response
     // rather than needing a banner to fetch it. Cleared before the request, not
-    // after, so a topic created while it is in flight still counts.
-    _trackers[instance.url]?.incoming.reset(destinationId);
+    // after, so a topic created while it is in flight still counts — and put
+    // back if the request fails, since the announcement is still owed then.
+    final tracker = _trackers[instance.url];
+    final announced = tracker?.incoming.topicIds(destinationId) ?? const [];
+    tracker?.incoming.reset(destinationId);
     _feeds[key] = const TopicFeed.loading();
     _notify();
 
@@ -504,12 +507,14 @@ class ShellController extends ChangeNotifier {
       store.putAll(instance.url, list.topics);
       _feeds[key] = TopicFeed.of(list);
     } on SiteLookupException catch (e) {
+      tracker?.incoming.restore(destinationId, announced);
       _feeds[key] = TopicFeed.failed(
         e.failure == SiteLookupFailure.notDiscourse
             ? 'Not allowed — try reconnecting to ${instance.host}.'
             : "Couldn't reach ${instance.host}.",
       );
     } catch (_) {
+      tracker?.incoming.restore(destinationId, announced);
       _feeds[key] = TopicFeed.failed("Couldn't load ${instance.host}.");
     }
     _notify();
@@ -893,6 +898,9 @@ class ShellController extends ChangeNotifier {
   void openTopic(Topic topic) => _openTopic(topic.id, topic.slug, topic.title);
 
   void _openTopic(int topicId, String slug, String title) {
+    // A fast double tap on a row pushes the same topic twice — the fetch is
+    // deduped below, but the second route still costs a back tap.
+    if (currentContent?.topicId == topicId) return;
     pushContent(ContentRoute.topic(topicId: topicId, slug: slug, title: title));
     unawaited(loadTopic(topicId, slug));
   }
@@ -948,6 +956,7 @@ class ShellController extends ChangeNotifier {
     // the first thing that needs any of this, so a site whose topics are never
     // opened is never asked.
     unawaited(_ensureSiteConfig(instance));
+    unawaited(_ensureCustomEmojis(instance));
 
     final key = _topicKey(instance.url, topicId);
     if (_topicsLoading.contains(key)) return;
@@ -1262,7 +1271,12 @@ class ShellController extends ChangeNotifier {
     }
 
     final liked = !post.liked;
-    store.put(siteUrl, post.withLike(liked));
+    // A transform of whatever is held now rather than a put of the tapped
+    // copy, for the reason `_writeReaction` gives: the keychain await above
+    // is a gap a re-read can land in. The guess is usually corrected by the
+    // site's full answer, but an answer of 204 brings nothing, so a stale
+    // snapshot put here would stand.
+    store.update<Post>(siteUrl, post.id, (held) => held.withLike(liked));
     _notify();
 
     /// Puts the like back the way it was, and nothing else.
@@ -1344,15 +1358,25 @@ class ShellController extends ChangeNotifier {
     final held = post.reactions;
     if (held == null) return null;
 
-    store.put(
+    // A transform of whatever is held now, not a put of the tapped copy: the
+    // keychain await above is a window an edit or a re-read can land in, and
+    // putting the whole stale snapshot back would undo it — and unlike a
+    // like, whose success path puts the site's full answer over the guess, a
+    // reaction's answer is merged selectively and could never heal that.
+    store.update<Post>(
       siteUrl,
-      post.withPlugins(
-        post.plugins.withValue<Reactions>(
-          held
-              .withToggled(reaction)
-              .withMainReaction(siteConfigFor(siteUrl).mainReaction),
-        ),
-      ),
+      post.id,
+      (current) {
+        final reactions = current.reactions;
+        if (reactions == null) return current;
+        return current.withPlugins(
+          current.plugins.withValue<Reactions>(
+            reactions
+                .withToggled(reaction)
+                .withMainReaction(siteConfigFor(siteUrl).mainReaction),
+          ),
+        );
+      },
     );
     _notify();
 
@@ -1423,6 +1447,14 @@ class ShellController extends ChangeNotifier {
 
   static String _likersKey(String siteUrl, int postId) => '$siteUrl~$postId';
 
+  /// Bumped whenever a site is forgotten, so a fetch in flight at that moment
+  /// can tell on arrival that the store it fetched for has been emptied since
+  /// — and put nothing back into it, rather than resurrecting one record of
+  /// what a disconnect just dropped.
+  final Map<String, int> _siteEpochs = {};
+
+  int _siteEpoch(String siteUrl) => _siteEpochs[siteUrl] ?? 0;
+
   /// Who liked a post, once the list has been asked for and arrived.
   PostLikers? likers(int postId) {
     final instance = currentInstance;
@@ -1452,31 +1484,37 @@ class ShellController extends ChangeNotifier {
     final instance = currentInstance;
     if (instance == null) return;
 
-    final key = _likersKey(instance.url, postId);
+    final siteUrl = instance.url;
+    final key = _likersKey(siteUrl, postId);
     if (!_likersLoading.add(key)) return;
     _likersErrors.remove(key);
     _notify();
 
+    final epoch = _siteEpoch(siteUrl);
     try {
-      store.put(
-        instance.url,
-        await api.postLikers(
-          siteUrl: instance.url,
-          postId: postId,
-          // Read inside the guard, not before it: a keychain that refuses —
-          // an unsigned macOS build answers `errSecMissingEntitlement` —
-          // would otherwise leave the key in [_likersLoading] for the rest of
-          // the session, and every later hover would find a fetch in flight
-          // that is not.
-          apiKey: await authenticator.apiKeyFor(instance.url),
-        ),
+      final fetched = await api.postLikers(
+        siteUrl: siteUrl,
+        postId: postId,
+        // Read inside the guard, not before it: a keychain that refuses —
+        // an unsigned macOS build answers `errSecMissingEntitlement` —
+        // would otherwise leave the key in [_likersLoading] for the rest of
+        // the session, and every later hover would find a fetch in flight
+        // that is not.
+        apiKey: await authenticator.apiKeyFor(siteUrl),
       );
+      // A disconnect in flight empties the store; the epoch says whether one
+      // happened while this was away.
+      if (epoch == _siteEpoch(siteUrl)) store.put(siteUrl, fetched);
     } on SiteLookupException catch (e) {
-      _likersErrors[key] = e.failure == SiteLookupFailure.notDiscourse
-          ? "Couldn't see who liked this."
-          : "Couldn't reach ${instance.host}.";
+      if (epoch == _siteEpoch(siteUrl)) {
+        _likersErrors[key] = e.failure == SiteLookupFailure.notDiscourse
+            ? "Couldn't see who liked this."
+            : "Couldn't reach ${instance.host}.";
+      }
     } catch (_) {
-      _likersErrors[key] = "Couldn't load who liked this.";
+      if (epoch == _siteEpoch(siteUrl)) {
+        _likersErrors[key] = "Couldn't load who liked this.";
+      }
     }
     _likersLoading.remove(key);
     _notify();
@@ -1574,10 +1612,16 @@ class ShellController extends ChangeNotifier {
   /// Closes the composer, keeping the draft.
   ///
   /// Closing is how you get the topic back, not how you throw a reply away —
-  /// reopening restores what was written.
+  /// reopening restores what was written. A pending draft is flushed first,
+  /// for the same reason [_replaceComposer] flushes: the save is debounced, so
+  /// disposing outright throws away the last couple of seconds of typing.
   void closeComposer() {
-    if (_composer == null) return;
-    _composer!.dispose();
+    final composer = _composer;
+    if (composer == null) return;
+    if (composer.draftPending) {
+      unawaited(_saveDraft(composer).catchError((_) {}));
+    }
+    composer.dispose();
     _composer = null;
     _notify();
   }
@@ -1601,6 +1645,10 @@ class ShellController extends ChangeNotifier {
     final data = composer.draft.encode();
 
     await drafts.write(target.siteUrl, target.draftKey, data);
+
+    // After the sync has given up, the local copy above is the whole save:
+    // the site is not asked again, and the copy is not cleared.
+    if (composer.draftsGaveUp) return;
 
     final apiKey = await authenticator.apiKeyFor(target.siteUrl);
     if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
@@ -1672,13 +1720,16 @@ class ShellController extends ChangeNotifier {
 
     if (target.isEdit) return _submitEdit(composer, target, raw);
 
+    // Before any await: the keychain round trip below is a gap a second tap
+    // can pass through, and a create sent twice posts twice — unlike an edit,
+    // nothing undoes that.
+    composer.beginSubmit();
+
     final apiKey = await authenticator.apiKeyFor(target.siteUrl);
     if (apiKey == null) {
       composer.failed(const WriteException(WriteFailure.forbidden));
       return;
     }
-
-    composer.beginSubmit();
     final PostCreation creation;
     try {
       creation = await api.createPost(
@@ -1747,16 +1798,21 @@ class ShellController extends ChangeNotifier {
       return;
     }
 
-    // Everything the edit says about the post, except what it says about
-    // likes — which is nothing, however confidently it is phrased.
+    // Everything the edit says about the post, except what it says about what
+    // this reader did — which is nothing, however confidently it is phrased.
     // `PostsController#update` serializes without the reader's own post
     // actions, so `actions_summary` comes back with no `acted` and a
     // `can_act: true` that is simply wrong on a post they have already liked.
-    // Taken literally it would empty the heart of anyone who fixes a typo.
+    // Taken literally it would empty the heart of anyone who fixes a typo. The
+    // plugins' view of the reader is absent the same way, and on a reactions
+    // site dropping it would swap the footer back to the like one — whose
+    // heart then writes through a route that destroys the reaction.
     final held = store.read<Post>(target.siteUrl, updated.id);
     store.put(
       target.siteUrl,
-      held == null ? updated : updated.withLikesOf(held),
+      held == null
+          ? updated
+          : updated.withLikesOf(held).withPluginsOf(held),
     );
 
     if (identical(_composer, composer)) {
@@ -1943,13 +1999,16 @@ class ShellController extends ChangeNotifier {
   final Map<String, String> _userCardErrors = {};
 
   static String _userKey(String siteUrl, String username) =>
-      '$siteUrl@$username';
+      '$siteUrl@${username.toLowerCase()}';
 
   /// The card for [username] on the current site, once it has arrived.
+  ///
+  /// Read under the lowercased name, the way [UserCard.storeId] files it —
+  /// the requested casing and the payload's are not reliably the same.
   UserCard? userCard(String username) {
     final instance = currentInstance;
     if (instance == null) return null;
-    return store.read<UserCard>(instance.url, username);
+    return store.read<UserCard>(instance.url, username.toLowerCase());
   }
 
   bool userCardLoading(String username) {
@@ -1974,32 +2033,48 @@ class ShellController extends ChangeNotifier {
 
     final key = _userKey(instance.url, username);
     if (_userCardsLoading.contains(key)) return;
-    if (store.read<UserCard>(instance.url, username) != null && !force) return;
+    if (store.read<UserCard>(instance.url, username.toLowerCase()) != null &&
+        !force) {
+      return;
+    }
 
     _userCardsLoading.add(key);
     _userCardErrors.remove(key);
     _notify();
 
-    final apiKey = await authenticator.apiKeyFor(instance.url);
+    final siteUrl = instance.url;
+    final epoch = _siteEpoch(siteUrl);
     try {
-      store.put(
-        instance.url,
-        await api.userCard(
-          siteUrl: instance.url,
-          username: username,
-          apiKey: apiKey,
-        ),
+      final card = await api.userCard(
+        siteUrl: siteUrl,
+        username: username,
+        // Read inside the guard, the way `loadLikers` does: a keychain that
+        // throws would otherwise strand the key in [_userCardsLoading].
+        apiKey: await authenticator.apiKeyFor(siteUrl),
       );
+      // A disconnect in flight empties the store; the epoch says whether one
+      // happened while this was away.
+      if (epoch == _siteEpoch(siteUrl)) store.put(siteUrl, card);
     } on SiteLookupException catch (e) {
-      _userCardErrors[key] = e.failure == SiteLookupFailure.notDiscourse
-          ? "Couldn't see that profile."
-          : "Couldn't reach ${instance.host}.";
+      if (epoch == _siteEpoch(siteUrl)) {
+        _userCardErrors[key] = e.failure == SiteLookupFailure.notDiscourse
+            ? "Couldn't see that profile."
+            : "Couldn't reach ${instance.host}.";
+      }
     } catch (_) {
-      _userCardErrors[key] = "Couldn't load @$username.";
+      if (epoch == _siteEpoch(siteUrl)) {
+        _userCardErrors[key] = "Couldn't load @$username.";
+      }
     }
     _userCardsLoading.remove(key);
     _notify();
   }
+
+  /// Pages in flight by feed key. The feed's own [TopicFeed.loadingMore]
+  /// drives the footer, but a forced refresh replaces the feed mid-flight,
+  /// and its fresh copy starts with the flag down — so the flag alone would
+  /// let a second page for the same list start before the first has landed.
+  final Set<String> _feedPagesLoading = {};
 
   /// Appends the next page, if there is one and nothing is already in flight.
   Future<void> loadMoreFeed(String destinationId) async {
@@ -2009,6 +2084,7 @@ class ShellController extends ChangeNotifier {
     final key = _feedKey(instance.url, destinationId);
     final feed = _feeds[key];
     if (feed == null || feed.loadingMore || !feed.hasMore) return;
+    if (!_feedPagesLoading.add(key)) return;
 
     _feeds[key] = feed.copyWith(loadingMore: true);
     _notify();
@@ -2023,24 +2099,34 @@ class ShellController extends ChangeNotifier {
 
       store.putAll(instance.url, next.topics);
 
-      // A topic bumped between page fetches shifts the window and comes back
-      // on the next page too, so drop anything already held.
-      final seen = feed.topicIds.toSet();
-      final fresh = [
-        for (final topic in next.topics)
-          if (!seen.contains(topic.id)) topic.id,
-      ];
+      // Read again rather than reusing `feed`, for the reason `showIncoming`
+      // does: a refresh or an incoming prepend may have replaced it while the
+      // page was in flight, and merging into the pre-await snapshot would
+      // resurrect the stale list over the fresh one.
+      final held = _feeds[key];
+      if (held != null) {
+        // A topic bumped between page fetches shifts the window and comes back
+        // on the next page too, so drop anything already held.
+        final seen = held.topicIds.toSet();
+        final fresh = [
+          for (final topic in next.topics)
+            if (!seen.contains(topic.id)) topic.id,
+        ];
 
-      _feeds[key] = feed.copyWith(
-        topicIds: [...feed.topicIds, ...fresh],
-        loadingMore: false,
-        nextPagePath: next.nextPagePath,
-        // No further page, or a page that added nothing: stop asking.
-        clearNextPage: next.nextPagePath == null || fresh.isEmpty,
-      );
+        _feeds[key] = held.copyWith(
+          topicIds: [...held.topicIds, ...fresh],
+          loadingMore: false,
+          nextPagePath: next.nextPagePath,
+          // No further page, or a page that added nothing: stop asking.
+          clearNextPage: next.nextPagePath == null || fresh.isEmpty,
+        );
+      }
     } catch (_) {
       // Keep what is already on screen; the footer just stops spinning.
-      _feeds[key] = feed.copyWith(loadingMore: false);
+      final held = _feeds[key];
+      if (held != null) _feeds[key] = held.copyWith(loadingMore: false);
+    } finally {
+      _feedPagesLoading.remove(key);
     }
     _notify();
   }
@@ -2051,9 +2137,42 @@ class ShellController extends ChangeNotifier {
   /// asked a few times and then left alone.
   final Map<String, int> _configAttempts = {};
 
+  /// Sites whose settings are being asked for right now. The attempt count
+  /// bounds *sequential* retries; this is what keeps two topics opened at
+  /// once from asking at the same time.
+  final Set<String> _configsLoading = {};
+
   /// Enough to survive a dropped connection or two without turning every topic
   /// open on an unreachable site into a wasted request.
   static const int _maxConfigAttempts = 3;
+
+  /// The emoji a site uploaded itself, by name — see [DiscourseApi.customEmojis].
+  ///
+  /// Not persisted the way [SiteConfig] is: it only matters to reaction rows,
+  /// and a topic carrying reactions is never drawn before this has had the
+  /// same chance to arrive as the config has.
+  final Map<String, Map<String, String>> _customEmojis = {};
+
+  /// Sites whose custom emoji are being asked for right now — the same
+  /// distinction `_configsLoading` makes for settings, and for the same
+  /// reason.
+  final Set<String> _customEmojisLoading = {};
+
+  /// How many times a site has refused to answer for them, bounded the way
+  /// `_configAttempts` is.
+  final Map<String, int> _customEmojiAttempts = {};
+
+  /// Where the artwork for one emoji lives on a site: the upload's own
+  /// address when it is one, otherwise the address the settings build.
+  ///
+  /// Custom emoji 404 at the set's address, so without this map a site whose
+  /// reactions include them draws the names as text — pills, picker cells and
+  /// menu icons alike.
+  String emojiUrlFor(String siteUrl, String name) {
+    final custom = _customEmojis[siteUrl]?[name];
+    if (custom != null) return absoluteUrl(custom);
+    return siteConfigFor(siteUrl).emojiUrl(name, siteUrl: siteUrl);
+  }
 
   /// What a site's client settings said, or core's defaults where it has not
   /// answered. Never null, and never a loading state — see [SiteConfig].
@@ -2084,13 +2203,20 @@ class ShellController extends ChangeNotifier {
   Future<void> _ensureSiteConfig(DiscourseInstance instance) async {
     final siteUrl = instance.url;
     if (_configs.containsKey(siteUrl)) return;
+    // Two topics opened at once both reach here; the second lets the first's
+    // fetch answer for both rather than asking a second time.
+    if (!_configsLoading.add(siteUrl)) return;
 
     final attempts = _configAttempts[siteUrl] ?? 0;
-    if (attempts >= _maxConfigAttempts) return;
-    // Counted before the request rather than after it, so two topics opened at
-    // once cannot both see zero and both spend an attempt for nothing.
+    if (attempts >= _maxConfigAttempts) {
+      _configsLoading.remove(siteUrl);
+      return;
+    }
+    // Counted before the request rather than after it, so a failure is already
+    // paid for when the next topic open asks again.
     _configAttempts[siteUrl] = attempts + 1;
 
+    final epoch = _siteEpoch(siteUrl);
     final SiteConfig config;
     try {
       config = await api.siteConfig(
@@ -2102,9 +2228,14 @@ class ShellController extends ChangeNotifier {
       // A site that will not say how it draws its emoji is drawn as core, which
       // is what every field of SiteConfig already says. Nothing to report.
       return;
+    } finally {
+      _configsLoading.remove(siteUrl);
     }
 
-    if (_disposed) return;
+    // A disconnect in flight drops settings deliberately — on a `login_required`
+    // site they were only readable as the account that just left — so an answer
+    // that arrives after one must not resurrect them.
+    if (_disposed || epoch != _siteEpoch(siteUrl)) return;
     _configs[siteUrl] = config;
     _notify();
 
@@ -2115,6 +2246,41 @@ class ShellController extends ChangeNotifier {
     if (held == null || held.config == config) return;
     _replaceInstance(held, held.copyWith(config: config));
     await instanceStore.save(_instances);
+  }
+
+  /// Fetches the emoji the site uploaded itself, asked for where settings
+  /// are and bounded the same way: the first thing to need either is a topic
+  /// being read, and a site that will not answer is not asked on every open.
+  Future<void> _ensureCustomEmojis(DiscourseInstance instance) async {
+    final siteUrl = instance.url;
+    if (_customEmojis.containsKey(siteUrl)) return;
+    if (!_customEmojisLoading.add(siteUrl)) return;
+
+    final attempts = _customEmojiAttempts[siteUrl] ?? 0;
+    if (attempts >= _maxConfigAttempts) {
+      _customEmojisLoading.remove(siteUrl);
+      return;
+    }
+    _customEmojiAttempts[siteUrl] = attempts + 1;
+
+    final epoch = _siteEpoch(siteUrl);
+    try {
+      final emojis = await api.customEmojis(
+        siteUrl: siteUrl,
+        apiKey: await authenticator.apiKeyFor(siteUrl),
+        clientId: await authenticator.clientId(),
+      );
+      // An empty answer is an answer: a site with no custom emoji is not
+      // asked again either.
+      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
+      _customEmojis[siteUrl] = emojis;
+      _notify();
+    } catch (_) {
+      // Reactions keep being drawn at the set's address, which is right for
+      // every emoji but the uploaded ones. Nothing to report.
+    } finally {
+      _customEmojisLoading.remove(siteUrl);
+    }
   }
 
   /// Categories are fetched once per site; the topic rows need them to draw
@@ -2149,7 +2315,25 @@ class ShellController extends ChangeNotifier {
     _notify();
 
     try {
+      // Read before the handshake: connecting mints a fresh key and stores it
+      // over whatever was there.
+      final previousKey = await authenticator.apiKeyFor(instance.url);
+
       final credentials = await authenticator.connect(instance.url);
+
+      // Reconnecting over an existing key leaves the old one live in the
+      // account's authorized-apps list with nothing tying it back to this
+      // install, so revoke it the way a disconnect does. Best effort, for the
+      // reason `_revokeAndForget` tolerates failure: being offline must not
+      // stand in the way of connecting. The revocation cannot run before the
+      // handshake — backing out of the browser must not cost the key still in
+      // use.
+      if (previousKey != null) {
+        try {
+          await api.revokeApiKey(siteUrl: instance.url, apiKey: previousKey);
+        } catch (_) {}
+      }
+
       final user = await api.currentUser(
         siteUrl: instance.url,
         apiKey: credentials.key,
@@ -2236,9 +2420,18 @@ class ShellController extends ChangeNotifier {
     _notifications.remove(instance.url);
     _bookmarks.remove(instance.url);
     store.forget(instance.url);
+    // Tells whatever was fetching when this happened that the store it
+    // fetched for is gone, so its answer does not resurrect it.
+    _siteEpochs[instance.url] = _siteEpoch(instance.url) + 1;
+    _likersLoading.removeWhere((key) => key.startsWith('${instance.url}~'));
+    _likersErrors.removeWhere((key, _) => key.startsWith('${instance.url}~'));
+    _userCardsLoading.removeWhere((key) => key.startsWith('${instance.url}@'));
+    _userCardErrors.removeWhere((key, _) => key.startsWith('${instance.url}@'));
     _categorised.remove(instance.url);
     _configs.remove(instance.url);
     _configAttempts.remove(instance.url);
+    _customEmojis.remove(instance.url);
+    _customEmojiAttempts.remove(instance.url);
     reactions.forget(instance.url);
     _feeds.removeWhere((key, _) => key.startsWith('${instance.url}|'));
     // The key is baked into the poll headers, so the connection cannot outlive
@@ -2284,6 +2477,13 @@ class ShellController extends ChangeNotifier {
   }
 
   void selectDestination(SidebarDestination destination) {
+    // Tapping what you are already looking at asks for it again — the cache
+    // otherwise holds a list for the life of the session, and a mouse cannot
+    // pull to refresh. Only at the destination's root: a tap that is busy
+    // returning from a topic stays a return.
+    final refresh =
+        destination.id == _destinationId && _contentStack.length <= 1;
+
     _destinationId = destination.id;
     _contentStack
       ..clear()
@@ -2292,7 +2492,7 @@ class ShellController extends ChangeNotifier {
     _syncTopicChannels();
     _notify();
 
-    unawaited(loadFeed(destination.id));
+    unawaited(loadFeed(destination.id, force: refresh));
   }
 
   /// Replaces the main region with something deeper, keeping a way back.

@@ -523,9 +523,58 @@ class DiscourseApi {
       clientId: clientId,
     );
 
-    return SiteConfig.fromSettings(
-      jsonDecode(response.body) as Map<String, dynamic>,
+    try {
+      return SiteConfig.fromSettings(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      // A payload this cannot read is an answer it cannot use: report it the
+      // way every other failure here is reported, rather than letting a decode
+      // error escape the contract callers swallow by.
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+  }
+
+  /// The emoji artwork the site uploaded itself, by name.
+  ///
+  /// `SiteConfig.emojiUrl` can only build the address of an emoji from the
+  /// set it names — custom emoji are uploads, and live somewhere else
+  /// entirely. This map is the only thing that knows where; a name it does
+  /// not hold gets built the ordinary way.
+  ///
+  /// The payload has been seen in two shapes — an object of name to URL, and
+  /// a list of `{name, url}` entries — so both are read.
+  Future<Map<String, String>> customEmojis({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse('$siteUrl/site/custom_emojis.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
     );
+
+    try {
+      return switch (jsonDecode(response.body)) {
+        final Map<String, dynamic> byName => {
+          for (final entry in byName.entries)
+            if (entry.value is String) entry.key: entry.value as String,
+        },
+        final List<dynamic> list => {
+          for (final item in list)
+            if (item case {
+              'name': final String name,
+              'url': final String url,
+            })
+              name: url,
+        },
+        _ => const <String, String>{},
+      };
+    } catch (_) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
   }
 
   /// Categories, flattened — subcategories arrive nested but the topic rows

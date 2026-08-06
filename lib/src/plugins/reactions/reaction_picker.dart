@@ -97,7 +97,7 @@ class ReactionGrid extends StatelessWidget {
         for (final id in config.offeredReactions)
           _ReactionCell(
             id: id,
-            url: config.emojiUrl(id, siteUrl: siteUrl),
+            url: controller.emojiUrlFor(siteUrl, id),
             held: id == held,
             onTap: () {
               onPicked();

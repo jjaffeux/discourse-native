@@ -123,7 +123,12 @@ class DesktopUpdaterAdapter implements Updater {
     final controller = await _controllerFor(release.channel);
     final done = Completer<void>();
 
-    void onState() {
+    /// Completes [done] when the state is terminal, reports progress while it
+    /// is not. Run on every notification and once by hand after the download
+    /// is handed off: a controller already in a terminal state — a release
+    /// staged by an earlier, interrupted run — may never notify again, and
+    /// waiting on a notification that will not come would wait forever.
+    void observe() {
       switch (controller.state) {
         case du.UpdateDownloading(:final receivedBytes, :final totalBytes):
           if (totalBytes > 0) onProgress?.call(receivedBytes / totalBytes);
@@ -136,18 +141,20 @@ class DesktopUpdaterAdapter implements Updater {
       }
     }
 
-    controller.addListener(onState);
+    controller.addListener(observe);
     try {
       await controller.downloadUpdate();
       // downloadUpdate returns when it has handed off, not necessarily when
-      // the artifact is staged, so the terminal state is what we wait on.
+      // the artifact is staged, so the terminal state is what we wait on —
+      // reading it once first in case it is terminal already.
+      observe();
       await done.future;
     } on UpdateException {
       rethrow;
     } catch (e) {
       throw _translate(e);
     } finally {
-      controller.removeListener(onState);
+      controller.removeListener(observe);
     }
   }
 

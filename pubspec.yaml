@@ -58,7 +58,7 @@ dependencies:
   # anything that has to change without being asked — the incoming-topics
   # banner today, presence and post streams later — goes through this. Pure
   # Dart, and a git dependency only because it is not on pub.dev yet;
-  # pubspec.lock pins the commit. See lib/src/data/topic_tracker.dart.
+  # pubspec.lock pins the commit. See lib/src/data/site_tracker.dart.
   message_bus_client:
     git:
       url: https://github.com/jjaffeux/dart-message-bus.git

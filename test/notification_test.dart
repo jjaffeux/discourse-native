@@ -150,7 +150,10 @@ void main() {
             'username': 'joffreyj',
           },
         ).path,
-        '/u/joffreyj/messages/support',
+        // The inbox lives under `/messages/group/…` — the same shape the
+        // `groupMessageSummary` case builds, and the one Discourse's own
+        // router matches.
+        '/u/joffreyj/messages/group/support',
       );
     });
 

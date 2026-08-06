@@ -387,7 +387,10 @@ class ComposerController extends ChangeNotifier {
   }
 
   void _scheduleDraft() {
-    if (onSaveDraft == null || _draftsGaveUp || _disposed) return;
+    // Scheduled even once the remote sync has given up: the save then writes
+    // the local copy only — see `_saveDraft` — which is what the panel's
+    // "kept on this device only" promises.
+    if (onSaveDraft == null || _disposed) return;
     _draftTimer?.cancel();
 
     final last = _lastDraftSaveAt;
@@ -400,10 +403,21 @@ class ComposerController extends ChangeNotifier {
 
   Future<void> _saveDraft() async {
     final save = onSaveDraft;
-    if (_disposed || save == null || _draftsGaveUp) return;
+    if (_disposed || save == null) return;
 
     _draftTimer?.cancel();
     _lastDraftSaveAt = _now();
+
+    if (_draftsGaveUp) {
+      // The site is not being asked again, but the local copy is still
+      // written — the shell sees [draftsGaveUp] and stops after it. The
+      // status is left as it was: the site still does not have the text.
+      try {
+        await save(this);
+      } catch (_) {}
+      return;
+    }
+
     _draftStatus = DraftStatus.saving;
     _notify();
 

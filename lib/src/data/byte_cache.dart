@@ -26,12 +26,21 @@ abstract class ByteCache<T extends Object> {
   ByteCache({
     http.Client? client,
     this.maxConcurrent = 4,
+    this.maxEntries = 2000,
     this.retryAfter = const Duration(minutes: 2),
     this.timeout = const Duration(seconds: 10),
   }) : _client = client ?? http.Client();
 
   final http.Client _client;
   final int maxConcurrent;
+
+  /// How many results are held, least recently loaded first.
+  ///
+  /// The record `Store` is deliberately never evicted, because an evicted
+  /// record is a blank spot on screen; an evicted image just fetches itself
+  /// again the next time it is wanted, which is worth bounding the memory a
+  /// long-lived session reading busy sites would otherwise accumulate.
+  final int maxEntries;
 
   /// How long a *transient* failure is remembered. A rate limit is temporary,
   /// so caching it forever would leave images blank until the app restarts —
@@ -68,10 +77,31 @@ abstract class ByteCache<T extends Object> {
       _cache.remove(url);
       _transientFailures.remove(url);
     }
-    if (_cache.containsKey(url)) return Future.value(_cache[url]);
+    if (_cache.containsKey(url)) {
+      _touch(url);
+      return Future.value(_cache[url]);
+    }
+    // A failure evicted to make room is still a failure: the eviction freed
+    // the memory, not the rate limit that earned it.
+    if (_transientFailures.containsKey(url)) return Future.value(null);
     return _inFlight[url] ??= _fetch(url).whenComplete(() {
       _inFlight.remove(url);
     });
+  }
+
+  /// Moves [url] to the most recently loaded end, and makes room if needed.
+  void _put(String url, T? value) {
+    _cache.remove(url);
+    _cache[url] = value;
+    while (_cache.length > maxEntries) {
+      _cache.remove(_cache.keys.first);
+    }
+  }
+
+  void _touch(String url) {
+    if (!_cache.containsKey(url)) return;
+    final value = _cache.remove(url);
+    _cache[url] = value;
   }
 
   Future<T?> _fetch(String url) async {
@@ -90,14 +120,18 @@ abstract class ByteCache<T extends Object> {
         if (response.statusCode == 429 || response.statusCode >= 500) {
           _transientFailures[url] = DateTime.now();
         }
-        return _cache[url] = null;
+        _put(url, null);
+        return null;
       }
       _transientFailures.remove(url);
-      return _cache[url] = decode(response);
+      final decoded = decode(response);
+      _put(url, decoded);
+      return decoded;
     } catch (_) {
       // Offline or timed out: worth another go later.
       _transientFailures[url] = DateTime.now();
-      return _cache[url] = null;
+      _put(url, null);
+      return null;
     } finally {
       _release();
     }

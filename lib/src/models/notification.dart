@@ -181,7 +181,10 @@ class DiscourseNotification {
       final username = data['username'] as String?;
       final group = data['group_name'] as String?;
       if (username != null && group != null) {
-        return '/u/$username/messages/$group';
+        // The group inbox lives under `/messages/group/…` — the shape
+        // `groupMessageSummary` builds above, not the shorter one a first
+        // reading of the route might guess.
+        return '/u/$username/messages/group/$group';
       }
     }
     return null;

@@ -90,5 +90,19 @@ class IncomingTopics {
   /// and whatever was incoming is now in it.
   bool reset(String list) => _incoming.remove(list) != null;
 
+  /// Puts [ids] back after the refetch that consumed them failed.
+  ///
+  /// The announcement is still owed: the topics never landed in the list, so
+  /// the banner has to keep counting them. Order is not restored — it only
+  /// ever mattered to the request that asked for the ids, and the list route
+  /// answers in its own.
+  bool restore(String list, Iterable<int> ids) {
+    if (ids.isEmpty) return false;
+    final held = _incoming[list] ??= <int>{};
+    final before = held.length;
+    held.addAll(ids);
+    return held.length != before;
+  }
+
   void resetAll() => _incoming.clear();
 }

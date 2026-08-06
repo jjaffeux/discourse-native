@@ -331,6 +331,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.likersById = const {},
     this.likerGate,
     this.siteConfigs = const {},
+    this.customEmojisBySite = const {},
     this.reactorsById = const {},
     this.reactorGate,
     this.reactionResponses = const {},
@@ -447,6 +448,14 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Site urls passed to [siteConfig], in order.
   final List<String> siteConfigsRequested = [];
+
+  /// Returned by [customEmojis], keyed by site url. Empty by default: a site
+  /// with no custom emoji is the neutral answer here, not a failure. Named
+  /// apart from the method, which a field of the same name would collide with.
+  final Map<String, Map<String, String>> customEmojisBySite;
+
+  /// Site urls passed to [customEmojis], in order.
+  final List<String> customEmojisRequired = [];
 
   /// Returned by [postReactors], keyed by `PostReactors.key(postId, filter)`;
   /// a missing one fails.
@@ -646,6 +655,16 @@ class FakeDiscourseApi implements DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return config;
+  }
+
+  @override
+  Future<Map<String, String>> customEmojis({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    customEmojisRequired.add(siteUrl);
+    return customEmojisBySite[siteUrl] ?? const {};
   }
 
   @override

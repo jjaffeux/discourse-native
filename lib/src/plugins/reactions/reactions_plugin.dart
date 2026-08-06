@@ -49,6 +49,12 @@ class ReactionsPlugin implements SitePlugin<Reactions> {
   /// | none | known | outline heart · "Like this post" | gives the main one |
   /// | none | not known | face · "React" | opens the picker |
   ///
+  /// Beside those, wherever the first row is not already opening it, a
+  /// "Pick a reaction" entry opens the picker: the main reaction is not the
+  /// only one the site allows, and the toggle above is the only other write
+  /// this menu can make, so without it the rest of `offeredReactions` would
+  /// be configured and unreachable.
+  ///
   /// The label comes from what they *hold*, not from
   /// `usedMainReaction`. A reader who clapped has a shadow like, so
   /// [Post.canToggleLike] is true and the naive label reads "Like this post" —
@@ -108,7 +114,7 @@ class ReactionsPlugin implements SitePlugin<Reactions> {
           icon: held == null ? DIcons.farHeart : DIcons.heart,
           emojiUrl: held == null
               ? null
-              : config.emojiUrl(held.id, siteUrl: siteUrl),
+              : controller.emojiUrlFor(siteUrl, held.id),
           label: switch ((held, target)) {
             (final mine?, _) => 'Remove your ${mine.id} reaction',
             (null, final _?) => 'Like',
@@ -130,6 +136,13 @@ class ReactionsPlugin implements SitePlugin<Reactions> {
             report(controller.toggleReaction(post, target));
           },
         ),
+        if (target != null && config.offeredReactions.isNotEmpty)
+          PostAction(
+            icon: DIcons.farFaceSmile,
+            label: 'React',
+            tooltip: 'Pick a reaction',
+            onInvoke: () => showReactionPicker(context, post),
+          ),
       ],
     );
   }

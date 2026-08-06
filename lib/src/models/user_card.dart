@@ -79,6 +79,11 @@ class UserCard with Storable<UserCard> {
   /// Accounts are identified by name here, not by id: a post carries the
   /// username of whoever wrote it and nothing else, so that is the only handle
   /// the thing wanting the card ever has.
+  ///
+  /// Lowercased, because Discourse resolves usernames case-insensitively: a
+  /// link that says `/u/johndoe` and a payload that says `JohnDoe` are one
+  /// account, and keying the store by the payload's casing would file the
+  /// card where the panel never looks.
   @override
-  Object get storeId => username;
+  Object get storeId => username.toLowerCase();
 }

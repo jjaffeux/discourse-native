@@ -69,15 +69,20 @@ class _DiscourseAppState extends State<DiscourseApp>
     super.dispose();
   }
 
-  /// Only `paused` and `detached` count as being in the background, and the
-  /// distinction matters because the live connection is paced off it.
+  /// Only `hidden`, `paused` and `detached` count as being in the background,
+  /// and the distinction matters because the live connection is paced off it.
   /// `inactive` fires for anything transient — the app switcher, a system
   /// dialog, a notification pulled down — and dropping the connection every
-  /// time the user glanced away would cost more than it saves.
+  /// time the user glanced away would cost more than it saves. `hidden` is
+  /// different: every view is gone from the screen, so nothing is being
+  /// glanced at, and the poll would only be held open for an app nobody is
+  /// looking at.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _controller.setForeground(
-      state != AppLifecycleState.paused && state != AppLifecycleState.detached,
+      state != AppLifecycleState.hidden &&
+          state != AppLifecycleState.paused &&
+          state != AppLifecycleState.detached,
     );
   }
 

@@ -436,13 +436,18 @@ class TopicDetail with Storable<TopicDetail> {
   /// A reply made a moment ago can be missing from the stream the site answers
   /// with — it was read before the post landed, or from a replica — and taking
   /// that literally would make the post vanish the instant it appeared. Ids
-  /// only held here are kept, at the end, which is where a new post is.
+  /// only held here are kept, at the end, which is where a new post is — and
+  /// counted, the way [withPostId] counts what it adds, because the copy's
+  /// count was taken before they existed too.
   @override
   TopicDetail merge(TopicDetail incoming) {
     final arrived = incoming.stream.toSet();
-    final missing = stream.where((id) => !arrived.contains(id));
+    final missing = stream.where((id) => !arrived.contains(id)).toList();
     if (missing.isEmpty) return incoming;
-    return incoming.copyWith(stream: [...incoming.stream, ...missing]);
+    return incoming.copyWith(
+      stream: [...incoming.stream, ...missing],
+      postsCount: incoming.postsCount + missing.length,
+    );
   }
 
   TopicDetail copyWith({

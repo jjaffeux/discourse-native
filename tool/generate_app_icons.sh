@@ -13,10 +13,10 @@
 #
 #   ./tool/generate_app_icons.sh
 #
-# Android, Windows and Linux are not scaffolded yet. Their icons are written to
-# the paths the Flutter templates expect, so `flutter create --platforms=...`
-# drops its scaffolding around them — but that command also rewrites the
-# template's own placeholder icons, so re-run this script afterwards.
+# Android and Windows are not scaffolded yet, and their blocks below are gated
+# on a real build system being present. Once `flutter create --platforms=...`
+# has dropped its scaffolding, re-run this script: that command writes the
+# template's own placeholder icons, so the real ones must be re-emitted after.
 #
 set -euo pipefail
 
