@@ -65,6 +65,8 @@ Future<void> pumpShell(
   FakeInstanceStore? store,
   FakeAuthenticator? authenticator,
   FakeDraftStore? drafts,
+  FakeUpdater? updater,
+  FakeUpdateStore? updateStore,
   Key? key,
 }) async {
   tester.view.physicalSize = size;
@@ -81,6 +83,10 @@ Future<void> pumpShell(
       // Never the real one: it opens a long poll, and its backoff timer
       // outlives the tree the binding then complains about.
       trackers: FakeSiteTracker.reset(),
+      // Defaults to an updater that reports it cannot update, which is what
+      // every test that is not about updating wants to see.
+      updater: updater ?? FakeUpdater(),
+      updateStore: updateStore ?? FakeUpdateStore(),
     ),
   );
   await tester.pumpAndSettle();

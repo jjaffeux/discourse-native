@@ -7,6 +7,8 @@ import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
+import 'package:discourse_native/src/data/update_store.dart';
+import 'package:discourse_native/src/data/updater.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -36,6 +38,109 @@ class FakeInstanceStore implements InstanceStore {
     _instances = List.of(instances);
     saveCount++;
   }
+}
+
+/// An updater with no network, no disk and no process behind it.
+///
+/// [isSupported] is false by default, and that default is load-bearing: the
+/// hundred-odd tests that build a shell must not grow an update button just
+/// because one exists.
+class FakeUpdater implements Updater {
+  FakeUpdater({
+    this.isSupported = false,
+    this.releases = const {},
+    this.checkFailure,
+    this.downloadFailure,
+    this.installFailure,
+    this.progressSteps = const [0.25, 0.5, 1.0],
+    this.gate,
+  });
+
+  @override
+  final bool isSupported;
+
+  /// What each channel has to offer. A channel absent from the map, or mapped
+  /// to null, is up to date.
+  final Map<UpdateChannel, UpdateRelease?> releases;
+
+  final UpdateException? checkFailure;
+  final UpdateException? downloadFailure;
+  final UpdateException? installFailure;
+
+  /// Fractions handed to `onProgress`, in order.
+  final List<double> progressSteps;
+
+  /// Held open so a test can assert on the in-flight state. Mirrors
+  /// [FakeDiscourseApi.gate].
+  final Completer<void>? gate;
+
+  int checkCount = 0;
+  int downloadCount = 0;
+  int installCount = 0;
+  int discardCount = 0;
+  UpdateChannel? lastCheckedChannel;
+  UpdateRelease? lastDownloaded;
+
+  @override
+  Future<UpdateRelease?> check({required UpdateChannel channel}) async {
+    checkCount++;
+    lastCheckedChannel = channel;
+    if (gate != null) await gate!.future;
+    if (checkFailure != null) throw checkFailure!;
+    return releases[channel];
+  }
+
+  @override
+  Future<void> download(
+    UpdateRelease release, {
+    void Function(double fraction)? onProgress,
+  }) async {
+    downloadCount++;
+    lastDownloaded = release;
+    if (gate != null) await gate!.future;
+    for (final step in progressSteps) {
+      onProgress?.call(step);
+    }
+    if (downloadFailure != null) throw downloadFailure!;
+  }
+
+  @override
+  Future<void> installAndRestart() async {
+    installCount++;
+    if (installFailure != null) throw installFailure!;
+  }
+
+  @override
+  Future<void> discard() async {
+    discardCount++;
+  }
+}
+
+/// Keeps the channel and the last-checked stamp in memory instead of
+/// shared_preferences, which needs a platform channel.
+class FakeUpdateStore implements UpdateStore {
+  FakeUpdateStore({this.rawChannel, this.lastChecked});
+
+  /// Raw, so a test can write a name that is no longer a channel.
+  String? rawChannel;
+  DateTime? lastChecked;
+  int writeCount = 0;
+
+  @override
+  Future<UpdateChannel?> readChannel() async =>
+      UpdateChannel.byName(rawChannel);
+
+  @override
+  Future<void> writeChannel(UpdateChannel channel) async {
+    writeCount++;
+    rawChannel = channel.name;
+  }
+
+  @override
+  Future<DateTime?> readLastChecked() async => lastChecked;
+
+  @override
+  Future<void> writeLastChecked(DateTime at) async => lastChecked = at;
 }
 
 /// Keeps unsynced drafts in memory instead of shared_preferences.

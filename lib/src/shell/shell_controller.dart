@@ -9,6 +9,8 @@ import '../data/draft_store.dart';
 import '../data/instance_store.dart';
 import '../data/site_tracker.dart';
 import '../data/store.dart';
+import '../data/update_store.dart';
+import '../data/updater.dart';
 import '../data/user_api_key.dart';
 import '../models/bookmark_feed.dart';
 import '../models/composer_draft.dart';
@@ -27,6 +29,7 @@ import '../models/topic_link.dart';
 import '../models/sidebar.dart';
 import '../models/user_card.dart';
 import 'composer_controller.dart';
+import 'update_controller.dart';
 
 /// Which pane occupies the space next to the rail when the shell is compact.
 ///
@@ -47,7 +50,13 @@ class ShellController extends ChangeNotifier {
     required this.drafts,
     Store? store,
     this.trackers = SiteTracker.new,
-  }) : store = store ?? Store();
+    Updater updater = const UnsupportedUpdater(),
+    UpdateStore? updateStore,
+  }) : store = store ?? Store(),
+       updates = UpdateController(
+         updater: updater,
+         store: updateStore ?? UpdateStore(),
+       );
 
   final InstanceStore instanceStore;
 
@@ -63,6 +72,14 @@ class ShellController extends ChangeNotifier {
 
   /// Opens a site's live connection. See [SiteTrackerFactory].
   final SiteTrackerFactory trackers;
+
+  /// Updating the app itself.
+  ///
+  /// Its own notifier rather than state on this class, so that download
+  /// progress does not rebuild the whole shell, and so that it stays meaningful
+  /// with no sites connected. Reached through a `ListenableBuilder`, the way
+  /// [ComposerController] is. See [UpdateController].
+  final UpdateController updates;
 
   bool _connecting = false;
 
@@ -111,6 +128,10 @@ class ShellController extends ChangeNotifier {
     _resetToInstanceDefault();
     _loaded = true;
     _notify();
+
+    // Whether a newer build exists is not something anyone is waiting on, and
+    // a failure here has to stay quiet. See UpdateController.check.
+    unawaited(updates.load());
 
     // Counters are stale from the moment they were stored, so pull fresh ones
     // for every connected site. Deliberately not awaited by callers.
@@ -2036,6 +2057,7 @@ class ShellController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    updates.dispose();
     _composer?.dispose();
     _composer = null;
     for (final tracker in _trackers.values) {

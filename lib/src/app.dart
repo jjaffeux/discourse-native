@@ -5,6 +5,8 @@ import 'data/discourse_api.dart';
 import 'data/draft_store.dart';
 import 'data/instance_store.dart';
 import 'data/site_tracker.dart';
+import 'data/update_store.dart';
+import 'data/updater.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
@@ -22,6 +24,8 @@ class DiscourseApp extends StatefulWidget {
     this.authenticator,
     this.drafts,
     this.trackers,
+    this.updater,
+    this.updateStore,
   });
 
   final InstanceStore? store;
@@ -29,6 +33,8 @@ class DiscourseApp extends StatefulWidget {
   final Authenticator? authenticator;
   final DraftStore? drafts;
   final SiteTrackerFactory? trackers;
+  final Updater? updater;
+  final UpdateStore? updateStore;
 
   @override
   State<DiscourseApp> createState() => _DiscourseAppState();
@@ -42,6 +48,10 @@ class _DiscourseAppState extends State<DiscourseApp>
     authenticator: widget.authenticator ?? Authenticator(),
     drafts: widget.drafts ?? DraftStore(),
     trackers: widget.trackers ?? SiteTracker.new,
+    // Swapped for DesktopUpdaterAdapter once that lands. Until then this is
+    // also the honest answer everywhere but Linux.
+    updater: widget.updater ?? const UnsupportedUpdater(),
+    updateStore: widget.updateStore ?? UpdateStore(),
   );
 
   @override
