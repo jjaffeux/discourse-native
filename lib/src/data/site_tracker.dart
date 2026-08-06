@@ -100,6 +100,48 @@ class SiteTracker {
     }
   }
 
+  /// Channels only worth listening to while one topic is open.
+  ///
+  /// Site-wide channels are subscribed to once, in the constructor, and never
+  /// change. These come and go with what is on screen — a topic's own updates
+  /// are of no use once the reader has left it, and a site with a thousand
+  /// topics cannot be subscribed to all of them.
+  final List<MessageBusSubscription> _topicSubscriptions = [];
+  int? _watchedTopic;
+
+  int? get watchedTopic => _watchedTopic;
+
+  /// Listens to [channels] for as long as [topicId] is the topic being read.
+  ///
+  /// Only one topic at a time: opening another cancels the last, because only
+  /// one is ever on screen. Asking for the topic already being watched does
+  /// nothing, so a rebuild does not churn the subscriptions.
+  void watchTopic(
+    int topicId,
+    List<String> channels,
+    void Function(String channel, Object? data) onMessage,
+  ) {
+    if (_watchedTopic == topicId) return;
+    unwatchTopic();
+    _watchedTopic = topicId;
+    for (final channel in channels) {
+      _topicSubscriptions.add(
+        _bus.subscribe(
+          channel,
+          (data, globalId, messageId) => onMessage(channel, data),
+        ),
+      );
+    }
+  }
+
+  void unwatchTopic() {
+    for (final subscription in _topicSubscriptions) {
+      subscription.cancel();
+    }
+    _topicSubscriptions.clear();
+    _watchedTopic = null;
+  }
+
   void _onTopicMessage(Object? data, int globalId, int messageId) {
     if (incoming.notify(data)) onIncomingTopics();
   }

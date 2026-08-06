@@ -19,8 +19,10 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 
 /// Keeps instances in memory instead of shared_preferences, which needs a
 /// platform channel.
@@ -256,6 +258,38 @@ class FakeSiteTracker implements SiteTracker {
   /// One `/reviewable_counts/{id}` message.
   void deliverReviewableCounts(Object? message) => onReviewableCounts(message);
 
+  /// The channels a plugin asked to watch while a topic is open, in order.
+  final List<String> watchedChannels = [];
+
+  @override
+  int? watchedTopic;
+
+  void Function(String channel, Object? data)? _onTopicMessage;
+
+  @override
+  void watchTopic(
+    int topicId,
+    List<String> channels,
+    void Function(String channel, Object? data) onMessage,
+  ) {
+    if (watchedTopic == topicId) return;
+    unwatchTopic();
+    watchedTopic = topicId;
+    watchedChannels.addAll(channels);
+    _onTopicMessage = onMessage;
+  }
+
+  @override
+  void unwatchTopic() {
+    watchedTopic = null;
+    watchedChannels.clear();
+    _onTopicMessage = null;
+  }
+
+  /// One message on a topic-scoped channel, exactly as it would arrive.
+  void deliverTopicMessage(String channel, Object? data) =>
+      _onTopicMessage?.call(channel, data);
+
   @override
   void start() => polling = true;
 
@@ -296,6 +330,12 @@ class FakeDiscourseApi implements DiscourseApi {
     this.likeGate,
     this.likersById = const {},
     this.likerGate,
+    this.siteConfigs = const {},
+    this.reactorsById = const {},
+    this.reactorGate,
+    this.reactionResponses = const {},
+    this.reactionFailure,
+    this.reactionGate,
   });
 
   final Map<String, DiscourseInstance> results;
@@ -398,6 +438,41 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// When set, [postLikers] waits on it, so a test can hold the list in flight.
   final Completer<void>? likerGate;
+
+  /// Returned by [siteConfig], keyed by site url. A missing one fails, which
+  /// is the default and is deliberate: a test that has not said what a site's
+  /// settings are gets a site drawn as plain core, which is what every test
+  /// that is not about an optional feature wants to see.
+  final Map<String, SiteConfig> siteConfigs;
+
+  /// Site urls passed to [siteConfig], in order.
+  final List<String> siteConfigsRequested = [];
+
+  /// Returned by [postReactors], keyed by `PostReactors.key(postId, filter)`;
+  /// a missing one fails.
+  final Map<String, PostReactors> reactorsById;
+
+  /// The `(postId, filter)` pairs passed to [postReactors], in order.
+  final List<({int postId, String? filter})> reactorsRequested = [];
+
+  /// When set, [postReactors] waits on it, so a test can hold the list in
+  /// flight.
+  final Completer<void>? reactorGate;
+
+  /// What [toggleReaction] answers with, keyed by post id. Nothing for a post
+  /// means the route answered without one, which leaves the caller's own guess
+  /// standing.
+  final Map<int, Post> reactionResponses;
+
+  /// Thrown by [toggleReaction] instead of answering.
+  final WriteException? reactionFailure;
+
+  /// When set, [toggleReaction] waits on it, so a test can press twice before
+  /// either write has come back.
+  final Completer<void>? reactionGate;
+
+  /// Every [toggleReaction] call, in order.
+  final List<({int postId, String reaction})> reacted = [];
 
   /// Thrown by [saveDraft] instead of answering.
   final WriteException? draftFailure;
@@ -560,6 +635,20 @@ class FakeDiscourseApi implements DiscourseApi {
   }) async => categoryList;
 
   @override
+  Future<SiteConfig> siteConfig({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    siteConfigsRequested.add(siteUrl);
+    final config = siteConfigs[siteUrl];
+    if (config == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return config;
+  }
+
+  @override
   Future<PostCreation> createPost({
     required String siteUrl,
     required String apiKey,
@@ -688,6 +777,38 @@ class FakeDiscourseApi implements DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return PostLikers(postId: postId, likers: found);
+  }
+
+  @override
+  Future<Post?> toggleReaction({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String reaction,
+    String? clientId,
+  }) async {
+    reacted.add((postId: postId, reaction: reaction));
+    if (reactionGate != null) await reactionGate!.future;
+    if (reactionFailure != null) throw reactionFailure!;
+    return reactionResponses[postId];
+  }
+
+  @override
+  Future<PostReactors> postReactors({
+    required String siteUrl,
+    required int postId,
+    String? reaction,
+    int limit = 30,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    reactorsRequested.add((postId: postId, filter: reaction));
+    if (reactorGate != null) await reactorGate!.future;
+    final found = reactorsById[PostReactors.key(postId, reaction)];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
   }
 
   @override

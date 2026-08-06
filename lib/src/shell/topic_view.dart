@@ -8,7 +8,7 @@ import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'post_actions.dart';
-import 'post_likes.dart';
+import 'post_footer.dart';
 import 'user_card.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';
@@ -268,7 +268,7 @@ class _PostTileState extends State<_PostTile> {
                   html: post.cooked,
                   textStyle: theme.textTheme.bodyMedium,
                 ),
-                PostLikes(post: post),
+                PostFooter(post: post),
               ],
             ),
           ),

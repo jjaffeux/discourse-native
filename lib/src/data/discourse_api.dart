@@ -11,7 +11,9 @@ import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/post_likers.dart';
+import '../models/site_config.dart';
 import '../models/topic.dart';
+import '../plugins/reactions/post_reactors.dart';
 import '../models/user_card.dart';
 
 /// Why a site lookup did not produce an instance.
@@ -497,6 +499,35 @@ class DiscourseApi {
     return UserCard.fromJson(user, siteUrl);
   }
 
+  /// The site's client settings — every setting Discourse marks `client: true`,
+  /// core's and its plugins' alike.
+  ///
+  /// This is the only public payload carrying a plugin's own configuration.
+  /// `/site.json` does not have it: `SiteSerializer` is categories, groups,
+  /// archetypes and themes, with no `site_settings` key and no `plugins` key at
+  /// all. `/site/basic-info.json` is smaller still and stops at the title.
+  ///
+  /// Read rather than written, so failures arrive as [SiteLookupException] —
+  /// and callers are expected to swallow them. Every field of [SiteConfig] has
+  /// a default that is core's default, so a site that will not answer is drawn
+  /// as core rather than drawn as broken.
+  Future<SiteConfig> siteConfig({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse('$siteUrl/site/settings.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    return SiteConfig.fromSettings(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   /// Categories, flattened — subcategories arrive nested but the topic rows
   /// need to look any of them up by id.
   Future<List<TopicCategory>> categories({
@@ -676,6 +707,40 @@ class DiscourseApi {
   /// which is a success there is simply nothing to draw from.
   static Post? _actedPost(Map<String, dynamic> body, String siteUrl) =>
       body['id'] == null ? null : Post.fromJson(body, siteUrl);
+
+  /// Gives, moves or takes back this reader's reaction, and answers with the
+  /// post as the site now holds it — unwrapped, like the like routes.
+  ///
+  /// A true toggle, and so **not idempotent**: sending the same reaction twice
+  /// removes it, and a different one replaces what was there. [_write] already
+  /// refuses to retry and callers must not either — here a resend after a
+  /// timeout would not double-apply, it would undo.
+  ///
+  /// The reaction is a path segment, so it is percent-encoded. `+1` is a
+  /// perfectly ordinary reaction id.
+  ///
+  /// A 404 means the plugin has been switched off — its controller is behind
+  /// `requires_plugin` — **or** that the post is gone. The same bytes for both,
+  /// which is why the caller repairs one post rather than a whole site.
+  Future<Post?> toggleReaction({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String reaction,
+    String? clientId,
+  }) async => _actedPost(
+    await _write(
+      Uri.parse(
+        '$siteUrl/discourse-reactions/posts/$postId'
+        '/custom-reactions/${Uri.encodeComponent(reaction)}/toggle.json',
+      ),
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    ),
+    siteUrl,
+  );
 
   /// Who liked a post, oldest like first.
   ///
@@ -886,6 +951,42 @@ class DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return response;
+  }
+
+  /// Who reacted to a post, oldest first, likers and reactors merged.
+  ///
+  /// [reaction] narrows it to one emoji. [limit] is clamped server side to
+  /// 1..50 and defaults to 30 there; sent explicitly so the number in the code
+  /// is the number that applies.
+  ///
+  /// Unauthenticated reads are allowed — the plugin's controller exempts this
+  /// route from `ensure_logged_in` — so a signed-out reader can still see who
+  /// reacted.
+  Future<PostReactors> postReactors({
+    required String siteUrl,
+    required int postId,
+    String? reaction,
+    int limit = 30,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse(
+        '$siteUrl/discourse-reactions/posts/$postId/reactions-users-list.json'
+        '?limit=$limit'
+        '${reaction == null ? '' : '&reaction_value=${Uri.encodeQueryComponent(reaction)}'}',
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    return PostReactors.parse(
+      jsonDecode(response.body) as Map<String, dynamic>,
+      postId: postId,
+      siteUrl: siteUrl,
+      filter: reaction,
+    );
   }
 
   /// Tells the site to forget the key, so deleting our copy does not leave a

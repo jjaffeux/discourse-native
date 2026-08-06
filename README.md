@@ -351,8 +351,137 @@ total so the difference can be named.
 
 The count sits under the post rather than in the action menu, which is where the
 reactions plugin puts its row of emoji. A like is that row with one entry in it,
-and the entry is always a heart — so the emoji and the panel's header are the
-two things left out for now.
+and the entry is always a heart — see **Optional site features** below, which is
+what replaces all of this on a site that has reactions.
+
+### Optional site features
+
+Discourse core is a floor, not a ceiling. A given site may have reactions,
+solved, assign, chat, voting — or none of them, and the same rail can hold one
+of each. The mechanism for that is
+[`SitePlugin`](lib/src/plugins/site_plugin.dart), and it turns on one rule:
+
+> **The record decides whether a feature is drawn. Site config decides only how
+> to draw it, or what to offer inside it.**
+
+`Plugin::Instance#add_to_serializer` defaults `respect_plugin_enabled: true`, so
+a disabled plugin's attributes are simply *absent* from every payload. That
+absence is the enablement signal, and it is a better one than any setting: it is
+scoped by the same guardian that decided the rest of the payload, it can never
+be stale relative to what is on screen, and it costs no request. So
+`SitePlugin.readPost` answering null means "this site did not mention this", and
+everything keys off that — including which route a write goes down, which is why
+the rule is worth stating rather than assuming. A gate that is wrong for one
+frame produces a wrong *write*, not merely a missing button.
+
+The other half is [`SiteConfig`](lib/src/models/site_config.dart), from
+`GET /site/settings.json` — the only public payload carrying a plugin's own
+configuration. `/site.json` does **not** have it: `SiteSerializer` is categories,
+groups, archetypes and themes, with no `site_settings` key and no `plugins` key
+at all. Config answers the question no record can — what may be *offered* that
+has not happened yet, like a picker's emoji list — and nothing else. Every field
+has a default, every default is core's own, so a site that will not answer is
+drawn as core rather than drawn as broken; there is no loading state and no
+error state because there is nothing worth telling a reader about.
+
+It is fetched from `loadTopic`, **before** its early returns, and remembered on
+the instance across launches. Before the guards, deliberately: both of them
+return early on the ordinary path, so a fetch that only ran on a cache miss
+would get one attempt per session with no way back if it failed — which is the
+shape `_ensureCategories` has, and it is a session-long dead end there. A count
+bounds the retries instead. Signing out drops it: on a `login_required` site the
+settings were only readable as that account.
+
+Adding the next one is a module under `lib/src/plugins/<name>/` owning its
+models, its state and its widgets, an entry in the `const sitePlugins` list, and
+its endpoints on `DiscourseApi` beside everything else's. That last part is the
+one deliberate exception to the module owning its own code:
+`FakeDiscourseApi implements DiscourseApi` is what turns a new call into a
+compile error until the fake grows a knob for it, and that is worth more than
+the tidier boundary. The interface grows with what a plugin actually needs
+rather than ahead of it.
+
+### Reactions
+
+`discourse-reactions` lets a site's readers give a post any of a set of emoji
+instead of only a like. The two are the same thing underneath: one emoji is the
+site's **main reaction** (`discourse_reactions_reaction_for_like`, `heart` by
+default), and giving it writes an ordinary `PostAction` like. So on a site that
+has this the like affordance is *replaced*, not joined —
+[`PostFooter`](lib/src/shell/post_footer.dart) draws the row where the count
+was, and the menu offers React where it offered Like.
+
+**Nothing on a reactions post is ever written through `/post_actions`.**
+Reacting with a non-excluded emoji creates a shadow like *alongside* the
+reaction, so an unliking `DELETE` there destroys the like and orphans the
+`ReactionUser` — a desync only a scheduled server job repairs. It also means
+`actions_summary` is read here as a permission and never as a count:
+`can_act` is the same `post_can_act?(post, :like)` the toggle route itself
+checks, while `like_count` on that site is inflated by every shadow like, and
+`acted` is true for anyone who reacted at all.
+
+Three numbers, and only two of them add up:
+
+- each pill's own `count`, which is what the row draws;
+- `reaction_users_count`, distinct accounts who liked **or** reacted — *not*
+  their sum, and provably larger, because a reaction whose emoji has since been
+  deleted is dropped from the row and still counted here. It is never drawn;
+- the reactor list's `total_rows`, which comes from the same query as its rows,
+  so "and N others" adds up. That is what the panel counts with.
+
+Writing is `PUT /discourse-reactions/posts/{id}/custom-reactions/{emoji}/toggle`
+with no body, answering with the post unwrapped like the like routes. A true
+toggle, so **not idempotent** — the same emoji twice removes it, a different one
+replaces it — which is one more reason `_write` never retries. The row is drawn
+before the request leaves, on the same bargain likes make. The answer's
+*counts* are dropped, though: the plugin builds `reactions` one way for a topic
+read (preloaded, raw SQL) and another for a write, and the second filters out
+reactions whose emoji no longer exists, so merging it would bump a pill and
+leave it wrong until the topic was read again. Only what the answer says about
+this reader is taken.
+
+A `404` means the plugin was switched off **or** the post is gone — the route
+answers the same bytes for both — so it drops that one post's reactions and
+nothing else. Emptying every footer in the topic because a moderator deleted one
+post would be the wrong guess.
+
+The main reaction is **not guessed**. `SiteConfig.mainReaction` is nullable, and
+where it is unknown the React entry opens the picker instead of sending
+`heart` — the setting is enum-constrained to what a site allows, and `heart` is
+not even in the default enabled list, so a guess on a site whose admin chose
+`+1` earns a 422 whose body says only "Sorry, an error has occurred." The menu
+also labels from the reaction the reader *holds*, not from
+`current_user_used_main_reaction`: someone who clapped has a shadow like, so the
+naive label reads "Like this post" on a tap that would replace their clap.
+
+Live updates ride `/topic/{id}/reactions`, subscribed to only while that topic
+is the one on screen. The message carries which emoji changed and no counts at
+all, so it is an invalidation hint — the post is read again through
+`/t/{id}/posts.json`, whose numbers agree with what the row was drawn from. A
+write of this reader's own is skipped; its own answer is already on the way.
+
+### Emoji
+
+Post bodies carry emoji as `<img class="emoji" src="/images/emoji/…">`, and they
+did not render at all until
+[`emojiWidgetBuilder`](lib/src/shell/emoji.dart) existed: `HtmlWidget` has no
+base URL to resolve a root-relative `src` against, so `TagImg` fell back to the
+`alt` attribute and every emoji in every post read as the literal text
+`:slight_smile:`.
+
+Setting `HtmlWidget.baseUrl` would have fixed the URL in one line and routed
+*every* `<img>` in every post through `NetworkImage` — unbounded concurrency, no
+failure caching, one request per glyph. That is the exact 429 story
+`AvatarLoader` exists to prevent, so emoji go through a sibling of it,
+[`EmojiCache`](lib/src/data/emoji_cache.dart), and the caching and concurrency
+cap they share live in [`ByteCache`](lib/src/data/byte_cache.dart).
+
+Reactions need the other direction — a name, not a `src` — which is
+`SiteConfig.emojiUrl`, mirroring `Emoji.url_for`: `{external_emoji_url or
+site}/images/emoji/{emoji_set}/{name}.png`, with a `:tN` tone suffix becoming a
+`/N` path segment. The `?v=` core appends is a build constant with no JSON
+endpoint to read it from; it busts caches and nothing else, and `EmojiCache` is
+the cache here.
 
 ### Links
 
@@ -643,6 +772,9 @@ lib/
       discourse_api.dart       site lookup over HTTP
       instance_store.dart      persistence via shared_preferences
     models/                    instance, sidebar and content-route types
+    plugins/
+      site_plugin.dart         the SitePlugin seam and the const registry
+      reactions/               discourse-reactions: models, state, widgets
     shell/
       adaptive_shell.dart      breakpoints and column assembly
       instance_rail.dart       far-left instance column
@@ -650,7 +782,11 @@ lib/
       instance_sidebar.dart    per-instance navigation
       main_content.dart        the single main region
       cooked_html.dart         renders a post's cooked HTML
+      emoji.dart               draws img.emoji, and resolves its src
+      post_footer.dart         picks what a post's footer is, per plugin
       post_likes.dart          the like count under a post, and who liked it
+      post_action.dart         one entry in the post menu, core's or a plugin's
+      hover_panel.dart         opens a panel when a pointer rests on something
       anchored_layout.dart     places a floating panel against what it is about
       onebox.dart              native rendering of aside.onebox
       code_block.dart          native rendering of pre

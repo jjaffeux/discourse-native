@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -724,6 +725,221 @@ void _feedGroups() {
 
       expect(categories.map((c) => c.id), [1, 2]);
       expect(categories.first.colorValue, 0xFF0088CC);
+    });
+  });
+
+  group('siteConfig', () {
+    test('reads the client settings route rather than /site.json', () async {
+      // `/site.json` carries no site settings and no plugin list at all —
+      // SiteSerializer is categories, groups, archetypes and themes. This is
+      // the only public payload a plugin's own configuration reaches a client
+      // through.
+      final paths = <String>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          paths.add(request.url.path);
+          return http.Response(
+            jsonEncode({
+              'emoji_set': 'apple',
+              'external_emoji_url': '',
+              'discourse_reactions_enabled': true,
+              'discourse_reactions_reaction_for_like': 'heart',
+              'discourse_reactions_enabled_reactions': '+1|clap',
+            }),
+            200,
+          );
+        }),
+      );
+
+      final config = await api.siteConfig(siteUrl: 'https://example.com');
+
+      expect(paths, ['/site/settings.json']);
+      expect(config.emojiSet, 'apple');
+      expect(config.mainReaction, 'heart');
+      expect(config.offeredReactions, ['heart', '+1', 'clap']);
+    });
+
+    test(
+      'refuses rather than inventing an answer for a site that will not',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient((_) async => http.Response('nope', 403)),
+        );
+
+        // The caller swallows this; what matters is that it does not come back
+        // as a SiteConfig claiming things about the site.
+        expect(
+          () => api.siteConfig(siteUrl: 'https://example.com'),
+          throwsA(isA<SiteLookupException>()),
+        );
+      },
+    );
+  });
+
+  group('toggleReaction', () {
+    Map<String, dynamic> reacted() => {
+      'id': 1,
+      'post_number': 1,
+      'username': 'sam',
+      'cooked': '<p>Hi</p>',
+      'reactions': [
+        {'id': 'clap', 'type': 'emoji', 'count': 1},
+      ],
+      'current_user_reaction': {
+        'id': 'clap',
+        'type': 'emoji',
+        'can_undo': true,
+      },
+      'reaction_users_count': 1,
+    };
+
+    test('puts to the toggle route with no body at all', () async {
+      late http.Request seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(jsonEncode(reacted()), 200);
+        }),
+      );
+
+      final post = await api.toggleReaction(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+        postId: 1,
+        reaction: 'clap',
+      );
+
+      expect(seen.method, 'PUT');
+      expect(
+        seen.url.path,
+        '/discourse-reactions/posts/1/custom-reactions/clap/toggle.json',
+      );
+      expect(seen.body, '{}');
+      // Answered unwrapped, the way the like routes are.
+      expect(post?.reactions?.mine?.id, 'clap');
+    });
+
+    test('encodes a reaction that is not url-safe', () async {
+      // `+1` is a perfectly ordinary reaction id, and it is a path segment.
+      late Uri seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request.url;
+          return http.Response(jsonEncode(reacted()), 200);
+        }),
+      );
+
+      await api.toggleReaction(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+        postId: 1,
+        reaction: '+1',
+      );
+
+      expect(seen.toString(), contains('custom-reactions/%2B1/toggle.json'));
+      expect(seen.pathSegments, contains('+1'));
+    });
+
+    test('surfaces the status, so a 404 can be told from a refusal', () async {
+      // A 404 means the plugin went away *or* the post did — the same bytes for
+      // both — and the caller repairs one post rather than a site.
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('not found', 404)),
+      );
+
+      await expectLater(
+        api.toggleReaction(
+          siteUrl: 'https://example.com',
+          apiKey: 'k',
+          postId: 1,
+          reaction: 'clap',
+        ),
+        throwsA(
+          isA<WriteException>().having((e) => e.statusCode, 'statusCode', 404),
+        ),
+      );
+    });
+
+    test('reports a rate limit as one', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response('slow down', 429, headers: const {}),
+        ),
+      );
+
+      await expectLater(
+        api.toggleReaction(
+          siteUrl: 'https://example.com',
+          apiKey: 'k',
+          postId: 1,
+          reaction: 'clap',
+        ),
+        throwsA(
+          isA<WriteException>().having(
+            (e) => e.failure,
+            'failure',
+            WriteFailure.rateLimited,
+          ),
+        ),
+      );
+    });
+  });
+
+  group('postReactors', () {
+    test('asks the list route and reads its envelope', () async {
+      late Uri seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request.url;
+          return http.Response(
+            jsonEncode({
+              'users': [
+                {'id': 3, 'username': 'sam', 'reaction': 'clap'},
+              ],
+              'total_rows': 4,
+            }),
+            200,
+          );
+        }),
+      );
+
+      final reactors = await api.postReactors(
+        siteUrl: 'https://example.com',
+        postId: 1,
+      );
+
+      expect(
+        seen.path,
+        '/discourse-reactions/posts/1/reactions-users-list.json',
+      );
+      expect(seen.queryParameters['limit'], '30');
+      expect(seen.queryParameters, isNot(contains('reaction_value')));
+      expect(reactors.reactors.single.username, 'sam');
+      expect(reactors.total, 4);
+    });
+
+    test('narrows to one emoji when asked to', () async {
+      late Uri seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request.url;
+          return http.Response(
+            jsonEncode({'users': const [], 'total_rows': 0}),
+            200,
+          );
+        }),
+      );
+
+      final reactors = await api.postReactors(
+        siteUrl: 'https://example.com',
+        postId: 1,
+        reaction: '+1',
+      );
+
+      expect(seen.queryParameters['reaction_value'], '+1');
+      // Kept on the record, so the filtered list does not overwrite the whole
+      // one in the store.
+      expect(reactors.filter, '+1');
     });
   });
 

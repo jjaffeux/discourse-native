@@ -3,10 +3,12 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import 'code_block.dart';
+import 'emoji.dart';
 import 'inline_code.dart';
 import 'onebox.dart';
 import 'open_link.dart';
 import 'quote.dart';
+import 'shell_scope.dart';
 
 /// Draws Discourse's `cooked` HTML.
 ///
@@ -23,10 +25,15 @@ class CookedHtml extends StatelessWidget {
   final String html;
   final TextStyle? textStyle;
 
-  /// Inline code sizes itself against the prose around it, so unlike the other
-  /// builders this one needs the style the widget was given.
-  static Widget? Function(dom.Element) _customWidget(TextStyle? textStyle) =>
+  /// Inline code and emoji size themselves against the prose around them, so
+  /// unlike the other builders those two need the style the widget was given.
+  /// Emoji additionally need the site, to resolve their root-relative `src`.
+  static Widget? Function(dom.Element) _customWidget(
+    TextStyle? textStyle,
+    String? siteUrl,
+  ) =>
       (element) =>
+          emojiWidgetBuilder(element, siteUrl, textStyle) ??
           oneboxWidgetBuilder(element) ??
           quoteWidgetBuilder(element) ??
           codeBlockWidgetBuilder(element) ??
@@ -41,16 +48,21 @@ class CookedHtml extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = textStyle ?? Theme.of(context).textTheme.bodyMedium;
+    // `maybeOf`, because this also renders outside the shell — a quote or an
+    // onebox in a test. Emoji fall back to their shortcode there, which is what
+    // they did everywhere before [emojiWidgetBuilder] existed.
+    final siteUrl = ShellScope.maybeOf(context)?.currentInstance?.url;
 
     return HtmlWidget(
       html,
       textStyle: style,
       renderMode: RenderMode.column,
-      customWidgetBuilder: _customWidget(style),
+      customWidgetBuilder: _customWidget(style, siteUrl),
       customStylesBuilder: _customStyles,
-      // The builders close over [style], and [HtmlWidget] caches what they
-      // built — so a change of style has to say so to reach the inline code.
-      rebuildTriggers: [style],
+      // The builders close over [style] and [siteUrl], and [HtmlWidget] caches
+      // what they built — so a change to either has to say so to reach the
+      // inline code and the emoji.
+      rebuildTriggers: [style, siteUrl],
       onTapUrl: (url) => openLink(context, url),
     );
   }

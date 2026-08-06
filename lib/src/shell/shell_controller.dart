@@ -23,11 +23,15 @@ import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/post_likers.dart';
+import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../models/topic_link.dart';
 import '../models/sidebar.dart';
 import '../models/user_card.dart';
+import '../plugins/reactions/reaction.dart';
+import '../plugins/reactions/reactions_controller.dart';
+import '../plugins/site_plugin.dart';
 import 'composer_controller.dart';
 import 'update_controller.dart';
 
@@ -80,6 +84,17 @@ class ShellController extends ChangeNotifier {
   /// with no sites connected. Reached through a `ListenableBuilder`, the way
   /// [ComposerController] is. See [UpdateController].
   final UpdateController updates;
+
+  /// Who reacted to what, on a site that has the reactions plugin.
+  ///
+  /// The same escape valve, for the same reason: opening one reactor list
+  /// should redraw that list rather than every post in the topic. `late final`
+  /// so it can be handed the [store] this constructor resolved.
+  late final ReactionsController reactions = ReactionsController(
+    api: api,
+    authenticator: authenticator,
+    store: store,
+  );
 
   bool _connecting = false;
 
@@ -622,6 +637,84 @@ class ShellController extends ChangeNotifier {
       return;
     }
     tracker.start();
+    _syncTopicWatch(instance.url, tracker);
+  }
+
+  /// Points the topic-scoped channels at whatever is on screen now.
+  ///
+  /// Called wherever the content stack moves. A site with no tracker open yet
+  /// is left alone — [_syncTracking] does this once the connection is up, and
+  /// there is nothing to subscribe on before then.
+  void _syncTopicChannels() {
+    final instance = currentInstance;
+    if (instance == null) return;
+    final tracker = _trackers[instance.url];
+    if (tracker == null) return;
+    _syncTopicWatch(instance.url, tracker);
+  }
+
+  /// Points the topic-scoped channels at the topic being read.
+  ///
+  /// Only what is on screen, and only one at a time: a topic's own updates are
+  /// of no use once the reader has left it, and a site's topics cannot all be
+  /// subscribed to at once.
+  void _syncTopicWatch(String siteUrl, SiteTracker tracker) {
+    final topicId = currentContent?.topicId;
+    if (topicId == null) {
+      tracker.unwatchTopic();
+      return;
+    }
+
+    final channels = [
+      for (final plugin in sitePlugins) ...plugin.topicChannels(topicId),
+    ];
+    if (channels.isEmpty) {
+      tracker.unwatchTopic();
+      return;
+    }
+
+    tracker.watchTopic(topicId, channels, (channel, data) {
+      final stale = <int>{
+        for (final plugin in sitePlugins) ...plugin.stalePosts(channel, data),
+      };
+      unawaited(_refreshPosts(siteUrl, topicId, stale));
+    });
+  }
+
+  /// Reads posts a live message said have changed.
+  ///
+  /// Through `/t/:id/posts.json`, which is the preloaded path — the one whose
+  /// counts agree with what the topic was drawn from. A write of this reader's
+  /// own is skipped: it has already drawn its guess, and the answer to its own
+  /// request is on the way.
+  Future<void> _refreshPosts(
+    String siteUrl,
+    int topicId,
+    Set<int> postIds,
+  ) async {
+    final wanted = postIds
+        .where(
+          (id) => !_postWritesInFlight.contains(_postWriteKey(siteUrl, id)),
+        )
+        .where((id) => store.read<Post>(siteUrl, id) != null)
+        .toList();
+    if (wanted.isEmpty) return;
+
+    try {
+      store.putAll(
+        siteUrl,
+        await api.posts(
+          siteUrl: siteUrl,
+          topicId: topicId,
+          ids: wanted,
+          apiKey: await authenticator.apiKeyFor(siteUrl),
+        ),
+      );
+      _notify();
+    } catch (_) {
+      // Somebody else's reaction not arriving is not worth saying anything
+      // about; the next read of the topic settles it.
+    }
   }
 
   /// Opens a site's connection, once the keychain has said who we are.
@@ -668,7 +761,12 @@ class ShellController extends ChangeNotifier {
     _trackers[siteUrl] = tracker;
     // Subscribing starts the client, so a site that stopped being the current
     // one in the meantime has to be put back to sleep.
-    if (currentInstance?.url != siteUrl) tracker.stop();
+    if (currentInstance?.url != siteUrl) {
+      tracker.stop();
+    } else {
+      // A topic can already be open by the time the keychain has answered.
+      _syncTopicWatch(siteUrl, tracker);
+    }
   }
 
   /// The account id for a connected site, asking the site for it if what was
@@ -842,6 +940,14 @@ class ShellController extends ChangeNotifier {
   Future<void> loadTopic(int topicId, String slug, {bool force = false}) async {
     final instance = currentInstance;
     if (instance == null) return;
+
+    // Before the guards below, not after: both of them return early on the
+    // ordinary path — a topic already in the store, or one already being
+    // fetched — and a fetch that only ever runs on a cache miss would get one
+    // attempt per session and no way back if it failed. Reading a topic is also
+    // the first thing that needs any of this, so a site whose topics are never
+    // opened is never asked.
+    unawaited(_ensureSiteConfig(instance));
 
     final key = _topicKey(instance.url, topicId);
     if (_topicsLoading.contains(key)) return;
@@ -1135,17 +1241,17 @@ class ShellController extends ChangeNotifier {
     if (instance == null || !post.canToggleLike) return null;
 
     final siteUrl = instance.url;
-    final key = _likersKey(siteUrl, post.id);
+    final key = _postWriteKey(siteUrl, post.id);
     // One at a time per post. Without this a double tap sends a like and an
     // undo at once — the second reads the guess the first just wrote — and
     // whichever answer lands last decides what is drawn, which is not
     // necessarily the one the site ended up believing.
-    if (!_likesInFlight.add(key)) return null;
+    if (!_postWritesInFlight.add(key)) return null;
 
     try {
       return await _writeLike(siteUrl, post);
     } finally {
-      _likesInFlight.remove(key);
+      _postWritesInFlight.remove(key);
     }
   }
 
@@ -1195,7 +1301,122 @@ class ShellController extends ChangeNotifier {
     return null;
   }
 
-  final Set<String> _likesInFlight = {};
+  /// Gives, moves or takes back this reader's reaction. null means it went
+  /// through.
+  ///
+  /// The same bargain [toggleLike] makes and for the same reason — a reaction
+  /// is a tap made while reading, and a row that waits for a round trip reads
+  /// as broken rather than slow.
+  ///
+  /// Nothing here ever writes `/post_actions` on a post that has reactions.
+  /// Reacting with a non-excluded emoji leaves a shadow like behind it, so an
+  /// unliking `DELETE` would destroy that and orphan the reaction — a desync
+  /// only a scheduled server job repairs.
+  Future<String?> toggleReaction(Post post, String reaction) async {
+    final instance = currentInstance;
+    if (instance == null || !post.canReact) return null;
+
+    final siteUrl = instance.url;
+    // Per post rather than per reaction, and shared with the like: two
+    // reactions toggled at once on one post contradict each other server side,
+    // because giving one *replaces* whatever was there. Serialising them is the
+    // correct granularity, not a simplification.
+    final key = _postWriteKey(siteUrl, post.id);
+    if (!_postWritesInFlight.add(key)) return null;
+
+    try {
+      return await _writeReaction(siteUrl, post, reaction);
+    } finally {
+      _postWritesInFlight.remove(key);
+    }
+  }
+
+  Future<String?> _writeReaction(
+    String siteUrl,
+    Post post,
+    String reaction,
+  ) async {
+    final apiKey = await authenticator.apiKeyFor(siteUrl);
+    if (apiKey == null) {
+      return const WriteException(WriteFailure.forbidden).message;
+    }
+
+    final held = post.reactions;
+    if (held == null) return null;
+
+    store.put(
+      siteUrl,
+      post.withPlugins(
+        post.plugins.withValue<Reactions>(
+          held
+              .withToggled(reaction)
+              .withMainReaction(siteConfigFor(siteUrl).mainReaction),
+        ),
+      ),
+    );
+    _notify();
+
+    /// Puts the reactions back the way they were, and nothing else — the twin
+    /// of `_writeLike`'s revert, for the same reason.
+    void revert() {
+      store.update<Post>(siteUrl, post.id, (h) => h.withPluginsOf(post));
+      _notify();
+    }
+
+    try {
+      final fresh = await api.toggleReaction(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postId: post.id,
+        reaction: reaction,
+      );
+      // Only what the answer says about *this reader*, never its counts. The
+      // plugin builds `reactions` one way for a topic read and another for a
+      // write, and the second drops reactions whose emoji no longer exists — so
+      // taking its counts would bump a pill and leave it wrong until the topic
+      // was read again. The guess above is corrected by the next real read, the
+      // way a like's count is when the route answers with nothing.
+      if (fresh?.reactions case final answered?) {
+        store.update<Post>(
+          siteUrl,
+          post.id,
+          (h) => h.withPlugins(
+            h.plugins.withValue<Reactions>(h.reactions?.withMineOf(answered)),
+          ),
+        );
+      }
+    } on WriteException catch (e) {
+      if (e.statusCode == 404) {
+        // Either the plugin went away or the post did — the route answers the
+        // same bytes for both, and the next read of the topic settles which.
+        // Deliberately scoped to this one post: dropping the site's reactions
+        // because a moderator deleted a post while it was being read would
+        // empty every footer in the topic.
+        store.update<Post>(
+          siteUrl,
+          post.id,
+          (h) => h.withPlugins(h.plugins.withValue<Reactions>(null)),
+        );
+        _notify();
+        // The row disappearing is the honest report; there is nothing a reader
+        // could do about either cause.
+        return null;
+      }
+      revert();
+      return e.message;
+    } catch (_) {
+      revert();
+      return const WriteException(WriteFailure.unreachable).message;
+    }
+    _notify();
+    return null;
+  }
+
+  /// One write at a time per post, whichever kind it is. Keyed by site and post
+  /// because topic 7's post 3 on two sites are two different posts.
+  final Set<String> _postWritesInFlight = {};
+
+  static String _postWriteKey(String siteUrl, int postId) => '$siteUrl~$postId';
 
   final Set<String> _likersLoading = {};
   final Map<String, String> _likersErrors = {};
@@ -1824,6 +2045,78 @@ class ShellController extends ChangeNotifier {
     _notify();
   }
 
+  final Map<String, SiteConfig> _configs = {};
+
+  /// How many times a site has refused to answer, so a site that will not is
+  /// asked a few times and then left alone.
+  final Map<String, int> _configAttempts = {};
+
+  /// Enough to survive a dropped connection or two without turning every topic
+  /// open on an unreachable site into a wasted request.
+  static const int _maxConfigAttempts = 3;
+
+  /// What a site's client settings said, or core's defaults where it has not
+  /// answered. Never null, and never a loading state — see [SiteConfig].
+  ///
+  /// What was stored last launch stands in until this session has asked, which
+  /// is what keeps a site drawing its own emoji set through the first topic
+  /// rather than drawing twitter's and correcting itself.
+  SiteConfig siteConfigFor(String siteUrl) =>
+      _configs[siteUrl] ??
+      _instanceAt(siteUrl)?.config ??
+      const SiteConfig.unknown();
+
+  /// The same, for the site on screen.
+  SiteConfig get currentSiteConfig {
+    final instance = currentInstance;
+    return instance == null
+        ? const SiteConfig.unknown()
+        : siteConfigFor(instance.url);
+  }
+
+  /// Fetches a site's client settings once, and remembers them across launches.
+  ///
+  /// Deliberately not shaped like [_ensureCategories], which marks a site done
+  /// before it has asked and un-marks it on failure — that works only because
+  /// something re-enters it, and nothing does once a feed is loaded. Here the
+  /// count is what stops the retries, so the caller may ask on every topic open
+  /// and a site that answers on the second go is not lost for the session.
+  Future<void> _ensureSiteConfig(DiscourseInstance instance) async {
+    final siteUrl = instance.url;
+    if (_configs.containsKey(siteUrl)) return;
+
+    final attempts = _configAttempts[siteUrl] ?? 0;
+    if (attempts >= _maxConfigAttempts) return;
+    // Counted before the request rather than after it, so two topics opened at
+    // once cannot both see zero and both spend an attempt for nothing.
+    _configAttempts[siteUrl] = attempts + 1;
+
+    final SiteConfig config;
+    try {
+      config = await api.siteConfig(
+        siteUrl: siteUrl,
+        apiKey: await authenticator.apiKeyFor(siteUrl),
+        clientId: await authenticator.clientId(),
+      );
+    } catch (_) {
+      // A site that will not say how it draws its emoji is drawn as core, which
+      // is what every field of SiteConfig already says. Nothing to report.
+      return;
+    }
+
+    if (_disposed) return;
+    _configs[siteUrl] = config;
+    _notify();
+
+    // Only when it told us something new, for the reason `_accountId` gives:
+    // otherwise preferences are rewritten every launch for an answer that has
+    // not moved.
+    final held = _instanceAt(siteUrl);
+    if (held == null || held.config == config) return;
+    _replaceInstance(held, held.copyWith(config: config));
+    await instanceStore.save(_instances);
+  }
+
   /// Categories are fetched once per site; the topic rows need them to draw
   /// their badges, and they change rarely.
   Future<void> _ensureCategories(
@@ -1866,6 +2159,11 @@ class ShellController extends ChangeNotifier {
         apiVersion: credentials.apiVersion,
       );
       _replaceInstance(instance, connected);
+      // Ask again with the key in hand. On a `login_required` site the settings
+      // route is not readable signed out, so whatever this session settled for
+      // was core's defaults rather than the site's answer.
+      _configs.remove(connected.url);
+      _configAttempts.remove(connected.url);
       // Reopen the connection with the key in it, so `/new` is subscribed to.
       _disposeTracking(connected.url);
       _syncTracking();
@@ -1897,7 +2195,13 @@ class ShellController extends ChangeNotifier {
     if (instance == null) return;
 
     await _revokeAndForget(instance);
-    _replaceInstance(instance, instance.copyWith(clearUser: true));
+    // The settings go with the key. On a `login_required` site they were only
+    // readable as that account, so keeping an answer that can no longer be
+    // refreshed would leave the shell drawing something it cannot correct.
+    _replaceInstance(
+      instance,
+      instance.copyWith(clearUser: true, clearConfig: true),
+    );
     _syncTracking();
     _notify();
     await instanceStore.save(_instances);
@@ -1933,6 +2237,9 @@ class ShellController extends ChangeNotifier {
     _bookmarks.remove(instance.url);
     store.forget(instance.url);
     _categorised.remove(instance.url);
+    _configs.remove(instance.url);
+    _configAttempts.remove(instance.url);
+    reactions.forget(instance.url);
     _feeds.removeWhere((key, _) => key.startsWith('${instance.url}|'));
     // The key is baked into the poll headers, so the connection cannot outlive
     // it. A signed-out one is opened in its place by whoever called this.
@@ -1982,6 +2289,7 @@ class ShellController extends ChangeNotifier {
       ..clear()
       ..add(ContentRoute.fromDestination(destination));
     _mobilePane = MobilePane.content;
+    _syncTopicChannels();
     _notify();
 
     unawaited(loadFeed(destination.id));
@@ -1991,6 +2299,7 @@ class ShellController extends ChangeNotifier {
   void pushContent(ContentRoute route) {
     _contentStack.add(route);
     _mobilePane = MobilePane.content;
+    _syncTopicChannels();
     _notify();
   }
 
@@ -2002,6 +2311,7 @@ class ShellController extends ChangeNotifier {
   bool handleBack({bool canReturnToSidebar = true}) {
     if (canPopContent) {
       _contentStack.removeLast();
+      _syncTopicChannels();
       _notify();
       return true;
     }
@@ -2058,6 +2368,7 @@ class ShellController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     updates.dispose();
+    reactions.dispose();
     _composer?.dispose();
     _composer = null;
     for (final tracker in _trackers.values) {

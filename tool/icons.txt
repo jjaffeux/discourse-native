@@ -67,6 +67,8 @@ toggle-off
 far-face-smile
 
 # --- Notifications
+# What Discourse's own reactions plugin gives a reaction notification.
+discourse-emojis
 quote-right
 link
 check
@@ -116,7 +118,7 @@ notification.group_message_summary = users
 notification.post_approved = check
 notification.membership_request_accepted = user-plus
 notification.membership_request_consolidated = users
-notification.reaction = bell
+notification.reaction = discourse-emojis
 notification.votes_released = plus
 # Discourse also maps notification.posted, .watching_category_or_tag and
 # .watching_first_post onto discourse-bell-exclamation and discourse-bell-one,

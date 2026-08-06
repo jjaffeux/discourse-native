@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/d_icons.dart';
 import 'discourse_user.dart';
 import 'sidebar.dart';
+import 'site_config.dart';
 
 /// A Discourse site the user has connected to — one entry in the rail.
 ///
@@ -18,6 +19,7 @@ class DiscourseInstance {
     this.apiVersion = 0,
     this.loginRequired = false,
     this.user,
+    this.config = const SiteConfig.unknown(),
   });
 
   factory DiscourseInstance.fromJson(Map<String, dynamic> json) {
@@ -31,6 +33,12 @@ class DiscourseInstance {
       user: json['user'] == null
           ? null
           : DiscourseUser.fromJson(json['user'] as Map<String, dynamic>),
+      // Absent for every site stored before this existed, which is what the
+      // unknown default is for. Nothing here may be required: `InstanceStore`
+      // answers a decode failure by forgetting the user's whole rail.
+      config: json['config'] == null
+          ? const SiteConfig.unknown()
+          : SiteConfig.fromJson(json['config'] as Map<String, dynamic>),
     );
   }
 
@@ -42,6 +50,8 @@ class DiscourseInstance {
     bool? loginRequired,
     DiscourseUser? user,
     bool clearUser = false,
+    SiteConfig? config,
+    bool clearConfig = false,
   }) {
     return DiscourseInstance(
       url: url,
@@ -51,6 +61,9 @@ class DiscourseInstance {
       apiVersion: apiVersion ?? this.apiVersion,
       loginRequired: loginRequired ?? this.loginRequired,
       user: clearUser ? null : (user ?? this.user),
+      config: clearConfig
+          ? const SiteConfig.unknown()
+          : (config ?? this.config),
     );
   }
 
@@ -67,6 +80,15 @@ class DiscourseInstance {
   /// API key itself lives in the keychain, never here.
   final DiscourseUser? user;
 
+  /// What this site's client settings said, or [SiteConfig.unknown] before it
+  /// has been asked.
+  ///
+  /// Persisted rather than kept for the session because it decides *rendering*
+  /// — a site drawing google emoji would otherwise draw twitter ones through
+  /// the first topic of every launch. The cost is that it can be one launch
+  /// stale, which nothing here is harmed by; see [SiteConfig].
+  final SiteConfig config;
+
   bool get isConnected => user != null;
 
   Map<String, dynamic> toJson() => {
@@ -77,6 +99,7 @@ class DiscourseInstance {
     'apiVersion': apiVersion,
     'loginRequired': loginRequired,
     'user': user?.toJson(),
+    'config': config.toJson(),
   };
 
   /// Host and port, which is what identifies a site to a human.

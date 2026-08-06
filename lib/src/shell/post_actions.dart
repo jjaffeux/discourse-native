@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
+import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'post_action.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -123,22 +124,34 @@ class _PostActionsState extends State<PostActions> {
 
   /// What this reader may do with this post, in the order they are offered.
   ///
-  /// Every entry is gated on an answer the site gave — `can_edit`, `can_delete`
-  /// and `can_recover` come from the guardian that already weighed ownership,
-  /// staff, the edit window and the state of the topic. None of it is worked
-  /// out here, because none of it can be.
-  List<_PostAction> _actions(ShellController controller) {
+  /// Every core entry is gated on an answer the site gave — `can_edit`,
+  /// `can_delete` and `can_recover` come from the guardian that already weighed
+  /// ownership, staff, the edit window and the state of the topic. None of that
+  /// is worked out here, because none of it can be.
+  ///
+  /// An optional site feature can add its own, and can take the place of Like
+  /// where it has taken over what liking means. That is gated on the post's own
+  /// payload, so it too is an answer the site gave.
+  List<PostAction> _actions(BuildContext context, ShellController controller) {
     final post = widget.post;
+    final contributed = <PostAction>[];
+    var replacesLike = false;
+    for (final plugin in sitePlugins) {
+      final contribution = plugin.postMenu(context, post);
+      contributed.addAll(contribution.entries);
+      replacesLike |= contribution.replacesLike;
+    }
+
     return [
       // First, and furthest from Delete: it is the one thing here people do
       // over and over while reading, and the only one they do without meaning
       // to change anything.
-      //
+      ...contributed,
       // Offered only while it would do something. A post already liked past
       // the site's undo window keeps its filled heart in the count underneath,
       // which says the same thing without a button that refuses.
-      if (post.canToggleLike)
-        _PostAction(
+      if (!replacesLike && post.canToggleLike)
+        PostAction(
           icon: post.liked ? DIcons.heart : DIcons.farHeart,
           label: post.liked ? 'Remove like' : 'Like',
           tooltip: post.liked ? 'Remove your like' : 'Like this post',
@@ -146,7 +159,7 @@ class _PostActionsState extends State<PostActions> {
           onInvoke: () => _report(controller.toggleLike(post)),
         ),
       if (controller.canReplyHere)
-        _PostAction(
+        PostAction(
           icon: DIcons.reply,
           label: 'Reply',
           tooltip: 'Reply to this post',
@@ -156,21 +169,21 @@ class _PostActionsState extends State<PostActions> {
           ),
         ),
       if (post.canEdit)
-        _PostAction(
+        PostAction(
           icon: DIcons.pencil,
           label: 'Edit',
           tooltip: 'Edit this post',
           onInvoke: () => controller.openEdit(post),
         ),
       if (post.canRecover)
-        _PostAction(
+        PostAction(
           icon: DIcons.arrowRotateLeft,
           label: 'Undelete',
           tooltip: 'Put this post back',
           onInvoke: () => _report(controller.recoverPost(post)),
         )
       else if (post.canDelete)
-        _PostAction(
+        PostAction(
           icon: DIcons.trashCan,
           label: 'Delete',
           tooltip: 'Delete this post',
@@ -194,7 +207,7 @@ class _PostActionsState extends State<PostActions> {
     )?.showSnackBar(SnackBar(content: Text(error)));
   }
 
-  Future<void> _openSheet(List<_PostAction> actions) async {
+  Future<void> _openSheet(List<PostAction> actions) async {
     await showShellSheet<void>(
       context: context,
       title: widget.post.displayName,
@@ -203,8 +216,9 @@ class _PostActionsState extends State<PostActions> {
         children: [
           for (final action in actions)
             ListTile(
-              leading: DIcon(
-                action.icon,
+              leading: action.leading(
+                sheetContext,
+                size: 24,
                 color:
                     action.tint ??
                     (action.destructive
@@ -234,7 +248,7 @@ class _PostActionsState extends State<PostActions> {
 
   @override
   Widget build(BuildContext context) {
-    final actions = _actions(ShellScope.of(context));
+    final actions = _actions(context, ShellScope.of(context));
     // Nothing this reader may do: no menu, and no hover target for one.
     if (actions.isEmpty) return widget.child;
 
@@ -287,39 +301,6 @@ class _PostActionsState extends State<PostActions> {
   }
 }
 
-/// One thing that can be done with a post, in whichever surface is offering it.
-///
-/// The hover menu and the long-press sheet draw the same list rather than each
-/// deciding for itself what a post allows — two answers to that question is one
-/// too many.
-@immutable
-class _PostAction {
-  const _PostAction({
-    required this.icon,
-    required this.label,
-    required this.tooltip,
-    required this.onInvoke,
-    this.destructive = false,
-    this.tint,
-  });
-
-  final DIconData icon;
-
-  /// For the sheet, which has room for words.
-  final String label;
-
-  /// For the menu, which does not.
-  final String tooltip;
-
-  final bool destructive;
-
-  /// Overrides the icon's color where the state of the post is worth saying in
-  /// the icon itself — a heart already given, rather than one on offer.
-  final Color? tint;
-
-  final VoidCallback onInvoke;
-}
-
 class _PostActionsMenu extends StatelessWidget {
   const _PostActionsMenu({required this.actions, required this.onInvoke});
 
@@ -329,11 +310,11 @@ class _PostActionsMenu extends StatelessWidget {
   /// The follower needs a width to align its right edge against, and it has to
   /// be known before the menu is laid out — so it is computed rather than
   /// measured.
-  static double widthFor(List<_PostAction> actions) =>
+  static double widthFor(List<PostAction> actions) =>
       actions.length * _button + _padding * 2;
 
-  final List<_PostAction> actions;
-  final void Function(_PostAction action) onInvoke;
+  final List<PostAction> actions;
+  final void Function(PostAction action) onInvoke;
 
   @override
   Widget build(BuildContext context) {
@@ -356,7 +337,7 @@ class _PostActionsMenu extends StatelessWidget {
               for (final action in actions)
                 IconButton(
                   onPressed: () => onInvoke(action),
-                  icon: DIcon(action.icon, size: 17),
+                  icon: action.leading(context, size: 17),
                   tooltip: action.tooltip,
                   visualDensity: VisualDensity.compact,
                   constraints: const BoxConstraints.tightFor(

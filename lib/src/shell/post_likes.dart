@@ -7,8 +7,8 @@ import '../models/post_likers.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import 'anchored_layout.dart';
 import 'avatar_image.dart';
+import 'hover_panel.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -36,111 +36,19 @@ class PostLikes extends StatefulWidget {
 }
 
 class _PostLikesState extends State<PostLikes> {
-  /// How long the pointer has to rest on the count before the panel opens.
-  ///
-  /// Long enough that crossing the pill on the way somewhere else does not
-  /// open it, and does not spend a request finding out who liked a post
-  /// nobody asked about. Discourse's reactions plugin waits the same 250ms.
-  static const Duration _openDelay = Duration(milliseconds: 250);
-
-  /// And how long it stays open after the pointer leaves.
-  ///
-  /// The panel is separated from the pill by a gap, so moving onto it means
-  /// leaving both for a moment. This is what bridges that; entering the panel
-  /// cancels it.
-  static const Duration _closeDelay = Duration(milliseconds: 500);
-
   static const double _panelWidth = 260;
 
-  final OverlayPortalController _portal = OverlayPortalController();
-  final GlobalKey _pill = GlobalKey();
-
-  /// Where the panel should sit, in the overlay's coordinates.
-  final ValueNotifier<Rect?> _anchor = ValueNotifier(null);
-
-  Timer? _opening;
-  Timer? _closing;
-  ScrollPosition? _scroll;
+  final GlobalKey<HoverPanelState> _panel = GlobalKey<HoverPanelState>();
 
   bool get _isTouch => switch (Theme.of(context).platform) {
     TargetPlatform.iOS || TargetPlatform.android => true,
     _ => false,
   };
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final position = Scrollable.maybeOf(context)?.position;
-    if (identical(position, _scroll)) return;
-    _scroll?.removeListener(_onScroll);
-    _scroll = position?..addListener(_onScroll);
-  }
-
-  /// A panel pinned to a row that is moving reads as broken. Discourse's own
-  /// closes on scroll for the same reason.
-  void _onScroll() {
-    _cancelOpen();
-    _close();
-  }
-
-  /// Cancelling and forgetting go together everywhere: a cancelled timer left
-  /// in [_opening] reads as one still counting down, and [_scheduleOpen]
-  /// declines to arm another while it is there.
-  void _cancelOpen() {
-    _opening?.cancel();
-    _opening = null;
-  }
-
-  void _scheduleOpen() {
-    _closing?.cancel();
-    _closing = null;
-    if (_portal.isShowing || _opening != null) return;
-    _opening = Timer(_openDelay, _open);
-  }
-
-  void _open() {
-    _opening = null;
-    final anchor = _anchorRect();
-    if (anchor == null) return;
-
-    _anchor.value = anchor;
-    if (!_portal.isShowing) _portal.show();
-    // Every open, not only the first: this is a list of what other people have
-    // just done, and it is cheap to ask again. Whatever was fetched last time
-    // stays on screen while the answer is on its way.
-    unawaited(ShellScope.of(context).loadLikers(widget.post.id));
-  }
-
-  void _scheduleClose() {
-    _cancelOpen();
-    if (!_portal.isShowing) return;
-    _closing?.cancel();
-    _closing = Timer(_closeDelay, _close);
-  }
-
-  /// Cancels the pending close as well as closing, since this is also reached
-  /// from a scroll rather than only from the timer itself — an orphaned one
-  /// would come back 500ms later and shut a panel reopened in the meantime.
-  void _close() {
-    _closing?.cancel();
-    _closing = null;
-    if (_portal.isShowing) _portal.hide();
-  }
-
-  /// The pill's rectangle, in the coordinates the overlay lays its children
-  /// out in. Null before it has been laid out, or once it no longer is.
-  Rect? _anchorRect() {
-    final box = _pill.currentContext?.findRenderObject() as RenderBox?;
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (box == null || overlay == null || !box.hasSize || !box.attached) {
-      return null;
-    }
-    return Rect.fromPoints(
-      box.localToGlobal(Offset.zero, ancestor: overlay),
-      box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
-    );
-  }
+  /// Every open, not only the first: this is a list of what other people have
+  /// just done, and it is cheap to ask again. Whatever was fetched last time
+  /// stays on screen while the answer is on its way.
+  void _load() => unawaited(ShellScope.of(context).loadLikers(widget.post.id));
 
   /// Adds or removes this reader's like.
   Future<void> _toggle() async {
@@ -152,7 +60,7 @@ class _PostLikesState extends State<PostLikes> {
     // one out if the like went through, and worth confirming if it did not.
     // The panel is only open because somebody asked to see it, which is what
     // makes another request worth spending.
-    if (_portal.isShowing) unawaited(controller.loadLikers(widget.post.id));
+    if (_panel.currentState?.isShowing ?? false) _load();
 
     if (error != null) {
       ScaffoldMessenger.maybeOf(
@@ -175,26 +83,11 @@ class _PostLikesState extends State<PostLikes> {
   }
 
   @override
-  void dispose() {
-    _opening?.cancel();
-    _closing?.cancel();
-    _scroll?.removeListener(_onScroll);
-    _anchor.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final post = widget.post;
     // Nobody has liked it, so there is nothing to say and no room taken up
     // saying it.
     if (post.likeCount <= 0) return const SizedBox.shrink();
-
-    final pill = _LikeCount(
-      key: _pill,
-      post: post,
-      onTap: post.canToggleLike ? _toggle : null,
-    );
 
     return Padding(
       padding: const EdgeInsets.only(top: 10),
@@ -205,27 +98,14 @@ class _PostLikesState extends State<PostLikes> {
           // action sheet on a long press, and this one wins the gesture arena
           // by being the nearer of the two.
           onLongPress: _isTouch ? _openSheet : null,
-          child: MouseRegion(
-            onEnter: (_) => _scheduleOpen(),
-            onExit: (_) => _scheduleClose(),
-            child: OverlayPortal(
-              controller: _portal,
-              overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
-                valueListenable: _anchor,
-                builder: (context, anchor, child) => CustomSingleChildLayout(
-                  delegate: AnchoredLayout(
-                    anchor: anchor,
-                    maxWidth: _panelWidth,
-                  ),
-                  child: child!,
-                ),
-                child: MouseRegion(
-                  onEnter: (_) => _closing?.cancel(),
-                  onExit: (_) => _scheduleClose(),
-                  child: _LikersPanel(post: post),
-                ),
-              ),
-              child: pill,
+          child: HoverPanel(
+            key: _panel,
+            maxWidth: _panelWidth,
+            onOpen: _load,
+            panelBuilder: (context) => _LikersPanel(post: post),
+            child: _LikeCount(
+              post: post,
+              onTap: post.canToggleLike ? _toggle : null,
             ),
           ),
         ),
@@ -240,7 +120,7 @@ class _PostLikesState extends State<PostLikes> {
 /// distinguishing "one person liked this" from "you liked this" — the heart
 /// itself is the same either way, because the count includes them.
 class _LikeCount extends StatelessWidget {
-  const _LikeCount({super.key, required this.post, required this.onTap});
+  const _LikeCount({required this.post, required this.onTap});
 
   final Post post;
   final VoidCallback? onTap;

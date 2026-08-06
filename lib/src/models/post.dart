@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
+import '../plugins/site_plugin.dart';
 import 'composer_draft.dart';
 
 /// One post in a topic.
@@ -30,6 +31,7 @@ class Post with Storable<Post> {
     this.canLike = false,
     this.canUnlike = false,
     this.raw,
+    this.plugins = PluginData.none,
   });
 
   /// `post_type` values Discourse uses. Regular posts are 1; the moderator
@@ -80,6 +82,9 @@ class Post with Storable<Post> {
       // Only present when asked for. Reading needs the cooked HTML; writing
       // needs this, because it is the thing that was actually typed.
       raw: _nonEmpty(json['raw']),
+      // Whatever the site's optional features had to say about this post, which
+      // on a site running plain core is nothing at all.
+      plugins: PluginData.forPost(json, siteUrl),
     );
   }
 
@@ -176,6 +181,11 @@ class Post with Storable<Post> {
   final bool canUnlike;
 
   /// Whether tapping the heart would do anything.
+  ///
+  /// On a site with reactions this is still asked, but as a *permission* rather
+  /// than as the like's own state: it is the same `post_can_act?(post, :like)`
+  /// the reaction routes check, and it already carries ownership, silencing,
+  /// archived topics and the undo window. See `Post.canReact`.
   bool get canToggleLike => liked ? canUnlike : canLike;
 
   /// The markdown this post was written as, when it was asked for.
@@ -183,6 +193,14 @@ class Post with Storable<Post> {
   /// Absent from an ordinary read: the stream carries [cooked] and nothing
   /// needs the source until something wants to compare or edit it.
   final String? raw;
+
+  /// What the site's optional features said about this post, keyed by the type
+  /// each of them answers with — `plugins.get<Reactions>()`.
+  ///
+  /// [PluginData.none] on a site running plain core, and on every post of a
+  /// site whose plugins this build does not know about. See [SitePlugin] for
+  /// why the payload is the gate rather than a setting.
+  final PluginData plugins;
 
   /// Small actions are the "closed this topic" notices in the stream. They
   /// have no body of their own, so they are drawn as a one-line notice
@@ -237,6 +255,18 @@ class Post with Storable<Post> {
     canUnlike: other.canUnlike,
   );
 
+  /// The post with one optional feature's answer replaced.
+  Post withPlugins(PluginData next) => copyWith(plugins: next);
+
+  /// This post, but with [other]'s answer from the site's optional features.
+  ///
+  /// The twin of [withLikesOf], for the same three places a copy of a post
+  /// arrives that cannot have known what this reader did: a rollback, an edit
+  /// response, and the answer to a write. Kept separate from [withLikesOf]
+  /// rather than folded into it, so that what that method tests is still what
+  /// it tests.
+  Post withPluginsOf(Post other) => copyWith(plugins: other.plugins);
+
   /// Only the fields anything here has reason to change. Everything else is
   /// the site's to say, and is carried across untouched.
   Post copyWith({
@@ -245,6 +275,7 @@ class Post with Storable<Post> {
     bool? liked,
     bool? canLike,
     bool? canUnlike,
+    PluginData? plugins,
   }) => Post(
     id: id,
     postNumber: postNumber,
@@ -269,6 +300,7 @@ class Post with Storable<Post> {
     canLike: canLike ?? this.canLike,
     canUnlike: canUnlike ?? this.canUnlike,
     raw: raw ?? this.raw,
+    plugins: plugins ?? this.plugins,
   );
 }
 

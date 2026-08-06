@@ -1,0 +1,183 @@
+import 'package:flutter/foundation.dart';
+
+/// The handful of a site's client settings that decide how something is
+/// *drawn*, or what may be *offered*.
+///
+/// Deliberately not a capability layer, and the distinction is the whole point.
+/// Nothing here may decide whether a feature exists — that is the payload's
+/// job, because this arrives asynchronously and can be refused, and a gate that
+/// is wrong for a frame produces a wrong *write* rather than a missing button.
+/// See `SitePlugin`.
+///
+/// So every field has a default, every default is core's own, and a site that
+/// will not answer is simply drawn as core. There is no loading state and no
+/// error state, because there is nothing here worth telling a reader about.
+@immutable
+class SiteConfig {
+  const SiteConfig({
+    this.emojiSet = defaultEmojiSet,
+    this.externalEmojiUrl,
+    this.mainReaction,
+    this.offeredReactions = const [],
+    this.allowAnyEmoji = false,
+    this.desaturatedReactionPanel = false,
+  });
+
+  /// What a site looks like before it has been asked, and what one that refuses
+  /// keeps looking like.
+  const SiteConfig.unknown() : this();
+
+  /// `emoji_set`'s own default, server side.
+  static const String defaultEmojiSet = 'twitter';
+
+  /// Reads `GET /site/settings.json`, which is `SiteSetting.client_settings_json`
+  /// — every setting marked `client: true`, core's and every plugin's alike.
+  ///
+  /// A plugin's settings are registered whether or not it is enabled, so they
+  /// are here either way. Reading them without checking the plugin's own
+  /// `_enabled` flag would offer a picker on a site that has switched reactions
+  /// off, which is why that check is not a formality.
+  factory SiteConfig.fromSettings(Map<String, dynamic> json) {
+    final reactions = json['discourse_reactions_enabled'] == true;
+    final main = reactions
+        ? _nonEmpty(json['discourse_reactions_reaction_for_like'])
+        : null;
+
+    return SiteConfig(
+      emojiSet: _nonEmpty(json['emoji_set']) ?? defaultEmojiSet,
+      externalEmojiUrl: _trimSlash(_nonEmpty(json['external_emoji_url'])),
+      mainReaction: main,
+      offeredReactions: reactions
+          ? _offered(json['discourse_reactions_enabled_reactions'], main)
+          : const [],
+      allowAnyEmoji:
+          reactions && json['discourse_reactions_allow_any_emoji'] == true,
+      desaturatedReactionPanel:
+          reactions &&
+          json['discourse_reactions_desaturated_reaction_panel'] == true,
+    );
+  }
+
+  /// Reads our own persisted copy. Every field is optional, deliberately: a
+  /// missing one has to mean "core's default" rather than throwing, because
+  /// `InstanceStore.load` answers a decode failure by forgetting every site the
+  /// user had.
+  factory SiteConfig.fromJson(Map<String, dynamic> json) => SiteConfig(
+    emojiSet: _nonEmpty(json['emojiSet']) ?? defaultEmojiSet,
+    externalEmojiUrl: _nonEmpty(json['externalEmojiUrl']),
+    mainReaction: _nonEmpty(json['mainReaction']),
+    offeredReactions: (json['offeredReactions'] as List<dynamic>? ?? const [])
+        .map((e) => '$e')
+        .toList(),
+    allowAnyEmoji: json['allowAnyEmoji'] == true,
+    desaturatedReactionPanel: json['desaturatedReactionPanel'] == true,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'emojiSet': emojiSet,
+    'externalEmojiUrl': externalEmojiUrl,
+    'mainReaction': mainReaction,
+    'offeredReactions': offeredReactions,
+    'allowAnyEmoji': allowAnyEmoji,
+    'desaturatedReactionPanel': desaturatedReactionPanel,
+  };
+
+  /// Which set of artwork the site draws its emoji from — `twitter`, `apple`,
+  /// `google`, `facebook`. Part of the URL, so it cannot be guessed.
+  final String emojiSet;
+
+  /// Where that artwork is served from, for a site that has moved it off its
+  /// own origin. Null is the ordinary case.
+  final String? externalEmojiUrl;
+
+  /// The reaction that *is* a like — `discourse_reactions_reaction_for_like`.
+  ///
+  /// **Null means not known**, which is a different thing from `heart`. The
+  /// setting is enum-constrained to the reactions a site actually allows, and
+  /// `heart` is not in the default enabled list — so on a site whose admin set
+  /// it to `+1`, sending a guessed `heart` earns a 422 whose body says only
+  /// "Sorry, an error has occurred." Nothing here ever guesses it; where it is
+  /// unknown the picker is opened instead.
+  final String? mainReaction;
+
+  /// What the picker offers — `discourse_reactions_enabled_reactions`, with
+  /// [mainReaction] at the front where the setting leaves it out. Empty until
+  /// the site has been asked, and on a site with reactions switched off.
+  final List<String> offeredReactions;
+
+  /// Whether the site lets any emoji be used, not only the offered ones. The
+  /// picker still offers the list; this says the row may hold others.
+  final bool allowAnyEmoji;
+
+  /// Whether the site draws its reaction picker desaturated.
+  final bool desaturatedReactionPanel;
+
+  /// Where the artwork for one emoji lives on this site.
+  ///
+  /// Mirrors `Emoji.url_for`: a `:tN` tone suffix becomes a `/N` path segment,
+  /// and surrounding colons are not part of the name. The `?v=` core appends is
+  /// a build constant with no JSON endpoint to read it from — it busts caches
+  /// and nothing else, and `EmojiCache` is the cache here.
+  ///
+  /// Custom emoji are uploads and are not at this address. They 404 here, which
+  /// is what tells the caller to go looking for them.
+  String emojiUrl(String name, {required String siteUrl}) {
+    final base = externalEmojiUrl ?? '$siteUrl/images/emoji';
+    return '$base/$emojiSet/${_toned(name)}.png';
+  }
+
+  /// `heart` stays `heart`; `:wave:t3:` becomes `wave/3`.
+  static String _toned(String name) {
+    final match = RegExp(r'^:?(.+?)(?::t([1-6]))?:?$').firstMatch(name);
+    if (match == null) return name;
+    final tone = match.group(2);
+    return tone == null ? match.group(1)! : '${match.group(1)}/$tone';
+  }
+
+  /// The offered list, with the main reaction guaranteed a place.
+  ///
+  /// The two settings are independent, and the default pair leaves `heart` —
+  /// the default main reaction — out of the offered list entirely. A picker
+  /// that cannot offer the site's own like would be a strange thing to draw.
+  static List<String> _offered(Object? raw, String? main) {
+    final listed = ((raw as String?) ?? '')
+        .split('|')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (main == null || listed.contains(main)) return listed;
+    return [main, ...listed];
+  }
+
+  static String? _nonEmpty(Object? value) {
+    final text = value is String ? value.trim() : null;
+    return text == null || text.isEmpty ? null : text;
+  }
+
+  static String? _trimSlash(String? value) => value == null
+      ? null
+      : (value.endsWith('/') ? value.substring(0, value.length - 1) : value);
+
+  /// Hand-written because a stored copy is compared against a fresh one to
+  /// decide whether preferences are worth rewriting, and identity would answer
+  /// "changed" every launch.
+  @override
+  bool operator ==(Object other) =>
+      other is SiteConfig &&
+      other.emojiSet == emojiSet &&
+      other.externalEmojiUrl == externalEmojiUrl &&
+      other.mainReaction == mainReaction &&
+      other.allowAnyEmoji == allowAnyEmoji &&
+      other.desaturatedReactionPanel == desaturatedReactionPanel &&
+      listEquals(other.offeredReactions, offeredReactions);
+
+  @override
+  int get hashCode => Object.hash(
+    emojiSet,
+    externalEmojiUrl,
+    mainReaction,
+    allowAnyEmoji,
+    desaturatedReactionPanel,
+    Object.hashAll(offeredReactions),
+  );
+}

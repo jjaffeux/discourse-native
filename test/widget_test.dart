@@ -6,11 +6,14 @@ import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:super_editor/super_editor.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/updater.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
@@ -22,6 +25,9 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
@@ -37,6 +43,7 @@ import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
+import 'package:discourse_native/src/shell/post_footer.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
@@ -73,6 +80,16 @@ Future<void> pumpShell(
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
+
+  // Emoji are fetched off the site, and any fixture carrying one would dial out
+  // from a widget test. Answering 404 draws the shortcode, which is what these
+  // tests looked like before emoji rendered at all — nothing here is about
+  // artwork. Unlike avatars, which no fixture supplies a URL for, cooked HTML
+  // is what most of these tests are made of, so this cannot be left to luck.
+  EmojiCache.instance = EmojiCache(
+    client: MockClient((_) async => http.Response('', 404)),
+  );
+  addTearDown(EmojiCache.instance.clear);
 
   await tester.pumpWidget(
     DiscourseApp(
@@ -3219,6 +3236,222 @@ void main() {
     });
   });
 
+  group('optional site features', () {
+    const site = 'https://meta.discourse.org';
+
+    final reactionsOn = SiteConfig.fromSettings(const {
+      'emoji_set': 'apple',
+      'discourse_reactions_enabled': true,
+      'discourse_reactions_reaction_for_like': 'heart',
+      'discourse_reactions_enabled_reactions': '+1|clap',
+    });
+
+    ShellController controllerWith(
+      WidgetTester tester,
+      FakeDiscourseApi api, {
+      FakeInstanceStore? store,
+    }) {
+      final controller = ShellController(
+        instanceStore:
+            store ?? FakeInstanceStore([instance('meta.discourse.org')]),
+        api: api,
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(controller.dispose);
+      return controller;
+    }
+
+    FakeDiscourseApi serving({Map<String, SiteConfig> configs = const {}}) =>
+        FakeDiscourseApi(
+          feeds: {'/latest.json': const []},
+          topics: {
+            7: topicPayload(
+              id: 7,
+              title: 'A real topic',
+              posts: [
+                const Post(
+                  id: 1,
+                  postNumber: 1,
+                  username: 'sam',
+                  cooked: '<p>First post body</p>',
+                ),
+              ],
+              stream: const [1],
+            ),
+          },
+          siteConfigs: configs,
+        );
+
+    testWidgets('what a site has is asked for when a topic is opened', (
+      tester,
+    ) async {
+      // Not at launch: a site whose topics are never read is never asked, and
+      // nothing before a topic needs the answer.
+      final api = serving(configs: {site: reactionsOn});
+      final controller = controllerWith(tester, api);
+      await controller.load();
+
+      expect(api.siteConfigsRequested, isEmpty);
+
+      await controller.loadTopic(7, 'a-real-topic');
+      await tester.pump();
+
+      expect(api.siteConfigsRequested, [site]);
+      expect(controller.siteConfigFor(site).emojiSet, 'apple');
+      expect(controller.siteConfigFor(site).mainReaction, 'heart');
+    });
+
+    testWidgets('a site is only asked once', (tester) async {
+      final api = serving(configs: {site: reactionsOn});
+      final controller = controllerWith(tester, api);
+      await controller.load();
+
+      await controller.loadTopic(7, 'a-real-topic');
+      await tester.pump();
+      await controller.loadTopic(7, 'a-real-topic', force: true);
+      await tester.pump();
+
+      expect(api.siteConfigsRequested, [site]);
+    });
+
+    testWidgets('the answer is remembered between launches', (tester) async {
+      // It decides rendering, so a site drawing google emoji must not draw
+      // twitter's through the first topic of every launch.
+      final store = FakeInstanceStore([instance('meta.discourse.org')]);
+      final controller = controllerWith(
+        tester,
+        serving(configs: {site: reactionsOn}),
+        store: store,
+      );
+      await controller.load();
+      await controller.loadTopic(7, 'a-real-topic');
+      await tester.pump();
+
+      final stored = await store.load();
+      expect(stored.single.config, reactionsOn);
+    });
+
+    testWidgets('a stored answer stands until this session has its own', (
+      tester,
+    ) async {
+      final controller = controllerWith(
+        tester,
+        // This site will refuse, so nothing but the stored copy is available.
+        serving(),
+        store: FakeInstanceStore([
+          instance('meta.discourse.org').copyWith(config: reactionsOn),
+        ]),
+      );
+      await controller.load();
+
+      expect(controller.siteConfigFor(site).emojiSet, 'apple');
+    });
+
+    testWidgets('a site that will not answer is drawn as plain core', (
+      tester,
+    ) async {
+      final controller = controllerWith(tester, serving());
+      await controller.load();
+      await controller.loadTopic(7, 'a-real-topic');
+      await tester.pump();
+
+      // No loading state and no error state: every field is core's default, so
+      // there is nothing here worth telling a reader about.
+      expect(controller.siteConfigFor(site), const SiteConfig.unknown());
+    });
+
+    testWidgets('a site that will not answer is given up on, not hammered', (
+      tester,
+    ) async {
+      // Deliberately unlike the categories fetch, which marks a site done
+      // before it has asked and so gets one attempt per session with no way
+      // back. A few tries, then left alone.
+      final api = serving();
+      final controller = controllerWith(tester, api);
+      await controller.load();
+
+      for (var i = 0; i < 6; i++) {
+        await controller.loadTopic(7, 'a-real-topic', force: true);
+        await tester.pump();
+      }
+
+      expect(api.siteConfigsRequested, hasLength(3));
+    });
+
+    testWidgets('signing out forgets what the site said', (tester) async {
+      // On a login_required site the settings were only readable as that
+      // account, so keeping an answer that can no longer be refreshed would
+      // leave the shell drawing something it cannot correct.
+      final api = serving(configs: {site: reactionsOn});
+      final controller = controllerWith(
+        tester,
+        api,
+        store: FakeInstanceStore([
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: const DiscourseUser(username: 'joffreyj')),
+        ]),
+      );
+      await controller.load();
+      await controller.loadTopic(7, 'a-real-topic');
+      await tester.pump();
+      expect(controller.siteConfigFor(site), reactionsOn);
+
+      await controller.disconnectCurrentInstance();
+
+      expect(controller.siteConfigFor(site), const SiteConfig.unknown());
+    });
+
+    testWidgets('a post no feature claims keeps the core footer', (
+      tester,
+    ) async {
+      // The load-bearing default. Every plugin is opt-in from the payload, so
+      // a site running plain core draws exactly what it drew before any of this
+      // existed.
+      await pumpShell(
+        tester,
+        desktop,
+        api: FakeDiscourseApi(
+          feeds: {
+            '/latest.json': [
+              const Topic(id: 7, title: 'A real topic', slug: 'a-real-topic'),
+            ],
+          },
+          topics: {
+            7: topicPayload(
+              id: 7,
+              title: 'A real topic',
+              posts: [
+                const Post(
+                  id: 1,
+                  postNumber: 1,
+                  username: 'sam',
+                  cooked: '<p>First post body</p>',
+                  likeCount: 2,
+                ),
+              ],
+              stream: const [1],
+            ),
+          },
+        ),
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PostFooter), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(PostFooter),
+          matching: find.byType(PostLikes),
+        ),
+        findsOneWidget,
+      );
+    });
+  });
+
   group('likes', () {
     const me = DiscourseUser(username: 'joffreyj', name: 'Joffrey');
 
@@ -3615,6 +3848,465 @@ void main() {
       await gesture.moveTo(tester.getCenter(renderedText('First post body!')));
       await tester.pumpAndSettle();
       expect(find.byTooltip('Remove your like'), findsOneWidget);
+    });
+  });
+
+  group('reactions', () {
+    const me = DiscourseUser(username: 'joffreyj', name: 'Joffrey');
+    const site = 'https://meta.discourse.org';
+
+    final listed = [
+      const Topic(id: 7, title: 'A real topic', slug: 'a-real-topic'),
+    ];
+
+    final configured = SiteConfig.fromSettings(const {
+      'discourse_reactions_enabled': true,
+      'discourse_reactions_reaction_for_like': 'heart',
+      'discourse_reactions_enabled_reactions': '+1|clap',
+    });
+
+    /// A post as a reactions site serializes one. Built through [Post.fromJson]
+    /// rather than the constructor deliberately: there is no way to hand a post
+    /// a reactions block except by the site having sent one, which is what
+    /// makes the plugin-less default hold.
+    Post post({
+      int id = 1,
+      List<({String id, int count})> reactions = const [],
+      String? mine,
+      int userCount = 0,
+      bool canAct = true,
+      bool canUndo = false,
+      bool plugin = true,
+    }) => Post.fromJson({
+      'id': id,
+      'post_number': id,
+      'username': 'sam',
+      // The first post keeps the body every other group uses, so `hoverPost`
+      // finds it the same way.
+      'cooked': id == 1 ? '<p>First post body</p>' : '<p>Post $id body</p>',
+      'actions_summary': [
+        {
+          'id': 2,
+          if (canAct) 'can_act': true,
+          if (canUndo) 'can_undo': true,
+          if (mine != null) 'acted': true,
+        },
+      ],
+      if (plugin) ...{
+        'reactions': [
+          for (final r in reactions)
+            {'id': r.id, 'type': 'emoji', 'count': r.count},
+        ],
+        'current_user_reaction': ?(mine == null
+            ? null
+            : {'id': mine, 'type': 'emoji', 'can_undo': true}),
+        'reaction_users_count': userCount,
+      },
+    }, site);
+
+    Future<FakeDiscourseApi> openTopic(
+      WidgetTester tester, {
+      required List<Post> posts,
+      SiteConfig? config,
+      Map<String, PostReactors> reactorsById = const {},
+      Map<int, Post> postsById = const {},
+      Map<int, Post> reactionResponses = const {},
+      WriteException? reactionFailure,
+      Completer<void>? reactionGate,
+    }) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: posts,
+            stream: [for (final p in posts) p.id],
+            postsCount: posts.length,
+          ),
+        },
+        siteConfigs: config == null ? const {} : {site: config},
+        postsById: postsById,
+        reactorsById: reactorsById,
+        reactionResponses: reactionResponses,
+        reactionFailure: reactionFailure,
+        reactionGate: reactionGate,
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: me),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+      return api;
+    }
+
+    /// A pill in the row, by its count.
+    Finder pill(String value) => find.descendant(
+      of: find.byType(ReactionsRow),
+      matching: find.text(value),
+    );
+
+    testWidgets('a site with reactions draws them where the likes were', (
+      tester,
+    ) async {
+      await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(
+            reactions: [(id: 'heart', count: 5), (id: 'clap', count: 2)],
+            userCount: 7,
+          ),
+        ],
+      );
+
+      expect(find.byType(ReactionsRow), findsOneWidget);
+      // Not both: the like count on a reactions site is inflated by the shadow
+      // likes reacting leaves behind, so drawing it would say 7 hearts.
+      expect(find.byType(PostLikes), findsNothing);
+      expect(pill('5'), findsOneWidget);
+      expect(pill('2'), findsOneWidget);
+      // And no grand total beside them — it is not their sum and can exceed it.
+      expect(pill('7'), findsNothing);
+    });
+
+    testWidgets('a post nobody has reacted to says so by saying nothing', (
+      tester,
+    ) async {
+      await openTopic(tester, config: configured, posts: [post()]);
+
+      expect(find.byType(ReactionsRow), findsOneWidget);
+      expect(pill('0'), findsNothing);
+    });
+
+    testWidgets('a post on a site without the plugin keeps its likes', (
+      tester,
+    ) async {
+      // The load-bearing default: absence of the key, not absence of a setting.
+      await openTopic(tester, posts: [post(plugin: false)]);
+
+      expect(find.byType(PostLikes), findsOneWidget);
+      expect(find.byType(ReactionsRow), findsNothing);
+    });
+
+    testWidgets('the menu offers a reaction and never a like', (tester) async {
+      // Offering Like here would write /post_actions, which on a post the
+      // reader reacted to destroys the shadow like and orphans the reaction.
+      await openTopic(tester, config: configured, posts: [post()]);
+      await hoverPost(tester);
+
+      expect(find.byTooltip('Like this post'), findsOneWidget);
+      expect(find.byTooltip('Remove your like'), findsNothing);
+    });
+
+    testWidgets('the menu names the reaction the reader actually gave', (
+      tester,
+    ) async {
+      // A reader who clapped has a shadow like, so `can_act` is true and the
+      // naive label would read "Like this post" — on a tap that replaces their
+      // clap.
+      await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(
+            reactions: [(id: 'clap', count: 1)],
+            mine: 'clap',
+            userCount: 1,
+            canUndo: true,
+            canAct: false,
+          ),
+        ],
+      );
+      await hoverPost(tester);
+
+      expect(find.byTooltip('Remove your clap reaction'), findsOneWidget);
+      expect(find.byTooltip('Like this post'), findsNothing);
+    });
+
+    testWidgets('reacting draws the row before the site answers', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [post()],
+        reactionGate: gate,
+      );
+
+      await hoverPost(tester);
+      await tester.tap(find.byTooltip('Like this post'));
+      await tester.pump();
+
+      // Drawn while the request is still in flight.
+      expect(api.reacted, [(postId: 1, reaction: 'heart')]);
+      expect(pill('1'), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a refused reaction says why and puts the row back', (
+      tester,
+    ) async {
+      await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(reactions: [(id: 'heart', count: 2)], userCount: 2),
+        ],
+        reactionFailure: const WriteException(
+          WriteFailure.rateLimited,
+          statusCode: 429,
+        ),
+      );
+
+      await hoverPost(tester);
+      await tester.tap(find.byTooltip('Like this post'));
+      await tester.pumpAndSettle();
+
+      expect(pill('2'), findsOneWidget);
+      expect(find.textContaining('Too fast'), findsOneWidget);
+    });
+
+    testWidgets('a reaction the site no longer has drops that row alone', (
+      tester,
+    ) async {
+      // A 404 means the plugin went away *or* the post did, and the route
+      // answers the same bytes for both. Emptying every footer in the topic
+      // because a moderator deleted one post would be the wrong guess.
+      await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(reactions: [(id: 'heart', count: 1)], userCount: 1),
+          post(id: 2, reactions: [(id: 'clap', count: 3)], userCount: 3),
+        ],
+        reactionFailure: const WriteException(
+          WriteFailure.validation,
+          statusCode: 404,
+        ),
+      );
+
+      await hoverPost(tester);
+      await tester.tap(find.byTooltip('Like this post'));
+      await tester.pumpAndSettle();
+
+      // The neighbour keeps its row until the topic is read again.
+      expect(pill('3'), findsOneWidget);
+      expect(pill('1'), findsNothing);
+    });
+
+    testWidgets('a double tap does not send two contradicting writes', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [post()],
+        reactionGate: gate,
+      );
+
+      await hoverPost(tester);
+      // Tapped by position, because the first tap relabels the entry the
+      // instant it is pressed — the row is drawn before the site answers.
+      final target = tester.getCenter(find.byTooltip('Like this post'));
+      await tester.tapAt(target);
+      await tester.pump();
+      await tester.tapAt(target);
+      await tester.pump();
+
+      expect(api.reacted, hasLength(1));
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a site that has not said which reaction is a like is asked', (
+      tester,
+    ) async {
+      // `heart` is not in the default enabled list, and the setting is enum
+      // constrained — so a guess earns a 422 saying only "Sorry, an error has
+      // occurred". The picker is the honest answer instead.
+      final api = await openTopic(tester, posts: [post()]);
+      await hoverPost(tester);
+
+      expect(find.byTooltip('React to this post'), findsOneWidget);
+      await tester.tap(find.byTooltip('React to this post'));
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, isEmpty);
+      expect(
+        find.textContaining('which reactions this site allows'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the picker offers what the site allows', (tester) async {
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(
+            reactions: [(id: 'clap', count: 1)],
+            mine: 'clap',
+            userCount: 1,
+            canUndo: true,
+            canAct: false,
+          ),
+        ],
+        reactorsById: const {},
+      );
+
+      await hoverPost(tester);
+      await tester.tap(find.byTooltip('Remove your clap reaction'));
+      await tester.pumpAndSettle();
+
+      // Taking one back is one tap; the picker is not involved.
+      expect(api.reacted, [(postId: 1, reaction: 'clap')]);
+    });
+
+    testWidgets('resting on a pill says who gave that one', (tester) async {
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(reactions: [(id: 'clap', count: 2)], userCount: 2),
+        ],
+        reactorsById: {
+          '1:clap': const PostReactors(
+            postId: 1,
+            filter: 'clap',
+            total: 2,
+            reactors: [
+              PostReactor(id: 3, username: 'sam', reaction: 'clap'),
+              PostReactor(id: 4, username: 'codinghorror', reaction: 'clap'),
+            ],
+          ),
+        },
+      );
+
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+      await gesture.moveTo(tester.getCenter(pill('2')));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      // Narrowed to the emoji that was pointed at, not the whole post.
+      expect(api.reactorsRequested, [(postId: 1, filter: 'clap')]);
+      final named = find.descendant(
+        of: find.byType(ReactorList),
+        matching: find.text('sam'),
+      );
+      expect(named, findsOneWidget);
+      expect(find.text('codinghorror'), findsOneWidget);
+    });
+
+    testWidgets('somebody else reacting arrives without a refresh', (
+      tester,
+    ) async {
+      // The channel carries which emoji changed and no counts at all, so it is
+      // an invalidation hint — the post is read again through the route whose
+      // numbers agree with what the row was drawn from.
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(reactions: [(id: 'clap', count: 1)], userCount: 1),
+        ],
+        postsById: {
+          1: post(reactions: [(id: 'clap', count: 2)], userCount: 2),
+        },
+      );
+
+      final tracker = FakeSiteTracker.built.last;
+      expect(tracker.watchedTopic, 7);
+      expect(tracker.watchedChannels, ['/topic/7/reactions']);
+
+      tracker.deliverTopicMessage('/topic/7/reactions', {
+        'post_id': 1,
+        'reactions': ['clap', null],
+      });
+      await tester.pumpAndSettle();
+
+      expect(api.postFetches, [
+        [1],
+      ]);
+      expect(pill('2'), findsOneWidget);
+    });
+
+    testWidgets('leaving the topic stops listening to it', (tester) async {
+      await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(reactions: [(id: 'clap', count: 1)], userCount: 1),
+        ],
+      );
+      expect(FakeSiteTracker.built.last.watchedTopic, 7);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(FakeSiteTracker.built.last.watchedTopic, isNull);
+    });
+
+    testWidgets('a write of this reader own is not read back over', (
+      tester,
+    ) async {
+      // The echo of their own reaction arrives while their request is still in
+      // flight. Reading the post again would land the site's answer on top of
+      // a guess the site has not seen yet.
+      final gate = Completer<void>();
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [post()],
+        reactionGate: gate,
+      );
+
+      await hoverPost(tester);
+      await tester.tap(find.byTooltip('Like this post'));
+      await tester.pump();
+
+      FakeSiteTracker.built.last.deliverTopicMessage('/topic/7/reactions', {
+        'post_id': 1,
+        'reactions': ['heart', null],
+      });
+      await tester.pump();
+
+      expect(api.postFetches, isEmpty);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('and says so when it cannot find out', (tester) async {
+      await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(reactions: [(id: 'clap', count: 2)], userCount: 2),
+        ],
+      );
+
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+      await gesture.moveTo(tester.getCenter(pill('2')));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('who reacted'), findsOneWidget);
     });
   });
 
@@ -4361,12 +5053,7 @@ void main() {
     ) async {
       final updater = FakeUpdater(isSupported: true);
       final store = FakeUpdateStore(lastChecked: DateTime.now());
-      await pumpShell(
-        tester,
-        desktop,
-        updater: updater,
-        updateStore: store,
-      );
+      await pumpShell(tester, desktop, updater: updater, updateStore: store);
 
       await tester.tap(find.dIcon(DIcons.arrowsRotate));
       await tester.pumpAndSettle();
