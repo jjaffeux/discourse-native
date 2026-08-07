@@ -101,6 +101,13 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+          # The SDK cache is fine; the pub one is not. Its post step evaluates
+          # hashFiles('**/pubspec.lock') on the host, where the checkout is not
+          # visible at the path it looks under, because the job runs in a
+          # container. That fails the post step and so marks an otherwise
+          # perfect run red -- which is worse than a slower `pub get`, since it
+          # means a real failure no longer stands out.
+          pub-cache: false
 
       - name: Resolve channel and version
         id: v
