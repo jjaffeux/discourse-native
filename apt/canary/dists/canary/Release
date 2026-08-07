@@ -1,0 +1,23 @@
+Architectures: amd64
+Codename: canary
+Components: main
+Date: Fri, 07 Aug 2026 08:55:08 +0000
+Label: discourse-native
+Origin: discourse-native
+Suite: canary
+MD5Sum:
+ 33a6cee13f336f7219dfab7ae07ffe69              156 Release
+ 7e0bcb8c56cb8aac679247d6a7b8889d              832 main/binary-amd64/Packages
+ 413188ed08cab3e73d08a0a1fbfb4ae2              545 main/binary-amd64/Packages.gz
+SHA1:
+ 0ca7663b6fd00ce8dc55dff51eb12ded3f62d8c6              156 Release
+ 29c57226ead60e4bcd1851733ac9ca6810e76104              832 main/binary-amd64/Packages
+ b2d012671bfed2b3f55950dcd764cea0d1684968              545 main/binary-amd64/Packages.gz
+SHA256:
+ d2b6e371536b52e0c04a275f556f13c09cae0641c1e55fd8e3ad99b5512e97aa              156 Release
+ c4c57c07edd20317e0000f3d7ae2eefd6c0d8d6c8b9ca28e467bb9e2f9b26f5c              832 main/binary-amd64/Packages
+ 2ced07cacb6eeb9150d504ba06442785f49bd9f5ccafc7446312a2ca79acf6d0              545 main/binary-amd64/Packages.gz
+SHA512:
+ e34a7cce081d17002751d102076050ce501ffdd5d8d19ea248987469b9750e89168e20db110cc013e96d35ca800b6cc63acb9601367798077c9003268d86d4f0              156 Release
+ 8a5ae61dc70161876560165c8ea69f082c60e4ddb398a244348a9ba931b016cab7ec046637c61d48274851138dff71a5222cb0c6161374afbced506a332a0975              832 main/binary-amd64/Packages
+ 989bb226b7ff539181e083d5771cc42fe77a3ead684bad496780ba65c6b852bb5ce47c611e1274e36ba76b5dbc2a2c314a61be1da90cf28878a5e908160f356c              545 main/binary-amd64/Packages.gz

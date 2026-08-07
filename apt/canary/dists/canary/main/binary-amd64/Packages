@@ -1,0 +1,18 @@
+Package: discourse-native
+Architecture: amd64
+Version: 1.0.0~canary25
+Priority: optional
+Section: net
+Maintainer: Joffrey Jaffeux <j.jaffeux@gmail.com>
+Depends: libgtk-3-0, libglib2.0-0, libwebkit2gtk-4.1-0, libsoup-3.0-0, libsecret-1-0, libssl3
+Recommends: gnome-keyring
+Filename: pool/main/d/discourse-native/discourse-native_1.0.0~canary25_amd64.deb
+Size: 11167372
+MD5sum: 7704f134895067ee25dfb223af1d61a7
+SHA1: a17ca2f327d3a5237e6c5e039c2df2742755ee22
+SHA256: ef73293e34bad1ac4bb16a04249133a10f18670f7c7a7cd9f8e7393ad05a7663
+SHA512: 57f7fd1519f6ee9e989c354f0523b67ae72b139ba79415dfcb6516fb9a9094055744b543efec02848131bfa4792ae205b3e1327db7957da94995836fabb75d7d
+Homepage: https://github.com/jjaffeux/discourse-native
+Description: Native Discourse client
+ An experimental native client for Discourse forums, built with Flutter.
+
