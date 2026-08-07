@@ -31,6 +31,41 @@ is why CI merges into it with `app_archive upsert` rather than writing it fresh.
 `pubspec.yaml` holds the *next unreleased* version. A human bumps it in a normal
 PR; CI derives everything else, so no bot commit ever races a branch.
 
+## The apt signing key
+
+What apt checks before it will install anything. Fingerprint
+`F904 D947 00FC B60E A7AF  7F8A F76E E5A2 17CD FCD0`, published at
+`/key.asc` and pinned by users with `signed-by=`.
+
+CI holds it as `APT_GPG_PRIVATE_KEY` (base64 of an armoured secret-key export)
+and `APT_GPG_PASSPHRASE`. The passphrase lives in 1Password as
+`op://Employee/discourse-native apt/password`.
+
+**Back it up.** GitHub secrets are write-only, so the copy there cannot be read
+back, and the only other copy is `~/.gnupg` on one laptop. Losing it does not
+break installed copies, but nothing new can be published under the same
+repository — every user would have to swap the key by hand, which in practice
+means most of them never update again.
+
+```sh
+export APT_GPG_PASSPHRASE="$(op read 'op://Employee/discourse-native apt/password')"
+gpg --batch --pinentry-mode loopback --passphrase "$APT_GPG_PASSPHRASE" \
+    --export-secret-keys --armor F904D94700FCB60EA7AF7F8AF76EE5A217CDFCD0 \
+    > apt-signing-key.asc
+```
+
+Store that next to its passphrase — a 1Password document item in the same vault
+is the obvious place — and keep the revocation certificate gpg wrote to
+`~/.gnupg/openpgp-revocs.d/` with it. `*.asc` is not gitignored; do not leave it
+in the repo.
+
+## The release signing keys — currently unused
+
+`desktop_updater.keys.{stable,canary}.json` and the `DU_*` secrets are for the
+in-app updater, which nothing wires up now that Linux is packaged. They are kept
+because the seam is still in the tree for whichever platform gets an in-app
+updater first. Nothing in the release workflow touches them.
+
 ## One-time setup
 
 **Done:** steps 1 and 2. Both key profiles exist and their public halves are

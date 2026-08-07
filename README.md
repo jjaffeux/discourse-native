@@ -853,7 +853,19 @@ Ubuntu 22.04+ or Debian 12+, x86-64. Add the repository once:
 ```sh
 sudo curl -fsSLo /usr/share/keyrings/discourse-native.asc \
   https://jjaffeux.github.io/discourse-native/key.asc
+```
 
+Check what you just downloaded before trusting it — this key is what tells apt a
+package is ours, so a wrong one is worth catching here rather than never:
+
+```sh
+gpg --show-keys /usr/share/keyrings/discourse-native.asc
+```
+
+The fingerprint should be `F904 D947 00FC B60E A7AF  7F8A F76E E5A2 17CD FCD0`.
+Then register the repository:
+
+```sh
 echo "deb [signed-by=/usr/share/keyrings/discourse-native.asc] \
 https://jjaffeux.github.io/discourse-native/apt/stable stable main" \
   | sudo tee /etc/apt/sources.list.d/discourse-native.list
