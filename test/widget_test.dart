@@ -26,6 +26,10 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
@@ -5276,6 +5280,602 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Switch to 1.3.2'), findsOneWidget);
+    });
+  });
+
+  group('chat', () {
+    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+    const site = 'https://meta.discourse.org';
+
+    /// Totals from a site that has chat, which is the only thing that makes
+    /// this app ask for channels at all.
+    const withChat = NotificationTotals(chatNotifications: 0, hasChatEnabled: true);
+    const withoutChat = NotificationTotals();
+
+    ChatChannel channel(
+      int id, {
+      String title = 'Bugs',
+      String? slug,
+      String? emoji,
+      String? color,
+      int unread = 0,
+      int mentions = 0,
+      bool muted = false,
+      int? lastRead,
+    }) => ChatChannel(
+      id: id,
+      title: title,
+      kind: ChatChannelKind.category,
+      slug: slug ?? title.toLowerCase(),
+      emoji: emoji,
+      categoryColor: color == null ? null : Color(int.parse('FF$color', radix: 16)),
+      membership: ChatMembership(
+        following: true,
+        muted: muted,
+        lastReadMessageId: lastRead,
+      ),
+      tracking: ChatTracking(unreadCount: unread, mentionCount: mentions),
+    );
+
+    ChatChannel dm(int id, {String title = 'hawk', List<ChatUser>? users}) =>
+        ChatChannel(
+          id: id,
+          title: title,
+          kind: ChatChannelKind.directMessage,
+          users:
+              users ??
+              const [
+                ChatUser(
+                  id: 2,
+                  username: 'hawk',
+                  avatarUrl: '$site/user_avatar/h/90.png',
+                ),
+              ],
+          membership: const ChatMembership(following: true),
+        );
+
+    ChatMessage msg(
+      int id, {
+      String cooked = '<p>Hello there</p>',
+      int author = 2,
+      String username = 'sam',
+      int minute = 0,
+      List<ChatUpload> uploads = const [],
+      List<ChatReaction> reactions = const [],
+      ChatThreadPreview? thread,
+    }) => ChatMessage(
+      id: id,
+      channelId: 9,
+      cooked: cooked,
+      author: ChatMessageAuthor(id: author, username: username),
+      createdAt: DateTime.utc(2026, 5, 5, 10, minute),
+      uploads: uploads,
+      reactions: reactions,
+      thread: thread,
+    );
+
+    ChatMessagePage page(
+      List<ChatMessage> messages, {
+      bool canLoadMorePast = false,
+    }) => (messages: messages, canLoadMorePast: canLoadMorePast);
+
+    String key(int channelId, [int? before]) =>
+        FakeDiscourseApi.chatMessagesKey(channelId, before);
+
+    /// A signed-in site, so the totals call the chat gate hangs off has an
+    /// account to be made as.
+    Future<void> pumpChat(
+      WidgetTester tester, {
+      NotificationTotals totals = withChat,
+      List<ChatChannel> public = const [],
+      List<ChatChannel> direct = const [],
+      Map<String, ChatMessagePage> messages = const {},
+      FakeDiscourseApi? api,
+      Size size = desktop,
+      Completer<void>? channelGate,
+    }) async {
+      await pumpShell(
+        tester,
+        size,
+        api:
+            api ??
+            FakeDiscourseApi(
+              totals: totals,
+              chatChannelsBySite: {site: (public: public, direct: direct)},
+              chatChannelGate: channelGate,
+              chatMessagesByKey: messages,
+            ),
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: me),
+        ],
+        authenticator: FakeAuthenticator()..keys[site] = 'meta-key',
+      );
+      await tester.pumpAndSettle();
+    }
+
+    group('in the sidebar', () {
+      testWidgets('draws nothing on a site whose totals never mentioned chat', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withoutChat,
+          chatChannelsBySite: {
+            site: (public: [channel(9)], direct: const []),
+          },
+        );
+
+        await pumpChat(tester, api: api);
+
+        expect(find.text('CHAT'), findsNothing);
+        // And nothing was even asked for: absence of the key is a complete
+        // answer, not a reason to go and check.
+        expect(api.chatChannelsRequested, isEmpty);
+      });
+
+      testWidgets('asks a site for channels once its totals said it has them', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          chatChannelsBySite: {
+            site: (public: [channel(9)], direct: const []),
+          },
+        );
+
+        await pumpChat(tester, api: api);
+
+        expect(api.chatChannelsRequested, [site]);
+        expect(sidebarDestination('Bugs'), findsOneWidget);
+      });
+
+      testWidgets('draws nothing while the channel list is still on its way', (
+        tester,
+      ) async {
+        // A heading that appears and then vanishes is worse than one that
+        // arrives late, and a section with a spinner in it says something
+        // untrue about how many channels there are.
+        final gate = Completer<void>();
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          channelGate: gate,
+        );
+
+        expect(find.text('CHAT'), findsNothing);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(find.text('CHAT'), findsOneWidget);
+      });
+
+      testWidgets('draws nothing for an account that follows no channels', (
+        tester,
+      ) async {
+        await pumpChat(tester);
+
+        expect(find.text('CHAT'), findsNothing);
+        expect(find.text('DIRECT MESSAGES'), findsNothing);
+      });
+
+      testWidgets('lists the public channels above the direct messages', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9, title: 'Bugs')],
+          direct: [dm(12, title: 'hawk')],
+        );
+
+        final chatHeading = tester.getTopLeft(find.text('CHAT')).dy;
+        final dmHeading = tester.getTopLeft(find.text('DIRECT MESSAGES')).dy;
+        expect(chatHeading, lessThan(dmHeading));
+        expect(sidebarDestination('Bugs'), findsOneWidget);
+        expect(sidebarDestination('hawk'), findsOneWidget);
+      });
+
+      testWidgets('draws a channel emoji where an ordinary entry draws an icon', (
+        tester,
+      ) async {
+        await pumpChat(tester, public: [channel(9, emoji: 'bug')]);
+
+        // The artwork is answered 404 in these tests, so the shortcode is what
+        // lands — which is exactly the fallback the emoji widget promises.
+        expect(
+          find.descendant(
+            of: find.byType(InstanceSidebar),
+            matching: find.byType(EmojiImage),
+          ),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('draws the other person’s face on a one-to-one conversation', (
+        tester,
+      ) async {
+        await pumpChat(tester, direct: [dm(12)]);
+
+        expect(
+          find.descendant(
+            of: find.byType(InstanceSidebar),
+            matching: find.byType(AvatarImage),
+          ),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('draws a dot rather than a number, however much is unread', (
+        tester,
+      ) async {
+        await pumpChat(tester, public: [channel(9, unread: 42)]);
+
+        expect(
+          find.descendant(
+            of: find.byType(InstanceSidebar),
+            matching: find.text('42'),
+          ),
+          findsNothing,
+        );
+        expect(sidebarDestination('Bugs'), findsOneWidget);
+      });
+
+      testWidgets('forgets a disconnected site’s channels', (tester) async {
+        // Reconnecting can land on a different account, and what the last one
+        // was in is none of its business.
+        await pumpChat(tester, size: phone, public: [channel(9)]);
+        expect(sidebarDestination('Bugs'), findsOneWidget);
+
+        await tester.longPress(find.byTooltip('Meta\nmeta.discourse.org'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('More Options'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Remove forum'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Remove'));
+        await tester.pumpAndSettle();
+
+        expect(sidebarDestination('Bugs'), findsNothing);
+      });
+    });
+
+    group('a channel', () {
+      testWidgets('PROBE avatar size', (tester) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([msg(1)]),
+          },
+        );
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        final avatar = find.descendant(
+          of: find.byType(ChatMessageTile),
+          matching: find.byType(AvatarImage),
+        );
+        // ignore: avoid_print
+        print('AVATAR RECT: ${tester.getRect(avatar)}');
+        final clip = find.ancestor(of: avatar, matching: find.byType(ClipOval)).first;
+        // ignore: avoid_print
+        print('CLIPOVAL RECT: ${tester.getRect(clip)}');
+      });
+
+      testWidgets('opens the channel the sidebar entry names', (tester) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([msg(1)]),
+          },
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(renderedText('Hello there'), findsOneWidget);
+      });
+
+      testWidgets('puts the newest message at the bottom', (tester) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([
+              msg(1, cooked: '<p>Older</p>'),
+              msg(2, cooked: '<p>Newer</p>', minute: 1),
+            ]),
+          },
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getTopLeft(renderedText('Older')).dy,
+          lessThan(tester.getTopLeft(renderedText('Newer')).dy),
+        );
+      });
+
+      testWidgets('hides the name on a message chained to the one above', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([
+              msg(1, cooked: '<p>One</p>'),
+              msg(2, cooked: '<p>Two</p>', minute: 1),
+            ]),
+          },
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        // Two messages, one name: the second belongs to the first's run.
+        expect(find.text('sam'), findsOneWidget);
+      });
+
+      testWidgets('shows the name again once somebody else speaks', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([
+              msg(1, cooked: '<p>One</p>'),
+              msg(
+                2,
+                cooked: '<p>Two</p>',
+                minute: 1,
+                author: 3,
+                username: 'kris',
+              ),
+            ]),
+          },
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('sam'), findsOneWidget);
+        expect(find.text('kris'), findsOneWidget);
+      });
+
+      testWidgets('draws an image a message carried outside its cooked body', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([
+              msg(
+                1,
+                cooked: '',
+                uploads: const [
+                  ChatUpload(
+                    url: '/uploads/shot.png',
+                    originalFilename: 'shot.png',
+                    kind: ChatUploadKind.image,
+                    width: 400,
+                    height: 200,
+                  ),
+                ],
+              ),
+            ]),
+          },
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ChatUploads), findsOneWidget);
+      });
+
+      testWidgets('names a file it cannot draw rather than dropping it', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([
+              msg(
+                1,
+                uploads: const [
+                  ChatUpload(
+                    url: '/uploads/notes.pdf',
+                    originalFilename: 'notes.pdf',
+                    kind: ChatUploadKind.attachment,
+                    humanFilesize: '12 KB',
+                  ),
+                ],
+              ),
+            ]),
+          },
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('notes.pdf'), findsOneWidget);
+        expect(find.text('12 KB'), findsOneWidget);
+      });
+
+      testWidgets('shows the reactions a message has without offering to add one', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([
+              msg(
+                1,
+                reactions: const [
+                  ChatReaction(emoji: 'heart', count: 3, reacted: true),
+                ],
+              ),
+            ]),
+          },
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('3'), findsOneWidget);
+        // Reacting is a write, and this step makes none.
+        expect(find.byType(ReactionPill), findsNothing);
+      });
+
+      testWidgets('says how many replies a message gathered into a thread', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([
+              msg(
+                1,
+                thread: const ChatThreadPreview(
+                  threadId: 3,
+                  replyCount: 7,
+                  lastReplyUsername: 'kris',
+                ),
+              ),
+            ]),
+          },
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('7 replies'), findsOneWidget);
+      });
+
+      testWidgets('says so when a channel has no messages in it yet', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {key(9): page([])},
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('No messages here yet.'), findsOneWidget);
+      });
+
+      testWidgets('says so when a channel will not load at all', (
+        tester,
+      ) async {
+        await pumpChat(tester, public: [channel(9)]);
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Could not load this channel.'), findsOneWidget);
+      });
+
+      testWidgets('asks for older messages when a short channel does not fill the window', (
+        tester,
+      ) async {
+        // Nothing to scroll, so the scroll threshold can never fire — the last
+        // row being built is what says the top of the stream is on screen.
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          chatChannelsBySite: {
+            site: (public: [channel(9)], direct: const []),
+          },
+          chatMessagesByKey: {
+            key(9): page([msg(5, minute: 5)], canLoadMorePast: true),
+            key(9, 5): page([msg(1)]),
+          },
+        );
+
+        await pumpChat(tester, api: api);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(api.chatMessagesRequested, [
+          (channelId: 9, before: null),
+          (channelId: 9, before: 5),
+        ]);
+        expect(renderedText('Hello there'), findsNWidgets(2));
+      });
+
+      testWidgets('stops asking once the site says there is nothing older', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          chatChannelsBySite: {
+            site: (public: [channel(9)], direct: const []),
+          },
+          chatMessagesByKey: {
+            key(9): page([msg(5)]),
+          },
+        );
+
+        await pumpChat(tester, api: api);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(api.chatMessagesRequested, hasLength(1));
+      });
+
+      testWidgets('divides the messages the reader has not seen from the rest', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9, lastRead: 1)],
+          messages: {
+            key(9): page([
+              msg(1, cooked: '<p>Seen</p>'),
+              msg(2, cooked: '<p>Unseen</p>', minute: 1),
+              msg(3, cooked: '<p>Also unseen</p>', minute: 2),
+            ]),
+          },
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('New'), findsOneWidget);
+      });
+
+      testWidgets('shows the channel on its own pane on a phone', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          size: phone,
+          public: [channel(9)],
+          messages: {
+            key(9): page([msg(1)]),
+          },
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        // The sidebar has given way to the channel, and back returns to it.
+        expect(find.byType(InstanceSidebar), findsNothing);
+        expect(renderedText('Hello there'), findsOneWidget);
+
+        await tester.tap(find.dIcon(DIcons.arrowLeft));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(InstanceSidebar), findsOneWidget);
+      });
     });
   });
 }

@@ -29,6 +29,7 @@ import '../models/topic_feed.dart';
 import '../models/topic_link.dart';
 import '../models/sidebar.dart';
 import '../models/user_card.dart';
+import '../plugins/chat/chat_controller.dart';
 import '../plugins/reactions/reaction.dart';
 import '../plugins/reactions/reactions_controller.dart';
 import '../plugins/site_plugin.dart';
@@ -95,6 +96,19 @@ class ShellController extends ChangeNotifier {
     authenticator: authenticator,
     store: store,
   );
+
+  /// The chat channels a site has, and the messages in the one on screen.
+  ///
+  /// Its own class for the reasons [ChatController] gives, but — unlike
+  /// [reactions] — its notifications are *forwarded* here rather than consumed
+  /// where they land. A reactor list is an overlay that must not redraw the
+  /// world; a channel list is the sidebar and a message list is the main
+  /// region, which is the same class of state as [_feeds] and [_totals] and
+  /// already goes through [_notify]. One protocol rather than two, and this one
+  /// is already guarded against being raised mid-frame.
+  late final ChatController chat =
+      ChatController(api: api, authenticator: authenticator, store: store)
+        ..addListener(_notify);
 
   bool _connecting = false;
 
@@ -242,6 +256,24 @@ class ShellController extends ChangeNotifier {
       );
       _totals[instance.url] = totals;
       _notify();
+
+      // A post arrives whether or not you care about reactions, so its payload
+      // can be the gate. A channel list arrives only if you ask, so its absence
+      // proves nothing — a site without chat and a site nobody asked look
+      // identical. This is the nearest thing to the rule: `chat_notifications`
+      // is only serialized when the site has chat, this reader may use it, and
+      // they have not switched it off, so an absent key answers all three.
+      //
+      // It decides only whether to *ask*. The answer still decides whether to
+      // draw, and `ChatController.loadChannels` draws nothing on a failure.
+      if (totals.hasChatEnabled) {
+        // A channel's emoji resolves through the same two answers a post's
+        // does, and someone who lives in chat may never open a topic — which is
+        // the only other place these are kicked from.
+        unawaited(_ensureSiteConfig(instance));
+        unawaited(_ensureCustomEmojis(instance));
+        unawaited(chat.loadChannels(instance.url));
+      }
     } catch (_) {
       // Counters are decoration. A site being down must not break the shell.
     }
@@ -2419,6 +2451,7 @@ class ShellController extends ChangeNotifier {
     _customEmojis.remove(instance.url);
     _customEmojiAttempts.remove(instance.url);
     reactions.forget(instance.url);
+    chat.forget(instance.url);
     _feeds.removeWhere((key, _) => key.startsWith('${instance.url}|'));
     // The key is baked into the poll headers, so the connection cannot outlive
     // it. A signed-out one is opened in its place by whoever called this.
@@ -2549,6 +2582,7 @@ class ShellController extends ChangeNotifier {
     _disposed = true;
     updates.dispose();
     reactions.dispose();
+    chat.dispose();
     _composer?.dispose();
     _composer = null;
     for (final tracker in _trackers.values) {

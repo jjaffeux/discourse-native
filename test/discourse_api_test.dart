@@ -1000,6 +1000,207 @@ void _feedGroups() {
     });
   });
 
+  group('chatChannels', () {
+    /// The two-bucket envelope `Chat::ChannelIndexSerializer` writes.
+    MockClient serving(void Function(http.Request) record) =>
+        MockClient((request) async {
+          record(request);
+          return http.Response(
+            jsonEncode({
+              'public_channels': [
+                {
+                  'id': 9,
+                  'title': 'Bugs',
+                  'slug': 'bugs',
+                  'chatable_type': 'Category',
+                  'chatable': {'name': 'Bug', 'color': '0088CC'},
+                },
+              ],
+              'direct_message_channels': [
+                {
+                  'id': 12,
+                  'title': 'hawk',
+                  'chatable_type': 'DirectMessage',
+                  'chatable': {
+                    'group': false,
+                    'users': [
+                      {'id': 2, 'username': 'hawk'},
+                    ],
+                  },
+                },
+              ],
+              'tracking': {
+                'channel_tracking': {
+                  '9': {'unread_count': 3, 'mention_count': 1},
+                },
+              },
+              'meta': {'message_bus_last_ids': {}},
+            }),
+            200,
+          );
+        });
+
+    test('asks the route that answers with only the channels a reader follows', () async {
+      late Uri seen;
+      final api = DiscourseApi(client: serving((r) => seen = r.url));
+
+      await api.chatChannels(siteUrl: 'https://example.com');
+
+      expect(seen.path, '/chat/api/me/channels.json');
+      // The route takes no parameters at all — the reader's own memberships are
+      // the whole of the query.
+      expect(seen.queryParameters, isEmpty);
+    });
+
+    test('reads the public and the direct lists apart', () async {
+      final api = DiscourseApi(client: serving((_) {}));
+
+      final channels = await api.chatChannels(siteUrl: 'https://example.com');
+
+      expect(channels.public.single.title, 'Bugs');
+      expect(channels.direct.single.isDirectMessage, isTrue);
+      expect(channels.public.single.tracking.unreadCount, 3);
+    });
+
+    test('sends the user api key, an anonymous reader having no channels', () async {
+      late Map<String, String> headers;
+      final api = DiscourseApi(client: serving((r) => headers = r.headers));
+
+      await api.chatChannels(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        clientId: 'client',
+      );
+
+      expect(headers['User-Api-Key'], 'key');
+      expect(headers['User-Api-Client-Id'], 'client');
+    });
+
+    test('reports a site that refuses the way every other read does', () async {
+      // 403 is what a site with chat off, or a reader who may not use it, gets.
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('{}', 403)),
+      );
+
+      await expectLater(
+        api.chatChannels(siteUrl: 'https://example.com'),
+        throwsA(isA<SiteLookupException>()),
+      );
+    });
+  });
+
+  group('chatMessages', () {
+    MockClient serving(
+      void Function(http.Request) record, {
+      Object? canLoadMorePast,
+    }) => MockClient((request) async {
+      record(request);
+      return http.Response(
+        jsonEncode({
+          'messages': [
+            {
+              'id': 40,
+              'chat_channel_id': 9,
+              'cooked': '<p>hi</p>',
+              'created_at': '2026-05-05T10:00:00.000Z',
+              'user': {'id': 2, 'username': 'sam'},
+            },
+          ],
+          'meta': {
+            'can_load_more_past': canLoadMorePast,
+            'can_load_more_future': null,
+          },
+        }),
+        200,
+      );
+    });
+
+    test('asks for the newest page when no message is named', () async {
+      late Uri seen;
+      final api = DiscourseApi(client: serving((r) => seen = r.url));
+
+      final page = await api.chatMessages(
+        siteUrl: 'https://example.com',
+        channelId: 9,
+      );
+
+      expect(seen.path, '/chat/api/channels/9/messages.json');
+      expect(seen.queryParameters['page_size'], '50');
+      expect(page.messages.single.id, 40);
+    });
+
+    test('omits the target message rather than sending an empty one', () async {
+      // `target_message_id=` reads as 0 server side and 404s for a message
+      // that cannot exist.
+      late Uri seen;
+      final api = DiscourseApi(client: serving((r) => seen = r.url));
+
+      await api.chatMessages(siteUrl: 'https://example.com', channelId: 9);
+
+      expect(seen.queryParameters, isNot(contains('target_message_id')));
+      expect(seen.queryParameters, isNot(contains('direction')));
+    });
+
+    test('asks for the page before a message it holds, that message excluded', () async {
+      late Uri seen;
+      final api = DiscourseApi(client: serving((r) => seen = r.url));
+
+      await api.chatMessages(
+        siteUrl: 'https://example.com',
+        channelId: 9,
+        before: 40,
+      );
+
+      expect(seen.queryParameters['direction'], 'past');
+      expect(seen.queryParameters['target_message_id'], '40');
+    });
+
+    test('never asks to fetch from last read, there being no way to page forward', () async {
+      late Uri seen;
+      final api = DiscourseApi(client: serving((r) => seen = r.url));
+
+      await api.chatMessages(siteUrl: 'https://example.com', channelId: 9);
+
+      expect(seen.queryParameters, isNot(contains('fetch_from_last_read')));
+    });
+
+    test('sends the page size the site caps at, so the code names the real one', () async {
+      late Uri seen;
+      final api = DiscourseApi(client: serving((r) => seen = r.url));
+
+      await api.chatMessages(
+        siteUrl: 'https://example.com',
+        channelId: 9,
+        pageSize: 20,
+      );
+
+      expect(seen.queryParameters['page_size'], '20');
+    });
+
+    test('reads a null can_load_more_past as no more rather than as unknown', () async {
+      // Ruby leaves the flag for the direction it did not paginate unassigned.
+      final api = DiscourseApi(client: serving((_) {}, canLoadMorePast: null));
+
+      final page = await api.chatMessages(
+        siteUrl: 'https://example.com',
+        channelId: 9,
+      );
+
+      expect(page.canLoadMorePast, isFalse);
+    });
+
+    test('reads a channel that says there is more behind it', () async {
+      final api = DiscourseApi(client: serving((_) {}, canLoadMorePast: true));
+
+      final page = await api.chatMessages(
+        siteUrl: 'https://example.com',
+        channelId: 9,
+      );
+
+      expect(page.canLoadMorePast, isTrue);
+    });
+  });
+
   group('topic', () {
     /// Answers any topic route with a single-post topic.
     MockClient serving(List<String> paths) => MockClient((request) async {

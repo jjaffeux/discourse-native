@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/content_route.dart';
+import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -37,13 +38,20 @@ class MainContent extends StatelessWidget {
           children: [
             _ContentHeader(layout: layout, route: route),
             Expanded(
-              child: switch ((route.isTopic, controller.currentFeed)) {
+              child: switch ((
+                route.isTopic,
+                _pluginContent(context, route),
+                controller.currentFeed,
+              )) {
                 // A topic route wins over the list it was opened from.
-                (true, _) => const TopicView(),
+                (true, _, _) => const TopicView(),
+                // A route an optional feature claims is that feature's,
+                // whichever list happens to still be cached behind it.
+                (false, final content?, _) => content,
                 // Destinations backed by a topic list show the real thing;
                 // the rest keep the placeholder until they have a screen.
-                (false, final feed?) => TopicListView(feed: feed),
-                (false, null) => _ContentPlaceholder(route: route),
+                (false, null, final feed?) => TopicListView(feed: feed),
+                (false, null, null) => _ContentPlaceholder(route: route),
               },
             ),
             // Takes room from the stream rather than covering it, so the topic
@@ -55,6 +63,20 @@ class MainContent extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The screen an optional feature draws for this route, or null when none of
+/// them claims it.
+///
+/// The body of [PostFooter] with a route in place of a post, and asked before
+/// core for the same reason it is there: the first plugin with something to say
+/// wins, and core's answer is what is left when none of them do.
+Widget? _pluginContent(BuildContext context, ContentRoute route) {
+  for (final plugin in sitePlugins) {
+    final content = plugin.content(context, route);
+    if (content != null) return content;
+  }
+  return null;
 }
 
 class _ContentHeader extends StatelessWidget {

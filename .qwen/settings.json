@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Read(//tmp/**)",
-      "Bash(flutter *)"
+      "Bash(flutter *)",
+      "WebFetch(grep.app)"
     ]
   },
   "$version": 4

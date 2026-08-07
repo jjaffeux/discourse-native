@@ -463,6 +463,150 @@ all, so it is an invalidation hint — the post is read again through
 `/t/{id}/posts.json`, whose numbers agree with what the row was drawn from. A
 write of this reader's own is skipped; its own answer is already on the way.
 
+### Chat
+
+`chat` gives a site channels and direct messages to read alongside its topics.
+It is the first optional feature here that owns *navigation* and a *screen*
+rather than decorating a record, which is why
+[`SitePlugin`](lib/src/plugins/site_plugin.dart) grew two hooks for it and why
+that was worth doing rather than special-casing.
+
+Today it reads and nothing else: channels and direct messages in the sidebar, a
+channel you can open and scroll backwards through. No composing, replying,
+reacting, marking read, searching, threads, or live updates — the list at the
+end says what each of those will press on.
+
+**It cannot use the enablement rule the rest of that interface turns on.** A
+post arrives whether or not you care about reactions, so its payload can be the
+gate. A channel list arrives only if you ask, so its absence proves nothing — a
+site without chat and a site nobody asked look exactly alike. The nearest thing
+to the rule is `chat_notifications` on `/notifications/totals.json`, which this
+app already fetches for every connected site on launch. It is serialized only
+when `SiteSetting.chat_enabled && scope.can_chat? && user_option.chat_enabled`:
+three questions answered by one absent key, scoped by the same guardian that
+decided the rest of the payload. So **it decides only whether to ask; the answer
+still decides whether to draw.** Nothing is drawn from a setting — the sections
+exist because there are channels. `SiteConfig` is deliberately not used even
+though `chat_enabled` is a client setting: it arrives late, it can be refused,
+and it is not scoped to this reader's own preference, so it would put a Chat
+heading in front of someone who turned chat off.
+
+There is no loading state and no empty heading, for the reason `SiteConfig` has
+neither: a heading that appears and then vanishes is worse than one that arrives
+late, and a section with a spinner in it says something untrue about how many
+channels there are.
+
+The two hooks are `sidebarSections` and `content`. The first returns **models**
+rather than a widget — unlike `postFooter`, because the sidebar is a list of
+peers rather than a canvas, and a row a plugin drew itself would drift from
+core's the first time either changed. The second is the ordered fallthrough
+`postFooter` is, asked before core, matching on `ContentRoute.id` — which
+`ContentRoute.fromDestination` copies straight from the destination chat minted,
+so a feature recognises its own routes by the ids it wrote. Nothing about chat
+is written into `ContentRoute`, and none of `_feedPath`, `sidebarBadgeFor` or
+`IncomingTopics` needed an arm; that they did not is the best evidence the seam
+is in the right place.
+
+**Titles come from the site.** `title` is `name || title(scope.user)`, so a
+group direct message's "hawk, kris and 3 others" has already excluded the
+reader, sorted the rest by the site's naming rules and truncated past seven.
+`unicode_title` is that same text with `:tada:` turned into 🎉, which is what a
+`Text` can draw — the argument `jsonTitle` already makes for plain over fancy.
+
+Unread counts arrive in a sibling map, `tracking.channel_tracking`, **keyed by a
+string** — it is a Ruby hash keyed by integer and JSON object keys are strings,
+so channel 9 is looked up as `'9'`; reading it as an int finds nothing and
+reports "all read". They are folded onto the channel record at parse time so a
+sidebar row watches one thing. The row draws a **dot**, not a number, which is
+what Discourse draws: the count in a busy channel moves faster than it is worth
+reading. Red for anything addressed to the reader — a mention, or any unread
+message in a direct channel, which is addressed to them by construction — and
+the quieter colour for an unread public channel they merely follow. A muted
+channel says nothing at all, which is what muting means.
+
+**Paging goes backwards only.** Opening a channel asks for
+`?page_size=50`, the newest page; scrolling up asks
+`?page_size=50&direction=past&target_message_id=<oldest held>`. `page_size` is
+capped at 50 server side and sent explicitly so the number in the code is the
+number that applies, and an absent `target_message_id` is *omitted* rather than
+sent empty. That last one matters more than it looks: an empty
+`target_message_id=` casts to nil and is treated as **absent**, so
+`direction=past` with one answers with the newest page again instead of the page
+before it — a load-older that quietly returns what the reader already has,
+forever. A target that does not exist answers 404 and `page_size=0` answers 400;
+those are the loud ones.
+
+`fetch_from_last_read` is deliberately unused: with no direction it takes the
+query's around-target branch — 25 messages either side of where the reader left
+off — which anchors the stream somewhere that is not the end and then needs a
+way to page forward to escape. Nothing here marks anything read either, so that
+anchor would never move. `can_load_more_future` is never read for the same
+reason, which is just as well: Ruby leaves the flag for the direction it did not
+paginate unassigned, so a `direction=past` response carries it as `null`.
+`can_load_more_past` is read as `== true` so that null is a non-event by
+construction.
+
+One thing to know rather than discover: `GET .../messages` **writes**. The
+controller runs `update_membership_last_viewed_at`, so opening a channel touches
+`last_viewed_at`. It does not touch `last_read_message_id`, so nothing here
+marks anything read.
+
+The stream is one flat list, oldest first, **contiguous** — that is the
+invariant paging depends on, since `loadOlder` pages before the first message
+held and a hole above it could never be filled. So a re-open *replaces* rather
+than merges. Ids are deduped and sorted by `(created_at, id)`, the site's own
+`ORDER BY`; the tiebreak is load-bearing rather than tidy, because iso8601
+carries seconds and Dart's sort is unstable, so two messages written in the same
+second would swap places on every merge and the list would reshuffle under the
+reader. A page that arrives with no new ids in it also ends the paging, whatever
+the site said, so a cursor answering the same page forever cannot spin.
+
+**The list is reversed, not the array.** Index 0 is the newest message. Older
+messages take higher scroll offsets, the viewport lays out from offset 0 outward
+and holds `pixels` across a change in content extent, so a page of history
+landing at the far end moves nothing the reader is looking at — no offset
+correction, no sliver split. Rendering forwards and inserting at index 0 would
+throw them into the past on every page. The consequence to keep in mind is that
+`extentAfter`, which in a topic means "further down, later", here means "further
+up, **earlier**". The app's existing two-pronged load-more turns out to be
+exactly Discourse's two rules already written down: the scroll threshold is its
+load-at-top, and building the last row is its fill-pane safety net.
+
+Messages group into runs the way Discourse's do — same author, within five
+minutes, previous not deleted, neither a webhook message, and a reply only when
+it answers the row directly above. One rule of Discourse's is dropped: it also
+breaks the chain at the first message of the latest fetched page, because its
+stream is assembled from pages whose adjacency it cannot vouch for. Here
+contiguity is an invariant, so a page boundary carries no information and
+honouring it would put a seam in a conversation whose only cause is how the
+bytes arrived. A day separator sits above each calendar day, in the reader's
+days rather than the site's; a run of deleted messages — which only a moderator
+is ever sent — collapses into one row.
+
+**Uploads are not in `cooked`.** `Chat::Message#cook` cooks the raw `message`
+and not `to_markdown`, so unlike a post, where Discourse bakes images into the
+HTML with the lightbox markup around them, a chat message's attachments are only
+ever in the `uploads` array and have to be drawn from it. Images go through the
+same viewer a post's do — `LightboxImage` is a plain value object and
+`LightboxGallery` takes a list of them, so nothing about the cooked-HTML path is
+in the way. Everything else is a row with a filename and a size.
+
+Reactions are drawn and not tappable, and the thread indicator says how many
+replies there are without leading anywhere. Both are deliberate: writing is not
+in this step, and an affordance that looks live and is not is worse than a plain
+label.
+
+Still to come, and what each will press on: live updates ride `/chat/{id}`,
+`/chat/{id}/new-messages` and `/chat/user-tracking-state/{id}`, whose cursors
+both payloads already hand over — `SiteTracker.watchTopic` holds exactly one
+subscription at a time and will have to grow. Marking read is
+`PUT /chat/api/channels/{id}/read`. Jumping to a message, and with it forward
+paging, brings back `can_load_more_future` and breaks the contiguity assumption
+the merge leans on. Threads have their own endpoint and their own notification
+levels. Composing wants a composer that is not topic-shaped. And a header hook
+would let a channel's emoji and a conversation's face reach the top of the
+screen, where today only the sidebar row has them.
+
 ### Emoji
 
 Post bodies carry emoji as `<img class="emoji" src="/images/emoji/…">`, and they

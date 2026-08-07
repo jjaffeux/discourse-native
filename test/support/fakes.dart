@@ -22,6 +22,8 @@ import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 
 /// Keeps instances in memory instead of shared_preferences, which needs a
@@ -337,6 +339,10 @@ class FakeDiscourseApi implements DiscourseApi {
     this.reactionResponses = const {},
     this.reactionFailure,
     this.reactionGate,
+    this.chatChannelsBySite = const {},
+    this.chatChannelGate,
+    this.chatMessagesByKey = const {},
+    this.chatMessageGate,
   });
 
   final Map<String, DiscourseInstance> results;
@@ -482,6 +488,37 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Every [toggleReaction] call, in order.
   final List<({int postId, String reaction})> reacted = [];
+
+  /// Returned by [chatChannels], keyed by site url; a missing site fails.
+  ///
+  /// Missing is the default, and deliberately: a test that has not said a site
+  /// has chat sees a site drawn as plain core, which is what every test that is
+  /// not about chat wants. Nothing asks in the first place unless
+  /// [totals] reports `hasChatEnabled`, which itself defaults to off.
+  final Map<String, ChatChannels> chatChannelsBySite;
+
+  /// Site urls passed to [chatChannels], in order.
+  final List<String> chatChannelsRequested = [];
+
+  /// When set, [chatChannels] waits on it, so a test can hold the sidebar in
+  /// the moment before the sections exist.
+  final Completer<void>? chatChannelGate;
+
+  /// Returned by [chatMessages], keyed by [chatMessagesKey]; a missing key
+  /// fails, so a test only has to name the pages it expects to be asked for.
+  final Map<String, ChatMessagePage> chatMessagesByKey;
+
+  /// The newest page of a channel is keyed by the channel alone; an older page
+  /// by the message it was asked to page before.
+  static String chatMessagesKey(int channelId, int? before) =>
+      before == null ? '$channelId' : '$channelId~$before';
+
+  /// The `(channelId, before)` pairs passed to [chatMessages], in order.
+  final List<({int channelId, int? before})> chatMessagesRequested = [];
+
+  /// When set, [chatMessages] waits on it, so a test can look at a channel
+  /// while its first page is still on the way.
+  final Completer<void>? chatMessageGate;
 
   /// Thrown by [saveDraft] instead of answering.
   final WriteException? draftFailure;
@@ -824,6 +861,39 @@ class FakeDiscourseApi implements DiscourseApi {
     reactorsRequested.add((postId: postId, filter: reaction));
     if (reactorGate != null) await reactorGate!.future;
     final found = reactorsById[PostReactors.key(postId, reaction)];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
+  }
+
+  @override
+  Future<ChatChannels> chatChannels({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    chatChannelsRequested.add(siteUrl);
+    if (chatChannelGate != null) await chatChannelGate!.future;
+    final found = chatChannelsBySite[siteUrl];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
+  }
+
+  @override
+  Future<ChatMessagePage> chatMessages({
+    required String siteUrl,
+    required int channelId,
+    int? before,
+    int pageSize = 50,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    chatMessagesRequested.add((channelId: channelId, before: before));
+    if (chatMessageGate != null) await chatMessageGate!.future;
+    final found = chatMessagesByKey[chatMessagesKey(channelId, before)];
     if (found == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }

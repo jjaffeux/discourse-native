@@ -1,7 +1,10 @@
 import 'package:flutter/widgets.dart';
 
+import '../models/content_route.dart';
 import '../models/post.dart';
+import '../models/sidebar.dart';
 import '../shell/post_action.dart';
+import 'chat/chat_plugin.dart';
 import 'reactions/reactions_plugin.dart';
 
 /// One optional Discourse feature this app knows how to draw.
@@ -78,6 +81,47 @@ abstract interface class SitePlugin<T extends Object> {
   /// through `ShellScope.of`.
   PostMenuContribution postMenu(BuildContext context, Post post);
 
+  /// Sections this feature adds to the instance sidebar, after core's own.
+  ///
+  /// Empty for a feature with no navigation of its own, which is every feature
+  /// that only decorates a record.
+  ///
+  /// Additive rather than an ordered fallthrough — the shape [postMenu] has,
+  /// and for the same reason: two features both having somewhere to navigate to
+  /// is ordinary, two features both owning one spot is not. The order is the
+  /// order of [sitePlugins].
+  ///
+  /// Models rather than a widget, unlike [postFooter], because the sidebar is a
+  /// list of peers rather than a canvas. A row a plugin drew itself would drift
+  /// from core's the first time either changed, and `selectedId` and
+  /// `selectDestination` would decay from *the* path into a convention that
+  /// happens to be followed. A post's footer is a free-form decoration on one
+  /// record; this is not.
+  ///
+  /// The state behind these arrives asynchronously, so whatever holds it has to
+  /// reach `ShellController._notify` — either by being shell state or, as chat
+  /// does, by forwarding its own notifier to it.
+  List<SidebarSection> sidebarSections(BuildContext context);
+
+  /// The screen this feature draws for [route], or null for a route it does not
+  /// own.
+  ///
+  /// The other half of [sidebarSections]: an entry the sidebar offers needs
+  /// somewhere to lead, and the shell's own answer has only two branches — a
+  /// topic, and a list of them.
+  ///
+  /// An ordered fallthrough like [postFooter], asked *before* core, so that a
+  /// route belonging to a feature this build does not have falls through to the
+  /// placeholder rather than to something unrelated that happens to be cached.
+  ///
+  /// Matched on [ContentRoute.id], which `ContentRoute.fromDestination` copies
+  /// straight from the [SidebarDestination] this plugin minted — so a feature
+  /// recognises its own routes by the ids it wrote. Nothing about any one
+  /// feature is written into [ContentRoute], for the reason nothing about
+  /// reactions is written into [Post]: core does not learn a plugin's
+  /// vocabulary, it hands the plugin back what it was given.
+  Widget? content(BuildContext context, ContentRoute route);
+
   /// The message_bus channels worth listening to while [topicId] is the topic
   /// on screen. Empty for a feature with nothing live about it.
   List<String> topicChannels(int topicId);
@@ -123,6 +167,7 @@ class PostMenuContribution {
 /// in this repo, not third-party bundles — there is nothing to discover.
 const List<SitePlugin<Object>> sitePlugins = <SitePlugin<Object>>[
   ReactionsPlugin(),
+  ChatPlugin(),
 ];
 
 /// What plugins had to say about one record.

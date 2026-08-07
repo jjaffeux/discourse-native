@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../models/content_route.dart';
 import '../../models/post.dart';
+import '../../models/sidebar.dart';
 import '../../shell/post_action.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
@@ -84,6 +86,14 @@ class ReactionsPlugin implements SitePlugin<Reactions> {
       _ => const [],
     };
   }
+
+  /// Reactions decorate posts and navigate nowhere, so neither of the two
+  /// screen-owning hooks has anything to say.
+  @override
+  List<SidebarSection> sidebarSections(BuildContext context) => const [];
+
+  @override
+  Widget? content(BuildContext context, ContentRoute route) => null;
 
   @override
   PostMenuContribution postMenu(BuildContext context, Post post) {

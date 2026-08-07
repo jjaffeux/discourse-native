@@ -14,6 +14,8 @@ import '../models/post_creation.dart';
 import '../models/post_likers.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
+import '../plugins/chat/chat_channel.dart';
+import '../plugins/chat/chat_message.dart';
 import '../plugins/reactions/post_reactors.dart';
 import '../models/user_card.dart';
 
@@ -1009,6 +1011,90 @@ class DiscourseApi {
       postId: postId,
       siteUrl: siteUrl,
       filter: reaction,
+    );
+  }
+
+  /// Every chat channel this account follows, public and direct, with the
+  /// unread counts that belong beside them.
+  ///
+  /// Only followed channels come back, and the site caps the answer at 100
+  /// public channels and 75 direct ones. There is no paging here and nothing
+  /// asks for one: past that many followed channels a sidebar is not the
+  /// affordance anyway.
+  ///
+  /// A `403` is `Discourse::InvalidAccess` — chat is off, or this reader may
+  /// not use it — and arrives as a [SiteLookupException] like every other read.
+  /// `ChatController.loadChannels` swallows it, which is why the sidebar shows
+  /// nothing rather than an error.
+  Future<ChatChannels> chatChannels({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse('$siteUrl/chat/api/me/channels.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    return ChatChannel.parse(
+      jsonDecode(response.body) as Map<String, dynamic>,
+      siteUrl,
+    );
+  }
+
+  /// One page of a channel's messages, oldest first.
+  ///
+  /// Two shapes, and only two. Without [before] the site answers with the
+  /// newest [pageSize] messages, which is where reading starts. With it, the
+  /// page immediately older than a message already held, that message excluded.
+  ///
+  /// Deliberately *not* `fetch_from_last_read`: with no direction that takes
+  /// the query's around-target branch — 25 messages either side of where the
+  /// reader left off — which anchors the stream somewhere that is not the end
+  /// and then needs a way to page forward to escape. Landing on the newest
+  /// message means the only direction that exists is backwards, which is the
+  /// only one this app has. Nothing here marks anything read either, so a
+  /// last-read anchor would strand the reader at a position that never moves.
+  ///
+  /// [pageSize] is capped at 50 server side and sent explicitly so the number
+  /// in the code is the number that applies.
+  ///
+  /// Worth knowing rather than discovering: this `GET` writes. The controller
+  /// runs `update_membership_last_viewed_at`, so opening a channel touches
+  /// `last_viewed_at`. It does not touch `last_read_message_id`, so nothing is
+  /// marked read by reading it.
+  Future<ChatMessagePage> chatMessages({
+    required String siteUrl,
+    required int channelId,
+    int? before,
+    int pageSize = 50,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    // Absent params are left out rather than sent empty, and the failure mode
+    // is worse than an error: `target_message_id=` casts to nil server side and
+    // is treated as *absent*, so `direction=past` with an empty target answers
+    // with the newest page again rather than the one before it. A load-older
+    // that silently returns what the reader already has, forever. (A target
+    // that does not exist answers 404, and `page_size=0` answers 400 — both
+    // loud. This one is the quiet one.)
+    final query = [
+      'page_size=$pageSize',
+      if (before != null) ...['direction=past', 'target_message_id=$before'],
+    ].join('&');
+
+    final response = await _get(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId/messages.json?$query'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    return ChatMessage.parsePage(
+      jsonDecode(response.body) as Map<String, dynamic>,
+      siteUrl,
     );
   }
 

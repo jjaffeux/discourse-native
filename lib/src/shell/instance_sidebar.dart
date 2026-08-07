@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/sidebar.dart';
+import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'avatar_image.dart';
+import 'emoji.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
@@ -43,7 +46,15 @@ class InstanceSidebar extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.only(bottom: 8),
                 children: [
-                  for (final section in instance.sections)
+                  for (final section in [
+                    ...instance.sections,
+                    // Optional features contribute below the routes every
+                    // Discourse has, in the order `sitePlugins` lists them —
+                    // the additive walk `post_actions.dart` makes over the same
+                    // list, for the same reason.
+                    for (final plugin in sitePlugins)
+                      ...plugin.sidebarSections(context),
+                  ])
                     _Section(
                       section: section,
                       selectedId: controller.destinationId,
@@ -189,12 +200,67 @@ class _DestinationTile extends StatelessWidget {
   final int badgeCount;
   final VoidCallback onTap;
 
+  /// A face beats a picture beats a category badge beats a glyph. Emoji before
+  /// colour matches Discourse's own sidebar, which draws a channel's emoji when
+  /// it has one and tints its icon with the category colour when it does not.
+  Widget _prefix(BuildContext context, Color foreground) {
+    final theme = Theme.of(context);
+
+    if (destination.avatarUrl case final url?) {
+      return ClipOval(
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: AvatarImage(
+            url: url,
+            size: 18,
+            fallback: ColoredBox(color: theme.shell.floating),
+          ),
+        ),
+      );
+    }
+
+    if (destination.emoji case final emoji?) {
+      final controller = ShellScope.of(context);
+      final siteUrl = controller.currentInstance?.url;
+      if (siteUrl != null) {
+        return EmojiImage(
+          url: controller.emojiUrlFor(siteUrl, emoji),
+          size: 16,
+          alt: ':$emoji:',
+          style: theme.textTheme.labelSmall,
+        );
+      }
+    }
+
+    if (destination.color case final color?) {
+      return Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(3),
+        ),
+      );
+    }
+
+    return DIcon(
+      destination.icon,
+      size: 18,
+      color: destination.iconColor ?? foreground,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final foreground = selected
         ? theme.colorScheme.onSurface
         : theme.colorScheme.onSurfaceVariant;
+
+    // A destination built fresh from live state already has the answer; core's
+    // `const` sections cannot carry a moving number and ask the shell instead.
+    final badge = destination.badge ?? SidebarBadge.count(badgeCount);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
@@ -212,17 +278,11 @@ class _DestinationTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              if (destination.color case final color?)
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                )
-              else
-                DIcon(destination.icon, size: 18, color: foreground),
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: Center(child: _prefix(context, foreground)),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -235,24 +295,39 @@ class _DestinationTile extends StatelessWidget {
                   ),
                 ),
               ),
-              if (badgeCount > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.error,
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: Text(
-                    '$badgeCount',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onError,
-                      fontWeight: FontWeight.w700,
+              if (badge.isVisible)
+                if (badge.dot)
+                  // Red for what is addressed to the reader, the quieter colour
+                  // for what merely happened near them.
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      color: badge.urgent
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.error,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Text(
+                      '${badge.count}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onError,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
             ],
           ),
         ),

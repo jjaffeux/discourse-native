@@ -66,6 +66,7 @@ paper-plane
 toggle-on
 toggle-off
 far-face-smile
+paperclip
 
 # --- Notifications
 # What Discourse's own reactions plugin gives a reaction notification.
@@ -91,6 +92,8 @@ far-circle-check
 d-liked = heart
 d-unliked = far-heart
 d-tracking = bell
+# What the chat plugin's own chat-setup.js replaces it with.
+d-chat = comment
 topic.closed = lock
 topic.opened = unlock
 category.restricted = lock
