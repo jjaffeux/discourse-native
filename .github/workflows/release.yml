@@ -1,14 +1,15 @@
 name: release
 
-# Stable is a tag; canary is every push to main.
+# Builds a .deb and publishes it to an apt repository on GitHub Pages. Users
+# install with `apt install discourse-native` and update with `apt upgrade`;
+# nothing updates itself. See docs/release-runbook.md.
 #
-# NOT YET RUN END TO END. It has never had a green run -- GitHub Actions was in
-# a major outage when it was written, and the Linux build itself has only ever
-# been analysed, never compiled. Treat the first canary run as the test, and
-# see docs/release-runbook.md before pointing it at stable.
+# Stable is a tag. Canary is deliberately NOT every push to main: apt requires
+# the .deb to sit at the same origin as its metadata, so every build is ~14MB
+# added to gh-pages permanently, and git history keeps it even after the pool
+# is pruned. Canary is published on demand instead.
 on:
   push:
-    branches: [main]
     tags: ['v[0-9]+.[0-9]+.[0-9]+']
   workflow_dispatch:
     inputs:
@@ -24,12 +25,18 @@ permissions:
 # Two channels never write the same index file, but two canaries can. Serialise
 # per channel so the gh-pages merge cannot lose an entry.
 concurrency:
-  group: release-${{ github.ref_type == 'tag' && 'stable' || 'canary' }}
+  # Two runs on the same channel would race the same apt suite. inputs.channel
+  # is what a dispatch picks; a tag is always stable.
+  group: release-${{ github.ref_type == 'tag' && 'stable' || inputs.channel || 'canary' }}
   cancel-in-progress: false
 
 env:
   FLUTTER_VERSION: 3.44.8
   APP_NAME: Discourse
+  # The Debian package name, and so the command users type. Distinct from
+  # PACKAGE_ID, which is the GTK application id and the libsecret schema, and
+  # from BINARY_NAME, which is what the Flutter build emits.
+  PKG: discourse-native
   PACKAGE_ID: org.discourse.native
   BINARY_NAME: discourse_native
   PAGES_BRANCH: gh-pages
@@ -59,7 +66,8 @@ jobs:
           set -eux
           apt-get update
           apt-get install -y --no-install-recommends \
-            ca-certificates curl git unzip xz-utils zip file sudo jq
+            ca-certificates curl git unzip xz-utils zip file sudo jq \
+            apt-utils gnupg dpkg-dev
 
       - uses: actions/checkout@v4
         with:
@@ -179,105 +187,191 @@ jobs:
           # branch, which aborts at runtime rather than at build time.
           ldd "${{ env.BINARY_NAME }}" | grep -q libwebkit2gtk-4.1
 
-      - name: Package
-        id: pkg
+      - name: Build the .deb
+        id: deb
         run: |
           set -euo pipefail
           V="${{ steps.v.outputs.version }}"
-          NAME="${{ env.APP_NAME }}-$V-linux-x64.zip"
-          OUT="$RUNNER_TEMP/out"
-          mkdir -p "$OUT"
 
-          # -y keeps symlinks as symlinks. The zip is what the updater unpacks,
-          # so the unix mode bits have to survive in it.
-          ( cd build/linux/x64/release/bundle && zip -qry "$OUT/$NAME" . )
+          # Debian version ordering, which is not semver's. A tilde sorts
+          # BEFORE the version it precedes, so 1.0.0~canary23 < 1.0.0 and a
+          # canary user moves onto stable when it lands. Semver's hyphen does
+          # the opposite here: dpkg reads 1.0.0-canary23 as Debian revision
+          # "canary23" of 1.0.0, which sorts AFTER plain 1.0.0 and would strand
+          # canary users above every future stable release.
+          DEB_V="${V/-canary./~canary}"
+          ROOT="$RUNNER_TEMP/deb"
+          APP="$ROOT/usr/lib/${{ env.PKG }}"
 
-          # The assertion that matters most in this file: the difference
-          # between "the update installed" and "the update installed and the
-          # app will never start again". The bundle check above tested the
-          # tree; this tests the archive.
-          zipinfo -l "$OUT/$NAME" \
-            | grep -E '^-rwx.*[[:space:]]${{ env.BINARY_NAME }}$'
+          mkdir -p "$APP" "$ROOT/usr/bin" "$ROOT/usr/share/applications" \
+                   "$ROOT/usr/share/icons" "$ROOT/DEBIAN"
 
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "zip=$OUT/$NAME" >> "$GITHUB_OUTPUT"
-          echo "sha=$(sha256sum "$OUT/$NAME" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-          echo "len=$(stat -c%s "$OUT/$NAME")" >> "$GITHUB_OUTPUT"
+          cp -r build/linux/x64/release/bundle/. "$APP/"
 
-      # The release CLI derives every URL from a single --base-url and has no
-      # way to point the artifact somewhere else, so `publish` cannot put the
-      # zip on Releases. Writing the descriptor by hand and signing it is what
-      # keeps the manifests on Pages (KB-scale, versioned in git) and the
-      # artifacts on Releases (no bandwidth cap, no repo bloat).
-      - name: Write the release descriptor
-        id: desc
+          # Scaffolding for the relocatable archive, which a package does not
+          # want: dpkg owns the launcher and the icon tree, and Exec= is a
+          # known path rather than something a script has to discover.
+          rm -f "$APP/install-desktop-entry.sh"
+          rm -rf "$APP/data/desktop"
+
+          ln -s "../lib/${{ env.PKG }}/${{ env.BINARY_NAME }}" \
+                "$ROOT/usr/bin/${{ env.PKG }}"
+
+          sed "s|^Exec=@EXEC@$|Exec=/usr/bin/${{ env.PKG }}|" \
+            "linux/packaging/${{ env.PACKAGE_ID }}.desktop" \
+            > "$ROOT/usr/share/applications/${{ env.PACKAGE_ID }}.desktop"
+          grep -q '^Exec=/usr/bin/' \
+            "$ROOT/usr/share/applications/${{ env.PACKAGE_ID }}.desktop"
+
+          cp -r linux/icons/hicolor "$ROOT/usr/share/icons/"
+
+          # Hand-written rather than derived by dpkg-shlibdeps, which wants a
+          # debian/ source tree to run in. Asserted below by asking apt to
+          # resolve them, which is what catches a name that does not exist.
+          #
+          # gnome-keyring is Recommends, not Depends: the app needs *a* Secret
+          # Service or it forgets your account, but KWallet's bridge serves
+          # just as well and a KDE user should not be made to install GNOME's.
+          # printf rather than a heredoc: a heredoc's terminator has to sit at
+          # column 0, and every line inside a YAML block scalar is indented, so
+          # the delimiter would never match and the script would run on to the
+          # end of the file.
+          #
+          # The leading space on the last line is Debian's continuation marker
+          # for a multi-line Description, not a typo.
+          printf '%s\n' \
+            "Package: ${{ env.PKG }}" \
+            "Version: $DEB_V" \
+            "Architecture: amd64" \
+            "Maintainer: Joffrey Jaffeux <j.jaffeux@gmail.com>" \
+            "Section: net" \
+            "Priority: optional" \
+            "Homepage: https://github.com/${{ github.repository }}" \
+            "Depends: libgtk-3-0, libglib2.0-0, libwebkit2gtk-4.1-0, libsoup-3.0-0, libsecret-1-0, libssl3" \
+            "Recommends: gnome-keyring" \
+            "Description: Native Discourse client" \
+            " An experimental native client for Discourse forums, built with Flutter." \
+            > "$ROOT/DEBIAN/control"
+
+          DEB="$RUNNER_TEMP/${{ env.PKG }}_${DEB_V}_amd64.deb"
+          dpkg-deb --build --root-owner-group "$ROOT" "$DEB"
+
+          echo "deb=$DEB" >> "$GITHUB_OUTPUT"
+          echo "debver=$DEB_V" >> "$GITHUB_OUTPUT"
+
+      - name: Check the .deb
         run: |
           set -euo pipefail
-          V="${{ steps.v.outputs.version }}"
-          DIR="$RUNNER_TEMP/feed/${{ steps.v.outputs.channel }}/releases/$V/linux"
-          mkdir -p "$DIR"
+          DEB="${{ steps.deb.outputs.deb }}"
+          dpkg-deb --info "$DEB"
 
-          jq -n \
-            --arg pkg    "${{ env.PACKAGE_ID }}" \
-            --arg app    "${{ env.APP_NAME }}" \
-            --arg ver    "$V" \
-            --argjson bn ${{ steps.v.outputs.build }} \
-            --arg chan   "${{ steps.v.outputs.channel }}" \
-            --arg url    "https://github.com/${{ github.repository }}/releases/download/${{ steps.v.outputs.tag }}/${{ steps.pkg.outputs.name }}" \
-            --arg sha    "${{ steps.pkg.outputs.sha }}" \
-            --argjson len ${{ steps.pkg.outputs.len }} \
-            --arg now    "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" \
-            '{
-              schemaVersion: 3,
-              packageId: $pkg, appName: $app, version: $ver, buildNumber: $bn,
-              platform: "linux", channel: $chan,
-              artifact: {kind: "zip", url: $url, sha256: $sha, length: $len},
-              install: {strategy: "wholeDirectoryReplace"},
-              minimumUpdaterVersion: "2.0.0",
-              minimumOS: {linux: "glibc-2.35"},
-              generatedAt: $now
-            }' > "$DIR/release.json"
+          # The executable bit has to survive into the archive, and the symlink
+          # has to stay a symlink rather than becoming a copy.
+          dpkg-deb -c "$DEB" | grep -E '^-rwxr-xr-x.*/usr/lib/${{ env.PKG }}/${{ env.BINARY_NAME }}$'
+          dpkg-deb -c "$DEB" | grep -E '^lrwxrwxrwx.*/usr/bin/${{ env.PKG }} ->'
 
-          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+          # Ask apt to resolve Depends without installing anything. This is
+          # what catches a package name that does not exist -- the failure mode
+          # of writing them by hand -- and it fails here rather than on a
+          # user's machine.
+          apt-get install --simulate --no-install-recommends "$DEB" > /dev/null
+          echo "dependencies resolve"
 
-      # The bundle is what `release keys export` produced on the workstation
-      # that ran keygen. Secrets go through env rather than being spliced into
-      # the script -- that would be an injection surface and would leak under
-      # `set -x`, which is why this step alone runs without it.
-      - name: Restore the signing key
+      - name: Import the repository signing key
         env:
-          KEY_B64: ${{ secrets[format('DU_KEY_{0}',
-                      steps.v.outputs.channel == 'stable' && 'STABLE' || 'CANARY')] }}
-          # Read by name, never passed as an argument: the CLI refuses a
-          # passphrase on the command line precisely so it cannot land in a
-          # process listing or a shell history.
-          DU_PASSPHRASE: ${{ secrets[format('DU_PASSPHRASE_{0}',
-                            steps.v.outputs.channel == 'stable' && 'STABLE' || 'CANARY')] }}
+          APT_GPG_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
         run: |
           set -eu
-          if [ -z "${KEY_B64:-}" ]; then
-            echo "::error::no signing key secret for ${{ steps.v.outputs.channel }}"
+          if [ -z "${APT_GPG_KEY:-}" ]; then
+            echo "::error::APT_GPG_PRIVATE_KEY is not set; see docs/release-runbook.md"
             exit 1
           fi
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -p "$GNUPGHOME"; chmod 700 "$GNUPGHOME"
+          printf '%s' "$APT_GPG_KEY" | base64 -d | gpg --batch --import
+
+          # Written to a file rather than passed on the signing command line.
+          # An argument is visible in the process listing, and splicing the
+          # secret into the script text would be an injection surface as well.
           umask 077
-          printf '%s' "$KEY_B64" | base64 -d > "$RUNNER_TEMP/release-key.dukey"
-          dart run desktop_updater:release keys import \
-            --input "$RUNNER_TEMP/release-key.dukey" \
-            --passphrase-env DU_PASSPHRASE \
-            --base-url "${{ env.FEED_BASE }}/${{ steps.v.outputs.channel }}"
-          rm -f "$RUNNER_TEMP/release-key.dukey"
+          printf '%s' "$APT_GPG_PASSPHRASE" > "$GNUPGHOME/pass"
 
-      - name: Sign the descriptor
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+
+      - name: Publish to the apt repository
         run: |
-          set -eux
-          dart run desktop_updater:release sign \
-            --release "${{ steps.desc.outputs.dir }}/release.json" \
-            --key-profile "desktop_updater.keys.${{ steps.v.outputs.channel }}.json" \
-            --base-url "${{ env.FEED_BASE }}/${{ steps.v.outputs.channel }}"
+          set -euo pipefail
+          CH="${{ steps.v.outputs.channel }}"
+          P="$RUNNER_TEMP/pages"
 
-      # The artifact goes up before the index that points at it, so a client
-      # can never see an entry whose download 404s.
-      - name: Publish the artifact
+          git clone --depth 1 --branch "${{ env.PAGES_BRANCH }}" \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$P"
+
+          # One self-contained repository per channel rather than one repo with
+          # two suites sharing a pool. apt-ftparchive scans a directory tree, so
+          # a shared pool would list canary packages in stable's Packages file
+          # unless every suite carried a hand-maintained file list.
+          R="$P/apt/$CH"
+          POOL="$R/pool/main/d/${{ env.PKG }}"
+          mkdir -p "$POOL" "$R/dists/$CH/main/binary-amd64"
+          cp "${{ steps.deb.outputs.deb }}" "$POOL/"
+
+          # apt needs the .deb at the same origin as its metadata -- Filename:
+          # is repo-relative and cannot point at Releases -- so the pool grows
+          # inside gh-pages. Keep the last few and let apt offer only those.
+          # Note git history still holds the pruned ones; if the branch ever
+          # gets heavy, re-create it as an orphan.
+          ls -1 "$POOL"/*.deb | sort -V | head -n -3 | xargs -r rm -v
+
+          cd "$R"
+          # The previous run's signatures are still here from the clone, and
+          # `apt-ftparchive release` hashes everything it finds under the suite
+          # -- including them -- so a stale InRelease would end up listed in the
+          # Release it is supposed to sign.
+          rm -f "dists/$CH/InRelease" "dists/$CH/Release" "dists/$CH/Release.gpg"
+
+          apt-ftparchive --arch amd64 packages pool > "dists/$CH/main/binary-amd64/Packages"
+          gzip -9cn "dists/$CH/main/binary-amd64/Packages" \
+            > "dists/$CH/main/binary-amd64/Packages.gz"
+
+          apt-ftparchive \
+            -o "APT::FTPArchive::Release::Origin=discourse-native" \
+            -o "APT::FTPArchive::Release::Label=discourse-native" \
+            -o "APT::FTPArchive::Release::Suite=$CH" \
+            -o "APT::FTPArchive::Release::Codename=$CH" \
+            -o "APT::FTPArchive::Release::Architectures=amd64" \
+            -o "APT::FTPArchive::Release::Components=main" \
+            release "dists/$CH" > "dists/$CH/Release"
+
+          # InRelease is the inline-signed form apt prefers; Release.gpg is the
+          # detached one older clients still ask for.
+          gpg --batch --yes --pinentry-mode loopback \
+              --passphrase-file "$GNUPGHOME/pass" \
+              --clearsign -o "dists/$CH/InRelease" "dists/$CH/Release"
+          gpg --batch --yes --pinentry-mode loopback \
+              --passphrase-file "$GNUPGHOME/pass" \
+              -abs -o "dists/$CH/Release.gpg" "dists/$CH/Release"
+
+          # The key users pin with signed-by=. Public material.
+          gpg --armor --export > "$P/key.asc"
+
+          cd "$P"
+          touch .nojekyll
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && { echo "nothing to publish"; exit 0; }
+          git commit -m "$CH: ${{ steps.deb.outputs.debver }} (${{ github.sha }})"
+          for _ in 1 2 3; do
+            git push && exit 0
+            git pull --rebase
+          done
+          exit 1
+
+      # A direct download for anyone who will not add a repository, which is
+      # the fallback the reference install docs offer too.
+      - name: Publish the .deb on Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.v.outputs.tag }}
@@ -286,67 +380,4 @@ jobs:
           prerelease: ${{ steps.v.outputs.prerelease }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: ${{ steps.pkg.outputs.zip }}
-
-      - name: Update the channel index
-        run: |
-          set -euo pipefail
-          CH="${{ steps.v.outputs.channel }}"
-          V="${{ steps.v.outputs.version }}"
-          P="$RUNNER_TEMP/pages"
-
-          git clone --depth 1 --branch "${{ env.PAGES_BRANCH }}" \
-            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$P"
-
-          mkdir -p "$P/$CH/releases/$V/linux"
-          cp "${{ steps.desc.outputs.dir }}/release.json" "$P/$CH/releases/$V/linux/"
-
-          # upsert refuses to touch an already-signed archive -- "Cannot update
-          # a signed app-archive.json without re-signing it" -- which is a rail
-          # against publishing an index whose signature no longer matches its
-          # contents. Dropping the signature first and re-signing below is what
-          # that message is steering you toward, and the reason the very first
-          # run passed without this: there was no index yet to be signed.
-          #
-          # Note what this does not do. Re-signing means CI attests to whatever
-          # is on gh-pages, so a tampered index would be signed as readily as an
-          # honest one. There is no verify command for app-archive.json to
-          # check the old signature with. The boundary here is write access to
-          # gh-pages -- which is the same access that could rewrite this
-          # workflow, so verifying first would not buy a great deal.
-          if [ -f "$P/$CH/app-archive.json" ]; then
-            jq 'del(.signature)' "$P/$CH/app-archive.json" > "$RUNNER_TEMP/idx.json"
-            mv "$RUNNER_TEMP/idx.json" "$P/$CH/app-archive.json"
-          fi
-
-          # upsert merges into the existing index rather than replacing it. The
-          # archive is a history of every release, so a rewrite would strip
-          # every version but this one.
-          dart run desktop_updater:app_archive upsert \
-            --archive "$P/$CH/app-archive.json" \
-            --app-name "${{ env.APP_NAME }}" \
-            --version "$V" \
-            --build-number "${{ steps.v.outputs.build }}" \
-            --platform linux \
-            --channel "$CH" \
-            --release-url "${{ env.FEED_BASE }}/$CH/releases/$V/linux/release.json"
-
-          dart run desktop_updater:release sign \
-            --app-archive "$P/$CH/app-archive.json" \
-            --key-profile "$GITHUB_WORKSPACE/desktop_updater.keys.$CH.json" \
-            --base-url "${{ env.FEED_BASE }}/$CH"
-
-          cd "$P"
-          touch .nojekyll
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --quiet && { echo "nothing to publish"; exit 0; }
-          git commit -m "$CH: $V (${{ github.sha }})"
-          # concurrency serialises us, but a hand edit to gh-pages can still
-          # race. Rebase and retry rather than force.
-          for _ in 1 2 3; do
-            git push && exit 0
-            git pull --rebase
-          done
-          exit 1
+          files: ${{ steps.deb.outputs.deb }}

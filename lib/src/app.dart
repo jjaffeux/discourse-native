@@ -5,7 +5,6 @@ import 'data/discourse_api.dart';
 import 'data/draft_store.dart';
 import 'data/instance_store.dart';
 import 'data/site_tracker.dart';
-import 'data/desktop_updater_adapter.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
 import 'shell/adaptive_shell.dart';
@@ -49,9 +48,13 @@ class _DiscourseAppState extends State<DiscourseApp>
     authenticator: widget.authenticator ?? Authenticator(),
     drafts: widget.drafts ?? DraftStore(),
     trackers: widget.trackers ?? SiteTracker.new,
-    // Reports that it cannot update on everything but Linux, and on Linux
-    // until the build carries a version and pinned release keys.
-    updater: widget.updater ?? DesktopUpdaterAdapter(),
+    // Nothing updates itself. Linux ships as a .deb from an apt repository, so
+    // updates arrive with `apt upgrade` the way the rest of the system does,
+    // and the app is installed under /usr where it could not replace itself
+    // anyway. [DesktopUpdaterAdapter] is kept for the platform that gets an
+    // in-app updater next; wiring it here would put an update button in front
+    // of users whose package manager already owns the job.
+    updater: widget.updater ?? const UnsupportedUpdater(),
     updateStore: widget.updateStore ?? UpdateStore(),
   );
 
