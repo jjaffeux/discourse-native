@@ -4,6 +4,7 @@ import 'package:html/dom.dart' as dom;
 
 import 'code_block.dart';
 import 'emoji.dart';
+import 'image_grid.dart';
 import 'inline_code.dart';
 import 'lightbox.dart';
 import 'onebox.dart';
@@ -35,6 +36,7 @@ class CookedHtml extends StatelessWidget {
   ) =>
       (element) =>
           emojiWidgetBuilder(element, siteUrl, textStyle) ??
+          imageGridWidgetBuilder(element) ??
           lightboxWidgetBuilder(element) ??
           oneboxWidgetBuilder(element) ??
           quoteWidgetBuilder(element) ??

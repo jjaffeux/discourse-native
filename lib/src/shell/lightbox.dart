@@ -122,15 +122,17 @@ class LightboxImage {
   /// runs once per cooked post — and each [CookedHtml] parses one post into one
   /// document, so the document [anchor] belongs to *is* the post.
   ///
-  /// Two knowing divergences from `lib/lightbox.js`:
+  /// Reading the document is also what keeps an [ImageGridMosaic] honest.
+  /// `lib/columns.js` moves the grid's images into column elements, so the DOM
+  /// ends up in column order and `sortLightboxItems` has to put it back using
+  /// the `data-lightbox-position` it stamped on the way. Nothing here moves a
+  /// node, so the order never leaves the one the post was written in.
   ///
-  /// * It sorts `.d-image-grid` carousels by `data-lightbox-position`. That
-  ///   attribute is written by `lib/columns.js` after the fact and is never in
-  ///   `cooked`, so there is nothing here to sort by.
-  /// * It excludes `.spoiler`/`.spoiled`, except its selector does not: the
-  ///   `div.lightbox-wrapper` in between is itself an ancestor that is neither,
-  ///   which satisfies the descendant combinator. Spoilered images are in the
-  ///   gallery on the web, so they are in it here.
+  /// One knowing divergence from `lib/lightbox.js`: it excludes
+  /// `.spoiler`/`.spoiled`, except its selector does not. The
+  /// `div.lightbox-wrapper` in between is itself an ancestor that is neither,
+  /// which satisfies the descendant combinator, so spoilered images are in the
+  /// gallery on the web and are in it here.
   static List<LightboxImage> galleryFor(dom.Element anchor) {
     dom.Node root = anchor;
     while (root.parentNode != null) {
@@ -208,20 +210,14 @@ class LightboxThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final ratio = image.aspectRatio;
 
-    Widget thumbnail = Image.network(
-      image.thumbnailSrc ?? image.fullSrc,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) =>
-          _Unavailable(color: theme.shell.placeholder),
-    );
+    Widget tile = LightboxTile(anchor: anchor, image: image);
 
     // Reserve the slot from the size the markup declared, so the post does not
     // reflow as images land.
     if (ratio != null) {
-      thumbnail = AspectRatio(aspectRatio: ratio, child: thumbnail);
+      tile = AspectRatio(aspectRatio: ratio, child: tile);
     }
 
     return Padding(
@@ -232,14 +228,49 @@ class LightboxThumbnail extends StatelessWidget {
           // Discourse's `max-width: 100%; height: auto` — never wider than the
           // column, and never blown up past the size it was resized to.
           constraints: BoxConstraints(maxWidth: image.width ?? double.infinity),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                onTap: () => _open(context),
-                child: Hero(tag: image.heroTag, child: thumbnail),
-              ),
+          child: tile,
+        ),
+      ),
+    );
+  }
+}
+
+/// The image itself: tappable, rounded, and sized by whoever placed it.
+///
+/// Split out of [LightboxThumbnail] because a post image and a grid tile want
+/// the same picture in boxes chosen very differently — a standalone image keeps
+/// its own aspect ratio, a mosaic tile is handed a box and crops to it.
+class LightboxTile extends StatelessWidget {
+  const LightboxTile({
+    super.key,
+    required this.anchor,
+    required this.image,
+    this.fit = BoxFit.cover,
+  });
+
+  final dom.Element anchor;
+  final LightboxImage image;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: () => open(context),
+          child: Hero(
+            tag: image.heroTag,
+            child: Image.network(
+              image.thumbnailSrc ?? image.fullSrc,
+              fit: fit,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (context, error, stackTrace) =>
+                  UnavailableImage(color: theme.shell.placeholder),
             ),
           ),
         ),
@@ -247,7 +278,8 @@ class LightboxThumbnail extends StatelessWidget {
     );
   }
 
-  void _open(BuildContext context) {
+  /// Opens the post's gallery on this image.
+  void open(BuildContext context) {
     final gallery = LightboxImage.galleryFor(anchor);
     final index = gallery.indexWhere((i) => i.heroTag == image.heroTag);
 
@@ -379,7 +411,7 @@ class _LightboxGalleryState extends State<LightboxGallery> {
           onTapUp: (context, details, value) =>
               setState(() => _chromeVisible = !_chromeVisible),
           errorBuilder: (context, error, stackTrace) =>
-              const Center(child: _Unavailable(color: Colors.white54)),
+              const Center(child: UnavailableImage(color: Colors.white54)),
         );
       },
     );
@@ -561,8 +593,8 @@ class _Arrow extends StatelessWidget {
 
 /// What an image that will not load leaves behind, in the space it would have
 /// taken.
-class _Unavailable extends StatelessWidget {
-  const _Unavailable({required this.color});
+class UnavailableImage extends StatelessWidget {
+  const UnavailableImage({super.key, required this.color});
 
   final Color color;
 
