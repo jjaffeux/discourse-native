@@ -846,46 +846,59 @@ own title bar. Linux has no traffic lights, and dropping the GTK header bar to
 match would mean reimplementing the window controls, drag-to-move and the
 resize handles for no functional gain.
 
-### Installing a build
+### Installing
 
-The build is a relocatable archive. Extract it anywhere, then:
+Ubuntu 22.04+ or Debian 12+, x86-64. Add the repository once:
 
 ```sh
-./install-desktop-entry.sh
+sudo curl -fsSLo /usr/share/keyrings/discourse-native.asc \
+  https://jjaffeux.github.io/discourse-native/key.asc
+
+echo "deb [signed-by=/usr/share/keyrings/discourse-native.asc] \
+https://jjaffeux.github.io/discourse-native/apt/stable stable main" \
+  | sudo tee /etc/apt/sources.list.d/discourse-native.list
 ```
 
-which writes a launcher into `$XDG_DATA_HOME/applications` with `Exec=` pointing
-at wherever you put it, and copies the icon tree. No root, and safe to re-run.
+then
+
+```sh
+sudo apt update && sudo apt install discourse-native
+```
+
+`Depends:` names webkit2gtk, libsecret and the rest, so apt pulls them in — there
+is no list of libraries to install by hand. That matters more than convenience
+here: webkit is linked, not loaded on demand, so a machine without it cannot
+start the app at all, and `ld.so` failing at exec shows nothing whatsoever from
+a desktop launcher.
+
+`gnome-keyring` is a `Recommends` rather than a `Depends`. The app needs *some*
+Secret Service or it forgets your account between launches, but KWallet's bridge
+serves as well, and a KDE user should not be made to install GNOME's.
+
+For canary builds, point the same line at `apt/canary canary main` instead.
+There is also a `.deb` on each [release](https://github.com/jjaffeux/discourse-native/releases)
+for anyone who would rather not add a repository.
 
 ### Updates
 
-Linux builds update themselves. The rail carries a check-for-updates button
-below the `+`; it is the only app-level surface in the shell, so it is there at
-every window size, signed out, and with no sites connected. The sheet behind it
-has a **Stable / Canary** switch, and the choice is remembered.
+**The app does not update itself.** Updates arrive the way everything else on
+the system does:
 
-The chain is `app-archive.json` → `release.json` → `app.zip`, each descriptor
-signed with Ed25519 and verified against keys pinned into the build. Manifests
-are served from GitHub Pages; the artifacts are GitHub Release assets.
+```sh
+sudo apt update && sudo apt upgrade
+```
 
-Three things have to be true before any of it turns on, and if any is false the
-button is simply absent:
+That is a deliberate choice rather than a missing feature. A packaged install
+lives under `/usr`, owned by dpkg, where the app could not replace itself
+without asking for root — and an app that asks for root to update itself is a
+worse thing to have installed than one that does not.
 
-1. The platform is Linux — `DesktopUpdaterAdapter.supportsPlatform`. iOS is out
-   by App Store rule; macOS would replace a signed bundle with an unsigned copy,
-   changing the code signature the keychain ACL is bound to.
-2. The build carries a version, stamped by `--dart-define` in the release
-   workflow. A `flutter run` has none, so a developer is never offered an update
-   over their own working tree.
-3. The build carries pinned release keys. A build that cannot verify what it
-   downloads must not install it — an updater with no keys is worse than none.
-
-Everything goes through the `Updater` interface in `lib/src/data/updater.dart`,
-and `lib/src/data/desktop_updater_adapter.dart` is the only file allowed to
-import `package:desktop_updater`. That seam is there for tests first — the
-widget suite builds the whole app a hundred times and must not stand up a plugin
-to do it — and only incidentally because the library calls its own Linux support
-preview-grade.
+The in-app updater built for the relocatable-archive model is still in the tree
+— `Updater` in [updater.dart](lib/src/data/updater.dart), the controller, the
+sheet, and a `desktop_updater` adapter behind the seam — but nothing wires it
+up: [app.dart](lib/src/app.dart) passes `UnsupportedUpdater`, so `isSupported`
+is false and the UI never appears. It is kept for whichever platform gets an
+in-app updater first, which will not be one a package manager already serves.
 
 Publishing, key handling and what to do about a bad build are in
 [docs/release-runbook.md](docs/release-runbook.md).
