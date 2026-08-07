@@ -51,6 +51,16 @@ dependencies:
   # published in 2021, which is tolerable for a pure-Dart tokenizer with no
   # platform surface. See lib/src/shell/syntax.dart.
   highlight: ^0.7.0
+  # Zoom/pan surface for the post image gallery. `PhotoViewGallery` is the
+  # swipe-between-images widget the web client gets from PhotoSwipe, and this is
+  # the only pub package that does it well.
+  #
+  # Last published in 2023, and the repo is quiet — worth knowing before
+  # reaching for more of its API. It is confined to lib/src/shell/lightbox.dart
+  # for that reason: everything Discourse-shaped (which images are in a gallery,
+  # what the caption says) is parsed and drawn here, and photo_view only ever
+  # sees an ImageProvider and a page index. Replacing it is a one-file job.
+  photo_view: ^0.15.0
   super_sliver_list: ^0.4.1
   super_editor: 0.3.0-dev.52
   markdown: ^7.3.1

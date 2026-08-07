@@ -23,6 +23,7 @@ globe
 gear
 ellipsis
 chevron-right
+chevron-left
 chevron-down
 xmark
 arrow-left
