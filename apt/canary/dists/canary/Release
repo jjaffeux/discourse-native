@@ -1,23 +1,23 @@
 Architectures: amd64
 Codename: canary
 Components: main
-Date: Fri, 07 Aug 2026 08:55:08 +0000
+Date: Fri, 07 Aug 2026 13:57:26 +0000
 Label: discourse-native
 Origin: discourse-native
 Suite: canary
 MD5Sum:
- 33a6cee13f336f7219dfab7ae07ffe69              156 Release
- 7e0bcb8c56cb8aac679247d6a7b8889d              832 main/binary-amd64/Packages
- 413188ed08cab3e73d08a0a1fbfb4ae2              545 main/binary-amd64/Packages.gz
+ d6db22f09de927ad565336011682f247              156 Release
+ b5d3fedc1e3164e8c876075ff9bbb314             1664 main/binary-amd64/Packages
+ 25b953415963767b14c2519f6da78961              747 main/binary-amd64/Packages.gz
 SHA1:
- 0ca7663b6fd00ce8dc55dff51eb12ded3f62d8c6              156 Release
- 29c57226ead60e4bcd1851733ac9ca6810e76104              832 main/binary-amd64/Packages
- b2d012671bfed2b3f55950dcd764cea0d1684968              545 main/binary-amd64/Packages.gz
+ 4619fc9d2b96fb70e9e56fdc509f7e06b466e2d7              156 Release
+ 14673c606caae90f23377a7ae5b7afcd3b8a3cba             1664 main/binary-amd64/Packages
+ 9a6710c71b156215d61735edf56f11e49c4e65f4              747 main/binary-amd64/Packages.gz
 SHA256:
- d2b6e371536b52e0c04a275f556f13c09cae0641c1e55fd8e3ad99b5512e97aa              156 Release
- c4c57c07edd20317e0000f3d7ae2eefd6c0d8d6c8b9ca28e467bb9e2f9b26f5c              832 main/binary-amd64/Packages
- 2ced07cacb6eeb9150d504ba06442785f49bd9f5ccafc7446312a2ca79acf6d0              545 main/binary-amd64/Packages.gz
+ e5951df1610568c76947a51f4574982b0ff4b4646473e0914914f93ed2458cbf              156 Release
+ 27efa373fac1e0a3c3e9aee60d450622fd330252ea935bc50975fa1ab52c4411             1664 main/binary-amd64/Packages
+ 9a80aeea53dcdf1c492c42b5e7ec6c57fd3e8992113408220ee8814d6d4cf744              747 main/binary-amd64/Packages.gz
 SHA512:
- e34a7cce081d17002751d102076050ce501ffdd5d8d19ea248987469b9750e89168e20db110cc013e96d35ca800b6cc63acb9601367798077c9003268d86d4f0              156 Release
- 8a5ae61dc70161876560165c8ea69f082c60e4ddb398a244348a9ba931b016cab7ec046637c61d48274851138dff71a5222cb0c6161374afbced506a332a0975              832 main/binary-amd64/Packages
- 989bb226b7ff539181e083d5771cc42fe77a3ead684bad496780ba65c6b852bb5ce47c611e1274e36ba76b5dbc2a2c314a61be1da90cf28878a5e908160f356c              545 main/binary-amd64/Packages.gz
+ 2ff2e2d3679e0c3b1e867c3a14c8bea25f78111df09159a2c3a7d053b5d1655bb2a8f5180523e6e73ed95d50f9d62730df9d43ddc8a39eef53e4e1ed09277637              156 Release
+ 32d2a94297526cc67a3838b84d1b4c331fca97d723b5d8b205cd0730c0682e6dc8143dd6644f931f430185e8c1e3942170a7c4dfe23d2a6535d7cac761b0d2f5             1664 main/binary-amd64/Packages
+ 0e25fbe49edac4b78631f77f91c761629d5107fdd2dea7bff0882810d7282a4088fe57b496543c7da638e2e447a28490417cc0cfd1dc1669d70623f75fa59d50              747 main/binary-amd64/Packages.gz
