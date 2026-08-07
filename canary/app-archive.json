@@ -9,11 +9,19 @@
       "channel": "canary",
       "mandatory": false,
       "release": "https://jjaffeux.github.io/discourse-native/canary/releases/1.0.0-canary.20/linux/release.json"
+    },
+    {
+      "version": "1.0.0-canary.23",
+      "buildNumber": 23,
+      "platform": "linux",
+      "channel": "canary",
+      "mandatory": false,
+      "release": "https://jjaffeux.github.io/discourse-native/canary/releases/1.0.0-canary.23/linux/release.json"
     }
   ],
   "signature": {
     "algorithm": "ed25519",
     "publicKeyId": "release-305aa96ebc8eaaf8a17bb251",
-    "value": "HhpHw2rjYeuLfhsqQXmLuerY0WdTERzxgQEPgg2miEYyV0S/Vc02pAohL2c834LVI11Pxg3zqn3cGD9xJCXcBA=="
+    "value": "fZTetN1sO/C0hfbA8Q/5rD3ADG3qimR5TN6J6YNP7DuqH8qOU54UBmMEdDkqishkD4808Kf3JU5wKOjAKasJBg=="
   }
 }
