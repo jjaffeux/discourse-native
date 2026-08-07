@@ -301,6 +301,24 @@ jobs:
           mkdir -p "$P/$CH/releases/$V/linux"
           cp "${{ steps.desc.outputs.dir }}/release.json" "$P/$CH/releases/$V/linux/"
 
+          # upsert refuses to touch an already-signed archive -- "Cannot update
+          # a signed app-archive.json without re-signing it" -- which is a rail
+          # against publishing an index whose signature no longer matches its
+          # contents. Dropping the signature first and re-signing below is what
+          # that message is steering you toward, and the reason the very first
+          # run passed without this: there was no index yet to be signed.
+          #
+          # Note what this does not do. Re-signing means CI attests to whatever
+          # is on gh-pages, so a tampered index would be signed as readily as an
+          # honest one. There is no verify command for app-archive.json to
+          # check the old signature with. The boundary here is write access to
+          # gh-pages -- which is the same access that could rewrite this
+          # workflow, so verifying first would not buy a great deal.
+          if [ -f "$P/$CH/app-archive.json" ]; then
+            jq 'del(.signature)' "$P/$CH/app-archive.json" > "$RUNNER_TEMP/idx.json"
+            mv "$RUNNER_TEMP/idx.json" "$P/$CH/app-archive.json"
+          fi
+
           # upsert merges into the existing index rather than replacing it. The
           # archive is a history of every release, so a rewrite would strip
           # every version but this one.
