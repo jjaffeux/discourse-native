@@ -20,7 +20,6 @@ class HoverPanel extends StatefulWidget {
     required this.panelBuilder,
     this.maxWidth = 260,
     this.onOpen,
-    this.onClose,
   });
 
   /// How long the pointer has to rest before the panel opens.
@@ -48,8 +47,6 @@ class HoverPanel extends StatefulWidget {
   /// Called every time the panel opens — which is where a caller refetches
   /// whatever it is about to show.
   final VoidCallback? onOpen;
-
-  final VoidCallback? onClose;
 
   @override
   State<HoverPanel> createState() => HoverPanelState();
@@ -126,7 +123,6 @@ class HoverPanelState extends State<HoverPanel> {
     _closing = null;
     if (!_portal.isShowing) return;
     _portal.hide();
-    widget.onClose?.call();
   }
 
   /// The anchor's rectangle, in the coordinates the overlay lays its children

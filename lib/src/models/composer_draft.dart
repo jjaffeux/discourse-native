@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'json.dart';
+
 /// A reply in progress, in the shape Discourse stores drafts in.
 ///
 /// The field names are the web composer's own (`models/composer.js`,
@@ -24,14 +26,14 @@ class ComposerDraft {
 
   factory ComposerDraft.fromJson(Map<String, dynamic> json) => ComposerDraft(
     reply: (json['reply'] ?? '') as String,
-    replyToPostNumber: _int(json['reply_to_post_number']),
+    replyToPostNumber: jsonIntOrNull(json['reply_to_post_number']),
     replyToUsername: switch (json['reply_to_user']) {
       final Map<String, dynamic> user => user['username'] as String?,
       final String username => username,
       _ => null,
     },
-    typingTime: Duration(milliseconds: _int(json['typingTime']) ?? 0),
-    composerTime: Duration(milliseconds: _int(json['composerTime']) ?? 0),
+    typingTime: Duration(milliseconds: jsonInt(json['typingTime'])),
+    composerTime: Duration(milliseconds: jsonInt(json['composerTime'])),
   );
 
   /// Reads the blob Discourse stores.
@@ -50,12 +52,6 @@ class ComposerDraft {
       return null;
     }
   }
-
-  static int? _int(Object? value) => switch (value) {
-    final num n => n.toInt(),
-    final String s => int.tryParse(s),
-    _ => null,
-  };
 
   final String reply;
   final int? replyToPostNumber;

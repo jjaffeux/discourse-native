@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
+import 'json.dart';
 import 'post.dart' show resolveAvatarUrl;
 
 /// The summary of an account behind `/u/{username}/card.json`.
@@ -26,33 +27,21 @@ class UserCard with Storable<UserCard> {
   factory UserCard.fromJson(Map<String, dynamic> json, String siteUrl) {
     return UserCard(
       username: (json['username'] ?? '') as String,
-      name: _text(json['name']),
-      title: _text(json['title']),
+      name: jsonText(json['name']),
+      title: jsonText(json['title']),
       // HTML, like a post's `cooked` — Discourse resolves mentions and emoji
       // in a bio the same way.
-      bioExcerpt: _text(json['bio_excerpt']),
+      bioExcerpt: jsonText(json['bio_excerpt']),
       avatarUrl: resolveAvatarUrl(json['avatar_template'] as String?, siteUrl),
-      createdAt: DateTime.tryParse((json['created_at'] ?? '') as String),
-      lastPostedAt: DateTime.tryParse((json['last_posted_at'] ?? '') as String),
-      badgeCount: switch (json['badge_count']) {
-        final num n => n.toInt(),
-        _ => 0,
-      },
+      createdAt: jsonDate(json['created_at']),
+      lastPostedAt: jsonDate(json['last_posted_at']),
+      badgeCount: jsonInt(json['badge_count']),
       isStaff: json['admin'] == true || json['moderator'] == true,
       // A suspension that has not expired; the card says so rather than
       // pretending the account is ordinary.
       isSuspended:
-          DateTime.tryParse(
-            (json['suspended_till'] ?? '') as String,
-          )?.isAfter(DateTime.now()) ??
-          false,
+          jsonDate(json['suspended_till'])?.isAfter(DateTime.now()) ?? false,
     );
-  }
-
-  static String? _text(Object? value) {
-    if (value is! String) return null;
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? null : trimmed;
   }
 
   final String username;

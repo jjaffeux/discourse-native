@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../data/store.dart';
+import '../../models/json.dart';
 import '../../models/post.dart';
 
 /// One account that reacted to a post, and what with.
@@ -19,16 +20,12 @@ class PostReactor {
   });
 
   factory PostReactor.fromJson(Map<String, dynamic> json, String siteUrl) {
-    final name = (json['name'] as String?)?.trim();
     return PostReactor(
-      id: switch (json['id']) {
-        final num id => id.toInt(),
-        _ => 0,
-      },
+      id: jsonInt(json['id']),
       username: (json['username'] ?? '') as String,
       // Absent on a site with `enable_names` off, where the username is the
       // only name anyone has.
-      name: name == null || name.isEmpty ? null : name,
+      name: jsonText(json['name']),
       avatarUrl: resolveAvatarUrl(json['avatar_template'] as String?, siteUrl),
       reaction: (json['reaction'] ?? '') as String,
     );
@@ -75,10 +72,7 @@ class PostReactors with Storable<PostReactors> {
       for (final entry in json['users'] as List<dynamic>? ?? const [])
         if (entry is Map<String, dynamic>) PostReactor.fromJson(entry, siteUrl),
     ],
-    total: switch (json['total_rows']) {
-      final num n => n.toInt(),
-      _ => 0,
-    },
+    total: jsonInt(json['total_rows']),
   );
 
   final int postId;

@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'json.dart';
+
 /// The account an API key belongs to, from `/session/current.json`.
 @immutable
 class DiscourseUser {
@@ -15,10 +17,7 @@ class DiscourseUser {
     // Absent from anything stored before the live counters needed it, which is
     // why it is nullable rather than required — see `ShellController`, which
     // asks the site again when it finds one missing.
-    id: switch (json['id']) {
-      final num id => id.toInt(),
-      _ => null,
-    },
+    id: jsonIntOrNull(json['id']),
     name: json['name'] as String?,
     avatarUrl: json['avatarUrl'] as String?,
   );

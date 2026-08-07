@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'json.dart';
+
 /// Everything `/notifications/totals.json` reports in one call: the rail badge
 /// and every sidebar count come from here rather than from per-section
 /// requests.
@@ -20,29 +22,17 @@ class NotificationTotals {
     final tracking =
         json['topic_tracking'] as Map<String, dynamic>? ?? const {};
     return NotificationTotals(
-      unreadNotifications: _int(json['unread_notifications']),
-      unreadPersonalMessages: _int(json['unread_personal_messages']),
-      unseenReviewables: _int(json['unseen_reviewables']),
-      chatNotifications: _int(json['chat_notifications']),
-      topicTrackingUnread: _int(tracking['unread']),
-      topicTrackingNew: _int(tracking['new']),
+      unreadNotifications: jsonInt(json['unread_notifications']),
+      unreadPersonalMessages: jsonInt(json['unread_personal_messages']),
+      unseenReviewables: jsonInt(json['unseen_reviewables']),
+      chatNotifications: jsonInt(json['chat_notifications']),
+      topicTrackingUnread: jsonInt(tracking['unread']),
+      topicTrackingNew: jsonInt(tracking['new']),
       username: json['username'] as String?,
       // The key is only present when the site has chat enabled.
       hasChatEnabled: json['chat_notifications'] is num,
     );
   }
-
-  static int _int(Object? value) => switch (value) {
-    final num n => n.toInt(),
-    final String s => int.tryParse(s) ?? 0,
-    _ => 0,
-  };
-
-  static int? _intOrNull(Object? value) => switch (value) {
-    final num n => n.toInt(),
-    final String s => int.tryParse(s),
-    _ => null,
-  };
 
   /// Folds a `/notification/{id}` message onto these totals.
   ///
@@ -60,8 +50,8 @@ class NotificationTotals {
   NotificationTotals withNotification(Object? message) {
     if (message is! Map) return this;
 
-    final all = _intOrNull(message['all_unread_notifications_count']);
-    final messages = _intOrNull(
+    final all = jsonIntOrNull(message['all_unread_notifications_count']);
+    final messages = jsonIntOrNull(
       message['new_personal_messages_notifications_count'],
     );
     if (all == null && messages == null) return this;
@@ -82,7 +72,7 @@ class NotificationTotals {
   NotificationTotals withReviewableCounts(Object? message) {
     if (message is! Map) return this;
 
-    final unseen = _intOrNull(message['unseen_reviewable_count']);
+    final unseen = jsonIntOrNull(message['unseen_reviewable_count']);
     if (unseen == null) return this;
     return copyWith(unseenReviewables: unseen);
   }

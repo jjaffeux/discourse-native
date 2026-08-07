@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
 
-/// The waiting, empty and failed states a user menu tab shows in place of its
-/// rows, given enough height that the tab does not collapse to nothing while it
+/// The waiting, empty and failed states a fetching surface shows in place of
+/// its rows, given enough height that it does not collapse to nothing while it
 /// has none.
 ///
-/// A null [text] is the wait. Every tab that fetches its own list wants the
-/// same three, so they are drawn in one place rather than once per tab.
+/// A null [text] is the wait. Every tab and card that fetches its own content
+/// wants the same three, so they are drawn in one place rather than once per
+/// surface.
 class UserMenuMessage extends StatelessWidget {
-  const UserMenuMessage({super.key, required this.text, this.onRetry});
+  const UserMenuMessage({
+    super.key,
+    required this.text,
+    this.onRetry,
+    this.height = 140,
+  });
 
   final String? text;
   final VoidCallback? onRetry;
+
+  /// The footprint held while waiting, so the surface does not jump around
+  /// once its content arrives.
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +28,7 @@ class UserMenuMessage extends StatelessWidget {
     final message = text;
 
     return SizedBox(
-      height: 140,
+      height: height,
       child: Center(
         child: message == null
             ? const SizedBox(

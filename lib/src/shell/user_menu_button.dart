@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'platform.dart';
 import 'shell_scope.dart';
 import 'user_menu.dart';
 
@@ -39,11 +40,6 @@ class UserMenuButton extends StatefulWidget {
 class _UserMenuButtonState extends State<UserMenuButton> {
   final MenuController _menu = MenuController();
 
-  bool get _isTouch => switch (Theme.of(context).platform) {
-    TargetPlatform.iOS || TargetPlatform.android => true,
-    _ => false,
-  };
-
   /// Signing in happens in a browser we do not own, so the failure comes back
   /// long after the tap and has nowhere in the shell to live. A snack bar is
   /// what is left once the account card that used to carry it is gone.
@@ -59,7 +55,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
   }
 
   void _openMenu() {
-    if (_isTouch) {
+    if (context.isTouch) {
       showUserMenuSheet(context);
       return;
     }

@@ -23,8 +23,6 @@ class ShellTitleBar extends StatelessWidget {
   static bool get isSupported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
-  static double height(BuildContext context) => isSupported ? _height : 0;
-
   /// Where the account avatar goes when there is no strip to hold it.
   static bool get columnsCarryUserMenu => !isSupported;
 

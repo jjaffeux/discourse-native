@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
+import 'json.dart';
 import 'post.dart';
 
 /// One account that liked a post.
@@ -18,16 +19,12 @@ class PostLiker {
   });
 
   factory PostLiker.fromJson(Map<String, dynamic> json, String siteUrl) {
-    final name = (json['name'] as String?)?.trim();
     return PostLiker(
-      id: switch (json['id']) {
-        final num id => id.toInt(),
-        _ => 0,
-      },
+      id: jsonInt(json['id']),
       username: (json['username'] ?? '') as String,
       // Absent on a site with `enable_names` off, where the username is the
       // only name anyone has.
-      name: name == null || name.isEmpty ? null : name,
+      name: jsonText(json['name']),
       avatarUrl: resolveAvatarUrl(json['avatar_template'] as String?, siteUrl),
     );
   }

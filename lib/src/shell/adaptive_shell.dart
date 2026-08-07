@@ -92,19 +92,23 @@ class _CompactShell extends StatelessWidget {
                 switchOutCurve: Curves.easeInCubic,
                 transitionBuilder: _slide,
                 child: switch ((
+                  controller.loaded,
                   controller.hasInstances,
                   controller.mobilePane,
                 )) {
-                  (false, _) => const EmptyState(
+                  // Nothing until the stored sites have been read, so the
+                  // empty state does not flash on launch.
+                  (false, _, _) => const SizedBox.shrink(),
+                  (true, false, _) => const EmptyState(
                     key: ValueKey(MobilePane.sidebar),
                   ),
                   // Only one pane is on screen at a time here, so whichever one
                   // it is carries the avatar — unless the title bar has it.
-                  (true, MobilePane.sidebar) => InstanceSidebar(
+                  (true, true, MobilePane.sidebar) => InstanceSidebar(
                     key: const ValueKey(MobilePane.sidebar),
                     showUserMenu: ShellTitleBar.columnsCarryUserMenu,
                   ),
-                  (true, MobilePane.content) => const MainContent(
+                  (true, true, MobilePane.content) => const MainContent(
                     key: ValueKey(MobilePane.content),
                     layout: ShellLayout.compact,
                   ),
@@ -160,7 +164,11 @@ class _WideShell extends StatelessWidget {
                       Expanded(child: MainContent(layout: layout)),
                     ],
                   )
-                : const EmptyState(),
+                // Nothing until the stored sites have been read, so the empty
+                // state does not flash on launch.
+                : controller.loaded
+                ? const EmptyState()
+                : const SizedBox.shrink(),
           ),
         ),
       ],

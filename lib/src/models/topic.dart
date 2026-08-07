@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
+import 'json.dart';
+import 'post.dart' show resolveAvatarUrl;
 
 /// A row in a topic list.
 ///
@@ -37,34 +39,25 @@ class Topic with Storable<Topic> {
         .toList();
 
     return Topic(
-      id: _int(json['id']),
-      // `fancy_title` is HTML — "&ldquo;quoted&rdquo;" — which only renders in
-      // a browser. `title` is the same text as plain unicode, which is what a
-      // native Text widget wants.
-      title: (json['title'] ?? json['fancy_title'] ?? '') as String,
+      id: jsonInt(json['id']),
+      title: jsonTitle(json['title'], json['fancy_title']),
       slug: (json['slug'] ?? '') as String,
       categoryId: json['category_id'] == null
           ? null
-          : _int(json['category_id']),
-      postsCount: _int(json['posts_count']),
-      replyCount: _int(json['reply_count']),
-      views: _int(json['views']),
-      likeCount: _int(json['like_count']),
-      bumpedAt: DateTime.tryParse((json['bumped_at'] ?? '') as String),
+          : jsonInt(json['category_id']),
+      postsCount: jsonInt(json['posts_count']),
+      replyCount: jsonInt(json['reply_count']),
+      views: jsonInt(json['views']),
+      likeCount: jsonInt(json['like_count']),
+      bumpedAt: jsonDate(json['bumped_at']),
       pinned: json['pinned'] == true,
       closed: json['closed'] == true,
-      unreadPosts: _int(json['unread_posts']),
-      newPosts: _int(json['new_posts']),
+      unreadPosts: jsonInt(json['unread_posts']),
+      newPosts: jsonInt(json['new_posts']),
       seen: json['unseen'] != true,
       posterAvatars: posters,
     );
   }
-
-  static int _int(Object? value) => switch (value) {
-    final num n => n.toInt(),
-    final String s => int.tryParse(s) ?? 0,
-    _ => 0,
-  };
 
   final int id;
   final String title;
@@ -142,7 +135,7 @@ class TopicList {
     final avatars = <int, String?>{};
     for (final user in (json['users'] as List<dynamic>? ?? const [])) {
       final map = user as Map<String, dynamic>;
-      avatars[Topic._int(map['id'])] = _avatar(
+      avatars[jsonInt(map['id'])] = resolveAvatarUrl(
         map['avatar_template'] as String?,
         siteUrl,
       );
@@ -155,14 +148,6 @@ class TopicList {
           .toList(),
       moreTopicsUrl: list['more_topics_url'] as String?,
     );
-  }
-
-  static String? _avatar(String? template, String siteUrl) {
-    if (template == null || template.isEmpty) return null;
-    final sized = template.replaceAll('{size}', '90');
-    if (sized.startsWith('//')) return 'https:$sized';
-    if (sized.startsWith('http')) return sized;
-    return '$siteUrl${sized.startsWith('/') ? '' : '/'}$sized';
   }
 
   final List<Topic> topics;
@@ -193,7 +178,7 @@ class TopicCategory with Storable<TopicCategory> {
   });
 
   factory TopicCategory.fromJson(Map<String, dynamic> json) => TopicCategory(
-    id: Topic._int(json['id']),
+    id: jsonInt(json['id']),
     name: (json['name'] ?? '') as String,
     color: (json['color'] ?? '888888') as String,
     slug: (json['slug'] ?? '') as String,

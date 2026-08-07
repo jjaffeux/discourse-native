@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
+import '../models/json.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/post.dart';
@@ -237,24 +238,12 @@ class DiscourseApi {
     required String apiKey,
     String? clientId,
   }) async {
-    final http.Response response;
-    try {
-      response = await _client
-          .get(
-            Uri.parse('$siteUrl/session/current.json'),
-            headers: authHeaders(apiKey, clientId: clientId),
-          )
-          .timeout(timeout);
-    } catch (_) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-    }
-
-    if (response.statusCode == 403 || response.statusCode == 401) {
-      throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
-    }
-    if (response.statusCode != 200) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-    }
+    final response = await _get(
+      Uri.parse('$siteUrl/session/current.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final user = body['current_user'] as Map<String, dynamic>?;
@@ -264,10 +253,7 @@ class DiscourseApi {
 
     return DiscourseUser(
       username: user['username'] as String,
-      id: switch (user['id']) {
-        final num id => id.toInt(),
-        _ => null,
-      },
+      id: jsonIntOrNull(user['id']),
       name: user['name'] as String?,
       avatarUrl: _avatarUrl(user['avatar_template'] as String?, siteUrl),
     );
@@ -282,24 +268,12 @@ class DiscourseApi {
     required String apiKey,
     String? clientId,
   }) async {
-    final http.Response response;
-    try {
-      response = await _client
-          .get(
-            Uri.parse('$siteUrl/notifications/totals.json'),
-            headers: authHeaders(apiKey, clientId: clientId),
-          )
-          .timeout(timeout);
-    } catch (_) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-    }
-
-    if (response.statusCode == 403 || response.statusCode == 401) {
-      throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
-    }
-    if (response.statusCode != 200) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-    }
+    final response = await _get(
+      Uri.parse('$siteUrl/notifications/totals.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
 
     return NotificationTotals.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,

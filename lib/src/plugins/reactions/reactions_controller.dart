@@ -48,9 +48,6 @@ class ReactionsController extends ChangeNotifier {
   PostReactors? reactors(String siteUrl, int postId, {String? filter}) =>
       store.read<PostReactors>(siteUrl, PostReactors.key(postId, filter));
 
-  bool isLoading(String siteUrl, int postId, {String? filter}) =>
-      _loading.contains(_key(siteUrl, postId, filter));
-
   String? error(String siteUrl, int postId, {String? filter}) =>
       _errors[_key(siteUrl, postId, filter)];
 

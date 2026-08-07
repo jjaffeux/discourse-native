@@ -150,7 +150,7 @@ class ShellController extends ChangeNotifier {
 
     // Counters are stale from the moment they were stored, so pull fresh ones
     // for every connected site. Deliberately not awaited by callers.
-    unawaited(refreshTotals());
+    unawaited(_refreshTotals());
   }
 
   bool contains(String url) => _instances.any((i) => i.url == url);
@@ -227,7 +227,7 @@ class ShellController extends ChangeNotifier {
   }
 
   /// Refreshes counters for every connected site, in parallel.
-  Future<void> refreshTotals() async {
+  Future<void> _refreshTotals() async {
     await Future.wait(_instances.where((i) => i.isConnected).map(_refreshOne));
   }
 
@@ -460,7 +460,7 @@ class ShellController extends ChangeNotifier {
 
   /// The list route behind a sidebar entry, or null when there is none to
   /// fetch (messages needs a signed-in user to name the inbox).
-  static String? feedPath(String destinationId, DiscourseInstance instance) {
+  static String? _feedPath(String destinationId, DiscourseInstance instance) {
     final username = instance.user?.username;
     return switch (destinationId) {
       'latest' => '/latest.json',
@@ -475,7 +475,7 @@ class ShellController extends ChangeNotifier {
     final instance = currentInstance;
     if (instance == null) return;
 
-    final path = feedPath(destinationId, instance);
+    final path = _feedPath(destinationId, instance);
     if (path == null) return;
 
     final key = _feedKey(instance.url, destinationId);
@@ -577,7 +577,7 @@ class ShellController extends ChangeNotifier {
     final key = _feedKey(instance.url, destinationId);
     final feed = _feeds[key];
     final tracker = _trackers[instance.url];
-    final path = feedPath(destinationId, instance);
+    final path = _feedPath(destinationId, instance);
     if (feed == null || tracker == null || path == null) return;
     if (feed.loadingIncoming) return;
 
@@ -698,9 +698,7 @@ class ShellController extends ChangeNotifier {
     Set<int> postIds,
   ) async {
     final wanted = postIds
-        .where(
-          (id) => !_postWritesInFlight.contains(_postWriteKey(siteUrl, id)),
-        )
+        .where((id) => !_postWritesInFlight.contains(_postKey(siteUrl, id)))
         .where((id) => store.read<Post>(siteUrl, id) != null)
         .toList();
     if (wanted.isEmpty) return;
@@ -1250,7 +1248,7 @@ class ShellController extends ChangeNotifier {
     if (instance == null || !post.canToggleLike) return null;
 
     final siteUrl = instance.url;
-    final key = _postWriteKey(siteUrl, post.id);
+    final key = _postKey(siteUrl, post.id);
     // One at a time per post. Without this a double tap sends a like and an
     // undo at once — the second reads the guess the first just wrote — and
     // whichever answer lands last decides what is drawn, which is not
@@ -1335,7 +1333,7 @@ class ShellController extends ChangeNotifier {
     // reactions toggled at once on one post contradict each other server side,
     // because giving one *replaces* whatever was there. Serialising them is the
     // correct granularity, not a simplification.
-    final key = _postWriteKey(siteUrl, post.id);
+    final key = _postKey(siteUrl, post.id);
     if (!_postWritesInFlight.add(key)) return null;
 
     try {
@@ -1440,12 +1438,12 @@ class ShellController extends ChangeNotifier {
   /// because topic 7's post 3 on two sites are two different posts.
   final Set<String> _postWritesInFlight = {};
 
-  static String _postWriteKey(String siteUrl, int postId) => '$siteUrl~$postId';
+  /// Names a post in the per-site maps and sets here: site and post together,
+  /// because topic 7's post 3 on two sites are two different posts.
+  static String _postKey(String siteUrl, int postId) => '$siteUrl~$postId';
 
   final Set<String> _likersLoading = {};
   final Map<String, String> _likersErrors = {};
-
-  static String _likersKey(String siteUrl, int postId) => '$siteUrl~$postId';
 
   /// Bumped whenever a site is forgotten, so a fetch in flight at that moment
   /// can tell on arrival that the store it fetched for has been emptied since
@@ -1462,16 +1460,10 @@ class ShellController extends ChangeNotifier {
     return store.read<PostLikers>(instance.url, postId);
   }
 
-  bool likersLoading(int postId) {
-    final instance = currentInstance;
-    if (instance == null) return false;
-    return _likersLoading.contains(_likersKey(instance.url, postId));
-  }
-
   String? likersError(int postId) {
     final instance = currentInstance;
     if (instance == null) return null;
-    return _likersErrors[_likersKey(instance.url, postId)];
+    return _likersErrors[_postKey(instance.url, postId)];
   }
 
   /// Fetches the accounts behind a post's like count.
@@ -1485,7 +1477,7 @@ class ShellController extends ChangeNotifier {
     if (instance == null) return;
 
     final siteUrl = instance.url;
-    final key = _likersKey(siteUrl, postId);
+    final key = _postKey(siteUrl, postId);
     if (!_likersLoading.add(key)) return;
     _likersErrors.remove(key);
     _notify();
@@ -2011,12 +2003,6 @@ class ShellController extends ChangeNotifier {
     return store.read<UserCard>(instance.url, username.toLowerCase());
   }
 
-  bool userCardLoading(String username) {
-    final instance = currentInstance;
-    if (instance == null) return false;
-    return _userCardsLoading.contains(_userKey(instance.url, username));
-  }
-
   String? userCardError(String username) {
     final instance = currentInstance;
     if (instance == null) return null;
@@ -2521,12 +2507,6 @@ class ShellController extends ChangeNotifier {
       return true;
     }
     return false;
-  }
-
-  void showContentPane() {
-    if (_mobilePane == MobilePane.content) return;
-    _mobilePane = MobilePane.content;
-    _notify();
   }
 
   bool _disposed = false;

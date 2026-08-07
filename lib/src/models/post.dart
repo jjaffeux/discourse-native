@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../data/store.dart';
 import '../plugins/site_plugin.dart';
 import 'composer_draft.dart';
+import 'json.dart';
 
 /// One post in a topic.
 @immutable
@@ -47,17 +48,17 @@ class Post with Storable<Post> {
   factory Post.fromJson(Map<String, dynamic> json, String siteUrl) {
     final like = _likeSummary(json['actions_summary']);
     return Post(
-      id: _int(json['id']),
-      postNumber: _int(json['post_number']),
+      id: jsonInt(json['id']),
+      postNumber: jsonInt(json['post_number']),
       username: (json['username'] ?? '') as String,
-      name: _nonEmpty(json['name']),
+      name: jsonText(json['name']),
       // Server-rendered HTML. Discourse does the markdown, oneboxing, emoji
       // and mention rendering, which is far too much to redo client side.
       cooked: (json['cooked'] ?? '') as String,
       avatarUrl: resolveAvatarUrl(json['avatar_template'] as String?, siteUrl),
-      createdAt: DateTime.tryParse((json['created_at'] ?? '') as String),
-      userTitle: _nonEmpty(json['user_title']),
-      replyCount: _int(json['reply_count']),
+      createdAt: jsonDate(json['created_at']),
+      userTitle: jsonText(json['user_title']),
+      replyCount: jsonInt(json['reply_count']),
       isStaff: json['admin'] == true || json['moderator'] == true,
       // The whole permission question, answered by the site's guardian: it has
       // already weighed ownership, staff, trust level, the edit time window and
@@ -68,20 +69,20 @@ class Post with Storable<Post> {
       canRecover: json['can_recover'] == true,
       // Only staff are ever shown a deleted post; for everyone else Discourse
       // leaves it out of the stream entirely.
-      deletedAt: DateTime.tryParse((json['deleted_at'] ?? '') as String),
+      deletedAt: jsonDate(json['deleted_at']),
       userDeleted: json['user_deleted'] == true,
       postType: json['post_type'] == null
           ? regularPostType
-          : _int(json['post_type']),
-      actionCode: _nonEmpty(json['action_code']),
-      actionCodeWho: _nonEmpty(json['action_code_who']),
+          : jsonInt(json['post_type']),
+      actionCode: jsonText(json['action_code']),
+      actionCodeWho: jsonText(json['action_code_who']),
       likeCount: like.count,
       liked: like.acted,
       canLike: like.canAct,
       canUnlike: like.canUndo,
       // Only present when asked for. Reading needs the cooked HTML; writing
       // needs this, because it is the thing that was actually typed.
-      raw: _nonEmpty(json['raw']),
+      raw: jsonText(json['raw']),
       // Whatever the site's optional features had to say about this post, which
       // on a site running plain core is nothing at all.
       plugins: PluginData.forPost(json, siteUrl),
@@ -101,26 +102,15 @@ class Post with Storable<Post> {
   ) {
     for (final entry in summaries as List<dynamic>? ?? const []) {
       if (entry is! Map<String, dynamic>) continue;
-      if (_int(entry['id']) != likeActionId) continue;
+      if (jsonInt(entry['id']) != likeActionId) continue;
       return (
-        count: _int(entry['count']),
+        count: jsonInt(entry['count']),
         acted: entry['acted'] == true,
         canAct: entry['can_act'] == true,
         canUndo: entry['can_undo'] == true,
       );
     }
     return (count: 0, acted: false, canAct: false, canUndo: false);
-  }
-
-  static int _int(Object? value) => switch (value) {
-    final num n => n.toInt(),
-    final String s => int.tryParse(s) ?? 0,
-    _ => 0,
-  };
-
-  static String? _nonEmpty(Object? value) {
-    final text = (value as String?)?.trim();
-    return text == null || text.isEmpty ? null : text;
   }
 
   final int id;
@@ -347,17 +337,17 @@ class TopicDetail with Storable<TopicDetail> {
     final details = json['details'] as Map<String, dynamic>? ?? const {};
     return (
       detail: TopicDetail(
-        id: Post._int(json['id']),
-        title: (json['title'] ?? json['fancy_title'] ?? '') as String,
+        id: jsonInt(json['id']),
+        title: jsonTitle(json['title'], json['fancy_title']),
         // Every post id in the topic, even the ones not fetched yet — this is
         // what makes paging through a long topic possible.
         stream: (postStream['stream'] as List<dynamic>? ?? const [])
-            .map(Post._int)
+            .map(jsonInt)
             .toList(),
-        postsCount: Post._int(json['posts_count']),
+        postsCount: jsonInt(json['posts_count']),
         categoryId: json['category_id'] == null
             ? null
-            : Post._int(json['category_id']),
+            : jsonInt(json['category_id']),
         // The only question worth asking before showing a reply button, and the
         // whole question: the guardian behind it has already folded in closed,
         // archived and the trust levels that are allowed past them. Checking
@@ -368,7 +358,7 @@ class TopicDetail with Storable<TopicDetail> {
         // The topic payload already carries any draft for it, so opening a
         // composer needs no request of its own.
         draft: ComposerDraft.decode(json['draft']),
-        draftSequence: Post._int(json['draft_sequence']),
+        draftSequence: jsonInt(json['draft_sequence']),
       ),
       posts: (postStream['posts'] as List<dynamic>? ?? const [])
           .map((p) => Post.fromJson(p as Map<String, dynamic>, siteUrl))

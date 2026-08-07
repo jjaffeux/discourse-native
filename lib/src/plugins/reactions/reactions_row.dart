@@ -4,6 +4,7 @@ import '../../models/post.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/emoji.dart';
 import '../../shell/hover_panel.dart';
+import '../../shell/platform.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import '../../shell/user_card.dart';
@@ -88,11 +89,6 @@ class _ReactionPillState extends State<ReactionPill> {
 
   final GlobalKey<HoverPanelState> _panel = GlobalKey<HoverPanelState>();
 
-  bool get _isTouch => switch (Theme.of(context).platform) {
-    TargetPlatform.iOS || TargetPlatform.android => true,
-    _ => false,
-  };
-
   void _load() {
     final controller = ShellScope.of(context);
     final siteUrl = controller.currentInstance?.url;
@@ -127,7 +123,7 @@ class _ReactionPillState extends State<ReactionPill> {
       // Long press is the touch way in. The post underneath opens its own
       // action sheet on a long press, and this one wins the gesture arena by
       // being the nearer of the two.
-      onLongPress: _isTouch ? _openSheet : null,
+      onLongPress: context.isTouch ? _openSheet : null,
       child: HoverPanel(
         key: _panel,
         maxWidth: _panelWidth,

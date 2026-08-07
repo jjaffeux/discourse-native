@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:html/parser.dart' as html;
 
+import 'json.dart';
 import 'notification.dart';
 
 /// One row of the bookmarks tab.
@@ -26,30 +26,13 @@ class Bookmark {
     final user = json['user'] as Map<String, dynamic>? ?? const {};
 
     return Bookmark(
-      id: switch (json['id']) {
-        final num id => id.toInt(),
-        _ => 0,
-      },
-      title: _title(json),
-      name: _text(json['name']),
-      author: _text(user['username']),
+      id: jsonInt(json['id']),
+      title: jsonTitle(json['title'], json['fancy_title']),
+      name: jsonText(json['name']),
+      author: jsonText(user['username']),
       path: _path(json['bookmarkable_url']),
-      reminderAt: DateTime.tryParse((json['reminder_at'] ?? '') as String),
+      reminderAt: jsonDate(json['reminder_at']),
     );
-  }
-
-  /// What the bookmark is on, as plain text.
-  ///
-  /// `title` already is plain, which is why it comes first; `fancy_title` is
-  /// Discourse's HTML rendering of the same string — smart quotes as entities,
-  /// ampersands escaped — and only means anything once unescaped.
-  static String _title(Map<String, dynamic> json) {
-    if (json['title'] case final String title when title.isNotEmpty) {
-      return title;
-    }
-    final fancy = json['fancy_title'] as String?;
-    if (fancy == null || fancy.isEmpty) return '';
-    return html.parseFragment(fancy).text ?? fancy;
   }
 
   /// Where the bookmark points, with a topic link taken back off whatever host
@@ -69,7 +52,7 @@ class Bookmark {
   /// bookmarkable a plugin registered can point anywhere at all, and there is
   /// nowhere in this app to open it either way.
   static String? _path(Object? value) {
-    final url = _text(value);
+    final url = jsonText(value);
     if (url == null) return null;
 
     final uri = Uri.tryParse(url);
@@ -80,12 +63,6 @@ class Bookmark {
     if (uri.hasQuery) path.write('?${uri.query}');
     if (uri.hasFragment) path.write('#${uri.fragment}');
     return path.toString();
-  }
-
-  static String? _text(Object? value) {
-    if (value is! String) return null;
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? null : trimmed;
   }
 
   final int id;

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'json.dart';
 import 'post.dart';
 
 /// What the site did with a post it accepted.
@@ -41,20 +42,9 @@ class PostCreation {
       // Hung off the post rather than off the envelope. Creating a post has
       // already bumped the sequence and deleted the draft, so a client that
       // keeps the one it had gets a 409 on its next draft save.
-      draftSequence: _int(post?['draft_sequence']),
-      message: _nonEmpty(json['message']),
+      draftSequence: jsonIntOrNull(post?['draft_sequence']),
+      message: jsonText(json['message']),
     );
-  }
-
-  static int? _int(Object? value) => switch (value) {
-    final num n => n.toInt(),
-    final String s => int.tryParse(s),
-    _ => null,
-  };
-
-  static String? _nonEmpty(Object? value) {
-    final text = (value as String?)?.trim();
-    return text == null || text.isEmpty ? null : text;
   }
 
   final PostOutcome outcome;

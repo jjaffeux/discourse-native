@@ -9,6 +9,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'hover_panel.dart';
+import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -39,11 +40,6 @@ class _PostLikesState extends State<PostLikes> {
   static const double _panelWidth = 260;
 
   final GlobalKey<HoverPanelState> _panel = GlobalKey<HoverPanelState>();
-
-  bool get _isTouch => switch (Theme.of(context).platform) {
-    TargetPlatform.iOS || TargetPlatform.android => true,
-    _ => false,
-  };
 
   /// Every open, not only the first: this is a list of what other people have
   /// just done, and it is cheap to ask again. Whatever was fetched last time
@@ -97,7 +93,7 @@ class _PostLikesState extends State<PostLikes> {
           // Long press is the touch way in. The post underneath opens its own
           // action sheet on a long press, and this one wins the gesture arena
           // by being the nearer of the two.
-          onLongPress: _isTouch ? _openSheet : null,
+          onLongPress: context.isTouch ? _openSheet : null,
           child: HoverPanel(
             key: _panel,
             maxWidth: _panelWidth,

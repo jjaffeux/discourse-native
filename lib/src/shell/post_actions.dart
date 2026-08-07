@@ -4,6 +4,7 @@ import '../models/post.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import 'platform.dart';
 import 'post_action.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -51,11 +52,6 @@ class _PostActionsState extends State<PostActions> {
   /// closed until the pointer is actually moved. An open one keeps following
   /// its post instead.
   bool _suppressed = false;
-
-  bool get _isTouch => switch (Theme.of(context).platform) {
-    TargetPlatform.iOS || TargetPlatform.android => true,
-    _ => false,
-  };
 
   @override
   void didChangeDependencies() {
@@ -292,7 +288,7 @@ class _PostActionsState extends State<PostActions> {
 
     // Long press is gated, though: on a desktop, holding the mouse down should
     // not open a sheet.
-    if (!_isTouch) return hoverable;
+    if (!context.isTouch) return hoverable;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onLongPress: () => _openSheet(actions),

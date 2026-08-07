@@ -4,6 +4,7 @@ import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'platform.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 
@@ -35,11 +36,6 @@ class InstanceActions extends StatefulWidget {
 
 class _InstanceActionsState extends State<InstanceActions> {
   final MenuController _menu = MenuController();
-
-  bool get _isTouch => switch (Theme.of(context).platform) {
-    TargetPlatform.iOS || TargetPlatform.android => true,
-    _ => false,
-  };
 
   /// Opens at the pointer or thumb rather than at the item's corner, which is
   /// what a context menu is expected to do — and the rail is only 72 wide, so
@@ -132,7 +128,7 @@ class _InstanceActionsState extends State<InstanceActions> {
   }
 
   List<Widget> _items(ThemeData theme) {
-    if (_isTouch) {
+    if (context.isTouch) {
       return [
         MenuItemButton(
           leadingIcon: const DIcon(DIcons.ellipsis, size: 18),
@@ -171,10 +167,10 @@ class _InstanceActionsState extends State<InstanceActions> {
         // Each gesture is wired only where it means something: holding a mouse
         // button down on a desktop is not a request for a menu, and a touch
         // screen has no second button to press.
-        onLongPressStart: _isTouch
+        onLongPressStart: context.isTouch
             ? (details) => _open(details.localPosition)
             : null,
-        onSecondaryTapDown: _isTouch
+        onSecondaryTapDown: context.isTouch
             ? null
             : (details) => _open(details.localPosition),
         child: widget.child,

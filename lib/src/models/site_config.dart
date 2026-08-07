@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'json.dart';
+
 /// The handful of a site's client settings that decide how something is
 /// *drawn*, or what may be *offered*.
 ///
@@ -40,12 +42,12 @@ class SiteConfig {
   factory SiteConfig.fromSettings(Map<String, dynamic> json) {
     final reactions = json['discourse_reactions_enabled'] == true;
     final main = reactions
-        ? _nonEmpty(json['discourse_reactions_reaction_for_like'])
+        ? jsonText(json['discourse_reactions_reaction_for_like'])
         : null;
 
     return SiteConfig(
-      emojiSet: _nonEmpty(json['emoji_set']) ?? defaultEmojiSet,
-      externalEmojiUrl: _trimSlash(_nonEmpty(json['external_emoji_url'])),
+      emojiSet: jsonText(json['emoji_set']) ?? defaultEmojiSet,
+      externalEmojiUrl: _trimSlash(jsonText(json['external_emoji_url'])),
       mainReaction: main,
       offeredReactions: reactions
           ? _offered(json['discourse_reactions_enabled_reactions'], main)
@@ -63,9 +65,9 @@ class SiteConfig {
   /// `InstanceStore.load` answers a decode failure by forgetting every site the
   /// user had.
   factory SiteConfig.fromJson(Map<String, dynamic> json) => SiteConfig(
-    emojiSet: _nonEmpty(json['emojiSet']) ?? defaultEmojiSet,
-    externalEmojiUrl: _nonEmpty(json['externalEmojiUrl']),
-    mainReaction: _nonEmpty(json['mainReaction']),
+    emojiSet: jsonText(json['emojiSet']) ?? defaultEmojiSet,
+    externalEmojiUrl: jsonText(json['externalEmojiUrl']),
+    mainReaction: jsonText(json['mainReaction']),
     offeredReactions: (json['offeredReactions'] as List<dynamic>? ?? const [])
         .map((e) => '$e')
         .toList(),
@@ -157,11 +159,6 @@ class SiteConfig {
     ];
     if (main == null || listed.contains(main)) return listed;
     return [main, ...listed];
-  }
-
-  static String? _nonEmpty(Object? value) {
-    final text = value is String ? value.trim() : null;
-    return text == null || text.isEmpty ? null : text;
   }
 
   static String? _trimSlash(String? value) => value == null

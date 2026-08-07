@@ -11,6 +11,7 @@ import 'cooked_html.dart';
 import 'external_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'user_menu_message.dart';
 
 /// Makes [child] open the card for [username] when clicked.
 ///
@@ -210,12 +211,13 @@ class _CardBody extends StatelessWidget {
 
     final error = controller.userCardError(username);
     if (error != null) {
-      return _CardMessage(
+      return UserMenuMessage(
         text: error,
+        height: 132,
         onRetry: () => controller.loadUserCard(username, force: true),
       );
     }
-    return const _CardMessage(text: null);
+    return const UserMenuMessage(text: null, height: 132);
   }
 }
 
@@ -367,50 +369,6 @@ class _CardContent extends StatelessWidget {
 
   static String _month(DateTime when) =>
       '${_months[when.month - 1]} ${when.year}';
-}
-
-/// The loading and failure states, which share the card's footprint so it does
-/// not jump around once the account arrives.
-class _CardMessage extends StatelessWidget {
-  const _CardMessage({required this.text, this.onRetry});
-
-  final String? text;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final message = text;
-
-    return SizedBox(
-      height: 132,
-      child: Center(
-        child: message == null
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      message,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (onRetry case final retry?)
-                      TextButton(onPressed: retry, child: const Text('Retry')),
-                  ],
-                ),
-              ),
-      ),
-    );
-  }
 }
 
 class _Stat extends StatelessWidget {

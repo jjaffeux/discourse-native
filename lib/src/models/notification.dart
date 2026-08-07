@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:html/parser.dart' as html;
+
+import 'json.dart';
 
 /// What a notification is about.
 ///
@@ -97,22 +98,23 @@ class DiscourseNotification {
 
   factory DiscourseNotification.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? const {};
-    final kind = NotificationKind.fromId(_int(json['notification_type']));
-    final topicId = json['topic_id'] == null ? null : _int(json['topic_id']);
+    final kind = NotificationKind.fromId(jsonInt(json['notification_type']));
+    final topicId = json['topic_id'] == null ? null : jsonInt(json['topic_id']);
     final postNumber = json['post_number'] == null
         ? null
-        : _int(json['post_number']);
+        : jsonInt(json['post_number']);
     final slug = (json['slug'] ?? '') as String;
 
     return DiscourseNotification(
-      id: _int(json['id']),
+      id: jsonInt(json['id']),
       kind: kind,
       read: json['read'] == true,
-      createdAt: DateTime.tryParse((json['created_at'] ?? '') as String),
+      createdAt: jsonDate(json['created_at']),
       topicId: topicId,
       postNumber: postNumber,
       slug: slug,
-      title: _title(json, data),
+      // `data.topic_title` already is plain, which is why it is handed first.
+      title: jsonTitle(data['topic_title'], json['fancy_title']),
       path: _path(
         kind,
         data,
@@ -129,26 +131,11 @@ class DiscourseNotification {
               as String?,
       // Consolidated kinds count what they folded together; a group summary
       // counts the inbox it is summarising.
-      count: _int(data['count'] ?? data['inbox_count']),
+      count: jsonInt(data['count'] ?? data['inbox_count']),
       badgeName: data['badge_name'] as String?,
       groupName: data['group_name'] as String?,
       channelTitle: data['chat_channel_title'] as String?,
     );
-  }
-
-  /// What the notification is about, as plain text.
-  ///
-  /// `data.topic_title` already is plain, which is why it comes first;
-  /// `fancy_title` is Discourse's HTML rendering of the same string — smart
-  /// quotes as entities, ampersands escaped — and only means anything once
-  /// unescaped.
-  static String _title(Map<String, dynamic> json, Map<String, dynamic> data) {
-    if (data['topic_title'] case final String title when title.isNotEmpty) {
-      return title;
-    }
-    final fancy = json['fancy_title'] as String?;
-    if (fancy == null || fancy.isEmpty) return '';
-    return html.parseFragment(fancy).text ?? fancy;
   }
 
   /// Where clicking it leads, following Discourse's own `linkHref` for each
@@ -236,12 +223,12 @@ class DiscourseNotification {
     final channel = data['chat_channel_id'];
     if (channel == null) return null;
 
-    final buffer = StringBuffer('/chat/c/-/${_int(channel)}');
+    final buffer = StringBuffer('/chat/c/-/${jsonInt(channel)}');
     if (data['chat_thread_id'] case final thread?) {
-      buffer.write('/t/${_int(thread)}');
+      buffer.write('/t/${jsonInt(thread)}');
     }
     if (data['chat_message_id'] case final message?) {
-      buffer.write('/${_int(message)}');
+      buffer.write('/${jsonInt(message)}');
     }
     return buffer.toString();
   }
@@ -261,19 +248,13 @@ class DiscourseNotification {
         ? ''
         : '?username=${Uri.encodeQueryComponent(username.toLowerCase())}';
 
-    if (slug.isEmpty) return '/badges/${_int(id)}$query';
-    return '/badges/${_int(id)}/$slug$query';
+    if (slug.isEmpty) return '/badges/${jsonInt(id)}$query';
+    return '/badges/${jsonInt(id)}/$slug$query';
   }
 
   static String _actingUsername(String? username) => username == null
       ? ''
       : '?acting_username=${Uri.encodeQueryComponent(username)}';
-
-  static int _int(Object? value) => switch (value) {
-    final num n => n.toInt(),
-    final String s => int.tryParse(s) ?? 0,
-    _ => 0,
-  };
 
   final int id;
   final NotificationKind kind;
