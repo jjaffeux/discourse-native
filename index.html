@@ -7,12 +7,13 @@
 <style>
   :root { color-scheme: light dark; }
   body {
-    max-width: 42rem;
+    max-width: 44rem;
     margin: 0 auto;
     padding: 3rem 1.25rem;
     font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   h1 { font-size: 1.75rem; margin-bottom: .25rem; }
+  h2 { font-size: 1.15rem; margin-top: 2.5rem; }
   .sub { opacity: .7; margin-top: 0; }
   code, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
   pre {
@@ -20,6 +21,7 @@
     border-radius: 6px;
     overflow-x: auto;
     background: rgba(127, 127, 127, .12);
+    font-size: .875rem;
   }
   .note {
     border-left: 3px solid rgba(127, 127, 127, .45);
@@ -34,45 +36,84 @@
 <h1>Discourse Native</h1>
 <p class="sub">An experimental native Discourse client, built with Flutter.</p>
 
-<p>
-  Linux builds are published on
-  <a href="https://github.com/jjaffeux/discourse-native/releases">GitHub Releases</a>.
-  Once installed, the app updates itself &mdash; there is a Stable/Canary switch in
-  the app's own update panel.
-</p>
-
 <div class="note">
-  <p><strong>No builds published yet.</strong> This page is the update feed's home; it
-  will list downloads once the release pipeline runs.</p>
+  <p><strong>Beta.</strong> Ubuntu 22.04 or later, or Debian 12 or later, on
+  x86-64. Other Debian-based distributions that meet those requirements may work
+  but are not tested.</p>
 </div>
 
-<h2>Runtime requirements (Linux)</h2>
+<h2>Install</h2>
 
-<p>The build is a relocatable archive, so nothing resolves these for you. On a
-Debian or Ubuntu system:</p>
+<p>Add the repository, so that updates arrive with your system's regular
+package updates:</p>
 
-<pre><code>sudo apt install libgtk-3-0 libglib2.0-0 libwebkit2gtk-4.1-0 \
-                 libsoup-3.0-0 libsecret-1-0 xdg-utils</code></pre>
+<pre><code>sudo curl -fsSLo /usr/share/keyrings/discourse-native.asc \
+  https://jjaffeux.github.io/discourse-native/key.asc</code></pre>
 
-<p>
-  You also need a running Secret Service provider &mdash; <code>gnome-keyring</code>, or
-  KWallet with its Secret Service bridge. Account keys are stored there, and without
-  one the app cannot keep you signed in.
-</p>
+<p>Check the key before you trust it:</p>
 
-<p>
-  WebKitGTK is linked, not loaded on demand: without
-  <code>libwebkit2gtk-4.1-0</code> the app will not start at all.
-</p>
+<pre><code>gpg --show-keys /usr/share/keyrings/discourse-native.asc</code></pre>
 
-<h2>Installing</h2>
+<p>Register the repository:</p>
 
-<p>Extract the archive anywhere, then register the launcher and icons:</p>
+<pre><code>echo "deb [signed-by=/usr/share/keyrings/discourse-native.asc] \
+https://jjaffeux.github.io/discourse-native/apt/stable stable main" \
+  | sudo tee /etc/apt/sources.list.d/discourse-native.list</code></pre>
 
-<pre><code>./install-desktop-entry.sh</code></pre>
+<p>Then install:</p>
+
+<pre><code>sudo apt update &amp;&amp; sudo apt install discourse-native</code></pre>
+
+<p>Launch <strong>Discourse</strong> from your application menu, or run
+<code>discourse-native</code>.</p>
+
+<p>There is nothing else to install. The package declares what it needs —
+WebKitGTK, libsecret and the rest — and apt pulls those in for you.</p>
+
+<h2>Canary</h2>
+
+<p>Canary builds land ahead of stable and break more often. Same key, different
+suite:</p>
+
+<pre><code>echo "deb [signed-by=/usr/share/keyrings/discourse-native.asc] \
+https://jjaffeux.github.io/discourse-native/apt/canary canary main" \
+  | sudo tee /etc/apt/sources.list.d/discourse-native.list</code></pre>
+
+<p>Canary versions sort below the stable release they precede, so switching back
+to the stable suite moves you forward onto stable rather than leaving you
+stranded above it.</p>
+
+<h2>Update</h2>
+
+<p>The app does not update itself. Updates come with everything else:</p>
+
+<pre><code>sudo apt update &amp;&amp; sudo apt upgrade</code></pre>
+
+<p>Your desktop's graphical software updater will pick them up too.</p>
+
+<h2>Uninstall</h2>
+
+<pre><code>sudo apt remove discourse-native
+sudo rm /etc/apt/sources.list.d/discourse-native.list</code></pre>
+
+<h2>Without the repository</h2>
+
+<p>Every release also carries a <code>.deb</code> you can install directly. apt
+will not deliver new versions this way — you would repeat this for each one.</p>
+
+<pre><code>sudo apt install ./discourse-native_*_amd64.deb</code></pre>
+
+<h2>Signing in does not stick</h2>
+
+<p>Account keys are kept in your keyring, so the app needs a running Secret
+Service — <code>gnome-keyring</code> on GNOME, or KWallet with its Secret Service
+bridge on KDE. Without one you will appear to sign in and be forgotten on the
+next launch. <code>gnome-keyring</code> is a recommended dependency, so apt
+installs it unless you have told it not to install recommends.</p>
 
 <footer>
   <a href="https://github.com/jjaffeux/discourse-native">Source on GitHub</a>
+  &middot; <a href="https://github.com/jjaffeux/discourse-native/releases">Releases</a>
   &middot; MIT licensed
 </footer>
 
