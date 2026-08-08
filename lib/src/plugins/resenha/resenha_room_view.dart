@@ -352,6 +352,7 @@ class _CallControls extends StatelessWidget {
         .firstOrNull;
     return Wrap(
       alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 8,
       runSpacing: 8,
       children: [
