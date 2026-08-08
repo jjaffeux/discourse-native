@@ -517,6 +517,40 @@ void main() {
   );
 
   test(
+    'keeps a local media setting when roster state is rate limited',
+    () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final stateWritesBefore = transport.pluginWrites
+          .where((write) => write.path.endsWith('/state.json'))
+          .length;
+      transport.pluginWriteFailures['POST /resenha/rooms/7/state.json'] =
+          const WriteException(
+            WriteFailure.rateLimited,
+            statusCode: 429,
+            retryAfter: Duration.zero,
+          );
+
+      await controller.setCameraEnabled(true);
+
+      expect(controller.call?.cameraEnabled, isTrue);
+      expect(controller.call?.error, isNull);
+      expect(mediaFactory.sessions.single.camera, isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(
+        transport.pluginWrites.where(
+          (write) => write.path.endsWith('/state.json'),
+        ),
+        hasLength(stateWritesBefore + 2),
+      );
+    },
+  );
+
+  test(
     'a roster removal from another client tears the local call down',
     () async {
       await controller.ensureLoaded(firstSite);

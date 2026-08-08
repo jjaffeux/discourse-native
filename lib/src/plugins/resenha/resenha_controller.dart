@@ -146,6 +146,9 @@ final class ResenhaController extends ChangeNotifier {
   Future<void> _joinTail = Future<void>.value();
   Future<void>? _pendingJoin;
   String? _pendingJoinKey;
+  Future<void>? _stateSync;
+  Timer? _stateRetry;
+  bool _stateSyncPending = false;
   Object? _joinRevision;
   Timer? _heartbeat;
   ResenhaIdleState _idleState = ResenhaIdleState.active;
@@ -631,24 +634,12 @@ final class ResenhaController extends ChangeNotifier {
   Future<void> _setMuted(bool muted, {required bool syncSystem}) =>
       _updateMediaState(
         media: (call) => call.media.setMuted(muted),
-        server: (call, key) => api.state(
-          siteUrl: call.siteUrl,
-          roomId: call.room.id,
-          apiKey: key,
-          muted: muted,
-        ),
         update: (call) => call.copyWith(muted: muted),
         system: syncSystem ? () => systemCall.setMuted(muted) : null,
       );
 
   Future<void> setDeafened(bool deafened) => _updateMediaState(
     media: (call) => call.media.setDeafened(deafened),
-    server: (call, key) => api.state(
-      siteUrl: call.siteUrl,
-      roomId: call.room.id,
-      apiKey: key,
-      deafened: deafened,
-    ),
     update: (call) => call.copyWith(deafened: deafened),
   );
 
@@ -657,12 +648,6 @@ final class ResenhaController extends ChangeNotifier {
         media: (call) => call.media.setCameraEnabled(
           enabled,
           deviceId: deviceId ?? _cameraDeviceId,
-        ),
-        server: (call, key) => api.state(
-          siteUrl: call.siteUrl,
-          roomId: call.room.id,
-          apiKey: key,
-          video: enabled,
         ),
         update: (call) => call.copyWith(cameraEnabled: enabled),
       );
@@ -754,18 +739,11 @@ final class ResenhaController extends ChangeNotifier {
 
   Future<void> setScreenSharing(bool enabled) => _updateMediaState(
     media: (call) => call.media.setScreenShareEnabled(enabled),
-    server: (call, key) => api.state(
-      siteUrl: call.siteUrl,
-      roomId: call.room.id,
-      apiKey: key,
-      screen: enabled,
-    ),
     update: (call) => call.copyWith(screenSharing: enabled),
   );
 
   Future<void> _updateMediaState({
     required Future<void> Function(ResenhaCallSnapshot call) media,
-    required Future<void> Function(ResenhaCallSnapshot call, String key) server,
     required ResenhaCallSnapshot Function(ResenhaCallSnapshot call) update,
     Future<void> Function()? system,
   }) async {
@@ -776,15 +754,80 @@ final class ResenhaController extends ChangeNotifier {
     notifyListeners();
     try {
       await media(call);
-      final apiKey = await credentials.apiKeyFor(call.siteUrl);
-      if (apiKey != null) await server(call, apiKey);
-      await system?.call();
     } catch (error, stackTrace) {
       if (identical(_call?.media, call.media)) {
         _call = previous.copyWith(error: 'The media setting was not applied.');
         notifyListeners();
       }
       _report(error, stackTrace, 'resenha.mediaState');
+      return;
+    }
+
+    await _requestStateSync();
+    try {
+      await system?.call();
+    } catch (error, stackTrace) {
+      // The local media operation already succeeded. A platform call-control
+      // sync failure must not roll it back or claim that the device rejected
+      // the setting.
+      _report(error, stackTrace, 'resenha.systemCallState');
+    }
+  }
+
+  Future<void> _requestStateSync() {
+    _stateSyncPending = true;
+    final active = _stateSync;
+    if (active != null || _stateRetry != null) {
+      return active ?? Future<void>.value();
+    }
+
+    late final Future<void> operation;
+    operation = _drainStateSync().whenComplete(() {
+      if (identical(_stateSync, operation)) _stateSync = null;
+      if (_stateSyncPending && _stateRetry == null && !_disposed) {
+        unawaited(_requestStateSync());
+      }
+    });
+    _stateSync = operation;
+    return operation;
+  }
+
+  Future<void> _drainStateSync() async {
+    while (_stateSyncPending && _stateRetry == null && !_disposed) {
+      _stateSyncPending = false;
+      final call = _call;
+      if (call == null || call.status == ResenhaCallStatus.leaving) return;
+      final apiKey = await credentials.apiKeyFor(call.siteUrl);
+      if (apiKey == null || !identical(_call?.media, call.media)) return;
+      try {
+        await api.state(
+          siteUrl: call.siteUrl,
+          roomId: call.room.id,
+          apiKey: apiKey,
+          muted: call.muted,
+          deafened: call.deafened,
+          video: call.cameraEnabled,
+          screen: call.screenSharing,
+        );
+      } on WriteException catch (error, stackTrace) {
+        if (error.failure != WriteFailure.rateLimited) {
+          _report(error, stackTrace, 'resenha.state');
+          return;
+        }
+        if (!identical(_call?.media, call.media)) return;
+        _stateSyncPending = true;
+        _stateRetry = Timer(
+          (error.retryAfter ?? const Duration(seconds: 1)) +
+              const Duration(milliseconds: 150),
+          () {
+            _stateRetry = null;
+            if (!_disposed) unawaited(_requestStateSync());
+          },
+        );
+      } catch (error, stackTrace) {
+        _report(error, stackTrace, 'resenha.state');
+        return;
+      }
     }
   }
 
@@ -800,6 +843,9 @@ final class ResenhaController extends ChangeNotifier {
     _joinRevision = Object();
     _heartbeat?.cancel();
     _heartbeat = null;
+    _stateRetry?.cancel();
+    _stateRetry = null;
+    _stateSyncPending = false;
     _call = clearImmediately
         ? null
         : call.copyWith(status: ResenhaCallStatus.leaving);
@@ -1238,6 +1284,7 @@ final class ResenhaController extends ChangeNotifier {
     if (_disposed) return;
     _disposed = true;
     _heartbeat?.cancel();
+    _stateRetry?.cancel();
     for (final subscription in _directorySubscriptions.values) {
       subscription.cancel();
     }
