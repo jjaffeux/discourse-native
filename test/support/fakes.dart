@@ -458,6 +458,7 @@ class FakeDiscourseApi implements DiscourseApi {
 
   final List<int> topicsOpened = [];
   final List<int?> topicPostNumbersOpened = [];
+  final List<({int topicId, int postNumber})> topicReadsRecorded = [];
   final List<List<int>> postFetches = [];
 
   final List<String> feedPaths = [];
@@ -802,6 +803,18 @@ class FakeDiscourseApi implements DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return detail;
+  }
+
+  @override
+  Future<void> recordTopicRead({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required int postNumber,
+    int milliseconds = 500,
+    String? clientId,
+  }) async {
+    topicReadsRecorded.add((topicId: topicId, postNumber: postNumber));
   }
 
   @override

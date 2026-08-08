@@ -1956,6 +1956,31 @@ void _feedGroups() {
       expect(asked.queryParameters['post_number'], '37');
     });
 
+    test('records the post a reader had on screen as a topic timing', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('', 200);
+        }),
+      );
+
+      await api.recordTopicRead(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        topicId: 12,
+        postNumber: 37,
+      );
+
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/topics/timings.json');
+      expect(jsonDecode(sent.body), {
+        'topic_id': 12,
+        'topic_time': 500,
+        'timings': {'37': 500},
+      });
+    });
+
     test('preserves a failed response status for diagnostics', () async {
       final api = DiscourseApi(
         client: MockClient((_) async => http.Response('', 503)),

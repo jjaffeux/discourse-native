@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../models/post.dart';
@@ -30,21 +31,38 @@ class TopicView extends StatefulWidget {
 }
 
 class _TopicViewState extends State<TopicView> {
+  static const Duration _readInterval = Duration(milliseconds: 500);
+
   ScrollController? _scroll;
   ListController? _list;
   (String, int)? _topicIdentity;
+  ShellController? _controller;
   Object? _loadMoreToken;
   (String, int, int)? _loadMoreTarget;
   bool _restored = false;
+  bool _restoring = false;
+  bool _lookScheduled = false;
+  Timer? _readTimer;
+  ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _seen;
 
-  void _syncControllers((String, int) topicIdentity) {
-    if (_topicIdentity == topicIdentity) return;
+  void _syncControllers(
+    ShellController controller,
+    (String, int) topicIdentity,
+  ) {
+    if (_topicIdentity == topicIdentity && identical(_controller, controller)) {
+      return;
+    }
 
+    _creditReaderNow();
     _disposeControllers();
+    _controller = controller;
     _topicIdentity = topicIdentity;
     _loadMoreToken = null;
     _loadMoreTarget = null;
     _restored = false;
+    _restoring = false;
+    _lookScheduled = false;
+    _seen = null;
     _scroll = ScrollController();
     _list = ListController();
   }
@@ -66,6 +84,7 @@ class _TopicViewState extends State<TopicView> {
     _restored = true;
     if (index <= 0) return;
     final identity = (snapshot.siteUrl!, snapshot.topicId!);
+    _restoring = true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_isCurrent(controller, identity)) return;
@@ -76,6 +95,8 @@ class _TopicViewState extends State<TopicView> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!_isCurrent(controller, identity)) return;
         _jumpTo(index);
+        _restoring = false;
+        _scheduleLook();
       });
     });
   }
@@ -107,8 +128,93 @@ class _TopicViewState extends State<TopicView> {
 
   @override
   void dispose() {
+    _creditReaderNow();
     _disposeControllers();
     super.dispose();
+  }
+
+  /// Measures the viewport after layout. This also covers short topics that
+  /// never produce a scroll notification at all.
+  void _scheduleLook() {
+    if (_lookScheduled) return;
+    _lookScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _lookScheduled = false;
+      final controller = _controller;
+      final identity = _topicIdentity;
+      if (controller == null || identity == null) return;
+      if (!_isCurrent(controller, identity)) return;
+      _noteWhatIsOnScreen(controller, _TopicViewSnapshot.from(controller));
+    });
+  }
+
+  /// Remembers the farthest real post currently visible, then waits for the
+  /// reader to pause. Debouncing the viewport rather than the request avoids a
+  /// receipt for every pixel of a fling.
+  void _noteWhatIsOnScreen(
+    ShellController controller,
+    _TopicViewSnapshot snapshot,
+  ) {
+    if (!_restored || _restoring || _list?.isAttached != true) return;
+    final range = _list!.visibleRange;
+    if (range == null) return;
+
+    final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
+    for (var row = range.$2; row >= range.$1; row--) {
+      final postIndex = row - leading;
+      if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
+      final post = controller.store.read<Post>(
+        snapshot.siteUrl!,
+        snapshot.postIds[postIndex],
+      );
+      if (post == null) continue;
+
+      final seen = (
+        siteUrl: snapshot.siteUrl!,
+        topicId: snapshot.topicId!,
+        postNumber: post.postNumber,
+        caughtUp: !snapshot.hasMore && postIndex == snapshot.postIds.length - 1,
+      );
+      if (seen == _seen) return;
+      _seen = seen;
+      _readTimer?.cancel();
+      _readTimer = Timer(_readInterval, _creditReaderNow);
+      return;
+    }
+  }
+
+  void _creditReaderNow() {
+    _readTimer?.cancel();
+    _readTimer = null;
+
+    final seen = _seen;
+    final controller = _controller;
+    if (seen == null || controller == null) return;
+
+    // A delayed timer must not credit reading after the app has gone into the
+    // background. Null is a test or a launch with no lifecycle event yet, and
+    // both mean the view is in front.
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
+
+    void send() => unawaited(
+      controller.markTopicRead(
+        seen.siteUrl,
+        seen.topicId,
+        seen.postNumber,
+        caughtUp: seen.caughtUp,
+      ),
+    );
+
+    // dispose runs while Flutter has the element tree locked. The optimistic
+    // Store write notifies topic rows, so hand it to the next microtask when a
+    // frame is in progress rather than marking one of those rows dirty during
+    // unmount.
+    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.idle) {
+      send();
+    } else {
+      unawaited(Future<void>.microtask(send));
+    }
   }
 
   @override
@@ -195,14 +301,17 @@ class _TopicViewState extends State<TopicView> {
     final postIds = snapshot.postIds;
     final siteUrl = snapshot.siteUrl!;
     final topicIdentity = (siteUrl, snapshot.topicId!);
-    _syncControllers(topicIdentity);
+    _syncControllers(controller, topicIdentity);
     _restoreInitialPost(controller, snapshot);
+    _scheduleLook();
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
-        if (notification.depth == 0 &&
-            notification.metrics.extentAfter < TopicView._loadMoreThreshold) {
-          _scheduleLoadMore(controller, snapshot);
+        if (notification.depth == 0) {
+          _noteWhatIsOnScreen(controller, snapshot);
+          if (notification.metrics.extentAfter < TopicView._loadMoreThreshold) {
+            _scheduleLoadMore(controller, snapshot);
+          }
         }
         return false;
       },

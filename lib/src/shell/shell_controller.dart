@@ -61,6 +61,13 @@ enum InstanceLoadStatus { loading, ready, failed }
 
 typedef _WriteCredential = ({String? apiKey, WriteException? failure});
 
+typedef _TopicReadReceipt = ({
+  String siteUrl,
+  int topicId,
+  int postNumber,
+  SiteLease lease,
+});
+
 /// What a native poll write learned.
 ///
 /// [reconciled] means the write response was unreachable and the owning post
@@ -1248,6 +1255,10 @@ class ShellController extends FrameSafeNotifier {
   final Set<String> _topicsLoading = {};
   final Set<String> _postsLoading = {};
   final Set<String> _earlierPostsLoading = {};
+  final Map<String, int> _topicReadPositions = {};
+  final Map<String, _TopicReadReceipt> _queuedTopicReadReceipts = {};
+  final Map<String, Future<void>> _topicReadReceiptTasks = {};
+  final Map<String, Object> _topicReadReceiptRuns = {};
 
   static String _topicKey(String siteUrl, int topicId) => '$siteUrl#$topicId';
 
@@ -1565,25 +1576,117 @@ class ShellController extends FrameSafeNotifier {
   }
 
   /// Files a topic payload: the posts under their own ids, the topic under
-  /// its own, and the list row corrected to match.
+  /// its own, and the list row's durable details corrected to match.
   ///
-  /// That last part is what having one copy is for. Reading a topic is what
-  /// makes it read, and the row saying so is in however many lists happen to
-  /// hold it — `/latest`, `/unread`, `/new` — none of which this knows or needs
-  /// to. There is one row, so there is one thing to change.
+  /// Fetching is deliberately not treated as reading. Discourse advances a
+  /// topic's reading position from `/topics/timings`; [markTopicRead] sends
+  /// that only after the viewport has actually shown a post.
   TopicDetail _absorb(String siteUrl, TopicPayload payload) {
     store.putAll(siteUrl, payload.posts);
     final detail = store.put(siteUrl, payload.detail);
     store.update<Topic>(
       siteUrl,
       detail.id,
-      (row) => row.copyWith(
-        title: detail.title,
-        postsCount: detail.postsCount,
-        markRead: true,
-      ),
+      (row) => row.copyWith(title: detail.title, postsCount: detail.postsCount),
     );
     return detail;
+  }
+
+  /// Credits the reader through the farthest post the viewport has shown.
+  ///
+  /// The local list row moves first so leaving and reopening in this session
+  /// uses the new position even while the network write is in flight. Failed
+  /// receipts are not rolled back: the next personalized list refresh is the
+  /// site's authoritative reconciliation, and putting unread state back under
+  /// a reader who just saw the post would be misleading.
+  Future<void> markTopicRead(
+    String siteUrl,
+    int topicId,
+    int postNumber, {
+    required bool caughtUp,
+  }) {
+    if (isDisposed || postNumber <= 0) return Future.value();
+
+    final key = _topicKey(siteUrl, topicId);
+    final held = store.read<Topic>(siteUrl, topicId);
+    final local = _topicReadPositions[key] ?? 0;
+    final server = held?.lastReadPostNumber ?? 0;
+    final recorded = local > server ? local : server;
+    if (recorded >= postNumber) return Future.value();
+
+    final lease = lifecycle.capture(siteUrl);
+    _topicReadPositions[key] = postNumber;
+    store.update<Topic>(
+      siteUrl,
+      topicId,
+      (row) => row.copyWith(
+        lastReadPostNumber: postNumber,
+        // A live list update may already know about a newer post than the
+        // detail stream on screen. Reaching that stream's end must not clear
+        // unread state for the newer post the reader has not received yet.
+        markRead:
+            caughtUp &&
+            (row.highestPostNumber <= 0 || postNumber >= row.highestPostNumber),
+      ),
+    );
+
+    _queuedTopicReadReceipts[key] = (
+      siteUrl: siteUrl,
+      topicId: topicId,
+      postNumber: postNumber,
+      lease: lease,
+    );
+    final running = _topicReadReceiptTasks[key];
+    if (running != null) return running;
+
+    final run = Object();
+    _topicReadReceiptRuns[key] = run;
+    final task = _drainTopicReadReceipts(key, run);
+    _topicReadReceiptTasks[key] = task;
+    return task;
+  }
+
+  /// Sends one receipt at a time and collapses any waiting positions to the
+  /// newest one. Read positions only move forwards, so intermediate writes
+  /// carry no information once a later viewport observation exists.
+  Future<void> _drainTopicReadReceipts(String key, Object run) async {
+    while (true) {
+      if (!identical(_topicReadReceiptRuns[key], run)) return;
+      final receipt = _queuedTopicReadReceipts.remove(key);
+      if (receipt == null) {
+        if (identical(_topicReadReceiptRuns[key], run)) {
+          _topicReadReceiptRuns.remove(key);
+          final _ = _topicReadReceiptTasks.remove(key);
+        }
+        return;
+      }
+
+      try {
+        final apiKey = await authenticator.apiKeyFor(receipt.siteUrl);
+        if (isDisposed || !receipt.lease.isCurrent || apiKey == null) continue;
+        final clientId = await authenticator.clientId();
+        if (isDisposed || !receipt.lease.isCurrent) continue;
+        await api.recordTopicRead(
+          siteUrl: receipt.siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          topicId: receipt.topicId,
+          postNumber: receipt.postNumber,
+        );
+      } catch (error, stackTrace) {
+        if (!isDisposed &&
+            receipt.lease.isCurrent &&
+            identical(_topicReadReceiptRuns[key], run)) {
+          _reportOperationalError(
+            error,
+            stackTrace,
+            'topic.markRead',
+            severity: DiagnosticSeverity.warning,
+          );
+        }
+        // A newer queued position must still be attempted after this failure.
+      }
+    }
   }
 
   /// Fetches the next batch of posts in the open topic.
@@ -3942,6 +4045,12 @@ class ShellController extends FrameSafeNotifier {
     _topicsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _postsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _earlierPostsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _topicReadPositions.removeWhere((key, _) => key.startsWith('$siteUrl#'));
+    _queuedTopicReadReceipts.removeWhere(
+      (key, _) => key.startsWith('$siteUrl#'),
+    );
+    _topicReadReceiptTasks.removeWhere((key, _) => key.startsWith('$siteUrl#'));
+    _topicReadReceiptRuns.removeWhere((key, _) => key.startsWith('$siteUrl#'));
 
     _categorised.remove(siteUrl);
     _sitePresentation?.forget(siteUrl);
@@ -4055,6 +4164,9 @@ class ShellController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    _queuedTopicReadReceipts.clear();
+    _topicReadReceiptTasks.clear();
+    _topicReadReceiptRuns.clear();
     for (final instance in _instances) {
       lifecycle.invalidate(instance.url);
     }
