@@ -20,6 +20,7 @@ class ContentRoute {
     this.color,
     this.topicId,
     this.slug,
+    this.postNumber,
     this.feedPath,
   });
 
@@ -47,6 +48,7 @@ class ContentRoute {
     required String title,
     String? subtitle,
     Color? color,
+    int? postNumber,
   }) {
     return ContentRoute(
       id: 'topic-$topicId',
@@ -56,6 +58,7 @@ class ContentRoute {
       color: color,
       topicId: topicId,
       slug: slug,
+      postNumber: postNumber,
     );
   }
 
@@ -68,6 +71,7 @@ class ContentRoute {
       color = destination.color,
       topicId = null,
       slug = null,
+      postNumber = null,
       feedPath = null;
 
   final String id;
@@ -79,6 +83,9 @@ class ContentRoute {
   /// Set when this route is a topic rather than a list.
   final int? topicId;
   final String? slug;
+
+  /// The post this topic route should initially reveal, when it names one.
+  final int? postNumber;
 
   /// Where this route's topic list lives, for a route that carries its own —
   /// see [ContentRoute.list]. Null for everything the sidebar opens, whose

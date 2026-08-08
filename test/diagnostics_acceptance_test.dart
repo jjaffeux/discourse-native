@@ -509,6 +509,7 @@ class _TimeoutApi extends FakeDiscourseApi {
     required String siteUrl,
     required String slug,
     required int id,
+    int? postNumber,
     String? apiKey,
     String? clientId,
   }) async {
@@ -569,6 +570,7 @@ final class _GatedTopicTimeoutApi extends _TimeoutApi {
     required String siteUrl,
     required String slug,
     required int id,
+    int? postNumber,
     String? apiKey,
     String? clientId,
   }) async {
@@ -578,6 +580,7 @@ final class _GatedTopicTimeoutApi extends _TimeoutApi {
       siteUrl: siteUrl,
       slug: slug,
       id: id,
+      postNumber: postNumber,
       apiKey: apiKey,
       clientId: clientId,
     );

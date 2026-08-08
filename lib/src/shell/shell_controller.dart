@@ -1247,6 +1247,7 @@ class ShellController extends FrameSafeNotifier {
 
   final Set<String> _topicsLoading = {};
   final Set<String> _postsLoading = {};
+  final Set<String> _earlierPostsLoading = {};
 
   static String _topicKey(String siteUrl, int topicId) => '$siteUrl#$topicId';
 
@@ -1258,26 +1259,91 @@ class ShellController extends FrameSafeNotifier {
     return store.read<TopicDetail>(instance.url, topicId);
   }
 
-  /// The ids of the posts on screen, in reading order.
+  /// The contiguous ids of the posts on screen, in reading order.
   ///
   /// The topic knows every post id it has; the store knows which of them have
-  /// actually been fetched. The list drawn is the intersection, which is what
-  /// the topic used to keep a second copy of.
+  /// actually been fetched. An ordinary load draws the fetched prefix, while
+  /// a numbered load draws the fetched window around its target.
   List<int> get currentPostIds {
     final instance = currentInstance;
     final detail = currentTopic;
     if (instance == null || detail == null) return const [];
+    final range = _loadedPostRange(instance.url, detail);
+    if (range == null) return const [];
+    return [for (final id in detail.stream.sublist(range.$1, range.$2 + 1)) id];
+  }
+
+  /// The loaded window to draw.
+  ///
+  /// Ordinary topic loads are a prefix. Numbered loads are a middle window;
+  /// when older posts from a previous visit are also cached, drawing every
+  /// loaded id would collapse the unfetched gap between them. Instead, grow
+  /// outward only while adjacent posts are present around the requested one.
+  (int, int)? _loadedPostRange(String siteUrl, TopicDetail detail) {
+    if (detail.stream.isEmpty) return null;
+
+    final target = currentContent?.postNumber;
+    var anchor = -1;
+    if (target != null) {
+      for (var i = 0; i < detail.stream.length; i++) {
+        final post = store.read<Post>(siteUrl, detail.stream[i]);
+        if (post != null && post.postNumber >= target) {
+          anchor = i;
+          break;
+        }
+      }
+    } else {
+      anchor = detail.stream.indexWhere(
+        (id) => store.read<Post>(siteUrl, id) != null,
+      );
+    }
+    // A stale cache or a deliberately minimal test payload may not contain
+    // the requested post yet. Keep showing the contiguous data in hand until
+    // the around-post request lands instead of flashing an empty topic.
+    if (anchor < 0 && target != null) {
+      anchor = detail.stream.indexWhere(
+        (id) => store.read<Post>(siteUrl, id) != null,
+      );
+    }
+    if (anchor < 0) return null;
+
+    var first = anchor;
+    while (first > 0 &&
+        store.read<Post>(siteUrl, detail.stream[first - 1]) != null) {
+      first--;
+    }
+    var last = anchor;
+    while (last + 1 < detail.stream.length &&
+        store.read<Post>(siteUrl, detail.stream[last + 1]) != null) {
+      last++;
+    }
+    return (first, last);
+  }
+
+  /// Post ids after the loaded window, oldest first.
+  List<int> _pendingPostIds(String siteUrl, TopicDetail detail) {
+    final range = _loadedPostRange(siteUrl, detail);
+    final start = range == null ? 0 : range.$2 + 1;
     return [
-      for (final id in detail.stream)
-        if (store.read<Post>(instance.url, id) != null) id,
+      for (final id in detail.stream.skip(start))
+        if (store.read<Post>(siteUrl, id) == null) id,
     ];
   }
 
-  /// Post ids the stream names but nothing has fetched, oldest first.
-  List<int> _pendingPostIds(String siteUrl, TopicDetail detail) => [
-    for (final id in detail.stream)
-      if (store.read<Post>(siteUrl, id) == null) id,
-  ];
+  /// Post ids immediately before the loaded window, newest batch first.
+  List<int> _pendingEarlierPostIds(
+    String siteUrl,
+    TopicDetail detail,
+    int batchSize,
+  ) {
+    final range = _loadedPostRange(siteUrl, detail);
+    if (range == null || range.$1 == 0) return const [];
+    final start = range.$1 > batchSize ? range.$1 - batchSize : 0;
+    return [
+      for (final id in detail.stream.sublist(start, range.$1))
+        if (store.read<Post>(siteUrl, id) == null) id,
+    ];
+  }
 
   /// Whether the topic on screen has posts left to fetch.
   bool get currentTopicHasMore {
@@ -1285,6 +1351,13 @@ class ShellController extends FrameSafeNotifier {
     final detail = currentTopic;
     if (instance == null || detail == null) return false;
     return _pendingPostIds(instance.url, detail).isNotEmpty;
+  }
+
+  bool get currentTopicHasEarlier {
+    final instance = currentInstance;
+    final detail = currentTopic;
+    if (instance == null || detail == null) return false;
+    return _pendingEarlierPostIds(instance.url, detail, 1).isNotEmpty;
   }
 
   bool get currentTopicLoading {
@@ -1295,14 +1368,26 @@ class ShellController extends FrameSafeNotifier {
   }
 
   /// Replaces the main region with [topic] and fetches it.
-  void openTopic(Topic topic) => _openTopic(topic.id, topic.slug, topic.title);
+  void openTopic(Topic topic) => _openTopic(
+    topic.id,
+    topic.slug,
+    topic.title,
+    postNumber: topic.lastUnreadPostNumber,
+  );
 
-  void _openTopic(int topicId, String slug, String title) {
+  void _openTopic(int topicId, String slug, String title, {int? postNumber}) {
     // A fast double tap on a row pushes the same topic twice — the fetch is
     // deduped below, but the second route still costs a back tap.
     if (currentContent?.topicId == topicId) return;
-    pushContent(ContentRoute.topic(topicId: topicId, slug: slug, title: title));
-    unawaited(loadTopic(topicId, slug));
+    pushContent(
+      ContentRoute.topic(
+        topicId: topicId,
+        slug: slug,
+        title: title,
+        postNumber: postNumber,
+      ),
+    );
+    unawaited(loadTopic(topicId, slug, postNumber: postNumber));
   }
 
   /// Absolute form of [url].
@@ -1333,7 +1418,12 @@ class ShellController extends FrameSafeNotifier {
     // does — and stacking a second copy of it only costs the user a back tap.
     if (currentContent?.topicId == link.topicId) return true;
 
-    _openTopic(link.topicId, link.slug, link.placeholderTitle);
+    _openTopic(
+      link.topicId,
+      link.slug,
+      link.placeholderTitle,
+      postNumber: link.postNumber,
+    );
     return true;
   }
 
@@ -1379,16 +1469,21 @@ class ShellController extends FrameSafeNotifier {
     return true;
   }
 
-  Future<void> loadTopic(int topicId, String slug, {bool force = false}) =>
-      DiagnosticsSink.runOperation(
-        'topic.load',
-        () => _loadTopic(topicId, slug, force: force),
-      );
+  Future<void> loadTopic(
+    int topicId,
+    String slug, {
+    bool force = false,
+    int? postNumber,
+  }) => DiagnosticsSink.runOperation(
+    'topic.load',
+    () => _loadTopic(topicId, slug, force: force, postNumber: postNumber),
+  );
 
   Future<void> _loadTopic(
     int topicId,
     String slug, {
     required bool force,
+    int? postNumber,
   }) async {
     final instance = currentInstance;
     if (instance == null) return;
@@ -1408,8 +1503,15 @@ class ShellController extends FrameSafeNotifier {
 
     final key = _topicKey(instance.url, topicId);
     if (_topicsLoading.contains(key)) return;
-    if (store.read<TopicDetail>(instance.url, topicId) != null && !force) {
-      return;
+    final held = store.read<TopicDetail>(instance.url, topicId);
+    if (held != null && !force) {
+      final targetHeld = postNumber == null
+          ? true
+          : held.stream.any((id) {
+              final post = store.read<Post>(instance.url, id);
+              return post?.postNumber == postNumber;
+            });
+      if (targetHeld) return;
     }
     final lease = lifecycle.capture(instance.url);
 
@@ -1422,6 +1524,7 @@ class ShellController extends FrameSafeNotifier {
         siteUrl: instance.url,
         slug: slug,
         id: topicId,
+        postNumber: postNumber,
         apiKey: apiKey,
       );
       lease.commit(() {
@@ -1456,6 +1559,7 @@ class ShellController extends FrameSafeNotifier {
         title: title,
         subtitle: route.subtitle,
         color: route.color,
+        postNumber: route.postNumber,
       );
     }
   }
@@ -1528,11 +1632,60 @@ class ShellController extends FrameSafeNotifier {
     }
   }
 
+  /// Fetches the batch immediately before an around-post topic window.
+  Future<void> loadEarlierPosts({int batchSize = 20}) async {
+    final instance = currentInstance;
+    final topicId = currentContent?.topicId;
+    if (instance == null || topicId == null) return;
+
+    final key = _topicKey(instance.url, topicId);
+    final detail = store.read<TopicDetail>(instance.url, topicId);
+    if (detail == null) return;
+    if (_earlierPostsLoading.contains(key)) return;
+
+    final pending = _pendingEarlierPostIds(instance.url, detail, batchSize);
+    if (pending.isEmpty) return;
+    final lease = lifecycle.capture(instance.url);
+
+    _earlierPostsLoading.add(key);
+    _notify();
+
+    try {
+      final posts = await api.posts(
+        siteUrl: instance.url,
+        topicId: topicId,
+        ids: pending,
+        apiKey: await authenticator.apiKeyFor(instance.url),
+      );
+      lease.commit(() => store.putAll(instance.url, posts));
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'topic.loadEarlierPosts',
+        severity: DiagnosticSeverity.warning,
+      );
+    } finally {
+      lease.commit(() {
+        _earlierPostsLoading.remove(key);
+        _notify();
+      });
+    }
+  }
+
   bool get loadingMorePosts {
     final instance = currentInstance;
     final topicId = currentContent?.topicId;
     if (instance == null || topicId == null) return false;
     return _postsLoading.contains(_topicKey(instance.url, topicId));
+  }
+
+  bool get loadingEarlierPosts {
+    final instance = currentInstance;
+    final topicId = currentContent?.topicId;
+    if (instance == null || topicId == null) return false;
+    return _earlierPostsLoading.contains(_topicKey(instance.url, topicId));
   }
 
   ComposerController? _composer;
@@ -3788,6 +3941,7 @@ class ShellController extends FrameSafeNotifier {
     _postRefreshTopics.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _topicsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _postsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _earlierPostsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
 
     _categorised.remove(siteUrl);
     _sitePresentation?.forget(siteUrl);

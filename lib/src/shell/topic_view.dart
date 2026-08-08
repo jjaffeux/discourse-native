@@ -30,8 +30,86 @@ class TopicView extends StatefulWidget {
 }
 
 class _TopicViewState extends State<TopicView> {
+  ScrollController? _scroll;
+  ListController? _list;
+  (String, int)? _topicIdentity;
   Object? _loadMoreToken;
   (String, int, int)? _loadMoreTarget;
+  bool _restored = false;
+
+  void _syncControllers((String, int) topicIdentity) {
+    if (_topicIdentity == topicIdentity) return;
+
+    _disposeControllers();
+    _topicIdentity = topicIdentity;
+    _loadMoreToken = null;
+    _loadMoreTarget = null;
+    _restored = false;
+    _scroll = ScrollController();
+    _list = ListController();
+  }
+
+  void _restoreInitialPost(
+    ShellController controller,
+    _TopicViewSnapshot snapshot,
+  ) {
+    if (_restored) return;
+
+    final index = snapshot.initialPostIndex;
+    if (index == null) {
+      // A numbered route may briefly be drawing cached posts that do not
+      // include its target. Leave restoration armed for the around-post
+      // response. An unnumbered topic genuinely belongs at the beginning.
+      if (controller.currentContent?.postNumber == null) _restored = true;
+      return;
+    }
+    _restored = true;
+    if (index <= 0) return;
+    final identity = (snapshot.siteUrl!, snapshot.topicId!);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isCurrent(controller, identity)) return;
+      _jumpTo(index);
+      // The first jump uses estimates for posts that have not been laid out.
+      // Repeat once their real heights are known so the requested post lands
+      // at the top rather than merely somewhere near it.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_isCurrent(controller, identity)) return;
+        _jumpTo(index);
+      });
+    });
+  }
+
+  void _jumpTo(int index) {
+    final list = _list;
+    final scroll = _scroll;
+    if (list == null || scroll == null) return;
+    if (!list.isAttached || !scroll.hasClients) return;
+    list.jumpToItem(index: index, scrollController: scroll, alignment: 0);
+  }
+
+  bool _isCurrent(ShellController controller, (String, int) topicIdentity) =>
+      mounted &&
+      _topicIdentity == topicIdentity &&
+      controller.currentInstance?.url == topicIdentity.$1 &&
+      controller.currentTopic?.id == topicIdentity.$2;
+
+  void _disposeControllers() {
+    final scroll = _scroll;
+    final list = _list;
+    if (scroll == null && list == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      scroll?.dispose();
+      list?.dispose();
+    });
+  }
+
+  @override
+  void dispose() {
+    _disposeControllers();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => ShellSelector<_TopicViewSnapshot>(
@@ -109,12 +187,16 @@ class _TopicViewState extends State<TopicView> {
     // The footer is a spinner, so it may only appear while actually loading —
     // otherwise it spins forever at the bottom of a topic with more to fetch.
     final showFooter = snapshot.loadingMore;
+    final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
 
     // Which posts are on screen, and in what order. The posts themselves are
     // in the store; each tile watches its own, so an edit or a deletion redraws
     // one tile rather than walking the whole stream.
     final postIds = snapshot.postIds;
     final siteUrl = snapshot.siteUrl!;
+    final topicIdentity = (siteUrl, snapshot.topicId!);
+    _syncControllers(topicIdentity);
+    _restoreInitialPost(controller, snapshot);
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
@@ -137,22 +219,32 @@ class _TopicViewState extends State<TopicView> {
       // whole topic on open.
       child: SuperListView.separated(
         key: ValueKey((siteUrl, snapshot.topicId)),
+        controller: _scroll,
+        listController: _list,
         // Lazy, like the topic list: a 500-post topic builds only what shows.
-        itemCount: postIds.length + (showFooter ? 1 : 0),
+        itemCount: postIds.length + (showHeader ? 1 : 0) + (showFooter ? 1 : 0),
         separatorBuilder: (context, _) =>
             Divider(height: 1, color: theme.shell.divider),
         itemBuilder: (context, index) {
-          if (index >= postIds.length) {
+          if (showHeader && index == 0) {
+            return _EarlierPostsRow(
+              loading: snapshot.loadingEarlier,
+              onPressed: controller.loadEarlierPosts,
+            );
+          }
+
+          final postIndex = index - (showHeader ? 1 : 0);
+          if (postIndex >= postIds.length) {
             return const _LoadingPostsRow();
           }
 
           // Building the last post means the end is in view. Scrolling alone
           // is not enough: twenty short posts may not fill the window, leaving
           // nothing to scroll and the rest never fetched.
-          if (index == postIds.length - 1 && snapshot.hasMore) {
+          if (postIndex == postIds.length - 1 && snapshot.hasMore) {
             _scheduleLoadMore(controller, snapshot);
           }
-          final postId = postIds[index];
+          final postId = postIds[postIndex];
           return _StoredPost(
             key: ValueKey(postId),
             siteUrl: siteUrl,
@@ -172,25 +264,52 @@ class _TopicViewSnapshot {
     required this.postIds,
     required this.loading,
     required this.loadingMore,
+    required this.loadingEarlier,
     required this.hasMore,
+    required this.hasEarlier,
+    required this.initialPostIndex,
   });
 
-  factory _TopicViewSnapshot.from(ShellController controller) =>
-      _TopicViewSnapshot(
-        topicId: controller.currentTopic?.id,
-        siteUrl: controller.currentInstance?.url,
-        postIds: controller.currentPostIds,
-        loading: controller.currentTopicLoading,
-        loadingMore: controller.loadingMorePosts,
-        hasMore: controller.currentTopicHasMore,
-      );
+  factory _TopicViewSnapshot.from(ShellController controller) {
+    final postIds = controller.currentPostIds;
+    final siteUrl = controller.currentInstance?.url;
+    final target = controller.currentContent?.postNumber;
+    final hasEarlier = controller.currentTopicHasEarlier;
+    int? initialPostIndex;
+    if (siteUrl != null && target != null) {
+      for (var index = 0; index < postIds.length; index++) {
+        final post = controller.store.read<Post>(siteUrl, postIds[index]);
+        // If the named post has since been deleted, reveal the next visible
+        // one rather than dropping the reader at the start of the window.
+        if (post != null && post.postNumber >= target) {
+          initialPostIndex = index + (hasEarlier ? 1 : 0);
+          break;
+        }
+      }
+    }
+
+    return _TopicViewSnapshot(
+      topicId: controller.currentTopic?.id,
+      siteUrl: siteUrl,
+      postIds: postIds,
+      loading: controller.currentTopicLoading,
+      loadingMore: controller.loadingMorePosts,
+      loadingEarlier: controller.loadingEarlierPosts,
+      hasMore: controller.currentTopicHasMore,
+      hasEarlier: hasEarlier,
+      initialPostIndex: initialPostIndex,
+    );
+  }
 
   final int? topicId;
   final String? siteUrl;
   final List<int> postIds;
   final bool loading;
   final bool loadingMore;
+  final bool loadingEarlier;
   final bool hasMore;
+  final bool hasEarlier;
+  final int? initialPostIndex;
 
   @override
   bool operator ==(Object other) =>
@@ -201,7 +320,10 @@ class _TopicViewSnapshot {
           listEquals(postIds, other.postIds) &&
           loading == other.loading &&
           loadingMore == other.loadingMore &&
-          hasMore == other.hasMore;
+          loadingEarlier == other.loadingEarlier &&
+          hasMore == other.hasMore &&
+          hasEarlier == other.hasEarlier &&
+          initialPostIndex == other.initialPostIndex;
 
   @override
   int get hashCode => Object.hash(
@@ -210,7 +332,34 @@ class _TopicViewSnapshot {
     Object.hashAll(postIds),
     loading,
     loadingMore,
+    loadingEarlier,
     hasMore,
+    hasEarlier,
+    initialPostIndex,
+  );
+}
+
+class _EarlierPostsRow extends StatelessWidget {
+  const _EarlierPostsRow({required this.loading, required this.onPressed});
+
+  final bool loading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: Center(
+      child: loading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : TextButton(
+              onPressed: onPressed,
+              child: const Text('Load earlier posts'),
+            ),
+    ),
   );
 }
 

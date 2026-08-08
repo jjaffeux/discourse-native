@@ -14,10 +14,14 @@ void main() {
       expect(link.uri.host, 'meta.discourse.org');
     });
 
-    test('ignores what follows the id', () {
-      // A post number, and the suffixed routes that name a position.
-      expect(parse('https://meta.discourse.org/t/a/12/34')?.topicId, 12);
-      expect(parse('https://meta.discourse.org/t/a/12/last')?.topicId, 12);
+    test('reads a numbered post and ignores named positions', () {
+      final numbered = parse('https://meta.discourse.org/t/a/12/34');
+      expect(numbered?.topicId, 12);
+      expect(numbered?.postNumber, 34);
+
+      final named = parse('https://meta.discourse.org/t/a/12/last');
+      expect(named?.topicId, 12);
+      expect(named?.postNumber, isNull);
     });
 
     test('ignores the query and fragment', () {

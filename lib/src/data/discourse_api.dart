@@ -483,14 +483,26 @@ class DiscourseApi
     required String siteUrl,
     required String slug,
     required int id,
+    int? postNumber,
     String? apiKey,
     String? clientId,
   }) async {
+    final path = [
+      siteUrl,
+      't',
+      if (slug.isNotEmpty) slug,
+      '$id',
+      if (slug.isNotEmpty && postNumber != null) '$postNumber',
+    ].join('/');
     final response = await _get(
       // A link can arrive without a slug — `/t/123` — and Discourse routes
       // that too, so there is nothing to invent here.
-      Uri.parse(
-        slug.isEmpty ? '$siteUrl/t/$id.json' : '$siteUrl/t/$slug/$id.json',
+      // The slugless numbered shape is ambiguous with `/t/{slug}/{id}`, so it
+      // names its target in the query, as Discourse's own reload does.
+      Uri.parse('$path.json').replace(
+        queryParameters: slug.isEmpty && postNumber != null
+            ? {'post_number': '$postNumber'}
+            : null,
       ),
       siteUrl: siteUrl,
       apiKey: apiKey,

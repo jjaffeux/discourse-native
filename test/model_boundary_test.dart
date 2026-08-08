@@ -78,6 +78,25 @@ void main() {
       expect(payload.posts.single.cooked, '');
     });
 
+    test('topic lists expose the same first-unread position as Discourse', () {
+      Topic parsed({int? lastRead, required int highest}) =>
+          TopicList.fromJson({
+            'topic_list': {
+              'topics': [
+                {
+                  'id': 7,
+                  'last_read_post_number': lastRead,
+                  'highest_post_number': highest,
+                },
+              ],
+            },
+          }, siteUrl).topics.single;
+
+      expect(parsed(lastRead: 5, highest: 10).lastUnreadPostNumber, 6);
+      expect(parsed(lastRead: 10, highest: 10).lastUnreadPostNumber, 10);
+      expect(parsed(lastRead: null, highest: 10).lastUnreadPostNumber, 1);
+    });
+
     test('free-form notification and bookmark data default safely', () {
       final notification = DiscourseNotification.fromJson({
         'id': 1,

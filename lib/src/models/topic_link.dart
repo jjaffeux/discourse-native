@@ -10,6 +10,7 @@ class TopicLink {
     required this.uri,
     required this.topicId,
     required this.slug,
+    this.postNumber,
   });
 
   /// The link itself, so the caller can work out whose site it is.
@@ -19,6 +20,9 @@ class TopicLink {
 
   /// Empty for the slugless permalinks Discourse also answers to.
   final String slug;
+
+  /// The numbered post named by a slugged topic URL, if there is one.
+  final int? postNumber;
 
   /// The topic [url] points at, or null when it points at anything else.
   ///
@@ -40,7 +44,15 @@ class TopicLink {
     final id = int.tryParse(slugged ? segments[2] : segments[1]);
     if (id == null || id <= 0) return null;
 
-    return TopicLink(uri: uri, topicId: id, slug: slugged ? segments[1] : '');
+    final postNumber = slugged && segments.length >= 4
+        ? int.tryParse(segments[3])
+        : null;
+    return TopicLink(
+      uri: uri,
+      topicId: id,
+      slug: slugged ? segments[1] : '',
+      postNumber: postNumber != null && postNumber > 0 ? postNumber : null,
+    );
   }
 
   /// What to call the topic until the real title arrives with it.
