@@ -10,12 +10,14 @@ void main() {
         'reply': 'A topic in progress.\n\nWith another paragraph.',
         'action': 'createTopic',
         'title': 'A useful title',
+        'categoryId': 5,
       },
     });
 
     expect(draft.displayTitle, 'A useful title');
     expect(draft.excerpt, 'A topic in progress. With another paragraph.');
     expect(draft.kindLabel, 'New topic draft');
+    expect(draft.displayCategoryId, 5);
     expect(draft.canResume, isTrue);
   });
 

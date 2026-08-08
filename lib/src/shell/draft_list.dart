@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/discourse_instance.dart';
+import '../models/discourse_user.dart';
 import '../models/draft_feed.dart';
+import '../models/topic.dart';
 import '../models/user_draft.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -11,6 +13,7 @@ import 'external_link.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'user_menu.dart';
 
 /// The full-page list of server-side drafts for one connected account.
 class DraftListView extends StatefulWidget {
@@ -192,44 +195,38 @@ class _Drafts extends StatelessWidget {
             ),
           Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: Card(
-                margin: EdgeInsets.zero,
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    for (
-                      var index = 0;
-                      index < feed.drafts.length;
-                      index++
-                    ) ...[
-                      if (index > 0) const Divider(height: 1),
-                      _DraftRow(
-                        draft: feed.drafts[index],
-                        deleting: controller.draftList.deleting(
-                          siteUrl,
-                          feed.drafts[index].key,
-                        ),
-                        onResume: feed.drafts[index].canResume
-                            ? () => unawaited(
-                                controller.resumeDraft(
-                                  siteUrl,
-                                  feed.drafts[index],
-                                ),
-                              )
-                            : null,
-                        onOpenForum: () => unawaited(
-                          openExternalLink(
-                            '$siteUrl/u/'
-                            '${Uri.encodeComponent(instance.user!.username)}'
-                            '/activity/drafts',
-                          ),
-                        ),
-                        onRemove: () => onRemove(feed.drafts[index]),
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Column(
+                children: [
+                  for (var index = 0; index < feed.drafts.length; index++) ...[
+                    _DraftRow(
+                      siteUrl: siteUrl,
+                      draft: feed.drafts[index],
+                      user: instance.user!,
+                      deleting: controller.draftList.deleting(
+                        siteUrl,
+                        feed.drafts[index].key,
                       ),
-                    ],
+                      onResume: feed.drafts[index].canResume
+                          ? () => unawaited(
+                              controller.resumeDraft(
+                                siteUrl,
+                                feed.drafts[index],
+                              ),
+                            )
+                          : null,
+                      onOpenForum: () => unawaited(
+                        openExternalLink(
+                          '$siteUrl/u/'
+                          '${Uri.encodeComponent(instance.user!.username)}'
+                          '/activity/drafts',
+                        ),
+                      ),
+                      onRemove: () => onRemove(feed.drafts[index]),
+                    ),
+                    const Divider(height: 1),
                   ],
-                ),
+                ],
               ),
             ),
           ),
@@ -258,14 +255,18 @@ class _Drafts extends StatelessWidget {
 
 class _DraftRow extends StatelessWidget {
   const _DraftRow({
+    required this.siteUrl,
     required this.draft,
+    required this.user,
     required this.deleting,
     required this.onResume,
     required this.onOpenForum,
     required this.onRemove,
   });
 
+  final String siteUrl;
   final UserDraft draft;
+  final DiscourseUser user;
   final bool deleting;
   final VoidCallback? onResume;
   final VoidCallback onOpenForum;
@@ -273,73 +274,233 @@ class _DraftRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ShellSelector<TopicCategory?>(
+      select: (controller) =>
+          controller.categoryFor(draft.displayCategoryId, siteUrl: siteUrl),
+      builder: (context, category, _) => LayoutBuilder(
+        builder: (context, constraints) => _DraftRowContent(
+          draft: draft,
+          user: user,
+          category: category,
+          deleting: deleting,
+          onResume: onResume,
+          onOpenForum: onOpenForum,
+          onRemove: onRemove,
+          compact: constraints.maxWidth < 520,
+        ),
+      ),
+    );
+  }
+}
+
+class _DraftRowContent extends StatelessWidget {
+  const _DraftRowContent({
+    required this.draft,
+    required this.user,
+    required this.category,
+    required this.deleting,
+    required this.onResume,
+    required this.onOpenForum,
+    required this.onRemove,
+    required this.compact,
+  });
+
+  final UserDraft draft;
+  final DiscourseUser user;
+  final TopicCategory? category;
+  final bool deleting;
+  final VoidCallback? onResume;
+  final VoidCallback onOpenForum;
+  final VoidCallback onRemove;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final createdAt = draft.createdAt;
+    final action = onResume ?? onOpenForum;
+    final title = draft.displayTitle == 'Untitled draft'
+        ? null
+        : draft.displayTitle;
+    final avatarSize = compact ? 40.0 : 52.0;
+    final actionSize = compact ? 38.0 : 44.0;
+
     return InkWell(
-      onTap: onResume,
+      onTap: action,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+        padding: EdgeInsets.fromLTRB(
+          compact ? 8 : 16,
+          compact ? 14 : 20,
+          compact ? 8 : 12,
+          compact ? 14 : 20,
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: DIcon(
-                DIcons.pencil,
-                size: 18,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            UserMenuAvatar(
+              avatarUrl: user.avatarUrl,
+              initial: user.username.isEmpty
+                  ? null
+                  : user.username[0].toUpperCase(),
+              connecting: false,
+              size: avatarSize,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: compact ? 10 : 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    draft.displayTitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+                  if (title != null)
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    [
-                      draft.kindLabel,
-                      if (createdAt != null) relativeTime(createdAt),
-                    ].join(' · '),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  if (title != null && (category != null || createdAt != null))
+                    const SizedBox(height: 5),
+                  if (category != null || createdAt != null)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (category case final category?)
+                          _DraftCategory(category: category),
+                        if (category != null && createdAt != null)
+                          Text(
+                            '•',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        if (createdAt != null)
+                          Text(
+                            relativeTime(createdAt),
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
                   if (draft.excerpt.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: title == null ? 10 : 18),
                     Text(
                       draft.excerpt,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium,
+                      style: theme.textTheme.bodyLarge,
                     ),
                   ],
                 ],
               ),
             ),
-            TextButton(
-              onPressed: onResume ?? onOpenForum,
-              child: Text(onResume == null ? 'Open on forum' : 'Resume'),
+            SizedBox(width: compact ? 8 : 16),
+            _DraftAction(
+              tooltip: onResume == null ? 'Open draft on forum' : 'Edit draft',
+              onPressed: action,
+              icon: DIcons.pencil,
+              size: actionSize,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              foregroundColor: theme.colorScheme.onSurfaceVariant,
             ),
-            IconButton(
+            SizedBox(width: compact ? 6 : 10),
+            _DraftAction(
               tooltip: 'Remove draft',
               onPressed: deleting ? null : onRemove,
-              icon: deleting
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const DIcon(DIcons.trashCan, size: 17),
+              icon: DIcons.trashCan,
+              size: actionSize,
+              backgroundColor: theme.colorScheme.errorContainer,
+              foregroundColor: theme.colorScheme.onErrorContainer,
+              loading: deleting,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DraftCategory extends StatelessWidget {
+  const _DraftCategory({required this.category});
+
+  final TopicCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: Color(category.colorValue),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          category.name,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DraftAction extends StatelessWidget {
+  const _DraftAction({
+    required this.tooltip,
+    required this.onPressed,
+    required this.icon,
+    required this.size,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    this.loading = false,
+  });
+
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final DIconData icon;
+  final double size;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: onPressed == null
+            ? backgroundColor.withValues(alpha: 0.5)
+            : backgroundColor,
+        borderRadius: BorderRadius.circular(6),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox.square(
+            dimension: size,
+            child: Center(
+              child: loading
+                  ? SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: foregroundColor,
+                      ),
+                    )
+                  : DIcon(icon, size: 18, color: foregroundColor),
+            ),
+          ),
         ),
       ),
     );

@@ -48,6 +48,10 @@ class UserDraft {
   final int? categoryId;
   final String? archetype;
 
+  /// The list endpoint names the category beside existing topics, while a
+  /// new-topic draft keeps it inside the portable composer payload.
+  int? get displayCategoryId => categoryId ?? data?.categoryId;
+
   bool get isNewTopic => key.startsWith(ComposerDraft.newTopicDraftKey);
 
   bool get isPrivateMessage =>
