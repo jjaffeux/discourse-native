@@ -4852,6 +4852,17 @@ class ShellController extends FrameSafeNotifier {
       _instanceIndex = index;
       _resetToInstanceDefault();
     }
+    if (sameInstance && currentContent?.id == route.id) {
+      // The sidebar secondary action and the persistent call card can both
+      // open the room already on screen. Replacing its metadata keeps the
+      // route fresh without adding an indistinguishable stack entry that
+      // would make the first Back press appear to do nothing.
+      _contentStack[_contentStack.length - 1] = route;
+      _mobilePane = MobilePane.content;
+      _syncTopicChannels();
+      _notify();
+      return;
+    }
     if (replaceCurrent && sameInstance && _contentStack.isNotEmpty) {
       _contentStack[_contentStack.length - 1] = route;
       _mobilePane = MobilePane.content;

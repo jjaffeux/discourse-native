@@ -108,8 +108,9 @@ final class ResenhaPlugin implements SitePlugin<ResenhaRoom> {
                   );
                 }
               },
-              onSecondaryTap: () => shell.pushContent(
-                ContentRoute(
+              onSecondaryTap: () => shell.openResenhaRoom(
+                siteUrl: instance.url,
+                route: ContentRoute(
                   id: routeId(room.id),
                   title: room.name,
                   icon: DIcons.microphoneLines,
