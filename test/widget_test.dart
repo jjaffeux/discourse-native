@@ -872,6 +872,117 @@ void main() {
       expect(find.text('3'), findsOneWidget);
     });
 
+    testWidgets('mirrored unread fields produce one undoubled count', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            const Topic(
+              id: 9,
+              title: 'Tracked topic',
+              slug: 'tracked-topic',
+              unreadPosts: 3,
+              newPosts: 3,
+            ),
+          ],
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text('6'), findsNothing);
+    });
+
+    testWidgets('caught-up titles are dimmed independently of badges', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            const Topic(
+              id: 8,
+              title: 'Caught up',
+              slug: 'caught-up',
+              lastReadPostNumber: 5,
+              highestPostNumber: 5,
+            ),
+            const Topic(
+              id: 9,
+              title: 'Not caught up',
+              slug: 'not-caught-up',
+              lastReadPostNumber: 4,
+              highestPostNumber: 5,
+            ),
+          ],
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+
+      final context = tester.element(find.text('Caught up'));
+      final colors = Theme.of(context).colorScheme;
+      expect(
+        tester.widget<Text>(find.text('Caught up')).style?.color,
+        colors.onSurfaceVariant,
+      );
+      expect(
+        tester.widget<Text>(find.text('Not caught up')).style?.color,
+        colors.onSurface,
+      );
+    });
+
+    testWidgets('an unseen flat topic carries the new-topic dot', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            const Topic(
+              id: 9,
+              title: 'Never opened',
+              slug: 'never-opened',
+              seen: false,
+            ),
+          ],
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+
+      expect(find.byKey(const ValueKey('new-topic-dot')), findsOneWidget);
+      expect(find.bySemanticsLabel('New topic'), findsOneWidget);
+      expect(find.byKey(const ValueKey('new-replies-dot')), findsNothing);
+    });
+
+    testWidgets('a nested topic only carries its new-replies dot', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            const Topic(
+              id: 9,
+              title: 'Nested topic',
+              slug: 'nested-topic',
+              isNestedView: true,
+              hasNewReplies: true,
+              seen: false,
+              unreadPosts: 5,
+            ),
+          ],
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+
+      expect(find.byKey(const ValueKey('new-replies-dot')), findsOneWidget);
+      expect(find.bySemanticsLabel('Topic has new replies'), findsOneWidget);
+      expect(find.byKey(const ValueKey('new-topic-dot')), findsNothing);
+      expect(find.text('5'), findsNothing);
+    });
+
     testWidgets('category badges render once categories arrive', (
       tester,
     ) async {

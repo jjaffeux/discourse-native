@@ -28,6 +28,8 @@ class Topic with Storable<Topic> {
     this.unreadPosts = 0,
     this.newPosts = 0,
     this.seen = true,
+    this.isNestedView = false,
+    this.hasNewReplies = false,
     this.lastReadPostNumber,
     this.highestPostNumber = 0,
     this.tags = const [],
@@ -64,6 +66,8 @@ class Topic with Storable<Topic> {
       unreadPosts: jsonInt(json['unread_posts']),
       newPosts: jsonInt(json['new_posts']),
       seen: json['unseen'] != true,
+      isNestedView: json['is_nested_view'] == true,
+      hasNewReplies: json['has_new_replies'] == true,
       lastReadPostNumber: jsonIntOrNull(json['last_read_post_number']),
       highestPostNumber: jsonInt(json['highest_post_number']),
       tags: List.unmodifiable(
@@ -92,6 +96,16 @@ class Topic with Storable<Topic> {
   /// False for a topic the user has never opened.
   final bool seen;
 
+  /// Whether replies are presented as a nested conversation rather than a
+  /// flat post stream. Core gives these rows a different unread treatment.
+  final bool isNestedView;
+
+  /// Core's single "new content" signal for a nested topic.
+  ///
+  /// Ordinary unread counts and the unseen/new-topic dot are deliberately
+  /// suppressed for nested topics, even when those legacy fields are present.
+  final bool hasNewReplies;
+
   /// The personalized reading position Discourse attaches to topic lists.
   final int? lastReadPostNumber;
 
@@ -103,7 +117,23 @@ class Topic with Storable<Topic> {
 
   final List<String> posterAvatars;
 
-  bool get hasUnread => unreadPosts > 0 || newPosts > 0;
+  /// The count core prints for a flat tracked topic.
+  ///
+  /// `new_posts` is a backwards-compatible mirror of `unread_posts`, not a
+  /// second bucket. Adding them would commonly double the badge.
+  int get unreadCount => unreadPosts > 0 ? unreadPosts : newPosts;
+
+  bool get hasUnread => unreadCount > 0;
+
+  /// Core calls this `visited`: the reader has reached the last visible post.
+  /// It is independent from notification level, so a row can be bright without
+  /// carrying a count when the topic is not tracked.
+  bool get visited =>
+      lastReadPostNumber != null && lastReadPostNumber! >= highestPostNumber;
+
+  bool get showUnreadCount => !isNestedView && unreadCount > 0;
+  bool get showNewTopicDot => !isNestedView && !seen;
+  bool get showNewRepliesDot => isNestedView && hasNewReplies;
 
   /// Where Discourse's own topic-list links send the reader.
   ///
@@ -112,6 +142,9 @@ class Topic with Storable<Topic> {
   /// at the beginning. Zero means an older or partial payload did not carry
   /// enough information to choose a position.
   int? get lastUnreadPostNumber {
+    // Nested topics route to the conversation root. A numbered URL would open
+    // them through the flat post-stream semantics core explicitly avoids.
+    if (isNestedView) return null;
     if (highestPostNumber <= 0) return null;
     final next = (lastReadPostNumber ?? 0) + 1;
     return next > highestPostNumber ? highestPostNumber : next;
@@ -163,6 +196,8 @@ class Topic with Storable<Topic> {
     unreadPosts: markRead ? 0 : unreadPosts,
     newPosts: markRead ? 0 : newPosts,
     seen: markRead ? true : seen,
+    isNestedView: isNestedView,
+    hasNewReplies: markRead ? false : hasNewReplies,
     lastReadPostNumber: markRead && this.highestPostNumber > 0
         ? this.highestPostNumber
         : lastReadPostNumber ?? this.lastReadPostNumber,
@@ -191,6 +226,8 @@ class Topic with Storable<Topic> {
           other.unreadPosts == unreadPosts &&
           other.newPosts == newPosts &&
           other.seen == seen &&
+          other.isNestedView == isNestedView &&
+          other.hasNewReplies == hasNewReplies &&
           other.lastReadPostNumber == lastReadPostNumber &&
           other.highestPostNumber == highestPostNumber &&
           listEquals(other.tags, tags) &&
@@ -212,6 +249,8 @@ class Topic with Storable<Topic> {
     unreadPosts,
     newPosts,
     seen,
+    isNestedView,
+    hasNewReplies,
     lastReadPostNumber,
     highestPostNumber,
     Object.hashAll(tags),

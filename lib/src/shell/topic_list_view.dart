@@ -458,10 +458,13 @@ class _TopicRowBody extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyLarge?.copyWith(
-                            // Unread topics read heavier, the way the web does.
-                            fontWeight: topic.hasUnread
-                                ? FontWeight.w600
-                                : FontWeight.w400,
+                            // Core dims only rows whose last visible post has
+                            // been read. Tracking level controls the badge, not
+                            // the title treatment.
+                            color: topic.visited
+                                ? theme.colorScheme.onSurfaceVariant
+                                : theme.colorScheme.onSurface,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
@@ -492,9 +495,23 @@ class _TopicRowBody extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             _Posters(avatars: topic.posterAvatars),
-            if (topic.hasUnread) ...[
+            if (topic.showUnreadCount) ...[
               const SizedBox(width: 8),
-              _UnreadPill(count: topic.unreadPosts + topic.newPosts),
+              _UnreadPill(count: topic.unreadCount),
+            ],
+            if (topic.showNewTopicDot) ...[
+              const SizedBox(width: 8),
+              const _TopicStateDot(
+                key: ValueKey('new-topic-dot'),
+                label: 'New topic',
+              ),
+            ],
+            if (topic.showNewRepliesDot) ...[
+              const SizedBox(width: 8),
+              const _TopicStateDot(
+                key: ValueKey('new-replies-dot'),
+                label: 'Topic has new replies',
+              ),
             ],
           ],
         ),
@@ -676,6 +693,29 @@ class _UnreadPill extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Core uses the same tertiary-coloured dot for a topic the reader has never
+/// opened and for new replies in a nested topic. The model decides which of
+/// those meanings applies; this widget only paints and names it.
+class _TopicStateDot extends StatelessWidget {
+  const _TopicStateDot({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    label: label,
+    child: Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary,
+        shape: BoxShape.circle,
+      ),
+    ),
+  );
 }
 
 class _Message extends StatelessWidget {
