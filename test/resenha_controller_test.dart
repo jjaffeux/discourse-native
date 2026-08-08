@@ -381,6 +381,35 @@ void main() {
   );
 
   test(
+    'a roster removal from another client tears the local call down',
+    () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final media = mediaFactory.sessions.single;
+
+      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+        'type': 'participants',
+        'participants': const <Object?>[],
+      });
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.call, isNull);
+      expect(media.disposeCount, 1);
+      expect(systemCall.ends, 1);
+      expect(
+        transport.pluginWrites.where(
+          (write) => write.path.endsWith('/leave.json'),
+        ),
+        isEmpty,
+      );
+    },
+  );
+
+  test(
     'kicks, room destruction, and account removal tear media down',
     () async {
       Future<void> join() async {

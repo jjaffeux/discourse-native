@@ -396,6 +396,11 @@ final class ResenhaController extends ChangeNotifier {
     final call = _call;
     if (call?.siteUrl == siteUrl && call?.room.id == roomId) {
       final userId = userIdFor(siteUrl);
+      if (userId != null &&
+          !participants.any((participant) => participant.id == userId)) {
+        unawaited(_leave(notifyServer: false, clearImmediately: true));
+        return;
+      }
       var canPublishAudio = true;
       if (userId != null) {
         canPublishAudio = _canPublishAudio(call!.room, participants, userId);
@@ -727,13 +732,22 @@ final class ResenhaController extends ChangeNotifier {
     }
   }
 
-  Future<void> leave({bool notifyServer = true}) async {
+  Future<void> leave({bool notifyServer = true}) =>
+      _leave(notifyServer: notifyServer);
+
+  Future<void> _leave({
+    required bool notifyServer,
+    bool clearImmediately = false,
+  }) async {
     final call = _call;
     if (call == null) return;
     _joinRevision = Object();
     _heartbeat?.cancel();
     _heartbeat = null;
-    _call = call.copyWith(status: ResenhaCallStatus.leaving);
+    _call = clearImmediately
+        ? null
+        : call.copyWith(status: ResenhaCallStatus.leaving);
+    if (clearImmediately) onCallSiteChanged();
     notifyListeners();
     if (notifyServer) {
       try {
@@ -752,8 +766,10 @@ final class ResenhaController extends ChangeNotifier {
     call.media.removeListener(_mediaChanged);
     await call.media.dispose();
     await systemCall.end();
-    if (identical(_call?.media, call.media)) _call = null;
-    onCallSiteChanged();
+    if (identical(_call?.media, call.media)) {
+      _call = null;
+      onCallSiteChanged();
+    }
     if (!_disposed) notifyListeners();
   }
 
