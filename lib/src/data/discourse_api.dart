@@ -336,6 +336,17 @@ class DiscourseApi
         for (final group in jsonObjects(user['groups']))
           ?jsonText(group['name']),
       ]),
+      // Chat registers these on CurrentUserSerializer. `has_chat_enabled` is
+      // emitted only when true, so an absent key in a fresh session answer is
+      // an authoritative false rather than an unknown capability.
+      hasChatEnabled: user['has_chat_enabled'] == true,
+      chatHeaderIndicatorPreference: ChatHeaderIndicatorPreference.read(
+        jsonObject(user['user_option'])['chat_header_indicator_preference'],
+      ),
+      doNotDisturbUntil: jsonDate(user['do_not_disturb_until']),
+      lastChatChannelId: jsonIntOrNull(
+        jsonObject(user['custom_fields'])['last_chat_channel_id'],
+      ),
     );
   }
 

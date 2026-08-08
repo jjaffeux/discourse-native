@@ -24,6 +24,8 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
@@ -6581,22 +6583,33 @@ void main() {
       tracking: ChatTracking(unreadCount: unread, mentionCount: mentions),
     );
 
-    ChatChannel dm(int id, {String title = 'hawk', List<ChatUser>? users}) =>
-        ChatChannel(
-          id: id,
-          title: title,
-          kind: ChatChannelKind.directMessage,
-          users:
-              users ??
-              const [
-                ChatUser(
-                  id: 2,
-                  username: 'hawk',
-                  avatarUrl: '$site/user_avatar/h/90.png',
-                ),
-              ],
-          membership: const ChatMembership(following: true),
-        );
+    ChatChannel dm(
+      int id, {
+      String title = 'hawk',
+      List<ChatUser>? users,
+      int unread = 0,
+      int mentions = 0,
+      int watchedThreads = 0,
+    }) => ChatChannel(
+      id: id,
+      title: title,
+      kind: ChatChannelKind.directMessage,
+      users:
+          users ??
+          const [
+            ChatUser(
+              id: 2,
+              username: 'hawk',
+              avatarUrl: '$site/user_avatar/h/90.png',
+            ),
+          ],
+      membership: const ChatMembership(following: true),
+      tracking: ChatTracking(
+        unreadCount: unread,
+        mentionCount: mentions,
+        watchedThreadsUnreadCount: watchedThreads,
+      ),
+    );
 
     ChatMessage msg(
       int id, {
@@ -6646,6 +6659,7 @@ void main() {
       FakeDiscourseApi? api,
       Size size = desktop,
       Completer<void>? channelGate,
+      DiscourseUser user = me,
     }) async {
       await pumpShell(
         tester,
@@ -6654,12 +6668,13 @@ void main() {
             api ??
             FakeDiscourseApi(
               totals: totals,
+              user: user,
               chatChannelsBySite: {site: (public: public, direct: direct)},
               chatChannelGate: channelGate,
               chatMessagesByKey: messages,
             ),
         instances: [
-          instance('meta.discourse.org', title: 'Meta').copyWith(user: me),
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: user),
         ],
         authenticator: FakeAuthenticator()..keys[site] = 'meta-key',
       );
@@ -6677,6 +6692,131 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 600));
     }
+
+    group('in the header', () {
+      final shortcut = find.byKey(ChatHeaderButton.buttonKey);
+      final dot = find.byKey(ChatHeaderButton.unreadDotKey);
+      final urgent = find.byKey(ChatHeaderButton.urgentBadgeKey);
+
+      testWidgets('is shown only for an account allowed to chat', (
+        tester,
+      ) async {
+        await pumpChat(tester);
+        expect(shortcut, findsOneWidget);
+
+        await pumpChat(tester, totals: withoutChat);
+        expect(shortcut, findsNothing);
+
+        await pumpChat(
+          tester,
+          user: const DiscourseUser(
+            id: 7,
+            username: 'joffreyj',
+            hasChatEnabled: false,
+          ),
+        );
+        expect(shortcut, findsNothing);
+      });
+
+      testWidgets('draws a quiet dot for ordinary public activity', (
+        tester,
+      ) async {
+        await pumpChat(tester, public: [channel(9, unread: 42)]);
+
+        expect(dot, findsOneWidget);
+        expect(urgent, findsNothing);
+        expect(find.text('42'), findsNothing);
+      });
+
+      testWidgets('draws the aggregate urgent count and caps it at 99+', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9, mentions: 2)],
+          direct: [dm(12, unread: 98, watchedThreads: 1)],
+        );
+
+        expect(urgent, findsOneWidget);
+        expect(find.text('99+'), findsOneWidget);
+        expect(dot, findsNothing);
+      });
+
+      testWidgets('honours the account’s indicator preference', (tester) async {
+        await pumpChat(
+          tester,
+          public: [channel(9, unread: 4)],
+          user: const DiscourseUser(
+            id: 7,
+            username: 'joffreyj',
+            chatHeaderIndicatorPreference:
+                ChatHeaderIndicatorPreference.directMessagesAndMentions,
+          ),
+        );
+
+        expect(shortcut, findsOneWidget);
+        expect(dot, findsNothing);
+        expect(urgent, findsNothing);
+      });
+
+      testWidgets('suppresses every indicator during Do Not Disturb', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          direct: [dm(12, unread: 3)],
+          user: DiscourseUser(
+            id: 7,
+            username: 'joffreyj',
+            doNotDisturbUntil: DateTime.now().add(const Duration(days: 1)),
+          ),
+        );
+
+        expect(shortcut, findsOneWidget);
+        expect(dot, findsNothing);
+        expect(urgent, findsNothing);
+      });
+
+      testWidgets('opens the server’s last chat channel', (tester) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          direct: [dm(12)],
+          messages: {key(9): page(const [])},
+          user: const DiscourseUser(
+            id: 7,
+            username: 'joffreyj',
+            lastChatChannelId: 9,
+          ),
+        );
+
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+
+        final shell = ShellScope.read(
+          tester.element(find.byType(ChatChannelView)),
+        );
+        expect(shell.currentContent?.id, ChatChannel.routeId(9));
+      });
+
+      testWidgets('disappears while chat is active on a compact shell', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          size: phone,
+          public: [channel(9)],
+          messages: {key(9): page(const [])},
+        );
+        expect(shortcut, findsOneWidget);
+
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ChatChannelView), findsOneWidget);
+        expect(shortcut, findsNothing);
+      });
+    });
 
     group('in the sidebar', () {
       testWidgets('draws nothing on a site whose totals never mentioned chat', (

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../plugins/chat/chat_header_button.dart';
 import 'forum_search.dart';
 import 'user_menu_button.dart';
 
@@ -52,6 +53,7 @@ class ShellTitleBar extends StatelessWidget {
                 ),
               ),
             ),
+            ChatHeaderButton(ringColor: surface),
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: UserMenuButton(size: 26, ringColor: surface),

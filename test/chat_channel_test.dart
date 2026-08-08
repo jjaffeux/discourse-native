@@ -71,6 +71,7 @@ Map<String, dynamic> payload({
   List<Map<String, dynamic>> public = const [],
   List<Map<String, dynamic>> direct = const [],
   Map<String, dynamic>? tracking,
+  Map<String, dynamic>? unreadThreads,
 }) => {
   'public_channels': public,
   'direct_message_channels': direct,
@@ -78,6 +79,7 @@ Map<String, dynamic> payload({
     'channel_tracking': tracking ?? const <String, dynamic>{},
     'thread_tracking': <String, dynamic>{},
   },
+  'unread_thread_overview': unreadThreads ?? const <String, dynamic>{},
   'meta': {'message_bus_last_ids': <String, dynamic>{}},
 };
 
@@ -243,6 +245,23 @@ void main() {
 
       expect(channels.public.single.tracking.unreadCount, 3);
       expect(channels.public.single.tracking.mentionCount, 1);
+    });
+
+    test('counts the unread threads reported separately for each channel', () {
+      final channels = ChatChannel.parse(
+        payload(
+          public: [categoryChannel()],
+          unreadThreads: {
+            '9': {
+              '31': '2026-08-08T10:00:00.000Z',
+              '32': '2026-08-08T11:00:00.000Z',
+            },
+          },
+        ),
+        site,
+      );
+
+      expect(channels.public.single.unreadThreadCount, 2);
     });
 
     test(
