@@ -97,6 +97,46 @@ void main() {
       expect(parsed(lastRead: null, highest: 10).lastUnreadPostNumber, 1);
     });
 
+    test('topic lists preserve core topic-row state semantics', () {
+      final topics = TopicList.fromJson(const {
+        'topic_list': {
+          'topics': [
+            {
+              'id': 7,
+              'unread_posts': 3,
+              'new_posts': 3,
+              'unseen': true,
+              'last_read_post_number': 2,
+              'highest_post_number': 5,
+            },
+            {
+              'id': 8,
+              'is_nested_view': true,
+              'has_new_replies': true,
+              'unread_posts': 4,
+              'unseen': true,
+              'last_read_post_number': 5,
+              'highest_post_number': 5,
+            },
+          ],
+        },
+      }, siteUrl).topics;
+
+      final flat = topics.first;
+      expect(flat.unreadCount, 3, reason: 'mirrored fields are not added');
+      expect(flat.visited, isFalse);
+      expect(flat.showUnreadCount, isTrue);
+      expect(flat.showNewTopicDot, isTrue);
+      expect(flat.showNewRepliesDot, isFalse);
+
+      final nested = topics.last;
+      expect(nested.visited, isTrue);
+      expect(nested.showUnreadCount, isFalse);
+      expect(nested.showNewTopicDot, isFalse);
+      expect(nested.showNewRepliesDot, isTrue);
+      expect(nested.lastUnreadPostNumber, isNull);
+    });
+
     test('free-form notification and bookmark data default safely', () {
       final notification = DiscourseNotification.fromJson({
         'id': 1,
@@ -265,6 +305,23 @@ void main() {
 
       expect(read.hasUnread, isFalse);
       expect(read.tags, topic.tags);
+    });
+
+    test('marking a nested topic read clears its new-replies signal', () {
+      const topic = Topic(
+        id: 7,
+        title: 'A topic',
+        slug: 'a-topic',
+        isNestedView: true,
+        hasNewReplies: true,
+        highestPostNumber: 2,
+      );
+
+      final read = topic.copyWith(markRead: true);
+
+      expect(read.hasNewReplies, isFalse);
+      expect(read.showNewRepliesDot, isFalse);
+      expect(read.visited, isTrue);
     });
 
     test('unchanged user and reaction lists do not wake their watchers', () {
