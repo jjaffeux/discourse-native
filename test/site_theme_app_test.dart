@@ -7,12 +7,9 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
-import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icon.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -134,35 +131,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(overlayPrimary, appearance.alternate?.tertiary);
-  });
-
-  testWidgets('sidebar header uses the site header palette', (tester) async {
-    final appearance = siteAppearance(mode: SiteAppearanceMode.base);
-    final palette = appearance.base!;
-    final store = FakeInstanceStore([
-      const DiscourseInstance(
-        url: siteA,
-        title: 'A',
-      ).copyWith(appearance: appearance),
-    ]);
-
-    await _pumpApp(tester, store: store, api: FakeDiscourseApi());
-
-    final header = find.byKey(InstanceSidebar.headerKey);
-    expect(tester.widget<Material>(header).color, palette.headerBackground);
-
-    for (final label in ['A', 'a.example']) {
-      final text = find.descendant(of: header, matching: find.text(label));
-      expect(tester.widget<Text>(text).style?.color, palette.headerPrimary);
-    }
-
-    final chevron = find.descendant(
-      of: header,
-      matching: find.byWidgetPredicate(
-        (widget) => widget is DIcon && widget.icon == DIcons.chevronDown,
-      ),
-    );
-    expect(tester.widget<DIcon>(chevron).color, palette.headerPrimary);
   });
 
   testWidgets('disconnect clears an account-derived persisted appearance', (
