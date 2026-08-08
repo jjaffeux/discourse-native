@@ -4,6 +4,46 @@ import '../data/store.dart';
 import 'json.dart';
 import 'post.dart' show resolveAvatarUrl;
 
+/// One tag attached to a topic-list row.
+///
+/// Current Discourse sites send an object so a client can build the canonical
+/// `/tag/{slug}/{id}` link. Older sites sent only the name, which is why [id]
+/// and [slug] are optional rather than guessed here.
+@immutable
+class TopicTag {
+  const TopicTag({required this.name, this.id, this.slug});
+
+  static TopicTag? parse(Object? value) {
+    if (value is String) {
+      final name = jsonText(value);
+      return name == null ? null : TopicTag(name: name);
+    }
+    if (value is! Map<String, dynamic>) return null;
+
+    final name = jsonText(value['name']);
+    if (name == null) return null;
+    return TopicTag(
+      id: jsonIntOrNull(value['id']),
+      name: name,
+      slug: jsonText(value['slug']),
+    );
+  }
+
+  final int? id;
+  final String name;
+  final String? slug;
+
+  @override
+  bool operator ==(Object other) =>
+      other is TopicTag &&
+      other.id == id &&
+      other.name == name &&
+      other.slug == slug;
+
+  @override
+  int get hashCode => Object.hash(id, name, slug);
+}
+
 /// A row in a topic list.
 ///
 /// Unread state rides along with the list rather than needing its own request:
@@ -25,6 +65,7 @@ class Topic with Storable<Topic> {
     this.unreadPosts = 0,
     this.newPosts = 0,
     this.seen = true,
+    this.tags = const [],
     this.posterAvatars = const [],
   });
 
@@ -58,6 +99,9 @@ class Topic with Storable<Topic> {
       unreadPosts: jsonInt(json['unread_posts']),
       newPosts: jsonInt(json['new_posts']),
       seen: json['unseen'] != true,
+      tags: List.unmodifiable(
+        jsonArray(json['tags']).map(TopicTag.parse).whereType<TopicTag>(),
+      ),
       posterAvatars: posters,
     );
   }
@@ -80,6 +124,9 @@ class Topic with Storable<Topic> {
 
   /// False for a topic the user has never opened.
   final bool seen;
+
+  /// Already filtered to what the current user may see, in server order.
+  final List<TopicTag> tags;
 
   final List<String> posterAvatars;
 
@@ -109,6 +156,7 @@ class Topic with Storable<Topic> {
   Topic copyWith({
     String? title,
     int? postsCount,
+    List<TopicTag>? tags,
     List<String>? posterAvatars,
     bool markRead = false,
   }) => Topic(
@@ -126,6 +174,7 @@ class Topic with Storable<Topic> {
     unreadPosts: markRead ? 0 : unreadPosts,
     newPosts: markRead ? 0 : newPosts,
     seen: markRead ? true : seen,
+    tags: tags == null ? this.tags : List.unmodifiable(tags),
     posterAvatars: posterAvatars == null
         ? this.posterAvatars
         : List.unmodifiable(posterAvatars),
@@ -149,6 +198,7 @@ class Topic with Storable<Topic> {
           other.unreadPosts == unreadPosts &&
           other.newPosts == newPosts &&
           other.seen == seen &&
+          listEquals(other.tags, tags) &&
           listEquals(other.posterAvatars, posterAvatars);
 
   @override
@@ -167,6 +217,7 @@ class Topic with Storable<Topic> {
     unreadPosts,
     newPosts,
     seen,
+    Object.hashAll(tags),
     Object.hashAll(posterAvatars),
   ]);
 }

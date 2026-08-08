@@ -463,24 +463,23 @@ class _TopicRowBody extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Row(
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      if (category case final category?) ...[
+                      if (category case final category?)
                         _CategoryBadge(category: category),
-                        const SizedBox(width: 10),
-                      ],
+                      if (topic.tags.isNotEmpty) _TopicTags(tags: topic.tags),
                       _Stat(icon: DIcons.reply, value: topic.replyCount),
-                      const SizedBox(width: 10),
                       _Stat(icon: DIcons.farEye, value: topic.views),
-                      if (topic.bumpedAt case final bumpedAt?) ...[
-                        const SizedBox(width: 10),
+                      if (topic.bumpedAt case final bumpedAt?)
                         Text(
                           relativeTime(bumpedAt),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ],
@@ -527,6 +526,48 @@ class _CategoryBadge extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Core's default `simple` tag style: names separated by commas.
+///
+/// Each tag is its own wrapping unit, so a list breaks between tags instead of
+/// through a name. Core caps a tag at 18em for the same reason this caps it at
+/// 200 logical pixels: a pathological name must not make the row overflow.
+class _TopicTags extends StatelessWidget {
+  const _TopicTags({required this.tags});
+
+  final List<TopicTag> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+
+    return Semantics(
+      container: true,
+      label: 'Tags: ${tags.map((tag) => tag.name).join(', ')}',
+      excludeSemantics: true,
+      child: Wrap(
+        spacing: 3,
+        runSpacing: 2,
+        children: [
+          for (var index = 0; index < tags.length; index++)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 200),
+              child: Text(
+                '${tags[index].name}${index == tags.length - 1 ? '' : ','}',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: style,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
