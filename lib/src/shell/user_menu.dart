@@ -15,7 +15,11 @@ import 'shell_scope.dart';
 import 'shell_sheet.dart';
 import 'user_menu_message.dart';
 
-typedef _UserMenuPanelSnapshot = ({String? siteUrl, String? host});
+typedef _UserMenuPanelSnapshot = ({
+  String? siteUrl,
+  String? host,
+  int draftCount,
+});
 typedef _SectionListSnapshot = ({
   ShellController controller,
   String? siteUrl,
@@ -80,13 +84,16 @@ class UserMenuSection {
 /// anything, which is why it carries no callback.
 @immutable
 class UserMenuRow {
-  const UserMenuRow(this.icon, this.title, {this.detail});
+  const UserMenuRow(this.icon, this.title, {this.id, this.detail});
 
   final DIconData icon;
   final String title;
+  final String? id;
 
   /// Trailing text, such as a count.
   final String? detail;
+
+  bool get isDrafts => id == 'drafts';
 }
 
 /// Results a section can hand back to whatever opened it.
@@ -175,7 +182,7 @@ List<UserMenuSection> userMenuSections(NotificationTotals? totals) {
         UserMenuRow(DIcons.toggleOff, 'Pause notifications'),
         UserMenuRow(DIcons.user, 'Summary'),
         UserMenuRow(DIcons.list, 'Activity'),
-        UserMenuRow(DIcons.pencil, 'Drafts', detail: '3'),
+        UserMenuRow(DIcons.pencil, 'Drafts', id: 'drafts'),
         UserMenuRow(DIcons.gear, 'Preferences'),
       ],
     ),
@@ -214,7 +221,11 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
   Widget build(BuildContext context) => ShellSelector<_UserMenuPanelSnapshot>(
     select: (controller) {
       final instance = controller.currentInstance;
-      return (siteUrl: instance?.url, host: instance?.host);
+      return (
+        siteUrl: instance?.url,
+        host: instance?.host,
+        draftCount: instance?.user?.draftCount ?? 0,
+      );
     },
     builder: (context, menu, _) {
       final theme = Theme.of(context);
@@ -419,14 +430,30 @@ class _SectionBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final siteUrl = this.siteUrl;
+    final controller = ShellScope.read(context);
 
-    final rows = [
+    List<Widget> rows() => [
       if (section.isNotifications && siteUrl != null)
         NotificationSection(siteUrl: siteUrl, onOpened: onDismiss)
       else if (section.isBookmarks && siteUrl != null)
         BookmarkSection(siteUrl: siteUrl, onOpened: onDismiss)
       else
-        for (final row in section.rows) _RowTile(row: row),
+        for (final row in section.rows)
+          _RowTile(
+            row: row,
+            detail: row.isDrafts && siteUrl != null
+                ? switch (controller.draftCountFor(siteUrl)) {
+                    final count when count > 0 => '$count',
+                    _ => null,
+                  }
+                : row.detail,
+            onTap: row.isDrafts && siteUrl != null
+                ? () {
+                    onDismiss();
+                    controller.openDrafts(siteUrl);
+                  }
+                : null,
+          ),
       if (section.isProfile) ...[
         Divider(color: theme.shell.divider, height: 17),
         _DisconnectTile(host: host, onTap: onDisconnect),
@@ -439,10 +466,13 @@ class _SectionBody extends StatelessWidget {
       children: [
         if (showHeader) _SectionHeader(section: section),
         Flexible(
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            children: rows,
+          child: ListenableBuilder(
+            listenable: controller.draftList,
+            builder: (context, _) => ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              children: rows(),
+            ),
           ),
         ),
       ],
@@ -487,41 +517,47 @@ class _SectionHeader extends StatelessWidget {
 /// A stand-in row. Nothing happens when it is tapped, and it says so by being
 /// the one color in the shell reserved for what is not built yet.
 class _RowTile extends StatelessWidget {
-  const _RowTile({required this.row});
+  const _RowTile({required this.row, this.detail, this.onTap});
 
   final UserMenuRow row;
+  final String? detail;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = theme.shell.placeholder;
+    final color = onTap == null ? theme.shell.placeholder : null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Row(
-          children: [
-            DIcon(
-              row.icon,
-              size: 18,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                row.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(color: color),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            children: [
+              DIcon(
+                row.icon,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-            ),
-            if (row.detail case final detail?)
-              Text(
-                detail,
-                style: theme.textTheme.labelMedium?.copyWith(color: color),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  row.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: color),
+                ),
               ),
-          ],
+              if (detail case final detail?)
+                Text(
+                  detail,
+                  style: theme.textTheme.labelMedium?.copyWith(color: color),
+                ),
+            ],
+          ),
         ),
       ),
     );

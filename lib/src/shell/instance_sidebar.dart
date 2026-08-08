@@ -17,6 +17,7 @@ typedef _SidebarSnapshot = ({
   String? siteUrl,
   String? name,
   String? destinationId,
+  int draftCount,
   List<SidebarSection> sections,
 });
 
@@ -39,6 +40,7 @@ class InstanceSidebar extends StatelessWidget {
         siteUrl: instance?.url,
         name: instance?.title,
         destinationId: controller.destinationId,
+        draftCount: instance?.user?.draftCount ?? 0,
         sections: instance?.sections ?? const <SidebarSection>[],
       );
     },
@@ -62,7 +64,10 @@ class InstanceSidebar extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 8),
                   children: [
                     ListenableBuilder(
-                      listenable: controller.accountActivity.totalsListenable,
+                      listenable: Listenable.merge([
+                        controller.accountActivity.totalsListenable,
+                        controller.draftList,
+                      ]),
                       builder: (context, _) => Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [

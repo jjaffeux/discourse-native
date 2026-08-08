@@ -37,6 +37,7 @@ import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../models/topic_link.dart';
 import '../models/user_card.dart';
+import '../models/user_draft.dart';
 import '../plugins/chat/chat_controller.dart';
 import '../plugins/poll/poll.dart';
 import '../plugins/reactions/reaction.dart';
@@ -50,6 +51,7 @@ import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
 import 'composer_pills.dart';
 import 'composer_triggers.dart';
+import 'draft_list_controller.dart';
 import 'site_presentation_controller.dart';
 import 'site_url.dart';
 import 'update_controller.dart';
@@ -192,6 +194,13 @@ class ShellController extends FrameSafeNotifier {
         lifecycle: lifecycle,
         onTotalsLoaded: _onTotalsLoaded,
       );
+
+  /// The connected account's server-side drafts for the full-page destination.
+  late final DraftListController draftList = DraftListController(
+    api: api,
+    credentials: authenticator,
+    lifecycle: lifecycle,
+  );
 
   /// Who reacted to what, on a site that has the reactions plugin.
   ///
@@ -543,6 +552,9 @@ class ShellController extends FrameSafeNotifier {
   ///
   /// It comes from the one totals call rather than a request per section.
   int sidebarBadgeFor(String destinationId) {
+    if (destinationId == 'drafts') {
+      return draftCountFor(currentInstance?.url);
+    }
     final totals = currentTotals;
     if (totals == null) return 0;
 
@@ -550,6 +562,13 @@ class ShellController extends FrameSafeNotifier {
       'messages' => totals.unreadPersonalMessages,
       _ => 0,
     };
+  }
+
+  int draftCountFor(String? siteUrl) {
+    if (siteUrl == null) return 0;
+    final feed = draftList.feedFor(siteUrl);
+    if (feed.totalCount case final count?) return count;
+    return _instanceAt(siteUrl)?.user?.draftCount ?? 0;
   }
 
   /// Refreshes counters for every connected site, in parallel.
@@ -4726,6 +4745,7 @@ class ShellController extends FrameSafeNotifier {
     }
 
     accountActivity.forget(siteUrl);
+    draftList.forget(siteUrl);
     store.forget(siteUrl);
 
     _likersLoading.removeWhere((key) => key.startsWith('$siteUrl~'));
@@ -4830,6 +4850,75 @@ class ShellController extends FrameSafeNotifier {
     unawaited(loadFeed(destination.id, force: refresh));
   }
 
+  /// Opens the Drafts destination for [siteUrl], including from a profile menu
+  /// that stayed open while another site became selected.
+  void openDrafts(String siteUrl) {
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0) return;
+    if (index != _instanceIndex) selectInstance(index);
+
+    final instance = _instances[index];
+    for (final section in instance.sections) {
+      for (final destination in section.destinations) {
+        if (destination.id == 'drafts') {
+          selectDestination(destination);
+          return;
+        }
+      }
+    }
+  }
+
+  /// Restores a draft into the composer mode this client supports.
+  Future<void> resumeDraft(String siteUrl, UserDraft draft) async {
+    if (!draft.canResume) return;
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0) return;
+    if (index != _instanceIndex) selectInstance(index);
+    final instance = currentInstance;
+    if (instance == null || instance.url != siteUrl) return;
+
+    if (draft.key == ComposerDraft.newTopicDraftKey) {
+      final destination = instance.defaultDestination;
+      selectDestination(destination);
+      await loadFeed(destination.id);
+      if (currentInstance?.url != siteUrl || destinationId != destination.id) {
+        return;
+      }
+      await openNewTopic();
+      final composer = _composer;
+      if (composer == null || composer.target.draftKey != draft.key) return;
+      composer
+        ..draftSequence = draft.sequence
+        ..restore(draft.data!);
+      _draftSequences[_draftKey(siteUrl, draft.key)] = draft.sequence;
+      return;
+    }
+
+    final topicId = draft.topicId;
+    if (topicId == null) return;
+    pushContent(
+      ContentRoute.topic(
+        topicId: topicId,
+        slug: draft.slug ?? '',
+        title: draft.title ?? draft.displayTitle,
+      ),
+    );
+    await loadTopic(topicId, draft.slug ?? '');
+    if (currentInstance?.url != siteUrl || currentContent?.topicId != topicId) {
+      return;
+    }
+    openReply(
+      replyToPostNumber: draft.data?.replyToPostNumber,
+      replyToUsername: draft.data?.replyToUsername,
+    );
+    final composer = _composer;
+    if (composer == null || composer.target.draftKey != draft.key) return;
+    composer
+      ..draftSequence = draft.sequence
+      ..restore(draft.data!);
+    _draftSequences[_draftKey(siteUrl, draft.key)] = draft.sequence;
+  }
+
   /// Replaces the main region with something deeper, keeping a way back.
   void pushContent(ContentRoute route) {
     _contentStack.add(route);
@@ -4905,6 +4994,7 @@ class ShellController extends FrameSafeNotifier {
     }
     updates.dispose();
     accountActivity.dispose();
+    draftList.dispose();
     reactions.dispose();
     chat.dispose();
     resenha.dispose();

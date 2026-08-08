@@ -21,6 +21,7 @@ import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
 import '../models/user_card.dart';
+import '../models/user_draft.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
 import '../plugins/poll/poll.dart';
@@ -116,6 +117,7 @@ class WriteException implements Exception, DiagnosticErrorCause {
 class DiscourseApi
     implements
         AccountActivityApi,
+        DraftsApi,
         ChatApi,
         ReactionsApi,
         PollsApi,
@@ -317,6 +319,7 @@ class DiscourseApi
       id: jsonIntOrNull(user['id']),
       name: jsonText(user['name']),
       avatarUrl: _avatarUrl(jsonText(user['avatar_template']), siteUrl),
+      draftCount: jsonInt(user['draft_count']),
       // Plugin serializers omit can_create_poll when Poll is unavailable.
       // Preserve that distinction so the composer never guesses capability.
       canCreatePoll: user.containsKey('can_create_poll')
@@ -1493,6 +1496,51 @@ class DiscourseApi
         _ => null,
       },
       sequence: jsonIntOrNull(body['draft_sequence']) ?? 0,
+    );
+  }
+
+  /// The connected account's drafts, newest first.
+  @override
+  Future<List<UserDraft>> userDrafts({
+    required String siteUrl,
+    required String apiKey,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  }) async {
+    final url = Uri.parse(
+      '$siteUrl/drafts.json',
+    ).replace(queryParameters: {'offset': '$offset', 'limit': '$limit'});
+    final response = await _get(
+      url,
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return List.unmodifiable(
+      jsonObjects(
+        body['drafts'],
+      ).map(UserDraft.fromJson).where((draft) => draft.key.isNotEmpty),
+    );
+  }
+
+  /// Permanently removes one server draft at the sequence the list returned.
+  @override
+  Future<void> deleteUserDraft({
+    required String siteUrl,
+    required String apiKey,
+    required String draftKey,
+    required int sequence,
+    String? clientId,
+  }) async {
+    final encoded = Uri.encodeComponent(draftKey);
+    await _write(
+      Uri.parse('$siteUrl/drafts/$encoded.json?sequence=$sequence'),
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
     );
   }
 

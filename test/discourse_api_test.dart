@@ -2340,6 +2340,90 @@ void _writeGroups() {
     });
   });
 
+  group('user drafts', () {
+    test(
+      'reads the current account draft count for navigation badges',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'current_user': {'id': 7, 'username': 'sam', 'draft_count': 3},
+              }),
+              200,
+            ),
+          ),
+        );
+
+        final user = await api.currentUser(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+        );
+
+        expect(user.draftCount, 3);
+      },
+    );
+
+    test('reads a page of portable composer drafts', () async {
+      late Uri asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          return http.Response(
+            jsonEncode({
+              'drafts': [
+                {
+                  'created_at': '2026-08-08T17:30:00.000Z',
+                  'draft_key': 'topic_12',
+                  'sequence': 4,
+                  'data': '{"reply":"Half a thought","action":"reply"}',
+                  'topic_id': 12,
+                  'title': 'Native drafts',
+                  'slug': 'native-drafts',
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final drafts = await api.userDrafts(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        offset: 30,
+        limit: 15,
+      );
+
+      expect(asked.path, '/drafts.json');
+      expect(asked.queryParameters, {'offset': '30', 'limit': '15'});
+      expect(drafts.single.key, 'topic_12');
+      expect(drafts.single.data?.reply, 'Half a thought');
+      expect(drafts.single.displayTitle, 'Native drafts');
+    });
+
+    test('deletes the named draft at its current sequence', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.deleteUserDraft(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        draftKey: 'topic 12',
+        sequence: 7,
+      );
+
+      expect(sent.method, 'DELETE');
+      expect(sent.url.path, '/drafts/topic%2012.json');
+      expect(sent.url.queryParameters['sequence'], '7');
+    });
+  });
+
   group('createPost', () {
     test('sends raw to /posts.json and reads the created post back', () async {
       late http.Request sent;

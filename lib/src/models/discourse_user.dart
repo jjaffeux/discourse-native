@@ -10,6 +10,7 @@ class DiscourseUser {
     this.id,
     this.name,
     this.avatarUrl,
+    this.draftCount = 0,
     this.canCreatePoll,
     this.staff = false,
     this.groups = const [],
@@ -23,6 +24,7 @@ class DiscourseUser {
     id: jsonIntOrNull(json['id']),
     name: json['name'] as String?,
     avatarUrl: json['avatarUrl'] as String?,
+    draftCount: jsonInt(json['draftCount']),
     // Optional so accounts persisted before Poll support remain readable. A
     // stored value is display state only; ShellController requires a fresh
     // session read before it treats this as a capability.
@@ -41,6 +43,7 @@ class DiscourseUser {
 
   final String? name;
   final String? avatarUrl;
+  final int draftCount;
 
   /// The Poll plugin's session capability. Null means the plugin did not add
   /// it (or this account predates the field), rather than false.
@@ -57,6 +60,7 @@ class DiscourseUser {
     'id': id,
     'name': name,
     'avatarUrl': avatarUrl,
+    'draftCount': draftCount,
     'canCreatePoll': canCreatePoll,
     'staff': staff,
     'groups': groups,
@@ -72,6 +76,7 @@ class DiscourseUser {
       other.id == id &&
       other.name == name &&
       other.avatarUrl == avatarUrl &&
+      other.draftCount == draftCount &&
       other.canCreatePoll == canCreatePoll &&
       other.staff == staff &&
       listEquals(other.groups, groups);
@@ -82,6 +87,7 @@ class DiscourseUser {
     id,
     name,
     avatarUrl,
+    draftCount,
     canCreatePoll,
     staff,
     Object.hashAll(groups),
