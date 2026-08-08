@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
+import 'hashtag.dart';
 import 'shell_scope.dart';
 import 'topic_filter_controller.dart';
 import 'topic_list_view.dart';
@@ -186,7 +187,10 @@ class _TopicFilterPageState extends State<TopicFilterPage> {
                   ),
                   child: child!,
                 ),
-                child: _SuggestionList(filter: filter),
+                child: _SuggestionList(
+                  filter: filter,
+                  categories: widget.categories,
+                ),
               ),
               child: KeyedSubtree(
                 key: _anchorKey,
@@ -242,9 +246,19 @@ class _TopicFilterPageState extends State<TopicFilterPage> {
 }
 
 class _SuggestionList extends StatelessWidget {
-  const _SuggestionList({required this.filter});
+  const _SuggestionList({required this.filter, required this.categories});
 
   final TopicFilterController filter;
+  final List<TopicCategory> categories;
+
+  Color? _parentColor(TopicCategory category) {
+    final parentId = category.parentCategoryId;
+    if (parentId == null) return null;
+    for (final candidate in categories) {
+      if (candidate.id == parentId) return Color(candidate.colorValue);
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -296,13 +310,18 @@ class _SuggestionList extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(9, 9, 12, 9),
                         child: Row(
                           children: [
-                            DIcon(
-                              suggestion.category == null
-                                  ? DIcons.filter
-                                  : DIcons.folder,
-                              size: 16,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                            if (suggestion.category case final category?)
+                              CategorySquare(
+                                color: Color(category.colorValue),
+                                parentColor: _parentColor(category),
+                                size: 16,
+                              )
+                            else
+                              DIcon(
+                                DIcons.filter,
+                                size: 16,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
                             const SizedBox(width: 10),
                             Flexible(
                               child: Text(

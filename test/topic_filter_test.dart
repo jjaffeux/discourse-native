@@ -4,6 +4,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
+import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/topic_filter_controller.dart';
 import 'package:discourse_native/src/shell/topic_filter_page.dart';
@@ -365,9 +366,7 @@ void main() {
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
   });
 
-  testWidgets('categories loaded after the feed become filter suggestions', (
-    tester,
-  ) async {
+  testWidgets('category suggestions use their category badges', (tester) async {
     final api = FakeDiscourseApi(
       feeds: const {'/latest.json': [], '/filter.json': []},
       filterOptionsByPath: const {
@@ -376,11 +375,13 @@ void main() {
         ],
       },
       categoryList: const [
+        TopicCategory(id: 1, name: 'Product', slug: 'product', color: 'FF0000'),
         TopicCategory(
           id: 2,
           name: 'Feature requests',
           slug: 'feature',
           color: '0088CC',
+          parentCategoryId: 1,
         ),
       ],
     );
@@ -395,6 +396,9 @@ void main() {
     await tester.pump();
 
     expect(find.text('Feature requests'), findsOneWidget);
+    final badge = tester.widget<CategorySquare>(find.byType(CategorySquare));
+    expect(badge.color, const Color(0xFF0088CC));
+    expect(badge.parentColor, const Color(0xFFFF0000));
   });
 }
 
