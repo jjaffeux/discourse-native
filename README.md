@@ -290,10 +290,18 @@ binding fails outright on the poll's backoff timer outliving the tree.
 Tapping a row pushes a topic route onto the content stack, so back returns to
 the list — which is not refetched, since feeds are cached.
 
-`/t/{slug}/{id}.json` returns the first twenty posts **plus the ids of every
-post in the topic**, so paging is by id (`/t/{id}/posts.json?post_ids[]=…`)
-rather than by page number. Fetched posts are merged in post-number order, not
-append order.
+Topic-list rows carry `last_read_post_number` and `highest_post_number`. Like
+Discourse's web client, an unread row opens at `last_read_post_number + 1`,
+capped at the highest post; a fully read row opens at its last post. The
+numbered `/t/{slug}/{id}/{post}.json` route returns a twenty-post window around
+that position **plus the ids of every post in the topic**. The reader reveals
+the requested post after the window is laid out, pages forward from the end of
+that window, and offers earlier batches above it.
+
+An unpositioned `/t/{slug}/{id}.json` request still returns the first twenty
+posts. In both cases paging is by id (`/t/{id}/posts.json?post_ids[]=…`) rather
+than by page number. Fetched posts are merged in post-number order, not append
+order.
 
 Post bodies are the `cooked` field — HTML the site already rendered, with its
 markdown, oneboxes, mentions and emoji resolved. `flutter_widget_from_html_core`

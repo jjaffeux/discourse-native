@@ -58,6 +58,37 @@ void main() {
     expect(tester.state<ScrollableState>(vertical.first).position.pixels, 0);
   });
 
+  testWidgets('a numbered topic route reveals that post on first layout', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([site]),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One', postNumber: 12),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+
+    final vertical = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.down,
+    );
+    expect(
+      tester.state<ScrollableState>(vertical.first).position.pixels,
+      greaterThan(0),
+    );
+  });
+
   testWidgets('a queued page request cannot cross a topic switch', (
     tester,
   ) async {
@@ -163,6 +194,49 @@ void main() {
 
     expect(firstApi.postPageTopics, isEmpty);
     expect(secondApi.postPageTopics, isEmpty);
+  });
+
+  test('an around-post window pages in both directions', () async {
+    final site = instance('meta.example');
+    final allPosts = {
+      for (var number = 1; number <= 100; number++)
+        number: Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: '<p>Post $number</p>',
+        ),
+    };
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      postsById: allPosts,
+    );
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (var id = 1; id <= 100; id++) id],
+          postsCount: 100,
+        ),
+      )
+      ..putAll(site.url, [for (var id = 40; id <= 59; id++) allPosts[id]!]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One', postNumber: 45),
+    );
+
+    await controller.loadMorePosts(batchSize: 5);
+    await controller.loadEarlierPosts(batchSize: 5);
+
+    expect(api.postFetches, [
+      [60, 61, 62, 63, 64],
+      [35, 36, 37, 38, 39],
+    ]);
+    expect(controller.currentPostIds, [for (var id = 35; id <= 64; id++) id]);
   });
 }
 

@@ -347,6 +347,7 @@ final class _GatedTopicApi extends FakeDiscourseApi {
     required String siteUrl,
     required String slug,
     required int id,
+    int? postNumber,
     String? apiKey,
     String? clientId,
   }) async {

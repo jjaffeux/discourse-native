@@ -457,6 +457,7 @@ class FakeDiscourseApi implements DiscourseApi {
   final List<String> cardsRequested = [];
 
   final List<int> topicsOpened = [];
+  final List<int?> topicPostNumbersOpened = [];
   final List<List<int>> postFetches = [];
 
   final List<String> feedPaths = [];
@@ -790,10 +791,12 @@ class FakeDiscourseApi implements DiscourseApi {
     required String siteUrl,
     required String slug,
     required int id,
+    int? postNumber,
     String? apiKey,
     String? clientId,
   }) async {
     topicsOpened.add(id);
+    topicPostNumbersOpened.add(postNumber);
     final detail = topics[id];
     if (detail == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);

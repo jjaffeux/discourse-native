@@ -1353,6 +1353,36 @@ void main() {
       expect(renderedText('<p>'), findsNothing);
     });
 
+    testWidgets('an unread row opens at its first unread post', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            const Topic(
+              id: 7,
+              title: 'A real topic',
+              slug: 'a-real-topic',
+              unreadPosts: 5,
+              lastReadPostNumber: 5,
+              highestPostNumber: 10,
+            ),
+          ],
+        },
+        topics: {7: detail()},
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(api.topicPostNumbersOpened, [6]);
+      expect(
+        ShellScope.of(
+          tester.element(find.byType(TopicView)),
+        ).currentContent?.postNumber,
+        6,
+      );
+    });
+
     testWidgets('back returns to the list without refetching it', (
       tester,
     ) async {

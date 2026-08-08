@@ -1918,6 +1918,44 @@ void _feedGroups() {
       expect(paths, ['/t/12.json']);
     });
 
+    test('asks for the window around a requested post', () async {
+      final paths = <String>[];
+      await DiscourseApi(client: serving(paths)).topic(
+        siteUrl: 'https://example.com',
+        slug: 'a-real-topic',
+        id: 12,
+        postNumber: 37,
+      );
+
+      expect(paths, ['/t/a-real-topic/12/37.json']);
+    });
+
+    test('uses an unambiguous query for a slugless requested post', () async {
+      late Uri asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          return http.Response(
+            jsonEncode({
+              'id': 12,
+              'post_stream': {'posts': <Object?>[], 'stream': <Object?>[]},
+            }),
+            200,
+          );
+        }),
+      );
+
+      await api.topic(
+        siteUrl: 'https://example.com',
+        slug: '',
+        id: 12,
+        postNumber: 37,
+      );
+
+      expect(asked.path, '/t/12.json');
+      expect(asked.queryParameters['post_number'], '37');
+    });
+
     test('preserves a failed response status for diagnostics', () async {
       final api = DiscourseApi(
         client: MockClient((_) async => http.Response('', 503)),

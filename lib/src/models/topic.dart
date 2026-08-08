@@ -65,6 +65,8 @@ class Topic with Storable<Topic> {
     this.unreadPosts = 0,
     this.newPosts = 0,
     this.seen = true,
+    this.lastReadPostNumber,
+    this.highestPostNumber = 0,
     this.tags = const [],
     this.posterAvatars = const [],
   });
@@ -99,6 +101,8 @@ class Topic with Storable<Topic> {
       unreadPosts: jsonInt(json['unread_posts']),
       newPosts: jsonInt(json['new_posts']),
       seen: json['unseen'] != true,
+      lastReadPostNumber: jsonIntOrNull(json['last_read_post_number']),
+      highestPostNumber: jsonInt(json['highest_post_number']),
       tags: List.unmodifiable(
         jsonArray(json['tags']).map(TopicTag.parse).whereType<TopicTag>(),
       ),
@@ -125,12 +129,30 @@ class Topic with Storable<Topic> {
   /// False for a topic the user has never opened.
   final bool seen;
 
+  /// The personalized reading position Discourse attaches to topic lists.
+  final int? lastReadPostNumber;
+
+  /// The last post number currently visible to this reader.
+  final int highestPostNumber;
+
   /// Already filtered to what the current user may see, in server order.
   final List<TopicTag> tags;
 
   final List<String> posterAvatars;
 
   bool get hasUnread => unreadPosts > 0 || newPosts > 0;
+
+  /// Where Discourse's own topic-list links send the reader.
+  ///
+  /// An unread topic starts at its first unread post. A topic already read to
+  /// the end starts at its last post, and a topic with no tracking data starts
+  /// at the beginning. Zero means an older or partial payload did not carry
+  /// enough information to choose a position.
+  int? get lastUnreadPostNumber {
+    if (highestPostNumber <= 0) return null;
+    final next = (lastReadPostNumber ?? 0) + 1;
+    return next > highestPostNumber ? highestPostNumber : next;
+  }
 
   /// Canonical path on the site.
   String get path => '/t/$slug/$id';
@@ -156,6 +178,8 @@ class Topic with Storable<Topic> {
   Topic copyWith({
     String? title,
     int? postsCount,
+    int? lastReadPostNumber,
+    int? highestPostNumber,
     List<TopicTag>? tags,
     List<String>? posterAvatars,
     bool markRead = false,
@@ -174,6 +198,10 @@ class Topic with Storable<Topic> {
     unreadPosts: markRead ? 0 : unreadPosts,
     newPosts: markRead ? 0 : newPosts,
     seen: markRead ? true : seen,
+    lastReadPostNumber: markRead && this.highestPostNumber > 0
+        ? this.highestPostNumber
+        : lastReadPostNumber ?? this.lastReadPostNumber,
+    highestPostNumber: highestPostNumber ?? this.highestPostNumber,
     tags: tags == null ? this.tags : List.unmodifiable(tags),
     posterAvatars: posterAvatars == null
         ? this.posterAvatars
@@ -198,6 +226,8 @@ class Topic with Storable<Topic> {
           other.unreadPosts == unreadPosts &&
           other.newPosts == newPosts &&
           other.seen == seen &&
+          other.lastReadPostNumber == lastReadPostNumber &&
+          other.highestPostNumber == highestPostNumber &&
           listEquals(other.tags, tags) &&
           listEquals(other.posterAvatars, posterAvatars);
 
@@ -217,6 +247,8 @@ class Topic with Storable<Topic> {
     unreadPosts,
     newPosts,
     seen,
+    lastReadPostNumber,
+    highestPostNumber,
     Object.hashAll(tags),
     Object.hashAll(posterAvatars),
   ]);
