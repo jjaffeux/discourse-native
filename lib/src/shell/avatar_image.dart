@@ -19,11 +19,13 @@ class AvatarImage extends StatefulWidget {
     required this.url,
     required this.size,
     required this.fallback,
+    this.fit = BoxFit.cover,
   });
 
   final String? url;
   final double size;
   final Widget fallback;
+  final BoxFit fit;
 
   @override
   State<AvatarImage> createState() => _AvatarImageState();
@@ -83,7 +85,7 @@ class _AvatarImageState extends State<AvatarImage> {
         bytes.bytes,
         width: widget.size,
         height: widget.size,
-        fit: BoxFit.cover,
+        fit: widget.fit,
         placeholderBuilder: (context) => widget.fallback,
       );
     }
@@ -96,7 +98,7 @@ class _AvatarImageState extends State<AvatarImage> {
       ),
       width: widget.size,
       height: widget.size,
-      fit: BoxFit.cover,
+      fit: widget.fit,
       gaplessPlayback: true,
       errorBuilder: (context, error, stackTrace) {
         reportImageError(error, stackTrace, operation: 'avatar.decode');

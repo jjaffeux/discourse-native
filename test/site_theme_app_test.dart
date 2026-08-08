@@ -1,17 +1,21 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/app.dart';
+import 'package:discourse_native/src/data/avatar_loader.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 import 'support/site_appearance_fixtures.dart';
@@ -301,6 +305,43 @@ void main() {
 
     _expectReadableRailMonogram(tester, title: 'A', host: 'a.example');
     _expectReadableRailMonogram(tester, title: 'B', host: 'b.example');
+  });
+
+  testWidgets('rail presents site logos without decoration or cropping', (
+    tester,
+  ) async {
+    final previousLoader = AvatarLoader.instance;
+    AvatarLoader.instance = AvatarLoader(
+      client: MockClient(
+        (_) async => http.Response(
+          '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="40">'
+          '<path d="M0 0h24v40H0z"/></svg>',
+          200,
+          headers: {'content-type': 'image/svg+xml'},
+        ),
+      ),
+    );
+    addTearDown(() {
+      AvatarLoader.instance.clear();
+      AvatarLoader.instance = previousLoader;
+    });
+    final store = FakeInstanceStore([
+      const DiscourseInstance(
+        url: siteA,
+        title: 'A',
+        iconUrl: '$siteA/logo.svg',
+      ),
+    ]);
+
+    await _pumpApp(tester, store: store, api: FakeDiscourseApi());
+
+    final item = _railItem(title: 'A', host: 'a.example');
+    final logo = find.descendant(of: item, matching: find.byType(AvatarImage));
+    expect(tester.widget<AvatarImage>(logo).fit, BoxFit.contain);
+    expect(
+      find.ancestor(of: logo, matching: find.byType(AnimatedContainer)),
+      findsNothing,
+    );
   });
 }
 

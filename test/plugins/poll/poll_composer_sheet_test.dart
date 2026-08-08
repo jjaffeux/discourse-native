@@ -11,6 +11,7 @@ void main() {
   Future<Completer<PollComposerSheetAction?>> openSheet(
     WidgetTester tester,
     PollComposerDraft draft, {
+    TargetPlatform platform = TargetPlatform.android,
     bool isStaff = false,
     bool isPublished = false,
     int? voterCount,
@@ -19,7 +20,7 @@ void main() {
     final result = Completer<PollComposerSheetAction?>();
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.dark,
+        theme: AppTheme.dark.copyWith(platform: platform),
         home: Scaffold(
           body: Builder(
             builder: (context) => FilledButton(
@@ -59,6 +60,32 @@ void main() {
     await tester.tap(finder);
     await tester.pumpAndSettle();
   }
+
+  testWidgets('uses a modal on desktop', (tester) async {
+    final draft = PollComposerDraft.newPoll(name: 'poll', defaultPublic: false);
+
+    final desktopResult = await openSheet(
+      tester,
+      draft,
+      platform: TargetPlatform.macOS,
+    );
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(await desktopResult.future, isNull);
+  });
+
+  testWidgets('keeps the sheet on touch platforms', (tester) async {
+    await openSheet(
+      tester,
+      PollComposerDraft.newPoll(name: 'poll', defaultPublic: false),
+    );
+
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.byType(PollComposerSheet), findsOneWidget);
+  });
 
   testWidgets('creates a regular poll through the sheet', (tester) async {
     PollComposerSheetAction? result;

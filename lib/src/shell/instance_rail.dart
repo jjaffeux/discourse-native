@@ -454,22 +454,13 @@ class _RailItem extends StatelessWidget {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOutCubic,
-                        width: 44,
-                        height: 44,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: avatarBackground,
-                          borderRadius: BorderRadius.circular(
-                            selected ? 14 : 22,
-                          ),
-                        ),
-                        clipBehavior: Clip.antiAlias,
+                      SizedBox.square(
+                        dimension: 44,
                         child: _InstanceAvatar(
                           instance: instance,
                           foreground: avatarForeground,
+                          background: avatarBackground,
+                          selected: selected,
                         ),
                       ),
                       if (badgeCount > 0)
@@ -493,26 +484,48 @@ class _RailItem extends StatelessWidget {
 /// The site's own icon, falling back to a monogram while it loads or if the
 /// site does not publish one.
 class _InstanceAvatar extends StatelessWidget {
-  const _InstanceAvatar({required this.instance, required this.foreground});
+  const _InstanceAvatar({
+    required this.instance,
+    required this.foreground,
+    required this.background,
+    required this.selected,
+  });
 
   final DiscourseInstance instance;
   final Color foreground;
+  final Color background;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final monogram = Center(
-      child: Text(
-        instance.monogram,
-        style: theme.textTheme.labelLarge?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w600,
+    final monogram = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(selected ? 14 : 22),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Center(
+        child: Text(
+          instance.monogram,
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: foreground,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );
 
-    return AvatarImage(url: instance.iconUrl, size: 44, fallback: monogram);
+    return AvatarImage(
+      url: instance.iconUrl,
+      size: 44,
+      fit: BoxFit.contain,
+      fallback: monogram,
+    );
   }
 }
 
