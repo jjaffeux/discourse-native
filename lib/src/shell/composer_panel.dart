@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../plugins/poll/poll_composer_parser.dart';
+import '../plugins/poll/poll_composer_pill.dart';
 import '../plugins/poll/poll_plugin.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
@@ -174,15 +175,25 @@ class _ComposerEditorState extends State<_ComposerEditor> {
     final block = widget.composer.text.collapsedPollAtGlobalPosition(
       event.position,
     );
-    if (block != null) {
-      _hideTimer?.cancel();
-      if (_hoveredPoll?.start != block.start ||
-          _hoveredPoll?.source != block.source) {
-        setState(() => _hoveredPoll = block);
-      }
-      return;
-    }
+    if (block != null) return _showMenuFor(block);
     if (!_menuHovered) _scheduleHide();
+  }
+
+  bool _onPillHover(PollComposerPillHoverNotification notification) {
+    if (notification.hovering) {
+      _showMenuFor(notification.block);
+    } else if (!_menuHovered) {
+      _scheduleHide();
+    }
+    return true;
+  }
+
+  void _showMenuFor(PollComposerBlock block) {
+    _hideTimer?.cancel();
+    if (_hoveredPoll?.start != block.start ||
+        _hoveredPoll?.source != block.source) {
+      setState(() => _hoveredPoll = block);
+    }
   }
 
   void _scheduleHide() {
@@ -253,64 +264,69 @@ class _ComposerEditorState extends State<_ComposerEditor> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final menuPosition = _menuPosition(constraints);
-      return MouseRegion(
-        onHover: _onHover,
-        onExit: (_) => _scheduleHide(),
-        child: Stack(
-          key: _stackKey,
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(
-              child: Listener(
-                behavior: HitTestBehavior.translucent,
-                onPointerDown: (event) => _pointerDown = event.position,
-                child: ComposerSuggestionField(
-                  composer: widget.composer,
-                  field: TextField(
-                    // Not decoration: a new key builds a new editable, and
-                    // with it a new undo stack. It is the only way to stop undo
-                    // reaching back into a reply that has already been sent.
-                    key: ValueKey(widget.composer.fieldGeneration),
-                    controller: widget.composer.text,
-                    focusNode: widget.composer.focus,
-                    autofocus: true,
-                    expands: true,
-                    maxLines: null,
-                    minLines: null,
-                    textAlignVertical: TextAlignVertical.top,
-                    keyboardType: TextInputType.multiline,
-                    textCapitalization: TextCapitalization.sentences,
-                    onTapAlwaysCalled: true,
-                    onTap: _onFieldTap,
-                    style: widget.textStyle,
-                    decoration: InputDecoration.collapsed(
-                      hintText: widget.hintText,
-                      hintStyle: widget.hintStyle,
+      return NotificationListener<PollComposerPillHoverNotification>(
+        onNotification: _onPillHover,
+        child: MouseRegion(
+          // Retained as a fallback for embedders that do not hit-test inline
+          // children, and to close the menu when the pointer leaves the field.
+          onHover: _onHover,
+          onExit: (_) => _scheduleHide(),
+          child: Stack(
+            key: _stackKey,
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (event) => _pointerDown = event.position,
+                  child: ComposerSuggestionField(
+                    composer: widget.composer,
+                    field: TextField(
+                      // Not decoration: a new key builds a new editable, and
+                      // with it a new undo stack. It is the only way to stop undo
+                      // reaching back into a reply that has already been sent.
+                      key: ValueKey(widget.composer.fieldGeneration),
+                      controller: widget.composer.text,
+                      focusNode: widget.composer.focus,
+                      autofocus: true,
+                      expands: true,
+                      maxLines: null,
+                      minLines: null,
+                      textAlignVertical: TextAlignVertical.top,
+                      keyboardType: TextInputType.multiline,
+                      textCapitalization: TextCapitalization.sentences,
+                      onTapAlwaysCalled: true,
+                      onTap: _onFieldTap,
+                      style: widget.textStyle,
+                      decoration: InputDecoration.collapsed(
+                        hintText: widget.hintText,
+                        hintStyle: widget.hintStyle,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            if (menuPosition case (final left, final top))
-              Positioned(
-                left: left,
-                top: top,
-                child: MouseRegion(
-                  onEnter: (_) {
-                    _hideTimer?.cancel();
-                    _menuHovered = true;
-                  },
-                  onExit: (_) {
-                    _menuHovered = false;
-                    _scheduleHide();
-                  },
-                  child: _PollComposerMenu(
-                    onEdit: _editPoll,
-                    onRemove: _removePoll,
+              if (menuPosition case (final left, final top))
+                Positioned(
+                  left: left,
+                  top: top,
+                  child: MouseRegion(
+                    onEnter: (_) {
+                      _hideTimer?.cancel();
+                      _menuHovered = true;
+                    },
+                    onExit: (_) {
+                      _menuHovered = false;
+                      _scheduleHide();
+                    },
+                    child: _PollComposerMenu(
+                      onEdit: _editPoll,
+                      onRemove: _removePoll,
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       );
     },
