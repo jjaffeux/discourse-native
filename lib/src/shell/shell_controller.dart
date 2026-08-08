@@ -602,10 +602,48 @@ class ShellController extends FrameSafeNotifier {
   Future<void> _refreshSessionUserFor(DiscourseInstance instance) async {
     try {
       final apiKey = await authenticator.apiKeyFor(instance.url);
-      if (apiKey != null) await _sessionUser(instance.url, apiKey);
+      if (apiKey != null) {
+        await Future.wait([
+          _sessionUser(instance.url, apiKey),
+          _refreshCustomSidebarSections(instance.url, apiKey),
+        ]);
+      }
     } catch (_) {
       // Capabilities remain unknown. Persisted values never authorize a poll
       // creation or a group-restricted vote in their place.
+    }
+  }
+
+  final Map<String, List<SidebarSection>> _customSidebarSections = {};
+
+  List<SidebarSection> customSidebarSectionsFor(String siteUrl) =>
+      _customSidebarSections[siteUrl] ?? const [];
+
+  Future<void> _refreshCustomSidebarSections(
+    String siteUrl,
+    String apiKey,
+  ) async {
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final sections = await api.customSidebarSections(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: await authenticator.clientId(),
+      );
+      lease.commit(() {
+        _customSidebarSections[siteUrl] = sections;
+        _notify();
+      });
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'sidebar.loadCustomSections',
+        severity: DiagnosticSeverity.warning,
+      );
+      // Custom navigation is optional. Keep the last successful answer, if
+      // there was one, and leave the native sidebar usable.
     }
   }
 
@@ -4706,7 +4744,12 @@ class ShellController extends FrameSafeNotifier {
       if (!accepted || connected == null) return;
 
       await instanceStore.save(List.of(_instances));
-      if (lease.isCurrent) unawaited(_refreshOne(connected!));
+      if (lease.isCurrent) {
+        unawaited(_refreshOne(connected!));
+        unawaited(
+          _refreshCustomSidebarSections(instance.url, connectedCredentials.key),
+        );
+      }
     } on UserApiAuthException catch (e, stackTrace) {
       if (credentials != null && lease.isCurrent) {
         lease = await _rollbackConnection(instance, credentials, lease);
@@ -4998,6 +5041,7 @@ class ShellController extends FrameSafeNotifier {
     _categorised.remove(siteUrl);
     _categoriesBySite.remove(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
+    _customSidebarSections.remove(siteUrl);
     _sitePresentation?.forget(siteUrl);
     _hashtags.remove(siteUrl);
     _hashtagsInFlight.remove(siteUrl);

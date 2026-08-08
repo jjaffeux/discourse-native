@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -55,6 +56,75 @@ MockClient discourseServing({
 }
 
 void main() {
+  group('custom sidebar sections', () {
+    test(
+      'reads custom links and excludes Discourse built-in sections',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            expect(request.url.path, '/sidebar_sections.json');
+            expect(request.headers['User-Api-Key'], 'secret');
+            return http.Response(
+              jsonEncode({
+                'sidebar_sections': [
+                  {
+                    'id': 1,
+                    'title': 'Community',
+                    'section_type': 'community',
+                    'links': [
+                      {
+                        'id': 10,
+                        'name': 'Topics',
+                        'value': '/latest',
+                        'icon': 'layer-group',
+                      },
+                    ],
+                  },
+                  {
+                    'id': 2,
+                    'title': 'Projects',
+                    'section_type': null,
+                    'links': [
+                      {
+                        'id': 20,
+                        'name': 'Roadmap',
+                        'value': '/c/roadmap/4',
+                        'icon': 'fire',
+                      },
+                      {
+                        'id': 21,
+                        'name': 'Design files',
+                        'value': 'https://example.com/design',
+                        'icon': 'not-installed',
+                      },
+                      {'id': 22, 'name': '', 'value': '/broken'},
+                    ],
+                  },
+                ],
+              }),
+              200,
+            );
+          }),
+        );
+
+        final sections = await api.customSidebarSections(
+          siteUrl: 'https://forum.example',
+          apiKey: 'secret',
+        );
+
+        expect(sections, hasLength(1));
+        expect(sections.single.title, 'Projects');
+        expect(
+          sections.single.destinations.map((destination) => destination.label),
+          ['Roadmap', 'Design files'],
+        );
+        expect(sections.single.destinations.first.icon, DIcons.fire);
+        expect(sections.single.destinations.last.icon, DIcons.link);
+        expect(sections.single.destinations.first.url, '/c/roadmap/4');
+      },
+    );
+  });
+
   group('normalize', () {
     test('assumes https for a bare host', () {
       expect(
