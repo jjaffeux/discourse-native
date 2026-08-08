@@ -376,6 +376,33 @@ void main() {
       expect(controller.search.query, 'matches');
       expect(searchInput.hasFocus, isFalse);
     });
+
+    testWidgets('closes and unfocuses when tapping outside the search input', (
+      tester,
+    ) async {
+      await pumpShell(tester, laptop);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+
+      controller.search.setQuery('matches');
+      controller.search.requestFocus();
+      await tester.pumpAndSettle();
+
+      final searchInput = tester
+          .widget<EditableText>(find.byKey(ForumSearch.inputKey))
+          .focusNode;
+      expect(controller.search.panelOpen, isTrue);
+      expect(searchInput.hasFocus, isTrue);
+
+      final content = tester.getRect(find.byType(MainContent));
+      await tester.tapAt(content.bottomCenter - const Offset(0, 20));
+      await tester.pumpAndSettle();
+
+      expect(controller.search.panelOpen, isFalse);
+      expect(searchInput.hasFocus, isFalse);
+      expect(controller.search.query, 'matches');
+    });
   });
 
   group('compact', () {

@@ -154,6 +154,7 @@ class _ForumSearchState extends State<ForumSearch> {
           controller: _menu,
           alignmentOffset: const Offset(0, 6),
           onClose: () {
+            _focus.unfocus();
             if (search.panelOpen && search.ownsPanel(_field)) {
               search.closePanel();
             }
