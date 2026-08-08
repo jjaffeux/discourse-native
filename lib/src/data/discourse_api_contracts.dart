@@ -3,6 +3,7 @@ import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
+import '../plugins/poll/poll.dart';
 import '../plugins/reactions/post_reactors.dart';
 
 enum SiteLookupFailure { notDiscourse, unreachable }
@@ -87,6 +88,28 @@ abstract interface class ReactionsApi {
     String? reaction,
     int limit = 30,
     String? apiKey,
+    String? clientId,
+  });
+}
+
+/// Personalized writes owned by Discourse's bundled Poll plugin.
+abstract interface class PollsApi {
+  /// Casts or changes this reader's vote in one named poll.
+  Future<PollVoteResponse> votePoll({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String pollName,
+    required List<String> options,
+    String? clientId,
+  });
+
+  /// Removes this reader's vote from one named poll.
+  Future<PollVoteResponse> removePollVote({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String pollName,
     String? clientId,
   });
 }

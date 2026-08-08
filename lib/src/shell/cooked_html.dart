@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../models/post.dart';
+import '../plugins/site_plugin.dart';
 import 'code_block.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
@@ -30,6 +32,7 @@ class CookedHtml extends StatelessWidget {
     required this.html,
     this.textStyle,
     this.siteUrl,
+    this.post,
   });
 
   final String html;
@@ -39,14 +42,20 @@ class CookedHtml extends StatelessWidget {
   /// selected site; long-lived application content always supplies it.
   final String? siteUrl;
 
+  /// The owner of a top-level topic body. Recursive cooked fragments omit it,
+  /// keeping quoted plugin placeholders noninteractive.
+  final Post? post;
+
   /// Inline code and emoji size themselves against the prose around them, so
   /// unlike the other builders those two need the style the widget was given.
   /// Emoji additionally need the site, to resolve their root-relative `src`.
   static Widget? Function(dom.Element) _customWidget(
     TextStyle? textStyle,
     String? siteUrl,
+    Post? post,
   ) =>
       (element) =>
+          _pluginWidget(element, siteUrl, post) ??
           emojiWidgetBuilder(element, siteUrl, textStyle) ??
           mentionWidgetBuilder(element, textStyle, siteUrl: siteUrl) ??
           hashtagWidgetBuilder(element, textStyle, siteUrl: siteUrl) ??
@@ -57,6 +66,19 @@ class CookedHtml extends StatelessWidget {
           quoteWidgetBuilder(element, siteUrl: siteUrl) ??
           codeBlockWidgetBuilder(element) ??
           inlineCodeWidgetBuilder(element, textStyle);
+
+  static Widget? _pluginWidget(
+    dom.Element element,
+    String? siteUrl,
+    Post? post,
+  ) {
+    if (siteUrl == null || post == null) return null;
+    for (final plugin in sitePlugins) {
+      final widget = plugin.postBodyElement(siteUrl, post, element);
+      if (widget != null) return widget;
+    }
+    return null;
+  }
 
   /// Discourse leaves links undecorated and lets colour carry them, but
   /// [HtmlWidget] underlines every `a[href]` by default. Inline styles are the
@@ -78,12 +100,12 @@ class CookedHtml extends StatelessWidget {
       baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
       textStyle: style,
       renderMode: RenderMode.column,
-      customWidgetBuilder: _customWidget(style, resolvedSiteUrl),
+      customWidgetBuilder: _customWidget(style, resolvedSiteUrl, post),
       customStylesBuilder: _customStyles,
       // The builders close over the style and resolved site, and [HtmlWidget]
       // caches what they built — so a change to either has to say so to reach
       // the inline code and the emoji.
-      rebuildTriggers: [style, resolvedSiteUrl],
+      rebuildTriggers: [style, resolvedSiteUrl, post?.plugins],
       onTapUrl: (url) => openLink(context, url, siteUrl: resolvedSiteUrl),
     );
   }

@@ -378,6 +378,7 @@ class _PostTileState extends State<_PostTile> {
                   html: post.cooked,
                   textStyle: theme.textTheme.bodyMedium,
                   siteUrl: widget.siteUrl,
+                  post: post,
                 ),
                 PostFooter(siteUrl: widget.siteUrl, post: post),
               ],

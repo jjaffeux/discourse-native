@@ -113,8 +113,6 @@ Future<void> showUserCard({
           ),
         );
 
-  unawaited(controller.loadUserCard(username, siteUrl: targetSite));
-
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,

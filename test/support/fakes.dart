@@ -28,6 +28,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 
 /// Keeps instances in memory instead of shared_preferences, which needs a
@@ -358,6 +359,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.gate,
     this.topics = const {},
     this.postsById = const {},
+    this.postGate,
     this.cards = const {},
     this.creation,
     this.writeFailure,
@@ -384,6 +386,10 @@ class FakeDiscourseApi implements DiscourseApi {
     this.reactionResponses = const {},
     this.reactionFailure,
     this.reactionGate,
+    this.pollVoteResponses = const {},
+    this.pollRemovalResponses = const {},
+    this.pollVoteFailure,
+    this.pollVoteGate,
     this.chatChannelsBySite = const {},
     this.chatChannelGate,
     this.chatMessagesByKey = const {},
@@ -437,6 +443,10 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Returned by [posts], keyed by post id.
   final Map<int, Post> postsById;
+
+  /// When set, post refreshes wait on it so a write can supersede one already
+  /// in flight and a test can observe the queued replay.
+  final Completer<void>? postGate;
 
   /// Returned by [userCard], keyed by username; a missing one fails.
   final Map<String, UserCard> cards;
@@ -583,6 +593,25 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Every [toggleReaction] call, in order.
   final List<({int postId, String reaction})> reacted = [];
+
+  /// Personalized answers for poll writes, keyed by [pollVoteKey].
+  final Map<String, PollVoteResponse> pollVoteResponses;
+  final Map<String, PollVoteResponse> pollRemovalResponses;
+
+  /// Thrown by either poll vote route instead of answering.
+  final WriteException? pollVoteFailure;
+
+  /// Holds either poll route open so controller tests can exercise concurrent
+  /// invalidation and per-post write serialization.
+  final Completer<void>? pollVoteGate;
+
+  /// Poll writes in call order, with an immutable copy of the sent digests.
+  final List<({int postId, String pollName, List<String> options})> pollVotes =
+      [];
+  final List<({int postId, String pollName})> pollVotesRemoved = [];
+
+  static String pollVoteKey(int postId, String pollName) =>
+      '$postId::$pollName';
 
   /// Returned by [chatChannels], keyed by site url; a missing site fails.
   ///
@@ -773,6 +802,7 @@ class FakeDiscourseApi implements DiscourseApi {
     String? clientId,
   }) async {
     postFetches.add(ids);
+    if (postGate != null) await postGate!.future;
     return ids.map((i) => postsById[i]).whereType<Post>().toList();
   }
 
@@ -1028,6 +1058,47 @@ class FakeDiscourseApi implements DiscourseApi {
     if (reactionGate != null) await reactionGate!.future;
     if (reactionFailure != null) throw reactionFailure!;
     return reactionResponses[postId];
+  }
+
+  @override
+  Future<PollVoteResponse> votePoll({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String pollName,
+    required List<String> options,
+    String? clientId,
+  }) async {
+    pollVotes.add((
+      postId: postId,
+      pollName: pollName,
+      options: List.unmodifiable(options),
+    ));
+    if (pollVoteGate != null) await pollVoteGate!.future;
+    if (pollVoteFailure != null) throw pollVoteFailure!;
+    final response = pollVoteResponses[pollVoteKey(postId, pollName)];
+    if (response == null) {
+      throw StateError('No fake poll vote response for $postId/$pollName');
+    }
+    return response;
+  }
+
+  @override
+  Future<PollVoteResponse> removePollVote({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String pollName,
+    String? clientId,
+  }) async {
+    pollVotesRemoved.add((postId: postId, pollName: pollName));
+    if (pollVoteGate != null) await pollVoteGate!.future;
+    if (pollVoteFailure != null) throw pollVoteFailure!;
+    final response = pollRemovalResponses[pollVoteKey(postId, pollName)];
+    if (response == null) {
+      throw StateError('No fake poll removal response for $postId/$pollName');
+    }
+    return response;
   }
 
   @override

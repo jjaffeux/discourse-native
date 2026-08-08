@@ -53,6 +53,27 @@ const List<Contract> contracts = [
     readers: 'lib/src/shell/hashtag.dart and lib/src/shell/mention.dart',
     watched: hashtagWatched,
   ),
+  Contract(
+    name: 'poll',
+    snapshot: 'tool/poll_snapshot',
+    readers: 'lib/src/plugins/poll/ and lib/src/shell/cooked_html.dart',
+    watched: pollWatched,
+  ),
+];
+
+/// The server-cooked poll skeleton and the web client code that claims it by
+/// `data-poll-name` and replaces it with the personalised poll from post JSON.
+///
+/// The native client deliberately depends on the same seam: the Markdown
+/// plugin supplies only title/option fallback markup, while `post.polls` is
+/// matched by name rather than by the poll's position in the document.
+const List<String> pollWatched = [
+  // Writes `.poll`, `data-poll-name`, title/options, option digests, and the
+  // non-authoritative zero-voter skeleton that native rendering must ignore.
+  'plugins/poll/assets/javascripts/lib/discourse-markdown/poll.js',
+  // Finds outer cooked polls, excludes blockquotes, looks up structured polls
+  // by `dataset.pollName`, and replaces matched skeletons with the live UI.
+  'plugins/poll/assets/javascripts/discourse/initializers/extend-for-poll.gjs',
 ];
 
 /// The `a.hashtag-cooked` and `a.mention` markup, the `@mixin mention` that
@@ -184,8 +205,10 @@ Future<int> _check(
     for (final path in drifted) {
       stdout.writeln('  $path');
     }
-    stdout.writeln('\nReview `git diff ${contract.snapshot}` before '
-        'committing.');
+    stdout.writeln(
+      '\nReview `git diff ${contract.snapshot}` before '
+      'committing.',
+    );
     return 0;
   }
 

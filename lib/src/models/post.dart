@@ -387,6 +387,7 @@ class TopicDetail with Storable<TopicDetail> {
     this.postsCount = 0,
     this.categoryId,
     this.canCreatePost = false,
+    this.archived = false,
     this.draft,
     this.draftSequence = 0,
   });
@@ -415,6 +416,7 @@ class TopicDetail with Storable<TopicDetail> {
         // still use it. Absent when read signed out, which is also the right
         // answer — there is no key to post with.
         canCreatePost: details['can_create_post'] == true,
+        archived: json['archived'] == true,
         // The topic payload already carries any draft for it, so opening a
         // composer needs no request of its own.
         draft: ComposerDraft.decode(json['draft']),
@@ -438,6 +440,9 @@ class TopicDetail with Storable<TopicDetail> {
 
   /// Whether this reader may reply here.
   final bool canCreatePost;
+
+  /// Archived topics reject poll writes even when their posts remain visible.
+  final bool archived;
 
   /// A reply left unfinished here, wherever it was started.
   final ComposerDraft? draft;
@@ -510,6 +515,7 @@ class TopicDetail with Storable<TopicDetail> {
     ComposerDraft? draft,
     bool clearDraft = false,
     int? draftSequence,
+    bool? archived,
   }) => TopicDetail(
     id: id,
     title: title ?? this.title,
@@ -517,6 +523,7 @@ class TopicDetail with Storable<TopicDetail> {
     postsCount: postsCount ?? this.postsCount,
     categoryId: categoryId,
     canCreatePost: canCreatePost,
+    archived: archived ?? this.archived,
     draft: clearDraft ? null : (draft ?? this.draft),
     draftSequence: draftSequence ?? this.draftSequence,
   );
@@ -531,6 +538,7 @@ class TopicDetail with Storable<TopicDetail> {
           other.postsCount == postsCount &&
           other.categoryId == categoryId &&
           other.canCreatePost == canCreatePost &&
+          other.archived == archived &&
           other.draft == draft &&
           other.draftSequence == draftSequence;
 
@@ -542,6 +550,7 @@ class TopicDetail with Storable<TopicDetail> {
     postsCount,
     categoryId,
     canCreatePost,
+    archived,
     draft,
     draftSequence,
   );

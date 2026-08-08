@@ -80,6 +80,7 @@ discourse-bookmark-clock
 # --- Composer
 bold
 italic
+square-poll-horizontal
 
 # --- Oneboxes
 tag

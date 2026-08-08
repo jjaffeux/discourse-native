@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/emoji_cache.dart';
+import '../plugins/poll/poll_composer_parser.dart';
+import '../plugins/poll/poll_composer_pill.dart';
 import '../theme/app_theme.dart';
 import 'code_block.dart';
 import 'composer_pills.dart';
@@ -23,7 +25,12 @@ import 'mention.dart';
 /// lying about what will be posted, which is the whole reason the document-model
 /// composer was taken out.
 class MarkdownEditingController extends TextEditingController {
-  MarkdownEditingController({super.text, this.resolveEmoji, this.pills});
+  MarkdownEditingController({
+    super.text,
+    this.resolveEmoji,
+    this.pills,
+    this.pollMaximumOptions = 20,
+  });
 
   /// Where the artwork for `smile` lives on the site being written to.
   ///
@@ -38,6 +45,78 @@ class MarkdownEditingController extends TextEditingController {
   /// Null leaves both as text — which is what the tests and a composer with no
   /// site behind it get, exactly as for [resolveEmoji].
   final ComposerPills? pills;
+
+  final int pollMaximumOptions;
+
+  String? _pollScanned;
+  List<PollComposerBlock> _pollBlocks = const [];
+  final PollRawExpansion _rawPoll = PollRawExpansion();
+  int? _suppressedPollStart;
+  int? _suppressedPollCaret;
+  Set<int> _collapsedPollStarts = const {};
+  final Map<int, GlobalKey> _pollPillKeys = {};
+
+  /// Safely projectable poll occurrences in the current raw document.
+  List<PollComposerBlock> get pollBlocks =>
+      List.unmodifiable(_pollBlocksFor(text));
+
+  PollComposerBlock? pollAtOffset(int offset) =>
+      pollBlockAtComposerOffset(_pollBlocksFor(text), offset);
+
+  bool isPollExpanded(PollComposerBlock block) => _rawPoll.contains(block);
+
+  bool isPollCollapsed(PollComposerBlock block) =>
+      _collapsedPollStarts.contains(block.start);
+
+  /// The collapsed poll whose visible pill contains [globalPosition].
+  ///
+  /// EditableText deliberately keeps embedded widgets out of pointer hit
+  /// testing. Their render boxes still have truthful geometry, so the field
+  /// routes taps and hover through these exact rectangles instead of guessing
+  /// from the caret Flutter selected.
+  PollComposerBlock? collapsedPollAtGlobalPosition(Offset globalPosition) {
+    for (final block in _pollBlocksFor(text)) {
+      if (!isPollCollapsed(block)) continue;
+      final rect = collapsedPollGlobalRect(block);
+      if (rect?.contains(globalPosition) == true) return block;
+    }
+    return null;
+  }
+
+  Rect? collapsedPollGlobalRect(PollComposerBlock block) {
+    if (!isPollCollapsed(block)) return null;
+    final renderObject = _pollPillKeys[block.start]?.currentContext
+        ?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+  }
+
+  void suppressCollapsedCaretFor(PollComposerBlock block) {
+    _suppressedPollStart = block.start;
+    _suppressedPollCaret = value.selection.extentOffset;
+    artworkArrived();
+  }
+
+  void expandPollAsRaw(PollComposerBlock block) {
+    _suppressedPollStart = null;
+    _suppressedPollCaret = null;
+    _rawPoll.expand(block);
+    value = value.copyWith(
+      selection: TextSelection.collapsed(
+        offset: (block.start + 1).clamp(block.start, block.end),
+      ),
+    );
+  }
+
+  List<PollComposerBlock> _pollBlocksFor(String source) {
+    if (_pollScanned == source) return _pollBlocks;
+    _pollScanned = source;
+    _suppressedPollStart = null;
+    _suppressedPollCaret = null;
+    _rawPoll.clear();
+    _pollPillKeys.clear();
+    return _pollBlocks = parsePollComposerBlocks(source);
+  }
 
   /// How many pieces of artwork have arrived, so the span cache knows the
   /// answer changed when nothing about the text did.
@@ -96,6 +175,30 @@ class MarkdownEditingController extends TextEditingController {
 
     final runs = _runsFor(source);
 
+    final pollBlocks = _pollBlocksFor(source);
+    _rawPoll.updateSelection(value.selection);
+    if (_suppressedPollCaret != value.selection.extentOffset) {
+      _suppressedPollStart = null;
+      _suppressedPollCaret = null;
+    }
+    final collapsedPolls = [
+      for (final block in pollBlocks)
+        if (!pollBlockNeedsRawSource(
+          block: block,
+          value: value,
+          explicitlyRaw: _rawPoll.contains(block),
+          suppressCollapsedCaret: _suppressedPollStart == block.start,
+        ))
+          block,
+    ];
+    _collapsedPollStarts = {for (final block in collapsedPolls) block.start};
+    final pollProjection = Object.hash(
+      pollMaximumOptions,
+      Object.hashAll(
+        collapsedPolls.map((block) => Object.hash(block.start, block.end)),
+      ),
+    );
+
     // Which token, if any, the caret is in — the one thing about the selection
     // that changes what is drawn. Summarised rather than keyed on the
     // selection itself, so the ordinary caret move still costs nothing.
@@ -113,6 +216,7 @@ class MarkdownEditingController extends TextEditingController {
           composing: composing,
           revealed: revealed,
           artwork: _artwork,
+          pollProjection: pollProjection,
         )) {
       return cached.span;
     }
@@ -124,7 +228,8 @@ class MarkdownEditingController extends TextEditingController {
     final unresolvedNames = <String>{};
 
     final children = <InlineSpan>[];
-    for (final run in runs) {
+
+    void appendRun(MarkdownRun run) {
       // A run the IME is still deciding about is never substituted: the
       // artwork path skips [_splitAt] entirely, so a placeholder over a
       // composing range would take its underline away and paint the
@@ -135,7 +240,7 @@ class MarkdownEditingController extends TextEditingController {
           : _artworkFor(run, base, theme, unresolvedRefs, unresolvedNames);
       if (artwork != null) {
         children.addAll(artwork);
-        continue;
+        return;
       }
       for (final piece in _splitAt(run, composing)) {
         children.add(
@@ -146,6 +251,41 @@ class MarkdownEditingController extends TextEditingController {
         );
       }
     }
+
+    void appendMarkdown(int start, int end) {
+      if (start >= end) return;
+      for (final run in runs) {
+        if (run.end <= start) continue;
+        if (run.start >= end) break;
+        appendRun(
+          MarkdownRun(
+            run.start < start ? start : run.start,
+            run.end > end ? end : run.end,
+            run.mask,
+            run.detail,
+            run.token,
+          ),
+        );
+      }
+    }
+
+    var sourceOffset = 0;
+    for (final block in collapsedPolls) {
+      appendMarkdown(sourceOffset, block.start);
+      children.addAll(
+        buildCollapsedPollSpans(
+          block: block,
+          baseStyle: base,
+          pillKey: _pollPillKeys.putIfAbsent(
+            block.start,
+            () => GlobalKey(debugLabel: 'poll-pill-${block.start}'),
+          ),
+          maximumOptions: pollMaximumOptions,
+        ),
+      );
+      sourceOffset = block.end;
+    }
+    appendMarkdown(sourceOffset, source.length);
 
     final span = TextSpan(style: base, children: children);
     // The one thing that must never drift.
@@ -174,6 +314,7 @@ class MarkdownEditingController extends TextEditingController {
       composing: composing,
       revealed: revealed,
       artwork: _artwork,
+      pollProjection: pollProjection,
       span: span,
     );
     return span;
@@ -450,6 +591,7 @@ class _CachedMarkdownSpan {
     required this.composing,
     required this.revealed,
     required this.artwork,
+    required this.pollProjection,
     required this.span,
   });
 
@@ -459,6 +601,7 @@ class _CachedMarkdownSpan {
   final TextRange? composing;
   final int revealed;
   final int artwork;
+  final int pollProjection;
   final TextSpan span;
 
   bool matches({
@@ -468,13 +611,15 @@ class _CachedMarkdownSpan {
     required TextRange? composing,
     required int revealed,
     required int artwork,
+    required int pollProjection,
   }) =>
       this.source == source &&
       this.style == style &&
       identical(this.theme, theme) &&
       this.composing == composing &&
       this.revealed == revealed &&
-      this.artwork == artwork;
+      this.artwork == artwork &&
+      this.pollProjection == pollProjection;
 }
 
 /// How a marked-up stretch of source is drawn.

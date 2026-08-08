@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../plugins/poll/poll_composer_parser.dart';
+import '../plugins/poll/poll_plugin.dart';
+import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -74,38 +79,18 @@ class ComposerPanel extends StatelessWidget {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    child: ComposerSuggestionField(
+                    child: _ComposerEditor(
                       composer: composer,
-                      field: TextField(
-                        // Not decoration: a new key builds a new editable, and
-                        // with it a new undo stack. It is the only way to stop
-                        // undo reaching back into a reply that has already been
-                        // sent — see `ComposerController.fieldGeneration`.
-                        key: ValueKey(composer.fieldGeneration),
-                        controller: composer.text,
-                        focusNode: composer.focus,
-                        autofocus: true,
-                        // The three together are what fills a bounded box;
-                        // `maxLines: null` alone grows from one line instead.
-                        expands: true,
-                        maxLines: null,
-                        minLines: null,
-                        textAlignVertical: TextAlignVertical.top,
-                        keyboardType: TextInputType.multiline,
-                        textCapitalization: TextCapitalization.sentences,
-                        style: theme.textTheme.bodyMedium,
-                        decoration: InputDecoration.collapsed(
-                          hintText: switch (target) {
-                            _ when composer.loadingBody => 'Loading that post…',
-                            _ when target.isEdit => 'Edit this post…',
-                            _ when target.replyToUsername != null =>
-                              'Reply to @${target.replyToUsername}…',
-                            _ => 'Write a reply…',
-                          },
-                          hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                      hintText: switch (target) {
+                        _ when composer.loadingBody => 'Loading that post…',
+                        _ when target.isEdit => 'Edit this post…',
+                        _ when target.replyToUsername != null =>
+                          'Reply to @${target.replyToUsername}…',
+                        _ => 'Write a reply…',
+                      },
+                      textStyle: theme.textTheme.bodyMedium,
+                      hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -145,6 +130,227 @@ class ComposerPanel extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ComposerEditor extends StatefulWidget {
+  const _ComposerEditor({
+    required this.composer,
+    required this.hintText,
+    required this.textStyle,
+    required this.hintStyle,
+  });
+
+  final ComposerController composer;
+  final String hintText;
+  final TextStyle? textStyle;
+  final TextStyle? hintStyle;
+
+  @override
+  State<_ComposerEditor> createState() => _ComposerEditorState();
+}
+
+class _ComposerEditorState extends State<_ComposerEditor> {
+  static const _menuWidth = 88.0;
+  static const _menuHeight = 44.0;
+  static const _menuGap = 4.0;
+
+  final GlobalKey _stackKey = GlobalKey();
+  Offset? _pointerDown;
+  PollComposerBlock? _hoveredPoll;
+  Timer? _hideTimer;
+  bool _menuHovered = false;
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onHover(PointerHoverEvent event) {
+    final block = widget.composer.text.collapsedPollAtGlobalPosition(
+      event.position,
+    );
+    if (block != null) {
+      _hideTimer?.cancel();
+      if (_hoveredPoll?.start != block.start ||
+          _hoveredPoll?.source != block.source) {
+        setState(() => _hoveredPoll = block);
+      }
+      return;
+    }
+    if (!_menuHovered) _scheduleHide();
+  }
+
+  void _scheduleHide() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted || _menuHovered || _hoveredPoll == null) return;
+      setState(() => _hoveredPoll = null);
+    });
+  }
+
+  void _hideMenu() {
+    _hideTimer?.cancel();
+    _menuHovered = false;
+    if (_hoveredPoll != null && mounted) {
+      setState(() => _hoveredPoll = null);
+    }
+  }
+
+  void _onFieldTap() {
+    final pointer = _pointerDown;
+    _pointerDown = null;
+    if (pointer == null) return;
+    final block = widget.composer.text.collapsedPollAtGlobalPosition(pointer);
+    if (block == null) return;
+
+    _hideMenu();
+    widget.composer.text.expandPollAsRaw(block);
+    widget.composer.focus.requestFocus();
+  }
+
+  void _editPoll() {
+    final block = _hoveredPoll;
+    if (block == null) return;
+    _hideMenu();
+    unawaited(openPollComposer(context, widget.composer, block: block));
+  }
+
+  void _removePoll() {
+    final block = _hoveredPoll;
+    if (block == null) return;
+    _hideMenu();
+    unawaited(removePollComposer(context, widget.composer, block));
+  }
+
+  (double, double)? _menuPosition(BoxConstraints constraints) {
+    final block = _hoveredPoll;
+    final stack = _stackKey.currentContext?.findRenderObject();
+    final pillRect = block == null
+        ? null
+        : widget.composer.text.collapsedPollGlobalRect(block);
+    if (stack is! RenderBox || !stack.hasSize || pillRect == null) return null;
+
+    final pillTopLeft = stack.globalToLocal(pillRect.topLeft);
+    final pillBottomRight = stack.globalToLocal(pillRect.bottomRight);
+    final maxLeft = constraints.maxWidth > _menuWidth
+        ? constraints.maxWidth - _menuWidth
+        : 0.0;
+    final left = pillTopLeft.dx.clamp(0.0, maxLeft);
+    var top = pillTopLeft.dy - _menuHeight - _menuGap;
+    if (top < 0) top = pillBottomRight.dy + _menuGap;
+    final maxTop = constraints.maxHeight > _menuHeight
+        ? constraints.maxHeight - _menuHeight
+        : 0.0;
+    return (left, top.clamp(0.0, maxTop));
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final menuPosition = _menuPosition(constraints);
+      return MouseRegion(
+        onHover: _onHover,
+        onExit: (_) => _scheduleHide(),
+        child: Stack(
+          key: _stackKey,
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (event) => _pointerDown = event.position,
+                child: ComposerSuggestionField(
+                  composer: widget.composer,
+                  field: TextField(
+                    // Not decoration: a new key builds a new editable, and
+                    // with it a new undo stack. It is the only way to stop undo
+                    // reaching back into a reply that has already been sent.
+                    key: ValueKey(widget.composer.fieldGeneration),
+                    controller: widget.composer.text,
+                    focusNode: widget.composer.focus,
+                    autofocus: true,
+                    expands: true,
+                    maxLines: null,
+                    minLines: null,
+                    textAlignVertical: TextAlignVertical.top,
+                    keyboardType: TextInputType.multiline,
+                    textCapitalization: TextCapitalization.sentences,
+                    onTapAlwaysCalled: true,
+                    onTap: _onFieldTap,
+                    style: widget.textStyle,
+                    decoration: InputDecoration.collapsed(
+                      hintText: widget.hintText,
+                      hintStyle: widget.hintStyle,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (menuPosition case (final left, final top))
+              Positioned(
+                left: left,
+                top: top,
+                child: MouseRegion(
+                  onEnter: (_) {
+                    _hideTimer?.cancel();
+                    _menuHovered = true;
+                  },
+                  onExit: (_) {
+                    _menuHovered = false;
+                    _scheduleHide();
+                  },
+                  child: _PollComposerMenu(
+                    onEdit: _editPoll,
+                    onRemove: _removePoll,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class _PollComposerMenu extends StatelessWidget {
+  const _PollComposerMenu({required this.onEdit, required this.onRemove});
+
+  final VoidCallback onEdit;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      elevation: 4,
+      color: theme.colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(8),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: _ComposerEditorState._menuWidth,
+        height: _ComposerEditorState._menuHeight,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            IconButton(
+              onPressed: onEdit,
+              tooltip: 'Edit poll',
+              visualDensity: VisualDensity.compact,
+              icon: const DIcon(DIcons.pencil, size: 16),
+            ),
+            IconButton(
+              onPressed: onRemove,
+              tooltip: 'Remove poll',
+              visualDensity: VisualDensity.compact,
+              color: theme.colorScheme.error,
+              icon: const DIcon(DIcons.trashCan, size: 16),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -208,7 +414,16 @@ class _Toolbar extends StatelessWidget {
   final ComposerController composer;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ShellSelector<bool>(
+    // Plugin creation capabilities arrive independently of composer text.
+    // Select the fresh Poll capability so an already-open composer gains (or
+    // keeps hiding) its contributed action as soon as the session answers.
+    select: (controller) =>
+        controller.canCreatePollFor(composer.target.siteUrl),
+    builder: (context, _, _) => _buildToolbar(context),
+  );
+
+  Widget _buildToolbar(BuildContext context) {
     final theme = Theme.of(context);
 
     return Padding(
@@ -226,6 +441,15 @@ class _Toolbar extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               color: theme.colorScheme.onSurfaceVariant,
             ),
+          for (final plugin in sitePlugins)
+            for (final action in plugin.composerToolbar(context, composer))
+              IconButton(
+                onPressed: action.onInvoke,
+                icon: DIcon(action.icon, size: 18),
+                tooltip: action.label,
+                visualDensity: VisualDensity.compact,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
         ],
       ),
     );

@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/models/composer_draft.dart';
+import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
+import 'package:discourse_native/src/plugins/poll/poll_composer_parser.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_triggers.dart';
@@ -167,6 +169,61 @@ void main() {
     expect(composer.typingDuration, Duration.zero);
     expect(composer.openDuration, Duration.zero);
   });
+
+  testWidgets(
+    'verified poll replacements keep composer submission, timing, and drafts intact',
+    (tester) async {
+      var now = DateTime.utc(2026, 8, 8, 12);
+      final saves = <ComposerDraftSave>[];
+      final composer = ComposerController(
+        _target,
+        now: () => now,
+        onSaveDraft: (save) async {
+          saves.add(save);
+          return 1;
+        },
+      );
+      addTearDown(composer.dispose);
+      composer.text.selection = const TextSelection.collapsed(offset: 0);
+
+      final markup = PollComposerDraft.newPoll(
+        name: 'poll',
+        defaultPublic: true,
+      ).copyWith(options: ['Soup', 'Salad']).serialize();
+      final inserted = insertVerifiedPoll(
+        current: composer.text.value,
+        expectedDocument: '',
+        expectedSelection: composer.text.selection,
+        markup: markup,
+      );
+      composer.text.value = inserted.value;
+
+      expect(composer.raw, markup);
+      expect(composer.canSubmit, isTrue);
+      expect(composer.draftPending, isTrue);
+
+      now = now.add(const Duration(seconds: 1));
+      final block = parsePollComposerBlocks(composer.raw).single;
+      final replacement = PollComposerDraft.fromBlock(
+        block,
+      ).copyWith(title: 'Lunch').serialize();
+      final edited = replaceVerifiedPoll(
+        current: composer.text.value,
+        expectedDocument: composer.raw,
+        expectedBlock: block,
+        replacement: replacement,
+      );
+      composer.text.value = edited.value;
+
+      expect(composer.raw, replacement);
+      expect(composer.typingDuration, const Duration(seconds: 1));
+
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      expect(saves, hasLength(1));
+      expect(saves.single.draft.reply, replacement);
+    },
+  );
 }
 
 const _target = ComposerTarget(
