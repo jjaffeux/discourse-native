@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../data/avatar_loader.dart';
+import '../foundation/diagnostic_errors.dart';
 import 'image_decode.dart';
 
 /// Draws an avatar whatever format the site serves it in.
@@ -97,7 +98,10 @@ class _AvatarImageState extends State<AvatarImage> {
       height: widget.size,
       fit: BoxFit.cover,
       gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) => widget.fallback,
+      errorBuilder: (context, error, stackTrace) {
+        reportImageError(error, stackTrace, operation: 'avatar.decode');
+        return widget.fallback;
+      },
     );
   }
 }

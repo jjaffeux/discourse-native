@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/discourse_api.dart';
+import '../diagnostics/diagnostics_controller.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'shell_scope.dart';
@@ -70,9 +71,25 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
       } else {
         failure = '${instance.title} is already in your list.';
       }
-    } on SiteLookupException catch (e) {
+    } on SiteLookupException catch (e, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        e,
+        stackTrace,
+        operation: 'site.add',
+        source: 'shell',
+        handled: true,
+        degraded: false,
+      );
       failure = e.message;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'site.add',
+        source: 'shell',
+        handled: true,
+        degraded: false,
+      );
       failure = "Couldn't reach $term.";
     }
 

@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../data/discourse_api.dart';
 import '../data/draft_store.dart';
+import '../diagnostics/diagnostics_controller.dart';
 import '../models/composer_draft.dart';
 import 'composer_autocomplete.dart';
 import 'composer_marks.dart';
@@ -194,6 +195,18 @@ class ComposerController extends ChangeNotifier {
   /// keep asking a site that is not answering. The local copy is still being
   /// written, so nothing is lost by stopping.
   static const int maxDraftFailures = 5;
+
+  /// Write validation text originates in a response body. Keep the useful
+  /// classification and status in diagnostics without retaining that text.
+  static Object _safeDiagnosticError(Object error) => switch (error) {
+    WriteException() => WriteException(
+      error.failure,
+      statusCode: error.statusCode,
+      retryAfter: error.retryAfter,
+    ),
+    DraftWriteException() => const DraftWriteException(),
+    _ => error,
+  };
 
   /// Persists the draft. Supplied by the shell, which owns the site and the
   /// key; the composer only decides *when*.
@@ -487,8 +500,21 @@ class ComposerController extends ChangeNotifier {
       try {
         await save(request);
         if (!_disposed && request.isCurrent()) _localDraftFailed = false;
-      } catch (error) {
+      } catch (error, stackTrace) {
         if (!_disposed && request.isCurrent()) {
+          // DraftStore reports the original storage exception before wrapping
+          // it. Reporting that wrapper here would both duplicate the failure
+          // and risk retaining a nested cause supplied by another backend.
+          if (error is! DraftWriteException) {
+            DiagnosticsSink.current.reportError(
+              _safeDiagnosticError(error),
+              stackTrace,
+              operation: 'draft.saveLocal',
+              source: 'composer',
+              handled: true,
+              degraded: true,
+            );
+          }
           _localDraftFailed = error is DraftWriteException;
         }
       }
@@ -508,12 +534,22 @@ class ComposerController extends ChangeNotifier {
         _localDraftFailed = false;
         _draftStatus = DraftStatus.saved;
       }
-    } catch (error) {
+    } catch (error, stackTrace) {
       _draftFailures++;
       // No immediate retry: the next keystroke reschedules, which throttles
       // this to the speed someone types rather than the speed of a loop.
       if (_draftFailures >= maxDraftFailures) _draftsGaveUp = true;
       if (!_disposed && request.isCurrent()) {
+        if (error is! DraftWriteException) {
+          DiagnosticsSink.current.reportError(
+            _safeDiagnosticError(error),
+            stackTrace,
+            operation: 'draft.save',
+            source: 'composer',
+            handled: true,
+            degraded: true,
+          );
+        }
         _localDraftFailed = error is DraftWriteException;
         _draftStatus = DraftStatus.failing;
       }

@@ -9,6 +9,7 @@ import 'data/instance_store.dart';
 import 'data/site_tracker.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
+import 'diagnostics/diagnostics.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
@@ -28,6 +29,7 @@ class DiscourseApp extends StatefulWidget {
     this.trackers,
     this.updater,
     this.updateStore,
+    this.diagnostics,
   });
 
   final InstanceStore? store;
@@ -37,6 +39,7 @@ class DiscourseApp extends StatefulWidget {
   final SiteTrackerFactory? trackers;
   final Updater? updater;
   final UpdateStore? updateStore;
+  final DiagnosticsController? diagnostics;
 
   @override
   State<DiscourseApp> createState() => _DiscourseAppState();
@@ -137,6 +140,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     _api.close();
+    unawaited(widget.diagnostics?.close());
     super.dispose();
   }
 
@@ -152,6 +156,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = _isForeground(state);
     _controller.setForeground(_foreground);
+    if (!_foreground) unawaited(widget.diagnostics?.flush());
   }
 
   static bool _isForeground(AppLifecycleState? state) =>
@@ -163,7 +168,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   Widget build(BuildContext context) {
     // Above MaterialApp so that sheets and dialogs, which build under its
     // Navigator, can still reach the controller.
-    return ShellScope(
+    final app = ShellScope(
       controller: _controller,
       child: MaterialApp(
         title: 'Discourse',
@@ -173,5 +178,9 @@ class _DiscourseAppState extends State<DiscourseApp>
         home: const AdaptiveShell(),
       ),
     );
+    final diagnostics = widget.diagnostics;
+    return diagnostics == null
+        ? app
+        : DiagnosticsScope(controller: diagnostics, child: app);
   }
 }

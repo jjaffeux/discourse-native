@@ -3,6 +3,7 @@ import 'dart:async';
 import '../data/app_release.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
+import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
 
 enum UpdateStatus {
@@ -41,6 +42,23 @@ class UpdateController extends FrameSafeNotifier {
 
   final Updater updater;
   final UpdateStore store;
+
+  void _report(
+    Object error,
+    StackTrace stackTrace,
+    String operation, {
+    DiagnosticSeverity severity = DiagnosticSeverity.error,
+  }) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: operation,
+      source: 'updater',
+      severity: severity,
+      handled: true,
+      degraded: true,
+    );
+  }
 
   /// How stale a check has to be before launch quietly repeats it.
   static const Duration _recheckAfter = Duration(hours: 24);
@@ -84,7 +102,13 @@ class UpdateController extends FrameSafeNotifier {
     try {
       storedChannel = await store.readChannel();
       storedLastChecked = await store.readLastChecked();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _report(
+        error,
+        stackTrace,
+        'updater.loadPreferences',
+        severity: DiagnosticSeverity.warning,
+      );
       // Update preferences are optional. A later launch or explicit action can
       // retry them without making the shell's startup Future fail.
       return;
@@ -135,8 +159,9 @@ class UpdateController extends FrameSafeNotifier {
       _status = release == null
           ? UpdateStatus.upToDate
           : UpdateStatus.available;
-    } on UpdateException catch (e) {
+    } on UpdateException catch (e, stackTrace) {
       if (!_isCurrent(revision)) return;
+      _report(e, stackTrace, 'updater.check');
       if (silent) {
         // Put back whatever was on screen before, so a failed background check
         // cannot clear a release the user has already been offered.
@@ -171,8 +196,9 @@ class UpdateController extends FrameSafeNotifier {
       if (!_isCurrent(revision)) return;
       _status = UpdateStatus.readyToInstall;
       _progress = 1;
-    } on UpdateException catch (e) {
+    } on UpdateException catch (e, stackTrace) {
       if (!_isCurrent(revision)) return;
+      _report(e, stackTrace, 'updater.download');
       _error = e.message;
       // Back to `available`, not `failed`: the release is still on offer and
       // the button to try again is the same button.
@@ -194,8 +220,9 @@ class UpdateController extends FrameSafeNotifier {
 
     try {
       await updater.installAndRestart();
-    } on UpdateException catch (e) {
+    } on UpdateException catch (e, stackTrace) {
       if (!_isCurrent(revision)) return;
+      _report(e, stackTrace, 'updater.install');
       _error = e.message;
       // The download is still staged and still good, so offer the restart
       // again rather than making the user fetch it a second time.
@@ -239,7 +266,13 @@ class UpdateController extends FrameSafeNotifier {
 
         try {
           await store.writeChannel(channel);
-        } catch (_) {
+        } catch (error, stackTrace) {
+          _report(
+            error,
+            stackTrace,
+            'updater.persistChannel',
+            severity: DiagnosticSeverity.warning,
+          );
           // Keep the session's selection useful even when preferences are
           // temporarily unavailable. A later channel change can persist it.
         }
@@ -247,7 +280,13 @@ class UpdateController extends FrameSafeNotifier {
 
         try {
           await updater.discard();
-        } on UpdateException {
+        } on UpdateException catch (error, stackTrace) {
+          _report(
+            error,
+            stackTrace,
+            'updater.discard',
+            severity: DiagnosticSeverity.warning,
+          );
           // Nothing staged, or it could not be removed. Neither is worth
           // telling the user about, and the check below is what they await.
         }
@@ -278,8 +317,23 @@ class UpdateController extends FrameSafeNotifier {
     // check or download in flight. Discard is its cancellation/close boundary;
     // the controller's revision suppresses the resulting late completion.
     try {
-      updater.discard().ignore();
-    } catch (_) {
+      unawaited(
+        updater.discard().onError((Object error, StackTrace stackTrace) {
+          _report(
+            error,
+            stackTrace,
+            'updater.dispose',
+            severity: DiagnosticSeverity.warning,
+          );
+        }),
+      );
+    } catch (error, stackTrace) {
+      _report(
+        error,
+        stackTrace,
+        'updater.dispose',
+        severity: DiagnosticSeverity.warning,
+      );
       // Disposal must still finish if an adapter fails before returning its
       // Future. There is no live controller left to surface the failure on.
     }

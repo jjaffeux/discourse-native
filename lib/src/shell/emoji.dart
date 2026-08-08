@@ -6,6 +6,7 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../data/emoji_cache.dart';
+import '../foundation/diagnostic_errors.dart';
 import 'image_decode.dart';
 
 /// One emoji, drawn from the image the site serves for it.
@@ -98,8 +99,10 @@ class _EmojiImageState extends State<EmojiImage> {
       height: widget.size,
       fit: BoxFit.contain,
       gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) =>
-          Text(widget.alt, style: widget.style),
+      errorBuilder: (context, error, stackTrace) {
+        reportImageError(error, stackTrace, operation: 'emoji.decode');
+        return Text(widget.alt, style: widget.style);
+      },
     );
   }
 }

@@ -155,11 +155,14 @@ void main() {
 
     test('distinguishes platform launch failures from cancellation', () async {
       final store = _FakeSecureStore(keyPair: _pair);
+      final platformError = PlatformException(
+        code: 'UNAVAILABLE',
+        message: 'no browser',
+      );
       final authenticator = Authenticator(
         store: store,
         protocol: _FakeProtocol(),
-        launcher: (_, _) async =>
-            throw PlatformException(code: 'UNAVAILABLE', message: 'no browser'),
+        launcher: (_, _) async => throw platformError,
       );
 
       await expectLater(
@@ -175,6 +178,16 @@ void main() {
                 (error) => error.detail,
                 'detail',
                 contains('UNAVAILABLE'),
+              )
+              .having(
+                (error) => error.diagnosticCause,
+                'diagnostic cause',
+                same(platformError),
+              )
+              .having(
+                (error) => error.diagnosticCauseStackTrace,
+                'diagnostic cause stack',
+                isNotNull,
               ),
         ),
       );

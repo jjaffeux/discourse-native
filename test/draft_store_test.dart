@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/draft_store.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,6 +42,42 @@ void main() {
 
     expect(persistence.values, isEmpty);
   });
+
+  test(
+    'diagnostics never retain a storage parser source or draft text',
+    () async {
+      const secretDraft = 'private draft body sentinel';
+      final diagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'draft-privacy',
+      );
+      final binding = DiagnosticsSink.install(diagnostics);
+      addTearDown(() async {
+        binding.close();
+        await diagnostics.close();
+      });
+      final privateStore = DraftStore(
+        persistence: _ThrowingDraftPersistence(
+          const FormatException('secure write failed', secretDraft, 1),
+        ),
+      );
+
+      await expectLater(
+        privateStore.write(siteUrl, draftKey, secretDraft),
+        throwsA(
+          isA<DraftWriteException>().having(
+            (error) => '$error',
+            'toString',
+            isNot(contains(secretDraft)),
+          ),
+        ),
+      );
+
+      final report = diagnostics.buildJsonReport();
+      expect(report, contains('secure write failed'));
+      expect(report, isNot(contains(secretDraft)));
+    },
+  );
 
   test('reads drafts from secure persistence', () async {
     persistence.values[storageKey] = '{"reply": "Half a thought"}';
@@ -257,4 +294,22 @@ final class MemoryDraftPersistence implements DraftPersistence {
     if (failWrites) throw StateError('secure storage unavailable');
     values[key] = value;
   }
+}
+
+final class _ThrowingDraftPersistence implements DraftPersistence {
+  const _ThrowingDraftPersistence(this.error);
+
+  final Object error;
+
+  @override
+  Future<void> delete(String key) async {}
+
+  @override
+  Future<String?> read(String key) async => null;
+
+  @override
+  Future<Map<String, String>> readAll() async => const {};
+
+  @override
+  Future<void> write(String key, String value) async => throw error;
 }

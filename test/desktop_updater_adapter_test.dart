@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:desktop_updater/desktop_updater.dart' as du;
 import 'package:discourse_native/src/data/desktop_updater_adapter.dart';
 import 'package:discourse_native/src/data/updater.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -132,6 +133,121 @@ void main() {
         malformed.check(channel: UpdateChannel.stable),
         throwsUpdateFailure(UpdateFailure.malformed),
       );
+    });
+
+    test('never retains a parser source while translating failures', () async {
+      const secretBody = '{"token":"updater-response-body-secret"}';
+      const parseFailure = FormatException(
+        'malformed update schema',
+        secretBody,
+        9,
+      );
+      final diagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'updater-parser-privacy',
+      );
+      final binding = DiagnosticsSink.install(diagnostics);
+      addTearDown(() async {
+        binding.close();
+        await diagnostics.close();
+      });
+      final updater = updaterWith(
+        FakeDesktopUpdateSession(
+          onCheck: () async => du.ManualUpdateCheckFailed(
+            parseFailure,
+            StackTrace.fromString('original updater parser stack'),
+          ),
+        ),
+      );
+
+      UpdateException? translated;
+      try {
+        await updater.check(channel: UpdateChannel.stable);
+        fail('The malformed updater response should fail.');
+      } on UpdateException catch (error) {
+        translated = error;
+      }
+
+      expect(translated.failure, UpdateFailure.malformed);
+      expect(translated.detail, 'malformed update schema at 9');
+      expect(translated.toString(), isNot(contains(secretBody)));
+      DiagnosticsSink.current.reportError(
+        translated,
+        StackTrace.current,
+        operation: 'updater.check',
+        source: 'updater',
+      );
+      expect(
+        diagnostics.events.whereType<ErrorDiagnosticEvent>().single.message,
+        'malformed update schema (offset 9)',
+      );
+      expect(
+        diagnostics.buildJsonReport(diagnostics.events),
+        isNot(contains('updater-response-body-secret')),
+      );
+    });
+
+    test('preserves opaque state failures for terminal reporting', () async {
+      final diagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'updater-state-failures',
+      );
+      final binding = DiagnosticsSink.install(diagnostics);
+      addTearDown(() async {
+        binding.close();
+        await diagnostics.close();
+      });
+
+      final checkFailure = StateError('opaque check failure');
+      final checkStack = StackTrace.fromString('original check stack');
+      final downloadFailure = StateError('opaque download failure');
+      late FakeDesktopUpdateSession session;
+      session = FakeDesktopUpdateSession(
+        onCheck: () async =>
+            du.ManualUpdateCheckFailed(checkFailure, checkStack),
+        onDownload: () async {
+          session.emit(du.UpdateFailed(downloadFailure));
+        },
+      );
+      final updater = updaterWith(session);
+
+      Future<void> reportTerminal(
+        String operation,
+        Future<void> Function() invoke,
+      ) async {
+        try {
+          await invoke();
+          fail('The updater operation should fail.');
+        } on UpdateException catch (error, stackTrace) {
+          DiagnosticsSink.current.reportError(
+            error,
+            stackTrace,
+            operation: operation,
+            source: 'updater',
+          );
+        }
+      }
+
+      await reportTerminal(
+        'updater.check',
+        () async => updater.check(channel: UpdateChannel.stable),
+      );
+      await reportTerminal(
+        'updater.download',
+        () => updater.download(appRelease()),
+      );
+
+      final checkEvent = diagnostics.events
+          .whereType<ErrorDiagnosticEvent>()
+          .singleWhere((event) => event.operation == 'updater.check');
+      expect(checkEvent.message, contains('opaque check failure'));
+      expect(checkEvent.stackTrace, contains('original check stack'));
+
+      final downloadEvent = diagnostics.events
+          .whereType<ErrorDiagnosticEvent>()
+          .singleWhere((event) => event.operation == 'updater.download');
+      expect(downloadEvent.message, contains('opaque download failure'));
+      expect(downloadEvent.stackTrace, isNotEmpty);
     });
 
     test(

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../diagnostics/diagnostics_controller.dart';
 import 'secure_store.dart';
 
 abstract interface class DraftPersistence {
@@ -20,6 +21,11 @@ final class DraftWriteException implements Exception {
   const DraftWriteException([this.cause]);
 
   final Object? cause;
+
+  @override
+  String toString() => cause == null
+      ? 'DraftWriteException'
+      : 'DraftWriteException(${cause.runtimeType})';
 }
 
 final class SecureDraftPersistence implements DraftPersistence {
@@ -65,6 +71,23 @@ class DraftStore {
   final DraftPersistence _persistence;
   final Map<String, Future<void>> _siteOperations = {};
 
+  static void _report(
+    Object error,
+    StackTrace stackTrace,
+    String operation, {
+    DiagnosticSeverity severity = DiagnosticSeverity.warning,
+  }) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: operation,
+      source: 'storage',
+      severity: severity,
+      handled: true,
+      degraded: true,
+    );
+  }
+
   static String _key(String siteUrl, String draftKey) =>
       '$_prefix$siteUrl::$draftKey';
 
@@ -77,7 +100,8 @@ class DraftStore {
     final String? stored;
     try {
       stored = await _persistence.read(key);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'draft.readSecure');
       // A failed read does not prove the secure copy is absent. Keep the
       // plaintext fallback available, but do not let it overwrite an unknown
       // secure value or remove the only copy we can currently read.
@@ -96,7 +120,9 @@ class DraftStore {
     try {
       await _persistence.write(key, legacy);
       await prefs?.remove(key);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'draft.migrateLegacy');
+    }
     return legacy;
   }
 
@@ -123,11 +149,19 @@ class DraftStore {
     try {
       await _persistence.write(key, data);
     } catch (error, stackTrace) {
+      _report(
+        error,
+        stackTrace,
+        'draft.writeSecure',
+        severity: DiagnosticSeverity.error,
+      );
       Error.throwWithStackTrace(DraftWriteException(error), stackTrace);
     }
     try {
       await prefs?.remove(key);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'draft.removeLegacy');
+    }
   }
 
   Future<void> clear(
@@ -150,10 +184,14 @@ class DraftStore {
 
     try {
       await _persistence.delete(key);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'draft.clearSecure');
+    }
     try {
       await prefs?.remove(key);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'draft.clearLegacy');
+    }
   }
 
   Future<void> clearSite(String siteUrl, {bool Function()? ifCurrent}) =>
@@ -164,7 +202,9 @@ class DraftStore {
     Map<String, String> stored = const {};
     try {
       stored = await _persistence.readAll();
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'draft.readAllSecure');
+    }
     final prefs = await _preferences();
     if (ifCurrent != null && !ifCurrent()) return;
 
@@ -173,21 +213,26 @@ class DraftStore {
         for (final key in stored.keys)
           if (key.startsWith(prefix)) _persistence.delete(key),
       ]);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'draft.clearSiteSecure');
+    }
     if (prefs != null) {
       try {
         await Future.wait([
           for (final key in prefs.getKeys())
             if (key.startsWith(prefix)) prefs.remove(key),
         ]);
-      } catch (_) {}
+      } catch (error, stackTrace) {
+        _report(error, stackTrace, 'draft.clearSiteLegacy');
+      }
     }
   }
 
   Future<SharedPreferences?> _preferences() async {
     try {
       return await SharedPreferences.getInstance();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'draft.openPreferences');
       return null;
     }
   }
@@ -196,7 +241,9 @@ class DraftStore {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(key);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'draft.removeLegacy');
+    }
   }
 
   Future<T> _serialize<T>(String siteUrl, Future<T> Function() operation) {

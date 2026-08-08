@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../diagnostics/diagnostics_scope.dart';
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -31,34 +32,41 @@ class InstanceRail extends StatelessWidget {
             color: theme.shell.rail,
             child: SafeArea(
               right: false,
-              child: switch (state.loadStatus) {
-                InstanceLoadStatus.loading => const Center(
-                  child: SizedBox.square(
-                    dimension: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: switch (state.loadStatus) {
+                      InstanceLoadStatus.loading => const Center(
+                        child: SizedBox.square(
+                          dimension: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                      InstanceLoadStatus.failed => const _RailLoadFailure(),
+                      InstanceLoadStatus.ready => ListView.builder(
+                        // The traffic lights are cleared by the title bar above
+                        // the shell, so the rail only needs this padding.
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        itemCount: state.instances.length,
+                        itemBuilder: (context, index) {
+                          final instance = state.instances[index];
+                          return _RailItem(
+                            key: ValueKey(instance.url),
+                            instance: instance,
+                            selected: index == state.selectedIndex,
+                            badgeCount: controller.railBadgeFor(instance),
+                            onTap: () => controller.selectInstance(index),
+                          );
+                        },
+                      ),
+                    },
                   ),
-                ),
-                InstanceLoadStatus.failed => const _RailLoadFailure(),
-                InstanceLoadStatus.ready => ListView.builder(
-                  // The traffic lights are cleared by the title bar above the
-                  // shell, so the rail only needs its own padding here.
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  itemCount: state.instances.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == state.instances.length) {
-                      return const _RailFooter();
-                    }
-                    final instance = state.instances[index];
-                    return _RailItem(
-                      key: ValueKey(instance.url),
-                      instance: instance,
-                      selected: index == state.selectedIndex,
-                      badgeCount: controller.railBadgeFor(instance),
-                      onTap: () => controller.selectInstance(index),
-                    );
-                  },
-                ),
-              },
+                  _RailFooter(
+                    siteActionsAvailable:
+                        state.loadStatus == InstanceLoadStatus.ready,
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -133,32 +141,117 @@ class _RailLoadFailure extends StatelessWidget {
   }
 }
 
-/// What trails the sites: the add button, and the update button when this build
-/// can update itself.
+/// App-level controls below the scrolling sites.
 ///
-/// One list item holding a column rather than two items, so the list's
-/// `itemCount` arithmetic stays as it was.
+/// Diagnostics remains present while sites load or fail. Site mutation and
+/// update controls wait until the persisted site snapshot is known.
 class _RailFooter extends StatelessWidget {
-  const _RailFooter();
+  const _RailFooter({required this.siteActionsAvailable});
+
+  final bool siteActionsAvailable;
 
   @override
   Widget build(BuildContext context) {
     final updates = ShellScope.read(context).updates;
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 4),
-          child: Center(child: _AddInstanceButton()),
-        ),
-        // Not inside the ListenableBuilder below: whether this build can update
-        // at all is decided at compile time and cannot change while running.
-        if (updates.isSupported)
+        if (siteActionsAvailable) ...[
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 4),
-            child: Center(child: _UpdateButton()),
+            child: Center(child: _AddInstanceButton()),
+          ),
+          // Whether this build can update at all is decided at compile time
+          // and cannot change while running.
+          if (updates.isSupported)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Center(child: _UpdateButton()),
+            ),
+        ],
+        if (DiagnosticsScope.maybeRead(context) != null)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(0, 4, 0, 8),
+            child: Center(child: _DiagnosticsButton()),
           ),
       ],
+    );
+  }
+}
+
+/// The app-wide diagnostics entry. It subscribes only to panel visibility and
+/// unseen errors, never to the event stream, so ordinary HTTP traffic cannot
+/// rebuild the rail.
+class _DiagnosticsButton extends StatelessWidget {
+  const _DiagnosticsButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final diagnostics = DiagnosticsScope.read(context);
+
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        diagnostics.panelListenable,
+        diagnostics.unseenErrorsListenable,
+      ]),
+      builder: (context, _) {
+        final open = diagnostics.isPanelOpen;
+        final unseen = diagnostics.unseenErrorCountListenable.value;
+        final tooltip = unseen == 0
+            ? 'Diagnostics'
+            : 'Diagnostics, $unseen unseen ${unseen == 1 ? 'error' : 'errors'}';
+
+        return Semantics(
+          button: true,
+          selected: open,
+          label: tooltip,
+          child: Tooltip(
+            message: tooltip,
+            child: InkWell(
+              key: const ValueKey('diagnostics-rail-button'),
+              onTap: diagnostics.togglePanel,
+              borderRadius: BorderRadius.circular(22),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  AnimatedContainer(
+                    width: 44,
+                    height: 44,
+                    duration: const Duration(milliseconds: 180),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: open
+                          ? theme.colorScheme.primary.withValues(alpha: 0.16)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(open ? 14 : 22),
+                    ),
+                    child: DIcon(
+                      DIcons.bug,
+                      size: 20,
+                      color: open
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (unseen > 0)
+                    Positioned(
+                      right: -4,
+                      bottom: -4,
+                      // The parent announces the exact unseen count. Keep the
+                      // visually capped badge from adding a contradictory
+                      // second number to the accessible label.
+                      child: ExcludeSemantics(
+                        child: _UnreadBadge(count: unseen),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

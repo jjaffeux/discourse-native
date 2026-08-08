@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../foundation/diagnostic_errors.dart';
 import '../../theme/app_theme.dart';
 import '../cooked_html.dart';
 import '../image_decode.dart';
@@ -341,7 +342,10 @@ class _Header extends StatelessWidget {
             width: 16,
             height: 16,
             cacheWidth: imagePhysicalPixels(context, 16),
-            errorBuilder: (context, error, stackTrace) => const SizedBox(),
+            errorBuilder: (context, error, stackTrace) {
+              reportImageError(error, stackTrace, operation: 'onebox.icon');
+              return const SizedBox();
+            },
           ),
           const SizedBox(width: 6),
         ],
@@ -382,7 +386,10 @@ class _Thumbnail extends StatelessWidget {
         resolveSiteUrl(thumbnail.src, siteUrl),
         fit: BoxFit.cover,
         cacheWidth: imagePhysicalPixels(context, width),
-        errorBuilder: (context, error, stackTrace) => const SizedBox(),
+        errorBuilder: (context, error, stackTrace) {
+          reportImageError(error, stackTrace, operation: 'onebox.thumbnail');
+          return const SizedBox();
+        },
       ),
     );
 

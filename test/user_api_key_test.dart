@@ -7,6 +7,10 @@ import 'package:pointycastle/export.dart';
 
 /// Encrypts the way Discourse does: Ruby's `public_encrypt`, i.e. PKCS#1 v1.5.
 String encryptLikeDiscourse(Map<String, dynamic> payload, String publicPem) {
+  return encryptTextLikeDiscourse(jsonEncode(payload), publicPem);
+}
+
+String encryptTextLikeDiscourse(String payload, String publicPem) {
   final cipher = PKCS1Encoding(RSAEngine())
     ..init(
       true,
@@ -14,7 +18,7 @@ String encryptLikeDiscourse(Map<String, dynamic> payload, String publicPem) {
         CryptoUtils.rsaPublicKeyFromPem(publicPem),
       ),
     );
-  return base64Encode(cipher.process(utf8.encode(jsonEncode(payload))));
+  return base64Encode(cipher.process(utf8.encode(payload)));
 }
 
 void main() {
@@ -128,6 +132,31 @@ void main() {
       expect(credentials.key, 'the-api-key');
       expect(credentials.apiVersion, 4);
       expect(credentials.push, isFalse);
+    });
+
+    test('a malformed decrypted reply never exposes its API key', () {
+      const secret = 'must-not-enter-diagnostics';
+      final payload = encryptTextLikeDiscourse(
+        '{"key":"$secret","nonce":"nonce-123"',
+        pair.publicPem,
+      );
+
+      expect(
+        () => protocol.decodePayload(
+          payload: payload,
+          privateKeyPem: pair.privatePem,
+          expectedNonce: 'nonce-123',
+        ),
+        throwsA(
+          isA<UserApiAuthException>()
+              .having(
+                (error) => error.detail,
+                'detail',
+                isNot(contains(secret)),
+              )
+              .having((error) => '$error', 'toString', isNot(contains(secret))),
+        ),
+      );
     });
 
     test('rejects a reply answering a different nonce', () {

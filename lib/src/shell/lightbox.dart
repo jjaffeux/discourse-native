@@ -6,6 +6,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 
+import '../foundation/diagnostic_errors.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -288,8 +289,14 @@ class LightboxTile extends StatelessWidget {
               fit: fit,
               width: double.infinity,
               height: fillsBox ? double.infinity : null,
-              errorBuilder: (context, error, stackTrace) =>
-                  UnavailableImage(color: theme.shell.placeholder),
+              errorBuilder: (context, error, stackTrace) {
+                reportImageError(
+                  error,
+                  stackTrace,
+                  operation: 'lightbox.thumbnail',
+                );
+                return UnavailableImage(color: theme.shell.placeholder);
+              },
             ),
           ),
         ),
@@ -439,8 +446,14 @@ class _LightboxGalleryState extends State<LightboxGallery> {
           maxScale: PhotoViewComputedScale.covered * 3,
           onTapUp: (context, details, value) =>
               setState(() => _chromeVisible = !_chromeVisible),
-          errorBuilder: (context, error, stackTrace) =>
-              const Center(child: UnavailableImage(color: Colors.white54)),
+          errorBuilder: (context, error, stackTrace) {
+            reportImageError(
+              error,
+              stackTrace,
+              operation: 'lightbox.fullImage',
+            );
+            return const Center(child: UnavailableImage(color: Colors.white54));
+          },
         );
       },
     );

@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../diagnostics/diagnostics_controller.dart';
 import 'updater.dart';
 
 /// Remembers which channel the user asked for, and when we last looked.
@@ -14,13 +15,26 @@ class UpdateStore {
   static const String _channelKey = 'discourse_native.update_channel';
   static const String _lastCheckedKey = 'discourse_native.update_last_checked';
 
+  static void _report(Object error, StackTrace stackTrace, String operation) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: operation,
+      source: 'storage',
+      severity: DiagnosticSeverity.warning,
+      handled: true,
+      degraded: true,
+    );
+  }
+
   Future<UpdateChannel?> readChannel() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       // byName rather than values.byName: a channel this build no longer has
       // must read as "no preference" instead of throwing on launch.
       return UpdateChannel.byName(prefs.getString(_channelKey));
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'updates.readChannel');
       return null;
     }
   }
@@ -29,7 +43,8 @@ class UpdateStore {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_channelKey, channel.name);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'updates.writeChannel');
       return;
     }
   }
@@ -41,7 +56,8 @@ class UpdateStore {
       return millis == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(millis);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'updates.readLastChecked');
       return null;
     }
   }
@@ -50,7 +66,8 @@ class UpdateStore {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_lastCheckedKey, at.millisecondsSinceEpoch);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'updates.writeLastChecked');
       return;
     }
   }

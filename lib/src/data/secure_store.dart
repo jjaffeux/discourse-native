@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../diagnostics/diagnostics_controller.dart';
 import 'user_api_key.dart';
 
 /// Keychain-backed storage for anything that must not sit in plain
@@ -50,6 +51,18 @@ class SecureStore {
   final Map<String, Future<void>> _apiKeyMutations = {};
   final Map<String, Object> _apiKeyVersions = {};
 
+  static void _report(Object error, StackTrace stackTrace, String operation) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: operation,
+      source: 'storage',
+      severity: DiagnosticSeverity.warning,
+      handled: true,
+      degraded: true,
+    );
+  }
+
   static String _apiKeyEntry(String siteUrl) => 'api_key::$siteUrl';
 
   Future<AuthKeyPair?> readKeyPair() async {
@@ -66,7 +79,8 @@ class SecureStore {
     final pair = AuthKeyPair(publicPem: public, privatePem: private);
     try {
       await writeKeyPair(pair);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'credentials.migrateKeyPair');
       // The atomic record is either complete or the legacy pair remains.
       return pair;
     }
@@ -79,7 +93,8 @@ class SecureStore {
     for (final key in const [_publicKeyEntry, _privateKeyEntry]) {
       try {
         await _storage.delete(key: key);
-      } catch (_) {
+      } catch (error, stackTrace) {
+        _report(error, stackTrace, 'credentials.deleteLegacyKeyPair');
         complete = false;
       }
     }
@@ -95,7 +110,8 @@ class SecureStore {
         if (await _storage.read(key: key) != null) {
           await _storage.delete(key: key);
         }
-      } catch (_) {
+      } catch (error, stackTrace) {
+        _report(error, stackTrace, 'credentials.cleanupLegacyKeyPair');
         complete = false;
       }
     }
@@ -307,7 +323,8 @@ class SecureStore {
     if (previous == null) return;
     try {
       await previous;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'credentials.previousMutation');
       // A newer credential operation must still get a chance to repair state.
     }
   }

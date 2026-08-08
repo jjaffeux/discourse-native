@@ -1,5 +1,7 @@
 import 'package:url_launcher/url_launcher.dart';
 
+import '../diagnostics/diagnostics_controller.dart';
+
 /// Opens [url] in the platform browser.
 ///
 /// Returns false when the URL is unparseable, its scheme is not safe to hand to
@@ -10,7 +12,16 @@ Future<bool> openExternalLink(String url) async {
   if (uri == null || !_isAllowedExternalUri(uri)) return false;
   try {
     return await launchUrl(uri, mode: LaunchMode.externalApplication);
-  } catch (_) {
+  } catch (error, stackTrace) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: 'externalLink.open',
+      source: 'platform',
+      severity: DiagnosticSeverity.warning,
+      handled: true,
+      degraded: true,
+    );
     return false;
   }
 }

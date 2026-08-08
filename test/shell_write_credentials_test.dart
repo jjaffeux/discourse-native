@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -12,13 +15,25 @@ const _siteUrl = 'https://meta.discourse.org';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  late FakeAuthenticator authenticator;
-  late FakeDiscourseApi api;
+  late _InstrumentedAuthenticator authenticator;
+  late _InstrumentedFailureApi api;
   late ShellController controller;
+  late DiagnosticsController diagnostics;
+  late DiagnosticsSinkBinding diagnosticsBinding;
 
   setUp(() async {
-    authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
-    api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+    diagnostics = await DiagnosticsController.create(
+      persistence: MemoryDiagnosticsPersistence(),
+      sessionId: 'shell-write-credentials',
+    );
+    diagnosticsBinding = DiagnosticsSink.install(diagnostics);
+    addTearDown(() async {
+      diagnosticsBinding.close();
+      await diagnostics.close();
+    });
+
+    authenticator = _InstrumentedAuthenticator()..keys[_siteUrl] = 'api-key';
+    api = _InstrumentedFailureApi(feeds: const {'/latest.json': []});
     controller = ShellController(
       instanceStore: FakeInstanceStore([
         instance(
@@ -101,4 +116,168 @@ void main() {
       expect(api.created, isEmpty);
     },
   );
+
+  test(
+    'a generic like failure is recorded once and rolls back the optimistic UI',
+    () async {
+      api.likeError = StateError('opaque like transport failure');
+      final post = controller.store.read<Post>(_siteUrl, 1)!;
+
+      expect(
+        await controller.toggleLike(post, siteUrl: _siteUrl),
+        const WriteException(WriteFailure.unreachable).message,
+      );
+
+      final held = controller.store.read<Post>(_siteUrl, 1)!;
+      expect(held.liked, isFalse);
+      expect(held.likeCount, 0);
+      expect(held.canLike, isTrue);
+      expect(api.liked, [1]);
+
+      final event = _singleOperation(diagnostics, 'post.toggleLike');
+      expect(event.severity, DiagnosticSeverity.error);
+      expect(event.errorType, 'StateError');
+      expect(event.message, contains('opaque like transport failure'));
+      expect(event.stackTrace, contains('_InstrumentedFailureApi.likePost'));
+    },
+  );
+
+  test('a like failure from a disconnected session is excluded', () async {
+    final gate = Completer<void>();
+    api
+      ..likeError = StateError('obsolete like failure')
+      ..opaqueLikeGate = gate;
+    final post = controller.store.read<Post>(_siteUrl, 1)!;
+
+    final write = controller.toggleLike(post, siteUrl: _siteUrl);
+    await api.likeStarted.future;
+    expect(await controller.disconnectInstance(_siteUrl), isTrue);
+    gate.complete();
+    await write;
+
+    expect(controller.store.read<Post>(_siteUrl, 1), isNull);
+    expect(_operationEvents(diagnostics, 'post.toggleLike'), isEmpty);
+  });
+
+  test(
+    'disconnect keeps working when credential read and deletion fail',
+    () async {
+      authenticator
+        ..readError = StateError('secure credential read failed')
+        ..deleteError = StateError('secure credential delete failed');
+
+      expect(await controller.disconnectInstance(_siteUrl), isTrue);
+
+      expect(controller.currentInstance?.user, isNull);
+      expect(authenticator.disconnected, isEmpty);
+      final read = _singleOperation(
+        diagnostics,
+        'authentication.readCredentialForDisconnect',
+      );
+      expect(read.severity, DiagnosticSeverity.warning);
+      expect(read.message, contains('secure credential read failed'));
+      expect(read.stackTrace, contains('_InstrumentedAuthenticator.apiKeyFor'));
+      final deletion = _singleOperation(
+        diagnostics,
+        'authentication.deleteCredential',
+      );
+      expect(deletion.severity, DiagnosticSeverity.warning);
+      expect(deletion.message, contains('secure credential delete failed'));
+      expect(
+        deletion.stackTrace,
+        contains('_InstrumentedAuthenticator.disconnect'),
+      );
+    },
+  );
+
+  test(
+    'disconnect tolerates and records remote key revocation failure',
+    () async {
+      api.revokeError = StateError('remote revoke unavailable');
+
+      expect(await controller.disconnectInstance(_siteUrl), isTrue);
+
+      expect(controller.currentInstance?.user, isNull);
+      expect(authenticator.disconnected, [_siteUrl]);
+      expect(api.revoked, [_siteUrl]);
+      final event = _singleOperation(diagnostics, 'authentication.revokeKey');
+      expect(event.severity, DiagnosticSeverity.warning);
+      expect(event.message, contains('remote revoke unavailable'));
+      expect(
+        event.stackTrace,
+        contains('_InstrumentedFailureApi.revokeApiKey'),
+      );
+    },
+  );
+}
+
+List<ErrorDiagnosticEvent> _operationEvents(
+  DiagnosticsController diagnostics,
+  String operation,
+) => diagnostics.events
+    .whereType<ErrorDiagnosticEvent>()
+    .where((event) => event.operation == operation)
+    .toList();
+
+ErrorDiagnosticEvent _singleOperation(
+  DiagnosticsController diagnostics,
+  String operation,
+) => _operationEvents(diagnostics, operation).single;
+
+final class _InstrumentedAuthenticator extends FakeAuthenticator {
+  Object? readError;
+  Object? deleteError;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async {
+    if (readError case final error?) throw error;
+    return super.apiKeyFor(siteUrl);
+  }
+
+  @override
+  Future<void> disconnect(String siteUrl) async {
+    if (deleteError case final error?) throw error;
+    return super.disconnect(siteUrl);
+  }
+}
+
+final class _InstrumentedFailureApi extends FakeDiscourseApi {
+  _InstrumentedFailureApi({required super.feeds});
+
+  Object? likeError;
+  Completer<void>? opaqueLikeGate;
+  final Completer<void> likeStarted = Completer<void>();
+  Object? revokeError;
+
+  @override
+  Future<Post?> likePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) async {
+    if (likeError == null && opaqueLikeGate == null) {
+      return super.likePost(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postId: postId,
+        clientId: clientId,
+      );
+    }
+    liked.add(postId);
+    if (!likeStarted.isCompleted) likeStarted.complete();
+    await opaqueLikeGate?.future;
+    if (likeError case final error?) throw error;
+    return likeResponses[postId];
+  }
+
+  @override
+  Future<void> revokeApiKey({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    revoked.add(siteUrl);
+    if (revokeError case final error?) throw error;
+  }
 }

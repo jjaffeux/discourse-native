@@ -1,3 +1,4 @@
+import '../diagnostics/diagnostic_error_cause.dart';
 import '../models/bookmark.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
@@ -7,11 +8,24 @@ import '../plugins/reactions/post_reactors.dart';
 
 enum SiteLookupFailure { notDiscourse, unreachable }
 
-class SiteLookupException implements Exception {
-  const SiteLookupException(this.failure, this.term);
+class SiteLookupException implements Exception, DiagnosticErrorCause {
+  const SiteLookupException(
+    this.failure,
+    this.term, {
+    this.cause,
+    this.causeStackTrace,
+  });
 
   final SiteLookupFailure failure;
   final String term;
+  final Object? cause;
+  final StackTrace? causeStackTrace;
+
+  @override
+  Object get diagnosticCause => cause ?? this;
+
+  @override
+  StackTrace? get diagnosticCauseStackTrace => causeStackTrace;
 
   String get message => switch (failure) {
     SiteLookupFailure.notDiscourse =>
@@ -21,7 +35,7 @@ class SiteLookupException implements Exception {
   };
 
   @override
-  String toString() => 'SiteLookupException($failure, $term)';
+  String toString() => 'SiteLookupException($failure)';
 }
 
 abstract interface class AccountActivityApi {

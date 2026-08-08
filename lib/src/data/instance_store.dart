@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
 
 abstract interface class InstancePersistence {
@@ -49,7 +50,8 @@ class InstanceStore {
     Object? decoded;
     try {
       decoded = jsonDecode(raw);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'instances.decode');
       return const [];
     }
     if (decoded is! List<dynamic>) return const [];
@@ -61,11 +63,29 @@ class InstanceStore {
         if (entry is! Map<String, dynamic>) continue;
         final instance = DiscourseInstance.fromJson(entry);
         if (seenUrls.add(instance.url)) instances.add(instance);
-      } catch (_) {
+      } catch (error, stackTrace) {
+        _report(error, stackTrace, 'instances.decodeEntry');
         // A stale or damaged entry must not erase the other connected sites.
       }
     }
     return instances;
+  }
+
+  static void _report(
+    Object error,
+    StackTrace stackTrace,
+    String operation, {
+    DiagnosticSeverity severity = DiagnosticSeverity.warning,
+  }) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: operation,
+      source: 'storage',
+      severity: severity,
+      handled: true,
+      degraded: true,
+    );
   }
 
   Future<void> save(List<DiscourseInstance> instances) {
@@ -92,6 +112,12 @@ class InstanceStore {
         try {
           await _persistence.write(encoded);
         } catch (error, stackTrace) {
+          _report(
+            error,
+            stackTrace,
+            'instances.save',
+            severity: DiagnosticSeverity.error,
+          );
           result.completeError(error, stackTrace);
           continue;
         }

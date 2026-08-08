@@ -5,7 +5,9 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../diagnostics/diagnostics_controller.dart';
 import 'discourse_api.dart';
+import 'http_transport.dart';
 
 /// Deduplicates image fetches and keeps their concurrency bounded.
 ///
@@ -184,11 +186,25 @@ abstract class ByteCache<T extends Object> {
         // The URL is the cache key, and an image too large to accept is no more
         // drawable than a format [decode] rejects. Remembering that result also
         // prevents a rebuild from downloading and rejecting it again.
+        _report(
+          HttpResponseTooLargeException(Uri.parse(url), maxResponseBytes),
+          StackTrace.current,
+          url,
+          'image.download',
+        );
         if (current()) _put(url, null, byteSize: 0);
         return null;
       }
 
       final decoded = decode(response);
+      if (decoded == null) {
+        _report(
+          const FormatException('Downloaded image could not be decoded.'),
+          StackTrace.current,
+          url,
+          'image.decode',
+        );
+      }
       if (current()) {
         _put(
           url,
@@ -197,7 +213,8 @@ abstract class ByteCache<T extends Object> {
         );
       }
       return decoded;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, url, 'image.load');
       // Offline or timed out: worth another go later.
       if (identical(_generation, generation)) {
         _rememberTransientFailure(url);
@@ -209,18 +226,44 @@ abstract class ByteCache<T extends Object> {
     }
   }
 
+  static void _report(
+    Object error,
+    StackTrace stackTrace,
+    String url,
+    String operation,
+  ) {
+    final uri = Uri.tryParse(url);
+    final location = uri == null ? '' : ' ${uri.host}${uri.path}';
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: '$operation$location',
+      source: 'image',
+      severity: DiagnosticSeverity.warning,
+      handled: true,
+      degraded: true,
+    );
+  }
+
   Future<({http.Response response, bool oversized})> _download(
     String url,
   ) async {
     final elapsed = Stopwatch()..start();
-    final request = http.Request('GET', Uri.parse(url))
-      // Sites are friendlier to a request that identifies itself.
-      ..headers['User-Agent'] = DiscourseApi.userAgent;
+    final timeoutAbort = Completer<void>();
+    final request =
+        http.AbortableRequest(
+            'GET',
+            Uri.parse(url),
+            abortTrigger: timeoutAbort.future,
+          )
+          // Sites are friendlier to a request that identifies itself.
+          ..headers['User-Agent'] = DiscourseApi.userAgent;
     final response = _client.send(request);
     late http.StreamedResponse streamed;
     try {
       streamed = await response.timeout(timeout);
     } on TimeoutException {
+      timeoutAbort.complete();
       response
           .then<void>((lateResponse) => _cancel(lateResponse.stream))
           .ignore();
@@ -242,10 +285,17 @@ abstract class ByteCache<T extends Object> {
     try {
       remaining = _remaining(elapsed);
     } on TimeoutException {
+      timeoutAbort.complete();
       _cancel(streamed.stream);
       rethrow;
     }
-    final bytes = await _readAtMost(streamed.stream, remaining);
+    final Uint8List? bytes;
+    try {
+      bytes = await _readAtMost(streamed.stream, remaining);
+    } on TimeoutException {
+      timeoutAbort.complete();
+      rethrow;
+    }
     return (
       response: _response(streamed, bytes ?? Uint8List(0)),
       oversized: bytes == null,
