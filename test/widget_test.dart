@@ -744,6 +744,76 @@ void main() {
       expect(find.text('Feature'), findsOneWidget);
     });
 
+    testWidgets('topic tags render after the category in server order', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            const Topic(
+              id: 3,
+              title: 'A tagged topic',
+              slug: 'a-tagged-topic',
+              categoryId: 5,
+              tags: [
+                TopicTag(id: 8, name: 'design', slug: 'design'),
+                TopicTag(id: 9, name: 'accessibility', slug: 'accessibility'),
+              ],
+            ),
+          ],
+        },
+        categoryList: const [
+          TopicCategory(id: 5, name: 'Feature', color: '0088CC'),
+        ],
+      );
+
+      await pumpShell(tester, desktop, api: api);
+
+      expect(find.text('design,'), findsOneWidget);
+      expect(find.text('accessibility'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Tags: design, accessibility'),
+        findsOneWidget,
+      );
+      expect(
+        tester.getTopRight(find.text('Feature')).dx,
+        lessThan(tester.getTopLeft(find.text('design,')).dx),
+      );
+    });
+
+    testWidgets('long topic tags wrap without overflowing a phone row', (
+      tester,
+    ) async {
+      final longName = 'a-very-long-${List.filled(30, 'tag-name-').join()}';
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            Topic(
+              id: 3,
+              title: 'A tagged topic',
+              slug: 'a-tagged-topic',
+              tags: [
+                const TopicTag(name: 'design'),
+                TopicTag(name: longName),
+                const TopicTag(name: 'accessibility'),
+                const TopicTag(name: 'mobile'),
+                const TopicTag(name: 'support'),
+              ],
+            ),
+          ],
+        },
+      );
+
+      await pumpShell(tester, phone, api: api);
+      await tester.tap(find.text('Topics'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('design,'), findsOneWidget);
+      expect(find.textContaining(longName), findsOneWidget);
+      expect(find.text('support'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('a failing list reports it instead of crashing', (
       tester,
     ) async {

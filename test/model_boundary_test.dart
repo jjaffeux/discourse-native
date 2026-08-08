@@ -29,6 +29,13 @@ void main() {
               'id': 7,
               'title': 'A topic',
               'slug': 42,
+              'tags': [
+                null,
+                false,
+                3,
+                {'id': 1, 'name': 42},
+                '   ',
+              ],
               'posters': [
                 'not an object',
                 {'user_id': 3},
@@ -41,6 +48,7 @@ void main() {
 
       expect(list.topics, hasLength(1));
       expect(list.topics.single.slug, '');
+      expect(list.topics.single.tags, isEmpty);
       expect(list.topics.single.posterAvatars, isEmpty);
       expect(list.moreTopicsUrl, isNull);
     });
@@ -114,7 +122,13 @@ void main() {
       final topics = TopicList.fromJson(const {
         'topic_list': {
           'topics': [
-            {'id': 1},
+            {
+              'id': 1,
+              'tags': [
+                {'id': 4, 'name': 'feature', 'slug': 'feature'},
+                'legacy',
+              ],
+            },
           ],
         },
       }, siteUrl);
@@ -157,6 +171,14 @@ void main() {
       }, siteUrl);
 
       expect(() => topics.topics.clear(), throwsUnsupportedError);
+      expect(topics.topics.single.tags, const [
+        TopicTag(id: 4, name: 'feature', slug: 'feature'),
+        TopicTag(name: 'legacy'),
+      ]);
+      expect(
+        () => topics.topics.single.tags.add(const TopicTag(name: 'another')),
+        throwsUnsupportedError,
+      );
       expect(
         () => topics.topics.single.posterAvatars.add('avatar'),
         throwsUnsupportedError,
@@ -181,7 +203,12 @@ void main() {
 
       final firstTopic = store.put(
         siteUrl,
-        const Topic(id: 7, title: 'A topic', slug: 'a-topic'),
+        const Topic(
+          id: 7,
+          title: 'A topic',
+          slug: 'a-topic',
+          tags: [TopicTag(id: 4, name: 'feature', slug: 'feature')],
+        ),
       );
       final firstDetail = store.put(
         siteUrl,
@@ -189,7 +216,12 @@ void main() {
       );
       final secondTopic = store.put(
         siteUrl,
-        const Topic(id: 7, title: 'A topic', slug: 'a-topic'),
+        const Topic(
+          id: 7,
+          title: 'A topic',
+          slug: 'a-topic',
+          tags: [TopicTag(id: 4, name: 'feature', slug: 'feature')],
+        ),
       );
       final secondDetail = store.put(
         siteUrl,
@@ -199,6 +231,21 @@ void main() {
       expect(secondTopic, same(firstTopic));
       expect(secondDetail, same(firstDetail));
       expect(notifications, 2);
+    });
+
+    test('marking a topic read preserves its tags', () {
+      const topic = Topic(
+        id: 7,
+        title: 'A topic',
+        slug: 'a-topic',
+        unreadPosts: 2,
+        tags: [TopicTag(id: 4, name: 'feature', slug: 'feature')],
+      );
+
+      final read = topic.copyWith(markRead: true);
+
+      expect(read.hasUnread, isFalse);
+      expect(read.tags, topic.tags);
     });
 
     test('unchanged user and reaction lists do not wake their watchers', () {

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -810,6 +811,10 @@ void _feedGroups() {
                       'bumped_at': '2026-08-01T10:00:00.000Z',
                       'pinned': true,
                       'unread_posts': 2,
+                      'tags': [
+                        {'id': 11, 'name': 'feature', 'slug': 'feature'},
+                        {'id': 12, 'name': 'ux', 'slug': 'user-experience'},
+                      ],
                       'posters': [
                         {'user_id': 7},
                         {'user_id': 9},
@@ -838,6 +843,10 @@ void _feedGroups() {
         expect(topic.pinned, isTrue);
         expect(topic.hasUnread, isTrue);
         expect(topic.path, '/t/a-and-b/42');
+        expect(topic.tags, const [
+          TopicTag(id: 11, name: 'feature', slug: 'feature'),
+          TopicTag(id: 12, name: 'ux', slug: 'user-experience'),
+        ]);
         expect(list.moreTopicsUrl, '/latest?page=1');
 
         // Site-relative templates are absolutised, absolute ones left alone, and
