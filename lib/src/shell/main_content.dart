@@ -15,6 +15,7 @@ import 'shell_scope.dart';
 import 'shell_sheet.dart';
 import 'title_bar.dart';
 import 'topic_list_view.dart';
+import 'topic_title.dart';
 import 'topic_view.dart';
 import 'user_menu_button.dart';
 
@@ -57,6 +58,7 @@ class _MainContentBody extends StatelessWidget {
             _ContentHeader(
               layout: layout,
               route: route,
+              siteUrl: state.siteUrl,
               canPop: state.canPop,
               canReply: state.canReply,
             ),
@@ -106,12 +108,14 @@ class _ContentHeader extends StatelessWidget {
   const _ContentHeader({
     required this.layout,
     required this.route,
+    required this.siteUrl,
     required this.canPop,
     required this.canReply,
   });
 
   final ShellLayout layout;
   final ContentRoute route;
+  final String? siteUrl;
   final bool canPop;
   final bool canReply;
 
@@ -165,14 +169,25 @@ class _ContentHeader extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  route.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
+                if (route.isTopic && siteUrl != null)
+                  TopicTitle(
+                    route.title,
+                    siteUrl: siteUrl!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                else
+                  Text(
+                    route.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
                 if (route.subtitle case final subtitle?)
                   Text(
                     subtitle,

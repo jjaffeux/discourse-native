@@ -131,8 +131,10 @@ Two things the payload makes you handle:
   `avatar_template` is usually site-relative with a `{size}` placeholder.
   `TopicList.fromJson` resolves them into each topic so widgets get plain URLs.
 - Use `title`, **not** `fancy_title`. The latter is HTML — a title renders as
-  `&ldquo;Regular mode&rdquo;` in a `Text` widget. `title` is the same string as
-  plain unicode.
+  `&ldquo;Regular mode&rdquo;` in a `Text` widget. `title` keeps ordinary text as
+  plain unicode and emoji as `:shortcodes:`; [`TopicTitle`](lib/src/shell/topic_title.dart)
+  resolves those shortcodes through the site's emoji set without asking an
+  HTML renderer to interpret the rest of the title.
 
 ### Scrolling
 
