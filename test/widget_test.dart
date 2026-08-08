@@ -356,6 +356,22 @@ void main() {
     );
   });
 
+  testWidgets('sidebar destinations use the site hover colour', (tester) async {
+    await pumpShell(tester, desktop);
+
+    final destination = sidebarDestination('Messages');
+    final inkWell = find
+        .ancestor(of: destination, matching: find.byType(InkWell))
+        .first;
+    final theme = Theme.of(tester.element(destination));
+
+    expect(tester.widget<InkWell>(inkWell).hoverColor, theme.shell.hover);
+    expect(
+      find.descendant(of: inkWell, matching: find.byType(Ink)),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('the sidebar header opens a destructive forum menu', (
     tester,
   ) async {

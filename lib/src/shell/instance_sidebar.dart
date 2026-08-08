@@ -342,8 +342,9 @@ class _DestinationTile extends StatelessWidget {
       ),
       child: InkWell(
         onTap: destination.enabled ? onTap : null,
+        hoverColor: theme.shell.hover,
         borderRadius: BorderRadius.circular(6),
-        child: Container(
+        child: Ink(
           height: 34,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
