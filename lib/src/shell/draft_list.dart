@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/discourse_instance.dart';
-import '../models/discourse_user.dart';
 import '../models/draft_feed.dart';
 import '../models/topic.dart';
 import '../models/user_draft.dart';
@@ -14,7 +13,6 @@ import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_title.dart';
-import 'user_menu.dart';
 
 /// The full-page list of server-side drafts for one connected account.
 class DraftListView extends StatefulWidget {
@@ -203,7 +201,6 @@ class _Drafts extends StatelessWidget {
                     _DraftRow(
                       siteUrl: siteUrl,
                       draft: feed.drafts[index],
-                      user: instance.user!,
                       deleting: controller.draftList.deleting(
                         siteUrl,
                         feed.drafts[index].key,
@@ -258,7 +255,6 @@ class _DraftRow extends StatelessWidget {
   const _DraftRow({
     required this.siteUrl,
     required this.draft,
-    required this.user,
     required this.deleting,
     required this.onResume,
     required this.onOpenForum,
@@ -267,7 +263,6 @@ class _DraftRow extends StatelessWidget {
 
   final String siteUrl;
   final UserDraft draft;
-  final DiscourseUser user;
   final bool deleting;
   final VoidCallback? onResume;
   final VoidCallback onOpenForum;
@@ -282,7 +277,6 @@ class _DraftRow extends StatelessWidget {
         builder: (context, constraints) => _DraftRowContent(
           siteUrl: siteUrl,
           draft: draft,
-          user: user,
           category: category,
           deleting: deleting,
           onResume: onResume,
@@ -299,7 +293,6 @@ class _DraftRowContent extends StatelessWidget {
   const _DraftRowContent({
     required this.siteUrl,
     required this.draft,
-    required this.user,
     required this.category,
     required this.deleting,
     required this.onResume,
@@ -310,7 +303,6 @@ class _DraftRowContent extends StatelessWidget {
 
   final String siteUrl;
   final UserDraft draft;
-  final DiscourseUser user;
   final TopicCategory? category;
   final bool deleting;
   final VoidCallback? onResume;
@@ -326,7 +318,6 @@ class _DraftRowContent extends StatelessWidget {
     final title = draft.displayTitle == 'Untitled draft'
         ? null
         : draft.displayTitle;
-    final avatarSize = compact ? 40.0 : 52.0;
     final actionSize = compact ? 38.0 : 44.0;
 
     return InkWell(
@@ -341,15 +332,6 @@ class _DraftRowContent extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            UserMenuAvatar(
-              avatarUrl: user.avatarUrl,
-              initial: user.username.isEmpty
-                  ? null
-                  : user.username[0].toUpperCase(),
-              connecting: false,
-              size: avatarSize,
-            ),
-            SizedBox(width: compact ? 10 : 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

@@ -72,6 +72,13 @@ void main() {
     );
     expect(find.byTooltip('Edit draft'), findsOneWidget);
     expect(find.byTooltip('Remove draft'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(DraftListView),
+        matching: find.byType(UserMenuAvatar),
+      ),
+      findsNothing,
+    );
     expect(fixture.api.userDraftRequests, [
       (siteUrl: _siteUrl, offset: 0, limit: 30),
     ]);
