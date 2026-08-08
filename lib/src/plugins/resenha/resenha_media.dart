@@ -148,8 +148,9 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       _localStream?.getVideoTracks().firstOrNull;
 
   @override
-  Object? videoTrackFor(int participantId) =>
-      _remoteStreams[participantId]?.getVideoTracks().firstOrNull;
+  Object? videoTrackFor(int participantId) => participantId == localUserId
+      ? localVideoTrack
+      : _remoteStreams[participantId]?.getVideoTracks().firstOrNull;
 
   @override
   Set<int> get speakingParticipantIds => _speaking;
@@ -645,8 +646,9 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   Object? get localVideoTrack => _videoTrack(_room.localParticipant);
 
   @override
-  Object? videoTrackFor(int participantId) =>
-      _videoTrack(_participant(participantId));
+  Object? videoTrackFor(int participantId) => participantId == localUserId
+      ? localVideoTrack
+      : _videoTrack(_participant(participantId));
 
   static lk.VideoTrack? _videoTrack(lk.Participant? participant) {
     if (participant == null) return null;
