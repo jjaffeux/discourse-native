@@ -9,11 +9,14 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 
-/// The fixed width used by both the docked diagnostics sidebar and the
-/// non-phone overlay. Keeping one width makes moving through the responsive
-/// breakpoint feel like relocating the same panel rather than opening a new
-/// route.
+/// The initial width used by both the docked diagnostics sidebar and the
+/// non-phone overlay.
 const double diagnosticsPanelWidth = 440;
+
+/// The bounds for a user-selected diagnostics panel width. The shell may
+/// further constrain the preferred width when the current window is narrow.
+const double diagnosticsPanelMinWidth = 320;
+const double diagnosticsPanelMaxWidth = 720;
 
 /// A live, searchable view over the app-wide diagnostics recorder.
 ///

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/app.dart';
+import 'package:discourse_native/src/data/diagnostics_panel_width_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -14,11 +15,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
 
   testWidgets('diagnostics entry survives loading, failure, and no sites', (
     tester,
@@ -65,7 +71,7 @@ void main() {
     );
   });
 
-  testWidgets('docks at 440px and becomes a responsive right overlay', (
+  testWidgets('docks at its preferred width and becomes a responsive overlay', (
     tester,
   ) async {
     final diagnostics = await _controller();
@@ -114,6 +120,46 @@ void main() {
     expect(
       tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
       390,
+    );
+  });
+
+  testWidgets('resizes from the left edge and restores the width on reload', (
+    tester,
+  ) async {
+    final firstDiagnostics = await _controller();
+    await _pumpApp(tester, const Size(1440, 900), firstDiagnostics);
+    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const ValueKey('diagnostics-resize-handle')),
+      // Flutter reserves the first 20 logical pixels for drag recognition.
+      const Offset(-140, 0),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
+      560,
+    );
+    expect(
+      (await SharedPreferences.getInstance()).getDouble(
+        DiagnosticsPanelWidthStore.storageKey,
+      ),
+      560,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await firstDiagnostics.close();
+
+    final reloadedDiagnostics = await _controller();
+    await _pumpApp(tester, const Size(1440, 900), reloadedDiagnostics);
+    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
+      560,
     );
   });
 
