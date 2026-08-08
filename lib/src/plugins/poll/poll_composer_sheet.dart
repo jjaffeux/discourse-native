@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../shell/shell_sheet.dart';
+import '../../theme/app_theme.dart';
 import 'poll_composer_editor.dart';
 import 'poll_composer_parser.dart';
 
@@ -25,7 +26,7 @@ class PollComposerSheetAction {
   final PollComposerDraft? draft;
 }
 
-/// Opens the add/edit poll sheet without mutating the composer itself.
+/// Opens the add/edit poll editor without mutating the composer itself.
 ///
 /// The caller applies the returned action through the verified source helpers
 /// in `poll_composer_editor.dart`. [isCurrent] adds an earlier UI guard, so a
@@ -38,19 +39,70 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
   required bool isPublished,
   int? voterCount,
   bool Function()? isCurrent,
-}) => showShellSheet<PollComposerSheetAction>(
-  context: context,
-  title: draft.isNew ? 'Add poll' : 'Edit poll',
-  padding: EdgeInsets.zero,
-  builder: (context) => PollComposerSheet(
+}) {
+  final title = draft.isNew ? 'Add poll' : 'Edit poll';
+  Widget editor(BuildContext context) => PollComposerSheet(
     draft: draft,
     maximumOptions: maximumOptions,
     isStaff: isStaff,
     isPublished: isPublished,
     voterCount: voterCount,
     isCurrent: isCurrent,
-  ),
-);
+  );
+  final isTouch = switch (Theme.of(context).platform) {
+    TargetPlatform.iOS || TargetPlatform.android => true,
+    _ => false,
+  };
+
+  if (isTouch) {
+    return showShellSheet<PollComposerSheetAction>(
+      context: context,
+      title: title,
+      padding: EdgeInsets.zero,
+      builder: editor,
+    );
+  }
+
+  return showDialog<PollComposerSheetAction>(
+    context: context,
+    builder: (dialogContext) => Dialog(
+      backgroundColor: Theme.of(dialogContext).shell.floating,
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 720),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(dialogContext).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Close',
+                  ),
+                ],
+              ),
+            ),
+            Divider(color: Theme.of(dialogContext).shell.divider, height: 1),
+            Flexible(
+              child: SingleChildScrollView(child: editor(dialogContext)),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
 /// Confirms removal when an existing post may already have poll votes.
 Future<bool> confirmPublishedPollRemoval(
