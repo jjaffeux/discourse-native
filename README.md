@@ -1122,9 +1122,10 @@ Two pieces of chrome sit outside the column structure, both assembled by
 `AdaptiveShell`:
 
 - **`ShellPanel`** wraps everything right of the rail. It stops below the status
-  bar and rounds the edge facing the rail, so the panel sits *on* the backdrop
-  (the scaffold background) instead of filling the window. The rail has no panel
-  of its own — it draws straight onto the backdrop.
+  bar, rounds the edge facing the rail, and draws one continuous outline around
+  its header and content, so the panel sits *on* the backdrop (the scaffold
+  background) instead of filling the window. The rail has no panel of its own —
+  it draws straight onto the backdrop.
 - **`UserBar`** is a card floating over the bottom of the rail and the sidebar.
   Those columns run to the bottom edge *behind* it; `reserveForUserBar` inflates
   the bottom padding they see so their contents stay clear. On compact it gives
