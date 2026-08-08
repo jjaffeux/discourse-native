@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_api.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_callkit.dart';
@@ -29,6 +30,7 @@ FakeSiteTracker tracker(String siteUrl) => FakeSiteTracker(
 
 final class FakeResenhaMediaFactory implements ResenhaMediaFactory {
   final List<FakeResenhaMediaSession> sessions = [];
+  Completer<void>? nextConnectGate;
 
   @override
   ResenhaMediaSession create({
@@ -37,7 +39,11 @@ final class FakeResenhaMediaFactory implements ResenhaMediaFactory {
     required ResenhaSignalSender sendSignal,
     required ResenhaLiveKitCredentialRefresher refreshLiveKitCredentials,
   }) {
-    final session = FakeResenhaMediaSession(join.transport);
+    final session = FakeResenhaMediaSession(
+      join.transport,
+      connectGate: nextConnectGate,
+    );
+    nextConnectGate = null;
     sessions.add(session);
     return session;
   }
@@ -45,10 +51,11 @@ final class FakeResenhaMediaFactory implements ResenhaMediaFactory {
 
 final class FakeResenhaMediaSession extends ChangeNotifier
     implements ResenhaMediaSession {
-  FakeResenhaMediaSession(this.transport);
+  FakeResenhaMediaSession(this.transport, {this.connectGate});
 
   @override
   final ResenhaTransport transport;
+  final Completer<void>? connectGate;
 
   @override
   ResenhaMediaConnectionState get connectionState =>
@@ -72,7 +79,10 @@ final class FakeResenhaMediaSession extends ChangeNotifier
   Object? videoTrackFor(int participantId) => null;
 
   @override
-  Future<void> connect() async => connectCount++;
+  Future<void> connect() async {
+    connectCount++;
+    await connectGate?.future;
+  }
 
   @override
   Future<List<rtc.MediaDeviceInfo>> devices() async => const [];
@@ -345,6 +355,32 @@ void main() {
     );
   });
 
+  test('waits out a rate-limited room join and retries it once', () async {
+    transport.pluginWriteFailures['POST /resenha/rooms/7/join.json'] =
+        const WriteException(
+          WriteFailure.rateLimited,
+          statusCode: 429,
+          retryAfter: Duration.zero,
+        );
+
+    await controller.ensureLoaded(firstSite);
+    await controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: controller.room(firstSite, 7)!,
+    );
+
+    expect(controller.call?.room.id, 7);
+    expect(controller.call?.status, ResenhaCallStatus.connected);
+    expect(
+      transport.pluginWrites.where(
+        (write) => write.path.endsWith('/join.json'),
+      ),
+      hasLength(2),
+    );
+    expect(controller.errorFor(firstSite), isNull);
+  });
+
   test('switches rooms when the old room echoes the explicit leave', () async {
     final secondJoinPayload = fixture('join_mesh');
     final secondRoomJson = secondJoinPayload['room'] as Map<String, dynamic>;
@@ -380,6 +416,70 @@ void main() {
     expect(systemCall.ends, 1);
     expect(mediaFactory.sessions, hasLength(2));
   });
+
+  test(
+    'serializes another room switch while the first is connecting',
+    () async {
+      Map<String, dynamic> joinPayloadFor(int id, String name, String slug) {
+        final payload = fixture('join_mesh');
+        final room = payload['room'] as Map<String, dynamic>;
+        room
+          ..['id'] = id
+          ..['name'] = name
+          ..['slug'] = slug;
+        return payload;
+      }
+
+      final breakroom = joinPayloadFor(8, 'Breakroom', 'breakroom');
+      final kitchen = joinPayloadFor(9, 'Kitchen', 'kitchen');
+      transport.pluginResponses
+        ..['POST /resenha/rooms/8/join.json'] = breakroom
+        ..['DELETE /resenha/rooms/8/leave.json'] = <String, dynamic>{}
+        ..['POST /resenha/rooms/9/join.json'] = kitchen;
+
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      final connectGate = Completer<void>();
+      mediaFactory.nextConnectGate = connectGate;
+      final firstSwitch = controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: ResenhaRoom.fromJson(breakroom['room'] as Map<String, dynamic>),
+      );
+      while (mediaFactory.sessions.length < 2) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      final secondSwitch = controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: ResenhaRoom.fromJson(kitchen['room'] as Map<String, dynamic>),
+      );
+      final duplicateSecondSwitch = controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: ResenhaRoom.fromJson(kitchen['room'] as Map<String, dynamic>),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(duplicateSecondSwitch, same(secondSwitch));
+      expect(mediaFactory.sessions, hasLength(2));
+      connectGate.complete();
+      await Future.wait([firstSwitch, secondSwitch]);
+
+      expect(controller.call?.room.id, 9);
+      expect(controller.call?.room.name, 'Kitchen');
+      expect(mediaFactory.sessions, hasLength(3));
+      expect(mediaFactory.sessions[0].disposeCount, 1);
+      expect(mediaFactory.sessions[1].disposeCount, 1);
+      expect(mediaFactory.sessions[2].disposeCount, 0);
+    },
+  );
 
   test(
     'heartbeats, synchronizes call controls, and responds to CallKit',

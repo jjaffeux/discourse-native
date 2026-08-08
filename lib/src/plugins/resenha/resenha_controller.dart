@@ -143,6 +143,9 @@ final class ResenhaController extends ChangeNotifier {
   final Map<String, String> _errors = {};
   final Map<String, ResenhaChatSnapshot> _chats = {};
   final Map<String, SiteMessageBusSubscription> _chatSubscriptions = {};
+  Future<void> _joinTail = Future<void>.value();
+  Future<void>? _pendingJoin;
+  String? _pendingJoinKey;
   Object? _joinRevision;
   Timer? _heartbeat;
   ResenhaIdleState _idleState = ResenhaIdleState.active;
@@ -436,6 +439,37 @@ final class ResenhaController extends ChangeNotifier {
     required String siteUrl,
     required String siteName,
     required ResenhaRoom room,
+  }) {
+    final key = '$siteUrl#${room.id}';
+    final pending = _pendingJoin;
+    if (_pendingJoinKey == key && pending != null) return pending;
+
+    final operation = _joinTail.then(
+      (_) => _join(siteUrl: siteUrl, siteName: siteName, room: room),
+    );
+    // Room taps can arrive while the preceding transport is still connecting.
+    // Keep each leave/join transition atomic so a later tap cannot dispose the
+    // media session that the earlier transition is still establishing.
+    _joinTail = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    late final Future<void> tracked;
+    tracked = operation.whenComplete(() {
+      if (identical(_pendingJoin, tracked)) {
+        _pendingJoin = null;
+        _pendingJoinKey = null;
+      }
+    });
+    _pendingJoin = tracked;
+    _pendingJoinKey = key;
+    return tracked;
+  }
+
+  Future<void> _join({
+    required String siteUrl,
+    required String siteName,
+    required ResenhaRoom room,
   }) async {
     if (!supportedPlatform) return;
     final held = _call;
@@ -451,12 +485,33 @@ final class ResenhaController extends ChangeNotifier {
     if (apiKey == null || userId == null || _disposed) return;
     ResenhaMediaSession? media;
     try {
-      final response = await api.join(
-        siteUrl: siteUrl,
-        roomId: room.id,
-        apiKey: apiKey,
-        clientId: await credentials.clientId(),
-      );
+      final clientId = await credentials.clientId();
+      late ResenhaJoinResponse response;
+      try {
+        response = await api.join(
+          siteUrl: siteUrl,
+          roomId: room.id,
+          apiKey: apiKey,
+          clientId: clientId,
+        );
+      } on WriteException catch (error) {
+        if (error.failure != WriteFailure.rateLimited) rethrow;
+        // A 429 is the one write failure that is safe to retry: Discourse
+        // rejected it before the room mutation ran. Native user API keys share
+        // a site-wide request budget, so a room switch can legitimately land
+        // behind ordinary app refreshes or WebRTC signaling.
+        await Future<void>.delayed(
+          (error.retryAfter ?? const Duration(seconds: 1)) +
+              const Duration(milliseconds: 150),
+        );
+        if (_disposed || !identical(_joinRevision, revision)) return;
+        response = await api.join(
+          siteUrl: siteUrl,
+          roomId: room.id,
+          apiKey: apiKey,
+          clientId: clientId,
+        );
+      }
       if (_disposed || !identical(_joinRevision, revision)) return;
       media = mediaFactory.create(
         join: response,

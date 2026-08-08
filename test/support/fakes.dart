@@ -441,10 +441,12 @@ class FakeDiscourseApi implements DiscourseApi {
     this.chatMessageGate,
     this.chatReadFailure,
     this.pluginResponses = const {},
-  });
+    Map<String, WriteException>? pluginWriteFailures,
+  }) : pluginWriteFailures = pluginWriteFailures ?? {};
 
   final Map<String, DiscourseInstance> results;
   final Map<String, Map<String, dynamic>> pluginResponses;
+  final Map<String, WriteException> pluginWriteFailures;
   final List<
     ({String siteUrl, String method, String path, Map<String, Object?> body})
   >
@@ -1449,6 +1451,8 @@ class FakeDiscourseApi implements DiscourseApi {
       path: path,
       body: body,
     ));
+    final failure = pluginWriteFailures.remove('$method $path');
+    if (failure != null) throw failure;
     final response = pluginResponses['$method $path'];
     if (response == null) {
       throw const WriteException(WriteFailure.unreachable);
