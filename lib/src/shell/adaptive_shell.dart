@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
+import '../data/diagnostics_panel_width_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/diagnostics_scope.dart';
 import '../theme/app_theme.dart';
@@ -40,7 +44,7 @@ enum ShellLayout {
 
 /// The application frame. The rail is present at every size; everything to the
 /// right of it is what changes.
-class AdaptiveShell extends StatelessWidget {
+class AdaptiveShell extends StatefulWidget {
   const AdaptiveShell({super.key});
 
   static const double railWidth = 72;
@@ -48,13 +52,46 @@ class AdaptiveShell extends StatelessWidget {
   static const double sidebarWidth = 240;
 
   @override
+  State<AdaptiveShell> createState() => _AdaptiveShellState();
+}
+
+class _AdaptiveShellState extends State<AdaptiveShell> {
+  final DiagnosticsPanelWidthStore _diagnosticsWidthStore =
+      DiagnosticsPanelWidthStore();
+  double _diagnosticsWidth = diagnosticsPanelWidth;
+  bool _diagnosticsWidthChanged = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restoreDiagnosticsWidth());
+  }
+
+  Future<void> _restoreDiagnosticsWidth() async {
+    final stored = await _diagnosticsWidthStore.read();
+    if (!mounted ||
+        _diagnosticsWidthChanged ||
+        stored == null ||
+        !stored.isFinite) {
+      return;
+    }
+    setState(() {
+      _diagnosticsWidth = stored.clamp(
+        diagnosticsPanelMinWidth,
+        diagnosticsPanelMaxWidth,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final diagnostics = DiagnosticsScope.maybeRead(context);
     if (diagnostics == null) return _buildScaffold(null, false);
 
-    // Only panel visibility rebuilds this frame. HTTP traffic is listened to
-    // by DiagnosticsPanel itself, below the shell chrome, so it cannot rebuild
-    // the rail, sidebar, topic list, or chat stream.
+    // Panel visibility is the only diagnostics-controller state that rebuilds
+    // this frame. HTTP traffic is listened to by DiagnosticsPanel itself,
+    // below the shell chrome, so it cannot rebuild the rail, sidebar, topic
+    // list, or chat stream.
     return ValueListenableBuilder<bool>(
       valueListenable: diagnostics.panelListenable,
       builder: (context, open, _) => _buildScaffold(diagnostics, open),
@@ -88,6 +125,18 @@ class AdaptiveShell extends StatelessWidget {
             onClose: diagnostics.closePanel,
           );
 
+          final panelWidth = _effectiveDiagnosticsWidth(constraints.maxWidth);
+          final resizablePanel = _ResizableDiagnosticsPanel(
+            width: panelWidth,
+            onResize: (delta) => _resizeDiagnosticsPanel(
+              fromWidth: panelWidth,
+              delta: delta,
+              availableWidth: constraints.maxWidth,
+            ),
+            onResizeEnd: _persistDiagnosticsWidth,
+            child: panel,
+          );
+
           if (layout == ShellLayout.expanded) {
             final docked = framedShell(
               Row(
@@ -96,8 +145,8 @@ class AdaptiveShell extends StatelessWidget {
                   if (diagnosticsOpen)
                     SizedBox(
                       key: const ValueKey('diagnostics-docked-slot'),
-                      width: diagnosticsPanelWidth,
-                      child: panel,
+                      width: panelWidth,
+                      child: resizablePanel,
                     ),
                 ],
               ),
@@ -110,9 +159,7 @@ class AdaptiveShell extends StatelessWidget {
             );
           }
 
-          final panelWidth = constraints.maxWidth < 600
-              ? constraints.maxWidth
-              : diagnosticsPanelWidth;
+          final phoneWidth = constraints.maxWidth < 600;
           final overlay = Stack(
             children: [
               Positioned.fill(child: framedShell(shell)),
@@ -131,8 +178,8 @@ class AdaptiveShell extends StatelessWidget {
                     alignment: Alignment.centerRight,
                     child: SizedBox(
                       key: const ValueKey('diagnostics-overlay-slot'),
-                      width: panelWidth,
-                      child: panel,
+                      width: phoneWidth ? constraints.maxWidth : panelWidth,
+                      child: phoneWidth ? panel : resizablePanel,
                     ),
                   ),
                 ),
@@ -147,6 +194,39 @@ class AdaptiveShell extends StatelessWidget {
         },
       ),
     );
+  }
+
+  double _effectiveDiagnosticsWidth(double availableWidth) {
+    final windowMaximum = math.max(
+      diagnosticsPanelMinWidth,
+      availableWidth - AdaptiveShell.compactRailWidth,
+    );
+    return _diagnosticsWidth.clamp(
+      diagnosticsPanelMinWidth,
+      math.min(diagnosticsPanelMaxWidth, windowMaximum),
+    );
+  }
+
+  void _resizeDiagnosticsPanel({
+    required double fromWidth,
+    required double delta,
+    required double availableWidth,
+  }) {
+    final windowMaximum = math.max(
+      diagnosticsPanelMinWidth,
+      availableWidth - AdaptiveShell.compactRailWidth,
+    );
+    setState(() {
+      _diagnosticsWidthChanged = true;
+      _diagnosticsWidth = (fromWidth - delta).clamp(
+        diagnosticsPanelMinWidth,
+        math.min(diagnosticsPanelMaxWidth, windowMaximum),
+      );
+    });
+  }
+
+  void _persistDiagnosticsWidth() {
+    unawaited(_diagnosticsWidthStore.write(_diagnosticsWidth));
   }
 
   Widget _withDiagnosticsBackHandling({
@@ -165,6 +245,59 @@ class AdaptiveShell extends StatelessWidget {
         if (!didPop && diagnostics.isPanelOpen) diagnostics.closePanel();
       },
       child: child,
+    );
+  }
+}
+
+class _ResizableDiagnosticsPanel extends StatelessWidget {
+  const _ResizableDiagnosticsPanel({
+    required this.width,
+    required this.onResize,
+    required this.onResizeEnd,
+    required this.child,
+  });
+
+  static const double _handleWidth = 12;
+
+  final double width;
+  final ValueChanged<double> onResize;
+  final VoidCallback onResizeEnd;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final divider = Theme.of(context).shell.divider;
+    return Stack(
+      children: [
+        Positioned.fill(child: child),
+        Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: _handleWidth,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeLeftRight,
+            child: Semantics(
+              label: 'Resize diagnostics panel',
+              value: '${width.round()} pixels wide',
+              child: GestureDetector(
+                key: const ValueKey('diagnostics-resize-handle'),
+                behavior: HitTestBehavior.translucent,
+                onHorizontalDragUpdate: (details) => onResize(details.delta.dx),
+                onHorizontalDragEnd: (_) => onResizeEnd(),
+                onHorizontalDragCancel: onResizeEnd,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: ColoredBox(
+                    color: divider,
+                    child: const SizedBox(width: 1, height: double.infinity),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
