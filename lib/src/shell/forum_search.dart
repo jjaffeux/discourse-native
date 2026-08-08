@@ -111,6 +111,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
     if (event.logicalKey == LogicalKeyboardKey.escape) {
       search.closePanel();
+      _focus.unfocus();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
