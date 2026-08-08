@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/app.dart';
+import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
@@ -8,10 +9,14 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/draft_list.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_emoji_image.dart';
+import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:flutter/material.dart' show Size;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -20,9 +25,9 @@ const _draft = UserDraft(
   key: 'new_topic',
   sequence: 4,
   data: ComposerDraft(
-    reply: 'A draft from another device',
+    reply: 'A draft :smiley: from another device',
     action: ComposerDraft.createTopicAction,
-    title: 'Native drafts page',
+    title: 'Native :sparkles: drafts page',
     categoryId: 5,
   ),
 );
@@ -42,9 +47,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(DraftListView), findsOneWidget);
-    expect(find.text('Native drafts page'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TopicTitle &&
+            widget.title == 'Native :sparkles: drafts page',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Support'), findsOneWidget);
-    expect(find.text('A draft from another device'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TopicTitle &&
+            widget.title == 'A draft :smiley: from another device',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
+          .map((emoji) => emoji.name),
+      ['sparkles', 'smiley'],
+    );
     expect(find.byTooltip('Edit draft'), findsOneWidget);
     expect(find.byTooltip('Remove draft'), findsOneWidget);
     expect(fixture.api.userDraftRequests, [
@@ -75,7 +100,14 @@ void main() {
 
     expect(find.byType(UserMenuPanel), findsNothing);
     expect(find.byType(DraftListView), findsOneWidget);
-    expect(find.text('Native drafts page'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TopicTitle &&
+            widget.title == 'Native :sparkles: drafts page',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a supported draft resumes in the composer', (tester) async {
@@ -93,8 +125,11 @@ void main() {
 
     expect(find.byType(ComposerPanel), findsOneWidget);
     final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
-    expect(shell.visibleComposer?.title.text, 'Native drafts page');
-    expect(shell.visibleComposer?.text.text, 'A draft from another device');
+    expect(shell.visibleComposer?.title.text, 'Native :sparkles: drafts page');
+    expect(
+      shell.visibleComposer?.text.text,
+      'A draft :smiley: from another device',
+    );
     expect(shell.visibleComposer?.draftSequence, 4);
   });
 
@@ -125,6 +160,10 @@ void main() {
 typedef _Fixture = ({FakeDiscourseApi api});
 
 Future<_Fixture> _pump(WidgetTester tester) async {
+  EmojiCache.instance = EmojiCache(
+    client: MockClient((_) async => http.Response('', 404)),
+  );
+  addTearDown(EmojiCache.instance.clear);
   tester.view.physicalSize = const Size(1440, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);

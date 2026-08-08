@@ -13,6 +13,7 @@ import 'external_link.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'topic_title.dart';
 import 'user_menu.dart';
 
 /// The full-page list of server-side drafts for one connected account.
@@ -279,6 +280,7 @@ class _DraftRow extends StatelessWidget {
           controller.categoryFor(draft.displayCategoryId, siteUrl: siteUrl),
       builder: (context, category, _) => LayoutBuilder(
         builder: (context, constraints) => _DraftRowContent(
+          siteUrl: siteUrl,
           draft: draft,
           user: user,
           category: category,
@@ -295,6 +297,7 @@ class _DraftRow extends StatelessWidget {
 
 class _DraftRowContent extends StatelessWidget {
   const _DraftRowContent({
+    required this.siteUrl,
     required this.draft,
     required this.user,
     required this.category,
@@ -305,6 +308,7 @@ class _DraftRowContent extends StatelessWidget {
     required this.compact,
   });
 
+  final String siteUrl;
   final UserDraft draft;
   final DiscourseUser user;
   final TopicCategory? category;
@@ -351,8 +355,9 @@ class _DraftRowContent extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (title != null)
-                    Text(
+                    TopicTitle(
                       title,
+                      siteUrl: siteUrl,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
@@ -388,8 +393,9 @@ class _DraftRowContent extends StatelessWidget {
                     ),
                   if (draft.excerpt.isNotEmpty) ...[
                     SizedBox(height: title == null ? 10 : 18),
-                    Text(
+                    TopicTitle(
                       draft.excerpt,
+                      siteUrl: siteUrl,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyLarge,
