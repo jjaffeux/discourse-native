@@ -780,6 +780,53 @@ void main() {
     expect(find.byTooltip('Collapse Community'), findsOneWidget);
   });
 
+  testWidgets('sidebar section chevrons follow their actions', (tester) async {
+    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Discourse Meta',
+    ).copyWith(user: me);
+    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
+    final api = FakeDiscourseApi(
+      pluginResponses: {
+        'GET /resenha/rooms.json': {
+          'rooms': [
+            {
+              'id': 7,
+              'name': 'Conf Room 1',
+              'slug': 'conf-room-1',
+              'public': false,
+              'ephemeral': false,
+              'room_type': 'stage',
+              'member_count': 0,
+              'message_bus_last_id': 91,
+              'active_participants': <Object?>[],
+              'video_enabled': false,
+              'video_allowed': false,
+              'max_quality_profile': 'standard',
+            },
+          ],
+          'can_create_room': true,
+          'index_message_bus_last_id': 144,
+        },
+      },
+    );
+
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [site],
+      api: api,
+      authenticator: auth,
+    );
+
+    final action = find.byTooltip('Create voice room');
+    final chevron = find.byTooltip('Collapse Voice rooms');
+    expect(action, findsOneWidget);
+    expect(chevron, findsOneWidget);
+    expect(tester.getCenter(action).dx, lessThan(tester.getCenter(chevron).dx));
+  });
+
   testWidgets('sidebar destinations show a background when hovered', (
     tester,
   ) async {
