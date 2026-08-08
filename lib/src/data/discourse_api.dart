@@ -14,6 +14,7 @@ import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/post_likers.dart';
+import '../models/site_appearance.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
@@ -23,6 +24,7 @@ import '../plugins/chat/chat_message.dart';
 import '../plugins/reactions/post_reactors.dart';
 import 'discourse_api_contracts.dart';
 import 'http_transport.dart';
+import 'site_appearance_loader.dart';
 
 export 'discourse_api_contracts.dart';
 
@@ -119,6 +121,14 @@ class DiscourseApi implements AccountActivityApi, ChatApi, ReactionsApi {
   /// These routes return JSON rather than media. Keeping a generous finite
   /// bound prevents a broken endpoint from growing the process without limit.
   final int _maxResponseBytes;
+
+  late final SiteAppearanceLoader _siteAppearanceLoader = SiteAppearanceLoader(
+    client: _client,
+    timeout: timeout,
+    maxResponseBytes: _maxResponseBytes < 2 * 1024 * 1024
+        ? _maxResponseBytes
+        : 2 * 1024 * 1024,
+  );
 
   /// Turns whatever the user typed into a URL to probe.
   ///
@@ -261,6 +271,19 @@ class DiscourseApi implements AccountActivityApi, ChatApi, ReactionsApi {
       avatarUrl: _avatarUrl(jsonText(user['avatar_template']), siteUrl),
     );
   }
+
+  /// The colors Discourse resolved for this site and, when connected, the
+  /// account behind [apiKey]. Missing theme markup is an optional capability
+  /// and answers null rather than preventing the site from loading.
+  Future<SiteAppearance?> siteAppearance({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) => _siteAppearanceLoader.load(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   /// Every unread counter the shell shows, in one request.
   ///

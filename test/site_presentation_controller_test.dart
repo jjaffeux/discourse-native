@@ -2,14 +2,134 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/site_presentation_controller.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/site_appearance_fixtures.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const site = 'https://meta.example';
+
+  test('loads, publishes, persists, and caches site appearance', () async {
+    final api = _PresentationApi();
+    final credentials = _Credentials();
+    final stored = siteAppearance(accent: const Color(0xFF112233));
+    final fetched = siteAppearance(accent: const Color(0xFF445566));
+    api.appearance = fetched;
+    final persisted = <(String, SiteAppearance)>[];
+    final controller = _controller(
+      api,
+      credentials: credentials,
+      persistedAppearances: {site: stored},
+      onAppearanceLoaded: (siteUrl, appearance) async {
+        persisted.add((siteUrl, appearance));
+      },
+    );
+    var notifications = 0;
+    controller.addListener(() => notifications++);
+
+    expect(controller.appearanceFor(site), stored);
+    await Future.wait([
+      controller.ensureAppearance(site),
+      controller.ensureAppearance(site),
+    ]);
+
+    expect(api.appearanceCalls, 1);
+    expect(credentials.apiKeySites, [site]);
+    expect(credentials.clientIdCalls, 1);
+    expect(controller.appearanceFor(site), fetched);
+    expect(persisted, [(site, fetched)]);
+    expect(notifications, 1);
+
+    await controller.ensureAppearance(site);
+    expect(api.appearanceCalls, 1);
+    controller.dispose();
+  });
+
+  test('an unchanged persisted appearance causes no churn', () async {
+    final appearance = siteAppearance();
+    final api = _PresentationApi()..appearance = appearance;
+    var persistenceCalls = 0;
+    final controller = _controller(
+      api,
+      persistedAppearances: {site: appearance},
+      onAppearanceLoaded: (_, _) async => persistenceCalls++,
+    );
+    var notifications = 0;
+    controller.addListener(() => notifications++);
+
+    await controller.ensureAppearance(site);
+
+    expect(controller.appearanceFor(site), appearance);
+    expect(notifications, 0);
+    expect(persistenceCalls, 0);
+    controller.dispose();
+  });
+
+  test(
+    'failed appearance refresh keeps persisted colors and bounds retries',
+    () async {
+      final stored = siteAppearance(accent: const Color(0xFF112233));
+      final api = _PresentationApi()..appearanceError = StateError('offline');
+      var persistenceCalls = 0;
+      final controller = _controller(
+        api,
+        persistedAppearances: {site: stored},
+        onAppearanceLoaded: (_, _) async => persistenceCalls++,
+      );
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      for (var attempt = 0; attempt < 5; attempt++) {
+        await controller.ensureAppearance(site);
+      }
+
+      expect(api.appearanceCalls, 3);
+      expect(controller.appearanceFor(site), stored);
+      expect(persistenceCalls, 0);
+      expect(notifications, 0);
+
+      controller.forget(site);
+      await controller.ensureAppearance(site);
+
+      expect(api.appearanceCalls, 4);
+      expect(controller.appearanceFor(site), stored);
+      expect(persistenceCalls, 0);
+      expect(notifications, 0);
+      controller.dispose();
+    },
+  );
+
+  test('site invalidation rejects a late appearance response', () async {
+    final api = _PresentationApi();
+    final gate = Completer<SiteAppearance?>();
+    api.appearanceGate = gate;
+    final lifecycle = SiteLifecycle();
+    final persisted = <SiteAppearance>[];
+    final controller = _controller(
+      api,
+      lifecycle: lifecycle,
+      onAppearanceLoaded: (_, appearance) async {
+        persisted.add(appearance);
+      },
+    );
+
+    final pending = controller.ensureAppearance(site);
+    await api.appearanceRequestStarted.future;
+    lifecycle.invalidate(site);
+    controller.forget(site);
+    gate.complete(siteAppearance());
+    await pending;
+
+    expect(controller.appearanceFor(site), isNull);
+    expect(persisted, isEmpty);
+    controller.dispose();
+  });
 
   test('loads, publishes, persists, and caches site config', () async {
     final api = _PresentationApi();
@@ -264,16 +384,21 @@ SitePresentationController _controller(
   _Credentials? credentials,
   SiteLifecycle? lifecycle,
   Map<String, SiteConfig> persisted = const {},
+  Map<String, SiteAppearance> persistedAppearances = const {},
+  SiteAppearanceLoaded? onAppearanceLoaded,
   SiteConfigLoaded? onConfigLoaded,
   void Function()? onEmojiIndexChanged,
 }) {
   return SitePresentationController(
+    loadAppearance: api.loadAppearance,
     loadConfig: api.loadConfig,
     loadCustomEmojis: api.loadCustomEmojis,
     loadEmojis: api.loadEmojis,
     credentials: credentials ?? _Credentials(),
     lifecycle: lifecycle ?? SiteLifecycle(),
+    readPersistedAppearance: (siteUrl) => persistedAppearances[siteUrl],
     readPersistedConfig: (siteUrl) => persisted[siteUrl],
+    onAppearanceLoaded: onAppearanceLoaded ?? (_, _) async {},
     onConfigLoaded: onConfigLoaded ?? (_, _) async {},
     onEmojiIndexChanged: onEmojiIndexChanged ?? () {},
   );
@@ -297,6 +422,12 @@ final class _Credentials implements ApiCredentialReader {
 }
 
 final class _PresentationApi {
+  SiteAppearance? appearance;
+  Object? appearanceError;
+  Completer<SiteAppearance?>? appearanceGate;
+  Completer<void> appearanceRequestStarted = Completer<void>();
+  int appearanceCalls = 0;
+
   SiteConfig config = const SiteConfig();
   Object? configError;
   Completer<SiteConfig>? configGate;
@@ -310,6 +441,20 @@ final class _PresentationApi {
   Completer<List<SiteEmoji>>? emojiGate;
   Completer<void> emojiRequestStarted = Completer<void>();
   int emojiCalls = 0;
+
+  Future<SiteAppearance?> loadAppearance({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    appearanceCalls++;
+    if (!appearanceRequestStarted.isCompleted) {
+      appearanceRequestStarted.complete();
+    }
+    if (appearanceGate case final gate?) return gate.future;
+    if (appearanceError case final error?) throw error;
+    return appearance;
+  }
 
   Future<SiteConfig> loadConfig({
     required String siteUrl,

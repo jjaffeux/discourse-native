@@ -526,7 +526,7 @@ TextStyle markdownStyle(
     style = style.copyWith(
       fontFamily: null,
       fontFamilyFallback: monospaceFallback,
-      backgroundColor: theme.shell.rail,
+      backgroundColor: theme.code.inlineBackground,
     );
   }
 
@@ -580,7 +580,7 @@ TextStyle markdownStyle(
         style.copyWith(
           fontFamily: null,
           fontFamilyFallback: monospaceFallback,
-          backgroundColor: theme.shell.rail,
+          backgroundColor: theme.code.inlineBackground,
         ),
         0.9,
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/app_release.dart';
 import '../data/updater.dart';
+import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -102,7 +103,7 @@ class _Status extends StatelessWidget {
               DIcon(
                 DIcons.farCircleCheck,
                 size: 18,
-                color: theme.colorScheme.primary,
+                color: theme.discourse.success,
               ),
               const SizedBox(width: 8),
               Text("You're up to date.", style: theme.textTheme.bodyMedium),

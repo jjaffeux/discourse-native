@@ -304,7 +304,7 @@ class _DestinationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final foreground = selected
-        ? theme.colorScheme.onSurface
+        ? theme.shell.selectedForeground
         : theme.colorScheme.onSurfaceVariant;
 
     // A destination built fresh from live state already has the answer; core's
@@ -320,9 +320,7 @@ class _DestinationTile extends StatelessWidget {
           height: 34,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: selected
-                ? theme.colorScheme.primary.withValues(alpha: 0.16)
-                : null,
+            color: selected ? theme.shell.selected : null,
             borderRadius: BorderRadius.circular(6),
           ),
           child: Row(

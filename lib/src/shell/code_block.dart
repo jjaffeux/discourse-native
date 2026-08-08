@@ -243,7 +243,7 @@ class _CodeBlockState extends State<CodeBlock> {
       width: double.infinity,
       margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: shell.rail,
+        color: theme.code.blockBackground,
         border: Border.all(color: shell.divider),
         borderRadius: BorderRadius.circular(6),
       ),

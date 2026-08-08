@@ -147,7 +147,7 @@ class ReactionsPlugin implements SitePlugin<Reactions> {
             (null, final _?) => 'Like this post',
             _ => 'React to this post',
           },
-          tint: held == null ? null : discourseLove,
+          tint: held == null ? null : Theme.of(context).discourse.love,
           onInvoke: () {
             if (target == null) {
               // Nothing known to send. The picker is where a reader chooses,
