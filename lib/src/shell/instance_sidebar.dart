@@ -278,7 +278,7 @@ class _SectionState extends State<_Section> {
   @override
   void initState() {
     super.initState();
-    unawaited(_restore());
+    if (widget.section.collapsible) unawaited(_restore());
   }
 
   @override
@@ -286,9 +286,11 @@ class _SectionState extends State<_Section> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.section.id != widget.section.id ||
+        oldWidget.section.collapsible != widget.section.collapsible ||
         !identical(oldWidget.store, widget.store)) {
       _collapsed = false;
-      unawaited(_restore());
+      _restoreGeneration++;
+      if (widget.section.collapsible) unawaited(_restore());
     }
   }
 
@@ -317,70 +319,18 @@ class _SectionState extends State<_Section> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final section = widget.section;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  excludeFromSemantics: true,
-                  borderRadius: BorderRadius.circular(4),
-                  onTap: _toggle,
-                  child: SizedBox(
-                    height: 24,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        section.title.toUpperCase(),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (section.onAction case final action?)
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  tooltip: section.actionLabel,
-                  onPressed: action,
-                  icon: DIcon(section.actionIcon ?? DIcons.plus, size: 15),
-                ),
-              Tooltip(
-                message:
-                    '${_collapsed ? 'Expand' : 'Collapse'} ${section.title}',
-                child: Semantics(
-                  button: true,
-                  expanded: !_collapsed,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(4),
-                    onTap: _toggle,
-                    child: SizedBox.square(
-                      dimension: 24,
-                      child: Center(
-                        child: DIcon(
-                          _collapsed ? DIcons.chevronRight : DIcons.chevronDown,
-                          size: 11,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+        if (section.showHeader)
+          _SectionHeader(
+            section: section,
+            collapsed: _collapsed,
+            onToggle: section.collapsible ? _toggle : null,
           ),
-        ),
-        if (!_collapsed)
+        if (!section.collapsible || !_collapsed)
           for (final destination in section.destinations) ...[
             _DestinationTile(
               key: ValueKey(destination.id),
@@ -399,6 +349,98 @@ class _SectionState extends State<_Section> {
               ),
           ],
       ],
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.section,
+    required this.collapsed,
+    required this.onToggle,
+  });
+
+  final SidebarSection section;
+  final bool collapsed;
+  final VoidCallback? onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final title = _SectionTitle(section: section);
+    final toggle = onToggle;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: toggle == null
+                ? title
+                : InkWell(
+                    excludeFromSemantics: true,
+                    borderRadius: BorderRadius.circular(4),
+                    onTap: toggle,
+                    child: title,
+                  ),
+          ),
+          if (section.onAction case final action?)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: section.actionLabel,
+              onPressed: action,
+              icon: DIcon(section.actionIcon ?? DIcons.plus, size: 15),
+            ),
+          if (toggle != null)
+            Tooltip(
+              message: '${collapsed ? 'Expand' : 'Collapse'} ${section.title}',
+              child: Semantics(
+                button: true,
+                expanded: !collapsed,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(4),
+                  onTap: toggle,
+                  child: SizedBox.square(
+                    dimension: 24,
+                    child: Center(
+                      child: DIcon(
+                        collapsed ? DIcons.chevronRight : DIcons.chevronDown,
+                        size: 11,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.section});
+
+  final SidebarSection section;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SizedBox(
+      height: 24,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          section.title.toUpperCase(),
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.6,
+          ),
+        ),
+      ),
     );
   }
 }
