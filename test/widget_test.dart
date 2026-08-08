@@ -356,7 +356,9 @@ void main() {
     );
   });
 
-  testWidgets('sidebar destinations use the site hover colour', (tester) async {
+  testWidgets('sidebar destinations show a background when hovered', (
+    tester,
+  ) async {
     await pumpShell(tester, desktop);
 
     final destination = sidebarDestination('Messages');
@@ -364,12 +366,24 @@ void main() {
         .ancestor(of: destination, matching: find.byType(InkWell))
         .first;
     final theme = Theme.of(tester.element(destination));
+    Color? background() =>
+        ((tester.widget<InkWell>(inkWell).child! as Container).decoration
+                as BoxDecoration?)
+            ?.color;
 
-    expect(tester.widget<InkWell>(inkWell).hoverColor, theme.shell.hover);
-    expect(
-      find.descendant(of: inkWell, matching: find.byType(Ink)),
-      findsOneWidget,
-    );
+    expect(background(), isNull);
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+    await gesture.moveTo(tester.getCenter(destination));
+    await tester.pumpAndSettle();
+
+    expect(background(), theme.shell.hover);
+
+    await gesture.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(background(), isNull);
   });
 
   testWidgets('the sidebar header opens a destructive forum menu', (

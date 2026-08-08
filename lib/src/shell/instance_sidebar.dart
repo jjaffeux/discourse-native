@@ -255,7 +255,7 @@ class _Section extends StatelessWidget {
   }
 }
 
-class _DestinationTile extends StatelessWidget {
+class _DestinationTile extends StatefulWidget {
   const _DestinationTile({
     super.key,
     required this.destination,
@@ -268,6 +268,23 @@ class _DestinationTile extends StatelessWidget {
   final bool selected;
   final int badgeCount;
   final VoidCallback onTap;
+
+  @override
+  State<_DestinationTile> createState() => _DestinationTileState();
+}
+
+class _DestinationTileState extends State<_DestinationTile> {
+  bool _hovered = false;
+
+  SidebarDestination get destination => widget.destination;
+  bool get selected => widget.selected;
+  int get badgeCount => widget.badgeCount;
+  VoidCallback get onTap => widget.onTap;
+
+  void _setHovered(bool hovered) {
+    if (_hovered == hovered) return;
+    setState(() => _hovered = hovered);
+  }
 
   /// A face beats a picture beats a category badge beats a glyph. Emoji before
   /// colour matches Discourse's own sidebar, which draws a channel's emoji when
@@ -342,13 +359,17 @@ class _DestinationTile extends StatelessWidget {
       ),
       child: InkWell(
         onTap: destination.enabled ? onTap : null,
-        hoverColor: theme.shell.hover,
+        onHover: destination.enabled ? _setHovered : null,
         borderRadius: BorderRadius.circular(6),
-        child: Ink(
+        child: Container(
           height: 34,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: selected ? theme.shell.selected : null,
+            color: _hovered
+                ? theme.shell.hover
+                : selected
+                ? theme.shell.selected
+                : null,
             borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
