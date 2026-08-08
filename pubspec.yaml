@@ -20,6 +20,10 @@ dependencies:
   ffi: ^2.2.0
   basic_utils: ^5.8.2
   url_launcher: ^6.3.2
+  # Native files dragged from Finder/the Linux desktop into the composer.
+  # Kept at this boundary: the upload and composer layers consume a small
+  # app-owned file abstraction rather than depending on plugin types.
+  desktop_drop: ^0.7.1
   pointycastle: ^4.0.0
   flutter_svg: ^2.3.0
   flutter_widget_from_html_core: ^0.17.2

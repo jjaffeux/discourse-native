@@ -12,6 +12,11 @@ Map<String, dynamic> settings({
   String? enabledReactions,
   bool? allowAnyEmoji,
   bool? desaturated,
+  String? authorizedExtensions,
+  String? authorizedExtensionsForStaff,
+  int? simultaneousUploads,
+  int? maxImageWidth,
+  int? maxImageHeight,
 }) => {
   'emoji_set': ?emojiSet,
   'external_emoji_url': externalEmojiUrl,
@@ -20,6 +25,11 @@ Map<String, dynamic> settings({
   'discourse_reactions_enabled_reactions': ?enabledReactions,
   'discourse_reactions_allow_any_emoji': ?allowAnyEmoji,
   'discourse_reactions_desaturated_reaction_panel': ?desaturated,
+  'authorized_extensions': ?authorizedExtensions,
+  'authorized_extensions_for_staff': ?authorizedExtensionsForStaff,
+  'simultaneous_uploads': ?simultaneousUploads,
+  'max_image_width': ?maxImageWidth,
+  'max_image_height': ?maxImageHeight,
 };
 
 void main() {
@@ -151,6 +161,48 @@ void main() {
         const SiteConfig.unknown().emojiUrl('+1', siteUrl: site),
         '$site/images/emoji/twitter/+1.png',
       );
+    });
+  });
+
+  group('composer uploads', () {
+    test('reads site limits and separates staff-only extensions', () {
+      final config = SiteConfig.fromSettings(
+        settings(
+          authorizedExtensions: 'jpg|jpeg|png',
+          authorizedExtensionsForStaff: 'ico|psd',
+          simultaneousUploads: 4,
+          maxImageWidth: 900,
+          maxImageHeight: 700,
+        ),
+      );
+
+      expect(config.canUploadImage('PHOTO.JPG', staff: false), isTrue);
+      expect(config.canUploadImage('favicon.ico', staff: false), isFalse);
+      expect(config.canUploadImage('favicon.ico', staff: true), isTrue);
+      expect(config.canUploadImage('notes.txt', staff: true), isFalse);
+      expect(config.simultaneousUploads, 4);
+      expect(config.maxImageWidth, 900);
+      expect(config.maxImageHeight, 700);
+    });
+
+    test('wildcard authorization still accepts images only', () {
+      final config = SiteConfig.fromSettings(
+        settings(authorizedExtensions: '*'),
+      );
+
+      expect(config.canUploadImage('photo.webp', staff: false), isTrue);
+      expect(config.canUploadImage('archive.zip', staff: false), isFalse);
+      expect(config.canUploadImage('no-extension', staff: false), isFalse);
+    });
+
+    test('uses core-compatible defaults when settings are absent', () {
+      const config = SiteConfig.unknown();
+
+      expect(config.canUploadImage('photo.png', staff: false), isTrue);
+      expect(config.canUploadImage('photo.bmp', staff: false), isFalse);
+      expect(config.simultaneousUploads, 15);
+      expect(config.maxImageWidth, 690);
+      expect(config.maxImageHeight, 500);
     });
   });
 

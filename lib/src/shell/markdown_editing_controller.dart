@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/emoji_cache.dart';
+import '../models/composer_upload.dart';
 import '../plugins/poll/poll_composer_parser.dart';
 import '../plugins/poll/poll_composer_pill.dart';
 import '../theme/app_theme.dart';
 import 'code_block.dart';
+import 'composer_image.dart';
+import 'composer_images.dart';
 import 'composer_pills.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
@@ -30,6 +33,9 @@ class MarkdownEditingController extends TextEditingController {
     this.resolveEmoji,
     this.pills,
     this.pollMaximumOptions = 20,
+    this.resolveUploadUrls,
+    this.maxImageWidth = 690,
+    this.maxImageHeight = 500,
   });
 
   /// Where the artwork for `smile` lives on the site being written to.
@@ -47,6 +53,74 @@ class MarkdownEditingController extends TextEditingController {
   final ComposerPills? pills;
 
   final int pollMaximumOptions;
+  final ComposerUploadUrlResolver? resolveUploadUrls;
+  final int maxImageWidth;
+  final int maxImageHeight;
+
+  String? _imageScanned;
+  List<ComposerImageBlock> _imageBlocks = const [];
+  int? _suppressedImageStart;
+  int? _suppressedImageCaret;
+  Set<int> _collapsedImageStarts = const {};
+  final Map<int, GlobalKey> _imageKeys = {};
+  final Map<String, String> _imageUrls = {};
+  final Set<String> _resolvingImageUrls = {};
+  final Set<String> _failedImageUrls = {};
+  final Map<String, Size> _naturalImageSizes = {};
+
+  List<ComposerImageBlock> get imageBlocks =>
+      List.unmodifiable(_imageBlocksFor(text));
+
+  ComposerImageBlock? imageAtOffset(int offset) =>
+      imageAtComposerOffset(_imageBlocksFor(text), offset);
+
+  bool isImageCollapsed(ComposerImageBlock image) =>
+      _collapsedImageStarts.contains(image.start);
+
+  ComposerImageBlock? collapsedImageAtGlobalPosition(Offset globalPosition) {
+    for (final image in _imageBlocksFor(text)) {
+      if (!isImageCollapsed(image)) continue;
+      final rect = collapsedImageGlobalRect(image);
+      if (rect?.contains(globalPosition) == true) return image;
+    }
+    return null;
+  }
+
+  Rect? collapsedImageGlobalRect(ComposerImageBlock image) {
+    if (!isImageCollapsed(image)) return null;
+    final renderObject = _imageKeys[image.start]?.currentContext
+        ?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+  }
+
+  void suppressCollapsedCaretForImage(ComposerImageBlock image) {
+    _suppressedImageStart = image.start;
+    _suppressedImageCaret = value.selection.extentOffset;
+    artworkArrived();
+  }
+
+  void cacheImageUrl(String shortUrl, String url) {
+    if (_imageUrls[shortUrl] == url) return;
+    _imageUrls[shortUrl] = url;
+    _failedImageUrls.remove(shortUrl);
+    artworkArrived();
+  }
+
+  String? resolvedImageUrl(ComposerImageBlock image) =>
+      image.url.startsWith('upload://') ? _imageUrls[image.url] : image.url;
+
+  Size? naturalImageSize(ComposerImageBlock image) =>
+      _naturalImageSizes[image.url];
+
+  List<ComposerImageBlock> _imageBlocksFor(String source) {
+    if (_imageScanned == source) return _imageBlocks;
+    _imageScanned = source;
+    _suppressedImageStart = null;
+    _suppressedImageCaret = null;
+    _imageKeys.clear();
+    return _imageBlocks = parseComposerImages(source);
+  }
 
   String? _pollScanned;
   List<PollComposerBlock> _pollBlocks = const [];
@@ -199,6 +273,35 @@ class MarkdownEditingController extends TextEditingController {
       ),
     );
 
+    final images = _imageBlocksFor(source);
+    if (_suppressedImageCaret != value.selection.extentOffset) {
+      _suppressedImageStart = null;
+      _suppressedImageCaret = null;
+    }
+    final collapsedImages = [
+      for (final image in images)
+        if (!_imageNeedsRawSource(
+          image,
+          value,
+          suppressCaret: _suppressedImageStart == image.start,
+        ))
+          image,
+    ];
+    _collapsedImageStarts = {for (final image in collapsedImages) image.start};
+    final imageProjection = Object.hashAll(
+      collapsedImages.map(
+        (image) => Object.hash(
+          image.start,
+          image.end,
+          image.alt,
+          image.width,
+          image.height,
+          image.scale,
+          resolvedImageUrl(image),
+        ),
+      ),
+    );
+
     // Which token, if any, the caret is in — the one thing about the selection
     // that changes what is drawn. Summarised rather than keyed on the
     // selection itself, so the ordinary caret move still costs nothing.
@@ -217,6 +320,7 @@ class MarkdownEditingController extends TextEditingController {
           revealed: revealed,
           artwork: _artwork,
           pollProjection: pollProjection,
+          imageProjection: imageProjection,
         )) {
       return cached.span;
     }
@@ -226,6 +330,7 @@ class MarkdownEditingController extends TextEditingController {
     // request, not forty.
     final unresolvedRefs = <String>{};
     final unresolvedNames = <String>{};
+    final unresolvedImages = <String>{};
 
     final children = <InlineSpan>[];
 
@@ -269,21 +374,35 @@ class MarkdownEditingController extends TextEditingController {
       }
     }
 
-    var sourceOffset = 0;
-    for (final block in collapsedPolls) {
-      appendMarkdown(sourceOffset, block.start);
-      children.addAll(
-        buildCollapsedPollSpans(
-          block: block,
-          baseStyle: base,
-          pillKey: _pollPillKeys.putIfAbsent(
-            block.start,
-            () => GlobalKey(debugLabel: 'poll-pill-${block.start}'),
+    final projections = <_SpanProjection>[
+      for (final block in collapsedPolls)
+        _SpanProjection(
+          block.start,
+          block.end,
+          () => buildCollapsedPollSpans(
+            block: block,
+            baseStyle: base,
+            pillKey: _pollPillKeys.putIfAbsent(
+              block.start,
+              () => GlobalKey(debugLabel: 'poll-pill-${block.start}'),
+            ),
+            maximumOptions: pollMaximumOptions,
           ),
-          maximumOptions: pollMaximumOptions,
         ),
-      );
-      sourceOffset = block.end;
+      for (final image in collapsedImages)
+        _SpanProjection(
+          image.start,
+          image.end,
+          () => _buildImageSpans(image, base, unresolvedImages),
+        ),
+    ]..sort((a, b) => a.start.compareTo(b.start));
+
+    var sourceOffset = 0;
+    for (final projection in projections) {
+      if (projection.start < sourceOffset) continue;
+      appendMarkdown(sourceOffset, projection.start);
+      children.addAll(projection.build());
+      sourceOffset = projection.end;
     }
     appendMarkdown(sourceOffset, source.length);
 
@@ -306,6 +425,7 @@ class MarkdownEditingController extends TextEditingController {
     if (unresolvedRefs.isNotEmpty || unresolvedNames.isNotEmpty) {
       pills?.resolve(unresolvedRefs, unresolvedNames);
     }
+    if (unresolvedImages.isNotEmpty) _resolveImageUrls(unresolvedImages);
 
     _cachedSpan = _CachedMarkdownSpan(
       source: source,
@@ -315,9 +435,90 @@ class MarkdownEditingController extends TextEditingController {
       revealed: revealed,
       artwork: _artwork,
       pollProjection: pollProjection,
+      imageProjection: imageProjection,
       span: span,
     );
     return span;
+  }
+
+  List<InlineSpan> _buildImageSpans(
+    ComposerImageBlock image,
+    TextStyle base,
+    Set<String> unresolved,
+  ) {
+    final url = resolvedImageUrl(image);
+    if (image.url.startsWith('upload://') && url == null) {
+      unresolved.add(image.url);
+    }
+    return [
+      TextSpan(
+        text: text.substring(image.start, image.end - 1),
+        style: _hidden,
+      ),
+      WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        style: base,
+        child: KeyedSubtree(
+          key: _imageKeys.putIfAbsent(
+            image.start,
+            () => GlobalKey(debugLabel: 'composer-image-${image.start}'),
+          ),
+          child: IgnorePointer(
+            child: ComposerImagePreview(
+              image: image,
+              url: url,
+              onNaturalSize: (size) {
+                if (_naturalImageSizes[image.url] == size) return;
+                _naturalImageSizes[image.url] = size;
+                artworkArrived();
+              },
+            ),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  void _resolveImageUrls(Set<String> urls) {
+    final resolver = resolveUploadUrls;
+    final fresh = urls
+        .where((url) => !_failedImageUrls.contains(url))
+        .where(_resolvingImageUrls.add)
+        .toSet();
+    if (resolver == null || fresh.isEmpty) return;
+    unawaited(
+      resolver(fresh).then(
+        (resolved) {
+          _resolvingImageUrls.removeAll(fresh);
+          if (_disposed) return;
+          for (final url in fresh) {
+            final value = resolved[url];
+            if (value != null) {
+              _imageUrls[url] = value;
+            } else {
+              _failedImageUrls.add(url);
+            }
+          }
+          artworkArrived();
+        },
+        onError: (_) {
+          _resolvingImageUrls.removeAll(fresh);
+          _failedImageUrls.addAll(fresh);
+          if (!_disposed) artworkArrived();
+        },
+      ),
+    );
+  }
+
+  static bool _imageNeedsRawSource(
+    ComposerImageBlock image,
+    TextEditingValue value, {
+    required bool suppressCaret,
+  }) {
+    if (suppressCaret) return false;
+    final selection = value.selection;
+    if (!selection.isValid) return false;
+    return selection.start < image.end && selection.end > image.start;
   }
 
   /// Something a run was waiting on has landed: repaint.
@@ -592,6 +793,7 @@ class _CachedMarkdownSpan {
     required this.revealed,
     required this.artwork,
     required this.pollProjection,
+    required this.imageProjection,
     required this.span,
   });
 
@@ -602,6 +804,7 @@ class _CachedMarkdownSpan {
   final int revealed;
   final int artwork;
   final int pollProjection;
+  final int imageProjection;
   final TextSpan span;
 
   bool matches({
@@ -612,6 +815,7 @@ class _CachedMarkdownSpan {
     required int revealed,
     required int artwork,
     required int pollProjection,
+    required int imageProjection,
   }) =>
       this.source == source &&
       this.style == style &&
@@ -619,7 +823,16 @@ class _CachedMarkdownSpan {
       this.composing == composing &&
       this.revealed == revealed &&
       this.artwork == artwork &&
-      this.pollProjection == pollProjection;
+      this.pollProjection == pollProjection &&
+      this.imageProjection == imageProjection;
+}
+
+class _SpanProjection {
+  const _SpanProjection(this.start, this.end, this.build);
+
+  final int start;
+  final int end;
+  final List<InlineSpan> Function() build;
 }
 
 /// How a marked-up stretch of source is drawn.

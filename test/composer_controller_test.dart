@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
+import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_parser.dart';
@@ -344,6 +345,191 @@ void main() {
     composer.text.text = 'Changed body';
     expect(composer.canSubmit, isTrue);
   });
+
+  group('image uploads', () {
+    testWidgets(
+      'keeps the drop anchor through typing and inserts a batch in drop order',
+      (tester) async {
+        final calls = <_UploadCall>[];
+        final composer = ComposerController(
+          _target,
+          imageUploader: _recordingUploader(calls),
+          canUploadImage: (filename) => filename.endsWith('.png'),
+        );
+        addTearDown(composer.dispose);
+        composer.text.text = 'leftRIGHT';
+
+        composer.addDroppedImages([_file('one.png'), _file('two.png')], 4);
+        expect(calls, hasLength(2));
+        expect(composer.uploads.map((upload) => upload.file.name), [
+          'one.png',
+          'two.png',
+        ]);
+        expect(composer.canSubmit, isFalse);
+
+        composer.text.value = const TextEditingValue(
+          text: 'lefttypedRIGHT',
+          selection: TextSelection.collapsed(offset: 9),
+        );
+        calls[1].complete(_result('two'));
+        await tester.pump();
+        expect(composer.raw, 'lefttypedRIGHT');
+
+        calls[0].complete(_result('one'));
+        await tester.pump();
+
+        expect(
+          composer.text.text,
+          'lefttyped\n'
+          '![one|640x480](upload://one)\n'
+          '![two|640x480](upload://two)\n'
+          'RIGHT',
+        );
+        expect(composer.uploads, isEmpty);
+        expect(composer.canSubmit, isTrue);
+      },
+    );
+
+    testWidgets('reports progress, retains failures, and retries them', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.text.text = 'body';
+      composer.addDroppedImages([_file('photo.png')], 4);
+
+      calls.single.onProgress(0.42);
+      expect(composer.uploads.single.progress, 0.42);
+      calls.single.fail(
+        const ComposerUploadException(
+          'The image is too large.',
+          statusCode: 422,
+        ),
+      );
+      await tester.pump();
+
+      expect(composer.uploads.single.status, ComposerUploadStatus.failed);
+      expect(composer.uploads.single.error, 'The image is too large.');
+      expect(
+        composer.canSubmit,
+        isTrue,
+        reason: 'failed rows do not gate send',
+      );
+
+      composer.retryUpload(composer.uploads.single.id);
+      expect(calls, hasLength(2));
+      expect(composer.uploads.single.status, ComposerUploadStatus.retrying);
+      expect(composer.canSubmit, isFalse);
+      calls.last.complete(_result('photo'));
+      await tester.pump();
+
+      expect(composer.uploads, isEmpty);
+      expect(composer.text.text, 'body\n![photo|640x480](upload://photo)');
+    });
+
+    testWidgets(
+      'a failure does not block later success or lose retry ordering',
+      (tester) async {
+        final calls = <_UploadCall>[];
+        final composer = ComposerController(
+          _target,
+          imageUploader: _recordingUploader(calls),
+        );
+        addTearDown(composer.dispose);
+        composer.text.text = 'body';
+        composer.addDroppedImages([_file('one.png'), _file('two.png')], 4);
+
+        calls[1].complete(_result('two'));
+        calls[0].fail(const ComposerUploadException('Try one again.'));
+        await tester.pump();
+
+        expect(composer.uploads, hasLength(1));
+        expect(composer.uploads.single.status, ComposerUploadStatus.failed);
+        expect(composer.canSubmit, isTrue);
+        expect(composer.text.text, 'body\n![two|640x480](upload://two)');
+
+        composer.retryUpload(composer.uploads.single.id);
+        calls.last.complete(_result('one'));
+        await tester.pump();
+
+        expect(
+          composer.text.text,
+          'body\n'
+          '![one|640x480](upload://one)\n'
+          '![two|640x480](upload://two)',
+        );
+      },
+    );
+
+    testWidgets('cancel removes a row and aborts its request', (tester) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.addDroppedImages([_file('photo.png')], 0);
+
+      var aborted = false;
+      unawaited(calls.single.abort.then((_) => aborted = true));
+      composer.cancelUpload(composer.uploads.single.id);
+      await tester.pump();
+
+      expect(aborted, isTrue);
+      expect(composer.uploads, isEmpty);
+      expect(composer.text.text, isEmpty);
+    });
+
+    testWidgets('disposing aborts every active request', (tester) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      composer.addDroppedImages([_file('one.png'), _file('two.png')], 0);
+
+      composer.dispose();
+
+      await Future.wait(calls.map((call) => call.abort));
+    });
+
+    test('rejects unsupported images and batches above the site limit', () {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        canUploadImage: (filename) => filename.endsWith('.png'),
+        simultaneousUploads: 1,
+      );
+      addTearDown(composer.dispose);
+
+      composer.addDroppedImages([_file('notes.txt')], 0);
+      expect(composer.notice, contains('not allowed'));
+      composer.addDroppedImages([_file('one.png'), _file('two.png')], 0);
+      expect(composer.notice, 'Drop at most 1 images at a time.');
+      expect(calls, isEmpty);
+    });
+
+    test('edits alt, scale, and removal in raw markdown', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.text = '![old|640x480](upload://photo)';
+
+      composer.setImageAlt(composer.text.imageBlocks.single, 'new [alt]');
+      expect(composer.text.text, r'![new \[alt\]|640x480](upload://photo)');
+      composer.setImageScale(composer.text.imageBlocks.single, 50);
+      expect(
+        composer.text.text,
+        r'![new \[alt\]|640x480, 50%](upload://photo)',
+      );
+      composer.removeImage(composer.text.imageBlocks.single);
+      expect(composer.text.text, isEmpty);
+    });
+  });
 }
 
 const _target = ComposerTarget(
@@ -357,3 +543,36 @@ TextEditingValue _typed(String text) => TextEditingValue(
   text: text,
   selection: TextSelection.collapsed(offset: text.length),
 );
+
+ComposerUploadFile _file(String name) => ComposerUploadFile(
+  name: name,
+  length: () => Future.value(3),
+  openRead: () => Stream.value([1, 2, 3]),
+);
+
+ComposerUploadResult _result(String name) => ComposerUploadResult(
+  originalFilename: '$name.png',
+  shortUrl: 'upload://$name',
+  url: 'https://meta.discourse.org/uploads/$name.png',
+  thumbnailWidth: 640,
+  thumbnailHeight: 480,
+);
+
+ComposerImageUploader _recordingUploader(List<_UploadCall> calls) =>
+    (file, {required onProgress, required abortTrigger}) {
+      final call = _UploadCall(file, onProgress, abortTrigger);
+      calls.add(call);
+      return call.result.future;
+    };
+
+class _UploadCall {
+  _UploadCall(this.file, this.onProgress, this.abort);
+
+  final ComposerUploadFile file;
+  final void Function(double) onProgress;
+  final Future<void> abort;
+  final Completer<ComposerUploadResult> result = Completer();
+
+  void complete(ComposerUploadResult value) => result.complete(value);
+  void fail(Object error) => result.completeError(error);
+}

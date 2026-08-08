@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -3062,7 +3063,202 @@ void _writeGroups() {
       );
     });
   });
+
+  group('composer images', () {
+    test(
+      'uploads multipart bytes with user API headers and monotonic progress',
+      () async {
+        late http.Request sent;
+        final progress = <double>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(
+              jsonEncode({
+                'original_filename': 'photo.png',
+                'url': '/uploads/default/original/photo.png',
+                'short_url': 'upload://abc123',
+                'width': 1200,
+                'height': 900,
+                'thumbnail_width': 690,
+                'thumbnail_height': 518,
+                'thumbnail': {'url': '/uploads/default/optimized/photo.png'},
+              }),
+              200,
+            );
+          }),
+        );
+
+        final result = await api.uploadComposerImage(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          clientId: 'the-client',
+          file: ComposerUploadFile(
+            name: 'photo.png',
+            length: () => Future.value(4),
+            openRead: () => Stream.fromIterable([
+              [1, 2],
+              [3, 4],
+            ]),
+          ),
+          onProgress: progress.add,
+          abortTrigger: Completer<void>().future,
+        );
+
+        expect(sent.method, 'POST');
+        expect(sent.url.path, '/uploads.json');
+        expect(sent.headers['user-api-key'], 'the-key');
+        expect(sent.headers['user-api-client-id'], 'the-client');
+        expect(
+          sent.headers['content-type'],
+          startsWith('multipart/form-data;'),
+        );
+        final multipart = latin1.decode(sent.bodyBytes);
+        expect(multipart, contains('name="upload_type"'));
+        expect(multipart, contains('composer'));
+        expect(multipart, contains('name="file"; filename="photo.png"'));
+        expect(progress, orderedEquals([0.5, 1.0, 1.0]));
+        expect(result.shortUrl, 'upload://abc123');
+        expect(result.markdownWidth, 690);
+        expect(
+          result.previewUrl,
+          'https://meta.discourse.org/uploads/default/optimized/photo.png',
+        );
+      },
+    );
+
+    test('surfaces a 422 server message', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'errors': ['Image is too large.'],
+            }),
+            422,
+          ),
+        ),
+      );
+
+      await expectLater(
+        api.uploadComposerImage(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'key',
+          file: _uploadFile,
+          onProgress: (_) {},
+          abortTrigger: Completer<void>().future,
+        ),
+        throwsA(
+          isA<ComposerUploadException>()
+              .having((error) => error.statusCode, 'status', 422)
+              .having(
+                (error) => error.message,
+                'message',
+                'Image is too large.',
+              ),
+        ),
+      );
+    });
+
+    test('bounds oversized upload error bodies', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(List.filled(32, 'x').join(), 500),
+        ),
+        maxResponseBytes: 8,
+      );
+
+      await expectLater(
+        api.uploadComposerImage(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'key',
+          file: _uploadFile,
+          onProgress: (_) {},
+          abortTrigger: Completer<void>().future,
+        ),
+        throwsA(
+          isA<ComposerUploadException>().having(
+            (error) => error.message,
+            'message',
+            "Couldn't upload photo.png.",
+          ),
+        ),
+      );
+    });
+
+    test('cancels an active upload', () async {
+      final abort = Completer<void>();
+      final api = DiscourseApi(
+        client: MockClient.streaming((request, body) async {
+          final trigger = (request as http.Abortable).abortTrigger!;
+          await trigger;
+          throw http.RequestAbortedException(request.url);
+        }),
+      );
+      final upload = api.uploadComposerImage(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'key',
+        file: _uploadFile,
+        onProgress: (_) {},
+        abortTrigger: abort.future,
+      );
+
+      abort.complete();
+
+      await expectLater(
+        upload,
+        throwsA(
+          isA<ComposerUploadException>().having(
+            (error) => error.message,
+            'message',
+            'Upload cancelled.',
+          ),
+        ),
+      );
+    });
+
+    test(
+      'resolves upload short URLs and makes relative URLs absolute',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(
+              jsonEncode([
+                {
+                  'short_url': 'upload://abc',
+                  'url': '/uploads/default/original/image.png',
+                },
+              ]),
+              200,
+            );
+          }),
+        );
+
+        final result = await api.lookupUploadUrls(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'key',
+          shortUrls: const ['upload://abc'],
+        );
+
+        expect(sent.url.path, '/uploads/lookup-urls');
+        expect(jsonDecode(sent.body), {
+          'short_urls': ['upload://abc'],
+        });
+        expect(
+          result['upload://abc'],
+          'https://meta.discourse.org/uploads/default/original/image.png',
+        );
+      },
+    );
+  });
 }
+
+final _uploadFile = ComposerUploadFile(
+  name: 'photo.png',
+  length: () => Future.value(3),
+  openRead: () => Stream.value([1, 2, 3]),
+);
 
 class SocketishFailure implements Exception {
   const SocketishFailure();

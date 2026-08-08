@@ -17,6 +17,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/bookmark_feed.dart';
 import '../models/composer_draft.dart';
+import '../models/composer_upload.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
@@ -2006,13 +2007,29 @@ class ShellController extends FrameSafeNotifier {
       initialCategoryId: categoryId,
       initialTags: tags,
     );
+    final config = siteConfigFor(target.siteUrl);
     final composer = ComposerController(
       target,
       onSaveDraft: _saveDraft,
       search: _composerSearch(target),
       resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
       pills: _composerPills(target),
-      pollMaximumOptions: siteConfigFor(target.siteUrl).pollMaximumOptions,
+      pollMaximumOptions: config.pollMaximumOptions,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          _uploadComposerImage(
+            target,
+            file,
+            onProgress: onProgress,
+            abortTrigger: abortTrigger,
+          ),
+      resolveUploadUrls: (urls) => _resolveComposerUploadUrls(target, urls),
+      canUploadImage: (filename) => config.canUploadImage(
+        filename,
+        staff: currentUserFor(target.siteUrl)?.staff == true,
+      ),
+      simultaneousUploads: config.simultaneousUploads,
+      maxImageWidth: config.maxImageWidth,
+      maxImageHeight: config.maxImageHeight,
       minimumRequiredTags:
           categories
               .where((category) => category.id == categoryId)
@@ -2124,13 +2141,29 @@ class ShellController extends FrameSafeNotifier {
       replyToPostNumber: replyToPostNumber,
       replyToUsername: replyToUsername,
     );
+    final config = siteConfigFor(target.siteUrl);
     final composer = ComposerController(
       target,
       onSaveDraft: _saveDraft,
       search: _composerSearch(target),
       resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
       pills: _composerPills(target),
-      pollMaximumOptions: siteConfigFor(target.siteUrl).pollMaximumOptions,
+      pollMaximumOptions: config.pollMaximumOptions,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          _uploadComposerImage(
+            target,
+            file,
+            onProgress: onProgress,
+            abortTrigger: abortTrigger,
+          ),
+      resolveUploadUrls: (urls) => _resolveComposerUploadUrls(target, urls),
+      canUploadImage: (filename) => config.canUploadImage(
+        filename,
+        staff: currentUserFor(target.siteUrl)?.staff == true,
+      ),
+      simultaneousUploads: config.simultaneousUploads,
+      maxImageWidth: config.maxImageWidth,
+      maxImageHeight: config.maxImageHeight,
     )..draftSequence = _draftSequence(target);
     _composer = composer;
     _notify();
@@ -2170,12 +2203,28 @@ class ShellController extends FrameSafeNotifier {
     // saving here would overwrite an unfinished reply with the text of a post
     // that is already published.
     // Rewriting a post wants mentions and emoji as much as writing one does.
+    final config = siteConfigFor(target.siteUrl);
     final composer = ComposerController(
       target,
       search: _composerSearch(target),
       resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
       pills: _composerPills(target),
-      pollMaximumOptions: siteConfigFor(target.siteUrl).pollMaximumOptions,
+      pollMaximumOptions: config.pollMaximumOptions,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          _uploadComposerImage(
+            target,
+            file,
+            onProgress: onProgress,
+            abortTrigger: abortTrigger,
+          ),
+      resolveUploadUrls: (urls) => _resolveComposerUploadUrls(target, urls),
+      canUploadImage: (filename) => config.canUploadImage(
+        filename,
+        staff: currentUserFor(target.siteUrl)?.staff == true,
+      ),
+      simultaneousUploads: config.simultaneousUploads,
+      maxImageWidth: config.maxImageWidth,
+      maxImageHeight: config.maxImageHeight,
       minimumRequiredTags: editsTopic
           ? categoryFor(
                   detail?.categoryId,
@@ -3094,6 +3143,42 @@ class ShellController extends FrameSafeNotifier {
         _draftSaveRequests.remove(key);
       }
     }
+  }
+
+  Future<ComposerUploadResult> _uploadComposerImage(
+    ComposerTarget target,
+    ComposerUploadFile file, {
+    required void Function(double progress) onProgress,
+    required Future<void> abortTrigger,
+  }) async {
+    final credential = await _credentialForWrite(target.siteUrl);
+    if (credential.failure case final failure?) {
+      throw ComposerUploadException(failure.message);
+    }
+    return api.uploadComposerImage(
+      siteUrl: target.siteUrl,
+      apiKey: credential.apiKey!,
+      clientId: await authenticator.clientId(),
+      file: file,
+      onProgress: onProgress,
+      abortTrigger: abortTrigger,
+    );
+  }
+
+  Future<Map<String, String>> _resolveComposerUploadUrls(
+    ComposerTarget target,
+    Iterable<String> urls,
+  ) async {
+    final credential = await _credentialForWrite(target.siteUrl);
+    if (credential.failure case final failure?) {
+      throw ComposerUploadException(failure.message);
+    }
+    return api.lookupUploadUrls(
+      siteUrl: target.siteUrl,
+      apiKey: credential.apiKey!,
+      clientId: await authenticator.clientId(),
+      shortUrls: urls,
+    );
   }
 
   /// Puts an unfinished reply back in the composer.

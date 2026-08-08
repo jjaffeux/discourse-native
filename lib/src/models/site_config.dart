@@ -25,6 +25,11 @@ class SiteConfig {
     this.desaturatedReactionPanel = false,
     this.pollMaximumOptions = defaultPollMaximumOptions,
     this.pollDefaultPublic = true,
+    this.authorizedExtensions = defaultAuthorizedExtensions,
+    this.authorizedExtensionsForStaff = const [],
+    this.simultaneousUploads = 15,
+    this.maxImageWidth = 690,
+    this.maxImageHeight = 500,
     this.resenha = const ResenhaClientConfig(),
   });
 
@@ -35,6 +40,31 @@ class SiteConfig {
   /// `emoji_set`'s own default, server side.
   static const String defaultEmojiSet = 'twitter';
   static const int defaultPollMaximumOptions = 20;
+  static const List<String> defaultAuthorizedExtensions = [
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'heic',
+    'heif',
+    'webp',
+    'avif',
+    'svg',
+    'jxl',
+  ];
+  static const Set<String> imageExtensions = {
+    'png',
+    'webp',
+    'jpg',
+    'jpeg',
+    'gif',
+    'svg',
+    'ico',
+    'heic',
+    'heif',
+    'avif',
+    'jxl',
+  };
 
   /// Reads `GET /site/settings.json`, which is `SiteSetting.client_settings_json`
   /// — every setting marked `client: true`, core's and every plugin's alike.
@@ -66,6 +96,22 @@ class SiteConfig {
         _ => defaultPollMaximumOptions,
       },
       pollDefaultPublic: json['poll_default_public'] != false,
+      authorizedExtensions: _extensionList(
+        json['authorized_extensions'],
+        defaultAuthorizedExtensions,
+      ),
+      authorizedExtensionsForStaff: _extensionList(
+        json['authorized_extensions_for_staff'],
+        const [],
+      ),
+      simultaneousUploads: switch (jsonIntOrNull(
+        json['simultaneous_uploads'],
+      )) {
+        final value? when value >= 0 => value,
+        _ => 15,
+      },
+      maxImageWidth: _positiveInt(json['max_image_width'], 690),
+      maxImageHeight: _positiveInt(json['max_image_height'], 500),
       resenha: ResenhaClientConfig.fromSettings(json),
     );
   }
@@ -86,6 +132,18 @@ class SiteConfig {
     pollMaximumOptions:
         jsonIntOrNull(json['pollMaximumOptions']) ?? defaultPollMaximumOptions,
     pollDefaultPublic: json['pollDefaultPublic'] != false,
+    authorizedExtensions: _extensionList(
+      json['authorizedExtensions'],
+      defaultAuthorizedExtensions,
+    ),
+    authorizedExtensionsForStaff: _extensionList(
+      json['authorizedExtensionsForStaff'],
+      const [],
+    ),
+    simultaneousUploads:
+        jsonIntOrNull(json['simultaneousUploads'])?.clamp(0, 30) ?? 15,
+    maxImageWidth: _positiveInt(json['maxImageWidth'], 690),
+    maxImageHeight: _positiveInt(json['maxImageHeight'], 500),
     resenha: jsonObject(json['resenha']).isEmpty
         ? const ResenhaClientConfig()
         : ResenhaClientConfig.fromJson(jsonObject(json['resenha'])),
@@ -100,6 +158,11 @@ class SiteConfig {
     'desaturatedReactionPanel': desaturatedReactionPanel,
     'pollMaximumOptions': pollMaximumOptions,
     'pollDefaultPublic': pollDefaultPublic,
+    'authorizedExtensions': authorizedExtensions,
+    'authorizedExtensionsForStaff': authorizedExtensionsForStaff,
+    'simultaneousUploads': simultaneousUploads,
+    'maxImageWidth': maxImageWidth,
+    'maxImageHeight': maxImageHeight,
     'resenha': resenha.toJson(),
   };
 
@@ -137,7 +200,24 @@ class SiteConfig {
   /// claim that Poll is enabled on a site.
   final int pollMaximumOptions;
   final bool pollDefaultPublic;
+  final List<String> authorizedExtensions;
+  final List<String> authorizedExtensionsForStaff;
+  final int simultaneousUploads;
+  final int maxImageWidth;
+  final int maxImageHeight;
   final ResenhaClientConfig resenha;
+
+  bool canUploadImage(String filename, {required bool staff}) {
+    final dot = filename.lastIndexOf('.');
+    if (dot < 0 || dot == filename.length - 1) return false;
+    final extension = filename.substring(dot + 1).toLowerCase();
+    if (!imageExtensions.contains(extension)) return false;
+    final permitted = [
+      ...authorizedExtensions,
+      if (staff) ...authorizedExtensionsForStaff,
+    ];
+    return permitted.contains('*') || permitted.contains(extension);
+  }
 
   /// Where the artwork for one emoji lives on this site.
   ///
@@ -205,6 +285,14 @@ class SiteConfig {
       other.desaturatedReactionPanel == desaturatedReactionPanel &&
       other.pollMaximumOptions == pollMaximumOptions &&
       other.pollDefaultPublic == pollDefaultPublic &&
+      listEquals(other.authorizedExtensions, authorizedExtensions) &&
+      listEquals(
+        other.authorizedExtensionsForStaff,
+        authorizedExtensionsForStaff,
+      ) &&
+      other.simultaneousUploads == simultaneousUploads &&
+      other.maxImageWidth == maxImageWidth &&
+      other.maxImageHeight == maxImageHeight &&
       other.resenha == resenha &&
       listEquals(other.offeredReactions, offeredReactions);
 
@@ -217,9 +305,33 @@ class SiteConfig {
     desaturatedReactionPanel,
     pollMaximumOptions,
     pollDefaultPublic,
+    Object.hashAll(authorizedExtensions),
+    Object.hashAll(authorizedExtensionsForStaff),
+    simultaneousUploads,
+    maxImageWidth,
+    maxImageHeight,
     resenha,
     Object.hashAll(offeredReactions),
   );
+
+  static List<String> _extensionList(Object? raw, List<String> fallback) {
+    final values = switch (raw) {
+      final String value => value.split('|'),
+      final List<dynamic> value => value.map(jsonText).whereType<String>(),
+      _ => fallback,
+    };
+    return List.unmodifiable(
+      values
+          .map((value) => value.trim().toLowerCase().replaceFirst('.', ''))
+          .where((value) => value.isNotEmpty),
+    );
+  }
+
+  static int _positiveInt(Object? raw, int fallback) =>
+      switch (jsonIntOrNull(raw)) {
+        final value? when value > 0 => value,
+        _ => fallback,
+      };
 }
 
 /// Resenha's client-marked site settings. These shape native controls but do
