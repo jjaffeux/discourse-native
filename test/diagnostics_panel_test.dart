@@ -328,7 +328,7 @@ void main() {
     final request = find.text('https://example.test/t/42?token');
     expect(request, findsOneWidget);
     expect(find.textContaining('topic load took too long'), findsOneWidget);
-    expect(find.textContaining('Bodies, credentials, cookies'), findsOneWidget);
+    expect(find.textContaining('Bodies, credentials, cookies'), findsNothing);
     final timeline = tester.widget<ListView>(
       find.byKey(const ValueKey('diagnostics-timeline')),
     );

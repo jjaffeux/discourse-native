@@ -118,8 +118,6 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                             onCopy: () => _copyEvent(selected),
                           ),
                   ),
-                  Divider(height: 1, color: theme.shell.divider),
-                  const _PrivacyNotice(),
                 ],
               );
             },
@@ -696,39 +694,6 @@ class _EmptyTimeline extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _PrivacyNotice extends StatelessWidget {
-  const _PrivacyNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      child: Row(
-        children: [
-          DIcon(
-            DIcons.circleInfo,
-            size: 14,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Text(
-              'Bodies, credentials, cookies, and query values are never '
-              'recorded. External browser/web-auth traffic, native-plugin '
-              'networking and crashes, and spawned-isolate traffic are '
-              'outside this console.',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
