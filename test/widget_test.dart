@@ -729,6 +729,14 @@ void main() {
       lessThanOrEqualTo(2),
     );
 
+    await tester.tap(find.byTooltip('Collapse Projects'));
+    await tester.pumpAndSettle();
+    expect(sidebarDestination('Roadmap'), findsNothing);
+
+    await tester.tap(find.byTooltip('Expand Projects'));
+    await tester.pumpAndSettle();
+    expect(sidebarDestination('Roadmap'), findsOneWidget);
+
     await tester.tap(sidebarDestination('Roadmap'));
     await tester.pumpAndSettle();
 
@@ -749,7 +757,7 @@ void main() {
     );
   });
 
-  testWidgets('sidebar sections remember their collapsed state per forum', (
+  testWidgets('the community section is headerless and always expanded', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -757,27 +765,9 @@ void main() {
 
     await pumpShell(tester, desktop);
 
+    expect(find.text('COMMUNITY'), findsNothing);
+    expect(find.byTooltip('Collapse Community'), findsNothing);
     expect(sidebarDestination('Topics'), findsOneWidget);
-    await tester.tap(find.byTooltip('Collapse Community'));
-    await tester.pumpAndSettle();
-
-    expect(sidebarDestination('Topics'), findsNothing);
-    expect(find.byTooltip('Expand Community'), findsOneWidget);
-
-    // Rebuild the entire app to model closing and reopening it.
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpAndSettle();
-    await pumpShell(tester, desktop);
-
-    expect(sidebarDestination('Topics'), findsNothing);
-    expect(find.byTooltip('Expand Community'), findsOneWidget);
-
-    // The same section on another forum has its own preference.
-    await tester.tap(find.text('DT'));
-    await tester.pumpAndSettle();
-
-    expect(sidebarDestination('Topics'), findsOneWidget);
-    expect(find.byTooltip('Collapse Community'), findsOneWidget);
   });
 
   testWidgets('sidebar destinations show a background when hovered', (

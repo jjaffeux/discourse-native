@@ -126,17 +126,20 @@ class SidebarDestination {
   final String? url;
 }
 
-/// A titled group of destinations, e.g. "Categories" or "Chat".
+/// A group of destinations, usually under a title such as "Categories" or
+/// "Chat".
 @immutable
 class SidebarSection {
   const SidebarSection({
     required this.id,
     required this.title,
     required this.destinations,
+    this.showHeader = true,
+    this.collapsible = true,
     this.actionIcon,
     this.actionLabel,
     this.onAction,
-  });
+  }) : assert(showHeader || !collapsible);
 
   /// Stable identity used for presentation preferences such as collapsing.
   final String id;
@@ -186,6 +189,16 @@ class SidebarSection {
 
   final String title;
   final List<SidebarDestination> destinations;
+
+  /// Whether the section title and its optional action are visible.
+  ///
+  /// A headerless section must also be non-collapsible because it has no
+  /// visible control with which to reveal its destinations again.
+  final bool showHeader;
+
+  /// Whether the header can hide this section's destinations.
+  final bool collapsible;
+
   final DIconData? actionIcon;
   final String? actionLabel;
   final VoidCallback? onAction;

@@ -167,6 +167,8 @@ class DiscourseInstance {
     SidebarSection(
       id: 'community',
       title: 'Community',
+      showHeader: false,
+      collapsible: false,
       destinations: [
         // `layer-group` is what Discourse's own sidebar gives Everything.
         // The id stays `latest` — it is the feed this entry reads.
