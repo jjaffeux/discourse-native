@@ -2,6 +2,7 @@ import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/draft_list.dart';
@@ -22,6 +23,7 @@ const _draft = UserDraft(
     reply: 'A draft from another device',
     action: ComposerDraft.createTopicAction,
     title: 'Native drafts page',
+    categoryId: 5,
   ),
 );
 
@@ -41,7 +43,10 @@ void main() {
 
     expect(find.byType(DraftListView), findsOneWidget);
     expect(find.text('Native drafts page'), findsOneWidget);
+    expect(find.text('Support'), findsOneWidget);
     expect(find.text('A draft from another device'), findsOneWidget);
+    expect(find.byTooltip('Edit draft'), findsOneWidget);
+    expect(find.byTooltip('Remove draft'), findsOneWidget);
     expect(fixture.api.userDraftRequests, [
       (siteUrl: _siteUrl, offset: 0, limit: 30),
     ]);
@@ -83,7 +88,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Resume'));
+    await tester.tap(find.byTooltip('Edit draft'));
     await tester.pumpAndSettle();
 
     expect(find.byType(ComposerPanel), findsOneWidget);
@@ -130,6 +135,9 @@ Future<_Fixture> _pump(WidgetTester tester) async {
     user: site.user,
     totals: const NotificationTotals(),
     userDraftList: const [_draft],
+    categoryList: const [
+      TopicCategory(id: 5, name: 'Support', color: '0088CC'),
+    ],
     feeds: const {'/latest.json': []},
     creatableFeedPaths: const {'/latest.json'},
   );
