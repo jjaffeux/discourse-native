@@ -273,14 +273,16 @@ class DiscourseApi implements AccountActivityApi, ChatApi, ReactionsApi {
   }
 
   /// The colors Discourse resolved for this site and, when connected, the
-  /// account behind [apiKey]. Missing theme markup is an optional capability
-  /// and answers null rather than preventing the site from loading.
+  /// account named by [username]. Missing theme metadata is an optional
+  /// capability and answers null rather than preventing the site from loading.
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
+    String? username,
     String? apiKey,
     String? clientId,
   }) => _siteAppearanceLoader.load(
     siteUrl: siteUrl,
+    username: username,
     apiKey: apiKey,
     clientId: clientId,
   );

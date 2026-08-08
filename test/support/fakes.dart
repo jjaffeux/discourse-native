@@ -824,6 +824,7 @@ class FakeDiscourseApi implements DiscourseApi {
   @override
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
+    String? username,
     String? apiKey,
     String? clientId,
   }) async {

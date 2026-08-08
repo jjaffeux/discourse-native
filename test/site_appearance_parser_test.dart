@@ -5,183 +5,125 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('discoverSiteAppearanceStylesheets', () {
-    final documentUrl = Uri.parse('https://forum.example/community/');
-
-    test('resolves a base stylesheet against the final document URL', () {
-      final result = discoverSiteAppearanceStylesheets('''<html><head>
-          <link data-x="1" class="extra light-scheme" href="styles/colors.css"
-                REL="preload stylesheet" media="all">
-        </head></html>''', documentUrl: documentUrl);
+  group('resolveSiteAppearanceSelection', () {
+    test('uses the anonymous site default and follows the system', () {
+      final result = resolveSiteAppearanceSelection(site: _siteJson());
 
       expect(
         result,
-        SiteAppearanceStylesheets(
-          base: Uri.parse('https://forum.example/community/styles/colors.css'),
-          alternate: null,
-          mode: SiteAppearanceMode.base,
+        const SiteAppearanceSelection(
+          themeId: 5,
+          baseSchemeId: 10,
+          alternateSchemeId: 11,
+          mode: SiteAppearanceMode.followSystem,
         ),
       );
     });
 
-    test('accepts single-quoted and unquoted link attributes', () {
-      final result = discoverSiteAppearanceStylesheets(
-        "<head><link class='light-scheme' rel=stylesheet "
-        "href='styles/colors.css'></head>",
-        documentUrl: documentUrl,
+    test('uses signed-in theme, schemes, and forced alternate mode', () {
+      final result = resolveSiteAppearanceSelection(
+        site: _siteJson(),
+        user: _userJson(
+          themeIds: const [6],
+          colorSchemeId: 20,
+          darkSchemeId: 21,
+          interfaceColorMode: 3,
+        ),
       );
 
       expect(
-        result?.base,
-        Uri.parse('https://forum.example/community/styles/colors.css'),
+        result,
+        const SiteAppearanceSelection(
+          themeId: 6,
+          baseSchemeId: 20,
+          alternateSchemeId: 21,
+          mode: SiteAppearanceMode.alternate,
+        ),
       );
+    });
+
+    test('mirrors forced base mode', () {
+      final result = resolveSiteAppearanceSelection(
+        site: _siteJson(),
+        user: _userJson(interfaceColorMode: 2),
+      );
+
       expect(result?.mode, SiteAppearanceMode.base);
     });
 
-    test('finds CDN and site-relative hrefs in an automatic pair', () {
-      final result = discoverSiteAppearanceStylesheets('''<head>
-          <link rel="stylesheet" class="light-scheme"
-                media="(prefers-color-scheme: light)"
-                href="/community/styles/light.css">
-          <link href="//cdn.example/dark.css" class="dark-scheme other"
-                media="(prefers-color-scheme: dark)" rel="stylesheet">
-        </head>''', documentUrl: documentUrl);
-
-      expect(
-        result?.base,
-        Uri.parse('https://forum.example/community/styles/light.css'),
-      );
-      expect(result?.alternate, Uri.parse('https://cdn.example/dark.css'));
-      expect(result?.mode, SiteAppearanceMode.followSystem);
-    });
-
-    test('finds current Discourse asset-container links outside head', () {
-      final result = discoverSiteAppearanceStylesheets('''<html>
-        <head><title>Forum</title></head>
-        <body>
-          <link rel="stylesheet" class="light-scheme" href="ignored.css">
-          <discourse-assets>
-            <discourse-assets-stylesheets>
-              <link rel="stylesheet" class="light-scheme"
-                    media="(prefers-color-scheme: light)"
-                    href="/stylesheets/light.css">
-              <link rel="stylesheet" class="dark-scheme"
-                    media="(prefers-color-scheme: dark)"
-                    href="/stylesheets/dark.css">
-            </discourse-assets-stylesheets>
-          </discourse-assets>
-        </body>
-      </html>''', documentUrl: documentUrl);
-
-      expect(
-        result?.base,
-        Uri.parse('https://forum.example/stylesheets/light.css'),
-      );
-      expect(
-        result?.alternate,
-        Uri.parse('https://forum.example/stylesheets/dark.css'),
-      );
-      expect(result?.mode, SiteAppearanceMode.followSystem);
-    });
-
-    test('recognizes legacy automatic media', () {
-      final result = discoverSiteAppearanceStylesheets(
-        _html(baseMedia: 'all', alternateMedia: '(prefers-color-scheme: dark)'),
-        documentUrl: documentUrl,
-      );
-
-      expect(result?.mode, SiteAppearanceMode.followSystem);
-    });
-
-    test('normalizes whitespace and case in current automatic media', () {
-      final result = discoverSiteAppearanceStylesheets(
-        _html(
-          baseMedia: ' ( PREFERS-COLOR-SCHEME : LIGHT ) ',
-          alternateMedia: ' ( prefers-color-scheme : DARK ) ',
+    test('falls back from unavailable user choices to theme defaults', () {
+      final result = resolveSiteAppearanceSelection(
+        site: _siteJson(),
+        user: _userJson(
+          themeIds: const [999],
+          colorSchemeId: 999,
+          darkSchemeId: 998,
         ),
-        documentUrl: documentUrl,
       );
-
-      expect(result?.mode, SiteAppearanceMode.followSystem);
-    });
-
-    test('recognizes forced base and alternate modes', () {
-      final base = discoverSiteAppearanceStylesheets(
-        _html(baseMedia: 'all', alternateMedia: 'none'),
-        documentUrl: documentUrl,
-      );
-      final alternate = discoverSiteAppearanceStylesheets(
-        _html(baseMedia: 'none', alternateMedia: 'all'),
-        documentUrl: documentUrl,
-      );
-
-      expect(base?.mode, SiteAppearanceMode.base);
-      expect(alternate?.mode, SiteAppearanceMode.alternate);
-    });
-
-    test('skips malformed candidates and non-stylesheet links', () {
-      final result = discoverSiteAppearanceStylesheets('''<head>
-          <link rel="preload" class="light-scheme" href="ignored.css">
-          <link rel="stylesheet" class="light-scheme" href="%zz">
-          <link rel="stylesheet" class="light-scheme" href="valid.css">
-        </head>''', documentUrl: documentUrl);
 
       expect(
-        result?.base,
-        Uri.parse('https://forum.example/community/valid.css'),
-      );
-    });
-
-    test('returns null without a valid base stylesheet', () {
-      expect(
-        discoverSiteAppearanceStylesheets(
-          '<head><link rel="stylesheet" href="colors.css"></head>',
-          documentUrl: documentUrl,
+        result,
+        const SiteAppearanceSelection(
+          themeId: 5,
+          baseSchemeId: 10,
+          alternateSchemeId: 11,
+          mode: SiteAppearanceMode.followSystem,
         ),
-        isNull,
       );
     });
 
-    test('returns null for ambiguous duplicate scheme links', () {
-      expect(
-        discoverSiteAppearanceStylesheets('''<head>
-          <link rel="stylesheet" class="light-scheme" href="one.css">
-          <link rel="stylesheet" class="light-scheme" href="two.css">
-        </head>''', documentUrl: documentUrl),
-        isNull,
-      );
-    });
-
-    test('rejects swapped, malformed, and unsupported media pairs', () {
-      for (final (baseMedia, alternateMedia) in [
-        ('(prefers-color-scheme: dark)', '(prefers-color-scheme: light)'),
-        ('all', 'all'),
-        ('none', 'none'),
-        ('screen', 'print'),
-        (
-          '(prefers-color-scheme: light) and (min-width: 1px)',
-          '(prefers-color-scheme: dark)',
+    test('a limited theme rejects schemes belonging to another theme', () {
+      final result = resolveSiteAppearanceSelection(
+        site: _siteJson(),
+        user: _userJson(
+          themeIds: const [7],
+          colorSchemeId: 20,
+          darkSchemeId: 21,
         ),
-      ]) {
-        expect(
-          discoverSiteAppearanceStylesheets(
-            _html(baseMedia: baseMedia, alternateMedia: alternateMedia),
-            documentUrl: documentUrl,
-          ),
-          isNull,
-          reason: '$baseMedia / $alternateMedia',
-        );
-      }
-    });
-
-    test('keeps a single base link fixed despite unknown media', () {
-      final result = discoverSiteAppearanceStylesheets(
-        '''<head><link rel="stylesheet" class="light-scheme"
-             media="screen and (min-width: 1px)" href="base.css"></head>''',
-        documentUrl: documentUrl,
       );
 
+      expect(result?.themeId, 7);
+      expect(result?.baseSchemeId, 30);
+      expect(result?.alternateSchemeId, 31);
+    });
+
+    test('a single scheme is fixed even when dark mode was requested', () {
+      final site = _siteJson();
+      final themes = site['user_themes']! as List<Object?>;
+      themes[0] = {'theme_id': 5, 'default': true, 'color_scheme_id': 10};
+
+      final result = resolveSiteAppearanceSelection(
+        site: site,
+        user: _userJson(interfaceColorMode: 3),
+      );
+
+      expect(result?.alternateSchemeId, isNull);
       expect(result?.mode, SiteAppearanceMode.base);
+    });
+
+    test('supports core theme IDs and nullable base scheme IDs', () {
+      final result = resolveSiteAppearanceSelection(
+        site: {
+          'user_themes': [
+            {
+              'theme_id': '-1',
+              'default': true,
+              'color_scheme_id': null,
+              'dark_color_scheme_id': '13',
+            },
+          ],
+          'user_color_schemes': const <Object?>[],
+        },
+      );
+
+      expect(result?.themeId, -1);
+      expect(result?.baseSchemeId, -1);
+      expect(result?.alternateSchemeId, 13);
+    });
+
+    test('returns null when modern theme metadata is unavailable', () {
+      expect(resolveSiteAppearanceSelection(site: const {}), isNull);
+      expect(resolveSiteAppearanceSelection(site: 'not json'), isNull);
     });
   });
 
@@ -378,13 +320,53 @@ void main() {
   });
 }
 
-String _html({required String baseMedia, required String alternateMedia}) =>
-    '''<head>
-      <link rel="stylesheet" class="light-scheme" media="$baseMedia"
-            href="light.css">
-      <link rel="stylesheet" class="dark-scheme" media="$alternateMedia"
-            href="dark.css">
-    </head>''';
+Map<String, Object?> _siteJson() => {
+  'user_themes': <Object?>[
+    {
+      'theme_id': 5,
+      'default': true,
+      'color_scheme_id': 10,
+      'dark_color_scheme_id': 11,
+      'only_theme_color_schemes': false,
+    },
+    {
+      'theme_id': 6,
+      'default': false,
+      'color_scheme_id': 12,
+      'dark_color_scheme_id': 13,
+      'only_theme_color_schemes': false,
+    },
+    {
+      'theme_id': 7,
+      'default': false,
+      'color_scheme_id': 30,
+      'dark_color_scheme_id': 31,
+      'only_theme_color_schemes': true,
+    },
+  ],
+  'user_color_schemes': <Object?>[
+    {'id': 20, 'theme_id': null, 'is_dark': false},
+    {'id': 21, 'theme_id': null, 'is_dark': true},
+    {'id': 30, 'theme_id': 7, 'is_dark': false},
+    {'id': 31, 'theme_id': 7, 'is_dark': true},
+  ],
+};
+
+Map<String, Object?> _userJson({
+  List<int> themeIds = const [5],
+  int? colorSchemeId,
+  int? darkSchemeId,
+  int interfaceColorMode = 1,
+}) => {
+  'user': {
+    'user_option': {
+      'theme_ids': themeIds,
+      'color_scheme_id': colorSchemeId,
+      'dark_scheme_id': darkSchemeId,
+      'interface_color_mode': interfaceColorMode,
+    },
+  },
+};
 
 String _stylesheet([Map<String, String> overrides = const {}]) {
   final values = <String, String>{

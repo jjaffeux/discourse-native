@@ -196,10 +196,11 @@ class ShellController extends FrameSafeNotifier {
     // A failed keychain deletion can leave an orphaned key behind. The stored
     // instance identity is the account boundary: signed-out sites may refresh
     // their public colors, but must never forward that leftover credential.
-    final authenticate =
-        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
+    final instance = _instanceAt(siteUrl);
+    final authenticate = apiKey != null && instance?.isConnected == true;
     return api.siteAppearance(
       siteUrl: siteUrl,
+      username: authenticate ? instance!.user!.username : null,
       apiKey: authenticate ? apiKey : null,
       clientId: authenticate ? clientId : null,
     );

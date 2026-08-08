@@ -4,113 +4,182 @@ import 'dart:ui';
 import 'package:csslib/parser.dart' as css;
 import 'package:csslib/visitor.dart';
 import 'package:flutter/foundation.dart';
-import 'package:html/dom.dart';
-import 'package:html/parser.dart' as html;
 
 import '../models/site_appearance.dart';
 
-/// The generated color-definition stylesheets advertised by a Discourse page.
+/// The theme and color-scheme IDs needed to ask Discourse for its compiled
+/// color stylesheets.
 @immutable
-class SiteAppearanceStylesheets {
-  const SiteAppearanceStylesheets({
-    required this.base,
-    required this.alternate,
+class SiteAppearanceSelection {
+  const SiteAppearanceSelection({
+    required this.themeId,
+    required this.baseSchemeId,
+    required this.alternateSchemeId,
     required this.mode,
   });
 
-  final Uri base;
-  final Uri? alternate;
+  final int themeId;
+
+  /// `-1` asks Discourse to use the selected theme's own light/base scheme.
+  final int baseSchemeId;
+
+  /// Null means the selected theme has no distinct alternate scheme.
+  final int? alternateSchemeId;
   final SiteAppearanceMode mode;
 
   @override
   bool operator ==(Object other) =>
-      other is SiteAppearanceStylesheets &&
-      other.base == base &&
-      other.alternate == alternate &&
+      other is SiteAppearanceSelection &&
+      other.themeId == themeId &&
+      other.baseSchemeId == baseSchemeId &&
+      other.alternateSchemeId == alternateSchemeId &&
       other.mode == mode;
 
   @override
-  int get hashCode => Object.hash(base, alternate, mode);
+  int get hashCode =>
+      Object.hash(themeId, baseSchemeId, alternateSchemeId, mode);
 }
 
-/// Finds the base and optional alternate color stylesheet in forum HTML.
+/// Resolves the same server-stored theme preferences that Discourse's
+/// application layout uses, without depending on its HTML structure.
 ///
-/// Hrefs are resolved against [documentUrl], which must be the URL of the
-/// response after any safe redirects rather than merely the URL first asked.
-SiteAppearanceStylesheets? discoverSiteAppearanceStylesheets(
-  String source, {
-  required Uri documentUrl,
+/// [site] is the body of `/site.json`. [user] is the optional body of the
+/// signed-in reader's `/u/{username}.json`; when absent, site defaults win.
+/// Missing modern metadata makes appearance an unsupported optional feature.
+SiteAppearanceSelection? resolveSiteAppearanceSelection({
+  required Object? site,
+  Object? user,
 }) {
-  final document = html.parse(source);
-  final links = document.querySelectorAll(
-    'head link[href], '
-    'discourse-assets > discourse-assets-stylesheets > link[href]',
-  );
-  final baseCandidates = _stylesheets(links, 'light-scheme', documentUrl);
-  final alternateCandidates = _stylesheets(links, 'dark-scheme', documentUrl);
-  if (baseCandidates.length != 1 || alternateCandidates.length > 1) {
-    return null;
-  }
-  final base = baseCandidates.single;
-  final alternate = alternateCandidates.firstOrNull;
-  final mode = _appearanceMode(base.media, alternate?.media);
-  if (mode == null) return null;
+  final siteMap = _stringMap(site);
+  if (siteMap == null) return null;
 
-  return SiteAppearanceStylesheets(
-    base: base.uri,
-    alternate: alternate?.uri,
+  final themes = <_ThemeChoice>[];
+  for (final value in _objectList(siteMap['user_themes'])) {
+    final json = _stringMap(value);
+    final id = _jsonInt(json?['theme_id']);
+    if (json == null || id == null) continue;
+    themes.add(
+      _ThemeChoice(
+        id: id,
+        isDefault: json['default'] == true,
+        baseSchemeId: _jsonInt(json['color_scheme_id']),
+        alternateSchemeId: _jsonInt(json['dark_color_scheme_id']),
+        limitsSchemes: json['only_theme_color_schemes'] == true,
+      ),
+    );
+  }
+  if (themes.isEmpty) return null;
+
+  final userOptions = _userOptions(user);
+  final requestedThemeId = _objectList(
+    userOptions?['theme_ids'],
+  ).map(_jsonInt).whereType<int>().firstOrNull;
+  final defaultTheme = themes.where((theme) => theme.isDefault).firstOrNull;
+  final theme =
+      themes.where((theme) => theme.id == requestedThemeId).firstOrNull ??
+      defaultTheme ??
+      themes.first;
+
+  final schemes = <int, _SchemeChoice>{};
+  for (final value in _objectList(siteMap['user_color_schemes'])) {
+    final json = _stringMap(value);
+    final id = _jsonInt(json?['id']);
+    if (json == null || id == null) continue;
+    schemes[id] = _SchemeChoice(id: id, themeId: _jsonInt(json['theme_id']));
+  }
+
+  bool accepts(int id, int? themeDefault) {
+    if (id == themeDefault) return true;
+    final scheme = schemes[id];
+    if (scheme == null) return false;
+    return !theme.limitsSchemes || scheme.themeId == theme.id;
+  }
+
+  final requestedBase = _jsonInt(userOptions?['color_scheme_id']);
+  final baseSchemeId =
+      requestedBase != null && accepts(requestedBase, theme.baseSchemeId)
+      ? requestedBase
+      : theme.baseSchemeId ?? -1;
+
+  final requestedAlternate = _jsonInt(userOptions?['dark_scheme_id']);
+  final alternateFallback =
+      theme.alternateSchemeId ??
+      (theme.limitsSchemes ? theme.baseSchemeId : null);
+  final alternateSchemeId =
+      requestedAlternate != null &&
+          accepts(requestedAlternate, theme.alternateSchemeId)
+      ? requestedAlternate
+      : alternateFallback;
+  final distinctAlternate =
+      alternateSchemeId == null ||
+          alternateSchemeId == -1 ||
+          alternateSchemeId == baseSchemeId
+      ? null
+      : alternateSchemeId;
+
+  final mode = distinctAlternate == null
+      ? SiteAppearanceMode.base
+      : switch (_jsonInt(userOptions?['interface_color_mode'])) {
+          2 => SiteAppearanceMode.base,
+          3 => SiteAppearanceMode.alternate,
+          _ => SiteAppearanceMode.followSystem,
+        };
+
+  return SiteAppearanceSelection(
+    themeId: theme.id,
+    baseSchemeId: baseSchemeId,
+    alternateSchemeId: distinctAlternate,
     mode: mode,
   );
 }
 
-List<({Uri uri, String media})> _stylesheets(
-  List<Element> links,
-  String className,
-  Uri documentUrl,
-) {
-  final found = <({Uri uri, String media})>[];
-  for (final link in links) {
-    if (!link.classes.contains(className) || !_isStylesheet(link)) continue;
-    final href = link.attributes['href']?.trim();
-    if (href == null || href.isEmpty) continue;
-    if (RegExp(r'%(?![0-9a-f]{2})', caseSensitive: false).hasMatch(href)) {
-      continue;
-    }
-    try {
-      found.add((
-        uri: documentUrl.resolve(href),
-        media: link.attributes['media']?.trim().toLowerCase() ?? 'all',
-      ));
-    } on FormatException {
-      // A later valid core link is still usable when injected markup is bad.
-    }
+Map<String, Object?>? _userOptions(Object? value) {
+  final root = _stringMap(value);
+  if (root == null) return null;
+  final nestedUser = _stringMap(root['user']);
+  return _stringMap(nestedUser?['user_option'] ?? root['user_option']);
+}
+
+Map<String, Object?>? _stringMap(Object? value) {
+  if (value is! Map) return null;
+  try {
+    return Map<String, Object?>.from(value);
+  } on Object {
+    return null;
   }
-  return found;
 }
 
-bool _isStylesheet(Element link) =>
-    link.attributes['rel']
-        ?.split(RegExp(r'\s+'))
-        .any((value) => value.toLowerCase() == 'stylesheet') ??
-    false;
+List<Object?> _objectList(Object? value) =>
+    value is List ? List<Object?>.from(value) : const [];
 
-SiteAppearanceMode? _appearanceMode(String base, String? alternate) {
-  if (alternate == null) return SiteAppearanceMode.base;
-  final baseMedia = _normalizedMedia(base);
-  final alternateMedia = _normalizedMedia(alternate);
+int? _jsonInt(Object? value) => switch (value) {
+  int() => value,
+  String() => int.tryParse(value),
+  _ => null,
+};
 
-  return switch ((baseMedia, alternateMedia)) {
-    ('all', 'none') => SiteAppearanceMode.base,
-    ('none', 'all') => SiteAppearanceMode.alternate,
-    ('(prefers-color-scheme:light)', '(prefers-color-scheme:dark)') =>
-      SiteAppearanceMode.followSystem,
-    ('all', '(prefers-color-scheme:dark)') => SiteAppearanceMode.followSystem,
-    _ => null,
-  };
+final class _ThemeChoice {
+  const _ThemeChoice({
+    required this.id,
+    required this.isDefault,
+    required this.baseSchemeId,
+    required this.alternateSchemeId,
+    required this.limitsSchemes,
+  });
+
+  final int id;
+  final bool isDefault;
+  final int? baseSchemeId;
+  final int? alternateSchemeId;
+  final bool limitsSchemes;
 }
 
-String _normalizedMedia(String value) =>
-    value.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+final class _SchemeChoice {
+  const _SchemeChoice({required this.id, required this.themeId});
+
+  final int id;
+  final int? themeId;
+}
 
 const Set<String> _appearanceVariables = {
   '--scheme-type',

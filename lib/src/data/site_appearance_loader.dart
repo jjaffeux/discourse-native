@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
@@ -43,15 +44,14 @@ final class SiteAppearanceLoadException implements Exception {
       'SiteAppearanceLoadException($failure, $url, $statusCode, $detail)';
 }
 
-/// Reads the active Discourse color-scheme stylesheets without exposing a user
-/// API key to a CDN.
+/// Resolves the active Discourse theme through JSON APIs, then reads its
+/// compiled color stylesheets without exposing a user API key to a CDN.
 ///
-/// The forum document is the only request that can be authenticated. When it
-/// is, redirects remain on the same origin because every hop carries the same
-/// credentials. An anonymous document may follow a safe canonical cross-origin
-/// redirect. Stylesheets start a separate credential-free request chain and
-/// may use a safe CDN. A discovered appearance is returned only after every
-/// referenced stylesheet has arrived and parsed successfully.
+/// Forum JSON requests can be authenticated and remain same-origin whenever
+/// they carry credentials. The compiled stylesheet assets start separate,
+/// credential-free request chains and may use a safe CDN. A discovered
+/// appearance is returned only after every required stylesheet has arrived and
+/// parsed successfully.
 final class SiteAppearanceLoader {
   SiteAppearanceLoader({
     required http.Client client,
@@ -70,21 +70,24 @@ final class SiteAppearanceLoader {
 
   static const String _userAgent = 'DiscourseNative/1.0';
 
-  /// Loads the active appearance, or null when the document advertises none.
+  /// Loads the active appearance, or null when the site lacks modern theme
+  /// metadata.
   ///
-  /// [apiKey] and [clientId] are sent only to the root document and its
-  /// same-origin redirects. In particular, an authentication refusal is final:
-  /// this never retries the document anonymously.
+  /// [apiKey] and [clientId] are sent only to forum JSON endpoints and their
+  /// same-origin redirects. [username] identifies that key's stored theme
+  /// preferences. In particular, an authentication refusal is final: this
+  /// never retries anonymously.
   Future<SiteAppearance?> load({
     required String siteUrl,
+    String? username,
     String? apiKey,
     String? clientId,
   }) async {
-    final Uri documentUrl;
+    final Uri siteBase;
     try {
       final parsed = Uri.parse(siteUrl);
       final path = parsed.path.endsWith('/') ? parsed.path : '${parsed.path}/';
-      documentUrl = requireSafeHttpUrl(
+      siteBase = requireSafeHttpUrl(
         parsed.replace(path: path, query: null, fragment: null),
       );
     } on Object catch (error) {
@@ -95,40 +98,77 @@ final class SiteAppearanceLoader {
       );
     }
 
-    final document = await _loadText(
-      documentUrl,
-      accept: 'text/html',
-      headers: {
-        'User-Agent': _userAgent,
-        if (apiKey != null) ...{
-          'User-Api-Key': apiKey,
-          'User-Api-Client-Id': ?clientId,
-        },
+    final forumHeaders = {
+      'User-Agent': _userAgent,
+      if (apiKey != null) ...{
+        'User-Api-Key': apiKey,
+        'User-Api-Client-Id': ?clientId,
       },
-      redirectOrigin: apiKey == null ? null : documentUrl.origin,
+    };
+    final authenticatedOrigin = apiKey == null ? null : siteBase.origin;
+    final siteResponse = await _loadJson(
+      siteBase.resolve('site.json'),
+      headers: forumHeaders,
+      redirectOrigin: authenticatedOrigin,
     );
+    final apiBase = siteResponse.url.resolve('.');
 
-    final SiteAppearanceStylesheets? discovered;
-    try {
-      discovered = discoverSiteAppearanceStylesheets(
-        document.source,
-        documentUrl: document.url,
-      );
-    } on Object catch (error) {
-      throw SiteAppearanceLoadException(
-        SiteAppearanceLoadFailure.malformed,
-        url: document.url,
-        detail: error,
-      );
+    Object? userJson;
+    if (apiKey != null) {
+      if (username == null || username.trim().isEmpty) {
+        throw SiteAppearanceLoadException(
+          SiteAppearanceLoadFailure.malformed,
+          url: apiBase,
+          detail: 'authenticated appearance has no username',
+        );
+      }
+      userJson = (await _loadJson(
+        apiBase.resolve('u/${Uri.encodeComponent(username.trim())}.json'),
+        headers: forumHeaders,
+        redirectOrigin: apiBase.origin,
+      )).value;
     }
-    if (discovered == null) return null;
 
-    final urls = <Uri>{discovered.base, ?discovered.alternate};
-    for (final url in urls) {
-      _requireSafeStylesheetUrl(document.url, url);
+    final selection = resolveSiteAppearanceSelection(
+      site: siteResponse.value,
+      user: userJson,
+    );
+    if (selection == null) return null;
+
+    final schemeIds = <int>{
+      selection.baseSchemeId,
+      ?selection.alternateSchemeId,
+    };
+    final details = await Future.wait([
+      for (final schemeId in schemeIds)
+        _loadJson(
+          apiBase.resolve(
+            'color-scheme-stylesheet/$schemeId/${selection.themeId}.json',
+          ),
+          headers: forumHeaders,
+          redirectOrigin: apiKey == null ? null : apiBase.origin,
+        ),
+    ]);
+
+    final stylesheetUrls = <int, Uri>{};
+    for (var index = 0; index < schemeIds.length; index++) {
+      final response = details[index];
+      final href = _newStylesheetHref(response.value);
+      if (href == null) {
+        throw SiteAppearanceLoadException(
+          SiteAppearanceLoadFailure.malformed,
+          url: response.url,
+          detail: 'stylesheet JSON has no new_href',
+        );
+      }
+      final url = response.url.resolve(href);
+      _requireSafeStylesheetUrl(response.url, url);
+      stylesheetUrls[schemeIds.elementAt(index)] = url;
     }
+
+    final uniqueUrls = stylesheetUrls.values.toSet();
     final loaded = await Future.wait([
-      for (final url in urls)
+      for (final url in uniqueUrls)
         _loadText(
           url,
           accept: 'text/css',
@@ -136,26 +176,28 @@ final class SiteAppearanceLoader {
         ),
     ]);
     final sources = {
-      for (var index = 0; index < urls.length; index++)
-        urls.elementAt(index): loaded[index].source,
+      for (var index = 0; index < uniqueUrls.length; index++)
+        uniqueUrls.elementAt(index): loaded[index].source,
     };
+
+    ResolvedSitePalette parse(int schemeId) {
+      final url = stylesheetUrls[schemeId]!;
+      return _parseStylesheet(sources[url]!, url);
+    }
 
     final ResolvedSitePalette base;
     final ResolvedSitePalette? alternate;
     try {
-      base = _parseStylesheet(sources[discovered.base]!, discovered.base);
-      alternate = discovered.alternate == null
+      base = parse(selection.baseSchemeId);
+      alternate = selection.alternateSchemeId == null
           ? null
-          : _parseStylesheet(
-              sources[discovered.alternate]!,
-              discovered.alternate!,
-            );
+          : parse(selection.alternateSchemeId!);
     } on SiteAppearanceLoadException {
       rethrow;
     } on Object catch (error) {
       throw SiteAppearanceLoadException(
         SiteAppearanceLoadFailure.malformed,
-        url: discovered.base,
+        url: stylesheetUrls[selection.baseSchemeId]!,
         detail: error,
       );
     }
@@ -163,8 +205,14 @@ final class SiteAppearanceLoader {
     return SiteAppearance(
       base: base,
       alternate: alternate,
-      mode: discovered.mode,
+      mode: selection.mode,
     );
+  }
+
+  String? _newStylesheetHref(Object? value) {
+    if (value is! Map) return null;
+    final href = value['new_href'];
+    return href is String && href.trim().isNotEmpty ? href.trim() : null;
   }
 
   void _requireSafeStylesheetUrl(Uri documentUrl, Uri stylesheetUrl) {
@@ -188,6 +236,28 @@ final class SiteAppearanceLoader {
       SiteAppearanceLoadFailure.malformed,
       url: url,
     );
+  }
+
+  Future<_LoadedJson> _loadJson(
+    Uri url, {
+    required Map<String, String> headers,
+    String? redirectOrigin,
+  }) async {
+    final loaded = await _loadText(
+      url,
+      accept: 'application/json',
+      headers: headers,
+      redirectOrigin: redirectOrigin,
+    );
+    try {
+      return (url: loaded.url, value: jsonDecode(loaded.source));
+    } on Object catch (error) {
+      throw SiteAppearanceLoadException(
+        SiteAppearanceLoadFailure.malformed,
+        url: loaded.url,
+        detail: error,
+      );
+    }
   }
 
   Future<_LoadedText> _loadText(
@@ -309,3 +379,4 @@ final class SiteAppearanceLoader {
 }
 
 typedef _LoadedText = ({Uri url, String source});
+typedef _LoadedJson = ({Uri url, Object? value});

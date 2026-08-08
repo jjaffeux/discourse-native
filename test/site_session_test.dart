@@ -126,16 +126,19 @@ final class _ConnectRaceAppearanceApi extends FakeDiscourseApi {
   final accountAppearanceStarted = Completer<void>();
   final List<({String? apiKey, String? clientId})> targetAppearanceRequests =
       [];
+  final List<String?> targetAppearanceUsernames = [];
   int _anonymousAppearanceRequests = 0;
 
   @override
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
+    String? username,
     String? apiKey,
     String? clientId,
   }) async {
     if (siteUrl != _siteUrl) return null;
     targetAppearanceRequests.add((apiKey: apiKey, clientId: clientId));
+    targetAppearanceUsernames.add(username);
 
     if (apiKey != null) {
       if (!accountAppearanceStarted.isCompleted) {
@@ -188,6 +191,7 @@ final class _RollbackAppearanceApi extends FakeDiscourseApi {
   @override
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
+    String? username,
     String? apiKey,
     String? clientId,
   }) async {
@@ -238,6 +242,7 @@ final class _DisconnectAppearanceApi extends FakeDiscourseApi {
   @override
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
+    String? username,
     String? apiKey,
     String? clientId,
   }) async {
@@ -274,6 +279,7 @@ final class _DisconnectRaceAppearanceApi extends FakeDiscourseApi {
   @override
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
+    String? username,
     String? apiKey,
     String? clientId,
   }) async {
@@ -662,6 +668,7 @@ void main() {
           (apiKey: null, clientId: null),
           (apiKey: 'account-b-key', clientId: 'test-client'),
         ]);
+        expect(api.targetAppearanceUsernames, [null, null, 'account-b']);
       },
     );
   }

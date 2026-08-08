@@ -9,9 +9,9 @@ enum SiteAppearanceMode { followSystem, base, alternate }
 
 /// The site palettes available to the native shell.
 ///
-/// [base] is the stylesheet Discourse labels `light-scheme`; it is named for
-/// its role rather than its brightness because a theme is allowed to put a
-/// dark palette there. [alternate] is the optional `dark-scheme` stylesheet.
+/// [base] is the selected theme's ordinary color scheme. It is named for its
+/// role rather than its brightness because a theme is allowed to put a dark
+/// palette there. [alternate] is its optional dark-scheme selection.
 @immutable
 class SiteAppearance {
   const SiteAppearance({
