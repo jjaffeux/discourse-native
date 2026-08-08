@@ -1,10 +1,14 @@
 import 'package:flutter/widgets.dart';
+import 'package:html/dom.dart' as dom;
 
 import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
+import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
+import '../theme/d_icon.dart';
 import 'chat/chat_plugin.dart';
+import 'poll/poll_plugin.dart';
 import 'reactions/reactions_plugin.dart';
 
 /// One optional Discourse feature this app knows how to draw.
@@ -66,6 +70,14 @@ abstract interface class SitePlugin<T extends Object> {
   /// value — a default would claim the feature is present everywhere.
   T? readPost(Map<String, dynamic> json, String siteUrl);
 
+  /// A top-level element inside a post body this feature can replace.
+  ///
+  /// The owning post is deliberately available here: cooked plugin markup is
+  /// often only a placeholder, while the personalized serializer record is
+  /// authoritative. Recursive CookedHtml instances (quotes/oneboxes) receive
+  /// no post and therefore never invoke this hook.
+  Widget? postBodyElement(String siteUrl, Post post, dom.Element element);
+
   /// What to draw under a post in place of the core footer, or null to leave it
   /// alone.
   ///
@@ -84,6 +96,19 @@ abstract interface class SitePlugin<T extends Object> {
     String siteUrl,
     Post post,
   );
+
+  /// Formatting actions this feature contributes to an open composer.
+  List<ComposerToolbarContribution> composerToolbar(
+    BuildContext context,
+    ComposerController composer,
+  );
+
+  /// Chooses this plugin's record after a normal post edit response.
+  ///
+  /// Edit serializers do not all carry reader state. Reactions keeps the held
+  /// record; Poll deliberately takes the incoming value, including null when
+  /// its block was removed.
+  T? mergeAfterPostEdit(T? held, T? incoming);
 
   /// Sections this feature adds to the instance sidebar, after core's own.
   ///
@@ -165,6 +190,19 @@ class PostMenuContribution {
   final bool replacesLike;
 }
 
+@immutable
+class ComposerToolbarContribution {
+  const ComposerToolbarContribution({
+    required this.icon,
+    required this.label,
+    required this.onInvoke,
+  });
+
+  final DIconData icon;
+  final String label;
+  final VoidCallback onInvoke;
+}
+
 /// Every optional feature this build knows about, in the order they are asked.
 ///
 /// A `const` list rather than something with a `register` method: every
@@ -173,6 +211,7 @@ class PostMenuContribution {
 /// in this repo, not third-party bundles — there is nothing to discover.
 const List<SitePlugin<Object>> sitePlugins = <SitePlugin<Object>>[
   ReactionsPlugin(),
+  PollPlugin(),
   ChatPlugin(),
 ];
 
@@ -223,6 +262,34 @@ class PluginData {
       next.remove(T);
     } else {
       next[T] = value;
+    }
+    return next.isEmpty ? none : PluginData._(next);
+  }
+
+  /// Merges a post-edit response according to each feature's own serializer
+  /// contract, rather than treating every optional record as one indivisible
+  /// bag.
+  static PluginData afterPostEdit({
+    required PluginData held,
+    required PluginData incoming,
+  }) {
+    var merged = incoming;
+    for (final plugin in sitePlugins) {
+      final value = plugin.mergeAfterPostEdit(
+        held._values[plugin.record],
+        merged._values[plugin.record],
+      );
+      merged = merged._withValueFor(plugin.record, value);
+    }
+    return merged;
+  }
+
+  PluginData _withValueFor(Type type, Object? value) {
+    final next = Map<Type, Object>.of(_values);
+    if (value == null) {
+      next.remove(type);
+    } else {
+      next[type] = value;
     }
     return next.isEmpty ? none : PluginData._(next);
   }

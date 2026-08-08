@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:html/dom.dart' as dom;
 
 import '../../models/content_route.dart';
 import '../../models/post.dart';
 import '../../models/sidebar.dart';
+import '../../shell/composer_controller.dart';
 import '../../shell/post_action.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
@@ -39,6 +41,20 @@ class ReactionsPlugin implements SitePlugin<Reactions> {
   @override
   Reactions? readPost(Map<String, dynamic> json, String siteUrl) =>
       Reactions.fromJson(json);
+
+  @override
+  Widget? postBodyElement(String siteUrl, Post post, dom.Element element) =>
+      null;
+
+  @override
+  List<ComposerToolbarContribution> composerToolbar(
+    BuildContext context,
+    ComposerController composer,
+  ) => const [];
+
+  @override
+  Reactions? mergeAfterPostEdit(Reactions? held, Reactions? incoming) =>
+      held ?? incoming;
 
   @override
   Widget? postFooter(String siteUrl, Post post) =>

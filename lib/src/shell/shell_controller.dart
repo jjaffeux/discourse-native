@@ -37,6 +37,7 @@ import '../models/topic_feed.dart';
 import '../models/topic_link.dart';
 import '../models/user_card.dart';
 import '../plugins/chat/chat_controller.dart';
+import '../plugins/poll/poll.dart';
 import '../plugins/reactions/reaction.dart';
 import '../plugins/reactions/reactions_controller.dart';
 import '../plugins/site_plugin.dart';
@@ -58,6 +59,22 @@ enum MobilePane { sidebar, content }
 enum InstanceLoadStatus { loading, ready, failed }
 
 typedef _WriteCredential = ({String? apiKey, WriteException? failure});
+
+/// What a native poll write learned.
+///
+/// [reconciled] means the write response was unreachable and the owning post
+/// was read again. Presentation must discard its optimistic local selection,
+/// even when the refetched saved selection happens to equal the old one.
+final class PollVoteWriteResult {
+  const PollVoteWriteResult.saved() : message = null, reconciled = false;
+
+  const PollVoteWriteResult.reconciled() : message = null, reconciled = true;
+
+  const PollVoteWriteResult.refused(this.message) : reconciled = false;
+
+  final String? message;
+  final bool reconciled;
+}
 
 /// Everything the shell needs to decide what to draw.
 ///
@@ -300,6 +317,10 @@ class ShellController extends FrameSafeNotifier {
     // Counters are stale from the moment they were stored, so pull fresh ones
     // for every connected site. Deliberately not awaited by callers.
     unawaited(_refreshTotals());
+    // Poll creation, staff status, and group eligibility are authorization
+    // inputs. Refresh them for every connected site once this app session,
+    // not only when that site happens to become the selected one.
+    unawaited(_refreshSessionUsers());
   }
 
   bool contains(String url) => _instances.any((i) => i.url == url);
@@ -486,6 +507,23 @@ class ShellController extends FrameSafeNotifier {
 
   Future<void> _refreshOne(DiscourseInstance instance) async {
     await accountActivity.refresh(instance);
+  }
+
+  Future<void> _refreshSessionUsers() async {
+    await Future.wait([
+      for (final instance in List<DiscourseInstance>.of(_instances))
+        if (instance.isConnected) _refreshSessionUserFor(instance),
+    ]);
+  }
+
+  Future<void> _refreshSessionUserFor(DiscourseInstance instance) async {
+    try {
+      final apiKey = await authenticator.apiKeyFor(instance.url);
+      if (apiKey != null) await _sessionUser(instance.url, apiKey);
+    } catch (_) {
+      // Capabilities remain unknown. Persisted values never authorize a poll
+      // creation or a group-restricted vote in their place.
+    }
   }
 
   void _onTotalsLoaded(DiscourseInstance instance, NotificationTotals totals) {
@@ -724,6 +762,14 @@ class ShellController extends FrameSafeNotifier {
   final Map<String, SiteTracker> _trackers = {};
   final Set<String> _trackersStarting = {};
 
+  /// Sites whose account was read from `/session/current.json` during this
+  /// process. Persisted capabilities are intentionally never put in this set.
+  final Set<String> _sessionUsersRefreshed = {};
+
+  /// Deduplicates the selected site's tracker startup with the all-sites
+  /// session refresh kicked off during load.
+  final Map<String, Future<DiscourseUser?>> _sessionUserRequests = {};
+
   bool _foreground = true;
 
   /// How many topics have appeared at the top of [destinationId] since it was
@@ -873,10 +919,20 @@ class ShellController extends FrameSafeNotifier {
     int topicId,
     Set<int> postIds,
   ) async {
-    final eligible = postIds
-        .where((id) => !_postWritesInFlight.contains(_postKey(siteUrl, id)))
-        .where((id) => store.read<Post>(siteUrl, id) != null)
-        .toList();
+    final eligible = <int>[];
+    for (final id in postIds) {
+      final key = _postKey(siteUrl, id);
+      if (store.read<Post>(siteUrl, id) == null) continue;
+      if (_postWritesInFlight.contains(key)) {
+        // A poll/reaction echo received during a write is useful, but not yet:
+        // the pre-write personalized post could land over the write response.
+        // Remember it and re-read as soon as the post lease is released.
+        _postRefreshPending.add(key);
+        _postRefreshTopics[key] = topicId;
+      } else {
+        eligible.add(id);
+      }
+    }
     final wanted = <int>[];
     for (final id in eligible) {
       final key = _postKey(siteUrl, id);
@@ -890,7 +946,12 @@ class ShellController extends FrameSafeNotifier {
     final lease = lifecycle.capture(siteUrl);
     final request = Object();
     for (final id in wanted) {
-      _postRefreshRequests[_postKey(siteUrl, id)] = request;
+      final key = _postKey(siteUrl, id);
+      _postRefreshRequests[key] = request;
+      // Keep the topic beside every active read as well as beside reads that
+      // arrive during a write. If a write starts now, it invalidates this
+      // pre-write response and needs enough context to replay it afterward.
+      _postRefreshTopics[key] = topicId;
     }
 
     bool requestOwns(int postId) =>
@@ -924,7 +985,11 @@ class ShellController extends FrameSafeNotifier {
           final key = _postKey(siteUrl, id);
           if (identical(_postRefreshRequests[key], request)) {
             _postRefreshRequests.remove(key);
-            if (_postRefreshPending.remove(key)) retry.add(id);
+            if (_postRefreshPending.remove(key)) {
+              retry.add(id);
+            } else {
+              _postRefreshTopics.remove(key);
+            }
           }
         }
       });
@@ -1014,30 +1079,67 @@ class ShellController extends FrameSafeNotifier {
     required String apiKey,
     required SiteLease lease,
   }) async {
+    if (!lease.isCurrent) return null;
     final held = _instanceAt(siteUrl);
-    if (held?.user?.id case final id?) return id;
     if (held == null) return null;
+    final user = await _sessionUser(siteUrl, apiKey);
+    if (!lease.isCurrent) return null;
+    // A stored id is stable enough to keep this account's private counters
+    // connected after a failed refresh, but its capabilities remain unknown.
+    return user?.id ?? _instanceAt(siteUrl)?.user?.id;
+  }
+
+  Future<DiscourseUser?> _sessionUser(String siteUrl, String apiKey) {
+    final held = _instanceAt(siteUrl);
+    if (held == null) return Future.value();
+    if (_sessionUsersRefreshed.contains(siteUrl)) {
+      return Future.value(held.user);
+    }
+
+    final active = _sessionUserRequests[siteUrl];
+    if (active != null) return active;
+
+    final lease = lifecycle.capture(siteUrl);
+    late final Future<DiscourseUser?> request;
+    request = _readSessionUser(siteUrl, apiKey, lease).whenComplete(() {
+      if (identical(_sessionUserRequests[siteUrl], request)) {
+        final removed = _sessionUserRequests.remove(siteUrl);
+        assert(identical(removed, request));
+      }
+    });
+    _sessionUserRequests[siteUrl] = request;
+    return request;
+  }
+
+  Future<DiscourseUser?> _readSessionUser(
+    String siteUrl,
+    String apiKey,
+    SiteLease lease,
+  ) async {
+    if (!lease.isCurrent || _connectingSiteUrl == siteUrl) return null;
 
     final DiscourseUser user;
     try {
       user = await api.currentUser(siteUrl: siteUrl, apiKey: apiKey);
     } catch (_) {
-      // The connection is still worth opening for `/latest`.
       return null;
     }
 
     var changed = false;
     final accepted = lease.commit(() {
       final fresh = _instanceAt(siteUrl);
-      if (fresh == null || fresh.user == user) return;
-      changed = true;
-      _replaceInstance(fresh, fresh.copyWith(user: user));
+      if (fresh == null) return;
+      _sessionUsersRefreshed.add(siteUrl);
+      if (fresh.user != user) {
+        changed = true;
+        _replaceInstance(fresh, fresh.copyWith(user: user));
+      }
       _notify();
     });
     if (accepted && changed && lease.isCurrent) {
       instanceStore.save(List.of(_instances)).ignore();
     }
-    return accepted ? user.id : null;
+    return accepted ? user : null;
   }
 
   /// Folds a counters message onto what is held for a site.
@@ -1400,6 +1502,7 @@ class ShellController extends FrameSafeNotifier {
       search: _composerSearch(target),
       resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
       pills: _composerPills(target),
+      pollMaximumOptions: siteConfigFor(target.siteUrl).pollMaximumOptions,
     )..draftSequence = _draftSequence(target);
     _composer = composer;
     _notify();
@@ -1438,6 +1541,7 @@ class ShellController extends FrameSafeNotifier {
       search: _composerSearch(target),
       resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
       pills: _composerPills(target),
+      pollMaximumOptions: siteConfigFor(target.siteUrl).pollMaximumOptions,
     );
     _composer = composer;
     _notify();
@@ -1615,7 +1719,7 @@ class ShellController extends FrameSafeNotifier {
     try {
       return await _writeLike(targetSite, post, lease);
     } finally {
-      lease.commit(() => _postWritesInFlight.remove(key));
+      lease.commit(() => _endPostWrite(targetSite, post.id));
     }
   }
 
@@ -1709,7 +1813,112 @@ class ShellController extends FrameSafeNotifier {
     try {
       return await _writeReaction(targetSite, post, reaction, lease);
     } finally {
-      lease.commit(() => _postWritesInFlight.remove(key));
+      lease.commit(() => _endPostWrite(targetSite, post.id));
+    }
+  }
+
+  bool postWriteInFlight(int postId, {String? siteUrl}) {
+    final targetSite = siteUrl ?? currentInstance?.url;
+    return targetSite != null &&
+        _postWritesInFlight.contains(_postKey(targetSite, postId));
+  }
+
+  /// Casts or changes a vote in one named poll. The card owns the responsive
+  /// pending selection; only the personalized server answer is committed to
+  /// the post, so counts and confidential results are never guessed.
+  Future<PollVoteWriteResult> castPollVote(
+    Post post,
+    Poll poll,
+    List<String> optionIds, {
+    String? siteUrl,
+  }) => _writePollVote(
+    post,
+    poll,
+    options: List.unmodifiable(optionIds),
+    siteUrl: siteUrl,
+  );
+
+  Future<PollVoteWriteResult> removePollVote(
+    Post post,
+    Poll poll, {
+    String? siteUrl,
+  }) => _writePollVote(post, poll, options: null, siteUrl: siteUrl);
+
+  Future<PollVoteWriteResult> _writePollVote(
+    Post post,
+    Poll poll, {
+    required List<String>? options,
+    String? siteUrl,
+  }) async {
+    final targetSite = siteUrl ?? currentInstance?.url;
+    final topicId = currentContent?.topicId;
+    if (targetSite == null || topicId == null || !poll.isOpen) {
+      return const PollVoteWriteResult.saved();
+    }
+    final detail = store.read<TopicDetail>(targetSite, topicId);
+    if (detail?.archived == true) {
+      return const PollVoteWriteResult.refused(
+        'Voting is unavailable in archived topics.',
+      );
+    }
+
+    final key = _postKey(targetSite, post.id);
+    if (!_beginPostWrite(key)) {
+      // Another card on this post won the same-frame race before the shell
+      // could rebuild both as disabled. Tell this card to discard the local
+      // selection it already painted, without presenting an error.
+      return const PollVoteWriteResult.reconciled();
+    }
+    final lease = lifecycle.capture(targetSite);
+    try {
+      final credential = await _credentialForWrite(targetSite);
+      if (!lease.isCurrent) return const PollVoteWriteResult.saved();
+      if (credential.failure case final failure?) {
+        return PollVoteWriteResult.refused(failure.message);
+      }
+      final apiKey = credential.apiKey!;
+
+      final PollVoteResponse answer;
+      try {
+        answer = options == null
+            ? await api.removePollVote(
+                siteUrl: targetSite,
+                apiKey: apiKey,
+                postId: post.id,
+                pollName: poll.name,
+              )
+            : await api.votePoll(
+                siteUrl: targetSite,
+                apiKey: apiKey,
+                postId: post.id,
+                pollName: poll.name,
+                options: options,
+              );
+      } on WriteException catch (error) {
+        if (error.failure != WriteFailure.unreachable) {
+          return PollVoteWriteResult.refused(error.message);
+        }
+        // The vote route is idempotent for a concrete selection. If its answer
+        // was lost, a personalized post read is the only safe reconciliation.
+        await _refreshPost(targetSite, topicId, post.id, apiKey, lease);
+        return const PollVoteWriteResult.reconciled();
+      } catch (_) {
+        await _refreshPost(targetSite, topicId, post.id, apiKey, lease);
+        return const PollVoteWriteResult.reconciled();
+      }
+
+      lease.commit(() {
+        store.update<Post>(targetSite, post.id, (held) {
+          final polls = held.polls ?? const Polls();
+          return held.withPlugins(
+            held.plugins.withValue<Polls>(polls.withPoll(answer.poll)),
+          );
+        });
+        _notify();
+      });
+      return const PollVoteWriteResult.saved();
+    } finally {
+      lease.commit(() => _endPostWrite(targetSite, post.id));
     }
   }
 
@@ -1752,7 +1961,11 @@ class ShellController extends FrameSafeNotifier {
     /// of `_writeLike`'s revert, for the same reason.
     void revert() {
       lease.commit(() {
-        store.update<Post>(siteUrl, post.id, (h) => h.withPluginsOf(post));
+        store.update<Post>(
+          siteUrl,
+          post.id,
+          (h) => h.withPlugins(h.plugins.withValue<Reactions>(held)),
+        );
         _notify();
       });
     }
@@ -1820,13 +2033,29 @@ class ShellController extends FrameSafeNotifier {
   /// Another invalidation arrived while that read was in flight.
   final Set<String> _postRefreshPending = {};
 
+  /// Topic needed to replay an invalidation held behind a post write.
+  final Map<String, int> _postRefreshTopics = {};
+
   bool _beginPostWrite(String key) {
     if (!_postWritesInFlight.add(key)) return false;
     // A live invalidation may already be reading the pre-write snapshot. It
     // must not land over the optimistic write or the write's own re-read.
-    _postRefreshRequests.remove(key);
-    _postRefreshPending.remove(key);
+    if (_postRefreshRequests.remove(key) != null) {
+      _postRefreshPending.add(key);
+    }
+    _notify();
     return true;
+  }
+
+  void _endPostWrite(String siteUrl, int postId) {
+    final key = _postKey(siteUrl, postId);
+    _postWritesInFlight.remove(key);
+    _notify();
+    if (!_postRefreshPending.remove(key)) return;
+    final topicId = _postRefreshTopics.remove(key);
+    if (topicId != null) {
+      unawaited(_refreshPosts(siteUrl, topicId, {postId}));
+    }
   }
 
   /// Names a post in the per-site maps and sets here: site and post together,
@@ -1934,7 +2163,7 @@ class ShellController extends FrameSafeNotifier {
       await _refreshPost(siteUrl, topicId, post.id, apiKey, lease);
       return null;
     } finally {
-      lease.commit(() => _postWritesInFlight.remove(key));
+      lease.commit(() => _endPostWrite(siteUrl, post.id));
     }
   }
 
@@ -2226,6 +2455,28 @@ class ShellController extends FrameSafeNotifier {
     ComposerTarget target,
     String raw,
   ) async {
+    final key = _postKey(target.siteUrl, target.editingPostId!);
+    if (!_beginPostWrite(key)) {
+      composer.failed(
+        const WriteException(
+          WriteFailure.conflict,
+          errors: ['Another action on this post is still being saved.'],
+        ),
+      );
+      return;
+    }
+    try {
+      await _submitEditNow(composer, target, raw);
+    } finally {
+      _endPostWrite(target.siteUrl, target.editingPostId!);
+    }
+  }
+
+  Future<void> _submitEditNow(
+    ComposerController composer,
+    ComposerTarget target,
+    String raw,
+  ) async {
     final lease = lifecycle.capture(target.siteUrl);
     composer.beginSubmit();
     final credential = await _credentialForWrite(target.siteUrl);
@@ -2267,7 +2518,16 @@ class ShellController extends FrameSafeNotifier {
       final held = store.read<Post>(target.siteUrl, updated.id);
       store.put(
         target.siteUrl,
-        held == null ? updated : updated.withLikesOf(held).withPluginsOf(held),
+        held == null
+            ? updated
+            : updated
+                  .withLikesOf(held)
+                  .withPlugins(
+                    PluginData.afterPostEdit(
+                      held: held.plugins,
+                      incoming: updated.plugins,
+                    ),
+                  ),
       );
 
       if (identical(_composer, composer)) {
@@ -2859,6 +3119,24 @@ class ShellController extends FrameSafeNotifier {
     await instanceStore.save(List.of(_instances));
   }
 
+  /// A creation capability is useful only after this app session has asked
+  /// the site. An old persisted `true` is deliberately treated as unknown.
+  bool canCreatePollFor(String siteUrl) =>
+      _sessionUsersRefreshed.contains(siteUrl) &&
+      _instanceAt(siteUrl)?.user?.canCreatePoll == true;
+
+  bool get canCreatePoll {
+    final siteUrl = currentInstance?.url;
+    return siteUrl != null && canCreatePollFor(siteUrl);
+  }
+
+  DiscourseUser? currentUserFor(String siteUrl) => _instanceAt(siteUrl)?.user;
+
+  DiscourseUser? freshCurrentUserFor(String siteUrl) =>
+      _sessionUsersRefreshed.contains(siteUrl)
+      ? _instanceAt(siteUrl)?.user
+      : null;
+
   Future<void> _persistSiteConfig(String siteUrl, SiteConfig config) async {
     final held = _instanceAt(siteUrl);
     if (held == null || held.config == config) return;
@@ -2993,6 +3271,7 @@ class ShellController extends FrameSafeNotifier {
           apiVersion: connectedCredentials.apiVersion,
         );
         _replaceInstance(held, connected!);
+        _sessionUsersRefreshed.add(instance.url);
         if (currentInstance?.url == instance.url) {
           _resetToInstanceDefault();
         }
@@ -3035,6 +3314,13 @@ class ShellController extends FrameSafeNotifier {
       _connectErrors[instance.url] = 'Could not connect to ${instance.host}.';
     } finally {
       if (_connectingSiteUrl == instance.url) _connectingSiteUrl = null;
+      final held = _instanceAt(instance.url);
+      if (held?.isConnected == true &&
+          !_sessionUsersRefreshed.contains(instance.url)) {
+        // A cancelled/failed handshake leaves the previous account in place.
+        // Retry a background refresh that deliberately stood aside above.
+        unawaited(_refreshSessionUserFor(held!));
+      }
       _notify();
     }
   }
@@ -3227,6 +3513,7 @@ class ShellController extends FrameSafeNotifier {
     _postWritesInFlight.removeWhere((key) => key.startsWith('$siteUrl~'));
     _postRefreshRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _postRefreshPending.removeWhere((key) => key.startsWith('$siteUrl~'));
+    _postRefreshTopics.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _topicsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _postsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
 
@@ -3245,6 +3532,8 @@ class ShellController extends FrameSafeNotifier {
     _feedRows.removeWhere((key, _) => key.startsWith('$siteUrl|'));
     _feedPageRequests.removeWhere((key, _) => key.startsWith('$siteUrl|'));
     _trackersStarting.remove(siteUrl);
+    _sessionUsersRefreshed.remove(siteUrl);
+    _sessionUserRequests.remove(siteUrl)?.ignore();
     _disposeTracking(siteUrl);
     _notify();
   }

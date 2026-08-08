@@ -21,6 +21,7 @@ import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
+import '../plugins/poll/poll.dart';
 import '../plugins/reactions/post_reactors.dart';
 import 'discourse_api_contracts.dart';
 import 'http_transport.dart';
@@ -98,7 +99,8 @@ class WriteException implements Exception {
 /// The lookup mirrors DiscourseMobile's `Site.fromTerm`: probe
 /// `/user-api-key/new` to confirm it is a Discourse new enough to expose the
 /// user API, then read `/site/basic-info.json` for the details we display.
-class DiscourseApi implements AccountActivityApi, ChatApi, ReactionsApi {
+class DiscourseApi
+    implements AccountActivityApi, ChatApi, ReactionsApi, PollsApi {
   DiscourseApi({
     http.Client? client,
     this.timeout = const Duration(seconds: 10),
@@ -269,6 +271,19 @@ class DiscourseApi implements AccountActivityApi, ChatApi, ReactionsApi {
       id: jsonIntOrNull(user['id']),
       name: jsonText(user['name']),
       avatarUrl: _avatarUrl(jsonText(user['avatar_template']), siteUrl),
+      // Plugin serializers omit can_create_poll when Poll is unavailable.
+      // Preserve that distinction so the composer never guesses capability.
+      canCreatePoll: user.containsKey('can_create_poll')
+          ? user['can_create_poll'] == true
+          : null,
+      staff:
+          user['staff'] == true ||
+          user['admin'] == true ||
+          user['moderator'] == true,
+      groups: List.unmodifiable([
+        for (final group in jsonObjects(user['groups']))
+          ?jsonText(group['name']),
+      ]),
     );
   }
 
@@ -1019,6 +1034,112 @@ class DiscourseApi implements AccountActivityApi, ChatApi, ReactionsApi {
     ),
     siteUrl,
   );
+
+  /// Casts or changes this reader's selection in one named poll.
+  ///
+  /// The response is personalized: its poll contains the result visibility
+  /// this reader earned by voting, and `vote` is the selection the server
+  /// actually saved. A malformed success is treated as unreachable so the
+  /// controller reconciles by refetching the post rather than applying a
+  /// guessed selection.
+  @override
+  Future<PollVoteResponse> votePoll({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String pollName,
+    required List<String> options,
+    String? clientId,
+  }) async {
+    final body = await _write(
+      Uri.parse('$siteUrl/polls/vote.json'),
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'post_id': postId, 'poll_name': pollName, 'options': options},
+    );
+    return _pollVoteResponse(
+      body,
+      siteUrl: siteUrl,
+      pollName: pollName,
+      requireVote: true,
+    );
+  }
+
+  /// Removes this reader's selection from one named poll.
+  @override
+  Future<PollVoteResponse> removePollVote({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String pollName,
+    String? clientId,
+  }) async {
+    final body = await _write(
+      Uri.parse('$siteUrl/polls/vote.json'),
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'post_id': postId, 'poll_name': pollName},
+    );
+    return _pollVoteResponse(
+      body,
+      siteUrl: siteUrl,
+      pollName: pollName,
+      requireVote: false,
+    );
+  }
+
+  static PollVoteResponse _pollVoteResponse(
+    Map<String, dynamic> body, {
+    required String siteUrl,
+    required String pollName,
+    required bool requireVote,
+  }) {
+    final rawPoll = body['poll'];
+    if (rawPoll is! Map<String, dynamic> ||
+        rawPoll['name'] is! String ||
+        rawPoll['type'] is! String ||
+        rawPoll['status'] is! String ||
+        rawPoll['results'] is! String ||
+        rawPoll['options'] is! List ||
+        rawPoll['chart_type'] is! String ||
+        (requireVote && body['vote'] is! List)) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+
+    final withoutSelection = Poll.fromJson(rawPoll, siteUrl);
+    if (withoutSelection == null ||
+        withoutSelection.name != pollName ||
+        withoutSelection.options.length !=
+            (rawPoll['options'] as List).length) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    final selection = requireVote
+        ? PollSelection.fromJson(body['vote'], type: withoutSelection.type)
+        : PollSelection.none;
+    // A non-ranked vote is a list of non-empty digest strings. Silently
+    // accepting a list of objects as an empty vote would make a malformed
+    // success look like the server removed the reader's selection.
+    if (requireVote &&
+        withoutSelection.type != PollType.rankedChoice &&
+        selection.optionIds.length != (body['vote'] as List).length) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    final optionIds = withoutSelection.options
+        .map((option) => option.id)
+        .toSet();
+    if (selection.optionIds.any((id) => !optionIds.contains(id)) ||
+        selection.rankedChoices.any(
+          (choice) => !optionIds.contains(choice.digest),
+        )) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return PollVoteResponse(
+      poll: withoutSelection.withSelection(selection),
+      selection: selection,
+    );
+  }
 
   /// Who liked a post, oldest like first.
   ///

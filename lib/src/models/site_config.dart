@@ -23,6 +23,8 @@ class SiteConfig {
     this.offeredReactions = const [],
     this.allowAnyEmoji = false,
     this.desaturatedReactionPanel = false,
+    this.pollMaximumOptions = defaultPollMaximumOptions,
+    this.pollDefaultPublic = true,
   });
 
   /// What a site looks like before it has been asked, and what one that refuses
@@ -31,6 +33,7 @@ class SiteConfig {
 
   /// `emoji_set`'s own default, server side.
   static const String defaultEmojiSet = 'twitter';
+  static const int defaultPollMaximumOptions = 20;
 
   /// Reads `GET /site/settings.json`, which is `SiteSetting.client_settings_json`
   /// — every setting marked `client: true`, core's and every plugin's alike.
@@ -57,6 +60,11 @@ class SiteConfig {
       desaturatedReactionPanel:
           reactions &&
           json['discourse_reactions_desaturated_reaction_panel'] == true,
+      pollMaximumOptions: switch (jsonIntOrNull(json['poll_maximum_options'])) {
+        final value? when value >= 2 => value,
+        _ => defaultPollMaximumOptions,
+      },
+      pollDefaultPublic: json['poll_default_public'] != false,
     );
   }
 
@@ -73,6 +81,9 @@ class SiteConfig {
     ),
     allowAnyEmoji: json['allowAnyEmoji'] == true,
     desaturatedReactionPanel: json['desaturatedReactionPanel'] == true,
+    pollMaximumOptions:
+        jsonIntOrNull(json['pollMaximumOptions']) ?? defaultPollMaximumOptions,
+    pollDefaultPublic: json['pollDefaultPublic'] != false,
   );
 
   Map<String, dynamic> toJson() => {
@@ -82,6 +93,8 @@ class SiteConfig {
     'offeredReactions': offeredReactions,
     'allowAnyEmoji': allowAnyEmoji,
     'desaturatedReactionPanel': desaturatedReactionPanel,
+    'pollMaximumOptions': pollMaximumOptions,
+    'pollDefaultPublic': pollDefaultPublic,
   };
 
   /// Which set of artwork the site draws its emoji from — `twitter`, `apple`,
@@ -113,6 +126,11 @@ class SiteConfig {
 
   /// Whether the site draws its reaction picker desaturated.
   final bool desaturatedReactionPanel;
+
+  /// Poll builder limits/defaults. These are presentation defaults, never a
+  /// claim that Poll is enabled on a site.
+  final int pollMaximumOptions;
+  final bool pollDefaultPublic;
 
   /// Where the artwork for one emoji lives on this site.
   ///
@@ -178,6 +196,8 @@ class SiteConfig {
       other.mainReaction == mainReaction &&
       other.allowAnyEmoji == allowAnyEmoji &&
       other.desaturatedReactionPanel == desaturatedReactionPanel &&
+      other.pollMaximumOptions == pollMaximumOptions &&
+      other.pollDefaultPublic == pollDefaultPublic &&
       listEquals(other.offeredReactions, offeredReactions);
 
   @override
@@ -187,6 +207,8 @@ class SiteConfig {
     mainReaction,
     allowAnyEmoji,
     desaturatedReactionPanel,
+    pollMaximumOptions,
+    pollDefaultPublic,
     Object.hashAll(offeredReactions),
   );
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:html/dom.dart' as dom;
 
 import '../../models/content_route.dart';
 import '../../models/post.dart';
 import '../../models/sidebar.dart';
+import '../../shell/composer_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
 import '../site_plugin.dart';
@@ -54,6 +56,20 @@ class ChatPlugin implements SitePlugin<ChatChannel> {
   /// using the enablement signal the rest of this interface turns on.
   @override
   ChatChannel? readPost(Map<String, dynamic> json, String siteUrl) => null;
+
+  @override
+  Widget? postBodyElement(String siteUrl, Post post, dom.Element element) =>
+      null;
+
+  @override
+  List<ComposerToolbarContribution> composerToolbar(
+    BuildContext context,
+    ComposerController composer,
+  ) => const [];
+
+  @override
+  ChatChannel? mergeAfterPostEdit(ChatChannel? held, ChatChannel? incoming) =>
+      incoming;
 
   @override
   Widget? postFooter(String siteUrl, Post post) => null;

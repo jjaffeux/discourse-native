@@ -1,0 +1,269 @@
+import 'dart:async';
+
+import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'support/fakes.dart';
+
+const _site = 'https://meta.discourse.org';
+const _source =
+    'Before the poll.\n\n'
+    '[poll name=lunch]\n# Lunch\n* Soup\n* Salad\n[/poll]\n\n'
+    'After the poll.';
+
+final class _GatedCurrentUserApi extends FakeDiscourseApi {
+  _GatedCurrentUserApi()
+    : super(
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {7: topicPayload(id: 7, title: 'Lunch', canCreatePost: true)},
+        siteConfigs: const {_site: SiteConfig.unknown()},
+      );
+
+  final response = Completer<DiscourseUser>();
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) => response.future;
+}
+
+Future<ShellController> _openComposer({
+  FakeDiscourseApi? api,
+  DiscourseUser storedUser = const DiscourseUser(id: 7, username: 'reader'),
+}) async {
+  final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
+  final discourseApi =
+      api ??
+      FakeDiscourseApi(
+        user: const DiscourseUser(
+          id: 7,
+          username: 'reader',
+          canCreatePoll: true,
+        ),
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {7: topicPayload(id: 7, title: 'Lunch', canCreatePost: true)},
+        siteConfigs: const {_site: SiteConfig.unknown()},
+      );
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore([
+      instance('meta.discourse.org').copyWith(user: storedUser),
+    ]),
+    api: discourseApi,
+    authenticator: authenticator,
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+  );
+  await shell.load();
+  shell.pushContent(
+    ContentRoute.topic(topicId: 7, slug: 'lunch', title: 'Lunch'),
+  );
+  await shell.loadTopic(7, 'lunch');
+  shell.openReply();
+  return shell;
+}
+
+void main() {
+  testWidgets(
+    'the Add poll action waits for and reacts to a fresh session capability',
+    (tester) async {
+      final api = _GatedCurrentUserApi();
+      final shell = await _openComposer(
+        api: api,
+        storedUser: const DiscourseUser(
+          id: 7,
+          username: 'reader',
+          canCreatePoll: true,
+        ),
+      );
+      addTearDown(shell.dispose);
+      final composer = shell.visibleComposer!;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(body: ComposerPanel(composer: composer)),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byTooltip('Add poll'), findsNothing);
+
+      api.response.complete(
+        const DiscourseUser(id: 7, username: 'reader', canCreatePoll: true),
+      );
+      for (var frame = 0; frame < 4; frame++) {
+        await tester.pump(const Duration(milliseconds: 1));
+      }
+
+      expect(find.byTooltip('Add poll'), findsOneWidget);
+    },
+  );
+
+  testWidgets('tapping the collapsed pill reveals its raw markdown', (
+    tester,
+  ) async {
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    final composer = shell.visibleComposer!;
+    composer.text.value = TextEditingValue(
+      text: _source,
+      selection: const TextSelection.collapsed(offset: _source.length),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(body: ComposerPanel(composer: composer)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final pill = find.byType(PollComposerPill);
+    expect(pill, findsOneWidget);
+    // WidgetSpans inside EditableText intentionally ignore pointers; the tap
+    // lands on the TextField at the pill's visual coordinates.
+    await tester.tapAt(tester.getCenter(pill));
+    await tester.pump();
+
+    expect(find.byType(PollComposerPill), findsNothing);
+    expect(find.text('Edit poll'), findsNothing);
+    expect(composer.text.text, _source);
+    expect(
+      composer.text.isPollExpanded(composer.text.pollBlocks.single),
+      isTrue,
+    );
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('tapping immediately after the pill leaves it collapsed', (
+    tester,
+  ) async {
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    final composer = shell.visibleComposer!;
+    composer.text.value = TextEditingValue(
+      text: _source,
+      selection: const TextSelection.collapsed(offset: _source.length),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(body: ComposerPanel(composer: composer)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final pill = find.byType(PollComposerPill);
+    final pillRect = tester.getRect(pill);
+    await tester.tapAt(Offset(pillRect.right + 6, pillRect.center.dy));
+    await tester.pump();
+
+    expect(find.byType(PollComposerPill), findsOneWidget);
+    expect(composer.text.text, _source);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('hovering the pill offers editing without revealing raw', (
+    tester,
+  ) async {
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    final composer = shell.visibleComposer!;
+    composer.text.value = TextEditingValue(
+      text: _source,
+      selection: const TextSelection.collapsed(offset: _source.length),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(body: ComposerPanel(composer: composer)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(find.byType(PollComposerPill)));
+    await tester.pump();
+
+    expect(find.byTooltip('Edit poll'), findsOneWidget);
+    expect(find.byTooltip('Remove poll'), findsOneWidget);
+    expect(
+      composer.text.isPollCollapsed(composer.text.pollBlocks.single),
+      isTrue,
+    );
+
+    await tester.tap(find.byTooltip('Edit poll'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Edit poll'), findsOneWidget);
+    expect(composer.text.text, _source);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('the hover menu removes an unpublished poll immediately', (
+    tester,
+  ) async {
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    final composer = shell.visibleComposer!;
+    composer.text.value = TextEditingValue(
+      text: _source,
+      selection: const TextSelection.collapsed(offset: _source.length),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(body: ComposerPanel(composer: composer)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(find.byType(PollComposerPill)));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Remove poll'));
+    await tester.pump();
+
+    expect(composer.text.text, 'Before the poll.\n\n\n\nAfter the poll.');
+    expect(find.byType(PollComposerPill), findsNothing);
+    await tester.pump(const Duration(seconds: 3));
+  });
+}

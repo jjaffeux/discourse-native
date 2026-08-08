@@ -169,10 +169,12 @@ class ComposerController extends ChangeNotifier {
     ComposerSearch? search,
     String Function(String name)? resolveEmoji,
     ComposerPills? pills,
+    int pollMaximumOptions = 20,
     DateTime Function()? now,
   }) : text = MarkdownEditingController(
          resolveEmoji: resolveEmoji,
          pills: pills,
+         pollMaximumOptions: pollMaximumOptions,
        ),
        autocomplete = ComposerAutocomplete(search: search),
        _typing = TypingClock(now: now),
@@ -288,6 +290,10 @@ class ComposerController extends ChangeNotifier {
   bool get loadingBody => _loadingBody;
 
   String? _originalRaw;
+
+  /// The body an edit opened with, used only to distinguish a published poll
+  /// from one newly inserted during this edit.
+  String? get originalRaw => _originalRaw;
 
   /// Whether there is anything worth sending. Blank is not a post, and neither
   /// is an edit nobody has changed — the site refuses that anyway.

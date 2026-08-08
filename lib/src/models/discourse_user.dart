@@ -10,6 +10,9 @@ class DiscourseUser {
     this.id,
     this.name,
     this.avatarUrl,
+    this.canCreatePoll,
+    this.staff = false,
+    this.groups = const [],
   });
 
   factory DiscourseUser.fromJson(Map<String, dynamic> json) => DiscourseUser(
@@ -20,6 +23,14 @@ class DiscourseUser {
     id: jsonIntOrNull(json['id']),
     name: json['name'] as String?,
     avatarUrl: json['avatarUrl'] as String?,
+    // Optional so accounts persisted before Poll support remain readable. A
+    // stored value is display state only; ShellController requires a fresh
+    // session read before it treats this as a capability.
+    canCreatePoll: json['canCreatePoll'] as bool?,
+    staff: json['staff'] == true,
+    groups: List.unmodifiable(
+      jsonArray(json['groups']).map(jsonText).whereType<String>(),
+    ),
   );
 
   final String username;
@@ -31,11 +42,24 @@ class DiscourseUser {
   final String? name;
   final String? avatarUrl;
 
+  /// The Poll plugin's session capability. Null means the plugin did not add
+  /// it (or this account predates the field), rather than false.
+  final bool? canCreatePoll;
+
+  /// Whether the current account is an administrator or moderator.
+  final bool staff;
+
+  /// Group names from the freshly loaded current-user payload.
+  final List<String> groups;
+
   Map<String, dynamic> toJson() => {
     'username': username,
     'id': id,
     'name': name,
     'avatarUrl': avatarUrl,
+    'canCreatePoll': canCreatePoll,
+    'staff': staff,
+    'groups': groups,
   };
 
   /// Display name if the site has one, otherwise the username.
@@ -47,8 +71,19 @@ class DiscourseUser {
       other.username == username &&
       other.id == id &&
       other.name == name &&
-      other.avatarUrl == avatarUrl;
+      other.avatarUrl == avatarUrl &&
+      other.canCreatePoll == canCreatePoll &&
+      other.staff == staff &&
+      listEquals(other.groups, groups);
 
   @override
-  int get hashCode => Object.hash(username, id, name, avatarUrl);
+  int get hashCode => Object.hash(
+    username,
+    id,
+    name,
+    avatarUrl,
+    canCreatePoll,
+    staff,
+    Object.hashAll(groups),
+  );
 }
