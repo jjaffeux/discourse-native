@@ -362,10 +362,15 @@ void main() {
       controller.search.setQuery('matches');
       controller.search.requestFocus();
       await tester.pump();
+      final searchInput = tester
+          .widget<EditableText>(find.byKey(ForumSearch.inputKey))
+          .focusNode;
+      expect(searchInput.hasFocus, isTrue);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
       expect(controller.search.panelOpen, isFalse);
       expect(controller.search.query, 'matches');
+      expect(searchInput.hasFocus, isFalse);
     });
   });
 
