@@ -106,7 +106,9 @@ class _TopicViewState extends State<TopicView> {
     final scroll = _scroll;
     if (list == null || scroll == null) return;
     if (!list.isAttached || !scroll.hasClients) return;
-    list.jumpToItem(index: index, scrollController: scroll, alignment: 0);
+    // `separated` interleaves a separator after every logical item, and the
+    // ListController addresses that expanded child list.
+    list.jumpToItem(index: index * 2, scrollController: scroll, alignment: 0);
   }
 
   bool _isCurrent(ShellController controller, (String, int) topicIdentity) =>
@@ -160,8 +162,11 @@ class _TopicViewState extends State<TopicView> {
     if (range == null) return;
 
     final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
-    for (var row = range.$2; row >= range.$1; row--) {
-      final postIndex = row - leading;
+    for (var childIndex = range.$2; childIndex >= range.$1; childIndex--) {
+      // Even children are list items; odd children are separators.
+      if (childIndex.isOdd) continue;
+      final itemIndex = childIndex ~/ 2;
+      final postIndex = itemIndex - leading;
       if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
       final post = controller.store.read<Post>(
         snapshot.siteUrl!,
@@ -308,7 +313,10 @@ class _TopicViewState extends State<TopicView> {
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification.depth == 0) {
-          _noteWhatIsOnScreen(controller, snapshot);
+          // SuperSliverList publishes its new visible range during layout,
+          // after the scroll notification. Looking synchronously here reads
+          // the previous viewport and repeatedly credits the old post.
+          _scheduleLook();
           if (notification.metrics.extentAfter < TopicView._loadMoreThreshold) {
             _scheduleLoadMore(controller, snapshot);
           }

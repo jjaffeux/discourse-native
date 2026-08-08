@@ -8,6 +8,7 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 
@@ -67,6 +68,98 @@ void main() {
 
     expect(controller.currentContent?.postNumber, 30);
   });
+
+  testWidgets(
+    'records the visible range after programmatic scrolling lays out',
+    (tester) async {
+      final site = instance('meta.example');
+      final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+      final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([site]),
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+      controller.store.putAll(site.url, [
+        for (var id = 100; id < 130; id++)
+          Post(
+            id: id,
+            postNumber: id - 99,
+            username: 'sam',
+            cooked: List.filled(12, '<p>Long post $id</p>').join(),
+          ),
+      ]);
+      controller.store.put(
+        site.url,
+        const Topic(
+          id: 1,
+          title: 'One',
+          slug: 'one',
+          unreadPosts: 29,
+          lastReadPostNumber: 1,
+          highestPostNumber: 30,
+        ),
+      );
+      controller.pushContent(
+        ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+      );
+
+      await tester.pumpWidget(_topicView(controller));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(
+        controller.store.read<Topic>(site.url, 1)!.lastReadPostNumber,
+        lessThan(30),
+      );
+      api.topicReadsRecorded.clear();
+
+      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      final scroll = list.controller!;
+      final initialRange = list.listController!.visibleRange;
+      final initialPixels = scroll.position.pixels;
+      final listener = tester.widget<NotificationListener<ScrollNotification>>(
+        find
+            .descendant(
+              of: find.byType(TopicView),
+              matching: find.byType(NotificationListener<ScrollNotification>),
+            )
+            .first,
+      );
+      listener.onNotification!(
+        ScrollUpdateNotification(
+          metrics: FixedScrollMetrics(
+            minScrollExtent: scroll.position.minScrollExtent,
+            maxScrollExtent: scroll.position.maxScrollExtent,
+            pixels: scroll.position.pixels,
+            viewportDimension: scroll.position.viewportDimension,
+            axisDirection: AxisDirection.down,
+            devicePixelRatio: 1,
+          ),
+          context: tester.element(find.byType(TopicView)),
+        ),
+      );
+      scroll.jumpTo(scroll.position.maxScrollExtent);
+      await tester.pump();
+      await tester.pump();
+
+      final range = list.listController!.visibleRange!;
+      expect(scroll.position.pixels, greaterThan(initialPixels));
+      expect(range, isNot(initialRange));
+      final highestVisibleChild = range.$2.isEven ? range.$2 : range.$2 - 1;
+      final highestVisibleRow = highestVisibleChild ~/ 2;
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(api.topicReadsRecorded.last, (
+        topicId: 1,
+        postNumber: highestVisibleRow + 1,
+      ));
+    },
+  );
 
   testWidgets('each topic starts with its own scroll position', (tester) async {
     final site = instance('meta.example');
@@ -144,6 +237,10 @@ void main() {
       tester.state<ScrollableState>(vertical.first).position.pixels,
       greaterThan(0),
     );
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    final range = list.listController!.visibleRange!;
+    expect((range.$1 + 1) ~/ 2, lessThanOrEqualTo(11));
+    expect(range.$2 ~/ 2, greaterThanOrEqualTo(11));
   });
 
   testWidgets('a queued page request cannot cross a topic switch', (
