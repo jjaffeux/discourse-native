@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 /// it reads as sitting *on* the backdrop rather than filling the window. The
 /// backdrop showing through above it is the scaffold background.
 ///
-/// Only the left corners are rounded — the right edge meets the window edge.
+/// Only the top-left corner is rounded. The bottom edge meets the window edge,
+/// and the right edge meets the window's right edge.
 class ShellPanel extends StatelessWidget {
   const ShellPanel({super.key, required this.child});
 
@@ -19,8 +20,8 @@ class ShellPanel extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
       child: ClipRRect(
-        borderRadius: const BorderRadius.horizontal(
-          left: Radius.circular(cornerRadius),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(cornerRadius),
         ),
         // The inset above is the status bar clearance, so anything inside must
         // not apply it a second time.
