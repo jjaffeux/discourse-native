@@ -90,7 +90,8 @@ class UpdateException implements Exception {
           'understand.',
     UpdateFailure.untrusted =>
       'The download did not match its signature and was thrown away.',
-    UpdateFailure.install => 'The update downloaded but could not be installed.',
+    UpdateFailure.install =>
+      'The update downloaded but could not be installed.',
   };
 
   @override

@@ -289,6 +289,28 @@ void main() {
       },
     );
 
+    test('an obsolete read failure returns the newly written key', () async {
+      const siteUrl = 'https://meta.discourse.org';
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      final storage = _FakeStorage()
+        ..gatedReadKey = 'api_key::$siteUrl'
+        ..readGate = gate
+        ..readStarted = started
+        ..readErrors['api_key::$siteUrl'] = StateError('obsolete read');
+      final store = SecureStore(storage: storage);
+
+      final staleRead = store.readApiKey(siteUrl);
+      await started.future;
+      final coalescedStaleRead = store.readApiKey(siteUrl);
+      await store.writeApiKey(siteUrl, 'new-key');
+      gate.complete();
+
+      expect(await staleRead, 'new-key');
+      expect(await coalescedStaleRead, 'new-key');
+      expect(await store.readApiKey(siteUrl), 'new-key');
+    });
+
     test('serializes writes so the last requested key wins', () async {
       const siteUrl = 'https://meta.discourse.org';
       final gate = Completer<void>();

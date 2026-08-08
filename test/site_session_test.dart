@@ -146,6 +146,36 @@ final class _GatedTopicApi extends FakeDiscourseApi {
   }
 }
 
+final class _GatedAccountHealingApi extends FakeDiscourseApi {
+  _GatedAccountHealingApi(this.accountGate);
+
+  final Completer<void> accountGate;
+  final started = Completer<void>();
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    started.complete();
+    await accountGate.future;
+    return const DiscourseUser(id: 42, username: 'account-a');
+  }
+}
+
+final class _RecordingInstanceStore extends FakeInstanceStore {
+  _RecordingInstanceStore(super.instances);
+
+  final List<List<DiscourseInstance>> snapshots = [];
+
+  @override
+  Future<void> save(List<DiscourseInstance> instances) async {
+    snapshots.add(List.of(instances));
+    await super.save(instances);
+  }
+}
+
 final class _GatedInstanceStore extends FakeInstanceStore {
   _GatedInstanceStore(super.instances, this.gate);
 
@@ -243,6 +273,49 @@ void main() {
     expect(shell.currentFeed?.topicIds, [2]);
     expect(shell.store.read<Topic>(_siteUrl, 1), isNull);
     expect(shell.store.read<Topic>(_siteUrl, 2)?.title, 'Visible to B');
+  });
+
+  test('account healing cannot persist after a reentrant disconnect', () async {
+    final gate = Completer<void>();
+    final api = _GatedAccountHealingApi(gate);
+    final connected = instance(
+      'meta.discourse.org',
+    ).copyWith(user: const DiscourseUser(username: 'account-a'));
+    final store = _RecordingInstanceStore([connected]);
+    final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'account-a-key';
+    final shell = ShellController(
+      instanceStore: store,
+      api: api,
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(shell.dispose);
+
+    var disconnectStarted = false;
+    Future<void>? disconnecting;
+    final listenerRan = Completer<void>();
+    shell.addListener(() {
+      if (disconnectStarted || shell.currentInstance?.user?.id != 42) return;
+      disconnectStarted = true;
+      disconnecting = shell.disconnectCurrentInstance();
+      listenerRan.complete();
+    });
+
+    await shell.load();
+    await api.started.future;
+    gate.complete();
+    await listenerRan.future;
+    await disconnecting;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      store.snapshots.where(
+        (snapshot) => snapshot.any((item) => item.user?.id == 42),
+      ),
+      isEmpty,
+    );
+    expect((await store.load()).single.user, isNull);
   });
 
   test(

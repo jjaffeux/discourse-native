@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../data/discourse_api.dart';
+import '../data/draft_store.dart';
 import '../models/composer_draft.dart';
 import 'composer_autocomplete.dart';
 import 'composer_marks.dart';
@@ -342,6 +343,7 @@ class ComposerController extends ChangeNotifier {
   DateTime? _lastDraftSaveAt;
   int _draftFailures = 0;
   bool _draftsGaveUp = false;
+  bool _localDraftFailed = false;
   int _draftRevision = 0;
   _PendingDraft? _queuedDraft;
   Future<void>? _draftSaveTask;
@@ -352,6 +354,9 @@ class ComposerController extends ChangeNotifier {
   /// True once the sync has stopped trying, so the panel can say the site does
   /// not have this yet.
   bool get draftsGaveUp => _draftsGaveUp;
+
+  /// Whether the latest unsynced revision could not be retained on-device.
+  bool get localDraftFailed => _localDraftFailed;
 
   /// Whether a save is waiting out the debounce, so text neither the site nor
   /// this device has yet can be flushed before this composer is thrown away.
@@ -380,6 +385,7 @@ class ComposerController extends ChangeNotifier {
       ),
     );
     _draftStatus = DraftStatus.clean;
+    _localDraftFailed = false;
     _notify();
   }
 
@@ -389,6 +395,9 @@ class ComposerController extends ChangeNotifier {
     _draftTimer?.cancel();
     _queuedDraft = null;
     _draftRevision++;
+    _draftFailures = 0;
+    _draftsGaveUp = false;
+    _localDraftFailed = false;
     _draftStatus = DraftStatus.clean;
   }
 
@@ -477,11 +486,18 @@ class ComposerController extends ChangeNotifier {
       // status is left as it was: the site still does not have the text.
       try {
         await save(request);
-      } catch (_) {}
+        if (!_disposed && request.isCurrent()) _localDraftFailed = false;
+      } catch (error) {
+        if (!_disposed && request.isCurrent()) {
+          _localDraftFailed = error is DraftWriteException;
+        }
+      }
+      _notify();
       return;
     }
 
     _draftStatus = DraftStatus.saving;
+    _localDraftFailed = false;
     _notify();
 
     try {
@@ -489,14 +505,16 @@ class ComposerController extends ChangeNotifier {
       if (sequence != null) draftSequence = sequence;
       _draftFailures = 0;
       if (!_disposed && request.isCurrent()) {
+        _localDraftFailed = false;
         _draftStatus = DraftStatus.saved;
       }
-    } catch (_) {
+    } catch (error) {
       _draftFailures++;
       // No immediate retry: the next keystroke reschedules, which throttles
       // this to the speed someone types rather than the speed of a loop.
       if (_draftFailures >= maxDraftFailures) _draftsGaveUp = true;
       if (!_disposed && request.isCurrent()) {
+        _localDraftFailed = error is DraftWriteException;
         _draftStatus = DraftStatus.failing;
       }
     }

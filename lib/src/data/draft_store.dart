@@ -15,6 +15,13 @@ abstract interface class DraftPersistence {
   Future<void> delete(String key);
 }
 
+/// The device could not retain the newest draft revision.
+final class DraftWriteException implements Exception {
+  const DraftWriteException([this.cause]);
+
+  final Object? cause;
+}
+
 final class SecureDraftPersistence implements DraftPersistence {
   SecureDraftPersistence({FlutterSecureStorage? storage})
     : _storage = storage ?? SecureStore.platformStorage();
@@ -46,9 +53,9 @@ final class SecureDraftPersistence implements DraftPersistence {
 /// site has not seen. That is what lets a restore prefer it without needing a
 /// timestamp to compare.
 ///
-/// Every operation swallows its failures. A draft mirror that cannot be
-/// written is a worse draft mirror; a draft mirror that throws into the
-/// composer is a broken composer.
+/// Reads and cleanup are best-effort so storage trouble cannot break the
+/// composer. Writes surface [DraftWriteException]: claiming that text is safe
+/// on this device when the keychain rejected it would risk losing that text.
 class DraftStore {
   DraftStore({DraftPersistence? persistence})
     : _persistence = persistence ?? SecureDraftPersistence();
@@ -115,6 +122,10 @@ class DraftStore {
 
     try {
       await _persistence.write(key, data);
+    } catch (error, stackTrace) {
+      Error.throwWithStackTrace(DraftWriteException(error), stackTrace);
+    }
+    try {
       await prefs?.remove(key);
     } catch (_) {}
   }

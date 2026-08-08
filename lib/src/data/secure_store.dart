@@ -169,11 +169,17 @@ class SecureStore {
     final pending = _apiKeyRequests[siteUrl];
     if (pending != null) {
       final version = _apiKeyVersions.putIfAbsent(siteUrl, Object.new);
-      final key = await pending;
+      final String? key;
+      try {
+        key = await pending;
+      } catch (error, stackTrace) {
+        if (!identical(_apiKeyVersions[siteUrl], version)) {
+          return _readApiKeyAfterCurrentMutation(siteUrl);
+        }
+        Error.throwWithStackTrace(error, stackTrace);
+      }
       if (!identical(_apiKeyVersions[siteUrl], version)) {
-        final currentMutation = _apiKeyMutations[siteUrl];
-        if (currentMutation != null) await currentMutation;
-        return readApiKey(siteUrl);
+        return _readApiKeyAfterCurrentMutation(siteUrl);
       }
       return key;
     }
@@ -182,12 +188,19 @@ class SecureStore {
     final request = _storage.read(key: _apiKeyEntry(siteUrl));
     _apiKeyRequests[siteUrl] = request;
     try {
-      final key = await request;
+      final String? key;
+      try {
+        key = await request;
+      } catch (error, stackTrace) {
+        if (!identical(_apiKeyVersions[siteUrl], version) ||
+            !identical(_apiKeyRequests[siteUrl], request)) {
+          return _readApiKeyAfterCurrentMutation(siteUrl);
+        }
+        Error.throwWithStackTrace(error, stackTrace);
+      }
       if (!identical(_apiKeyVersions[siteUrl], version) ||
           !identical(_apiKeyRequests[siteUrl], request)) {
-        final currentMutation = _apiKeyMutations[siteUrl];
-        if (currentMutation != null) await currentMutation;
-        return readApiKey(siteUrl);
+        return _readApiKeyAfterCurrentMutation(siteUrl);
       }
       _apiKeys[siteUrl] = key;
       return key;
@@ -196,6 +209,12 @@ class SecureStore {
         final _ = _apiKeyRequests.remove(siteUrl);
       }
     }
+  }
+
+  Future<String?> _readApiKeyAfterCurrentMutation(String siteUrl) async {
+    final mutation = _apiKeyMutations[siteUrl];
+    if (mutation != null) await mutation;
+    return readApiKey(siteUrl);
   }
 
   Future<void> writeApiKey(String siteUrl, String key) async {

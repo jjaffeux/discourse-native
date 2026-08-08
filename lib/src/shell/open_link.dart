@@ -16,8 +16,9 @@ import 'user_card.dart';
 /// caller knows — a cooked hashtag carries the category's real name, which
 /// beats reading it back out of the slug.
 ///
-/// Returns false only when nothing at all could handle the link, which is the
-/// shape [HtmlWidget.onTapUrl] wants.
+/// Returns false when no in-app route matches and the URL is not a safe,
+/// platform-supported external link. This is the shape
+/// [HtmlWidget.onTapUrl] wants.
 Future<bool> openLink(
   BuildContext context,
   String url, {

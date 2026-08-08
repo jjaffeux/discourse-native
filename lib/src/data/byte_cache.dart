@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 
 import 'discourse_api.dart';
 
-/// Fetches images once each, and not all at once.
+/// Deduplicates image fetches and keeps their concurrency bounded.
 ///
 /// Two problems make a plain `NetworkImage` the wrong tool for anything this
 /// app draws off a site:
@@ -100,7 +100,8 @@ abstract class ByteCache<T extends Object> {
   }
 
   /// Null means the image is unavailable — a 429, a 404, or a format we cannot
-  /// draw. Cached either way so it is asked for exactly once.
+  /// draw. Failures are cached while retained; transient ones become eligible
+  /// for retry after [retryAfter].
   Future<T?> load(String url) {
     if (_cooledDown(url)) {
       _cache.remove(url);

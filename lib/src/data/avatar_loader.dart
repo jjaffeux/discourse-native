@@ -12,7 +12,7 @@ class AvatarBytes {
   final bool isSvg;
 }
 
-/// Fetches avatars once each, and not all at once.
+/// Deduplicates avatar fetches and keeps their concurrency bounded.
 ///
 /// The caching and the concurrency cap are [ByteCache]'s, and the reasons for
 /// them are written down there. What is left here is the one thing particular

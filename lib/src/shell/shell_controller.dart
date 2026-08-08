@@ -994,13 +994,17 @@ class ShellController extends FrameSafeNotifier {
       return null;
     }
 
+    var changed = false;
     final accepted = lease.commit(() {
       final fresh = _instanceAt(siteUrl);
       if (fresh == null || fresh.user == user) return;
+      changed = true;
       _replaceInstance(fresh, fresh.copyWith(user: user));
       _notify();
-      instanceStore.save(List.of(_instances)).ignore();
     });
+    if (accepted && changed && lease.isCurrent) {
+      instanceStore.save(List.of(_instances)).ignore();
+    }
     return accepted ? user.id : null;
   }
 
@@ -1992,8 +1996,9 @@ class ShellController extends FrameSafeNotifier {
 
   /// Writes the local copy first, then sends it.
   ///
-  /// In that order, and the local copy is only removed once the site has the
-  /// same text — so at no point is the reply somewhere it can be lost.
+  /// The local copy is only removed once the site has the same text. If local
+  /// storage is unavailable, the server still gets a chance to preserve it;
+  /// the local failure is surfaced only when neither copy was made safe.
   Future<int?> _saveDraft(ComposerDraftSave save) async {
     final target = save.target;
     final data = save.draft.encode();
@@ -2003,65 +2008,81 @@ class ShellController extends FrameSafeNotifier {
     final lease = lifecycle.capture(target.siteUrl);
 
     try {
-      await drafts.write(
-        target.siteUrl,
-        target.draftKey,
-        data,
-        ifCurrent: () =>
-            save.isCurrent() &&
-            identical(_draftSaveRequests[key], request) &&
-            lease.commit(() {}),
-      );
-      if (!lease.commit(() {})) return null;
-
-      // After the sync has given up, the local copy above is the whole save:
-      // the site is not asked again, and the copy is not cleared.
-      if (save.localOnly) return null;
-
-      final credential = await _credentialForWrite(target.siteUrl);
-      if (!lease.isCurrent) return null;
-      if (credential.failure case final failure?) throw failure;
-      final apiKey = credential.apiKey!;
-      final clientId = await authenticator.clientId();
-      if (!lease.isCurrent) return null;
-
-      final sequence = await api.saveDraft(
-        siteUrl: target.siteUrl,
-        apiKey: apiKey,
-        draftKey: target.draftKey,
-        sequence: save.sequence,
-        data: data,
-        // Discourse uses this to tell the same account writing from somewhere
-        // else apart from this client coming back.
-        owner: clientId,
-      );
-
-      var clearLocal = false;
-      lease.commit(() {
-        if (sequence != null) _draftSequences[key] = sequence;
-        if (!save.isCurrent() || !identical(_draftSaveRequests[key], request)) {
-          return;
-        }
-
-        store.update<TopicDetail>(
-          target.siteUrl,
-          target.topicId,
-          (detail) => detail.withDraft(save.draft, sequence ?? save.sequence),
-        );
-        clearLocal = true;
-      });
-      if (clearLocal) {
-        await drafts.clear(
+      DraftWriteException? localFailure;
+      try {
+        await drafts.write(
           target.siteUrl,
           target.draftKey,
+          data,
           ifCurrent: () =>
               save.isCurrent() &&
               identical(_draftSaveRequests[key], request) &&
               lease.commit(() {}),
         );
+      } on DraftWriteException catch (error) {
+        localFailure = error;
+      } catch (error) {
+        localFailure = DraftWriteException(error);
+      }
+      if (!lease.commit(() {})) return null;
+
+      // After the sync has given up, the local copy above is the whole save:
+      // the site is not asked again, and the copy is not cleared.
+      if (save.localOnly) {
+        if (localFailure != null) throw localFailure;
+        return null;
       }
 
-      return sequence;
+      try {
+        final credential = await _credentialForWrite(target.siteUrl);
+        if (!lease.isCurrent) return null;
+        if (credential.failure case final failure?) throw failure;
+        final apiKey = credential.apiKey!;
+        final clientId = await authenticator.clientId();
+        if (!lease.isCurrent) return null;
+
+        final sequence = await api.saveDraft(
+          siteUrl: target.siteUrl,
+          apiKey: apiKey,
+          draftKey: target.draftKey,
+          sequence: save.sequence,
+          data: data,
+          // Discourse uses this to tell the same account writing from somewhere
+          // else apart from this client coming back.
+          owner: clientId,
+        );
+
+        var clearLocal = false;
+        lease.commit(() {
+          if (sequence != null) _draftSequences[key] = sequence;
+          if (!save.isCurrent() ||
+              !identical(_draftSaveRequests[key], request)) {
+            return;
+          }
+
+          store.update<TopicDetail>(
+            target.siteUrl,
+            target.topicId,
+            (detail) => detail.withDraft(save.draft, sequence ?? save.sequence),
+          );
+          clearLocal = true;
+        });
+        if (clearLocal) {
+          await drafts.clear(
+            target.siteUrl,
+            target.draftKey,
+            ifCurrent: () =>
+                save.isCurrent() &&
+                identical(_draftSaveRequests[key], request) &&
+                lease.commit(() {}),
+          );
+        }
+
+        return sequence;
+      } catch (_) {
+        if (localFailure != null) throw localFailure;
+        rethrow;
+      }
     } finally {
       if (identical(_draftSaveRequests[key], request)) {
         _draftSaveRequests.remove(key);

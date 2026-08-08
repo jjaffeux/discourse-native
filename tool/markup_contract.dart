@@ -184,8 +184,10 @@ Future<int> _check(
     for (final path in drifted) {
       stdout.writeln('  $path');
     }
-    stdout.writeln('\nReview `git diff ${contract.snapshot}` before '
-        'committing.');
+    stdout.writeln(
+      '\nReview `git diff ${contract.snapshot}` before '
+      'committing.',
+    );
     return 0;
   }
 

@@ -118,11 +118,13 @@ class ComposerPanel extends StatelessWidget {
                   message:
                       error?.message ??
                       notice ??
-                      (composer.draftStatus == DraftStatus.failing ||
-                              composer.draftsGaveUp
+                      (composer.localDraftFailed
+                          ? "Couldn't save this draft on this device."
+                          : composer.draftStatus == DraftStatus.failing ||
+                                composer.draftsGaveUp
                           ? 'Not saved on the site — kept on this device only.'
                           : null),
-                  isError: error != null,
+                  isError: error != null || composer.localDraftFailed,
                   busy:
                       composer.submitting ||
                       composer.state == ComposerState.checking ||

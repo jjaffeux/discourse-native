@@ -31,6 +31,17 @@ void main() {
     );
   });
 
+  test('reports when secure persistence cannot retain a draft', () async {
+    persistence.failWrites = true;
+
+    await expectLater(
+      store.write(siteUrl, draftKey, 'unsaved text'),
+      throwsA(isA<DraftWriteException>()),
+    );
+
+    expect(persistence.values, isEmpty);
+  });
+
   test('reads drafts from secure persistence', () async {
     persistence.values[storageKey] = '{"reply": "Half a thought"}';
 

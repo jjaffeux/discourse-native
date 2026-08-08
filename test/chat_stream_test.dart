@@ -36,12 +36,15 @@ bool chainedAt(List<ChatStreamItem> items, int id) =>
 
 void main() {
   group('chaining a message to the one above', () {
-    test('chains a second message from the same person within five minutes', () {
-      final items = buildChatStream([at(1), at(2, minute: 4)]);
+    test(
+      'chains a second message from the same person within five minutes',
+      () {
+        final items = buildChatStream([at(1), at(2, minute: 4)]);
 
-      expect(chainedAt(items, 1), isFalse);
-      expect(chainedAt(items, 2), isTrue);
-    });
+        expect(chainedAt(items, 1), isFalse);
+        expect(chainedAt(items, 2), isTrue);
+      },
+    );
 
     test('breaks the chain when somebody else speaks', () {
       final items = buildChatStream([at(1), at(2, author: 3, minute: 1)]);
@@ -55,14 +58,17 @@ void main() {
       expect(chainedAt(buildChatStream([at(1), at(2, minute: 6)]), 2), isFalse);
     });
 
-    test('breaks the chain for a webhook message, which is not really anyone', () {
-      final items = buildChatStream([
-        at(1, webhook: true),
-        at(2, minute: 1, webhook: true),
-      ]);
+    test(
+      'breaks the chain for a webhook message, which is not really anyone',
+      () {
+        final items = buildChatStream([
+          at(1, webhook: true),
+          at(2, minute: 1, webhook: true),
+        ]);
 
-      expect(chainedAt(items, 2), isFalse);
-    });
+        expect(chainedAt(items, 2), isFalse);
+      },
+    );
 
     test('breaks the chain around a message that was deleted', () {
       // The deleted one becomes a "1 message deleted" row, which is another
@@ -91,21 +97,27 @@ void main() {
       expect(chainedAt(buildChatStream([at(1)]), 1), isFalse);
     });
 
-    test('breaks the chain across a day boundary, where the separator already does', () {
-      final items = buildChatStream([at(1, day: 5), at(2, day: 6)]);
+    test(
+      'breaks the chain across a day boundary, where the separator already does',
+      () {
+        final items = buildChatStream([at(1, day: 5), at(2, day: 6)]);
 
-      expect(chainedAt(items, 2), isFalse);
-    });
+        expect(chainedAt(items, 2), isFalse);
+      },
+    );
 
-    test('leaves the page it was assembled from no mark, contiguity being the invariant', () {
-      // Discourse breaks the chain at the first message of the latest fetched
-      // page. Here the stream is contiguous by construction, so a page boundary
-      // would be a seam with no cause the reader could see.
-      final older = [at(1), at(2, minute: 1)];
-      final newer = [at(3, minute: 2), at(4, minute: 3)];
+    test(
+      'leaves the page it was assembled from no mark, contiguity being the invariant',
+      () {
+        // Discourse breaks the chain at the first message of the latest fetched
+        // page. Here the stream is contiguous by construction, so a page boundary
+        // would be a seam with no cause the reader could see.
+        final older = [at(1), at(2, minute: 1)];
+        final newer = [at(3, minute: 2), at(4, minute: 3)];
 
-      expect(chainedAt(buildChatStream([...older, ...newer]), 3), isTrue);
-    });
+        expect(chainedAt(buildChatStream([...older, ...newer]), 3), isTrue);
+      },
+    );
   });
 
   group('day separators', () {

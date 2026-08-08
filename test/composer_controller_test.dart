@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
@@ -166,6 +167,37 @@ void main() {
 
     expect(composer.typingDuration, Duration.zero);
     expect(composer.openDuration, Duration.zero);
+  });
+
+  testWidgets('an enqueued reply retries draft sync as a new document', (
+    tester,
+  ) async {
+    var saveAttempts = 0;
+    final composer = ComposerController(
+      _target,
+      onSaveDraft: (_) async {
+        saveAttempts++;
+        throw const WriteException(WriteFailure.unreachable);
+      },
+    );
+    addTearDown(composer.dispose);
+
+    for (
+      var attempt = 0;
+      attempt < ComposerController.maxDraftFailures;
+      attempt++
+    ) {
+      composer.text.text = 'reply $attempt';
+      await composer.flushDraft();
+    }
+    expect(composer.draftsGaveUp, isTrue);
+
+    composer.enqueued(null);
+    expect(composer.draftsGaveUp, isFalse);
+
+    composer.text.text = 'new reply';
+    await composer.flushDraft();
+    expect(saveAttempts, ComposerController.maxDraftFailures + 1);
   });
 }
 

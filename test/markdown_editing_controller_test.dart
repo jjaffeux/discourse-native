@@ -460,9 +460,9 @@ void main() {
       await tester.pump();
 
       final render = editable(tester).renderEditable;
-      final offset = render.getLocalRectForCaret(
-        TextPosition(offset: at),
-      ).center;
+      final offset = render
+          .getLocalRectForCaret(TextPosition(offset: at))
+          .center;
       expect(
         render.getPositionForPoint(render.localToGlobal(offset)).offset,
         at,
@@ -539,9 +539,7 @@ void main() {
       ]);
     });
 
-    testWidgets('the caret coming back reveals the characters', (
-      tester,
-    ) async {
+    testWidgets('the caret coming back reveals the characters', (tester) async {
       known['bug'] = bug;
       await pumpAway(tester, 'filed under #bug today');
       expect(find.byType(HashtagPill), findsOneWidget);

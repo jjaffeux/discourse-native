@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'byte_cache.dart';
 
-/// Fetches emoji images once each, and not all at once.
+/// Deduplicates emoji fetches and keeps their concurrency bounded.
 ///
 /// A sibling of `AvatarLoader` rather than a use of it, and for the same reason
 /// that exists at all — see [ByteCache]. Emoji make the case harder, not

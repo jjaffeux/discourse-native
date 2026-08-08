@@ -297,9 +297,9 @@ void main() {
       // The ref and not the slug: it is what was typed, and the only form that
       // finds a subcategory or a name two things share.
       expect(
-        scanMarkdown('see #parent:child')
-            .firstWhere((r) => r.has(Md.hashtag))
-            .token,
+        scanMarkdown(
+          'see #parent:child',
+        ).firstWhere((r) => r.has(Md.hashtag)).token,
         'parent:child',
       );
     });

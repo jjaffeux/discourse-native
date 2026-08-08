@@ -38,7 +38,9 @@ class UpdateStore {
     try {
       final prefs = await SharedPreferences.getInstance();
       final millis = prefs.getInt(_lastCheckedKey);
-      return millis == null ? null : DateTime.fromMillisecondsSinceEpoch(millis);
+      return millis == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(millis);
     } catch (_) {
       return null;
     }

@@ -1,10 +1,10 @@
-/// The small acts of reading a Discourse payload, written once.
-///
-/// The wire is forgiving in the ways it writes: numbers arrive as strings,
-/// keys are dropped rather than nulled, and a title comes in a plain and an
-/// HTML flavour. Every parser answers that with a default rather than a
-/// throw — a field the site did not send is a field left at its default —
-/// and these are the shapes that answer.
+// The small acts of reading a Discourse payload, written once.
+//
+// The wire is forgiving in the ways it writes: numbers arrive as strings,
+// keys are dropped rather than nulled, and a title comes in a plain and an
+// HTML flavour. Every parser answers that with a default rather than a
+// throw — a field the site did not send is a field left at its default —
+// and these are the shapes that answer.
 
 import 'package:html/parser.dart' as html;
 
