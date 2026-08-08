@@ -688,7 +688,7 @@ site}/images/emoji/{emoji_set}/{name}.png`, with a `:tN` tone suffix becoming a
 endpoint to read it from; it busts caches and nothing else, and `EmojiCache` is
 the cache here. Custom emoji are the exception: they are uploads, and 404 at
 that address, so the controller consults the site's own map of them
-(`/site/custom_emojis.json`, fetched beside the settings) before falling back
+(`/site/emoji.json`, fetched beside the settings) before falling back
 to it.
 
 ### Links

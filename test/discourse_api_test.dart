@@ -1405,7 +1405,7 @@ void _feedGroups() {
 
       final emojis = await api.customEmojis(siteUrl: 'https://example.com');
 
-      expect(paths, ['/site/custom_emojis.json']);
+      expect(paths, ['/site/emoji.json']);
       expect(emojis, {
         'party_blob': 'https://example.com/uploads/party.png',
         'shipit': '/uploads/default/shipit.png',

@@ -608,7 +608,7 @@ class DiscourseApi
     String? clientId,
   }) async {
     final response = await _get(
-      Uri.parse('$siteUrl/site/custom_emojis.json'),
+      Uri.parse('$siteUrl/site/emoji.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
