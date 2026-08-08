@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -294,6 +295,53 @@ void main() {
     expect(tester.widget<TextField>(field).controller!.text, 'tag:bug');
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
   });
+
+  testWidgets(
+    'filter suggestions support keyboard selection and pointer hover',
+    (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': [], '/filter.json': []},
+        filterOptionsByPath: const {
+          '/filter.json': [
+            TopicFilterOption(name: 'status:', priority: 1),
+            _tagOption,
+          ],
+        },
+      );
+      await _pump(tester, api);
+      await tester.tap(find.text('Filter'));
+      await tester.pumpAndSettle();
+
+      final field = find.byKey(const ValueKey('topic-filter-input'));
+      await tester.tap(field);
+      await tester.pumpAndSettle();
+
+      final firstRow = find.byKey(const ValueKey('topic-filter-suggestion-0'));
+      final secondRow = find.byKey(const ValueKey('topic-filter-suggestion-1'));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer();
+      await mouse.moveTo(tester.getCenter(firstRow));
+      await tester.pump();
+      expect(tester.widget<Container>(firstRow).color, isNotNull);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(tester.widget<Container>(secondRow).color, isNotNull);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(tester.widget<Container>(firstRow).color, isNotNull);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(tester.widget<Container>(secondRow).color, isNotNull);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(field).controller!.text, 'tag:');
+      expect(api.feedPaths, ['/latest.json', '/filter.json']);
+    },
+  );
 
   testWidgets('categories loaded after the feed become filter suggestions', (
     tester,
