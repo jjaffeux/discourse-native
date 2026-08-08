@@ -12,6 +12,8 @@ import 'avatar_image.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';
 import 'shell_search_controller.dart';
+import 'site_emoji_text.dart';
+import 'topic_title.dart';
 
 /// The global forum search input and the result panel anchored to it.
 class ForumSearch extends StatefulWidget {
@@ -307,6 +309,9 @@ class _SearchPanel extends StatelessWidget {
               Divider(height: 1, color: theme.shell.divider),
           itemBuilder: (context, index) => _SearchHitRow(
             hit: search.hits[index],
+            // A result belongs to the selected site; selectSite(null) clears
+            // the result phase synchronously.
+            siteUrl: search.siteUrl!,
             selected: search.selectedIndex == index,
             onFocus: () => search.select(index),
             onTap: () =>
@@ -392,12 +397,14 @@ class _PanelMessage extends StatelessWidget {
 class _SearchHitRow extends StatelessWidget {
   const _SearchHitRow({
     required this.hit,
+    required this.siteUrl,
     required this.selected,
     required this.onFocus,
     required this.onTap,
   });
 
   final SearchPostHit hit;
+  final String siteUrl;
   final bool selected;
   final VoidCallback onFocus;
   final VoidCallback onTap;
@@ -442,8 +449,9 @@ class _SearchHitRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      TopicTitle(
                         hit.topicTitle,
+                        siteUrl: siteUrl,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -451,20 +459,17 @@ class _SearchHitRow extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            for (final segment in hit.excerpt.segments)
-                              TextSpan(
-                                text: segment.text,
-                                style: segment.highlighted
-                                    ? const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                      )
-                                    : null,
-                              ),
-                          ],
-                        ),
+                      SiteEmojiText(
+                        [
+                          for (final segment in hit.excerpt.segments)
+                            SiteEmojiTextRun(
+                              segment.text,
+                              style: segment.highlighted
+                                  ? const TextStyle(fontWeight: FontWeight.w700)
+                                  : null,
+                            ),
+                        ],
+                        siteUrl: siteUrl,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
