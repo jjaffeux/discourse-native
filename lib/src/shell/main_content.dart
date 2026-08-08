@@ -50,6 +50,7 @@ class _MainContentBody extends StatelessWidget {
 
     final route = state.route;
     if (route == null) return ColoredBox(color: theme.shell.content);
+    final pluginContent = _pluginContent(context, route);
 
     return ColoredBox(
       color: theme.shell.content,
@@ -63,14 +64,10 @@ class _MainContentBody extends StatelessWidget {
               siteUrl: state.siteUrl,
               canPop: state.canPop,
               canReply: state.canReply,
-              canCreateTopic: state.canCreateTopic,
+              canCreateTopic: state.canCreateTopic && pluginContent == null,
             ),
             Expanded(
-              child: switch ((
-                route.isTopic,
-                _pluginContent(context, route),
-                state.feed,
-              )) {
+              child: switch ((route.isTopic, pluginContent, state.feed)) {
                 // A topic route wins over the list it was opened from.
                 (true, _, _) => const TopicView(),
                 // A route an optional feature claims is that feature's,
