@@ -4,16 +4,17 @@ import 'package:html/dom.dart' as dom;
 import '../../../../theme/app_theme.dart';
 import '../../../avatar_image.dart';
 import '../../../open_link.dart';
-import '../../../shell_scope.dart';
+import '../../../site_url.dart';
 import '../../onebox.dart';
 
 /// A profile on the site the post was written on: `aside.onebox` holding an
 /// `article.user-onebox`. The user card does not claim it — a onebox is a
 /// card already, just drawn by the server's stylesheet until now.
 class DiscourseUserOnebox extends StatelessWidget {
-  const DiscourseUserOnebox({super.key, required this.data});
+  const DiscourseUserOnebox({super.key, required this.data, this.siteUrl});
 
   final DiscourseUserData data;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +28,7 @@ class DiscourseUserOnebox extends StatelessWidget {
           child: SizedBox.square(
             dimension: 56,
             child: AvatarImage(
-              url: _absoluteAvatar(context, data.avatarUrl),
+              url: _absoluteAvatar(data.avatarUrl),
               size: 56,
               fallback: ColoredBox(color: theme.shell.floating),
             ),
@@ -61,7 +62,11 @@ class DiscourseUserOnebox extends StatelessWidget {
                         cursor: SystemMouseCursors.click,
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: () => openLink(context, data.websiteUrl!),
+                          onTap: () => openLink(
+                            context,
+                            data.websiteUrl!,
+                            siteUrl: siteUrl,
+                          ),
                           child: Text(
                             data.websiteName!,
                             style: _mutedStyle(
@@ -97,9 +102,9 @@ class DiscourseUserOnebox extends StatelessWidget {
       ?.copyWith(color: theme.colorScheme.onSurfaceVariant);
 
   /// The avatar is written site-relative, like quote avatars.
-  String? _absoluteAvatar(BuildContext context, String? src) {
+  String? _absoluteAvatar(String? src) {
     if (src == null) return null;
-    final url = ShellScope.maybeOf(context)?.absoluteUrl(src) ?? src;
+    final url = resolveSiteUrl(src, siteUrl);
     return url.startsWith('http') ? url : null;
   }
 }
@@ -187,9 +192,13 @@ class DiscourseUserData {
 /// own, recognised by its body — for the dispatch in `onebox.dart`.
 final OneboxEngine discourseUserBlock = OneboxEngine(
   matches: _hasUserBody,
-  build: (aside, envelope) => OneboxCard(
+  build: (aside, envelope, siteUrl) => OneboxCard(
     data: envelope,
-    child: DiscourseUserOnebox(data: DiscourseUserData.from(aside)),
+    siteUrl: siteUrl,
+    child: DiscourseUserOnebox(
+      data: DiscourseUserData.from(aside),
+      siteUrl: siteUrl,
+    ),
   ),
 );
 

@@ -14,8 +14,9 @@ class DiscourseTopicInlineOnebox {
   static bool matches(dom.Element anchor) =>
       TopicLink.parse(anchor.attributes['href'] ?? '') != null;
 
-  static Widget from(dom.Element anchor) => InlineOneboxChip(
+  static Widget from(dom.Element anchor, {String? siteUrl}) => InlineOneboxChip(
     href: anchor.attributes['href']!,
+    siteUrl: siteUrl,
     child: TextSpan(text: anchor.text.trim()),
   );
 }

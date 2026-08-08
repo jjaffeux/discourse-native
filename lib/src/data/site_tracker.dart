@@ -1,8 +1,10 @@
+import 'package:http/http.dart' as http;
 import 'package:message_bus_client/message_bus_client.dart';
 
 import '../models/incoming_topics.dart';
 import '../models/notification_totals.dart';
 import 'discourse_api.dart';
+import 'http_transport.dart';
 
 /// How a shell gets its trackers.
 ///
@@ -20,6 +22,27 @@ typedef SiteTrackerFactory =
       String? clientId,
       bool Function()? shouldLongPoll,
     });
+
+/// The package-neutral message-bus surface owned by one [SiteTracker].
+abstract interface class SiteMessageBusSession {
+  SiteMessageBusSubscription subscribe(
+    String channel,
+    void Function(Object? data) onMessage,
+  );
+
+  void start();
+
+  void stop();
+
+  void pollNow();
+
+  Future<void> close();
+}
+
+/// A cancellable channel registration from [SiteMessageBusSession].
+abstract interface class SiteMessageBusSubscription {
+  void cancel();
+}
 
 /// One site's live connection: everything it pushes at us without being asked.
 ///
@@ -41,13 +64,41 @@ class SiteTracker {
     String? apiKey,
     String? clientId,
     bool Function()? shouldLongPoll,
-  }) : _signedIn = apiKey != null,
-       _bus = MessageBusClient(
-         baseUrl: Uri.parse(siteUrl),
-         config: MessageBusConfig(headers: _headers(apiKey, clientId)),
-         shouldLongPoll: shouldLongPoll,
-       ) {
-    _subscribe();
+    http.Client? httpClient,
+    SiteMessageBusSession? messageBus,
+  }) : _signedIn = apiKey != null {
+    final Uri baseUrl;
+    try {
+      baseUrl = requireSafeHttpUrl(Uri.parse(siteUrl));
+    } on UnsafeHttpTransportException {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    final transport = httpClient == null
+        ? SafeHttpClient.create()
+        : SafeHttpClient.borrowed(httpClient);
+    final SiteMessageBusSession bus;
+    try {
+      bus =
+          messageBus ??
+          _createMessageBus(
+            baseUrl: baseUrl,
+            headers: _headers(apiKey, clientId),
+            shouldLongPoll: shouldLongPoll,
+            httpClient: transport,
+          );
+    } catch (_) {
+      transport.close();
+      rethrow;
+    }
+    _http = transport;
+    _bus = bus;
+    try {
+      _subscribe();
+      start();
+    } catch (_) {
+      dispose().ignore();
+      rethrow;
+    }
   }
 
   final String siteUrl;
@@ -68,7 +119,12 @@ class SiteTracker {
   final int? userId;
 
   final bool _signedIn;
-  final MessageBusClient _bus;
+  late final SafeHttpClient _http;
+  late final SiteMessageBusSession _bus;
+
+  bool _polling = false;
+  bool _disposed = false;
+  Future<void>? _disposeFuture;
 
   final IncomingTopics incoming = IncomingTopics();
 
@@ -94,7 +150,7 @@ class SiteTracker {
     // avatar. Named after the user because that is how Discourse scopes them,
     // and published with `user_ids: [id]` on top of that — so a channel name
     // is not what keeps one account's counts away from another's.
-    if (userId case final userId?) {
+    if ((_signedIn, userId) case (true, final userId?)) {
       _bus.subscribe('/notification/$userId', _onNotification);
       _bus.subscribe('/reviewable_counts/$userId', _onReviewableCounts);
     }
@@ -106,8 +162,9 @@ class SiteTracker {
   /// change. These come and go with what is on screen — a topic's own updates
   /// are of no use once the reader has left it, and a site with a thousand
   /// topics cannot be subscribed to all of them.
-  final List<MessageBusSubscription> _topicSubscriptions = [];
+  final List<SiteMessageBusSubscription> _topicSubscriptions = [];
   int? _watchedTopic;
+  int _topicWatchRevision = 0;
 
   int? get watchedTopic => _watchedTopic;
 
@@ -121,54 +178,105 @@ class SiteTracker {
     List<String> channels,
     void Function(String channel, Object? data) onMessage,
   ) {
+    _ensureActive();
     if (_watchedTopic == topicId) return;
     unwatchTopic();
     _watchedTopic = topicId;
-    for (final channel in channels) {
-      _topicSubscriptions.add(
-        _bus.subscribe(
-          channel,
-          (data, globalId, messageId) => onMessage(channel, data),
-        ),
-      );
+    final revision = _topicWatchRevision;
+    try {
+      for (final channel in channels.toSet()) {
+        _topicSubscriptions.add(
+          _bus.subscribe(channel, (data) {
+            if (_disposed || revision != _topicWatchRevision) return;
+            onMessage(channel, data);
+          }),
+        );
+      }
+    } catch (_) {
+      unwatchTopic();
+      rethrow;
     }
   }
 
   void unwatchTopic() {
-    for (final subscription in _topicSubscriptions) {
-      subscription.cancel();
-    }
+    _topicWatchRevision += 1;
+    final subscriptions = List.of(_topicSubscriptions);
     _topicSubscriptions.clear();
     _watchedTopic = null;
+    for (final subscription in subscriptions) {
+      try {
+        subscription.cancel();
+      } catch (_) {
+        // The bus close is the final cleanup boundary. One broken channel
+        // handle must not retain every later subscription or prevent close.
+      }
+    }
   }
 
-  void _onTopicMessage(Object? data, int globalId, int messageId) {
+  void _onTopicMessage(Object? data) {
+    if (_disposed) return;
     if (incoming.notify(data)) onIncomingTopics();
   }
 
-  void _onNotification(Object? data, int globalId, int messageId) =>
-      onNotifications(data);
+  void _onNotification(Object? data) {
+    if (!_disposed) onNotifications(data);
+  }
 
-  void _onReviewableCounts(Object? data, int globalId, int messageId) =>
-      onReviewableCounts(data);
+  void _onReviewableCounts(Object? data) {
+    if (!_disposed) onReviewableCounts(data);
+  }
 
   /// Resumes polling for this site.
   ///
   /// Cursors survive [stop], so a site returned to is asked for what it
   /// published while it was off screen rather than starting over.
-  void start() => _bus.start();
+  void start() {
+    _ensureActive();
+    if (_polling) return;
+    _bus.start();
+    _polling = true;
+  }
 
   /// Stops polling, for a site that is no longer the one being read.
   ///
   /// Only one long poll is held open at a time — the same as the web, where
   /// there is only ever one site.
-  void stop() => _bus.stop();
+  void stop() {
+    if (_disposed || !_polling) return;
+    _bus.stop();
+    _polling = false;
+  }
 
   /// Polls at once instead of waiting out a backoff. For an app coming back to
   /// the foreground, where the connection has usually been dead for a while.
-  void pollNow() => _bus.pollNow();
+  void pollNow() {
+    if (!_disposed && _polling) _bus.pollNow();
+  }
 
-  Future<void> dispose() => _bus.close();
+  Future<void> dispose() {
+    final pending = _disposeFuture;
+    if (pending != null) return pending;
+
+    _disposed = true;
+    _polling = false;
+    unwatchTopic();
+    incoming.resetAll();
+    final closing = _close();
+    _disposeFuture = closing;
+    return closing;
+  }
+
+  Future<void> _close() async {
+    try {
+      await _bus.close();
+    } finally {
+      _http.close();
+    }
+  }
+
+  void _ensureActive() {
+    if (_disposed) throw StateError('This SiteTracker has been disposed.');
+  }
 
   /// What the poll carries beyond what the client sets for itself.
   ///
@@ -185,4 +293,55 @@ class SiteTracker {
     'User-Api-Key': ?apiKey,
     'User-Api-Client-Id': ?clientId,
   };
+}
+
+SiteMessageBusSession _createMessageBus({
+  required Uri baseUrl,
+  required Map<String, String> headers,
+  required http.Client httpClient,
+  bool Function()? shouldLongPoll,
+}) => _MessageBusSession(
+  MessageBusClient(
+    baseUrl: baseUrl,
+    config: MessageBusConfig(headers: headers),
+    shouldLongPoll: shouldLongPoll,
+    httpClient: httpClient,
+  ),
+);
+
+final class _MessageBusSession implements SiteMessageBusSession {
+  _MessageBusSession(this._client) {
+    _client.stop();
+  }
+
+  final MessageBusClient _client;
+
+  @override
+  SiteMessageBusSubscription subscribe(
+    String channel,
+    void Function(Object? data) onMessage,
+  ) => _MessageBusSubscription(
+    _client.subscribe(channel, (data, globalId, messageId) => onMessage(data)),
+  );
+
+  @override
+  void start() => _client.start();
+
+  @override
+  void stop() => _client.stop();
+
+  @override
+  void pollNow() => _client.pollNow();
+
+  @override
+  Future<void> close() => _client.close();
+}
+
+final class _MessageBusSubscription implements SiteMessageBusSubscription {
+  _MessageBusSubscription(this._subscription);
+
+  final MessageBusSubscription _subscription;
+
+  @override
+  void cancel() => _subscription.cancel();
 }

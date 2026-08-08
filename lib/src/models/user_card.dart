@@ -26,13 +26,13 @@ class UserCard with Storable<UserCard> {
   /// [json] is the `user` object from the card payload.
   factory UserCard.fromJson(Map<String, dynamic> json, String siteUrl) {
     return UserCard(
-      username: (json['username'] ?? '') as String,
+      username: jsonString(json['username']),
       name: jsonText(json['name']),
       title: jsonText(json['title']),
       // HTML, like a post's `cooked` — Discourse resolves mentions and emoji
       // in a bio the same way.
       bioExcerpt: jsonText(json['bio_excerpt']),
-      avatarUrl: resolveAvatarUrl(json['avatar_template'] as String?, siteUrl),
+      avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
       createdAt: jsonDate(json['created_at']),
       lastPostedAt: jsonDate(json['last_posted_at']),
       badgeCount: jsonInt(json['badge_count']),
@@ -75,4 +75,36 @@ class UserCard with Storable<UserCard> {
   /// card where the panel never looks.
   @override
   Object get storeId => username.toLowerCase();
+
+  @override
+  UserCard merge(UserCard incoming) => this == incoming ? this : incoming;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserCard &&
+          other.username == username &&
+          other.name == name &&
+          other.title == title &&
+          other.bioExcerpt == bioExcerpt &&
+          other.avatarUrl == avatarUrl &&
+          other.createdAt == createdAt &&
+          other.lastPostedAt == lastPostedAt &&
+          other.badgeCount == badgeCount &&
+          other.isStaff == isStaff &&
+          other.isSuspended == isSuspended;
+
+  @override
+  int get hashCode => Object.hash(
+    username,
+    name,
+    title,
+    bioExcerpt,
+    avatarUrl,
+    createdAt,
+    lastPostedAt,
+    badgeCount,
+    isStaff,
+    isSuspended,
+  );
 }

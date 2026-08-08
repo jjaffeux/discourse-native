@@ -32,8 +32,8 @@ flutter run -d <simulator-id>           # iOS simulator, see `flutter devices`
 The `+` in the rail resolves whatever you type to a real Discourse. The lookup
 mirrors DiscourseMobile's `Site.fromTerm` (`js/site.js` in that repo):
 
-1. Bare hosts get `https://`; an explicit `http://` is the escape hatch for
-   local development.
+1. Bare hosts get `https://`. Explicit `http://` is accepted only for loopback
+   development hosts; remote sites must use HTTPS.
 2. `HEAD /user-api-key/new` — a 404 means it is not a Discourse, and the
    `Auth-Api-Version` header must be ≥ 2 or the site is too old for an app.
 3. Redirects are followed by hand, because the URL we landed on is the one
@@ -43,7 +43,9 @@ mirrors DiscourseMobile's `Site.fromTerm` (`js/site.js` in that repo):
 One deliberate difference: DiscourseMobile strips the port from the resolved
 URL, which would make a site on `localhost:4200` unreachable. We keep it.
 
-Sites are persisted with `shared_preferences`. Only public metadata goes there.
+Sites are persisted with `shared_preferences`. This includes public site
+metadata and, once connected, the account's public username, name and avatar so
+the rail can render immediately after launch. Credentials never go there.
 
 ## Connecting an account
 
@@ -1017,9 +1019,14 @@ never in preferences. (DiscourseMobile keeps them in AsyncStorage, which is not
 encrypted; there was no reason to copy that.) The username and avatar *are*
 stored in preferences, so a relaunch knows who you are without a round trip.
 
+Unsent local draft mirrors use the same keychain-backed storage. Older builds
+wrote them to preferences; the first read migrates that value and removes the
+plaintext copy only after the secure write succeeds.
+
 ## Checks
 
 ```sh
+dart format --output=none --set-exit-if-changed lib test integration_test tool
 flutter analyze
 flutter test
 ```

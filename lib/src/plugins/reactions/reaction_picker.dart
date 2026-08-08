@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/post.dart';
 import '../../shell/emoji.dart';
+import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
@@ -20,7 +23,11 @@ import 'reaction.dart';
 /// design and with a comment saying so, and an anchored picker would have to
 /// reach in and suspend that. Anchoring it is worth doing; it is not worth
 /// doing by making the action menu's close rule conditional.
-Future<void> showReactionPicker(BuildContext context, Post post) {
+Future<void> showReactionPicker(
+  BuildContext context,
+  String siteUrl,
+  Post post,
+) {
   final isTouch = switch (Theme.of(context).platform) {
     TargetPlatform.iOS || TargetPlatform.android => true,
     _ => false,
@@ -31,8 +38,11 @@ Future<void> showReactionPicker(BuildContext context, Post post) {
       context: context,
       title: 'React',
       nested: true,
-      builder: (sheetContext) =>
-          ReactionGrid(post: post, onPicked: Navigator.of(sheetContext).pop),
+      builder: (sheetContext) => ReactionGrid(
+        siteUrl: siteUrl,
+        post: post,
+        onPicked: Navigator.of(sheetContext).pop,
+      ),
     );
   }
 
@@ -45,6 +55,7 @@ Future<void> showReactionPicker(BuildContext context, Post post) {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: ReactionGrid(
+            siteUrl: siteUrl,
             post: post,
             onPicked: Navigator.of(dialogContext).pop,
           ),
@@ -56,7 +67,12 @@ Future<void> showReactionPicker(BuildContext context, Post post) {
 
 /// The emoji themselves, drawn the same way on both surfaces.
 class ReactionGrid extends StatelessWidget {
-  const ReactionGrid({super.key, required this.post, required this.onPicked});
+  const ReactionGrid({
+    super.key,
+    required this.siteUrl,
+    required this.post,
+    required this.onPicked,
+  });
 
   /// Wide enough to read as a palette rather than a list, narrow enough that
   /// the default six offered reactions fit on one row.
@@ -65,15 +81,22 @@ class ReactionGrid extends StatelessWidget {
   /// Apple's floor and Material's. Every cell here writes.
   static const double cell = 44;
 
+  final String siteUrl;
   final Post post;
   final VoidCallback onPicked;
 
   @override
   Widget build(BuildContext context) {
+    return ShellSelector<Object>(
+      select: (controller) => controller.presentationTokenFor(siteUrl),
+      builder: (context, _, child) => _buildGrid(context),
+    );
+  }
+
+  Widget _buildGrid(BuildContext context) {
     final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
-    final siteUrl = controller.currentInstance?.url ?? '';
-    final config = controller.currentSiteConfig;
+    final controller = ShellScope.read(context);
+    final config = controller.siteConfigFor(siteUrl);
     final held = post.reactions?.mine?.id;
 
     // Empty until the site's settings have landed, and on a site that would not
@@ -101,7 +124,11 @@ class ReactionGrid extends StatelessWidget {
             held: id == held,
             onTap: () {
               onPicked();
-              _report(context, controller.toggleReaction(post, id));
+              _report(
+                context,
+                controller,
+                controller.toggleReaction(post, id, siteUrl: siteUrl),
+              );
             },
           ),
       ],
@@ -122,12 +149,21 @@ class ReactionGrid extends StatelessWidget {
     );
   }
 
-  static void _report(BuildContext context, Future<String?> work) {
+  static void _report(
+    BuildContext context,
+    ShellController controller,
+    Future<String?> work,
+  ) {
     final messenger = ScaffoldMessenger.maybeOf(context);
-    work.then((error) {
-      if (error == null) return;
-      messenger?.showSnackBar(SnackBar(content: Text(error)));
-    });
+    unawaited(
+      work.then((error) {
+        if (error == null || messenger == null || !messenger.mounted) return;
+        if (!identical(ShellScope.maybeRead(messenger.context), controller)) {
+          return;
+        }
+        messenger.showSnackBar(SnackBar(content: Text(error)));
+      }),
+    );
   }
 }
 

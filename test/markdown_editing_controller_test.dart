@@ -1,19 +1,18 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/emoji_cache.dart';
-import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
-import 'package:discourse_native/src/theme/app_theme.dart';
-import 'dart:convert';
-
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/shell/composer_pills.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
+import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/mention.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 /// The composer draws markdown but posts it unchanged, and the two are the same
 /// string. Everything Flutter does with an editable — placing the caret, hit

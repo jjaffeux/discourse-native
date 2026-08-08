@@ -44,6 +44,21 @@ void main() {
       // The PEM survives being put through query encoding.
       expect(url.queryParameters['public_key'], contains('BEGIN PUBLIC KEY'));
     });
+
+    test('anchors the endpoint at the site origin', () {
+      final url = protocol.authUrl(
+        siteUrl: 'https://forum.example:8443/old/path?stale=true#fragment',
+        publicKeyPem: 'public',
+        nonce: 'nonce',
+        clientId: 'client',
+        applicationName: 'App',
+      );
+
+      expect(url.origin, 'https://forum.example:8443');
+      expect(url.path, '/user-api-key/new');
+      expect(url.fragment, isEmpty);
+      expect(url.queryParameters, isNot(contains('stale')));
+    });
   });
 
   group('payloadFromCallback', () {
@@ -62,6 +77,37 @@ void main() {
         throwsA(isA<UserApiAuthException>()),
       );
     });
+
+    test('rejects a callback from a different scheme or host', () {
+      for (final callback in [
+        'https://auth_redirect?payload=abc',
+        'discourse://different?payload=abc',
+      ]) {
+        expect(
+          () => protocol.payloadFromCallback(callback),
+          throwsA(
+            isA<UserApiAuthException>().having(
+              (error) => error.failure,
+              'failure',
+              UserApiAuthFailure.badReply,
+            ),
+          ),
+        );
+      }
+    });
+
+    test('reports a malformed callback as a bad reply', () {
+      expect(
+        () => protocol.payloadFromCallback('discourse://[invalid?payload=abc'),
+        throwsA(
+          isA<UserApiAuthException>().having(
+            (error) => error.failure,
+            'failure',
+            UserApiAuthFailure.badReply,
+          ),
+        ),
+      );
+    });
   });
 
   group('decodePayload', () {
@@ -75,7 +121,7 @@ void main() {
 
       final credentials = protocol.decodePayload(
         payload: payload,
-        privateKey: pair.privateKey,
+        privateKeyPem: pair.privatePem,
         expectedNonce: 'nonce-123',
       );
 
@@ -94,7 +140,7 @@ void main() {
       expect(
         () => protocol.decodePayload(
           payload: payload,
-          privateKey: pair.privateKey,
+          privateKeyPem: pair.privatePem,
           expectedNonce: 'nonce-123',
         ),
         throwsA(
@@ -118,7 +164,7 @@ void main() {
       expect(
         () => protocol.decodePayload(
           payload: payload,
-          privateKey: pair.privateKey,
+          privateKeyPem: pair.privatePem,
           expectedNonce: 'nonce-123',
         ),
         throwsA(isA<UserApiAuthException>()),
@@ -134,10 +180,33 @@ void main() {
       expect(
         () => protocol.decodePayload(
           payload: payload,
-          privateKey: pair.privateKey,
+          privateKeyPem: pair.privatePem,
           expectedNonce: 'nonce-123',
         ),
         throwsA(isA<UserApiAuthException>()),
+      );
+    });
+
+    test('reports a key with the wrong type as a bad reply', () {
+      final payload = encryptLikeDiscourse({
+        'key': 123,
+        'nonce': 'nonce-123',
+        'api': 4,
+      }, pair.publicPem);
+
+      expect(
+        () => protocol.decodePayload(
+          payload: payload,
+          privateKeyPem: pair.privatePem,
+          expectedNonce: 'nonce-123',
+        ),
+        throwsA(
+          isA<UserApiAuthException>().having(
+            (error) => error.failure,
+            'failure',
+            UserApiAuthFailure.badReply,
+          ),
+        ),
       );
     });
   });

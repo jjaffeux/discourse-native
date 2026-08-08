@@ -17,7 +17,8 @@ import 'byte_cache.dart';
 /// already in hand and paints without going async at all.
 ///
 /// Nothing here sniffs the format. An emoji set is PNG and a custom emoji is an
-/// upload, PNG or GIF; both are [Image.memory]'s problem and neither is SVG.
+/// upload, PNG or GIF; both go through Flutter's raster decoder and neither is
+/// SVG.
 class EmojiCache extends ByteCache<Uint8List> {
   EmojiCache({super.client, super.maxConcurrent, super.retryAfter});
 

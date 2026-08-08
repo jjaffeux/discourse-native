@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
@@ -9,6 +11,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'open_link.dart';
 import 'platform.dart';
+import 'site_url.dart';
 
 /// Renders Discourse's post images, and the gallery behind them.
 ///
@@ -178,7 +181,7 @@ Object _heroTag(dom.Element anchor) => _heroTags[anchor] ??= Object();
 /// Matches the anchor as well as the wrapper. A claimed wrapper never has its
 /// children visited, so the anchor arm only fires for markup that has no
 /// wrapper at all.
-Widget? lightboxWidgetBuilder(dom.Element element) {
+Widget? lightboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
   final anchor = switch (element) {
     _ when element.classes.contains('lightbox-wrapper') =>
       LightboxImage._descendant(element, (e) => e.classes.contains('lightbox')),
@@ -191,7 +194,7 @@ Widget? lightboxWidgetBuilder(dom.Element element) {
   final image = LightboxImage.from(anchor);
   if (image == null) return null;
 
-  return LightboxThumbnail(anchor: anchor, image: image);
+  return LightboxThumbnail(anchor: anchor, image: image, siteUrl: siteUrl);
 }
 
 /// A post image: the thumbnail Discourse resized, at the size it asked for.
@@ -200,6 +203,7 @@ class LightboxThumbnail extends StatelessWidget {
     super.key,
     required this.anchor,
     required this.image,
+    this.siteUrl,
   });
 
   /// Kept rather than the parsed gallery so the sibling scan happens on tap
@@ -207,6 +211,7 @@ class LightboxThumbnail extends StatelessWidget {
   final dom.Element anchor;
 
   final LightboxImage image;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -216,6 +221,7 @@ class LightboxThumbnail extends StatelessWidget {
       anchor: anchor,
       image: image,
       fillsBox: ratio != null,
+      siteUrl: siteUrl,
     );
 
     // Reserve the slot from the size the markup declared, so the post does not
@@ -251,11 +257,13 @@ class LightboxTile extends StatelessWidget {
     required this.image,
     this.fit = BoxFit.cover,
     this.fillsBox = true,
+    this.siteUrl,
   });
 
   final dom.Element anchor;
   final LightboxImage image;
   final BoxFit fit;
+  final String? siteUrl;
 
   /// Whether something above bounds the height. False for markup that declared
   /// no size and so got no [AspectRatio]: asking to fill an unbounded box there
@@ -276,7 +284,7 @@ class LightboxTile extends StatelessWidget {
           child: Hero(
             tag: image.heroTag,
             child: Image.network(
-              image.thumbnailSrc ?? image.fullSrc,
+              resolveSiteUrl(image.thumbnailSrc ?? image.fullSrc, siteUrl),
               fit: fit,
               width: double.infinity,
               height: fillsBox ? double.infinity : null,
@@ -294,26 +302,29 @@ class LightboxTile extends StatelessWidget {
     final gallery = LightboxImage.galleryFor(anchor);
     final index = gallery.indexWhere((i) => i.heroTag == image.heroTag);
 
-    Navigator.of(context, rootNavigator: true).push(
-      PageRouteBuilder<void>(
-        // The barrier, not a background, so the [Hero] flies over the post
-        // while the room darkens around it — which is what the web client's
-        // zoom transition looks like.
-        opaque: false,
-        barrierColor: Colors.black.withValues(alpha: 0.92),
-        barrierDismissible: true,
-        barrierLabel: MaterialLocalizations.of(
-          context,
-        ).modalBarrierDismissLabel,
-        transitionDuration: const Duration(milliseconds: 200),
-        reverseTransitionDuration: const Duration(milliseconds: 200),
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            LightboxGallery(
-              images: gallery,
-              initialIndex: index < 0 ? 0 : index,
-            ),
-        transitionsBuilder: (context, animation, secondary, child) =>
-            FadeTransition(opacity: animation, child: child),
+    unawaited(
+      Navigator.of(context, rootNavigator: true).push(
+        PageRouteBuilder<void>(
+          // The barrier, not a background, so the [Hero] flies over the post
+          // while the room darkens around it — which is what the web client's
+          // zoom transition looks like.
+          opaque: false,
+          barrierColor: Colors.black.withValues(alpha: 0.92),
+          barrierDismissible: true,
+          barrierLabel: MaterialLocalizations.of(
+            context,
+          ).modalBarrierDismissLabel,
+          transitionDuration: const Duration(milliseconds: 200),
+          reverseTransitionDuration: const Duration(milliseconds: 200),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              LightboxGallery(
+                images: gallery,
+                initialIndex: index < 0 ? 0 : index,
+                siteUrl: siteUrl,
+              ),
+          transitionsBuilder: (context, animation, secondary, child) =>
+              FadeTransition(opacity: animation, child: child),
+        ),
       ),
     );
   }
@@ -329,10 +340,12 @@ class LightboxGallery extends StatefulWidget {
     super.key,
     required this.images,
     required this.initialIndex,
+    this.siteUrl,
   });
 
   final List<LightboxImage> images;
   final int initialIndex;
+  final String? siteUrl;
 
   @override
   State<LightboxGallery> createState() => _LightboxGalleryState();
@@ -356,10 +369,12 @@ class _LightboxGalleryState extends State<LightboxGallery> {
   void _step(int delta) {
     final target = _index + delta;
     if (target < 0 || target >= widget.images.length) return;
-    _controller.animateToPage(
-      target,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
+    unawaited(
+      _controller.animateToPage(
+        target,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      ),
     );
   }
 
@@ -387,6 +402,7 @@ class _LightboxGalleryState extends State<LightboxGallery> {
                 index: _index,
                 total: widget.images.length,
                 image: _current,
+                siteUrl: widget.siteUrl,
                 onStep: _step,
                 onClose: () => Navigator.of(context).maybePop(),
               ),
@@ -413,7 +429,9 @@ class _LightboxGalleryState extends State<LightboxGallery> {
       builder: (context, index) {
         final image = widget.images[index];
         return PhotoViewGalleryPageOptions(
-          imageProvider: NetworkImage(image.fullSrc),
+          imageProvider: NetworkImage(
+            resolveSiteUrl(image.fullSrc, widget.siteUrl),
+          ),
           heroAttributes: PhotoViewHeroAttributes(tag: image.heroTag),
           semanticLabel: image.title,
           initialScale: PhotoViewComputedScale.contained,
@@ -436,6 +454,7 @@ class _Chrome extends StatelessWidget {
     required this.index,
     required this.total,
     required this.image,
+    required this.siteUrl,
     required this.onStep,
     required this.onClose,
   });
@@ -444,6 +463,7 @@ class _Chrome extends StatelessWidget {
   final int index;
   final int total;
   final LightboxImage image;
+  final String? siteUrl;
   final void Function(int delta) onStep;
   final VoidCallback onClose;
 
@@ -511,7 +531,7 @@ class _Chrome extends StatelessWidget {
               _Button(
                 icon: DIcons.download,
                 tooltip: 'Download',
-                onTap: () => openLink(context, downloadHref),
+                onTap: () => openLink(context, downloadHref, siteUrl: siteUrl),
               ),
             _Button(icon: DIcons.xmark, tooltip: 'Close', onTap: onClose),
           ],

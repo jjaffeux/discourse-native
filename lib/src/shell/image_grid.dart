@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'cooked_html.dart';
 import 'lightbox.dart';
+import 'site_url.dart';
 
 /// Renders `[grid]` galleries — the mosaic, and the carousel.
 ///
@@ -214,7 +216,7 @@ class ImageGridData {
 /// Returns null — leaving [HtmlWidget] to draw the div and its images the
 /// ordinary way — for the two cases the web client also declines to lay out: a
 /// grid holding fewer than two things, and a carousel holding no images.
-Widget? imageGridWidgetBuilder(dom.Element element) {
+Widget? imageGridWidgetBuilder(dom.Element element, {String? siteUrl}) {
   if (element.localName != 'div') return null;
   if (!element.classes.contains('d-image-grid')) return null;
 
@@ -223,9 +225,10 @@ Widget? imageGridWidgetBuilder(dom.Element element) {
   return switch (data.mode) {
     ImageGridMode.carousel when data.items.isNotEmpty => ImageGridCarousel(
       data: data,
+      siteUrl: siteUrl,
     ),
     ImageGridMode.grid when data.items.length >= ImageGridData.minCount =>
-      ImageGridMosaic(data: data),
+      ImageGridMosaic(data: data, siteUrl: siteUrl),
     _ => null,
   };
 }
@@ -244,9 +247,10 @@ Widget? imageGridWidgetBuilder(dom.Element element) {
 /// not need measuring: every aspect ratio is already in the markup, so given a
 /// column width the whole layout is arithmetic.
 class ImageGridMosaic extends StatelessWidget {
-  const ImageGridMosaic({super.key, required this.data});
+  const ImageGridMosaic({super.key, required this.data, this.siteUrl});
 
   final ImageGridData data;
+  final String? siteUrl;
 
   /// `$grid-column-gap`, used between columns and under every item.
   static const double gap = 6;
@@ -361,7 +365,7 @@ class ImageGridMosaic extends StatelessWidget {
             child: SizedBox(
               height: natural[index] + slack,
               width: double.infinity,
-              child: ImageGridTile(item: data.items[index]),
+              child: ImageGridTile(item: data.items[index], siteUrl: siteUrl),
             ),
           ),
       ],
@@ -371,9 +375,15 @@ class ImageGridMosaic extends StatelessWidget {
 
 /// One item, filling whatever box it was given.
 class ImageGridTile extends StatelessWidget {
-  const ImageGridTile({super.key, required this.item, this.fit = BoxFit.cover});
+  const ImageGridTile({
+    super.key,
+    required this.item,
+    this.fit = BoxFit.cover,
+    this.siteUrl,
+  });
 
   final ImageGridItem item;
+  final String? siteUrl;
 
   /// A mosaic crops to square off its columns; a carousel shows the whole
   /// image. The stylesheet says `cover` for one and `contain` for the other.
@@ -382,7 +392,12 @@ class ImageGridTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (item.isLightbox) {
-      return LightboxTile(anchor: item.anchor!, image: item.image!, fit: fit);
+      return LightboxTile(
+        anchor: item.anchor!,
+        image: item.image!,
+        fit: fit,
+        siteUrl: siteUrl,
+      );
     }
 
     final src = item.plainSrc;
@@ -390,7 +405,7 @@ class ImageGridTile extends StatelessWidget {
       return ClipRRect(
         borderRadius: BorderRadius.circular(4),
         child: Image.network(
-          src,
+          resolveSiteUrl(src, siteUrl),
           fit: fit,
           width: double.infinity,
           height: double.infinity,
@@ -401,7 +416,7 @@ class ImageGridTile extends StatelessWidget {
     }
 
     // Whatever else was written into the grid — a onebox, a video, text.
-    return CookedHtml(html: item.element.outerHtml);
+    return CookedHtml(html: item.element.outerHtml, siteUrl: siteUrl);
   }
 }
 
@@ -412,9 +427,10 @@ class ImageGridTile extends StatelessWidget {
 /// underneath — arrows that wrap around, and either a dot per image or a
 /// counter once there are too many dots to be useful.
 class ImageGridCarousel extends StatefulWidget {
-  const ImageGridCarousel({super.key, required this.data});
+  const ImageGridCarousel({super.key, required this.data, this.siteUrl});
 
   final ImageGridData data;
+  final String? siteUrl;
 
   /// The stylesheet's `height: 400px` on `.d-image-carousel__track`.
   static const double trackHeight = 400;
@@ -431,6 +447,24 @@ class _ImageGridCarouselState extends State<ImageGridCarousel> {
   int _index = 0;
 
   @override
+  void didUpdateWidget(ImageGridCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_items.isEmpty) {
+      _index = 0;
+      return;
+    }
+    final target = math.min(_index, _items.length - 1);
+    if (target == _index && oldWidget.data.items.isNotEmpty) return;
+
+    _index = target;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _controller.hasClients) {
+        _controller.jumpToPage(target);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -445,10 +479,12 @@ class _ImageGridCarouselState extends State<ImageGridCarousel> {
   int get _next => _index == _items.length - 1 ? 0 : _index + 1;
 
   void _scrollTo(int index) {
-    _controller.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOut,
+    unawaited(
+      _controller.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      ),
     );
   }
 
@@ -469,6 +505,8 @@ class _ImageGridCarouselState extends State<ImageGridCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    if (_items.isEmpty) return const SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -489,6 +527,7 @@ class _ImageGridCarouselState extends State<ImageGridCarousel> {
                   child: ImageGridTile(
                     item: _items[index],
                     fit: BoxFit.contain,
+                    siteUrl: widget.siteUrl,
                   ),
                 ),
               ),

@@ -4,10 +4,9 @@ import 'package:flutter/widgets.dart';
 
 import '../data/discourse_api.dart';
 import '../models/composer_draft.dart';
-
 import 'composer_autocomplete.dart';
-import 'composer_pills.dart';
 import 'composer_marks.dart';
+import 'composer_pills.dart';
 import 'composer_triggers.dart';
 import 'markdown_editing_controller.dart';
 
@@ -63,6 +62,36 @@ class ComposerTarget {
       );
 }
 
+/// One immutable draft revision handed to the persistence boundary.
+@immutable
+class ComposerDraftSave {
+  const ComposerDraftSave({
+    required this.target,
+    required this.draft,
+    required this.sequence,
+    required this.localOnly,
+    required this.isCurrent,
+  });
+
+  final ComposerTarget target;
+  final ComposerDraft draft;
+  final int sequence;
+  final bool localOnly;
+  final bool Function() isCurrent;
+}
+
+class _PendingDraft {
+  const _PendingDraft({
+    required this.target,
+    required this.draft,
+    required this.revision,
+  });
+
+  final ComposerTarget target;
+  final ComposerDraft draft;
+  final int revision;
+}
+
 /// Time spent actually typing.
 ///
 /// Discourse's fast-typer check reads `typing_duration_msecs`, and it means
@@ -88,6 +117,11 @@ class TypingClock {
       if (since >= Duration.zero && since <= _pause) _elapsed += since;
     }
     _last = now;
+  }
+
+  void reset() {
+    _elapsed = Duration.zero;
+    _last = null;
   }
 }
 
@@ -162,7 +196,7 @@ class ComposerController extends ChangeNotifier {
 
   /// Persists the draft. Supplied by the shell, which owns the site and the
   /// key; the composer only decides *when*.
-  final Future<void> Function(ComposerController composer)? onSaveDraft;
+  final Future<int?> Function(ComposerDraftSave save)? onSaveDraft;
 
   /// What will be posted, and what is typed into.
   ///
@@ -189,7 +223,7 @@ class ComposerController extends ChangeNotifier {
 
   final TypingClock _typing;
   final DateTime Function() _now;
-  final DateTime _openedAt;
+  DateTime _openedAt;
 
   ComposerTarget _target;
   ComposerTarget get target => _target;
@@ -277,9 +311,11 @@ class ComposerController extends ChangeNotifier {
     if (_disposed) return;
     _loadingBody = false;
     _originalRaw = raw.trim();
-    text.value = TextEditingValue(
-      text: raw,
-      selection: TextSelection.collapsed(offset: raw.length),
+    _replaceDocument(
+      TextEditingValue(
+        text: raw,
+        selection: TextSelection.collapsed(offset: raw.length),
+      ),
     );
     _notify();
   }
@@ -306,6 +342,9 @@ class ComposerController extends ChangeNotifier {
   DateTime? _lastDraftSaveAt;
   int _draftFailures = 0;
   bool _draftsGaveUp = false;
+  int _draftRevision = 0;
+  _PendingDraft? _queuedDraft;
+  Future<void>? _draftSaveTask;
 
   DraftStatus _draftStatus = DraftStatus.clean;
   DraftStatus get draftStatus => _draftStatus;
@@ -316,7 +355,8 @@ class ComposerController extends ChangeNotifier {
 
   /// Whether a save is waiting out the debounce, so text neither the site nor
   /// this device has yet can be flushed before this composer is thrown away.
-  bool get draftPending => _draftTimer?.isActive ?? false;
+  bool get draftPending =>
+      (_draftTimer?.isActive ?? false) || _queuedDraft != null;
 
   /// This composer's contents, in the shape Discourse stores drafts in.
   ComposerDraft get draft => ComposerDraft(
@@ -333,13 +373,12 @@ class ComposerController extends ChangeNotifier {
   /// has started writing must not overwrite them.
   void restore(ComposerDraft draft) {
     if (_disposed || text.text.isNotEmpty) return;
-    text.value = TextEditingValue(
-      text: draft.reply,
-      selection: TextSelection.collapsed(offset: draft.reply.length),
+    _replaceDocument(
+      TextEditingValue(
+        text: draft.reply,
+        selection: TextSelection.collapsed(offset: draft.reply.length),
+      ),
     );
-    // Restoring is not typing, so it must not schedule a save of text the site
-    // already has.
-    _draftTimer?.cancel();
     _draftStatus = DraftStatus.clean;
     _notify();
   }
@@ -348,37 +387,96 @@ class ComposerController extends ChangeNotifier {
   /// and Discourse deletes the draft itself when it accepts one.
   void draftSettled() {
     _draftTimer?.cancel();
+    _queuedDraft = null;
+    _draftRevision++;
     _draftStatus = DraftStatus.clean;
+  }
+
+  Future<void> flushDraft() {
+    _draftTimer?.cancel();
+    return _enqueueDraft();
+  }
+
+  Future<void> finishDraftSaves() async {
+    final shouldFlush =
+        (_draftTimer?.isActive ?? false) || _queuedDraft != null;
+    _draftTimer?.cancel();
+    if (shouldFlush) {
+      await _enqueueDraft();
+      return;
+    }
+    final running = _draftSaveTask;
+    if (running != null) await running;
   }
 
   void _scheduleDraft() {
     // Scheduled even once the remote sync has given up: the save then writes
     // the local copy only — see `_saveDraft` — which is what the panel's
     // "kept on this device only" promises.
-    if (onSaveDraft == null || _disposed) return;
+    if (onSaveDraft == null || _disposed || _state != ComposerState.editing) {
+      return;
+    }
     _draftTimer?.cancel();
 
     final last = _lastDraftSaveAt;
     if (last != null && _now().difference(last) >= draftMaxWait) {
-      unawaited(_saveDraft());
+      unawaited(_enqueueDraft());
       return;
     }
-    _draftTimer = Timer(draftDebounce, () => unawaited(_saveDraft()));
+    _draftTimer = Timer(draftDebounce, () => unawaited(_enqueueDraft()));
   }
 
-  Future<void> _saveDraft() async {
+  Future<void> _enqueueDraft() {
     final save = onSaveDraft;
-    if (_disposed || save == null) return;
+    if (_disposed || save == null) return Future.value();
 
     _draftTimer?.cancel();
     _lastDraftSaveAt = _now();
+    _queuedDraft = _PendingDraft(
+      target: _target,
+      draft: draft,
+      revision: _draftRevision,
+    );
 
-    if (_draftsGaveUp) {
+    final running = _draftSaveTask;
+    if (running != null) return running;
+
+    return _draftSaveTask = _drainDrafts(save);
+  }
+
+  Future<void> _drainDrafts(
+    Future<int?> Function(ComposerDraftSave save) save,
+  ) async {
+    try {
+      while (true) {
+        final pending = _queuedDraft;
+        if (pending == null) break;
+        _queuedDraft = null;
+        await _saveDraft(save, pending);
+      }
+    } finally {
+      _draftSaveTask = null;
+    }
+  }
+
+  Future<void> _saveDraft(
+    Future<int?> Function(ComposerDraftSave save) save,
+    _PendingDraft pending,
+  ) async {
+    final request = ComposerDraftSave(
+      target: pending.target,
+      draft: pending.draft,
+      sequence: draftSequence,
+      localOnly: _draftsGaveUp,
+      isCurrent: () => pending.revision == _draftRevision,
+    );
+
+    if (request.localOnly) {
       // The site is not being asked again, but the local copy is still
       // written — the shell sees [draftsGaveUp] and stops after it. The
       // status is left as it was: the site still does not have the text.
       try {
-        await save(this);
+        await save(request);
       } catch (_) {}
       return;
     }
@@ -387,17 +485,20 @@ class ComposerController extends ChangeNotifier {
     _notify();
 
     try {
-      await save(this);
-      if (_disposed) return;
+      final sequence = await save(request);
+      if (sequence != null) draftSequence = sequence;
       _draftFailures = 0;
-      _draftStatus = DraftStatus.saved;
+      if (!_disposed && request.isCurrent()) {
+        _draftStatus = DraftStatus.saved;
+      }
     } catch (_) {
-      if (_disposed) return;
       _draftFailures++;
       // No immediate retry: the next keystroke reschedules, which throttles
       // this to the speed someone types rather than the speed of a loop.
       if (_draftFailures >= maxDraftFailures) _draftsGaveUp = true;
-      _draftStatus = DraftStatus.failing;
+      if (!_disposed && request.isCurrent()) {
+        _draftStatus = DraftStatus.failing;
+      }
     }
     _notify();
   }
@@ -491,12 +592,26 @@ class ComposerController extends ChangeNotifier {
     _error = null;
     _notice =
         message ?? 'Your reply was sent for review, so it is not posted yet.';
-    text.clear();
+    _replaceDocument(TextEditingValue.empty);
+    _typing.reset();
+    _openedAt = _now();
     _fieldGeneration++;
     _notify();
   }
 
   String _lastText = '';
+  bool _replacingDocument = false;
+
+  void _replaceDocument(TextEditingValue value) {
+    _draftTimer?.cancel();
+    autocomplete.close();
+    _replacingDocument = true;
+    try {
+      text.value = value;
+    } finally {
+      _replacingDocument = false;
+    }
+  }
 
   void _onTextChanged() {
     // A `TextEditingController` notifies on selection as well as on text, so
@@ -507,13 +622,16 @@ class ComposerController extends ChangeNotifier {
     // already has.
     // Ahead of the guard below, because the popup is the one thing here that
     // *is* about the caret: clicking away from a half-typed name closes it.
-    autocomplete.update(text.value);
+    if (!_replacingDocument) autocomplete.update(text.value);
 
     if (text.text == _lastText) return;
     _lastText = text.text;
+    _draftRevision++;
 
-    _typing.tick();
-    _scheduleDraft();
+    if (!_replacingDocument) {
+      _typing.tick();
+      _scheduleDraft();
+    }
 
     // Only the send button depends on this, so notifying per keystroke would
     // rebuild the panel for nothing. Which means it has to be computed here

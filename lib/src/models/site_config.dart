@@ -68,9 +68,9 @@ class SiteConfig {
     emojiSet: jsonText(json['emojiSet']) ?? defaultEmojiSet,
     externalEmojiUrl: jsonText(json['externalEmojiUrl']),
     mainReaction: jsonText(json['mainReaction']),
-    offeredReactions: (json['offeredReactions'] as List<dynamic>? ?? const [])
-        .map((e) => '$e')
-        .toList(),
+    offeredReactions: List.unmodifiable(
+      jsonArray(json['offeredReactions']).map(jsonText).whereType<String>(),
+    ),
     allowAnyEmoji: json['allowAnyEmoji'] == true,
     desaturatedReactionPanel: json['desaturatedReactionPanel'] == true,
   );
@@ -150,15 +150,17 @@ class SiteConfig {
   static List<String> _offered(Object? raw, String? main) {
     final parts = switch (raw) {
       final String text => text.split('|'),
-      final List<dynamic> list => [for (final item in list) '$item'],
+      final List<dynamic> list => list.map(jsonText).whereType<String>(),
       _ => const <String>[],
     };
     final listed = [
       for (final part in parts)
         if (part.trim().isNotEmpty) part.trim(),
     ];
-    if (main == null || listed.contains(main)) return listed;
-    return [main, ...listed];
+    if (main == null || listed.contains(main)) {
+      return List.unmodifiable(listed);
+    }
+    return List.unmodifiable([main, ...listed]);
   }
 
   static String? _trimSlash(String? value) => value == null

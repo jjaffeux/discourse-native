@@ -1,0 +1,372 @@
+import 'dart:async';
+
+import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'support/fakes.dart';
+
+void main() {
+  const firstSite = 'https://one.example';
+  const secondSite = 'https://two.example';
+
+  testWidgets('the same channel id anchors independently on each site', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [_messagesPage(1, 40), _messagesPage(1, 40)],
+        secondSite: [
+          _messagesPage(1, 40),
+          _messagesPage(1, 40),
+          _messagesPage(1, 40),
+        ],
+      },
+      gatedOpen: (siteUrl: secondSite, number: 3, gate: gate),
+    );
+    final controller = await _controller(api);
+    addTearDown(controller.dispose);
+    controller.store
+      ..put(firstSite, _channel(lastRead: 5))
+      ..put(secondSite, _channel(lastRead: 40));
+
+    await controller.chat.openChannel(firstSite, 9);
+    await controller.chat.openChannel(secondSite, 9);
+    await controller.chat.openChannel(secondSite, 9);
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+
+    final scrollable = _verticalChatScroll();
+    expect(
+      tester.state<ScrollableState>(scrollable).position.pixels,
+      greaterThan(0),
+    );
+
+    controller.selectInstance(1);
+    await tester.pump();
+    await tester.pump();
+
+    expect(tester.state<ScrollableState>(scrollable).position.pixels, 0);
+
+    gate.complete();
+    await tester.pump();
+  });
+
+  testWidgets('fill-towards-present state is independent per site', (
+    tester,
+  ) async {
+    final page = _messagesPage(1, 3, canLoadMoreFuture: true);
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [page, page],
+        secondSite: [page, page, page],
+      },
+      failNewer: true,
+      failedOpen: (siteUrl: secondSite, number: 3),
+    );
+    final controller = await _controller(api);
+    addTearDown(controller.dispose);
+    controller.store
+      ..put(firstSite, _channel(lastRead: 3))
+      ..put(secondSite, _channel(lastRead: 3));
+
+    await controller.chat.openChannel(firstSite, 9);
+    await controller.chat.openChannel(secondSite, 9);
+    await controller.chat.openChannel(secondSite, 9);
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(api.newerSites, [firstSite]);
+
+    controller.selectInstance(1);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(api.newerSites, [firstSite, secondSite]);
+  });
+
+  testWidgets('a nested code-block scroll does not page the chat stream', (
+    tester,
+  ) async {
+    final messages = [
+      for (var id = 1; id <= 80; id++)
+        _message(
+          id,
+          cooked: id == 80
+              ? '<pre><code>${List.filled(80, 'long-token').join()}</code></pre>'
+              : '<p>Message $id</p>',
+        ),
+    ];
+    final page = (
+      messages: messages,
+      canLoadMorePast: true,
+      canLoadMoreFuture: false,
+    );
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [page, page],
+        secondSite: const [],
+      },
+    );
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    controller.store.put(firstSite, _channel(lastRead: 80));
+    await controller.chat.openChannel(firstSite, 9);
+
+    final depths = <int>[];
+    await tester.pumpWidget(
+      _TestView(
+        controller: controller,
+        onScroll: (notification) {
+          depths.add(notification.depth);
+          return false;
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(api.olderSites, isEmpty);
+    depths.clear();
+
+    final horizontal = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.right,
+    );
+    expect(horizontal, findsOneWidget);
+    await tester.drag(horizontal, const Offset(-10000, 0));
+    await tester.pump();
+
+    expect(depths, contains(greaterThan(0)));
+    expect(api.olderSites, isEmpty);
+  });
+
+  testWidgets('a queued history page cannot target a replacement window', (
+    tester,
+  ) async {
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [
+          _messagesPage(1, 1, canLoadMorePast: true),
+          _messagesPage(10, 1, canLoadMorePast: true),
+          _messagesPage(20, 1, canLoadMorePast: true),
+        ],
+        secondSite: const [],
+      },
+    );
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    controller.store.put(firstSite, _channel(lastRead: 1));
+    await controller.chat.openChannel(firstSite, 9);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(controller.chat.openChannel(firstSite, 9));
+    });
+    await tester.pumpWidget(_TestView(controller: controller));
+
+    expect(controller.chat.stream(firstSite, 9).oldestId, 20);
+    expect(api.olderSites, isEmpty);
+  });
+
+  testWidgets('a paging flag does not reproject the whole message window', (
+    tester,
+  ) async {
+    final older = Completer<ChatMessagePage>();
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [_messagesPage(1, 50, canLoadMorePast: true)],
+      },
+      gatedOlder: older,
+    );
+    final store = _CountingStore();
+    final controller = await _controller(
+      api,
+      sites: const [firstSite],
+      store: store,
+    );
+    addTearDown(controller.dispose);
+    controller.store.put(firstSite, _channel(lastRead: 50));
+
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+    store.messageReads = 0;
+
+    final request = controller.chat.loadOlder(firstSite, 9);
+    await tester.pump();
+
+    expect(controller.chat.stream(firstSite, 9).loadingOlder, isTrue);
+    expect(store.messageReads, 0);
+
+    older.complete(_messagesPage(-1, 1));
+    await request;
+    await tester.pump();
+  });
+}
+
+Finder _verticalChatScroll() => find.byWidgetPredicate(
+  (widget) => widget is Scrollable && widget.axisDirection == AxisDirection.up,
+);
+
+Future<ShellController> _controller(
+  _ChatApi api, {
+  List<String> sites = const ['https://one.example', 'https://two.example'],
+  Store? store,
+}) async {
+  final authenticator = _SynchronousAuthenticator();
+  for (final siteUrl in sites) {
+    authenticator.keys[siteUrl] = 'key';
+  }
+  final controller = ShellController(
+    instanceStore: FakeInstanceStore([
+      for (final siteUrl in sites)
+        DiscourseInstance(
+          url: siteUrl,
+          title: Uri.parse(siteUrl).host,
+          apiVersion: 4,
+        ),
+    ]),
+    api: api,
+    authenticator: authenticator,
+    drafts: FakeDraftStore(),
+    store: store,
+    trackers: FakeSiteTracker.reset(),
+  );
+  await controller.load();
+  return controller;
+}
+
+final class _TestView extends StatelessWidget {
+  const _TestView({required this.controller, this.onScroll});
+
+  final ShellController controller;
+  final NotificationListenerCallback<ScrollNotification>? onScroll;
+
+  @override
+  Widget build(BuildContext context) => ShellScope(
+    controller: controller,
+    child: MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: NotificationListener<ScrollNotification>(
+          onNotification: onScroll ?? (_) => false,
+          child: const ChatChannelView(channelId: 9),
+        ),
+      ),
+    ),
+  );
+}
+
+final class _SynchronousAuthenticator extends FakeAuthenticator {
+  @override
+  Future<String?> apiKeyFor(String siteUrl) => SynchronousFuture(keys[siteUrl]);
+
+  @override
+  Future<String> clientId() => SynchronousFuture('test-client');
+}
+
+typedef _OpenGate = ({String siteUrl, int number, Completer<void> gate});
+typedef _FailedOpen = ({String siteUrl, int number});
+
+final class _ChatApi extends FakeDiscourseApi {
+  _ChatApi({
+    required this.openPages,
+    this.failNewer = false,
+    this.gatedOpen,
+    this.failedOpen,
+    this.gatedOlder,
+  });
+
+  final Map<String, List<ChatMessagePage>> openPages;
+  final bool failNewer;
+  final _OpenGate? gatedOpen;
+  final _FailedOpen? failedOpen;
+  final Completer<ChatMessagePage>? gatedOlder;
+  final Map<String, int> _openCounts = {};
+  final List<String> olderSites = [];
+  final List<String> newerSites = [];
+
+  @override
+  Future<ChatMessagePage> chatMessages({
+    required String siteUrl,
+    required int channelId,
+    int? before,
+    int? after,
+    bool fromLastRead = false,
+    int pageSize = 50,
+    String? apiKey,
+    String? clientId,
+  }) {
+    if (before != null) {
+      olderSites.add(siteUrl);
+      final gate = gatedOlder;
+      if (gate != null) return gate.future;
+      return SynchronousFuture(_messagesPage(before - 1, 1));
+    }
+    if (after != null) {
+      newerSites.add(siteUrl);
+      if (failNewer) throw StateError('newer page refused');
+      return SynchronousFuture(_messagesPage(after + 1, 1));
+    }
+
+    final count = (_openCounts[siteUrl] ?? 0) + 1;
+    _openCounts[siteUrl] = count;
+    final failure = failedOpen;
+    if (failure != null &&
+        failure.siteUrl == siteUrl &&
+        failure.number == count) {
+      throw StateError('open refused');
+    }
+    final pages = openPages[siteUrl] ?? const <ChatMessagePage>[];
+    if (pages.isEmpty) throw StateError('No open page for $siteUrl');
+    final page = pages[(count - 1).clamp(0, pages.length - 1)];
+    final gate = gatedOpen;
+    if (gate != null && gate.siteUrl == siteUrl && gate.number == count) {
+      return gate.gate.future.then((_) => page);
+    }
+    return SynchronousFuture(page);
+  }
+}
+
+final class _CountingStore extends Store {
+  int messageReads = 0;
+
+  @override
+  T? read<T extends Storable<T>>(String siteUrl, Object id) {
+    if (T == ChatMessage) messageReads++;
+    return super.read<T>(siteUrl, id);
+  }
+}
+
+ChatChannel _channel({required int lastRead}) => ChatChannel(
+  id: 9,
+  title: 'Chat',
+  kind: ChatChannelKind.category,
+  membership: ChatMembership(following: true, lastReadMessageId: lastRead),
+);
+
+ChatMessagePage _messagesPage(
+  int first,
+  int count, {
+  bool canLoadMorePast = false,
+  bool canLoadMoreFuture = false,
+}) => (
+  messages: [for (var id = first; id < first + count; id++) _message(id)],
+  canLoadMorePast: canLoadMorePast,
+  canLoadMoreFuture: canLoadMoreFuture,
+);
+
+ChatMessage _message(int id, {String? cooked}) => ChatMessage(
+  id: id,
+  channelId: 9,
+  cooked: cooked ?? '<p>Message $id</p>',
+  author: const ChatMessageAuthor(id: 2, username: 'sam'),
+  createdAt: DateTime.utc(2026, 1, 1).add(Duration(minutes: id)),
+);

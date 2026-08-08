@@ -30,13 +30,12 @@ class _UpdatePanel extends StatelessWidget {
   const _UpdatePanel();
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final updates = ShellScope.of(context).updates;
-
-    return ListenableBuilder(
+  Widget build(BuildContext context) => ShellSelector<UpdateController>(
+    select: (controller) => controller.updates,
+    builder: (context, updates, _) => ListenableBuilder(
       listenable: updates,
       builder: (context, _) {
+        final theme = Theme.of(context);
         final busy =
             updates.status == UpdateStatus.downloading ||
             updates.status == UpdateStatus.installing;
@@ -78,8 +77,8 @@ class _UpdatePanel extends StatelessWidget {
           ],
         );
       },
-    );
-  }
+    ),
+  );
 }
 
 class _Status extends StatelessWidget {
@@ -165,10 +164,7 @@ class _Status extends StatelessWidget {
       UpdateStatus.readyToInstall => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Ready to install.',
-            style: theme.textTheme.bodyMedium,
-          ),
+          Text('Ready to install.', style: theme.textTheme.bodyMedium),
           const SizedBox(height: 4),
           Text(
             'The app will close and reopen.',
@@ -267,7 +263,7 @@ class _CheckButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final updates = ShellScope.of(context).updates;
+    final updates = ShellScope.read(context).updates;
 
     return FilledButton(
       onPressed: checking ? null : updates.check,

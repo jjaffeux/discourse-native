@@ -174,6 +174,32 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('bounds fixed-size network image decodes', (tester) async {
+      tester.view.devicePixelRatio = 2.5;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: OneboxCard(data: parse(genericOnebox))),
+        ),
+      );
+
+      final providers = tester
+          .widgetList<Image>(find.byType(Image))
+          .map((image) => image.image)
+          .whereType<ResizeImage>()
+          .toList();
+      expect(
+        providers.map((provider) => provider.width),
+        containsAll([40, 220]),
+      );
+      expect(
+        providers.map((provider) => provider.allowUpscaling),
+        everyElement(isFalse),
+      );
+    });
   });
 }
 

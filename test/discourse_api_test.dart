@@ -60,10 +60,14 @@ void main() {
       );
     });
 
-    test('keeps an explicit scheme and port', () {
+    test('keeps explicit HTTP for loopback development hosts', () {
       expect(
         DiscourseApi.normalize('http://localhost:4200').toString(),
         'http://localhost:4200',
+      );
+      expect(
+        DiscourseApi.normalize('http://127.0.0.1:4200').toString(),
+        'http://127.0.0.1:4200',
       );
     });
 
@@ -150,6 +154,28 @@ void main() {
       );
     });
 
+    test('rejects remote HTTP before making a request', () async {
+      var requestCount = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requestCount += 1;
+          return http.Response('', 500);
+        }),
+      );
+
+      await expectLater(
+        api.lookup('http://example.com'),
+        throwsA(
+          isA<SiteLookupException>().having(
+            (e) => e.failure,
+            'failure',
+            SiteLookupFailure.unreachable,
+          ),
+        ),
+      );
+      expect(requestCount, 0);
+    });
+
     test('follows redirects and keeps where it landed', () async {
       final api = DiscourseApi(
         client: discourseServing(
@@ -164,11 +190,170 @@ void main() {
       expect(site.url, 'https://meta.discourse.org');
     });
 
+    test('rejects an HTTPS to HTTP redirect before following it', () async {
+      final requested = <Uri>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requested.add(request.url);
+          if (request.url ==
+              Uri.parse('https://discourse.org/user-api-key/new')) {
+            return http.Response(
+              '',
+              301,
+              headers: {
+                'location': 'http://meta.discourse.org/user-api-key/new',
+              },
+            );
+          }
+          if (request.url.path == '/user-api-key/new') {
+            return http.Response('', 200, headers: {'auth-api-version': '4'});
+          }
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await expectLater(
+        api.lookup('discourse.org'),
+        throwsA(
+          isA<SiteLookupException>().having(
+            (e) => e.failure,
+            'failure',
+            SiteLookupFailure.unreachable,
+          ),
+        ),
+      );
+      expect(requested, [Uri.parse('https://discourse.org/user-api-key/new')]);
+    });
+
+    test('follows redirects between loopback development hosts', () async {
+      final api = DiscourseApi(
+        client: discourseServing(
+          redirects: {
+            'http://localhost:4200/user-api-key/new':
+                'http://127.0.0.1:4300/user-api-key/new',
+          },
+        ),
+      );
+
+      final site = await api.lookup('http://localhost:4200');
+      expect(site.url, 'http://127.0.0.1:4300');
+    });
+
     test('keeps the port, unlike DiscourseMobile', () async {
       final api = DiscourseApi(client: discourseServing());
       final site = await api.lookup('http://localhost:4200');
 
       expect(site.url, 'http://localhost:4200');
+    });
+  });
+
+  group('transport safety', () {
+    test('authenticated reads reject remote HTTP before sending', () async {
+      var requestCount = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requestCount += 1;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await expectLater(
+        api.notifications(siteUrl: 'http://example.com', apiKey: 'secret'),
+        throwsA(isA<SiteLookupException>()),
+      );
+      expect(requestCount, 0);
+    });
+
+    test('authenticated writes reject remote HTTP before sending', () async {
+      var requestCount = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requestCount += 1;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await expectLater(
+        api.markNotificationRead(
+          siteUrl: 'http://example.com',
+          apiKey: 'secret',
+          id: 1,
+        ),
+        throwsA(isA<WriteException>()),
+      );
+      expect(requestCount, 0);
+    });
+
+    test('authenticated reads never follow redirects', () async {
+      final requested = <Uri>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requested.add(request.url);
+          expect(request.followRedirects, isFalse);
+          expect(request.headers['User-Api-Key'], 'secret');
+          return http.Response(
+            '',
+            302,
+            headers: {'location': 'http://attacker.example/notifications.json'},
+          );
+        }),
+      );
+
+      await expectLater(
+        api.notifications(siteUrl: 'https://example.com', apiKey: 'secret'),
+        throwsA(isA<SiteLookupException>()),
+      );
+      expect(requested, [
+        Uri.parse(
+          'https://example.com/notifications.json?recent=true&limit=30',
+        ),
+      ]);
+    });
+
+    test('authenticated writes never follow redirects', () async {
+      final requested = <Uri>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requested.add(request.url);
+          expect(request.followRedirects, isFalse);
+          expect(request.headers['User-Api-Key'], 'secret');
+          return http.Response(
+            '',
+            307,
+            headers: {'location': 'https://attacker.example/write'},
+          );
+        }),
+      );
+
+      await expectLater(
+        api.markNotificationRead(
+          siteUrl: 'https://example.com',
+          apiKey: 'secret',
+          id: 1,
+        ),
+        throwsA(isA<WriteException>()),
+      );
+      expect(requested, [
+        Uri.parse('https://example.com/notifications/mark-read.json'),
+      ]);
+    });
+
+    test('authenticated reads reject oversized API responses', () async {
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('12345', 200)),
+        maxResponseBytes: 4,
+      );
+
+      await expectLater(
+        api.notifications(siteUrl: 'https://example.com', apiKey: 'secret'),
+        throwsA(
+          isA<SiteLookupException>().having(
+            (error) => error.failure,
+            'failure',
+            SiteLookupFailure.unreachable,
+          ),
+        ),
+      );
     });
   });
 
@@ -825,7 +1010,7 @@ void _feedGroups() {
       final api = DiscourseApi(
         client: MockClient((request) async {
           asked = request.url;
-          return http.Response(jsonEncode({'users': []}), 200);
+          return http.Response(jsonEncode({'users': const <Object?>[]}), 200);
         }),
       );
 
@@ -879,7 +1064,7 @@ void _feedGroups() {
       final api = DiscourseApi(
         client: MockClient((request) async {
           asked = request.url;
-          return http.Response(jsonEncode({'results': []}), 200);
+          return http.Response(jsonEncode({'results': const <Object?>[]}), 200);
         }),
       );
 
@@ -1032,8 +1217,13 @@ void _feedGroups() {
     test('a ref the site does not resolve is simply absent', () async {
       final api = DiscourseApi(
         client: MockClient(
-          (_) async =>
-              http.Response(jsonEncode({'category': [], 'tag': []}), 200),
+          (_) async => http.Response(
+            jsonEncode({
+              'category': const <Object?>[],
+              'tag': const <Object?>[],
+            }),
+            200,
+          ),
         ),
       );
 
@@ -1055,7 +1245,10 @@ void _feedGroups() {
       );
 
       expect(
-        await api.lookupHashtags(siteUrl: 'https://example.com', refs: const []),
+        await api.lookupHashtags(
+          siteUrl: 'https://example.com',
+          refs: const [],
+        ),
         isEmpty,
       );
       expect(called, isFalse);
@@ -1390,7 +1583,7 @@ void _feedGroups() {
         client: MockClient((request) async {
           seen = request.url;
           return http.Response(
-            jsonEncode({'users': const [], 'total_rows': 0}),
+            jsonEncode({'users': const <Object?>[], 'total_rows': 0}),
             200,
           );
         }),
@@ -1443,7 +1636,7 @@ void _feedGroups() {
                   '9': {'unread_count': 3, 'mention_count': 1},
                 },
               },
-              'meta': {'message_bus_last_ids': {}},
+              'meta': {'message_bus_last_ids': <String, dynamic>{}},
             }),
             200,
           );
@@ -2201,7 +2394,7 @@ void _writeGroups() {
     test('does not resend after a timeout', () async {
       var calls = 0;
       final api = DiscourseApi(
-        timeout: const Duration(milliseconds: 20),
+        timeout: const Duration(milliseconds: 100),
         client: MockClient((request) async {
           calls++;
           return Completer<http.Response>().future;

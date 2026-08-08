@@ -1,26 +1,27 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/authenticator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
-import 'package:discourse_native/src/data/secure_store.dart';
-import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
+import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
 import 'package:discourse_native/src/data/update_store.dart';
 import 'package:discourse_native/src/data/updater.dart';
+import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
+import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/incoming_topics.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
-import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -61,6 +62,7 @@ class FakeUpdater implements Updater {
     this.installFailure,
     this.progressSteps = const [0.25, 0.5, 1.0],
     this.gate,
+    this.checkGates = const {},
     this.downloadGate,
   });
 
@@ -82,6 +84,8 @@ class FakeUpdater implements Updater {
   /// [FakeDiscourseApi.gate].
   final Completer<void>? gate;
 
+  final Map<UpdateChannel, Completer<void>> checkGates;
+
   /// Holds [download] open. Separate from [gate] so a test can let the check
   /// through and still catch the download mid-flight.
   final Completer<void>? downloadGate;
@@ -98,6 +102,7 @@ class FakeUpdater implements Updater {
     checkCount++;
     lastCheckedChannel = channel;
     if (gate != null) await gate!.future;
+    await checkGates[channel]?.future;
     if (checkFailure != null) throw checkFailure!;
     return releases[channel];
   }
@@ -131,11 +136,16 @@ class FakeUpdater implements Updater {
 /// Keeps the channel and the last-checked stamp in memory instead of
 /// shared_preferences, which needs a platform channel.
 class FakeUpdateStore implements UpdateStore {
-  FakeUpdateStore({this.rawChannel, this.lastChecked});
+  FakeUpdateStore({
+    this.rawChannel,
+    this.lastChecked,
+    this.channelWriteGates = const {},
+  });
 
   /// Raw, so a test can write a name that is no longer a channel.
   String? rawChannel;
   DateTime? lastChecked;
+  final Map<UpdateChannel, Completer<void>> channelWriteGates;
   int writeCount = 0;
 
   @override
@@ -145,6 +155,7 @@ class FakeUpdateStore implements UpdateStore {
   @override
   Future<void> writeChannel(UpdateChannel channel) async {
     writeCount++;
+    await channelWriteGates[channel]?.future;
     rawChannel = channel.name;
   }
 
@@ -158,6 +169,7 @@ class FakeUpdateStore implements UpdateStore {
 /// Keeps unsynced drafts in memory instead of shared_preferences.
 class FakeDraftStore implements DraftStore {
   final Map<String, String> saved = {};
+  final List<String> events = [];
 
   static String _key(String siteUrl, String draftKey) => '$siteUrl::$draftKey';
 
@@ -166,13 +178,33 @@ class FakeDraftStore implements DraftStore {
       saved[_key(siteUrl, draftKey)];
 
   @override
-  Future<void> write(String siteUrl, String draftKey, String data) async {
+  Future<void> write(
+    String siteUrl,
+    String draftKey,
+    String data, {
+    bool Function()? ifCurrent,
+  }) async {
+    if (ifCurrent != null && !ifCurrent()) return;
     saved[_key(siteUrl, draftKey)] = data;
+    events.add('write:$data');
   }
 
   @override
-  Future<void> clear(String siteUrl, String draftKey) async {
+  Future<void> clear(
+    String siteUrl,
+    String draftKey, {
+    bool Function()? ifCurrent,
+  }) async {
+    if (ifCurrent != null && !ifCurrent()) return;
     saved.remove(_key(siteUrl, draftKey));
+    events.add('clear');
+  }
+
+  @override
+  Future<void> clearSite(String siteUrl, {bool Function()? ifCurrent}) async {
+    if (ifCurrent != null && !ifCurrent()) return;
+    saved.removeWhere((key, _) => key.startsWith('$siteUrl::'));
+    events.add('clearSite:$siteUrl');
   }
 }
 
@@ -330,6 +362,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.creation,
     this.writeFailure,
     this.draftFailure,
+    this.draftGate,
     this.likeResponses = const {},
     this.likeFailure,
     this.likeGate,
@@ -416,6 +449,8 @@ class FakeDiscourseApi implements DiscourseApi {
   final List<String> feedPaths = [];
 
   final List<String> lookups = [];
+
+  int closeCalls = 0;
 
   /// Returned by [createPost]; defaults to a plausible published reply.
   final PostCreation? creation;
@@ -601,6 +636,10 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Thrown by [saveDraft] instead of answering.
   final WriteException? draftFailure;
+
+  /// Holds draft saves open so tests can type a newer revision while one is
+  /// still in flight.
+  final Completer<void>? draftGate;
 
   /// Every [saveDraft] call, in order.
   final List<Map<String, Object?>> draftsSaved = [];
@@ -809,9 +848,7 @@ class FakeDiscourseApi implements DiscourseApi {
     final asked = refs.toSet();
     hashtagLookupsRequested.add(asked);
     if (hashtagLookupGate != null) await hashtagLookupGate!.future;
-    return [
-      for (final ref in asked) ?hashtagsByRef[ref],
-    ];
+    return [for (final ref in asked) ?hashtagsByRef[ref]];
   }
 
   @override
@@ -1088,12 +1125,13 @@ class FakeDiscourseApi implements DiscourseApi {
       'sequence': sequence,
       'data': data,
     });
+    if (draftGate != null) await draftGate!.future;
     if (draftFailure != null) throw draftFailure!;
     return sequence + 1;
   }
 
   @override
-  void close() {}
+  void close() => closeCalls += 1;
 }
 
 DiscourseInstance instance(String host, {String? title}) => DiscourseInstance(
@@ -1102,9 +1140,27 @@ DiscourseInstance instance(String host, {String? title}) => DiscourseInstance(
   apiVersion: 4,
 );
 
+class FakeApiCredentialReader implements ApiCredentialReader {
+  FakeApiCredentialReader({this.clientIdValue = 'test-client'});
+
+  final String clientIdValue;
+  final Map<String, String> keys = {};
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async => keys[siteUrl];
+
+  @override
+  Future<String> clientId() async => clientIdValue;
+}
+
 /// Runs the handshake without a browser or a keychain.
 class FakeAuthenticator implements Authenticator {
-  FakeAuthenticator({this.credentials, this.failure, this.disconnectFailure});
+  FakeAuthenticator({
+    this.credentials,
+    this.failure,
+    this.disconnectFailure,
+    this.apiKeyFailure,
+  });
 
   final UserApiCredentials? credentials;
   final UserApiAuthFailure? failure;
@@ -1113,6 +1169,10 @@ class FakeAuthenticator implements Authenticator {
   /// — an unsigned macOS build answers `errSecMissingEntitlement` — and that
   /// must not be able to hold a site in the rail.
   final Object? disconnectFailure;
+
+  /// Thrown by [apiKeyFor] when a test needs the platform credential store to
+  /// fail after the rest of the shell has already loaded.
+  Object? apiKeyFailure;
 
   final List<String> connected = [];
   final List<String> disconnected = [];
@@ -1137,7 +1197,10 @@ class FakeAuthenticator implements Authenticator {
   }
 
   @override
-  Future<String?> apiKeyFor(String siteUrl) async => keys[siteUrl];
+  Future<String?> apiKeyFor(String siteUrl) async {
+    if (apiKeyFailure case final failure?) throw failure;
+    return keys[siteUrl];
+  }
 
   @override
   String get applicationName => 'Discourse Native';

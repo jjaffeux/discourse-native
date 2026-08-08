@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
+import 'api_credentials.dart';
 import 'secure_store.dart';
 import 'user_api_key.dart';
 
@@ -10,29 +11,39 @@ import 'user_api_key.dart';
 typedef WebAuthLauncher =
     Future<String> Function(String url, String callbackScheme);
 
+typedef AuthKeyPairGenerator = Future<AuthKeyPair> Function();
+
 Future<String> _launchWebAuth(String url, String callbackScheme) =>
     FlutterWebAuth2.authenticate(url: url, callbackUrlScheme: callbackScheme);
 
 /// Runs the user API key handshake and keeps what comes back.
-class Authenticator {
+class Authenticator implements ApiCredentialReader {
   Authenticator({
     SecureStore? store,
     WebAuthLauncher? launcher,
+    AuthKeyPairGenerator? keyPairGenerator,
+    String Function()? nonceGenerator,
     this.protocol = const UserApiKeyProtocol(),
     this.applicationName = 'Discourse Native',
   }) : store = store ?? SecureStore(),
-       _launch = launcher ?? _launchWebAuth;
+       _launch = launcher ?? _launchWebAuth,
+       _generateKeyPair = keyPairGenerator ?? _generateAuthKeyPair,
+       _generateNonce = nonceGenerator ?? SecureStore.randomToken;
 
   final SecureStore store;
   final UserApiKeyProtocol protocol;
   final String applicationName;
   final WebAuthLauncher _launch;
+  final AuthKeyPairGenerator _generateKeyPair;
+  final String Function() _generateNonce;
+
+  Future<AuthKeyPair>? _keyPairRequest;
 
   /// Sends the user to [siteUrl] to authorize, then stores the key it returns.
   Future<UserApiCredentials> connect(String siteUrl) async {
     final pair = await _ensureKeyPair();
     final clientId = await store.readOrCreateClientId();
-    final nonce = SecureStore.randomToken();
+    final nonce = _generateNonce();
 
     final url = protocol.authUrl(
       siteUrl: siteUrl,
@@ -69,7 +80,7 @@ class Authenticator {
 
     final credentials = protocol.decodePayload(
       payload: protocol.payloadFromCallback(callback),
-      privateKey: pair.privateKey,
+      privateKeyPem: pair.privatePem,
       expectedNonce: nonce,
     );
 
@@ -77,12 +88,14 @@ class Authenticator {
     return credentials;
   }
 
+  @override
   Future<String?> apiKeyFor(String siteUrl) => store.readApiKey(siteUrl);
 
   /// This install's client id.
   ///
   /// Exposed here rather than reached for through [store], because callers want
   /// the identity, not the storage it happens to live in.
+  @override
   Future<String> clientId() => store.readOrCreateClientId();
 
   Future<void> disconnect(String siteUrl) => store.deleteApiKey(siteUrl);
@@ -90,15 +103,31 @@ class Authenticator {
   /// The key pair is per-install, not per-site: generated once, reused for
   /// every site the user connects.
   Future<AuthKeyPair> _ensureKeyPair() async {
+    final pending = _keyPairRequest;
+    if (pending != null) return pending;
+
+    final request = _readOrCreateKeyPair();
+    _keyPairRequest = request;
+    try {
+      return await request;
+    } finally {
+      if (identical(_keyPairRequest, request)) _keyPairRequest = null;
+    }
+  }
+
+  Future<AuthKeyPair> _readOrCreateKeyPair() async {
     final existing = await store.readKeyPair();
     if (existing != null) return existing;
 
-    // 2048-bit RSA takes seconds, so keep it off the frame loop.
-    final pems = await compute(_generatePems, 0);
-    final pair = AuthKeyPair(publicPem: pems[0], privatePem: pems[1]);
+    final pair = await _generateKeyPair();
     await store.writeKeyPair(pair);
     return pair;
   }
+}
+
+Future<AuthKeyPair> _generateAuthKeyPair() async {
+  final pems = await compute(_generatePems, 0);
+  return AuthKeyPair(publicPem: pems[0], privatePem: pems[1]);
 }
 
 /// Top-level so it can run in an isolate. Returns plain strings rather than

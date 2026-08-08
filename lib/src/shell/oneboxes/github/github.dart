@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../../theme/app_theme.dart';
 import '../../../theme/d_icon.dart';
 import '../../avatar_image.dart';
-import '../../open_link.dart';
 import '../../code_block.dart' show monospaceFallback;
-import '../../../theme/app_theme.dart';
+import '../../open_link.dart';
+import '../../site_url.dart';
 
 /// The shared visual language of GitHub's oneboxes.
 ///
@@ -128,11 +129,13 @@ class GithubUser extends StatelessWidget {
     required this.login,
     required this.avatarUrl,
     required this.url,
+    this.siteUrl,
   });
 
   final String login;
   final String? avatarUrl;
   final String? url;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +150,7 @@ class GithubUser extends StatelessWidget {
             child: SizedBox.square(
               dimension: 20,
               child: AvatarImage(
-                url: avatarUrl,
+                url: resolveSiteUrl(avatarUrl!, siteUrl),
                 size: 20,
                 fallback: ColoredBox(color: theme.shell.floating),
               ),
@@ -171,7 +174,7 @@ class GithubUser extends StatelessWidget {
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => openLink(context, url),
+        onTap: () => openLink(context, url, siteUrl: siteUrl),
         child: row,
       ),
     );
@@ -185,11 +188,13 @@ class GithubLineCounts extends StatelessWidget {
     required this.additions,
     required this.deletions,
     required this.url,
+    this.siteUrl,
   });
 
   final int additions;
   final int deletions;
   final String? url;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +219,7 @@ class GithubLineCounts extends StatelessWidget {
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => openLink(context, url),
+        onTap: () => openLink(context, url, siteUrl: siteUrl),
         child: row,
       ),
     );

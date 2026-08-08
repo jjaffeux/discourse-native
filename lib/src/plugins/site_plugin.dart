@@ -72,14 +72,18 @@ abstract interface class SitePlugin<T extends Object> {
   /// An ordered fallthrough, the same shape as `cooked_html.dart`'s builder
   /// chain and `open_link.dart`'s dispatch: the first plugin with something to
   /// say wins, and the core answer is what is left when none of them do.
-  Widget? postFooter(Post post);
+  Widget? postFooter(String siteUrl, Post post);
 
   /// What this feature adds to, or takes out of, the post action menu.
   ///
   /// Takes a [BuildContext] rather than the controller so that this interface
   /// stays out of the shell's way; an implementation reaches whatever it needs
-  /// through `ShellScope.of`.
-  PostMenuContribution postMenu(BuildContext context, Post post);
+  /// through `ShellScope.read` and selects any state that must repaint.
+  PostMenuContribution postMenu(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+  );
 
   /// Sections this feature adds to the instance sidebar, after core's own.
   ///
@@ -98,10 +102,12 @@ abstract interface class SitePlugin<T extends Object> {
   /// happens to be followed. A post's footer is a free-form decoration on one
   /// record; this is not.
   ///
-  /// The state behind these arrives asynchronously, so whatever holds it has to
-  /// reach `ShellController._notify` — either by being shell state or, as chat
-  /// does, by forwarding its own notifier to it.
+  /// The state behind these can arrive asynchronously. [sidebarListenable]
+  /// identifies the feature-owned state the sidebar should rebuild for.
   List<SidebarSection> sidebarSections(BuildContext context);
+
+  /// State that can change [sidebarSections], or null for a static contribution.
+  Listenable? sidebarListenable(BuildContext context);
 
   /// The screen this feature draws for [route], or null for a route it does not
   /// own.

@@ -16,11 +16,11 @@ class FoundUser {
 
   factory FoundUser.fromJson(Map<String, dynamic> json, String siteUrl) {
     return FoundUser(
-      username: (json['username'] ?? '') as String,
+      username: jsonString(json['username']),
       // Absent on a site with `enable_names` off, where the username is the
       // only name anyone has.
       name: jsonText(json['name']),
-      avatarUrl: resolveAvatarUrl(json['avatar_template'] as String?, siteUrl),
+      avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
     );
   }
 

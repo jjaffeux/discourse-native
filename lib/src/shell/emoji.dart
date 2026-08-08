@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../data/emoji_cache.dart';
+import 'image_decode.dart';
 
 /// One emoji, drawn from the image the site serves for it.
 ///
@@ -65,13 +67,15 @@ class _EmojiImageState extends State<EmojiImage> {
     }
 
     _resolved = false;
-    cache.load(url).then((bytes) {
-      if (!mounted || widget.url != url) return;
-      setState(() {
-        _bytes = bytes;
-        _resolved = true;
-      });
-    });
+    unawaited(
+      cache.load(url).then((bytes) {
+        if (!mounted || widget.url != url) return;
+        setState(() {
+          _bytes = bytes;
+          _resolved = true;
+        });
+      }),
+    );
   }
 
   @override
@@ -84,8 +88,12 @@ class _EmojiImageState extends State<EmojiImage> {
 
     if (bytes == null) return Text(widget.alt, style: widget.style);
 
-    return Image.memory(
-      bytes,
+    return Image(
+      image: memoryImageForLayout(
+        context,
+        bytes,
+        logicalSize: Size.square(widget.size),
+      ),
       width: widget.size,
       height: widget.size,
       fit: BoxFit.contain,

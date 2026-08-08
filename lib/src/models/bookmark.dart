@@ -23,7 +23,7 @@ class Bookmark {
   });
 
   factory Bookmark.fromJson(Map<String, dynamic> json) {
-    final user = json['user'] as Map<String, dynamic>? ?? const {};
+    final user = jsonObject(json['user']);
 
     return Bookmark(
       id: jsonInt(json['id']),

@@ -20,8 +20,9 @@ class GithubIssueInlineOnebox {
     return segments.length >= 4 && segments[2] == 'issues';
   }
 
-  static Widget from(dom.Element anchor) => InlineOneboxChip(
+  static Widget from(dom.Element anchor, {String? siteUrl}) => InlineOneboxChip(
     href: anchor.attributes['href']!,
+    siteUrl: siteUrl,
     child: TextSpan(text: anchor.text.trim()),
   );
 }

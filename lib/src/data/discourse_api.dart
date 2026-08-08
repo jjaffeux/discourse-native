@@ -17,36 +17,14 @@ import '../models/post_likers.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
+import '../models/user_card.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
 import '../plugins/reactions/post_reactors.dart';
-import '../models/user_card.dart';
+import 'discourse_api_contracts.dart';
+import 'http_transport.dart';
 
-/// Why a site lookup did not produce an instance.
-enum SiteLookupFailure {
-  /// Reachable, but not a Discourse — or one too old to talk to an app.
-  notDiscourse,
-
-  /// Nothing answered: bad host, no network, timeout, or a non-200 status.
-  unreachable,
-}
-
-class SiteLookupException implements Exception {
-  const SiteLookupException(this.failure, this.term);
-
-  final SiteLookupFailure failure;
-  final String term;
-
-  String get message => switch (failure) {
-    SiteLookupFailure.notDiscourse =>
-      '$term is not a Discourse forum, or is running a version too old to '
-          'support apps.',
-    SiteLookupFailure.unreachable => "Couldn't reach $term.",
-  };
-
-  @override
-  String toString() => 'SiteLookupException($failure, $term)';
-}
+export 'discourse_api_contracts.dart';
 
 /// Why a write did not go through.
 ///
@@ -118,11 +96,17 @@ class WriteException implements Exception {
 /// The lookup mirrors DiscourseMobile's `Site.fromTerm`: probe
 /// `/user-api-key/new` to confirm it is a Discourse new enough to expose the
 /// user API, then read `/site/basic-info.json` for the details we display.
-class DiscourseApi {
+class DiscourseApi implements AccountActivityApi, ChatApi, ReactionsApi {
   DiscourseApi({
     http.Client? client,
     this.timeout = const Duration(seconds: 10),
-  }) : _client = client ?? http.Client();
+    int maxResponseBytes = 16 * 1024 * 1024,
+  }) : assert(timeout > Duration.zero),
+       assert(maxResponseBytes > 0),
+       _maxResponseBytes = maxResponseBytes,
+       _client = client == null
+           ? SafeHttpClient.create()
+           : SafeHttpClient.owned(client);
 
   static const int minimumApiVersion = 2;
   static const int _maxRedirects = 5;
@@ -130,11 +114,16 @@ class DiscourseApi {
   final http.Client _client;
   final Duration timeout;
 
+  /// Largest buffered API response accepted from a site.
+  ///
+  /// These routes return JSON rather than media. Keeping a generous finite
+  /// bound prevents a broken endpoint from growing the process without limit.
+  final int _maxResponseBytes;
+
   /// Turns whatever the user typed into a URL to probe.
   ///
   /// Bare hosts get https, since that is what any site worth connecting to
-  /// serves; typing an explicit `http://` is the escape hatch for local
-  /// development.
+  /// serves. Explicit HTTP is reserved for loopback development servers.
   static Uri normalize(String term) {
     var trimmed = term.trim();
     while (trimmed.endsWith('/')) {
@@ -143,7 +132,12 @@ class DiscourseApi {
     if (!RegExp(r'^https?://', caseSensitive: false).hasMatch(trimmed)) {
       trimmed = 'https://$trimmed';
     }
-    return Uri.parse(trimmed);
+    final url = Uri.parse(trimmed);
+    try {
+      return requireSafeHttpUrl(url);
+    } on UnsafeHttpTransportException {
+      throw SiteLookupException(SiteLookupFailure.unreachable, url.toString());
+    }
   }
 
   Future<DiscourseInstance> lookup(String term) async {
@@ -184,9 +178,9 @@ class DiscourseApi {
 
     final Map<String, dynamic> info;
     try {
-      final response = await _client
-          .get(Uri.parse('$baseUrl/site/basic-info.json'))
-          .timeout(timeout);
+      final response = await _send(
+        http.Request('GET', Uri.parse('$baseUrl/site/basic-info.json')),
+      );
       if (response.statusCode != 200) {
         throw SiteLookupException(SiteLookupFailure.unreachable, term);
       }
@@ -197,15 +191,15 @@ class DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, term);
     }
 
-    final title = (info['title'] as String?)?.trim();
+    final title = jsonText(info['title']);
 
     return DiscourseInstance(
       url: baseUrl,
       title: title == null || title.isEmpty ? Uri.parse(baseUrl).host : title,
-      description: info['description'] as String?,
-      iconUrl: _absoluteIcon(info['apple_touch_icon_url'] as String?, baseUrl),
+      description: jsonText(info['description']),
+      iconUrl: _absoluteIcon(jsonText(info['apple_touch_icon_url']), baseUrl),
       apiVersion: apiVersion,
-      loginRequired: info['login_required'] as bool? ?? false,
+      loginRequired: info['login_required'] == true,
     );
   }
 
@@ -215,9 +209,8 @@ class DiscourseApi {
     var current = url;
 
     for (var hop = 0; hop <= _maxRedirects; hop++) {
-      final request = http.Request('HEAD', current)..followRedirects = false;
-      final response = await _client.send(request).timeout(timeout);
-      await response.stream.drain<void>();
+      final request = http.Request('HEAD', current);
+      final response = await _send(request);
 
       final location = response.headers['location'];
       final isRedirect =
@@ -227,7 +220,8 @@ class DiscourseApi {
       if (!isRedirect || location == null) {
         return _HeadResult(current, response.statusCode, response.headers);
       }
-      current = current.resolve(location);
+
+      current = resolveSafeHttpRedirect(current, location);
     }
 
     throw SiteLookupException(SiteLookupFailure.unreachable, url.toString());
@@ -251,16 +245,20 @@ class DiscourseApi {
     );
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final user = body['current_user'] as Map<String, dynamic>?;
-    if (user == null) {
+    final user = switch (body['current_user']) {
+      final Map<String, dynamic> user => user,
+      _ => null,
+    };
+    final username = jsonText(user?['username']);
+    if (user == null || username == null) {
       throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
     }
 
     return DiscourseUser(
-      username: user['username'] as String,
+      username: username,
       id: jsonIntOrNull(user['id']),
-      name: user['name'] as String?,
-      avatarUrl: _avatarUrl(user['avatar_template'] as String?, siteUrl),
+      name: jsonText(user['name']),
+      avatarUrl: _avatarUrl(jsonText(user['avatar_template']), siteUrl),
     );
   }
 
@@ -268,6 +266,7 @@ class DiscourseApi {
   ///
   /// Cheap enough to call on launch for each connected site, which is what
   /// DiscourseMobile does.
+  @override
   Future<NotificationTotals> notificationTotals({
     required String siteUrl,
     required String apiKey,
@@ -295,6 +294,7 @@ class DiscourseApi {
   /// unseen bubble on the web when the menu is opened. That is deliberate: this
   /// is the same act. Read state is a separate thing and is not touched, so the
   /// rows stay unread until they are tapped.
+  @override
   Future<List<DiscourseNotification>> notifications({
     required String siteUrl,
     required String apiKey,
@@ -309,10 +309,10 @@ class DiscourseApi {
     );
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
-    return [
-      for (final entry in body['notifications'] as List<dynamic>? ?? const [])
-        DiscourseNotification.fromJson(entry as Map<String, dynamic>),
-    ];
+    return List.unmodifiable([
+      for (final entry in jsonObjects(body['notifications']))
+        DiscourseNotification.fromJson(entry),
+    ]);
   }
 
   /// The bookmarks behind the user menu's bookmarks tab.
@@ -327,6 +327,7 @@ class DiscourseApi {
   /// [username] has to be the account the key belongs to; Discourse refuses
   /// anybody else's, which is why this asks for one rather than there being a
   /// `/my` form of the route to fall back on.
+  @override
   Future<BookmarkPayload> bookmarks({
     required String siteUrl,
     required String apiKey,
@@ -344,14 +345,14 @@ class DiscourseApi {
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     return (
-      reminders: [
-        for (final entry in body['notifications'] as List<dynamic>? ?? const [])
-          DiscourseNotification.fromJson(entry as Map<String, dynamic>),
-      ],
-      bookmarks: [
-        for (final entry in body['bookmarks'] as List<dynamic>? ?? const [])
-          Bookmark.fromJson(entry as Map<String, dynamic>),
-      ],
+      reminders: List<DiscourseNotification>.unmodifiable([
+        for (final entry in jsonObjects(body['notifications']))
+          DiscourseNotification.fromJson(entry),
+      ]),
+      bookmarks: List<Bookmark>.unmodifiable([
+        for (final entry in jsonObjects(body['bookmarks']))
+          Bookmark.fromJson(entry),
+      ]),
     );
   }
 
@@ -360,6 +361,7 @@ class DiscourseApi {
   /// Takes an id rather than defaulting to "all of them" the way the route
   /// does: omitting the parameter dismisses the user's entire inbox, which is
   /// not something a mistyped call should be able to do.
+  @override
   Future<void> markNotificationRead({
     required String siteUrl,
     required String apiKey,
@@ -447,10 +449,11 @@ class DiscourseApi {
     );
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final stream = body['post_stream'] as Map<String, dynamic>? ?? const {};
-    return (stream['posts'] as List<dynamic>? ?? const [])
-        .map((p) => Post.fromJson(p as Map<String, dynamic>, siteUrl))
-        .toList();
+    final stream = jsonObject(body['post_stream']);
+    return List.unmodifiable([
+      for (final post in jsonObjects(stream['posts']))
+        Post.fromJson(post, siteUrl),
+    ]);
   }
 
   /// The summary shown when an avatar or a username is clicked.
@@ -471,7 +474,10 @@ class DiscourseApi {
     );
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final user = body['user'] as Map<String, dynamic>?;
+    final user = switch (body['user']) {
+      final Map<String, dynamic> user => user,
+      _ => null,
+    };
     if (user == null) {
       throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
     }
@@ -637,8 +643,7 @@ class DiscourseApi {
       return switch (jsonDecode(response.body)) {
         {'results': final List<dynamic> results} => [
           for (final item in results)
-            if (item is Map<String, dynamic>)
-              ?FoundHashtag.fromJson(item),
+            if (item is Map<String, dynamic>) ?FoundHashtag.fromJson(item),
         ],
         _ => const <FoundHashtag>[],
       };
@@ -728,9 +733,9 @@ class DiscourseApi {
       final body = jsonDecode(response.body);
       if (body is! Map<String, dynamic>) return const {};
       return {
-        for (final name in (body['users'] as List<dynamic>? ?? const []))
+        for (final name in jsonArray(body['users']))
           if (name is String) name,
-        ...?(body['groups'] as Map<String, dynamic>?)?.keys,
+        ...jsonObject(body['groups']).keys,
       };
     } catch (_) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
@@ -790,18 +795,16 @@ class DiscourseApi {
     );
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final list = body['category_list'] as Map<String, dynamic>? ?? const {};
+    final list = jsonObject(body['category_list']);
     final result = <TopicCategory>[];
 
-    for (final entry in (list['categories'] as List<dynamic>? ?? const [])) {
-      final map = entry as Map<String, dynamic>;
-      result.add(TopicCategory.fromJson(map));
-      for (final sub
-          in (map['subcategory_list'] as List<dynamic>? ?? const [])) {
-        result.add(TopicCategory.fromJson(sub as Map<String, dynamic>));
+    for (final category in jsonObjects(list['categories'])) {
+      result.add(TopicCategory.fromJson(category));
+      for (final subcategory in jsonObjects(category['subcategory_list'])) {
+        result.add(TopicCategory.fromJson(subcategory));
       }
     }
-    return result;
+    return List.unmodifiable(result);
   }
 
   /// Replies to a topic.
@@ -876,7 +879,10 @@ class DiscourseApi {
       },
     );
 
-    final post = body['post'] as Map<String, dynamic>?;
+    final post = switch (body['post']) {
+      final Map<String, dynamic> post => post,
+      _ => null,
+    };
     if (post == null) throw const WriteException(WriteFailure.unreachable);
     return Post.fromJson(post, siteUrl);
   }
@@ -1072,11 +1078,7 @@ class DiscourseApi {
       body = await send(force: true);
     }
 
-    return switch (body['draft_sequence']) {
-      final num sequence => sequence.toInt(),
-      final String sequence => int.tryParse(sequence),
-      _ => null,
-    };
+    return jsonIntOrNull(body['draft_sequence']);
   }
 
   /// Shared write, and the only path in here that sends a body.
@@ -1107,9 +1109,7 @@ class DiscourseApi {
           for (final entry in body.entries)
             if (entry.value != null) entry.key: entry.value,
         });
-      response = await http.Response.fromStream(
-        await _client.send(request).timeout(timeout),
-      );
+      response = await _send(request);
     } catch (_) {
       throw const WriteException(WriteFailure.unreachable);
     }
@@ -1120,7 +1120,7 @@ class DiscourseApi {
     if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
 
     final errors = [
-      for (final error in decoded['errors'] as List<dynamic>? ?? const [])
+      for (final error in jsonArray(decoded['errors']))
         if (error is String && error.trim().isNotEmpty) error.trim(),
     ];
 
@@ -1160,8 +1160,8 @@ class DiscourseApi {
     final header = int.tryParse(response.headers['retry-after'] ?? '');
     if (header != null) return Duration(seconds: header);
 
-    final extras = body['extras'] as Map<String, dynamic>?;
-    return switch (extras?['wait_seconds']) {
+    final extras = jsonObject(body['extras']);
+    return switch (extras['wait_seconds']) {
       final num seconds => Duration(seconds: seconds.round()),
       final String seconds when int.tryParse(seconds) != null => Duration(
         seconds: int.parse(seconds),
@@ -1179,14 +1179,11 @@ class DiscourseApi {
   }) async {
     final http.Response response;
     try {
-      response = await _client
-          .get(
-            url,
-            headers: apiKey == null
-                ? const {}
-                : authHeaders(apiKey, clientId: clientId),
-          )
-          .timeout(timeout);
+      final request = http.Request('GET', url)
+        ..headers.addAll(
+          apiKey == null ? const {} : authHeaders(apiKey, clientId: clientId),
+        );
+      response = await _send(request);
     } catch (_) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
@@ -1209,6 +1206,7 @@ class DiscourseApi {
   /// Unauthenticated reads are allowed — the plugin's controller exempts this
   /// route from `ensure_logged_in` — so a signed-out reader can still see who
   /// reacted.
+  @override
   Future<PostReactors> postReactors({
     required String siteUrl,
     required int postId,
@@ -1248,6 +1246,7 @@ class DiscourseApi {
   /// not use it — and arrives as a [SiteLookupException] like every other read.
   /// `ChatController.loadChannels` swallows it, which is why the sidebar shows
   /// nothing rather than an error.
+  @override
   Future<ChatChannels> chatChannels({
     required String siteUrl,
     String? apiKey,
@@ -1293,6 +1292,7 @@ class DiscourseApi {
   /// runs `update_membership_last_viewed_at`, so opening a channel touches
   /// `last_viewed_at`. It does not touch `last_read_message_id` — that is
   /// [markChatChannelRead]'s job — so nothing is marked read by reading it.
+  @override
   Future<ChatMessagePage> chatMessages({
     required String siteUrl,
     required int channelId,
@@ -1353,6 +1353,7 @@ class DiscourseApi {
   /// just read as read too, and in a direct channel without threading it
   /// catches the thread memberships up as well. So this is the whole of
   /// "I have seen it", not a piece of it.
+  @override
   Future<void> markChatChannelRead({
     required String siteUrl,
     required String apiKey,
@@ -1376,16 +1377,31 @@ class DiscourseApi {
     required String apiKey,
     String? clientId,
   }) async {
-    final response = await _client
-        .post(
-          Uri.parse('$siteUrl/user-api-key/revoke'),
-          headers: authHeaders(apiKey, clientId: clientId),
-        )
-        .timeout(timeout);
+    final request = http.Request(
+      'POST',
+      Uri.parse('$siteUrl/user-api-key/revoke'),
+    )..headers.addAll(authHeaders(apiKey, clientId: clientId));
+    final response = await _send(request);
 
     // 404 means the site predates the revoke route; nothing to do about it.
     if (response.statusCode >= 400 && response.statusCode != 404) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+  }
+
+  Future<http.Response> _send(http.BaseRequest request) async {
+    try {
+      return await sendBoundedHttpRequest(
+        _client,
+        request,
+        timeout: timeout,
+        maxBodyBytes: _maxResponseBytes,
+      );
+    } on UnsafeHttpTransportException catch (error) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        error.url.toString(),
+      );
     }
   }
 

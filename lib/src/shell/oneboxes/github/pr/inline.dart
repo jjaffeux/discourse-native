@@ -23,11 +23,12 @@ class GithubPullRequestInlineOnebox {
     return segments.length >= 4 && segments[2] == 'pull';
   }
 
-  static Widget from(dom.Element anchor) {
+  static Widget from(dom.Element anchor, {String? siteUrl}) {
     final status = GithubPrStatus.fromClasses(anchor.classes);
 
     return InlineOneboxChip(
       href: anchor.attributes['href']!,
+      siteUrl: siteUrl,
       child: TextSpan(
         children: [
           if (status != null) _statusIcon(status),

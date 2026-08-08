@@ -46,10 +46,10 @@ class FoundHashtag {
       styleType: jsonText(json['style_type']) ?? 'square',
       icon: jsonText(json['icon']),
       emoji: jsonText(json['emoji']),
-      colors: [
-        for (final color in (json['colors'] as List<dynamic>? ?? const []))
+      colors: List.unmodifiable([
+        for (final color in jsonArray(json['colors']))
           if (color is String && color.isNotEmpty) color,
-      ],
+      ]),
     );
   }
 

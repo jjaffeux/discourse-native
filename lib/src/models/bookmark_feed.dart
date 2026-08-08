@@ -48,11 +48,15 @@ class BookmarkFeed {
   /// is called for every notification read anywhere, since the same reminder
   /// can be sitting in both this tab and the notifications one.
   BookmarkFeed withRead(int id) {
+    final index = reminders.indexWhere(
+      (reminder) => reminder.id == id && reminder.isUnread,
+    );
+    if (index < 0) return this;
+
+    final updated = List<DiscourseNotification>.of(reminders);
+    updated[index] = updated[index].asRead();
     return BookmarkFeed(
-      reminders: [
-        for (final reminder in reminders)
-          reminder.id == id ? reminder.asRead() : reminder,
-      ],
+      reminders: updated,
       bookmarks: bookmarks,
       loading: loading,
       error: error,

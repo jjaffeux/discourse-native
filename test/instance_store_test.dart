@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -26,9 +28,7 @@ void main() {
       expect(await store.load(), isEmpty);
     });
 
-    test('answers an empty rail when the stored blob cannot be read',
-        () async {
-      // A shape change should cost the user their list, not crash the app.
+    test('answers an empty rail when the stored blob cannot be read', () async {
       SharedPreferences.setMockInitialValues({
         'discourse_native.instances': 'not json',
       });
@@ -38,6 +38,26 @@ void main() {
         'discourse_native.instances': '[1, 2, 3]',
       });
       expect(await store.load(), isEmpty);
+    });
+
+    test('keeps valid sites when another stored entry is malformed', () async {
+      SharedPreferences.setMockInitialValues({
+        'discourse_native.instances': '''[
+          {"url":"https://one.example","title":"One"},
+          {"url":7,"title":"Broken"},
+          null,
+          {"url":"https://two.example","title":"Two"},
+          {"url":"https://one.example","title":"Duplicate"}
+        ]''',
+      });
+
+      final loaded = await store.load();
+
+      expect(loaded.map((instance) => instance.url), [
+        'https://one.example',
+        'https://two.example',
+      ]);
+      expect(loaded.map((instance) => instance.title), ['One', 'Two']);
     });
   });
 
@@ -82,10 +102,14 @@ void main() {
     });
 
     test('keeps the rail in order, and keeps a signed-out site', () async {
-      const first = DiscourseInstance(url: 'https://one.example.com',
-          title: 'One');
-      const second = DiscourseInstance(url: 'https://two.example.com',
-          title: 'Two');
+      const first = DiscourseInstance(
+        url: 'https://one.example.com',
+        title: 'One',
+      );
+      const second = DiscourseInstance(
+        url: 'https://two.example.com',
+        title: 'Two',
+      );
 
       await store.save([first, second]);
       final loaded = await store.load();
@@ -102,5 +126,93 @@ void main() {
 
       expect(await store.load(), isEmpty);
     });
+
+    test('overlapping saves persist the newest snapshot', () async {
+      const first = DiscourseInstance(
+        url: 'https://one.example.com',
+        title: 'One',
+      );
+      const second = DiscourseInstance(
+        url: 'https://two.example.com',
+        title: 'Two',
+      );
+      const third = DiscourseInstance(
+        url: 'https://three.example.com',
+        title: 'Three',
+      );
+      final gate = Completer<void>();
+      final persistence = ControlledInstancePersistence(firstWriteGate: gate);
+      final controlledStore = InstanceStore(persistence: persistence);
+
+      final firstSave = controlledStore.save([first]);
+      await persistence.firstWriteStarted.future;
+      final secondSave = controlledStore.save([second]);
+      final thirdSave = controlledStore.save([third]);
+
+      await Future<void>.delayed(Duration.zero);
+      expect(persistence.writeCount, 1);
+      expect(thirdSave, same(secondSave));
+
+      gate.complete();
+      await Future.wait([firstSave, secondSave, thirdSave]);
+
+      expect(persistence.writeCount, 2);
+      expect((await controlledStore.load()).single, third);
+    });
+
+    test('a failed write does not strand a newer snapshot', () async {
+      const first = DiscourseInstance(
+        url: 'https://one.example.com',
+        title: 'One',
+      );
+      const second = DiscourseInstance(
+        url: 'https://two.example.com',
+        title: 'Two',
+      );
+      final gate = Completer<void>();
+      final failure = StateError('disk unavailable');
+      final persistence = ControlledInstancePersistence(
+        firstWriteGate: gate,
+        firstWriteError: failure,
+      );
+      final controlledStore = InstanceStore(persistence: persistence);
+
+      final firstSave = controlledStore.save([first]);
+      final firstFailure = expectLater(firstSave, throwsA(same(failure)));
+      await persistence.firstWriteStarted.future;
+      final secondSave = controlledStore.save([second]);
+
+      gate.complete();
+      await firstFailure;
+      await secondSave;
+
+      expect(persistence.writeCount, 2);
+      expect((await controlledStore.load()).single, second);
+    });
   });
+}
+
+final class ControlledInstancePersistence implements InstancePersistence {
+  ControlledInstancePersistence({this.firstWriteGate, this.firstWriteError});
+
+  final Completer<void>? firstWriteGate;
+  final Object? firstWriteError;
+  final Completer<void> firstWriteStarted = Completer<void>();
+
+  String? stored;
+  int writeCount = 0;
+
+  @override
+  Future<String?> read() async => stored;
+
+  @override
+  Future<void> write(String value) async {
+    writeCount++;
+    if (writeCount == 1) {
+      firstWriteStarted.complete();
+      await firstWriteGate?.future;
+      if (firstWriteError case final error?) throw error;
+    }
+    stored = value;
+  }
 }

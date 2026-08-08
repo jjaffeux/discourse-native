@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
 import '../../data/store.dart';
@@ -39,11 +40,11 @@ class ChatUser {
   factory ChatUser.fromJson(Map<String, dynamic> json, String siteUrl) {
     return ChatUser(
       id: jsonInt(json['id']),
-      username: (json['username'] ?? '') as String,
+      username: jsonString(json['username']),
       // Absent on a site with `enable_names` off, where the username is the
       // only name anyone has.
       name: jsonText(json['name']),
-      avatarUrl: resolveAvatarUrl(json['avatar_template'] as String?, siteUrl),
+      avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
     );
   }
 
@@ -83,12 +84,12 @@ class ChatMembership {
   /// left the key out takes rather than a state the sidebar ever draws.
   static const ChatMembership none = ChatMembership();
 
-  static ChatMembership fromJson(Map<String, dynamic>? json) {
-    if (json == null) return none;
+  static ChatMembership fromJson(Object? value) {
+    if (value is! Map<String, dynamic>) return none;
     return ChatMembership(
-      following: json['following'] == true,
-      muted: json['muted'] == true,
-      lastReadMessageId: jsonIntOrNull(json['last_read_message_id']),
+      following: value['following'] == true,
+      muted: value['muted'] == true,
+      lastReadMessageId: jsonIntOrNull(value['last_read_message_id']),
     );
   }
 
@@ -201,7 +202,7 @@ class ChatChannel with Storable<ChatChannel> {
     String siteUrl, {
     ChatTracking tracking = ChatTracking.none,
   }) {
-    final chatable = json['chatable'] as Map<String, dynamic>?;
+    final chatable = jsonObject(json['chatable']);
     final kind = ChatChannelKind.read(json['chatable_type']);
 
     return ChatChannel(
@@ -221,26 +222,20 @@ class ChatChannel with Storable<ChatChannel> {
       emoji: jsonText(json['emoji']),
       description: jsonText(json['description']),
       categoryColor: kind == ChatChannelKind.category
-          ? _hexColor(chatable?['color'])
+          ? _hexColor(chatable['color'])
           : null,
-      readRestricted: chatable?['read_restricted'] == true,
-      isGroup: chatable?['group'] == true,
+      readRestricted: chatable['read_restricted'] == true,
+      isGroup: chatable['group'] == true,
       users: kind == ChatChannelKind.directMessage
-          ? [
-              for (final entry
-                  in chatable?['users'] as List<dynamic>? ?? const [])
-                if (entry is Map<String, dynamic>)
-                  ChatUser.fromJson(entry, siteUrl),
-            ]
+          ? List.unmodifiable([
+              for (final entry in jsonObjects(chatable['users']))
+                ChatUser.fromJson(entry, siteUrl),
+            ])
           : const [],
-      membership: ChatMembership.fromJson(
-        json['current_user_membership'] as Map<String, dynamic>?,
-      ),
+      membership: ChatMembership.fromJson(json['current_user_membership']),
       tracking: tracking,
       threadingEnabled: json['threading_enabled'] == true,
-      lastMessageAt: jsonDate(
-        (json['last_message'] as Map<String, dynamic>?)?['created_at'],
-      ),
+      lastMessageAt: jsonDate(jsonObject(json['last_message'])['created_at']),
     );
   }
 
@@ -258,10 +253,9 @@ class ChatChannel with Storable<ChatChannel> {
     // and JSON object keys are strings — so `9` is looked up as `'9'`. Getting
     // this wrong reads as "nothing is unread" rather than as an error, which is
     // exactly the kind of quiet wrong worth a test.
-    final tracking =
-        (json['tracking'] as Map<String, dynamic>?)?['channel_tracking']
-            as Map<String, dynamic>? ??
-        const {};
+    final tracking = jsonObject(
+      jsonObject(json['tracking'])['channel_tracking'],
+    );
 
     ChatTracking trackingFor(int id) {
       final entry = tracking['$id'];
@@ -271,13 +265,12 @@ class ChatChannel with Storable<ChatChannel> {
     }
 
     List<ChatChannel> read(Object? bucket) => [
-      for (final entry in bucket as List<dynamic>? ?? const [])
-        if (entry is Map<String, dynamic>)
-          ChatChannel.fromJson(
-            entry,
-            siteUrl,
-            tracking: trackingFor(jsonInt(entry['id'])),
-          ),
+      for (final entry in jsonObjects(bucket))
+        ChatChannel.fromJson(
+          entry,
+          siteUrl,
+          tracking: trackingFor(jsonInt(entry['id'])),
+        ),
     ];
 
     final public = read(json['public_channels'])
@@ -295,7 +288,10 @@ class ChatChannel with Storable<ChatChannel> {
     // unread conversations to the top; nothing here changes tracking between
     // fetches yet, so that sort could never re-run and would only look as
     // though it worked.
-    return (public: public, direct: read(json['direct_message_channels']));
+    return (
+      public: List.unmodifiable(public),
+      direct: List.unmodifiable(read(json['direct_message_channels'])),
+    );
   }
 
   final int id;
@@ -432,6 +428,46 @@ class ChatChannel with Storable<ChatChannel> {
     final parsed = int.tryParse(digits, radix: 16);
     return parsed == null ? null : Color(0xFF000000 | parsed);
   }
+
+  @override
+  ChatChannel merge(ChatChannel incoming) => this == incoming ? this : incoming;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChatChannel &&
+          other.id == id &&
+          other.title == title &&
+          other.kind == kind &&
+          other.slug == slug &&
+          other.emoji == emoji &&
+          other.description == description &&
+          other.categoryColor == categoryColor &&
+          other.readRestricted == readRestricted &&
+          other.isGroup == isGroup &&
+          listEquals(other.users, users) &&
+          other.membership == membership &&
+          other.tracking == tracking &&
+          other.threadingEnabled == threadingEnabled &&
+          other.lastMessageAt == lastMessageAt;
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    title,
+    kind,
+    slug,
+    emoji,
+    description,
+    categoryColor,
+    readRestricted,
+    isGroup,
+    Object.hashAll(users),
+    membership,
+    tracking,
+    threadingEnabled,
+    lastMessageAt,
+  ]);
 
   @override
   Object get storeId => id;

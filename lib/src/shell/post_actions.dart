@@ -25,8 +25,14 @@ import 'shell_sheet.dart';
 /// pinning would leave the menu above the fold — drawn over the header, or off
 /// the window entirely.
 class PostActions extends StatefulWidget {
-  const PostActions({super.key, required this.post, required this.child});
+  const PostActions({
+    super.key,
+    required this.siteUrl,
+    required this.post,
+    required this.child,
+  });
 
+  final String siteUrl;
   final Post post;
   final Widget child;
 
@@ -133,7 +139,7 @@ class _PostActionsState extends State<PostActions> {
     final contributed = <PostAction>[];
     var replacesLike = false;
     for (final plugin in sitePlugins) {
-      final contribution = plugin.postMenu(context, post);
+      final contribution = plugin.postMenu(context, widget.siteUrl, post);
       contributed.addAll(contribution.entries);
       replacesLike |= contribution.replacesLike;
     }
@@ -152,7 +158,10 @@ class _PostActionsState extends State<PostActions> {
           label: post.liked ? 'Remove like' : 'Like',
           tooltip: post.liked ? 'Remove your like' : 'Like this post',
           tint: post.liked ? discourseLove : null,
-          onInvoke: () => _report(controller.toggleLike(post)),
+          onInvoke: () => _report(
+            controller,
+            controller.toggleLike(post, siteUrl: widget.siteUrl),
+          ),
         ),
       if (controller.canReplyHere)
         PostAction(
@@ -176,7 +185,7 @@ class _PostActionsState extends State<PostActions> {
           icon: DIcons.arrowRotateLeft,
           label: 'Undelete',
           tooltip: 'Put this post back',
-          onInvoke: () => _report(controller.recoverPost(post)),
+          onInvoke: () => _report(controller, controller.recoverPost(post)),
         )
       else if (post.canDelete)
         PostAction(
@@ -188,16 +197,20 @@ class _PostActionsState extends State<PostActions> {
           // place of Delete, so the undo is one click away in the same menu —
           // which is a better answer to a misclick than a dialog on every
           // deliberate one.
-          onInvoke: () => _report(controller.deletePost(post)),
+          onInvoke: () => _report(controller, controller.deletePost(post)),
         ),
     ];
   }
 
   /// Surfaces a refusal. Success says nothing — the post itself changes, which
   /// is the only confirmation worth showing.
-  Future<void> _report(Future<String?> work) async {
+  Future<void> _report(ShellController controller, Future<String?> work) async {
     final error = await work;
-    if (error == null || !mounted) return;
+    if (error == null ||
+        !mounted ||
+        !identical(ShellScope.maybeRead(context), controller)) {
+      return;
+    }
     ScaffoldMessenger.maybeOf(
       context,
     )?.showSnackBar(SnackBar(content: Text(error)));
@@ -244,7 +257,17 @@ class _PostActionsState extends State<PostActions> {
 
   @override
   Widget build(BuildContext context) {
-    final actions = _actions(context, ShellScope.of(context));
+    return ShellSelector<({bool canReply, Object presentation})>(
+      select: (controller) => (
+        canReply: controller.canReplyHere,
+        presentation: controller.presentationTokenFor(widget.siteUrl),
+      ),
+      builder: (context, _, child) => _buildActions(context),
+    );
+  }
+
+  Widget _buildActions(BuildContext context) {
+    final actions = _actions(context, ShellScope.read(context));
     // Nothing this reader may do: no menu, and no hover target for one.
     if (actions.isEmpty) return widget.child;
 

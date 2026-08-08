@@ -12,6 +12,14 @@ import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'user_menu_button.dart';
 
+typedef _SidebarSnapshot = ({
+  String? siteUrl,
+  String? name,
+  String? host,
+  String? destinationId,
+  List<SidebarSection> sections,
+});
+
 /// Navigation within the selected instance. On compact layouts this fills the
 /// whole area next to the rail; on wider ones it sits between the rail and the
 /// main content.
@@ -24,51 +32,89 @@ class InstanceSidebar extends StatelessWidget {
   final bool showUserMenu;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
-    final instance = controller.currentInstance;
-    if (instance == null) return ColoredBox(color: theme.shell.sidebar);
+  Widget build(BuildContext context) => ShellSelector<_SidebarSnapshot>(
+    select: (controller) {
+      final instance = controller.currentInstance;
+      return (
+        siteUrl: instance?.url,
+        name: instance?.title,
+        host: instance?.host,
+        destinationId: controller.destinationId,
+        sections: instance?.sections ?? const <SidebarSection>[],
+      );
+    },
+    builder: (context, sidebar, _) {
+      final theme = Theme.of(context);
+      if (sidebar.siteUrl == null) {
+        return ColoredBox(color: theme.shell.sidebar);
+      }
+      final controller = ShellScope.read(context);
 
-    return ColoredBox(
-      color: theme.shell.sidebar,
-      child: SafeArea(
-        left: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _SidebarHeader(
-              name: instance.title,
-              host: instance.host,
-              showUserMenu: showUserMenu,
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 8),
-                children: [
-                  for (final section in [
-                    ...instance.sections,
-                    // Optional features contribute below the routes every
-                    // Discourse has, in the order `sitePlugins` lists them —
-                    // the additive walk `post_actions.dart` makes over the same
-                    // list, for the same reason.
-                    for (final plugin in sitePlugins)
-                      ...plugin.sidebarSections(context),
-                  ])
-                    _Section(
-                      section: section,
-                      selectedId: controller.destinationId,
-                      badgeFor: controller.sidebarBadgeFor,
-                      onSelect: controller.selectDestination,
-                    ),
-                ],
+      return ColoredBox(
+        color: theme.shell.sidebar,
+        child: SafeArea(
+          left: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _SidebarHeader(
+                name: sidebar.name!,
+                host: sidebar.host!,
+                showUserMenu: showUserMenu,
               ),
-            ),
-          ],
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  children: [
+                    ListenableBuilder(
+                      listenable: controller.accountActivity.totalsListenable,
+                      builder: (context, _) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final section in sidebar.sections)
+                            _Section(
+                              key: ValueKey(section.title),
+                              section: section,
+                              selectedId: sidebar.destinationId,
+                              badgeFor: controller.sidebarBadgeFor,
+                              onSelect: controller.selectDestination,
+                            ),
+                        ],
+                      ),
+                    ),
+                    ListenableBuilder(
+                      listenable: Listenable.merge([
+                        for (final plugin in sitePlugins)
+                          plugin.sidebarListenable(context),
+                      ]),
+                      builder: (context, _) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Optional features contribute below the routes every
+                          // site has, in the order `sitePlugins` lists them.
+                          for (final plugin in sitePlugins)
+                            for (final section in plugin.sidebarSections(
+                              context,
+                            ))
+                              _Section(
+                                key: ValueKey(section.title),
+                                section: section,
+                                selectedId: sidebar.destinationId,
+                                badgeFor: controller.sidebarBadgeFor,
+                                onSelect: controller.selectDestination,
+                              ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
 }
 
 class _SidebarHeader extends StatelessWidget {
@@ -146,6 +192,7 @@ class _SidebarHeader extends StatelessWidget {
 
 class _Section extends StatelessWidget {
   const _Section({
+    super.key,
     required this.section,
     required this.selectedId,
     required this.badgeFor,
@@ -177,6 +224,7 @@ class _Section extends StatelessWidget {
         ),
         for (final destination in section.destinations)
           _DestinationTile(
+            key: ValueKey(destination.id),
             destination: destination,
             selected: destination.id == selectedId,
             badgeCount: badgeFor(destination.id),
@@ -189,6 +237,7 @@ class _Section extends StatelessWidget {
 
 class _DestinationTile extends StatelessWidget {
   const _DestinationTile({
+    super.key,
     required this.destination,
     required this.selected,
     required this.badgeCount,
@@ -221,7 +270,7 @@ class _DestinationTile extends StatelessWidget {
     }
 
     if (destination.emoji case final emoji?) {
-      final controller = ShellScope.of(context);
+      final controller = ShellScope.read(context);
       final siteUrl = controller.currentInstance?.url;
       if (siteUrl != null) {
         return EmojiImage(

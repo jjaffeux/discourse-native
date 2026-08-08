@@ -19,24 +19,21 @@ class ChatMessageAuthor {
     this.isStaff = false,
   });
 
-  factory ChatMessageAuthor.fromJson(
-    Map<String, dynamic>? json,
-    String siteUrl,
-  ) {
-    if (json == null) {
+  factory ChatMessageAuthor.fromJson(Object? value, String siteUrl) {
+    if (value is! Map<String, dynamic>) {
       return const ChatMessageAuthor(id: 0, username: '');
     }
     return ChatMessageAuthor(
-      id: jsonInt(json['id']),
-      username: (json['username'] ?? '') as String,
-      name: jsonText(json['name']),
-      avatarUrl: resolveAvatarUrl(json['avatar_template'] as String?, siteUrl),
+      id: jsonInt(value['id']),
+      username: jsonString(value['username']),
+      name: jsonText(value['name']),
+      avatarUrl: resolveAvatarUrl(jsonText(value['avatar_template']), siteUrl),
       // `staff` is the union of the other two server side and is serialised
       // beside them, so any of the three is an answer.
       isStaff:
-          json['admin'] == true ||
-          json['moderator'] == true ||
-          json['staff'] == true,
+          value['admin'] == true ||
+          value['moderator'] == true ||
+          value['staff'] == true,
     );
   }
 
@@ -75,7 +72,7 @@ class ChatReaction {
   });
 
   factory ChatReaction.fromJson(Map<String, dynamic> json) => ChatReaction(
-    emoji: (json['emoji'] ?? '') as String,
+    emoji: jsonString(json['emoji']),
     count: jsonInt(json['count']),
     reacted: json['reacted'] == true,
   );
@@ -178,14 +175,12 @@ class ChatUpload {
   });
 
   factory ChatUpload.fromJson(Map<String, dynamic> json) {
-    final filename = (json['original_filename'] ?? '') as String;
+    final filename = jsonString(json['original_filename']);
     return ChatUpload(
-      url: (json['url'] ?? '') as String,
+      url: jsonString(json['url']),
       originalFilename: filename,
       kind: ChatUploadKind.read(jsonText(json['extension']), filename),
-      thumbnailUrl: jsonText(
-        (json['thumbnail'] as Map<String, dynamic>?)?['url'],
-      ),
+      thumbnailUrl: jsonText(jsonObject(json['thumbnail'])['url']),
       width: jsonIntOrNull(json['width']),
       height: jsonIntOrNull(json['height']),
       humanFilesize: jsonText(json['human_filesize']),
@@ -253,12 +248,12 @@ class ChatReplyTo {
   });
 
   factory ChatReplyTo.fromJson(Map<String, dynamic> json, String siteUrl) {
-    final user = json['user'] as Map<String, dynamic>?;
+    final user = jsonObject(json['user']);
     return ChatReplyTo(
       id: jsonInt(json['id']),
       excerpt: jsonText(json['excerpt']) ?? '',
-      username: (user?['username'] ?? '') as String,
-      avatarUrl: resolveAvatarUrl(user?['avatar_template'] as String?, siteUrl),
+      username: jsonString(user['username']),
+      avatarUrl: resolveAvatarUrl(jsonText(user['avatar_template']), siteUrl),
     );
   }
 
@@ -303,19 +298,19 @@ class ChatThreadPreview {
   /// is what it looks like now. A block without one is tolerated rather than
   /// dropped — the count is on the thread itself, and a row that says how many
   /// replies there are without naming the last of them is still worth drawing.
-  static ChatThreadPreview? fromJson(Map<String, dynamic>? json, String url) {
-    if (json == null) return null;
-    final preview = json['preview'] as Map<String, dynamic>? ?? const {};
-    final user = preview['last_reply_user'] as Map<String, dynamic>?;
+  static ChatThreadPreview? fromJson(Object? value, String url) {
+    if (value is! Map<String, dynamic>) return null;
+    final preview = jsonObject(value['preview']);
+    final user = jsonObject(preview['last_reply_user']);
     return ChatThreadPreview(
-      threadId: jsonInt(json['id']),
-      replyCount: jsonInt(json['reply_count']),
-      title: jsonText(json['title']),
+      threadId: jsonInt(value['id']),
+      replyCount: jsonInt(value['reply_count']),
+      title: jsonText(value['title']),
       lastReplyAt: jsonDate(preview['last_reply_created_at']),
       lastReplyExcerpt: jsonText(preview['last_reply_excerpt']),
-      lastReplyUsername: jsonText(user?['username']),
+      lastReplyUsername: jsonText(user['username']),
       lastReplyAvatarUrl: resolveAvatarUrl(
-        user?['avatar_template'] as String?,
+        jsonText(user['avatar_template']),
         url,
       ),
     );
@@ -387,17 +382,17 @@ class ChatMessage with Storable<ChatMessage> {
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json, String siteUrl) {
-    final replyTo = json['in_reply_to'] as Map<String, dynamic>?;
+    final replyTo = switch (json['in_reply_to']) {
+      final Map<String, dynamic> reply => reply,
+      _ => null,
+    };
     return ChatMessage(
       id: jsonInt(json['id']),
       channelId: jsonInt(json['chat_channel_id']),
       // Server-rendered, and the same bargain a post makes: Discourse does the
       // markdown, the mentions, the oneboxes and the emoji.
-      cooked: (json['cooked'] ?? '') as String,
-      author: ChatMessageAuthor.fromJson(
-        json['user'] as Map<String, dynamic>?,
-        siteUrl,
-      ),
+      cooked: jsonString(json['cooked']),
+      author: ChatMessageAuthor.fromJson(json['user'], siteUrl),
       createdAt: jsonDate(json['created_at']),
       // Only ever sent to someone allowed to see it — for everyone else a
       // trashed message is simply not in the stream.
@@ -411,37 +406,30 @@ class ChatMessage with Storable<ChatMessage> {
       // Only serialised in a channel with threading on, or for a thread forced
       // into one without it.
       threadId: jsonIntOrNull(json['thread_id']),
-      thread: ChatThreadPreview.fromJson(
-        json['thread'] as Map<String, dynamic>?,
-        siteUrl,
-      ),
+      thread: ChatThreadPreview.fromJson(json['thread'], siteUrl),
       // The key is left out entirely when nobody has reacted, which is most
       // messages — so the empty list is the default rather than something to
       // parse.
-      reactions: [
-        for (final entry in json['reactions'] as List<dynamic>? ?? const [])
-          if (entry is Map<String, dynamic>) ChatReaction.fromJson(entry),
-      ],
-      uploads: [
-        for (final entry in json['uploads'] as List<dynamic>? ?? const [])
-          if (entry is Map<String, dynamic>) ChatUpload.fromJson(entry),
-      ],
+      reactions: List.unmodifiable([
+        for (final entry in jsonObjects(json['reactions']))
+          ChatReaction.fromJson(entry),
+      ]),
+      uploads: List.unmodifiable([
+        for (final entry in jsonObjects(json['uploads']))
+          ChatUpload.fromJson(entry),
+      ]),
     );
   }
 
   /// Reads a `Chat::MessagesSerializer` payload. See [ChatMessagePage] for why
   /// both flags are read as `== true` rather than defaulted.
-  static ChatMessagePage parsePage(
-    Map<String, dynamic> json,
-    String siteUrl,
-  ) {
-    final meta = json['meta'] as Map<String, dynamic>? ?? const {};
+  static ChatMessagePage parsePage(Map<String, dynamic> json, String siteUrl) {
+    final meta = jsonObject(json['meta']);
     return (
-      messages: [
-        for (final entry in json['messages'] as List<dynamic>? ?? const [])
-          if (entry is Map<String, dynamic>)
-            ChatMessage.fromJson(entry, siteUrl),
-      ],
+      messages: List.unmodifiable([
+        for (final entry in jsonObjects(json['messages']))
+          ChatMessage.fromJson(entry, siteUrl),
+      ]),
       canLoadMorePast: meta['can_load_more_past'] == true,
       canLoadMoreFuture: meta['can_load_more_future'] == true,
     );
@@ -480,6 +468,46 @@ class ChatMessage with Storable<ChatMessage> {
   final List<ChatUpload> uploads;
 
   bool get isDeleted => deletedAt != null;
+
+  /// Paging windows overlap at their boundary; an unchanged copy should not
+  /// wake the row already drawing this record.
+  @override
+  ChatMessage merge(ChatMessage incoming) => this == incoming ? this : incoming;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChatMessage &&
+          other.id == id &&
+          other.channelId == channelId &&
+          other.cooked == cooked &&
+          other.author == author &&
+          other.createdAt == createdAt &&
+          other.deletedAt == deletedAt &&
+          other.edited == edited &&
+          other.isWebhook == isWebhook &&
+          other.replyTo == replyTo &&
+          other.threadId == threadId &&
+          other.thread == thread &&
+          listEquals(other.reactions, reactions) &&
+          listEquals(other.uploads, uploads);
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    channelId,
+    cooked,
+    author,
+    createdAt,
+    deletedAt,
+    edited,
+    isWebhook,
+    replyTo,
+    threadId,
+    thread,
+    Object.hashAll(reactions),
+    Object.hashAll(uploads),
+  );
 
   @override
   Object get storeId => id;

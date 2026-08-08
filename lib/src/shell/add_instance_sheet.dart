@@ -42,20 +42,34 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
       _error = null;
     });
 
-    final controller = ShellScope.of(context);
+    final controller = ShellScope.read(context);
     String failure;
 
     try {
       // The duplicate check uses the resolved URL, not what was typed —
       // "meta.discourse.org" and "https://meta.discourse.org/" are one site.
       final instance = await controller.api.lookup(term);
-
-      if (!controller.contains(instance.url)) {
-        await controller.addInstance(instance);
-        if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      if (!identical(ShellScope.read(context), controller)) {
+        setState(() => _connecting = false);
         return;
       }
-      failure = '${instance.title} is already in your list.';
+
+      if (!controller.contains(instance.url)) {
+        final added = await controller.addInstance(instance);
+        if (!mounted) return;
+        if (!identical(ShellScope.read(context), controller)) {
+          setState(() => _connecting = false);
+          return;
+        }
+        if (added) {
+          Navigator.of(context).pop();
+          return;
+        }
+        failure = "Couldn't save this site. Try again.";
+      } else {
+        failure = '${instance.title} is already in your list.';
+      }
     } on SiteLookupException catch (e) {
       failure = e.message;
     } catch (_) {

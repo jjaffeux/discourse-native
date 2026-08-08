@@ -1,6 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../models/discourse_instance.dart';
+import '../models/discourse_user.dart';
 import '../models/notification_totals.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -8,8 +10,18 @@ import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'bookmark_list.dart';
 import 'notification_list.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
+import 'user_menu_message.dart';
+
+typedef _UserMenuPanelSnapshot = ({String? siteUrl, String? host});
+typedef _SectionListSnapshot = ({
+  ShellController controller,
+  String? siteUrl,
+  String? host,
+  DiscourseUser? user,
+});
 
 /// Everything the avatar in the top right leads to.
 ///
@@ -200,61 +212,79 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
   String _sectionId = 'all';
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
-    final instance = controller.currentInstance;
-    final sections = userMenuSections(
-      instance == null ? null : controller.totalsFor(instance),
-    );
-    final section = sections.firstWhere(
-      (s) => s.id == _sectionId,
-      orElse: () => sections.first,
-    );
+  Widget build(BuildContext context) => ShellSelector<_UserMenuPanelSnapshot>(
+    select: (controller) {
+      final instance = controller.currentInstance;
+      return (siteUrl: instance?.url, host: instance?.host);
+    },
+    builder: (context, menu, _) {
+      final theme = Theme.of(context);
+      final controller = ShellScope.read(context);
 
-    return Padding(
-      padding: const EdgeInsets.only(
-        right: UserMenuPanel.margin,
-        bottom: UserMenuPanel.margin,
-      ),
-      child: Material(
-        color: theme.shell.floating,
-        elevation: 8,
-        shadowColor: Colors.black.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          width: UserMenuPanel.width,
-          height: UserMenuPanel.height,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _SectionBody(
-                  section: section,
-                  instance: instance,
-                  onDismiss: widget.onDismiss,
-                  onDisconnect: () {
-                    widget.onDismiss();
-                    controller.disconnectCurrentInstance();
-                  },
+      return ListenableBuilder(
+        listenable: controller.accountActivity.totalsListenable,
+        builder: (context, _) {
+          final siteUrl = menu.siteUrl;
+          final sections = userMenuSections(
+            siteUrl == null
+                ? null
+                : controller.accountActivity.totalsFor(siteUrl),
+          );
+          final section = sections.firstWhere(
+            (candidate) => candidate.id == _sectionId,
+            orElse: () => sections.first,
+          );
+
+          return Padding(
+            padding: const EdgeInsets.only(
+              right: UserMenuPanel.margin,
+              bottom: UserMenuPanel.margin,
+            ),
+            child: Material(
+              color: theme.shell.floating,
+              elevation: 8,
+              shadowColor: Colors.black.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(12),
+              clipBehavior: Clip.antiAlias,
+              child: SizedBox(
+                width: UserMenuPanel.width,
+                height: UserMenuPanel.height,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _SectionBody(
+                        section: section,
+                        siteUrl: menu.siteUrl,
+                        host: menu.host,
+                        onDismiss: widget.onDismiss,
+                        onDisconnect: () {
+                          widget.onDismiss();
+                          final siteUrl = menu.siteUrl;
+                          if (siteUrl != null) {
+                            controller.disconnectInstance(siteUrl).ignore();
+                          }
+                        },
+                      ),
+                    ),
+                    VerticalDivider(width: 1, color: theme.shell.divider),
+                    SizedBox(
+                      width: UserMenuPanel.railWidth,
+                      child: _TabRail(
+                        sections: sections,
+                        selectedId: section.id,
+                        onSelect: (id) => setState(() => _sectionId = id),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              VerticalDivider(width: 1, color: theme.shell.divider),
-              SizedBox(
-                width: UserMenuPanel.railWidth,
-                child: _TabRail(
-                  sections: sections,
-                  selectedId: section.id,
-                  onSelect: (id) => setState(() => _sectionId = id),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+            ),
+          );
+        },
+      );
+    },
+  );
 }
 
 /// The icon column down the right edge, with the account tab set apart at the
@@ -357,14 +387,16 @@ class _TabButton extends StatelessWidget {
 class _SectionBody extends StatelessWidget {
   const _SectionBody({
     required this.section,
-    required this.instance,
+    required this.siteUrl,
+    required this.host,
     required this.onDisconnect,
     required this.onDismiss,
     this.showHeader = true,
   });
 
   final UserMenuSection section;
-  final DiscourseInstance? instance;
+  final String? siteUrl;
+  final String? host;
   final VoidCallback onDisconnect;
 
   /// Closes the menu, for a row that has taken the user somewhere else.
@@ -377,17 +409,18 @@ class _SectionBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final siteUrl = this.siteUrl;
 
     final rows = [
-      if (section.isNotifications)
-        NotificationSection(onOpened: onDismiss)
-      else if (section.isBookmarks)
-        BookmarkSection(onOpened: onDismiss)
+      if (section.isNotifications && siteUrl != null)
+        NotificationSection(siteUrl: siteUrl, onOpened: onDismiss)
+      else if (section.isBookmarks && siteUrl != null)
+        BookmarkSection(siteUrl: siteUrl, onOpened: onDismiss)
       else
         for (final row in section.rows) _RowTile(row: row),
       if (section.isProfile) ...[
         Divider(color: theme.shell.divider, height: 17),
-        _DisconnectTile(host: instance?.host, onTap: onDisconnect),
+        _DisconnectTile(host: host, onTap: onDisconnect),
       ],
     ];
 
@@ -561,7 +594,7 @@ class _Badge extends StatelessWidget {
 /// The touch form of the menu: the sections as a list, each opening a sheet of
 /// its own on top of this one rather than swapping the contents underneath.
 Future<void> showUserMenuSheet(BuildContext context) {
-  final controller = ShellScope.of(context);
+  final controller = ShellScope.read(context);
   final instance = controller.currentInstance;
   final user = instance?.user;
   if (instance == null || user == null) return Future.value();
@@ -570,16 +603,21 @@ Future<void> showUserMenuSheet(BuildContext context) {
     context: context,
     title: user.displayName,
     padding: const EdgeInsets.symmetric(vertical: 8),
-    builder: (sheetContext) => _SectionList(instance: instance),
+    builder: (sheetContext) => _SectionList(siteUrl: instance.url),
   );
 }
 
 class _SectionList extends StatelessWidget {
-  const _SectionList({required this.instance});
+  const _SectionList({required this.siteUrl});
 
-  final DiscourseInstance instance;
+  final String siteUrl;
 
-  Future<void> _open(BuildContext context, UserMenuSection section) async {
+  Future<void> _open(
+    BuildContext context,
+    UserMenuSection section,
+    String siteUrl,
+    String host,
+  ) async {
     final action = await showShellSheet<UserMenuAction>(
       context: context,
       title: section.label,
@@ -587,7 +625,8 @@ class _SectionList extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       builder: (nestedContext) => _SectionBody(
         section: section,
-        instance: instance,
+        siteUrl: siteUrl,
+        host: host,
         showHeader: false,
         onDismiss: () =>
             Navigator.of(nestedContext).pop(UserMenuAction.dismiss),
@@ -601,40 +640,74 @@ class _SectionList extends StatelessWidget {
     // The sheet the section was opened from is still underneath, and both of
     // them are now in the way: of the topic that was opened, or of the account
     // that is about to stop existing.
-    final controller = ShellScope.of(context);
+    final controller = ShellScope.read(context);
     Navigator.of(context).pop();
 
     if (action == UserMenuAction.disconnect) {
-      await controller.disconnectCurrentInstance();
+      controller.disconnectInstance(siteUrl).ignore();
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
-    final user = instance.user;
-    final sections = userMenuSections(controller.totalsFor(instance));
+  Widget build(BuildContext context) => ShellSelector<_SectionListSnapshot>(
+    select: (controller) {
+      final instance = controller.instances
+          .where((instance) => instance.url == siteUrl)
+          .firstOrNull;
+      return (
+        controller: controller,
+        siteUrl: instance?.url,
+        host: instance?.host,
+        user: instance?.user,
+      );
+    },
+    builder: (context, state, _) {
+      final controller = state.controller;
+      final currentSiteUrl = state.siteUrl;
+      final host = state.host;
+      if (currentSiteUrl == null || host == null) {
+        return UserMenuMessage(
+          text: controller.loaded ? 'This site is no longer available.' : null,
+        );
+      }
+      final theme = Theme.of(context);
+      final user = state.user;
+      if (user == null) {
+        return const UserMenuMessage(
+          text: 'This account is no longer connected.',
+        );
+      }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (user != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Text(
-              '@${user.username} · ${instance.host}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+      return ListenableBuilder(
+        listenable: controller.accountActivity.totalsListenable,
+        builder: (context, _) {
+          final sections = userMenuSections(
+            controller.accountActivity.totalsFor(currentSiteUrl),
+          );
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text(
+                  '@${user.username} · $host',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
-            ),
-          ),
-        for (final section in sections)
-          _SectionTile(section: section, onTap: () => _open(context, section)),
-      ],
-    );
-  }
+              for (final section in sections)
+                _SectionTile(
+                  section: section,
+                  onTap: () => _open(context, section, currentSiteUrl, host),
+                ),
+            ],
+          );
+        },
+      );
+    },
+  );
 }
 
 class _SectionTile extends StatelessWidget {

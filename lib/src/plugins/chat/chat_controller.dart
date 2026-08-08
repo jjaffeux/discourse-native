@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/scheduler.dart';
 
-import '../../data/authenticator.dart';
-import '../../data/discourse_api.dart';
+import '../../data/api_credentials.dart';
+import '../../data/discourse_api_contracts.dart';
+import '../../data/site_lifecycle.dart';
 import '../../data/store.dart';
+import '../../foundation/frame_safe_notifier.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
 
@@ -116,37 +117,60 @@ class ChatStreamState {
     lastReadOnOpen: lastReadOnOpen,
     error: clearError ? null : (error ?? this.error),
   );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChatStreamState &&
+          listEquals(other.messageIds, messageIds) &&
+          other.loading == loading &&
+          other.loadingOlder == loadingOlder &&
+          other.loadingNewer == loadingNewer &&
+          other.canLoadMorePast == canLoadMorePast &&
+          other.canLoadMoreFuture == canLoadMoreFuture &&
+          other.fetchedOnce == fetchedOnce &&
+          other.fetches == fetches &&
+          other.lastReadOnOpen == lastReadOnOpen &&
+          other.error == error;
+
+  @override
+  int get hashCode => Object.hash(
+    Object.hashAll(messageIds),
+    loading,
+    loadingOlder,
+    loadingNewer,
+    canLoadMorePast,
+    canLoadMoreFuture,
+    fetchedOnce,
+    fetches,
+    lastReadOnOpen,
+    error,
+  );
 }
 
 /// Which channels a site has, and which messages are in the one on screen.
 ///
 /// Its own notifier rather than more state on `ShellController`, the way
-/// `ReactionsController` and `UpdateController` are — though for a weaker
-/// reason than theirs, and the difference is worth stating. A reactor list is
-/// an *overlay*, orthogonal to whatever is on screen, so it must not redraw the
-/// world. A channel list is navigation chrome and a message list is the main
-/// region: the same class of state as the shell's own feeds and totals, both of
-/// which already go through `ShellController._notify`. So this class is
-/// separate for tidiness and testability, and the shell forwards its
-/// notifications rather than proxying its state.
-///
-/// The escape hatch, for when step 2 puts live tracking on these rows at a few
-/// messages a second: split the counts into a notifier of their own and stop
-/// forwarding *that* one, leaving the sidebar rows to listen for themselves.
+/// `ReactionsController` and `UpdateController` are. The sidebar navigation and
+/// active channel listen directly; individual messages use their store refs.
+/// Chat traffic therefore redraws the regions it can change without notifying
+/// every shell dependent.
 ///
 /// Only the *asking* and the *ordering* live here. The channels and the
 /// messages go in the [Store] under their own ids, so the sidebar row and the
 /// screen it opens are drawing one record rather than two copies.
-class ChatController extends ChangeNotifier {
+class ChatController extends FrameSafeNotifier {
   ChatController({
     required this.api,
-    required this.authenticator,
+    required this.credentials,
     required this.store,
-  });
+    SiteLifecycle? lifecycle,
+  }) : lifecycle = lifecycle ?? SiteLifecycle();
 
-  final DiscourseApi api;
-  final Authenticator authenticator;
+  final ChatApi api;
+  final ApiCredentialReader credentials;
   final Store store;
+  final SiteLifecycle lifecycle;
 
   /// How many messages to ask for. The site caps it at 50 and Discourse's own
   /// client sends exactly that.
@@ -166,15 +190,6 @@ class ChatController extends ChangeNotifier {
   final Map<String, String> _errors = {};
   final Map<String, int> _attempts = {};
 
-  /// Bumped per site on [forget], so a fetch in flight when a site was
-  /// disconnected can tell on arrival that the store it fetched for has been
-  /// emptied since, and put nothing back into it.
-  final Map<String, int> _siteEpochs = {};
-
-  int _siteEpoch(String siteUrl) => _siteEpochs[siteUrl] ?? 0;
-
-  bool _disposed = false;
-
   /// Channel ids in the order the sidebar draws them. The channels themselves
   /// are in the [Store]; these two lists are the orderings, which no record
   /// holds.
@@ -183,6 +198,16 @@ class ChatController extends ChangeNotifier {
 
   /// One channel's stream, keyed `'$siteUrl~$channelId'`.
   final Map<String, ChatStreamState> _streams = {};
+  final Map<String, FrameSafeValueNotifier<ChatStreamState>> _streamRefs = {};
+  final Map<String, Object> _streamGenerations = {};
+  final Map<String, Object> _pageRequests = {};
+  final Map<
+    String,
+    ({String siteUrl, int channelId, int messageId, SiteLease lease})
+  >
+  _queuedReadReceipts = {};
+  final Map<String, Future<void>> _readReceiptTasks = {};
+  final Map<String, Object> _readReceiptRuns = {};
 
   static String _channelsKey(String siteUrl) => '$siteUrl~channels';
   static String _streamKey(String siteUrl, int id) => '$siteUrl~$id';
@@ -201,7 +226,8 @@ class ChatController extends ChangeNotifier {
       _resolve(siteUrl, _directIds[siteUrl]);
 
   List<ChatChannel> _resolve(String siteUrl, List<int>? ids) => [
-    for (final id in ids ?? const <int>[]) ?store.read<ChatChannel>(siteUrl, id),
+    for (final id in ids ?? const <int>[])
+      ?store.read<ChatChannel>(siteUrl, id),
   ];
 
   ChatChannel? channel(String siteUrl, int channelId) =>
@@ -217,6 +243,22 @@ class ChatController extends ChangeNotifier {
 
   ChatStreamState stream(String siteUrl, int channelId) =>
       _streams[_streamKey(siteUrl, channelId)] ?? const ChatStreamState();
+
+  ValueListenable<ChatStreamState> streamListenable(
+    String siteUrl,
+    int channelId,
+  ) {
+    final key = _streamKey(siteUrl, channelId);
+    return _streamRefs.putIfAbsent(
+      key,
+      () => FrameSafeValueNotifier(_streams[key] ?? const ChatStreamState()),
+    );
+  }
+
+  void _setStream(String key, ChatStreamState stream) {
+    _streams[key] = stream;
+    _streamRefs[key]?.value = stream;
+  }
 
   /// The messages of one channel, oldest first, as far as they are held.
   List<ChatMessage> messages(String siteUrl, int channelId) => [
@@ -245,7 +287,7 @@ class ChatController extends ChangeNotifier {
     if ((_attempts[key] ?? 0) >= maxChannelAttempts) return;
     if (!_loading.add(key)) return;
 
-    final epoch = _siteEpoch(siteUrl);
+    final lease = lifecycle.capture(siteUrl);
     _attempts[key] = (_attempts[key] ?? 0) + 1;
 
     try {
@@ -254,25 +296,30 @@ class ChatController extends ChangeNotifier {
       // stranded in `_loading` for the life of the app.
       final channels = await api.chatChannels(
         siteUrl: siteUrl,
-        apiKey: await authenticator.apiKeyFor(siteUrl),
-        clientId: await authenticator.clientId(),
+        apiKey: await credentials.apiKeyFor(siteUrl),
+        clientId: await credentials.clientId(),
       );
-      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
-
-      store.putAll(siteUrl, channels.public);
-      store.putAll(siteUrl, channels.direct);
-      _publicIds[siteUrl] = [for (final c in channels.public) c.id];
-      _directIds[siteUrl] = [for (final c in channels.direct) c.id];
-      _errors.remove(key);
-      // A site that answered once has proved it can, so a later failure gets
-      // its attempts back rather than inheriting the ones spent getting here.
-      _attempts.remove(key);
+      if (isDisposed) return;
+      lease.commit(() {
+        store.putAll(siteUrl, channels.public);
+        store.putAll(siteUrl, channels.direct);
+        _publicIds[siteUrl] = [for (final c in channels.public) c.id];
+        _directIds[siteUrl] = [for (final c in channels.direct) c.id];
+        _errors.remove(key);
+        _attempts.remove(key);
+      });
     } catch (_) {
-      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
-      _errors[key] = 'Could not load this site’s chat channels.';
+      if (isDisposed) return;
+      lease.commit(() {
+        _errors[key] = 'Could not load this site’s chat channels.';
+      });
     } finally {
-      _loading.remove(key);
-      _notify();
+      if (!isDisposed) {
+        lease.commit(() {
+          _loading.remove(key);
+          notifySafely();
+        });
+      }
     }
   }
 
@@ -323,15 +370,23 @@ class ChatController extends ChangeNotifier {
     final key = _streamKey(siteUrl, channelId);
     if (!_loading.add(key)) return;
 
-    final epoch = _siteEpoch(siteUrl);
+    final lease = lifecycle.capture(siteUrl);
+    final generation = Object();
+    _streamGenerations[key] = generation;
+    _pageRequests.remove(_olderKey(siteUrl, channelId));
+    _pageRequests.remove(_newerKey(siteUrl, channelId));
     final held = stream(siteUrl, channelId);
-    _streams[key] = held.copyWith(
-      // Only a stream with nothing in it gets to show a spinner in place of
-      // content; a re-open refreshes underneath what is already there.
-      loading: held.messageIds.isEmpty,
-      clearError: true,
+    _setStream(
+      key,
+      held.copyWith(
+        // Only a stream with nothing in it gets to show a spinner in place of
+        // content; a re-open refreshes underneath what is already there.
+        loading: held.messageIds.isEmpty,
+        loadingOlder: false,
+        loadingNewer: false,
+        clearError: true,
+      ),
     );
-    _notify();
 
     try {
       final page = await api.chatMessages(
@@ -339,43 +394,54 @@ class ChatController extends ChangeNotifier {
         channelId: channelId,
         fromLastRead: fromLastRead,
         pageSize: pageSize,
-        apiKey: await authenticator.apiKeyFor(siteUrl),
-        clientId: await authenticator.clientId(),
+        apiKey: await credentials.apiKeyFor(siteUrl),
+        clientId: await credentials.clientId(),
       );
-      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
-
-      store.putAll(siteUrl, page.messages);
-      _streams[key] = ChatStreamState(
-        messageIds: _sortedIds(siteUrl, page.messages),
-        canLoadMorePast: page.canLoadMorePast,
-        canLoadMoreFuture: page.canLoadMoreFuture,
-        fetchedOnce: true,
-        // Bumped off whatever was held rather than off the new state, so the
-        // view can tell this window from the one it was drawing. See
-        // [ChatStreamState.fetches].
-        fetches: held.fetches + 1,
-        // Taken here, once, because this is the moment the stream is replaced
-        // and both the divider and the anchor belong to the stream. See
-        // [ChatStreamState.lastReadOnOpen].
-        lastReadOnOpen: channel(siteUrl, channelId)?.membership
-            .lastReadMessageId,
-      );
+      if (isDisposed) return;
+      lease.commit(() {
+        if (!identical(_streamGenerations[key], generation)) return;
+        store.putAll(siteUrl, page.messages);
+        _setStream(
+          key,
+          ChatStreamState(
+            messageIds: _sortedIds(siteUrl, page.messages),
+            canLoadMorePast: page.canLoadMorePast,
+            canLoadMoreFuture: page.canLoadMoreFuture,
+            fetchedOnce: true,
+            fetches: held.fetches + 1,
+            lastReadOnOpen: channel(
+              siteUrl,
+              channelId,
+            )?.membership.lastReadMessageId,
+          ),
+        );
+      });
     } catch (_) {
-      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
-      // Messages already on screen are better than an error where they were:
-      // they were true a moment ago, and the next open asks again.
-      final current = _streams[key] ?? const ChatStreamState();
-      _streams[key] = current.copyWith(
-        fetchedOnce: true,
-        error: current.messageIds.isEmpty
-            ? 'Could not load this channel.'
-            : null,
-      );
+      if (isDisposed) return;
+      lease.commit(() {
+        if (!identical(_streamGenerations[key], generation)) return;
+        final current = _streams[key] ?? const ChatStreamState();
+        _setStream(
+          key,
+          current.copyWith(
+            fetchedOnce: true,
+            error: current.messageIds.isEmpty
+                ? 'Could not load this channel.'
+                : null,
+          ),
+        );
+      });
     } finally {
-      final current = _streams[key];
-      if (current != null) _streams[key] = current.copyWith(loading: false);
-      _loading.remove(key);
-      _notify();
+      if (!isDisposed) {
+        lease.commit(() {
+          if (!identical(_streamGenerations[key], generation)) return;
+          final current = _streams[key];
+          if (current != null && current.loading) {
+            _setStream(key, current.copyWith(loading: false));
+          }
+          _loading.remove(key);
+        });
+      }
     }
   }
 
@@ -392,11 +458,13 @@ class ChatController extends ChangeNotifier {
     if (!held.canLoadMorePast || before == null) return;
 
     final guard = _olderKey(siteUrl, channelId);
-    if (_loading.contains(key) || !_loading.add(guard)) return;
+    if (_loading.contains(key) || _pageRequests.containsKey(guard)) return;
 
-    final epoch = _siteEpoch(siteUrl);
-    _streams[key] = held.copyWith(loadingOlder: true);
-    _notify();
+    final lease = lifecycle.capture(siteUrl);
+    final generation = _streamGenerations.putIfAbsent(key, Object.new);
+    final request = Object();
+    _pageRequests[guard] = request;
+    _setStream(key, held.copyWith(loadingOlder: true));
 
     try {
       final page = await api.chatMessages(
@@ -404,39 +472,51 @@ class ChatController extends ChangeNotifier {
         channelId: channelId,
         before: before,
         pageSize: pageSize,
-        apiKey: await authenticator.apiKeyFor(siteUrl),
-        clientId: await authenticator.clientId(),
+        apiKey: await credentials.apiKeyFor(siteUrl),
+        clientId: await credentials.clientId(),
       );
-      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
+      if (isDisposed) return;
+      lease.commit(() {
+        if (!identical(_streamGenerations[key], generation) ||
+            !identical(_pageRequests[guard], request)) {
+          return;
+        }
+        store.putAll(siteUrl, page.messages);
+        final current = _streams[key] ?? const ChatStreamState();
+        final merged = _sortedIds(
+          siteUrl,
+          page.messages,
+          held: current.messageIds,
+        );
 
-      store.putAll(siteUrl, page.messages);
-      // Re-read rather than closing over what was held before the request: a
-      // re-open may have replaced the stream while this was away, and writing
-      // back the captured copy would undo it.
-      final current = _streams[key] ?? const ChatStreamState();
-      final merged = _sortedIds(siteUrl, page.messages, held: current.messageIds);
-
-      _streams[key] = current.copyWith(
-        messageIds: merged,
-        // "The page brought nothing new" overrides whatever the site said.
-        // Without it a cursor the site keeps answering the same page for spins
-        // the fill-pane fallback forever. Safe because the stream is contiguous
-        // — every id a past page returns is strictly below the oldest held one,
-        // so it is new by construction. Revisit if step 2 adds jump-to-message,
-        // which can leave a gap a page legitimately lands inside.
-        canLoadMorePast:
-            merged.length > current.messageIds.length && page.canLoadMorePast,
-        fetchedOnce: true,
-      );
+        _setStream(
+          key,
+          current.copyWith(
+            messageIds: merged,
+            canLoadMorePast:
+                merged.length > current.messageIds.length &&
+                page.canLoadMorePast,
+            fetchedOnce: true,
+          ),
+        );
+      });
     } catch (_) {
-      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
       // History that would not load is not worth an error state: what is on
       // screen is still true, and scrolling up again asks again.
     } finally {
-      final current = _streams[key];
-      if (current != null) _streams[key] = current.copyWith(loadingOlder: false);
-      _loading.remove(guard);
-      _notify();
+      if (!isDisposed) {
+        lease.commit(() {
+          if (!identical(_streamGenerations[key], generation) ||
+              !identical(_pageRequests[guard], request)) {
+            return;
+          }
+          final current = _streams[key];
+          if (current != null) {
+            _setStream(key, current.copyWith(loadingOlder: false));
+          }
+          _pageRequests.remove(guard);
+        });
+      }
     }
   }
 
@@ -457,11 +537,13 @@ class ChatController extends ChangeNotifier {
     if (!held.canLoadMoreFuture || after == null) return;
 
     final guard = _newerKey(siteUrl, channelId);
-    if (_loading.contains(key) || !_loading.add(guard)) return;
+    if (_loading.contains(key) || _pageRequests.containsKey(guard)) return;
 
-    final epoch = _siteEpoch(siteUrl);
-    _streams[key] = held.copyWith(loadingNewer: true);
-    _notify();
+    final lease = lifecycle.capture(siteUrl);
+    final generation = _streamGenerations.putIfAbsent(key, Object.new);
+    final request = Object();
+    _pageRequests[guard] = request;
+    _setStream(key, held.copyWith(loadingNewer: true));
 
     try {
       final page = await api.chatMessages(
@@ -469,34 +551,51 @@ class ChatController extends ChangeNotifier {
         channelId: channelId,
         after: after,
         pageSize: pageSize,
-        apiKey: await authenticator.apiKeyFor(siteUrl),
-        clientId: await authenticator.clientId(),
+        apiKey: await credentials.apiKeyFor(siteUrl),
+        clientId: await credentials.clientId(),
       );
-      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
+      if (isDisposed) return;
+      lease.commit(() {
+        if (!identical(_streamGenerations[key], generation) ||
+            !identical(_pageRequests[guard], request)) {
+          return;
+        }
+        store.putAll(siteUrl, page.messages);
+        final current = _streams[key] ?? const ChatStreamState();
+        final merged = _sortedIds(
+          siteUrl,
+          page.messages,
+          held: current.messageIds,
+        );
 
-      store.putAll(siteUrl, page.messages);
-      final current = _streams[key] ?? const ChatStreamState();
-      final merged = _sortedIds(
-        siteUrl,
-        page.messages,
-        held: current.messageIds,
-      );
-
-      _streams[key] = current.copyWith(
-        messageIds: merged,
-        canLoadMoreFuture:
-            merged.length > current.messageIds.length && page.canLoadMoreFuture,
-        fetchedOnce: true,
-      );
+        _setStream(
+          key,
+          current.copyWith(
+            messageIds: merged,
+            canLoadMoreFuture:
+                merged.length > current.messageIds.length &&
+                page.canLoadMoreFuture,
+            fetchedOnce: true,
+          ),
+        );
+      });
     } catch (_) {
-      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
       // Same as [loadOlder]: what is on screen is still true, and scrolling
       // down again asks again.
     } finally {
-      final current = _streams[key];
-      if (current != null) _streams[key] = current.copyWith(loadingNewer: false);
-      _loading.remove(guard);
-      _notify();
+      if (!isDisposed) {
+        lease.commit(() {
+          if (!identical(_streamGenerations[key], generation) ||
+              !identical(_pageRequests[guard], request)) {
+            return;
+          }
+          final current = _streams[key];
+          if (current != null) {
+            _setStream(key, current.copyWith(loadingNewer: false));
+          }
+          _pageRequests.remove(guard);
+        });
+      }
     }
   }
 
@@ -512,21 +611,22 @@ class ChatController extends ChangeNotifier {
   /// site is the one keeping score: the next fetch of the channel list brings
   /// its answer, which corrects anything this got wrong. Putting a badge back
   /// under a reader who has visibly read the messages would be the worse lie.
-  Future<void> markRead(String siteUrl, int channelId, int messageId) async {
+  Future<void> markRead(String siteUrl, int channelId, int messageId) {
+    if (isDisposed) return Future.value();
     final held = channel(siteUrl, channelId);
-    if (held == null) return;
+    if (held == null) return Future.value();
+    final lease = lifecycle.capture(siteUrl);
 
     // Only a followed channel has a membership row to move. The site is blunt
     // about the rest — `find_for_user(following: true)` misses, and the answer
     // is a 404 — and this app only ever draws followed channels anyway.
-    if (!held.membership.following) return;
+    if (!held.membership.following) return Future.value();
 
     // Never backwards, which is both the site's rule and the reader's: paging
-    // into the past must not undo what they have already seen. This is also
-    // the whole of the de-duplication, and enough of it — the second call for
-    // a message already recorded is the common one, and it stops here.
+    // into the past must not undo what they have already seen. This also
+    // de-duplicates the common second viewport tick for the same message.
     final lastRead = held.membership.lastReadMessageId;
-    if (lastRead != null && lastRead >= messageId) return;
+    if (lastRead != null && lastRead >= messageId) return Future.value();
 
     // Both halves are load-bearing since the stream can be anchored behind the
     // present: the reader is caught up only if this is the last message held
@@ -543,24 +643,81 @@ class ChatController extends ChangeNotifier {
       channelId,
       (current) => current.withLastRead(messageId, caughtUp: caughtUp),
     );
-    _notify();
+    notifySafely();
 
-    try {
-      final apiKey = await authenticator.apiKeyFor(siteUrl);
-      // A channel on screen belongs to a connected site, so this is the
-      // unsigned-macOS-keychain case rather than a reader without a key. The
-      // guess stands; nothing else can be done with it.
-      if (apiKey == null) return;
+    return _queueReadReceipt(
+      siteUrl: siteUrl,
+      channelId: channelId,
+      messageId: messageId,
+      lease: lease,
+    );
+  }
 
-      await api.markChatChannelRead(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        channelId: channelId,
-        messageId: messageId,
-        clientId: await authenticator.clientId(),
-      );
-    } catch (_) {
-      // See above: there is nobody to tell, and nothing to put back.
+  Future<void> _queueReadReceipt({
+    required String siteUrl,
+    required int channelId,
+    required int messageId,
+    required SiteLease lease,
+  }) {
+    final key = _streamKey(siteUrl, channelId);
+    // Only one write per channel runs at once. While it does, every viewport
+    // tick supersedes the previous queued position: sending an intermediate
+    // read marker has no value once the reader is already farther ahead.
+    _queuedReadReceipts[key] = (
+      siteUrl: siteUrl,
+      channelId: channelId,
+      messageId: messageId,
+      lease: lease,
+    );
+
+    final running = _readReceiptTasks[key];
+    if (running != null) return running;
+
+    final run = Object();
+    _readReceiptRuns[key] = run;
+    final task = _drainReadReceipts(key, run);
+    _readReceiptTasks[key] = task;
+    return task;
+  }
+
+  Future<void> _drainReadReceipts(String key, Object run) async {
+    while (true) {
+      // Forgetting a site removes this run synchronously. Without checking
+      // before the dequeue, its next loop could steal a receipt queued by a
+      // new account session using the same site and channel key.
+      if (!identical(_readReceiptRuns[key], run)) return;
+      final receipt = _queuedReadReceipts.remove(key);
+      if (receipt == null) {
+        // Cleared in the same synchronous turn that observed an empty queue,
+        // so a new caller cannot attach work to a task that has already ended.
+        // Identity keeps an invalidated old session from clearing a new run.
+        if (identical(_readReceiptRuns[key], run)) {
+          _readReceiptRuns.remove(key);
+          final _ = _readReceiptTasks.remove(key);
+        }
+        return;
+      }
+      try {
+        final apiKey = await credentials.apiKeyFor(receipt.siteUrl);
+        if (isDisposed || !receipt.lease.isCurrent) continue;
+        // A channel on screen belongs to a connected site, so this is the
+        // unsigned-macOS-keychain case rather than a reader without a key. The
+        // guess stands; nothing else can be done with it.
+        if (apiKey == null) continue;
+
+        final clientId = await credentials.clientId();
+        if (isDisposed || !receipt.lease.isCurrent) continue;
+        await api.markChatChannelRead(
+          siteUrl: receipt.siteUrl,
+          apiKey: apiKey,
+          channelId: receipt.channelId,
+          messageId: receipt.messageId,
+          clientId: clientId,
+        );
+      } catch (_) {
+        // There is nobody to tell, and nothing to put back. A newer queued
+        // position must still be attempted after this one fails.
+      }
     }
   }
 
@@ -575,9 +732,27 @@ class ChatController extends ChangeNotifier {
     _errors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _attempts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _streams.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _streamGenerations.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _pageRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _queuedReadReceipts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _readReceiptTasks.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _readReceiptRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    final forgottenRefs = <FrameSafeValueNotifier<ChatStreamState>>[];
+    _streamRefs.removeWhere((key, ref) {
+      if (!key.startsWith('$siteUrl~')) return false;
+      forgottenRefs.add(ref);
+      return true;
+    });
+    // Detach before notifying. A listener can synchronously look up a stream,
+    // and that new session must receive a new ref rather than putting the old
+    // account's notifier back into this map. The detached ref is not disposed:
+    // a widget may still be listening during the frame that removes it.
+    for (final ref in forgottenRefs) {
+      ref.value = const ChatStreamState();
+    }
     _publicIds.remove(siteUrl);
     _directIds.remove(siteUrl);
-    _siteEpochs[siteUrl] = _siteEpoch(siteUrl) + 1;
+    notifySafely();
   }
 
   /// Union by id, ordered by `(createdAt, id)`.
@@ -605,8 +780,7 @@ class ChatController extends ChangeNotifier {
         if (store.read<ChatMessage>(siteUrl, id) case final message?)
           id: message.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
       for (final message in arrived)
-        message.id:
-            message.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+        message.id: message.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
     };
 
     return dates.keys.toList()..sort((a, b) {
@@ -615,34 +789,15 @@ class ChatController extends ChangeNotifier {
     });
   }
 
-  /// Unlike `ReactionsController`, this one *is* reached from a scroll handler:
-  /// [loadOlder] is called from a scroll notification and from an `itemBuilder`.
-  /// A viewport correcting an overshoot starts a scroll from inside its own
-  /// `performLayout`, so a notification raised on that path would mark the tree
-  /// dirty mid-frame, which is an error rather than a rebuild. Same deferral
-  /// `ShellController._notify` makes, and for the same reason.
-  bool _notifyScheduled = false;
-
-  void _notify() {
-    if (_disposed) return;
-
-    if (SchedulerBinding.instance.schedulerPhase ==
-        SchedulerPhase.persistentCallbacks) {
-      if (_notifyScheduled) return;
-      _notifyScheduled = true;
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        _notifyScheduled = false;
-        if (!_disposed) notifyListeners();
-      });
-      return;
-    }
-
-    notifyListeners();
-  }
-
   @override
   void dispose() {
-    _disposed = true;
+    _queuedReadReceipts.clear();
+    _readReceiptTasks.clear();
+    _readReceiptRuns.clear();
+    for (final ref in _streamRefs.values) {
+      ref.dispose();
+    }
+    _streamRefs.clear();
     super.dispose();
   }
 }

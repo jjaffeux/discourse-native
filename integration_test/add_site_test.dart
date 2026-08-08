@@ -1,8 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:integration_test/integration_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -13,6 +8,10 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Exercises the add-a-site flow on a real device against the real network,
 /// which is the one seam the unit tests cannot cover: real HTTP, real

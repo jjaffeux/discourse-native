@@ -18,6 +18,12 @@ void main() {
       expect(jsonInt(true), 0);
       expect(jsonInt(const <String, dynamic>{}), 0);
     });
+
+    test('answers non-finite numbers with zero', () {
+      expect(jsonInt(double.nan), 0);
+      expect(jsonInt(double.infinity), 0);
+      expect(jsonInt(double.negativeInfinity), 0);
+    });
   });
 
   group('jsonIntOrNull', () {
@@ -26,6 +32,29 @@ void main() {
       expect(jsonIntOrNull('7'), 7);
       expect(jsonIntOrNull('not a number'), isNull);
       expect(jsonIntOrNull(null), isNull);
+      expect(jsonIntOrNull(double.nan), isNull);
+    });
+  });
+
+  group('JSON shapes', () {
+    test('reads strings without coercing other values', () {
+      expect(jsonString('  text  '), '  text  ');
+      expect(jsonString(7), '');
+      expect(jsonString(null, fallback: 'fallback'), 'fallback');
+    });
+
+    test('defaults wrong collection shapes and skips malformed entries', () {
+      expect(jsonObject(null), isEmpty);
+      expect(jsonObject(const {'id': 1}), {'id': 1});
+      expect(jsonArray('not a list'), isEmpty);
+      expect(
+        jsonObjects(const [
+          {'id': 1},
+          'not an object',
+          {'id': 2},
+        ]).map((entry) => entry['id']),
+        [1, 2],
+      );
     });
   });
 
@@ -44,8 +73,10 @@ void main() {
 
   group('jsonDate', () {
     test('parses what Discourse sends', () {
-      expect(jsonDate('2026-08-07T09:30:00.000Z'),
-          DateTime.parse('2026-08-07T09:30:00.000Z'));
+      expect(
+        jsonDate('2026-08-07T09:30:00.000Z'),
+        DateTime.parse('2026-08-07T09:30:00.000Z'),
+      );
     });
 
     test('answers null for what is not a date', () {
@@ -63,8 +94,10 @@ void main() {
     test('unescapes the fancy one when it is all there is', () {
       // `fancy_title` is HTML — smart quotes as entities, ampersands escaped —
       // and widgets are owed the text behind it, not the entities.
-      expect(jsonTitle(null, '&ldquo;quoted&rdquo; &amp; more'),
-          '\u201cquoted\u201d & more');
+      expect(
+        jsonTitle(null, '&ldquo;quoted&rdquo; &amp; more'),
+        '\u201cquoted\u201d & more',
+      );
     });
 
     test('falls past a blank plain one', () {

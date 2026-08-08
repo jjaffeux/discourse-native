@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'external_link.dart';
 import 'shell_scope.dart';
+import 'site_url.dart';
 import 'user_card.dart';
 
 /// Opens [url] wherever it belongs.
@@ -17,14 +18,21 @@ import 'user_card.dart';
 ///
 /// Returns false only when nothing at all could handle the link, which is the
 /// shape [HtmlWidget.onTapUrl] wants.
-Future<bool> openLink(BuildContext context, String url, {String? title}) async {
-  final controller = ShellScope.maybeOf(context);
+Future<bool> openLink(
+  BuildContext context,
+  String url, {
+  String? title,
+  String? siteUrl,
+}) async {
+  final controller = ShellScope.maybeRead(context);
 
   // Everything downstream compares hosts, so resolve the site-relative hrefs
   // Discourse writes before handing the link on.
-  final target = controller?.absoluteUrl(url) ?? url;
+  final target =
+      controller?.absoluteUrl(url, siteUrl: siteUrl) ??
+      resolveSiteUrl(url, siteUrl);
 
-  if (showUserCardForUrl(context, target)) return true;
+  if (showUserCardForUrl(context, target, siteUrl: siteUrl)) return true;
   if (controller?.openTopicUrl(target) ?? false) return true;
   if (controller?.openListUrl(target, title: title) ?? false) return true;
   return openExternalLink(target);

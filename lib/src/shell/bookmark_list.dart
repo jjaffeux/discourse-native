@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/bookmark.dart';
@@ -6,6 +8,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'notification_list.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu_message.dart';
 
@@ -20,8 +23,14 @@ import 'user_menu_message.dart';
 /// Draws itself as a column rather than a list of its own, so that it scrolls
 /// inside whichever of the menu's two forms is showing it — a popover with a
 /// fixed height, or a sheet that is one long scroll.
-class BookmarkSection extends StatefulWidget {
-  const BookmarkSection({super.key, required this.onOpened});
+class BookmarkSection extends StatelessWidget {
+  const BookmarkSection({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+  });
+
+  final String siteUrl;
 
   /// Closes the menu, once a tap has led somewhere. Not called for the few
   /// rows that point at nothing reachable, which would otherwise close the menu
@@ -29,20 +38,85 @@ class BookmarkSection extends StatefulWidget {
   final VoidCallback onOpened;
 
   @override
-  State<BookmarkSection> createState() => _BookmarkSectionState();
+  Widget build(BuildContext context) =>
+      ShellSelector<({ShellController controller, bool loaded})>(
+        select: (controller) =>
+            (controller: controller, loaded: controller.loaded),
+        builder: (context, shell, _) => _BookmarkSectionView(
+          controller: shell.controller,
+          controllerLoaded: shell.loaded,
+          siteUrl: siteUrl,
+          onOpened: onOpened,
+        ),
+      );
 }
 
-class _BookmarkSectionState extends State<BookmarkSection> {
-  bool _requested = false;
+class _BookmarkSectionView extends StatefulWidget {
+  const _BookmarkSectionView({
+    required this.controller,
+    required this.controllerLoaded,
+    required this.siteUrl,
+    required this.onOpened,
+  });
+
+  final ShellController controller;
+  final bool controllerLoaded;
+  final String siteUrl;
+  final VoidCallback onOpened;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // The controller is an inherited notifier, so this runs again on every
-    // change it publishes; the fetch is wanted once, when the tab appears.
-    if (_requested) return;
-    _requested = true;
-    ShellScope.of(context).loadBookmarks();
+  State<_BookmarkSectionView> createState() => _BookmarkSectionViewState();
+}
+
+class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
+  (ShellController, String)? _requestIdentity;
+  (ShellController, String)? _loadedRequestIdentity;
+  bool _requestInFlight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _request();
+  }
+
+  @override
+  void didUpdateWidget(_BookmarkSectionView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller) ||
+        oldWidget.siteUrl != widget.siteUrl ||
+        (!oldWidget.controllerLoaded && widget.controllerLoaded)) {
+      _request();
+    }
+  }
+
+  void _request() {
+    final controller = widget.controller;
+    final siteUrl = widget.siteUrl;
+    final identity = (controller, siteUrl);
+    if (_loadedRequestIdentity == identity && controller.loaded) return;
+    if (_requestIdentity == identity && _requestInFlight) return;
+    _requestIdentity = identity;
+    _requestInFlight = true;
+    unawaited(_load(controller, siteUrl, identity));
+  }
+
+  Future<void> _load(
+    ShellController controller,
+    String siteUrl,
+    (ShellController, String) identity,
+  ) async {
+    try {
+      await controller.load();
+      if (!mounted || _requestIdentity != identity || !controller.loaded) {
+        return;
+      }
+      _loadedRequestIdentity = identity;
+      await controller.loadBookmarks(siteUrl);
+    } catch (_) {
+      return;
+    } finally {
+      if (_requestIdentity == identity) _requestInFlight = false;
+    }
   }
 
   /// Follows a bookmark to whatever it was put on.
@@ -54,8 +128,8 @@ class _BookmarkSectionState extends State<BookmarkSection> {
   Future<void> _open(String? path) async {
     if (path == null) return;
 
-    final controller = ShellScope.of(context);
-    final absolute = controller.absoluteUrl(path);
+    final controller = widget.controller;
+    final absolute = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
     if (controller.openTopicUrl(absolute)) {
       widget.onOpened();
       return;
@@ -66,37 +140,48 @@ class _BookmarkSectionState extends State<BookmarkSection> {
   /// Marks a reminder read, then follows it — the same act as tapping it in
   /// the notifications tab.
   Future<void> _openReminder(DiscourseNotification reminder) async {
-    ShellScope.of(context).readNotification(reminder);
+    ShellScope.read(context).readNotification(widget.siteUrl, reminder);
     await _open(reminder.path);
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.of(context);
-    final feed = controller.bookmarks;
+    final controller = widget.controller;
+    return ListenableBuilder(
+      listenable: controller.accountActivity.bookmarksListenable,
+      builder: (context, _) {
+        final feed = controller.bookmarksFor(widget.siteUrl);
 
-    if (feed.error case final error?) {
-      return UserMenuMessage(text: error, onRetry: controller.loadBookmarks);
-    }
-    // Not loaded and not loading is the moment before the fetch this widget
-    // asked for has started, which is a wait like any other.
-    if (!feed.loaded) return const UserMenuMessage(text: null);
-    if (feed.isEmpty) {
-      return const UserMenuMessage(text: 'Nothing bookmarked yet.');
-    }
+        if (feed.error case final error?) {
+          return UserMenuMessage(
+            text: error,
+            onRetry: () => controller.loadBookmarks(widget.siteUrl),
+          );
+        }
+        // Not loaded and not loading is the moment before the fetch this widget
+        // asked for has started, which is a wait like any other.
+        if (!feed.loaded) return const UserMenuMessage(text: null);
+        if (feed.isEmpty) {
+          return const UserMenuMessage(text: 'Nothing bookmarked yet.');
+        }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final reminder in feed.reminders)
-          NotificationRow(
-            notification: reminder,
-            onTap: () => _openReminder(reminder),
-          ),
-        for (final bookmark in feed.bookmarks)
-          BookmarkRow(bookmark: bookmark, onTap: () => _open(bookmark.path)),
-      ],
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final reminder in feed.reminders)
+              NotificationRow(
+                notification: reminder,
+                onTap: () => _openReminder(reminder),
+              ),
+            for (final bookmark in feed.bookmarks)
+              BookmarkRow(
+                bookmark: bookmark,
+                onTap: () => _open(bookmark.path),
+              ),
+          ],
+        );
+      },
     );
   }
 }

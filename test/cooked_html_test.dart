@@ -1,31 +1,30 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:discourse_native/src/data/emoji_cache.dart';
+import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/code_block.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
+import 'package:discourse_native/src/shell/hashtag.dart';
+import 'package:discourse_native/src/shell/inline_code.dart';
+import 'package:discourse_native/src/shell/mention.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-
-import 'package:discourse_native/src/data/emoji_cache.dart';
-import 'package:discourse_native/src/shell/code_block.dart';
-import 'package:discourse_native/src/shell/cooked_html.dart';
-import 'package:discourse_native/src/shell/emoji.dart';
-import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/hashtag.dart';
-import 'package:discourse_native/src/shell/inline_code.dart';
-import 'package:discourse_native/src/shell/mention.dart';
-import 'package:discourse_native/src/theme/d_icon.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_native/src/shell/shell_controller.dart';
-import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/theme/app_theme.dart';
 
 import 'support/fakes.dart';
 import 'support/finders.dart';
 
 /// Cooked HTML on its own, with no shell above it — which is how a quote or an
 /// onebox body can also be rendered, and is the case [CookedHtml] uses
-/// `ShellScope.maybeOf` for.
+/// `ShellScope.maybeRead` for.
 Future<void> pumpCooked(WidgetTester tester, String html) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -45,6 +44,7 @@ Future<ShellController> pumpCookedInShell(
   String html, {
   http.Client? emoji,
   FakeDiscourseApi? api,
+  Widget? child,
 }) async {
   EmojiCache.instance = EmojiCache(
     client: emoji ?? MockClient((_) async => http.Response('', 404)),
@@ -68,7 +68,7 @@ Future<ShellController> pumpCookedInShell(
       child: MaterialApp(
         theme: AppTheme.dark,
         home: Scaffold(
-          body: SingleChildScrollView(child: CookedHtml(html: html)),
+          body: SingleChildScrollView(child: child ?? CookedHtml(html: html)),
         ),
       ),
     ),
@@ -77,8 +77,20 @@ Future<ShellController> pumpCookedInShell(
   return controller;
 }
 
+class _CountingCookedHtml extends CookedHtml {
+  const _CountingCookedHtml({required super.html, required this.onBuild});
+
+  final VoidCallback onBuild;
+
+  @override
+  Widget build(BuildContext context) {
+    onBuild();
+    return super.build(context);
+  }
+}
+
 /// A real 1×1 transparent PNG. It has to decode, not merely look like one:
-/// [Image.memory] falls back to the shortcode when it cannot, which is the very
+/// [Image] falls back to the shortcode when it cannot, which is the very
 /// thing the emoji tests are distinguishing.
 final Uint8List onePixelPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8'
@@ -119,6 +131,29 @@ TextStyle styleOf(WidgetTester tester, String text) {
 }
 
 void main() {
+  testWidgets('unrelated shell notifications do not rebuild post HTML', (
+    tester,
+  ) async {
+    var builds = 0;
+    final controller = await pumpCookedInShell(
+      tester,
+      '<p>Already rendered</p>',
+      child: _CountingCookedHtml(
+        html: '<p>Already rendered</p>',
+        onBuild: () => builds += 1,
+      ),
+    );
+    expect(builds, 1);
+
+    // Selecting the current rail entry notifies the shell to reveal its
+    // sidebar, but neither the site nor this post changed.
+    controller.selectInstance(0);
+    await tester.pump();
+
+    expect(builds, 1);
+    expect(renderedText('Already rendered'), findsOneWidget);
+  });
+
   group('links', () {
     testWidgets('are not underlined, the way Discourse draws them', (
       tester,
@@ -193,7 +228,10 @@ void main() {
       );
 
       expect(find.text('@sAm'), findsOneWidget);
-      expect(tester.widget<MentionPill>(find.byType(MentionPill)).href, '/u/sam');
+      expect(
+        tester.widget<MentionPill>(find.byType(MentionPill)).href,
+        '/u/sam',
+      );
     });
 
     testWidgets('a group mention is a pill too', (tester) async {
@@ -210,7 +248,10 @@ void main() {
       // A span, not an anchor: nobody by that name, or nobody this reader may
       // see. Discourse does not pill it, and neither should we — a pill would
       // promise a person who is not there.
-      await pumpCooked(tester, '<p>ask <span class="mention">@nobody</span></p>');
+      await pumpCooked(
+        tester,
+        '<p>ask <span class="mention">@nobody</span></p>',
+      );
 
       expect(find.byType(MentionPill), findsNothing);
       expect(renderedText('@nobody'), findsOneWidget);

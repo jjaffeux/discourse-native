@@ -88,7 +88,7 @@ class _InstanceActionsState extends State<InstanceActions> {
   }
 
   Future<void> _confirmRemoval() async {
-    final controller = ShellScope.of(context);
+    final controller = ShellScope.read(context);
     final instance = widget.instance;
 
     final confirmed = await showDialog<bool>(
@@ -121,10 +121,17 @@ class _InstanceActionsState extends State<InstanceActions> {
       },
     );
 
-    // Nothing below touches the tree: removing the site is very often what
-    // disposes this widget, since the item it belongs to goes with it.
-    if (confirmed != true) return;
-    await controller.removeInstance(instance);
+    if (confirmed != true || !mounted) return;
+    if (!identical(ShellScope.read(context), controller)) return;
+    final removed = await controller.removeInstance(instance);
+    if (removed ||
+        !mounted ||
+        !identical(ShellScope.read(context), controller)) {
+      return;
+    }
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(content: Text("Couldn't remove ${instance.title}. Try again.")),
+    );
   }
 
   List<Widget> _items(ThemeData theme) {

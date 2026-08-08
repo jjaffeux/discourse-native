@@ -1,8 +1,7 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:integration_test/integration_test.dart';
-
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
 
 /// The keychain behaves differently per platform and only fails on a real
 /// device, so it gets its own integration test.

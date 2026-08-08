@@ -9,6 +9,26 @@ import 'package:path_provider/path_provider.dart';
 import 'app_release.dart';
 import 'updater.dart';
 
+typedef DesktopUpdateSessionFactory =
+    Future<DesktopUpdateSession> Function(UpdateChannel channel);
+
+/// The part of `DesktopUpdaterController` this adapter depends on.
+abstract interface class DesktopUpdateSession {
+  du.UpdateState get state;
+
+  Future<du.ManualUpdateCheckResult> checkForUpdates();
+
+  Future<void> downloadUpdate();
+
+  Future<void> restartApp();
+
+  void addListener(VoidCallback listener);
+
+  void removeListener(VoidCallback listener);
+
+  void dispose();
+}
+
 /// [Updater] backed by `package:desktop_updater`.
 ///
 /// The only file in this repository that may import it. Everything the library
@@ -21,7 +41,10 @@ import 'updater.dart';
 /// otherwise deliberately absent. The library's recovery store has to be
 /// durable across a process replacement, so it cannot live anywhere else.
 class DesktopUpdaterAdapter implements Updater {
-  DesktopUpdaterAdapter();
+  DesktopUpdaterAdapter({DesktopUpdateSessionFactory? createSession})
+    : _createSession = createSession ?? _createDefaultSession;
+
+  final DesktopUpdateSessionFactory _createSession;
 
   /// Which platforms this can install on, independent of whether *this* build
   /// is one it should.
@@ -44,36 +67,79 @@ class DesktopUpdaterAdapter implements Updater {
       AppRelease.isReleaseBuild &&
       AppRelease.canVerifyReleases;
 
-  /// The library binds a channel at construction, so there is one of these per
-  /// channel and switching disposes the last.
-  du.DesktopUpdaterController? _inner;
-  UpdateChannel? _innerChannel;
+  _ManagedSession? _inner;
+  _PendingSession? _pending;
 
-  Future<du.DesktopUpdaterController> _controllerFor(
+  Future<_ManagedSession> _controllerFor(UpdateChannel channel) {
+    final existing = _inner;
+    if (existing != null && existing.channel == channel) {
+      return Future.value(existing);
+    }
+
+    final pending = _pending;
+    if (pending != null && pending.channel == channel) return pending.result;
+
+    pending?.cancel();
+    _pending = null;
+    _cancelInner();
+
+    final replacement = _PendingSession(channel);
+    _pending = replacement;
+    replacement.result = _openSession(replacement);
+    return replacement.result;
+  }
+
+  Future<_ManagedSession> _openSession(_PendingSession pending) async {
+    try {
+      final creation = _createSession(
+        pending.channel,
+      ).then((controller) => _ManagedSession(pending.channel, controller));
+      unawaited(
+        creation
+            .then<void>((session) {
+              if (pending.isCancelled) session.cancel();
+            })
+            .catchError((_) {}),
+      );
+
+      final session = await Future.any([
+        creation,
+        pending.cancelled.then<_ManagedSession>(
+          (_) => throw _discardedException,
+        ),
+      ]);
+      if (pending.isCancelled) {
+        session.cancel();
+        throw _discardedException;
+      }
+
+      _inner = session;
+      return session;
+    } on UpdateException {
+      rethrow;
+    } catch (error) {
+      throw _translate(error);
+    } finally {
+      if (identical(_pending, pending)) _pending = null;
+    }
+  }
+
+  static Future<DesktopUpdateSession> _createDefaultSession(
     UpdateChannel channel,
   ) async {
-    final existing = _inner;
-    if (existing != null && _innerChannel == channel) return existing;
-
-    existing?.dispose();
-
     final support = await getApplicationSupportDirectory();
-    final controller = du.DesktopUpdaterController(
-      appArchiveUrl: Uri.parse(AppRelease.archiveUrlFor(channel)),
-      expectedPackageId: _packageId,
-      channel: channel.name,
-      trustedReleasePublicKeys: AppRelease.trustedReleaseKeys,
-      recoveryStore: _MarkerFile(
-        File('${support.path}/pending-update.json'),
+    return _PluginSession(
+      du.DesktopUpdaterController(
+        appArchiveUrl: Uri.parse(AppRelease.archiveUrlFor(channel)),
+        expectedPackageId: _packageId,
+        channel: channel.name,
+        trustedReleasePublicKeys: AppRelease.trustedReleaseKeys,
+        recoveryStore: FileUpdateRecoveryStore(
+          File('${support.path}/pending-update.json'),
+        ),
+        skipInitialVersionCheck: true,
       ),
-      // We decide when to look. Left on, the constructor starts a check of its
-      // own and the first result the UI sees is one nobody asked for.
-      skipInitialVersionCheck: true,
     );
-
-    _inner = controller;
-    _innerChannel = channel;
-    return controller;
   }
 
   /// Must match APPLICATION_ID in linux/CMakeLists.txt: the library refuses a
@@ -83,13 +149,18 @@ class DesktopUpdaterAdapter implements Updater {
 
   @override
   Future<UpdateRelease?> check({required UpdateChannel channel}) async {
-    final controller = await _controllerFor(channel);
+    final session = await _controllerFor(channel);
 
     final du.ManualUpdateCheckResult result;
     try {
-      result = await controller.checkForUpdates();
+      result = await _untilCancelled(
+        session,
+        session.controller.checkForUpdates(),
+      );
+    } on UpdateException {
+      rethrow;
     } catch (e) {
-      throw UpdateException(UpdateFailure.unreachable, '$e');
+      throw _translate(e);
     }
 
     return switch (result) {
@@ -120,8 +191,10 @@ class DesktopUpdaterAdapter implements Updater {
     UpdateRelease release, {
     void Function(double fraction)? onProgress,
   }) async {
-    final controller = await _controllerFor(release.channel);
+    final session = await _controllerFor(release.channel);
+    final controller = session.controller;
     final done = Completer<void>();
+    UpdateException? terminalError;
 
     /// Completes [done] when the state is terminal, reports progress while it
     /// is not. Run on every notification and once by hand after the download
@@ -131,11 +204,14 @@ class DesktopUpdaterAdapter implements Updater {
     void observe() {
       switch (controller.state) {
         case du.UpdateDownloading(:final receivedBytes, :final totalBytes):
-          if (totalBytes > 0) onProgress?.call(receivedBytes / totalBytes);
+          if (totalBytes > 0) {
+            onProgress?.call((receivedBytes / totalBytes).clamp(0.0, 1.0));
+          }
         case du.UpdateReadyToInstall():
           if (!done.isCompleted) done.complete();
         case du.UpdateFailed(:final error):
-          if (!done.isCompleted) done.completeError(_translate(error));
+          terminalError = _translate(error);
+          if (!done.isCompleted) done.complete();
         default:
           break;
       }
@@ -143,12 +219,13 @@ class DesktopUpdaterAdapter implements Updater {
 
     controller.addListener(observe);
     try {
-      await controller.downloadUpdate();
+      await _untilCancelled(session, controller.downloadUpdate());
       // downloadUpdate returns when it has handed off, not necessarily when
       // the artifact is staged, so the terminal state is what we wait on —
       // reading it once first in case it is terminal already.
       observe();
-      await done.future;
+      await _untilCancelled(session, done.future);
+      if (terminalError case final error?) throw error;
     } on UpdateException {
       rethrow;
     } catch (e) {
@@ -160,13 +237,15 @@ class DesktopUpdaterAdapter implements Updater {
 
   @override
   Future<void> installAndRestart() async {
-    final controller = _inner;
-    if (controller == null) {
+    final session = _inner;
+    if (session == null) {
       throw const UpdateException(UpdateFailure.install, 'nothing staged');
     }
 
     try {
-      await controller.restartApp();
+      await _untilCancelled(session, session.controller.restartApp());
+    } on UpdateException {
+      rethrow;
     } catch (e) {
       throw _translate(e);
     }
@@ -179,12 +258,44 @@ class DesktopUpdaterAdapter implements Updater {
     // and an internal cleanup pass. Dropping the controller is what we can do
     // — the next check builds a fresh one bound to the new channel, and the
     // library's own cleanup reclaims the stale staging directory.
-    _inner?.dispose();
-    _inner = null;
-    _innerChannel = null;
+    _pending?.cancel();
+    _pending = null;
+    _cancelInner();
   }
 
-  UpdateRelease _release(du.ReleaseDescriptor descriptor, UpdateChannel channel) {
+  void _cancelInner() {
+    final inner = _inner;
+    _inner = null;
+    try {
+      inner?.cancel();
+    } on UpdateException {
+      rethrow;
+    } catch (error) {
+      throw _translate(error);
+    }
+  }
+
+  static Future<T> _untilCancelled<T>(
+    _ManagedSession session,
+    Future<T> operation,
+  ) async {
+    final result = await Future.any([
+      operation,
+      session.cancelled.then<T>((_) => throw _discardedException),
+    ]);
+    if (session.isCancelled) throw _discardedException;
+    return result;
+  }
+
+  static const _discardedException = UpdateException(
+    UpdateFailure.install,
+    'update session discarded',
+  );
+
+  UpdateRelease _release(
+    du.ReleaseDescriptor descriptor,
+    UpdateChannel channel,
+  ) {
     return UpdateRelease(
       version: descriptor.version,
       channel: channel,
@@ -231,6 +342,67 @@ class DesktopUpdaterAdapter implements Updater {
   }
 }
 
+final class _PluginSession implements DesktopUpdateSession {
+  _PluginSession(this._controller);
+
+  final du.DesktopUpdaterController _controller;
+
+  @override
+  du.UpdateState get state => _controller.state;
+
+  @override
+  void addListener(VoidCallback listener) => _controller.addListener(listener);
+
+  @override
+  Future<du.ManualUpdateCheckResult> checkForUpdates() =>
+      _controller.checkForUpdates();
+
+  @override
+  Future<void> downloadUpdate() => _controller.downloadUpdate();
+
+  @override
+  void removeListener(VoidCallback listener) =>
+      _controller.removeListener(listener);
+
+  @override
+  Future<void> restartApp() => _controller.restartApp();
+
+  @override
+  void dispose() => _controller.dispose();
+}
+
+final class _ManagedSession {
+  _ManagedSession(this.channel, this.controller);
+
+  final UpdateChannel channel;
+  final DesktopUpdateSession controller;
+  final Completer<void> _cancelled = Completer<void>();
+
+  Future<void> get cancelled => _cancelled.future;
+  bool get isCancelled => _cancelled.isCompleted;
+
+  void cancel() {
+    if (_cancelled.isCompleted) return;
+    _cancelled.complete();
+    controller.dispose();
+  }
+}
+
+final class _PendingSession {
+  _PendingSession(this.channel);
+
+  final UpdateChannel channel;
+  final Completer<void> _cancelled = Completer<void>();
+  late Future<_ManagedSession> result;
+
+  Future<void> get cancelled => _cancelled.future;
+  bool get isCancelled => _cancelled.isCompleted;
+
+  void cancel() {
+    if (!_cancelled.isCompleted) _cancelled.complete();
+  }
+}
+
 /// The pending-install marker, as a JSON file replaced atomically.
 ///
 /// Modelled on the reference implementation in the package's own example. The
@@ -242,8 +414,8 @@ class DesktopUpdaterAdapter implements Updater {
 /// Not shared_preferences, despite that being the house answer for small
 /// persistent state, because the marker has to survive the binary being
 /// swapped underneath it and preferences give no ordering guarantee at all.
-final class _MarkerFile implements du.UpdateRecoveryStore {
-  _MarkerFile(this.file);
+final class FileUpdateRecoveryStore implements du.UpdateRecoveryStore {
+  FileUpdateRecoveryStore(this.file);
 
   final File file;
 
@@ -271,14 +443,44 @@ final class _MarkerFile implements du.UpdateRecoveryStore {
     du.UpdateInstallRecoveryMarker marker,
   ) async {
     await file.parent.create(recursive: true);
-    final pending = File('${file.path}.pending');
-    await pending.writeAsString(jsonEncode(_toJson(marker)), flush: true);
-    await pending.rename(file.path);
+    final pending = _pendingFile;
+    try {
+      await pending.writeAsString(jsonEncode(_toJson(marker)), flush: true);
+      await pending.rename(file.path);
+    } finally {
+      await _deleteIfPresent(pending);
+    }
   }
 
   @override
   Future<void> clearPendingInstall({required String channel}) async {
-    if (await file.exists()) await file.delete();
+    await _clearMarker(file, channel);
+    await _clearMarker(_pendingFile, channel);
+  }
+
+  File get _pendingFile => File('${file.path}.pending');
+
+  static Future<void> _clearMarker(File markerFile, String channel) async {
+    if (!await markerFile.exists()) return;
+
+    try {
+      final decoded = jsonDecode(await markerFile.readAsString());
+      if (decoded is Map<String, dynamic>) {
+        final marker = _fromJson(decoded);
+        if (marker.channel != channel) return;
+      }
+    } catch (_) {
+      // A corrupt marker has no channel owner and cannot be recovered.
+    }
+    await _deleteIfPresent(markerFile);
+  }
+
+  static Future<void> _deleteIfPresent(File target) async {
+    try {
+      if (await target.exists()) await target.delete();
+    } on FileSystemException {
+      if (await target.exists()) rethrow;
+    }
   }
 
   static Map<String, Object?> _toJson(du.UpdateInstallRecoveryMarker m) => {

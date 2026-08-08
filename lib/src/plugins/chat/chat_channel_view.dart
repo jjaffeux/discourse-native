@@ -14,7 +14,7 @@ import 'chat_message_tile.dart';
 import 'chat_stream.dart';
 
 /// One channel's messages, newest at the bottom.
-class ChatChannelView extends StatefulWidget {
+class ChatChannelView extends StatelessWidget {
   const ChatChannelView({super.key, required this.channelId});
 
   final int channelId;
@@ -37,56 +37,73 @@ class ChatChannelView extends StatefulWidget {
   static const double _loadNewerThreshold = 50;
 
   @override
-  State<ChatChannelView> createState() => _ChatChannelViewState();
+  Widget build(BuildContext context) {
+    return ShellSelector<_ChatSource?>(
+      select: (controller) {
+        final siteUrl = controller.currentInstance?.url;
+        return siteUrl == null
+            ? null
+            : (siteUrl: siteUrl, chat: controller.chat);
+      },
+      builder: (context, source, _) => source == null
+          ? const SizedBox.shrink()
+          : _ChatChannelBody(
+              key: ValueKey((source.siteUrl, channelId, source.chat)),
+              siteUrl: source.siteUrl,
+              channelId: channelId,
+              chat: source.chat,
+            ),
+    );
+  }
 }
 
-class _ChatChannelViewState extends State<ChatChannelView> {
-  /// Which `(site, channel)` this has already asked for, so that the ask
-  /// happens once per channel rather than once per notification.
-  String? _opened;
+typedef _ChatSource = ({String siteUrl, ChatController chat});
 
-  /// The fetch is kicked from here rather than from `initState`, which cannot
-  /// reach the shell: `ShellScope.of` registers an inherited dependency, and
-  /// doing that before `initState` has returned is an error.
-  ///
-  /// The cost is that this runs again on every shell notification — including
-  /// the one the fetch itself raises — so the guard below is what stops it
-  /// asking forever, and it has to be here rather than in the controller: an
-  /// open is *meant* to re-ask when the reader comes back to a channel.
+/// One mounted visit to one channel on one site.
+///
+/// Keeping the open request here makes returning to a channel refresh it while
+/// a shell notification that changes neither site nor controller leaves the
+/// message tree alone.
+class _ChatChannelBody extends StatefulWidget {
+  const _ChatChannelBody({
+    super.key,
+    required this.siteUrl,
+    required this.channelId,
+    required this.chat,
+  });
+
+  final String siteUrl;
+  final int channelId;
+  final ChatController chat;
+
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _openIfNeeded();
-  }
+  State<_ChatChannelBody> createState() => _ChatChannelBodyState();
+}
+
+class _ChatChannelBodyState extends State<_ChatChannelBody> {
+  List<int>? _projectedMessageIds;
+  int? _projectedLastRead;
+  List<ChatMessage> _messages = const [];
+  List<ChatStreamItem> _items = const [];
 
   @override
-  void didUpdateWidget(ChatChannelView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.channelId != widget.channelId) _opened = null;
-    _openIfNeeded();
-  }
-
-  void _openIfNeeded() {
-    final controller = ShellScope.of(context);
-    final siteUrl = controller.currentInstance?.url;
-    if (siteUrl == null) return;
-
-    final token = '$siteUrl~${widget.channelId}';
-    if (_opened == token) return;
-    _opened = token;
-
-    controller.chat.openChannel(siteUrl, widget.channelId);
+  void initState() {
+    super.initState();
+    unawaited(widget.chat.openChannel(widget.siteUrl, widget.channelId));
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.of(context);
-    final siteUrl = controller.currentInstance?.url;
-    if (siteUrl == null) return const SizedBox.shrink();
+    return ValueListenableBuilder<ChatStreamState>(
+      valueListenable: widget.chat.streamListenable(
+        widget.siteUrl,
+        widget.channelId,
+      ),
+      builder: (context, stream, _) => _buildChannel(stream),
+    );
+  }
 
-    final chat = controller.chat;
-    final stream = chat.stream(siteUrl, widget.channelId);
-
+  Widget _buildChannel(ChatStreamState stream) {
     if (stream.loading && stream.messageIds.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -100,21 +117,36 @@ class _ChatChannelViewState extends State<ChatChannelView> {
       );
     }
 
-    final messages = chat.messages(siteUrl, widget.channelId);
+    _syncProjection(stream);
+
+    return _Stream(
+      siteUrl: widget.siteUrl,
+      channelId: widget.channelId,
+      items: _items,
+      messages: _messages,
+      stream: stream,
+    );
+  }
+
+  void _syncProjection(ChatStreamState stream) {
+    // Paging toggles loading flags before and after each request while keeping
+    // the same immutable id list. Deriving every grouped row again for those
+    // flag-only states turns each page into repeated work over the whole
+    // history accumulated so far.
+    if (identical(_projectedMessageIds, stream.messageIds) &&
+        _projectedLastRead == stream.lastReadOnOpen) {
+      return;
+    }
+
+    _projectedMessageIds = stream.messageIds;
+    _projectedLastRead = stream.lastReadOnOpen;
+    _messages = widget.chat.messages(widget.siteUrl, widget.channelId);
     // The stream's snapshot rather than the membership's live answer: reading
     // moves the membership under the reader, and a divider that followed it
     // would slide away as they scrolled. See `ChatStreamState.lastReadOnOpen`.
-    final items = buildChatStream(
-      messages,
+    _items = buildChatStream(
+      _messages,
       lastReadMessageId: stream.lastReadOnOpen,
-    );
-
-    return _Stream(
-      siteUrl: siteUrl,
-      channelId: widget.channelId,
-      items: items,
-      messages: messages,
-      stream: stream,
     );
   }
 }
@@ -170,9 +202,9 @@ class _StreamState extends State<_Stream> {
   ({String siteUrl, int channelId, int messageId})? _seen;
 
   /// The window this has already positioned itself against, as
-  /// `(channel, ChatStreamState.fetches)`. Null means the next frame has to
-  /// land somewhere deliberate.
-  ({int channelId, int fetches})? _anchored;
+  /// `(site, channel, ChatStreamState.fetches)`. Null means the next frame has
+  /// to land somewhere deliberate.
+  ({String siteUrl, int channelId, int fetches})? _anchored;
 
   /// Whether the reader has scrolled away from the present, which is what puts
   /// the jump-to-now button on screen. Held rather than read from the position
@@ -201,13 +233,20 @@ class _StreamState extends State<_Stream> {
   void didUpdateWidget(_Stream oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    final changedStream =
+        oldWidget.channelId != widget.channelId ||
+        oldWidget.siteUrl != widget.siteUrl;
+
     // Leaving a channel is Discourse's `teardown`, which credits the reader
     // before it goes. The pending id already names the channel being left, so
     // it is the old one that gets the write.
-    if (oldWidget.channelId != widget.channelId ||
-        oldWidget.siteUrl != widget.siteUrl) {
+    if (changedStream) {
       _creditReaderNow();
       _seen = null;
+      _anchored = null;
+      _filled = null;
+      _anchoring = false;
+      _awayFromPresent = false;
     }
 
     _holdStillThroughForwardPage(oldWidget);
@@ -225,6 +264,10 @@ class _StreamState extends State<_Stream> {
   /// it remembers the last message it held and scrolls back to it with
   /// `position: "end"` once the page is in.
   void _holdStillThroughForwardPage(_Stream oldWidget) {
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.channelId != widget.channelId) {
+      return;
+    }
     final was = oldWidget.stream.newestId;
     // A replaced window is not a page, and positions itself: see
     // [_anchorIfFresh].
@@ -234,11 +277,18 @@ class _StreamState extends State<_Stream> {
     final row = _rowOf(was);
     if (row == null) return;
 
+    final identity = (siteUrl: widget.siteUrl, channelId: widget.channelId);
+    final stream = widget.stream;
     _anchoring = true;
     // After the frame that lays the new rows out, because until then they have
     // no heights for the jump to measure against.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted ||
+          widget.siteUrl != identity.siteUrl ||
+          widget.channelId != identity.channelId ||
+          !identical(widget.stream, stream)) {
+        return;
+      }
       // At the bottom edge, so the messages that just arrived sit below it
       // waiting to be read rather than above it already missed.
       _landOn(row, alignment: 0);
@@ -261,13 +311,18 @@ class _StreamState extends State<_Stream> {
   /// still read it. This is Discourse's `didResizePane`, arriving by the one
   /// route Flutter offers — the frame in which the list has extents to report.
   void _scheduleLook() {
+    if (_lookScheduled) return;
+    _lookScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _lookScheduled = false;
       if (!mounted) return;
       if (_anchorIfFresh()) return;
       _fillTowardsPresent();
       _noteWhatIsOnScreen();
     });
   }
+
+  bool _lookScheduled = false;
 
   /// Asks for the page towards the present when the window is too short to
   /// scroll to it.
@@ -288,14 +343,19 @@ class _StreamState extends State<_Stream> {
     // and earns another ask; one that fails moves nothing, and this runs after
     // every frame — which against a site that is refusing would be a request
     // per frame for as long as the channel is open.
-    final asked = (fetches: stream.fetches, newestId: stream.newestId);
+    final asked = (
+      siteUrl: widget.siteUrl,
+      channelId: widget.channelId,
+      fetches: stream.fetches,
+      newestId: stream.newestId,
+    );
     if (_filled == asked) return;
     _filled = asked;
 
-    _chat?.loadNewer(widget.siteUrl, widget.channelId);
+    unawaited(_chat?.loadNewer(widget.siteUrl, widget.channelId));
   }
 
-  ({int fetches, int? newestId})? _filled;
+  ({String siteUrl, int channelId, int fetches, int? newestId})? _filled;
 
   /// Lands the reader where a freshly fetched window says they should be, and
   /// answers whether it did.
@@ -308,7 +368,11 @@ class _StreamState extends State<_Stream> {
   /// jump to the present lands at the bottom.
   bool _anchorIfFresh() {
     final stream = widget.stream;
-    final token = (channelId: widget.channelId, fetches: stream.fetches);
+    final token = (
+      siteUrl: widget.siteUrl,
+      channelId: widget.channelId,
+      fetches: stream.fetches,
+    );
     if (_anchored == token) return false;
     if (!_list.isAttached || !_scroll.hasClients) return false;
     _anchored = token;
@@ -441,7 +505,7 @@ class _StreamState extends State<_Stream> {
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
 
-    _chat?.markRead(seen.siteUrl, seen.channelId, seen.messageId);
+    unawaited(_chat?.markRead(seen.siteUrl, seen.channelId, seen.messageId));
   }
 
   /// How many rows sit before the newest item. The forward-paging spinner,
@@ -534,7 +598,7 @@ class _StreamState extends State<_Stream> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _chat = ShellScope.of(context).chat;
+    _chat = ShellScope.read(context).chat;
   }
 
   @override
@@ -543,7 +607,7 @@ class _StreamState extends State<_Stream> {
     final channelId = widget.channelId;
     final items = widget.items;
     final stream = widget.stream;
-    final chat = ShellScope.of(context).chat;
+    final chat = ShellScope.read(context).chat;
 
     // Messages by id, so a row can reach its own record without walking the
     // list. Built once per build rather than per row.
@@ -556,6 +620,8 @@ class _StreamState extends State<_Stream> {
       children: [
         NotificationListener<ScrollNotification>(
           onNotification: (notification) {
+            if (notification.depth != 0) return false;
+
             // Under `reverse: true` the scroll axis points at the past: offset
             // 0 is the newest message and `maxScrollExtent` is the oldest one
             // held. So `extentAfter` — which in a topic means "posts further
@@ -564,16 +630,14 @@ class _StreamState extends State<_Stream> {
             // write backwards, hence the note.
             if (notification.metrics.extentAfter <
                 ChatChannelView._loadOlderThreshold) {
-              chat.loadOlder(siteUrl, channelId);
+              unawaited(chat.loadOlder(siteUrl, channelId));
             }
             if (notification.metrics.extentBefore <
                 ChatChannelView._loadNewerThreshold) {
-              chat.loadNewer(siteUrl, channelId);
+              unawaited(chat.loadNewer(siteUrl, channelId));
             }
-            if (notification.depth == 0) {
-              _noteWhatIsOnScreen();
-              _syncAwayFromPresent();
-            }
+            _noteWhatIsOnScreen();
+            _syncAwayFromPresent();
             return false;
           },
           // Reversed rather than reversing the list, which is what makes
@@ -618,9 +682,7 @@ class _StreamState extends State<_Stream> {
               // too short to scroll sits at offset zero, which *is* the end, so
               // the forward case is covered without a net of its own.
               if (row == lastRow && stream.canLoadMorePast) {
-                WidgetsBinding.instance.addPostFrameCallback(
-                  (_) => chat.loadOlder(siteUrl, channelId),
-                );
+                _scheduleOlderPage(chat, siteUrl, channelId, stream);
               }
 
               return switch (_itemAt(row)) {
@@ -649,6 +711,31 @@ class _StreamState extends State<_Stream> {
       ],
     );
   }
+
+  void _scheduleOlderPage(
+    ChatController chat,
+    String siteUrl,
+    int channelId,
+    ChatStreamState stream,
+  ) {
+    if (identical(_olderPageScheduledFor, stream)) return;
+    _olderPageScheduledFor = stream;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (identical(_olderPageScheduledFor, stream)) {
+        _olderPageScheduledFor = null;
+      }
+      if (!mounted ||
+          widget.siteUrl != siteUrl ||
+          widget.channelId != channelId ||
+          !identical(widget.stream, stream) ||
+          !identical(chat.stream(siteUrl, channelId), stream)) {
+        return;
+      }
+      unawaited(chat.loadOlder(siteUrl, channelId));
+    });
+  }
+
+  ChatStreamState? _olderPageScheduledFor;
 
   /// Takes the reader back to the newest message.
   ///
@@ -771,9 +858,7 @@ class _NewDivider extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
       child: Row(
         children: [
-          Expanded(
-            child: Divider(height: 1, color: theme.colorScheme.error),
-          ),
+          Expanded(child: Divider(height: 1, color: theme.colorScheme.error)),
           Padding(
             padding: const EdgeInsets.only(left: 8),
             child: Text(

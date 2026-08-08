@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:discourse_native/src/data/app_release.dart';
 import 'package:discourse_native/src/data/desktop_updater_adapter.dart';
 import 'package:discourse_native/src/data/updater.dart';
-import 'package:flutter/foundation.dart';
 import 'package:discourse_native/src/shell/update_controller.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -13,11 +13,8 @@ UpdateRelease release(
   String version, {
   UpdateChannel channel = UpdateChannel.stable,
   bool isDowngrade = false,
-}) => UpdateRelease(
-  version: version,
-  channel: channel,
-  isDowngrade: isDowngrade,
-);
+}) =>
+    UpdateRelease(version: version, channel: channel, isDowngrade: isDowngrade);
 
 UpdateController controllerWith({
   FakeUpdater? updater,
@@ -26,6 +23,19 @@ UpdateController controllerWith({
   updater: updater ?? FakeUpdater(isSupported: true),
   store: store ?? FakeUpdateStore(),
 );
+
+final class _FailingUpdateStore extends FakeUpdateStore {
+  @override
+  Future<UpdateChannel?> readChannel() async => throw StateError('read failed');
+
+  @override
+  Future<void> writeChannel(UpdateChannel channel) async =>
+      throw StateError('write failed');
+
+  @override
+  Future<void> writeLastChecked(DateTime at) async =>
+      throw StateError('write failed');
+}
 
 void main() {
   // UpdateController defers a notification raised mid-frame to a post-frame
@@ -153,6 +163,23 @@ void main() {
       expect(controller.status, UpdateStatus.idle);
     });
 
+    test('preference failures leave update actions usable', () async {
+      final updater = FakeUpdater(isSupported: true);
+      final controller = controllerWith(
+        updater: updater,
+        store: _FailingUpdateStore(),
+      );
+
+      await controller.load();
+      expect(controller.status, UpdateStatus.idle);
+      expect(updater.checkCount, 0);
+
+      await controller.setChannel(UpdateChannel.canary);
+      expect(controller.channel, UpdateChannel.canary);
+      expect(controller.status, UpdateStatus.upToDate);
+      expect(updater.checkCount, 1);
+    });
+
     test('a check that finds nothing reports up to date', () async {
       final controller = controllerWith(
         updater: FakeUpdater(isSupported: true, releases: const {}),
@@ -207,25 +234,28 @@ void main() {
       expect(controller.status, isNot(UpdateStatus.failed));
     });
 
-    test('a quiet check that fails leaves an offer already made alone', () async {
-      final updater = FakeUpdater(
-        isSupported: true,
-        releases: {UpdateChannel.stable: release('1.4.0')},
-      );
-      final controller = controllerWith(updater: updater);
-
-      await controller.check();
-      expect(controller.status, UpdateStatus.available);
-
-      final failing = controllerWith(
-        updater: FakeUpdater(
+    test(
+      'a quiet check that fails leaves an offer already made alone',
+      () async {
+        final updater = FakeUpdater(
           isSupported: true,
-          checkFailure: const UpdateException(UpdateFailure.unreachable),
-        ),
-      );
-      await failing.check(silent: true);
-      expect(failing.status, UpdateStatus.idle);
-    });
+          releases: {UpdateChannel.stable: release('1.4.0')},
+        );
+        final controller = controllerWith(updater: updater);
+
+        await controller.check();
+        expect(controller.status, UpdateStatus.available);
+
+        final failing = controllerWith(
+          updater: FakeUpdater(
+            isSupported: true,
+            checkFailure: const UpdateException(UpdateFailure.unreachable),
+          ),
+        );
+        await failing.check(silent: true);
+        expect(failing.status, UpdateStatus.idle);
+      },
+    );
 
     test('a check while one is running is ignored', () async {
       final gate = Completer<void>();
@@ -400,6 +430,53 @@ void main() {
       expect(controller.available?.version, '1.5.0-canary.2');
     });
 
+    test('a late check cannot replace the new channel result', () async {
+      final stableGate = Completer<void>();
+      final updater = FakeUpdater(
+        isSupported: true,
+        releases: {
+          UpdateChannel.stable: release('1.4.0'),
+          UpdateChannel.canary: release(
+            '1.5.0-canary.2',
+            channel: UpdateChannel.canary,
+          ),
+        },
+        checkGates: {UpdateChannel.stable: stableGate},
+      );
+      final controller = controllerWith(updater: updater);
+
+      final oldCheck = controller.check();
+      await controller.setChannel(UpdateChannel.canary);
+
+      expect(controller.available?.version, '1.5.0-canary.2');
+      stableGate.complete();
+      await oldCheck;
+
+      expect(controller.channel, UpdateChannel.canary);
+      expect(controller.available?.version, '1.5.0-canary.2');
+      expect(controller.status, UpdateStatus.available);
+    });
+
+    test('rapid channel changes persist the final selection last', () async {
+      final canaryWrite = Completer<void>();
+      final store = FakeUpdateStore(
+        channelWriteGates: {UpdateChannel.canary: canaryWrite},
+      );
+      final updater = FakeUpdater(isSupported: true);
+      final controller = controllerWith(updater: updater, store: store);
+
+      final selectingCanary = controller.setChannel(UpdateChannel.canary);
+      final selectingStable = controller.setChannel(UpdateChannel.stable);
+      canaryWrite.complete();
+      await Future.wait([selectingCanary, selectingStable]);
+
+      expect(controller.channel, UpdateChannel.stable);
+      expect(store.rawChannel, UpdateChannel.stable.name);
+      expect(store.writeCount, 2);
+      expect(updater.discardCount, 1);
+      expect(updater.lastCheckedChannel, UpdateChannel.stable);
+    });
+
     test('switching to the channel already on does nothing', () async {
       final updater = FakeUpdater(isSupported: true);
       final controller = controllerWith(updater: updater);
@@ -408,6 +485,22 @@ void main() {
 
       expect(updater.discardCount, 0);
       expect(updater.checkCount, 0);
+    });
+
+    test('disposing releases the updater session', () async {
+      final updater = FakeUpdater(isSupported: true);
+      final controller = controllerWith(updater: updater);
+
+      controller.dispose();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(updater.discardCount, 1);
+    });
+
+    test('an updater cleanup failure cannot break controller disposal', () {
+      final controller = controllerWith(updater: _ThrowingDiscardUpdater());
+
+      expect(controller.dispose, returnsNormally);
     });
 
     test('progress is reported as it arrives', () async {
@@ -432,24 +525,34 @@ void main() {
       expect(seen, contains(0.75));
     });
 
-    test('progress that has not moved a whole percent does not notify', () async {
-      var notifications = 0;
-      final controller = controllerWith(
-        updater: FakeUpdater(
-          isSupported: true,
-          releases: {UpdateChannel.stable: release('1.4.0')},
-          // Three reports inside the same percent, then one that moves it.
-          progressSteps: const [0.5001, 0.5002, 0.5003, 0.75],
-        ),
-      );
+    test(
+      'progress that has not moved a whole percent does not notify',
+      () async {
+        var notifications = 0;
+        final controller = controllerWith(
+          updater: FakeUpdater(
+            isSupported: true,
+            releases: {UpdateChannel.stable: release('1.4.0')},
+            // Three reports inside the same percent, then one that moves it.
+            progressSteps: const [0.5001, 0.5002, 0.5003, 0.75],
+          ),
+        );
 
-      await controller.check();
-      controller.addListener(() => notifications++);
-      await controller.download();
+        await controller.check();
+        controller.addListener(() => notifications++);
+        await controller.download();
 
-      // Entering downloading, one move to 50%, one to 75%, one to
-      // readyToInstall. The three redundant reports are dropped.
-      expect(notifications, lessThanOrEqualTo(4));
-    });
+        // Entering downloading, one move to 50%, one to 75%, one to
+        // readyToInstall. The three redundant reports are dropped.
+        expect(notifications, lessThanOrEqualTo(4));
+      },
+    );
   });
+}
+
+final class _ThrowingDiscardUpdater extends FakeUpdater {
+  _ThrowingDiscardUpdater() : super(isSupported: true);
+
+  @override
+  Future<void> discard() => throw StateError('cleanup failed');
 }

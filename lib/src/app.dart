@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'data/authenticator.dart';
@@ -42,33 +44,99 @@ class DiscourseApp extends StatefulWidget {
 
 class _DiscourseAppState extends State<DiscourseApp>
     with WidgetsBindingObserver {
-  late final ShellController _controller = ShellController(
-    instanceStore: widget.store ?? InstanceStore(),
-    api: widget.api ?? DiscourseApi(),
-    authenticator: widget.authenticator ?? Authenticator(),
-    drafts: widget.drafts ?? DraftStore(),
-    trackers: widget.trackers ?? SiteTracker.new,
+  late InstanceStore _store;
+  late DiscourseApi _api;
+  late Authenticator _authenticator;
+  late DraftStore _drafts;
+  late SiteTrackerFactory _trackers;
+  late Updater _updater;
+  late UpdateStore _updateStore;
+  late ShellController _controller;
+  late bool _foreground;
+
+  ShellController _createController() => ShellController(
+    instanceStore: _store,
+    api: _api,
+    authenticator: _authenticator,
+    drafts: _drafts,
+    trackers: _trackers,
     // Nothing updates itself. Linux ships as a .deb from an apt repository, so
     // updates arrive with `apt upgrade` the way the rest of the system does,
     // and the app is installed under /usr where it could not replace itself
     // anyway. [DesktopUpdaterAdapter] is kept for the platform that gets an
     // in-app updater next; wiring it here would put an update button in front
     // of users whose package manager already owns the job.
-    updater: widget.updater ?? const UnsupportedUpdater(),
-    updateStore: widget.updateStore ?? UpdateStore(),
+    updater: _updater,
+    updateStore: _updateStore,
+    ownsApi: false,
   );
 
   @override
   void initState() {
     super.initState();
+    _store = widget.store ?? InstanceStore();
+    _api = widget.api ?? DiscourseApi();
+    _authenticator = widget.authenticator ?? Authenticator();
+    _drafts = widget.drafts ?? DraftStore();
+    _trackers = widget.trackers ?? SiteTracker.new;
+    _updater = widget.updater ?? const UnsupportedUpdater();
+    _updateStore = widget.updateStore ?? UpdateStore();
+    _foreground = _isForeground(WidgetsBinding.instance.lifecycleState);
+    _controller = _createController()..setForeground(_foreground);
     WidgetsBinding.instance.addObserver(this);
-    _controller.load();
+    unawaited(_controller.load());
+  }
+
+  @override
+  void didUpdateWidget(DiscourseApp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_dependenciesChanged(oldWidget)) return;
+
+    _controller.dispose();
+    _updateDependencies(oldWidget);
+    _controller = _createController()..setForeground(_foreground);
+    unawaited(_controller.load());
+  }
+
+  bool _dependenciesChanged(DiscourseApp oldWidget) =>
+      !identical(widget.store, oldWidget.store) ||
+      !identical(widget.api, oldWidget.api) ||
+      !identical(widget.authenticator, oldWidget.authenticator) ||
+      !identical(widget.drafts, oldWidget.drafts) ||
+      !identical(widget.trackers, oldWidget.trackers) ||
+      !identical(widget.updater, oldWidget.updater) ||
+      !identical(widget.updateStore, oldWidget.updateStore);
+
+  void _updateDependencies(DiscourseApp oldWidget) {
+    if (!identical(widget.store, oldWidget.store)) {
+      _store = widget.store ?? InstanceStore();
+    }
+    if (!identical(widget.api, oldWidget.api)) {
+      _api.close();
+      _api = widget.api ?? DiscourseApi();
+    }
+    if (!identical(widget.authenticator, oldWidget.authenticator)) {
+      _authenticator = widget.authenticator ?? Authenticator();
+    }
+    if (!identical(widget.drafts, oldWidget.drafts)) {
+      _drafts = widget.drafts ?? DraftStore();
+    }
+    if (!identical(widget.trackers, oldWidget.trackers)) {
+      _trackers = widget.trackers ?? SiteTracker.new;
+    }
+    if (!identical(widget.updater, oldWidget.updater)) {
+      _updater = widget.updater ?? const UnsupportedUpdater();
+    }
+    if (!identical(widget.updateStore, oldWidget.updateStore)) {
+      _updateStore = widget.updateStore ?? UpdateStore();
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
+    _api.close();
     super.dispose();
   }
 
@@ -82,12 +150,14 @@ class _DiscourseAppState extends State<DiscourseApp>
   /// looking at.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _controller.setForeground(
-      state != AppLifecycleState.hidden &&
-          state != AppLifecycleState.paused &&
-          state != AppLifecycleState.detached,
-    );
+    _foreground = _isForeground(state);
+    _controller.setForeground(_foreground);
   }
+
+  static bool _isForeground(AppLifecycleState? state) =>
+      state != AppLifecycleState.hidden &&
+      state != AppLifecycleState.paused &&
+      state != AppLifecycleState.detached;
 
   @override
   Widget build(BuildContext context) {

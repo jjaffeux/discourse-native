@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../models/content_route.dart';
+import '../models/topic_feed.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
+import 'composer_controller.dart';
 import 'composer_panel.dart';
+import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -24,10 +27,25 @@ class MainContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
+    return ShellSelector<_MainContentSnapshot>(
+      select: _MainContentSnapshot.from,
+      builder: (context, state, _) =>
+          _MainContentBody(layout: layout, state: state),
+    );
+  }
+}
 
-    final route = controller.currentContent;
+class _MainContentBody extends StatelessWidget {
+  const _MainContentBody({required this.layout, required this.state});
+
+  final ShellLayout layout;
+  final _MainContentSnapshot state;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final route = state.route;
     if (route == null) return ColoredBox(color: theme.shell.content);
 
     return ColoredBox(
@@ -36,12 +54,17 @@ class MainContent extends StatelessWidget {
         left: false,
         child: Column(
           children: [
-            _ContentHeader(layout: layout, route: route),
+            _ContentHeader(
+              layout: layout,
+              route: route,
+              canPop: state.canPop,
+              canReply: state.canReply,
+            ),
             Expanded(
               child: switch ((
                 route.isTopic,
                 _pluginContent(context, route),
-                controller.currentFeed,
+                state.feed,
               )) {
                 // A topic route wins over the list it was opened from.
                 (true, _, _) => const TopicView(),
@@ -56,7 +79,7 @@ class MainContent extends StatelessWidget {
             ),
             // Takes room from the stream rather than covering it, so the topic
             // stays readable while a reply is being written.
-            if (controller.visibleComposer case final composer?)
+            if (state.composer case final composer?)
               ComposerPanel(composer: composer),
           ],
         ),
@@ -80,19 +103,26 @@ Widget? _pluginContent(BuildContext context, ContentRoute route) {
 }
 
 class _ContentHeader extends StatelessWidget {
-  const _ContentHeader({required this.layout, required this.route});
+  const _ContentHeader({
+    required this.layout,
+    required this.route,
+    required this.canPop,
+    required this.canReply,
+  });
 
   final ShellLayout layout;
   final ContentRoute route;
+  final bool canPop;
+  final bool canReply;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
+    final controller = ShellScope.read(context);
 
     // On compact the main region has replaced the sidebar, so back always has
     // somewhere to go. On wider layouts it only matters inside the stack.
-    final showBack = layout.isCompact || controller.canPopContent;
+    final showBack = layout.isCompact || canPop;
 
     return Container(
       height: shellHeaderHeight,
@@ -155,7 +185,7 @@ class _ContentHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (route.isTopic && controller.canReplyHere)
+          if (route.isTopic && canReply)
             IconButton(
               onPressed: () => controller.openReply(),
               icon: const DIcon(DIcons.reply, size: 20),
@@ -181,8 +211,9 @@ class _ContentPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
-    final depth = controller.contentStack.length;
+    final controller = ShellScope.read(context);
+    final stack = controller.contentStack;
+    final depth = stack.length;
 
     return Center(
       child: ConstrainedBox(
@@ -204,7 +235,7 @@ class _ContentPlaceholder extends StatelessWidget {
             if (depth > 1) ...[
               const SizedBox(height: 4),
               Text(
-                controller.contentStack.map((r) => r.title).join('  ›  '),
+                stack.map((r) => r.title).join('  ›  '),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -230,7 +261,7 @@ class _ContentPlaceholder extends StatelessWidget {
                   label: const Text('Replace with deeper view'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: () => showShellSheet(
+                  onPressed: () => showShellSheet<void>(
                     context: context,
                     title: route.title,
                     builder: (context) => Text(
@@ -251,4 +282,52 @@ class _ContentPlaceholder extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MainContentSnapshot {
+  const _MainContentSnapshot({
+    required this.siteUrl,
+    required this.route,
+    required this.feed,
+    required this.composer,
+    required this.canPop,
+    required this.canReply,
+  });
+
+  factory _MainContentSnapshot.from(ShellController controller) =>
+      _MainContentSnapshot(
+        siteUrl: controller.currentInstance?.url,
+        route: controller.currentContent,
+        feed: controller.currentFeed,
+        composer: controller.visibleComposer,
+        canPop: controller.canPopContent,
+        canReply: controller.canReplyHere,
+      );
+
+  final String? siteUrl;
+  final ContentRoute? route;
+  final TopicFeed? feed;
+  final ComposerController? composer;
+  final bool canPop;
+  final bool canReply;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _MainContentSnapshot &&
+      siteUrl == other.siteUrl &&
+      identical(route, other.route) &&
+      identical(feed, other.feed) &&
+      identical(composer, other.composer) &&
+      canPop == other.canPop &&
+      canReply == other.canReply;
+
+  @override
+  int get hashCode => Object.hash(
+    siteUrl,
+    identityHashCode(route),
+    identityHashCode(feed),
+    identityHashCode(composer),
+    canPop,
+    canReply,
+  );
 }

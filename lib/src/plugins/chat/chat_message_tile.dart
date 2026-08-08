@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../shell/avatar_image.dart';
 import '../../shell/cooked_html.dart';
-import '../../shell/emoji.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/shell_scope.dart';
+import '../../shell/site_emoji_image.dart';
 import '../../shell/user_card.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
@@ -46,22 +46,27 @@ class ChatMessageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ChatMessage?>(
-      valueListenable: ShellScope.of(
+      valueListenable: ShellScope.read(
         context,
       ).chat.messageRef(siteUrl, messageId),
       builder: (context, message, _) {
         // Gone for good, in the frame before the stream that named it is
         // rewritten without it.
         if (message == null) return const SizedBox.shrink();
-        return _Tile(message: message, chained: chained);
+        return _Tile(siteUrl: siteUrl, message: message, chained: chained);
       },
     );
   }
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile({required this.message, required this.chained});
+  const _Tile({
+    required this.siteUrl,
+    required this.message,
+    required this.chained,
+  });
 
+  final String siteUrl;
   final ChatMessage message;
   final bool chained;
 
@@ -98,6 +103,7 @@ class _Tile extends StatelessWidget {
                           padding: const EdgeInsets.only(top: 2),
                           child: UserCardTarget(
                             username: message.author.username,
+                            siteUrl: siteUrl,
                             child: ClipOval(
                               child: SizedBox(
                                 width: 28,
@@ -135,16 +141,20 @@ class _Tile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (!chained) _Header(message: message),
+                    if (!chained) _Header(siteUrl: siteUrl, message: message),
                     if (message.cooked.isNotEmpty)
                       CookedHtml(
                         html: message.cooked,
                         textStyle: theme.textTheme.bodyMedium,
+                        siteUrl: siteUrl,
                       ),
                     if (message.uploads.isNotEmpty)
-                      ChatUploads(uploads: message.uploads),
+                      ChatUploads(siteUrl: siteUrl, uploads: message.uploads),
                     if (message.reactions.isNotEmpty)
-                      _Reactions(reactions: message.reactions),
+                      _Reactions(
+                        siteUrl: siteUrl,
+                        reactions: message.reactions,
+                      ),
                     if (message.thread case final thread?
                         when thread.replyCount > 0)
                       _ThreadRow(thread: thread),
@@ -160,8 +170,9 @@ class _Tile extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.message});
+  const _Header({required this.siteUrl, required this.message});
 
+  final String siteUrl;
   final ChatMessage message;
 
   @override
@@ -175,6 +186,7 @@ class _Header extends StatelessWidget {
           Flexible(
             child: UserCardTarget(
               username: message.author.username,
+              siteUrl: siteUrl,
               child: Text(
                 message.author.displayName,
                 maxLines: 1,
@@ -270,15 +282,14 @@ class _ReplyIndicator extends StatelessWidget {
 /// affordance that looks live and is not is worse than one that is plainly a
 /// label.
 class _Reactions extends StatelessWidget {
-  const _Reactions({required this.reactions});
+  const _Reactions({required this.siteUrl, required this.reactions});
 
+  final String siteUrl;
   final List<ChatReaction> reactions;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
-    final siteUrl = controller.currentInstance?.url ?? '';
 
     return Padding(
       padding: const EdgeInsets.only(top: 4),
@@ -299,8 +310,9 @@ class _Reactions extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  EmojiImage(
-                    url: controller.emojiUrlFor(siteUrl, reaction.emoji),
+                  SiteEmojiImage(
+                    siteUrl: siteUrl,
+                    name: reaction.emoji,
                     size: 14,
                     alt: ':${reaction.emoji}:',
                     style: theme.textTheme.labelSmall,

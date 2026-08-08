@@ -1,5 +1,3 @@
-import 'package:html/parser.dart' as html;
-
 /// The small acts of reading a Discourse payload, written once.
 ///
 /// The wire is forgiving in the ways it writes: numbers arrive as strings,
@@ -8,20 +6,41 @@ import 'package:html/parser.dart' as html;
 /// throw — a field the site did not send is a field left at its default —
 /// and these are the shapes that answer.
 
+import 'package:html/parser.dart' as html;
+
 /// Reads [value] as an int: a number, or a string that parses as one.
 /// Anything else is zero.
 int jsonInt(Object? value) => switch (value) {
-  final num n => n.toInt(),
+  final num n when n.isFinite => n.toInt(),
   final String s => int.tryParse(s) ?? 0,
   _ => 0,
 };
 
 /// Reads [value] as an int, or null when there is none.
 int? jsonIntOrNull(Object? value) => switch (value) {
-  final num n => n.toInt(),
+  final num n when n.isFinite => n.toInt(),
   final String s => int.tryParse(s),
   _ => null,
 };
+
+/// Reads [value] as a string without changing its contents.
+String jsonString(Object? value, {String fallback = ''}) =>
+    value is String ? value : fallback;
+
+/// Reads [value] as a JSON object, or an empty object for any other shape.
+Map<String, dynamic> jsonObject(Object? value) =>
+    value is Map<String, dynamic> ? value : const {};
+
+/// Reads [value] as a JSON array, or an empty array for any other shape.
+List<dynamic> jsonArray(Object? value) =>
+    value is List<dynamic> ? value : const [];
+
+/// The object entries of a JSON array, with malformed entries skipped.
+Iterable<Map<String, dynamic>> jsonObjects(Object? value) sync* {
+  for (final entry in jsonArray(value)) {
+    if (entry is Map<String, dynamic>) yield entry;
+  }
+}
 
 /// Reads [value] as a trimmed string, or null when it is absent, not a
 /// string, or blank.

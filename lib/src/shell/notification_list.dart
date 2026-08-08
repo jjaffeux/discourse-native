@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/notification.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu_message.dart';
 
@@ -160,8 +163,14 @@ class NotificationDescription {
 /// Draws itself as a column rather than a list of its own, so that it scrolls
 /// inside whichever of the menu's two forms is showing it — a popover with a
 /// fixed height, or a sheet that is one long scroll.
-class NotificationSection extends StatefulWidget {
-  const NotificationSection({super.key, required this.onOpened});
+class NotificationSection extends StatelessWidget {
+  const NotificationSection({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+  });
+
+  final String siteUrl;
 
   /// Closes the menu, once a tap has led somewhere. Not called for the few
   /// notifications that point at nothing reachable, which would otherwise
@@ -169,20 +178,86 @@ class NotificationSection extends StatefulWidget {
   final VoidCallback onOpened;
 
   @override
-  State<NotificationSection> createState() => _NotificationSectionState();
+  Widget build(BuildContext context) =>
+      ShellSelector<({ShellController controller, bool loaded})>(
+        select: (controller) =>
+            (controller: controller, loaded: controller.loaded),
+        builder: (context, shell, _) => _NotificationSectionView(
+          controller: shell.controller,
+          controllerLoaded: shell.loaded,
+          siteUrl: siteUrl,
+          onOpened: onOpened,
+        ),
+      );
 }
 
-class _NotificationSectionState extends State<NotificationSection> {
-  bool _requested = false;
+class _NotificationSectionView extends StatefulWidget {
+  const _NotificationSectionView({
+    required this.controller,
+    required this.controllerLoaded,
+    required this.siteUrl,
+    required this.onOpened,
+  });
+
+  final ShellController controller;
+  final bool controllerLoaded;
+  final String siteUrl;
+  final VoidCallback onOpened;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // The controller is an inherited notifier, so this runs again on every
-    // change it publishes; the fetch is wanted once, when the tab appears.
-    if (_requested) return;
-    _requested = true;
-    ShellScope.of(context).loadNotifications();
+  State<_NotificationSectionView> createState() =>
+      _NotificationSectionViewState();
+}
+
+class _NotificationSectionViewState extends State<_NotificationSectionView> {
+  (ShellController, String)? _requestIdentity;
+  (ShellController, String)? _loadedRequestIdentity;
+  bool _requestInFlight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _request();
+  }
+
+  @override
+  void didUpdateWidget(_NotificationSectionView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller) ||
+        oldWidget.siteUrl != widget.siteUrl ||
+        (!oldWidget.controllerLoaded && widget.controllerLoaded)) {
+      _request();
+    }
+  }
+
+  void _request() {
+    final controller = widget.controller;
+    final siteUrl = widget.siteUrl;
+    final identity = (controller, siteUrl);
+    if (_loadedRequestIdentity == identity && controller.loaded) return;
+    if (_requestIdentity == identity && _requestInFlight) return;
+    _requestIdentity = identity;
+    _requestInFlight = true;
+    unawaited(_load(controller, siteUrl, identity));
+  }
+
+  Future<void> _load(
+    ShellController controller,
+    String siteUrl,
+    (ShellController, String) identity,
+  ) async {
+    try {
+      await controller.load();
+      if (!mounted || _requestIdentity != identity || !controller.loaded) {
+        return;
+      }
+      _loadedRequestIdentity = identity;
+      await controller.loadNotifications(siteUrl);
+    } catch (_) {
+      return;
+    } finally {
+      if (_requestIdentity == identity) _requestInFlight = false;
+    }
   }
 
   /// Marks the notification read, then follows it.
@@ -192,13 +267,13 @@ class _NotificationSectionState extends State<NotificationSection> {
   /// a chat channel, the admin dashboard — is a page this app does not have,
   /// and belongs in the browser rather than nowhere.
   Future<void> _open(DiscourseNotification notification) async {
-    final controller = ShellScope.of(context);
-    controller.readNotification(notification);
+    final controller = widget.controller;
+    controller.readNotification(widget.siteUrl, notification);
 
     final path = notification.path;
     if (path == null) return;
 
-    final url = controller.absoluteUrl(path);
+    final url = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
     if (controller.openTopicUrl(url)) {
       widget.onOpened();
       return;
@@ -208,30 +283,35 @@ class _NotificationSectionState extends State<NotificationSection> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.of(context);
-    final feed = controller.notifications;
+    final controller = widget.controller;
+    return ListenableBuilder(
+      listenable: controller.accountActivity.notificationsListenable,
+      builder: (context, _) {
+        final feed = controller.notificationsFor(widget.siteUrl);
 
-    if (feed.error case final error?) {
-      return UserMenuMessage(
-        text: error,
-        onRetry: controller.loadNotifications,
-      );
-    }
-    // Not loaded and not loading is the moment before the fetch this widget
-    // asked for has started, which is a wait like any other.
-    if (!feed.loaded) return const UserMenuMessage(text: null);
-    if (feed.isEmpty) return const UserMenuMessage(text: 'Nothing new.');
+        if (feed.error case final error?) {
+          return UserMenuMessage(
+            text: error,
+            onRetry: () => controller.loadNotifications(widget.siteUrl),
+          );
+        }
+        // Not loaded and not loading is the moment before the fetch this widget
+        // asked for has started, which is a wait like any other.
+        if (!feed.loaded) return const UserMenuMessage(text: null);
+        if (feed.isEmpty) return const UserMenuMessage(text: 'Nothing new.');
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final notification in feed.notifications)
-          NotificationRow(
-            notification: notification,
-            onTap: () => _open(notification),
-          ),
-      ],
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final notification in feed.notifications)
+              NotificationRow(
+                notification: notification,
+                onTap: () => _open(notification),
+              ),
+          ],
+        );
+      },
     );
   }
 }

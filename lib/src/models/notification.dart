@@ -97,13 +97,13 @@ class DiscourseNotification {
   });
 
   factory DiscourseNotification.fromJson(Map<String, dynamic> json) {
-    final data = json['data'] as Map<String, dynamic>? ?? const {};
+    final data = jsonObject(json['data']);
     final kind = NotificationKind.fromId(jsonInt(json['notification_type']));
     final topicId = json['topic_id'] == null ? null : jsonInt(json['topic_id']);
     final postNumber = json['post_number'] == null
         ? null
         : jsonInt(json['post_number']);
-    final slug = (json['slug'] ?? '') as String;
+    final slug = jsonString(json['slug']);
 
     return DiscourseNotification(
       id: jsonInt(json['id']),
@@ -124,17 +124,17 @@ class DiscourseNotification {
       ),
       // `display_username` is who acted, and is set for every kind that has
       // an actor; the consolidated kinds carry `username` instead.
-      actor:
-          (data['display_username'] ??
-                  data['username'] ??
-                  data['original_username'])
-              as String?,
+      actor: jsonText(
+        data['display_username'] ??
+            data['username'] ??
+            data['original_username'],
+      ),
       // Consolidated kinds count what they folded together; a group summary
       // counts the inbox it is summarising.
       count: jsonInt(data['count'] ?? data['inbox_count']),
-      badgeName: data['badge_name'] as String?,
-      groupName: data['group_name'] as String?,
-      channelTitle: data['chat_channel_title'] as String?,
+      badgeName: jsonText(data['badge_name']),
+      groupName: jsonText(data['group_name']),
+      channelTitle: jsonText(data['chat_channel_title']),
     );
   }
 
@@ -165,8 +165,8 @@ class DiscourseNotification {
       return url;
     }
     if (data['group_id'] != null) {
-      final username = data['username'] as String?;
-      final group = data['group_name'] as String?;
+      final username = jsonText(data['username']);
+      final group = jsonText(data['group_name']);
       if (username != null && group != null) {
         // The group inbox lives under `/messages/group/…` — the shape
         // `groupMessageSummary` builds above, not the shorter one a first
@@ -179,8 +179,8 @@ class DiscourseNotification {
 
   /// The kinds that point at a page of their own rather than at a post.
   static String? _ownPath(NotificationKind kind, Map<String, dynamic> data) {
-    final username = data['username'] as String?;
-    final group = data['group_name'] as String?;
+    final username = jsonText(data['username']);
+    final group = jsonText(data['group_name']);
 
     return switch (kind) {
       NotificationKind.grantedBadge => _badgePath(data),
@@ -239,11 +239,11 @@ class DiscourseNotification {
 
     // Discourse slugifies the name itself when the payload carries no slug.
     final slug =
-        (data['badge_slug'] as String?) ??
-        (data['badge_name'] as String? ?? '')
-            .replaceAll(RegExp(r'[^A-Za-z0-9_]+'), '-')
-            .toLowerCase();
-    final username = data['username'] as String?;
+        jsonText(data['badge_slug']) ??
+        jsonString(
+          data['badge_name'],
+        ).replaceAll(RegExp(r'[^A-Za-z0-9_]+'), '-').toLowerCase();
+    final username = jsonText(data['username']);
     final query = username == null
         ? ''
         : '?username=${Uri.encodeQueryComponent(username.toLowerCase())}';

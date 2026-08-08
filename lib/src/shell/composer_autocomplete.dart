@@ -103,6 +103,14 @@ class ComposerAutocomplete extends ChangeNotifier {
   /// the timer out has already made the previous query the wrong one.
   static const Duration debounce = Duration(milliseconds: 150);
 
+  /// One current search plus one answer that may just have become stale.
+  ///
+  /// A server can take the full request deadline to answer. Without a bound,
+  /// typing slowly enough to cross [debounce] starts another HTTP request for
+  /// every character while all earlier ones remain in flight. Past this limit
+  /// only the newest query is retained and started when either request ends.
+  static const int maxConcurrentRemoteSearches = 2;
+
   /// The most rows offered, chosen so the popup never scrolls. Past this it
   /// stops being a list you can scan, and the answer is another letter.
   static const int maxSuggestions = 7;
@@ -126,11 +134,13 @@ class ComposerAutocomplete extends ChangeNotifier {
   bool get isOpen => _trigger != null && _suggestions.isNotEmpty;
 
   /// Bumped on every question asked, so a slow answer can tell on arrival that
-  /// the one being asked has moved on. The shell's site epochs at the scale of
-  /// a keystroke.
+  /// the one being asked has moved on. A per-site lifecycle lease at the scale
+  /// of a keystroke.
   int _epoch = 0;
 
   Timer? _timer;
+  int _remoteSearches = 0;
+  ({ComposerTrigger trigger, int epoch})? _queuedRemoteSearch;
   bool _disposed = false;
 
   /// A trigger Escape was pressed on, so the next keystroke does not reopen
@@ -153,6 +163,9 @@ class ComposerAutocomplete extends ChangeNotifier {
     }
 
     if (next == _trigger) return;
+    _timer?.cancel();
+    _timer = null;
+    _queuedRemoteSearch = null;
     _trigger = next;
     _epoch++;
     _selected = 0;
@@ -167,9 +180,37 @@ class ComposerAutocomplete extends ChangeNotifier {
         // The old rows stay up while the new ones are on their way. Blanking
         // the list per keystroke makes the popup flash rather than narrow.
         notifyListeners();
-        _timer?.cancel();
-        _timer = Timer(debounce, () => unawaited(_searchRemote(next)));
+        final epoch = _epoch;
+        late final Timer timer;
+        timer = Timer(debounce, () {
+          if (identical(_timer, timer)) _timer = null;
+          _enqueueRemoteSearch((trigger: next, epoch: epoch));
+        });
+        _timer = timer;
     }
+  }
+
+  void _enqueueRemoteSearch(({ComposerTrigger trigger, int epoch}) request) {
+    if (_disposed || request.epoch != _epoch) return;
+    if (_remoteSearches >= maxConcurrentRemoteSearches) {
+      _queuedRemoteSearch = request;
+      return;
+    }
+
+    _remoteSearches++;
+    _searchRemote(request).whenComplete(_remoteSearchFinished).ignore();
+  }
+
+  void _remoteSearchFinished() {
+    _remoteSearches--;
+    if (_disposed) {
+      _queuedRemoteSearch = null;
+      return;
+    }
+
+    final queued = _queuedRemoteSearch;
+    _queuedRemoteSearch = null;
+    if (queued != null) _enqueueRemoteSearch(queued);
   }
 
   /// Asks the site, for the kinds that have to.
@@ -177,7 +218,11 @@ class ComposerAutocomplete extends ChangeNotifier {
   /// One path rather than one per kind, so the staleness check below is
   /// written once — it is the part that is easy to get subtly wrong, and two
   /// copies of it would drift.
-  Future<void> _searchRemote(ComposerTrigger asked) async {
+  Future<void> _searchRemote(
+    ({ComposerTrigger trigger, int epoch}) request,
+  ) async {
+    if (_disposed || request.epoch != _epoch) return;
+    final asked = request.trigger;
     final find = switch (asked.kind) {
       ComposerTriggerKind.mention => search?.users,
       ComposerTriggerKind.hashtag => search?.hashtags,
@@ -185,14 +230,20 @@ class ComposerAutocomplete extends ChangeNotifier {
     };
     if (find == null) return;
 
-    // Captured here rather than when the timer was armed: the two are a
-    // debounce apart, and what matters is what was current when we asked.
-    final epoch = _epoch;
-    final found = await find(asked.query);
+    List<ComposerSuggestion> found;
+    try {
+      found = await find(asked.query);
+    } catch (_) {
+      if (_disposed || request.epoch != _epoch) return;
+      _suggestions = const [];
+      _selected = 0;
+      notifyListeners();
+      return;
+    }
 
     // Covers all four ways a late answer can be wrong at once: a newer query,
     // a dismissed popup, an accepted suggestion, a disposed composer.
-    if (_disposed || epoch != _epoch) return;
+    if (_disposed || request.epoch != _epoch) return;
 
     _suggestions = _take(found);
     _selected = 0;
@@ -246,6 +297,8 @@ class ComposerAutocomplete extends ChangeNotifier {
 
   void _clear() {
     _timer?.cancel();
+    _timer = null;
+    _queuedRemoteSearch = null;
     _epoch++;
     if (_trigger == null && _suggestions.isEmpty) return;
     _trigger = null;
@@ -261,6 +314,8 @@ class ComposerAutocomplete extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+    _timer = null;
+    _queuedRemoteSearch = null;
     _epoch++;
     super.dispose();
   }

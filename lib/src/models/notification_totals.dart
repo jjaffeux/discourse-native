@@ -19,8 +19,7 @@ class NotificationTotals {
   });
 
   factory NotificationTotals.fromJson(Map<String, dynamic> json) {
-    final tracking =
-        json['topic_tracking'] as Map<String, dynamic>? ?? const {};
+    final tracking = jsonObject(json['topic_tracking']);
     return NotificationTotals(
       unreadNotifications: jsonInt(json['unread_notifications']),
       unreadPersonalMessages: jsonInt(json['unread_personal_messages']),
@@ -28,7 +27,7 @@ class NotificationTotals {
       chatNotifications: jsonInt(json['chat_notifications']),
       topicTrackingUnread: jsonInt(tracking['unread']),
       topicTrackingNew: jsonInt(tracking['new']),
-      username: json['username'] as String?,
+      username: jsonText(json['username']),
       // The key is only present when the site has chat enabled.
       hasChatEnabled: json['chat_notifications'] is num,
     );
@@ -125,7 +124,9 @@ class NotificationTotals {
       other.unseenReviewables == unseenReviewables &&
       other.chatNotifications == chatNotifications &&
       other.topicTrackingUnread == topicTrackingUnread &&
-      other.topicTrackingNew == topicTrackingNew;
+      other.topicTrackingNew == topicTrackingNew &&
+      other.username == username &&
+      other.hasChatEnabled == hasChatEnabled;
 
   @override
   int get hashCode => Object.hash(
@@ -135,5 +136,7 @@ class NotificationTotals {
     chatNotifications,
     topicTrackingUnread,
     topicTrackingNew,
+    username,
+    hasChatEnabled,
   );
 }

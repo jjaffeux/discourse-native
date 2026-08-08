@@ -118,6 +118,41 @@ void main() {
       expect(asked, ['sam']);
     });
 
+    testWidgets('a pending mention cannot replace an emoji list', (
+      tester,
+    ) async {
+      popup.update(typed('hey @sa'));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      popup.update(typed('a :sm'));
+      await tester.pump(ComposerAutocomplete.debounce);
+
+      expect(asked, isEmpty);
+      expect(popup.suggestions.map((suggestion) => suggestion.value), [
+        'smile',
+        'smirk',
+      ]);
+    });
+
+    testWidgets('bounds slow searches and retains only the newest query', (
+      tester,
+    ) async {
+      gate = Completer<void>();
+
+      for (final query in ['s', 'sa', 'sam', 'sally']) {
+        popup.update(typed('hey @$query'));
+        await tester.pump(ComposerAutocomplete.debounce);
+      }
+
+      expect(asked, ['s', 'sa']);
+
+      gate!.complete();
+      await tester.pump();
+
+      expect(asked, ['s', 'sa', 'sally']);
+      expect(asked, isNot(contains('sam')));
+    });
+
     testWidgets('discards an answer the query has moved past', (tester) async {
       gate = Completer<void>();
 
@@ -143,10 +178,7 @@ void main() {
 
       await tester.pump(ComposerAutocomplete.debounce);
       expect(askedHashtags, ['ran']);
-      expect(popup.suggestions.map((s) => s.value), [
-        'random',
-        'random::tag',
-      ]);
+      expect(popup.suggestions.map((s) => s.value), ['random', 'random::tag']);
     });
 
     testWidgets('keeps searching past a subcategory colon', (tester) async {
@@ -180,10 +212,7 @@ void main() {
       hashtagGate!.complete();
       await tester.pump();
 
-      expect(popup.suggestions.map((s) => s.value), [
-        'random',
-        'random::tag',
-      ]);
+      expect(popup.suggestions.map((s) => s.value), ['random', 'random::tag']);
     });
 
     testWidgets('does not share a timer with a mention', (tester) async {
@@ -197,15 +226,10 @@ void main() {
       await tester.pump(ComposerAutocomplete.debounce);
 
       expect(askedHashtags, ['ran']);
-      expect(popup.suggestions.map((s) => s.value), [
-        'random',
-        'random::tag',
-      ]);
+      expect(popup.suggestions.map((s) => s.value), ['random', 'random::tag']);
     });
 
-    testWidgets('an emoji list landing does not blank the row', (
-      tester,
-    ) async {
+    testWidgets('an emoji list landing does not blank the row', (tester) async {
       // `refresh()` re-runs the synchronous half. A hashtag's answer came
       // from the site and is not stale because a different list arrived.
       popup.update(typed('see #ran'));

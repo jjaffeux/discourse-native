@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
@@ -42,10 +43,7 @@ ChatChannel channel(
   id: id,
   title: title,
   kind: ChatChannelKind.category,
-  membership: ChatMembership(
-    following: following,
-    lastReadMessageId: lastRead,
-  ),
+  membership: ChatMembership(following: following, lastReadMessageId: lastRead),
   tracking: ChatTracking(unreadCount: unread, mentionCount: mentions),
 );
 
@@ -64,17 +62,27 @@ ChatChannel channel(
     chatMessageGate: messageGate,
     chatReadFailure: readFailure,
   );
-  final authenticator = FakeAuthenticator()..keys[site] = 'key';
+  final credentials = FakeApiCredentialReader()..keys[site] = 'key';
   final store = Store();
   return (
-    chat: ChatController(
-      api: api,
-      authenticator: authenticator,
-      store: store,
-    ),
+    chat: ChatController(api: api, credentials: credentials, store: store),
     api: api,
     store: store,
   );
+}
+
+final class _GatedCredentials extends FakeApiCredentialReader {
+  _GatedCredentials(this.gate);
+
+  final Completer<void> gate;
+  final started = Completer<void>();
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async {
+    started.complete();
+    await gate.future;
+    return keys[siteUrl];
+  }
 }
 
 String key(int channelId, {int? before, int? after}) =>
@@ -84,25 +92,27 @@ String latestKey(int channelId) =>
     FakeDiscourseApi.chatMessagesLatestKey(channelId);
 
 void main() {
-  // No widgets here, but the controller defers a notification raised mid-frame
-  // to a post-frame callback — see `ChatController._notify` — and asking the
-  // scheduler which phase it is in needs a binding to ask.
+  // The controller uses frame-safe notifiers, whose scheduler-phase check needs
+  // a binding even in these non-widget tests.
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('loading a site’s channels', () {
-    test('puts the channels in the store and keeps the order it was given', () async {
-      final subject = build(
-        channels: {
-          site: (public: [channel(9), channel(4)], direct: [channel(12)]),
-        },
-      );
+    test(
+      'puts the channels in the store and keeps the order it was given',
+      () async {
+        final subject = build(
+          channels: {
+            site: (public: [channel(9), channel(4)], direct: [channel(12)]),
+          },
+        );
 
-      await subject.chat.loadChannels(site);
+        await subject.chat.loadChannels(site);
 
-      expect(subject.chat.publicChannels(site).map((c) => c.id), [9, 4]);
-      expect(subject.chat.directChannels(site).map((c) => c.id), [12]);
-      expect(subject.store.read<ChatChannel>(site, 9)!.title, 'Bugs');
-    });
+        expect(subject.chat.publicChannels(site).map((c) => c.id), [9, 4]);
+        expect(subject.chat.directChannels(site).map((c) => c.id), [12]);
+        expect(subject.store.read<ChatChannel>(site, 9)!.title, 'Bugs');
+      },
+    );
 
     test('asks a site once rather than once per caller', () async {
       final subject = build(
@@ -117,31 +127,37 @@ void main() {
       expect(subject.api.chatChannelsRequested, [site]);
     });
 
-    test('collapses two callers arriving before the first answer into one ask', () async {
-      final gate = Completer<void>();
-      final subject = build(
-        channels: {
-          site: (public: [channel(9)], direct: const []),
-        },
-        channelGate: gate,
-      );
+    test(
+      'collapses two callers arriving before the first answer into one ask',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(
+          channels: {
+            site: (public: [channel(9)], direct: const []),
+          },
+          channelGate: gate,
+        );
 
-      final first = subject.chat.loadChannels(site);
-      final second = subject.chat.loadChannels(site);
-      gate.complete();
-      await Future.wait([first, second]);
+        final first = subject.chat.loadChannels(site);
+        final second = subject.chat.loadChannels(site);
+        gate.complete();
+        await Future.wait([first, second]);
 
-      expect(subject.api.chatChannelsRequested, [site]);
-    });
+        expect(subject.api.chatChannelsRequested, [site]);
+      },
+    );
 
-    test('draws nothing for a site that will not answer, and says why', () async {
-      final subject = build();
+    test(
+      'draws nothing for a site that will not answer, and says why',
+      () async {
+        final subject = build();
 
-      await subject.chat.loadChannels(site);
+        await subject.chat.loadChannels(site);
 
-      expect(subject.chat.publicChannels(site), isEmpty);
-      expect(subject.chat.channelsError(site), isNotNull);
-    });
+        expect(subject.chat.publicChannels(site), isEmpty);
+        expect(subject.chat.channelsError(site), isNotNull);
+      },
+    );
 
     test('a site that will not answer is given up on, not hammered', () async {
       final subject = build();
@@ -172,31 +188,60 @@ void main() {
   });
 
   group('opening a channel', () {
-    test('asks from where the reader left off and holds it oldest first', () async {
-      // The site resolves the anchor from the membership, so this asks for it
-      // by name rather than naming a message. A reader who has never opened
-      // the channel is answered with the newest page by the same request.
+    test('notifies only the stream that changed', () async {
       final subject = build(
         messages: {
-          key(9): page([message(1), message(2, minute: 1)]),
+          key(4): page([message(40)]),
+          key(9): page([message(90)]),
         },
       );
+      final active = subject.chat.streamListenable(site, 9);
+      var streamNotifications = 0;
+      var controllerNotifications = 0;
+      active.addListener(() => streamNotifications++);
+      subject.chat.addListener(() => controllerNotifications++);
+
+      await subject.chat.openChannel(site, 4);
+      expect(streamNotifications, 0);
+      expect(controllerNotifications, 0);
 
       await subject.chat.openChannel(site, 9);
-
-      expect(subject.api.chatMessagesRequested.single.fromLastRead, isTrue);
-      expect(subject.chat.stream(site, 9).messageIds, [1, 2]);
-      expect(subject.chat.stream(site, 9).fetchedOnce, isTrue);
+      expect(streamNotifications, greaterThan(0));
+      expect(active.value.messageIds, [90]);
+      expect(controllerNotifications, 0);
     });
 
-    test('reads a channel nobody has written in as empty rather than as unread', () async {
-      final subject = build(messages: {key(9): page([])});
+    test(
+      'asks from where the reader left off and holds it oldest first',
+      () async {
+        // The site resolves the anchor from the membership, so this asks for it
+        // by name rather than naming a message. A reader who has never opened
+        // the channel is answered with the newest page by the same request.
+        final subject = build(
+          messages: {
+            key(9): page([message(1), message(2, minute: 1)]),
+          },
+        );
 
-      await subject.chat.openChannel(site, 9);
+        await subject.chat.openChannel(site, 9);
 
-      expect(subject.chat.stream(site, 9).isEmpty, isTrue);
-      expect(subject.chat.stream(site, 9).error, isNull);
-    });
+        expect(subject.api.chatMessagesRequested.single.fromLastRead, isTrue);
+        expect(subject.chat.stream(site, 9).messageIds, [1, 2]);
+        expect(subject.chat.stream(site, 9).fetchedOnce, isTrue);
+      },
+    );
+
+    test(
+      'reads a channel nobody has written in as empty rather than as unread',
+      () async {
+        final subject = build(messages: {key(9): page([])});
+
+        await subject.chat.openChannel(site, 9);
+
+        expect(subject.chat.stream(site, 9).isEmpty, isTrue);
+        expect(subject.chat.stream(site, 9).error, isNull);
+      },
+    );
 
     test('says nothing is loaded until the site has answered', () async {
       final subject = build(messages: {key(9): page([])});
@@ -226,23 +271,26 @@ void main() {
       await second;
     });
 
-    test('replaces rather than merges, because a hole would break paging', () async {
-      // The reader scrolled back, then re-opened. Merging the newest page into
-      // history would leave a gap in the middle that nothing could ever fill,
-      // since loadOlder only ever pages before the oldest message held.
-      final subject = build(
-        messages: {
-          key(9): page([message(9, minute: 9)], canLoadMorePast: true),
-          key(9, before: 5): page([message(1), message(2, minute: 1)]),
-        },
-      );
+    test(
+      'replaces rather than merges, because a hole would break paging',
+      () async {
+        // The reader scrolled back, then re-opened. Merging the newest page into
+        // history would leave a gap in the middle that nothing could ever fill,
+        // since loadOlder only ever pages before the oldest message held.
+        final subject = build(
+          messages: {
+            key(9): page([message(9, minute: 9)], canLoadMorePast: true),
+            key(9, before: 5): page([message(1), message(2, minute: 1)]),
+          },
+        );
 
-      await subject.chat.openChannel(site, 9);
-      subject.store.putAll(site, [message(5, minute: 5)]);
-      await subject.chat.openChannel(site, 9);
+        await subject.chat.openChannel(site, 9);
+        subject.store.putAll(site, [message(5, minute: 5)]);
+        await subject.chat.openChannel(site, 9);
 
-      expect(subject.chat.stream(site, 9).messageIds, [9]);
-    });
+        expect(subject.chat.stream(site, 9).messageIds, [9]);
+      },
+    );
 
     test('keeps what is on screen when a refresh fails', () async {
       // The fake answers from a map it reads at call time, so taking the page
@@ -264,14 +312,17 @@ void main() {
       expect(subject.api.chatMessagesRequested, hasLength(2));
     });
 
-    test('says so when the first ask fails and there is nothing to fall back on', () async {
-      final subject = build();
+    test(
+      'says so when the first ask fails and there is nothing to fall back on',
+      () async {
+        final subject = build();
 
-      await subject.chat.openChannel(site, 9);
+        await subject.chat.openChannel(site, 9);
 
-      expect(subject.chat.stream(site, 9).error, isNotNull);
-      expect(subject.chat.stream(site, 9).fetchedOnce, isTrue);
-    });
+        expect(subject.chat.stream(site, 9).error, isNotNull);
+        expect(subject.chat.stream(site, 9).fetchedOnce, isTrue);
+      },
+    );
   });
 
   group('paging towards the present', () {
@@ -298,7 +349,10 @@ void main() {
     test('appends the page after the newest message it holds', () async {
       final subject = anchored(
         extra: {
-          key(9, after: 5): page([message(6, minute: 6), message(7, minute: 7)]),
+          key(9, after: 5): page([
+            message(6, minute: 6),
+            message(7, minute: 7),
+          ]),
         },
       );
 
@@ -330,7 +384,9 @@ void main() {
     test('stops asking when a page arrives with nothing new in it', () async {
       final subject = anchored(
         extra: {
-          key(9, after: 5): page([message(5, minute: 5)], canLoadMoreFuture: true),
+          key(9, after: 5): page([
+            message(5, minute: 5),
+          ], canLoadMoreFuture: true),
         },
       );
 
@@ -369,18 +425,21 @@ void main() {
       expect(subject.chat.stream(site, 9).atPresent, isTrue);
     });
 
-    test('is a scroll rather than a fetch when the present is already held', () async {
-      final subject = build(
-        messages: {
-          key(9): page([message(5)]),
-        },
-      );
-      await subject.chat.openChannel(site, 9);
+    test(
+      'is a scroll rather than a fetch when the present is already held',
+      () async {
+        final subject = build(
+          messages: {
+            key(9): page([message(5)]),
+          },
+        );
+        await subject.chat.openChannel(site, 9);
 
-      await subject.chat.showLatest(site, 9);
+        await subject.chat.showLatest(site, 9);
 
-      expect(subject.api.chatMessagesRequested, hasLength(1));
-    });
+        expect(subject.api.chatMessagesRequested, hasLength(1));
+      },
+    );
 
     test('tells the view to reposition, which paging does not', () async {
       final subject = build(
@@ -398,6 +457,37 @@ void main() {
 
       await subject.chat.openChannel(site, 9);
       expect(subject.chat.stream(site, 9).fetches, opened + 1);
+    });
+
+    test('an old page cannot merge into a replacement window', () async {
+      final api = _PagingRaceApi();
+      final store = Store();
+      final credentials = FakeApiCredentialReader()..keys[site] = 'key';
+      final chat = ChatController(
+        api: api,
+        credentials: credentials,
+        store: store,
+      );
+      addTearDown(chat.dispose);
+
+      await chat.openChannel(site, 9);
+      final oldPage = chat.loadOlder(site, 9);
+      await api.oldPageStarted.future;
+
+      await chat.showLatest(site, 9);
+      final newPage = chat.loadOlder(site, 9);
+      await api.newPageStarted.future;
+
+      api.oldPage.complete(page([message(1, minute: 1)]));
+      await oldPage;
+      expect(chat.stream(site, 9).messageIds, [9]);
+      expect(chat.stream(site, 9).loadingOlder, isTrue);
+      expect(store.read<ChatMessage>(site, 1), isNull);
+
+      api.newPage.complete(page([message(8, minute: 8)]));
+      await newPage;
+      expect(chat.stream(site, 9).messageIds, [8, 9]);
+      expect(chat.stream(site, 9).loadingOlder, isFalse);
     });
   });
 
@@ -417,18 +507,21 @@ void main() {
       expect(subject.chat.stream(site, 9).messageIds, [1, 2, 5]);
     });
 
-    test('does not ask at all once the site says there is nothing older', () async {
-      final subject = build(
-        messages: {
-          key(9): page([message(5)]),
-        },
-      );
+    test(
+      'does not ask at all once the site says there is nothing older',
+      () async {
+        final subject = build(
+          messages: {
+            key(9): page([message(5)]),
+          },
+        );
 
-      await subject.chat.openChannel(site, 9);
-      await subject.chat.loadOlder(site, 9);
+        await subject.chat.openChannel(site, 9);
+        await subject.chat.loadOlder(site, 9);
 
-      expect(subject.api.chatMessagesRequested, hasLength(1));
-    });
+        expect(subject.api.chatMessagesRequested, hasLength(1));
+      },
+    );
 
     test('stops asking when a page arrives with nothing new in it', () async {
       // A cursor the site keeps answering the same page for would otherwise
@@ -436,7 +529,9 @@ void main() {
       final subject = build(
         messages: {
           key(9): page([message(5, minute: 5)], canLoadMorePast: true),
-          key(9, before: 5): page([message(5, minute: 5)], canLoadMorePast: true),
+          key(9, before: 5): page([
+            message(5, minute: 5),
+          ], canLoadMorePast: true),
         },
       );
 
@@ -500,7 +595,10 @@ void main() {
       final subject = build(
         messages: {
           key(9): page([message(5, minute: 5)], canLoadMorePast: true),
-          key(9, before: 5): page([message(3, minute: 3), message(5, minute: 5)]),
+          key(9, before: 5): page([
+            message(3, minute: 3),
+            message(5, minute: 5),
+          ]),
         },
       );
 
@@ -529,21 +627,24 @@ void main() {
       expect(subject.chat.stream(site, 9).messageIds, [6, 7, 8]);
     });
 
-    test('puts an older page before what it already held, whatever the ids say', () async {
-      final subject = build(
-        messages: {
-          key(9): page([message(2, minute: 5)], canLoadMorePast: true),
-          // A higher id but an earlier date: the site orders by date first and
-          // so does this, because that is what keeps its cursors meaningful.
-          key(9, before: 2): page([message(30, minute: 1)]),
-        },
-      );
+    test(
+      'puts an older page before what it already held, whatever the ids say',
+      () async {
+        final subject = build(
+          messages: {
+            key(9): page([message(2, minute: 5)], canLoadMorePast: true),
+            // A higher id but an earlier date: the site orders by date first and
+            // so does this, because that is what keeps its cursors meaningful.
+            key(9, before: 2): page([message(30, minute: 1)]),
+          },
+        );
 
-      await subject.chat.openChannel(site, 9);
-      await subject.chat.loadOlder(site, 9);
+        await subject.chat.openChannel(site, 9);
+        await subject.chat.loadOlder(site, 9);
 
-      expect(subject.chat.stream(site, 9).messageIds, [30, 2]);
-    });
+        expect(subject.chat.stream(site, 9).messageIds, [30, 2]);
+      },
+    );
   });
 
   group('forgetting a disconnected site', () {
@@ -558,30 +659,42 @@ void main() {
       );
       await subject.chat.loadChannels(site);
       await subject.chat.openChannel(site, 9);
+      final stream = subject.chat.streamListenable(site, 9);
 
       subject.chat.forget(site);
 
       expect(subject.chat.publicChannels(site), isEmpty);
       expect(subject.chat.stream(site, 9).messageIds, isEmpty);
+      expect(stream.value.messageIds, isEmpty);
+      final reconnectedStream = subject.chat.streamListenable(site, 9);
+      expect(reconnectedStream, isNot(same(stream)));
       expect(subject.chat.channelsError(site), isNull);
+
+      await subject.chat.openChannel(site, 9);
+      expect(stream.value.messageIds, isEmpty);
+      expect(reconnectedStream.value.messageIds, [1]);
     });
 
-    test('puts nothing back after the site it was fetched for went away', () async {
-      final gate = Completer<void>();
-      final subject = build(
-        messages: {
-          key(9): page([message(1)]),
-        },
-        messageGate: gate,
-      );
+    test(
+      'puts nothing back after the site it was fetched for went away',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(
+          messages: {
+            key(9): page([message(1)]),
+          },
+          messageGate: gate,
+        );
 
-      final open = subject.chat.openChannel(site, 9);
-      subject.chat.forget(site);
-      gate.complete();
-      await open;
+        final open = subject.chat.openChannel(site, 9);
+        subject.chat.lifecycle.invalidate(site);
+        subject.chat.forget(site);
+        gate.complete();
+        await open;
 
-      expect(subject.chat.stream(site, 9).messageIds, isEmpty);
-    });
+        expect(subject.chat.stream(site, 9).messageIds, isEmpty);
+      },
+    );
 
     test('lets a site connected again ask afresh', () async {
       final subject = build(
@@ -625,40 +738,73 @@ void main() {
 
     ChatChannel? held(Store store) => store.read<ChatChannel>(site, 9);
 
-    test('tells the site the newest message the reader has had on screen', () async {
-      final subject = await reading(held: channel(9, lastRead: 1));
+    test(
+      'tells the site the newest message the reader has had on screen',
+      () async {
+        final subject = await reading(held: channel(9, lastRead: 1));
 
-      await subject.chat.markRead(site, 9, 3);
+        await subject.chat.markRead(site, 9, 3);
 
-      expect(subject.api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
-      expect(held(subject.store)?.membership.lastReadMessageId, 3);
-    });
+        expect(subject.api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
+        expect(held(subject.store)?.membership.lastReadMessageId, 3);
+      },
+    );
 
-    test('empties the counts on reaching the newest message there is', () async {
-      final subject = await reading(
-        held: channel(9, lastRead: 1, unread: 2, mentions: 1),
+    test('does not send an old read receipt with a new account key', () async {
+      final gate = Completer<void>();
+      final credentials = _GatedCredentials(gate)..keys[site] = 'account-a';
+      final api = FakeDiscourseApi();
+      final store = Store()..put(site, channel(9, lastRead: 1));
+      final lifecycle = SiteLifecycle();
+      final chat = ChatController(
+        api: api,
+        credentials: credentials,
+        store: store,
+        lifecycle: lifecycle,
       );
+      addTearDown(chat.dispose);
 
-      await subject.chat.markRead(site, 9, 3);
+      final marking = chat.markRead(site, 9, 3);
+      await credentials.started.future;
+      lifecycle.invalidate(site);
+      credentials.keys[site] = 'account-b';
+      gate.complete();
+      await marking;
 
-      expect(held(subject.store)?.tracking, ChatTracking.none);
-      expect(held(subject.store)?.badge.isVisible, isFalse);
+      expect(api.chatReadsMarked, isEmpty);
     });
 
-    test('leaves the counts alone in the middle, where it cannot know', () async {
-      // What is unread above the reader is a sum of mentions, watched threads
-      // and plain messages counted over rows this app never fetched. The site
-      // says; this does not guess.
-      final subject = await reading(
-        held: channel(9, lastRead: 1, unread: 2, mentions: 1),
-      );
+    test(
+      'empties the counts on reaching the newest message there is',
+      () async {
+        final subject = await reading(
+          held: channel(9, lastRead: 1, unread: 2, mentions: 1),
+        );
 
-      await subject.chat.markRead(site, 9, 2);
+        await subject.chat.markRead(site, 9, 3);
 
-      expect(held(subject.store)?.tracking.unreadCount, 2);
-      expect(held(subject.store)?.tracking.mentionCount, 1);
-      expect(held(subject.store)?.membership.lastReadMessageId, 2);
-    });
+        expect(held(subject.store)?.tracking, ChatTracking.none);
+        expect(held(subject.store)?.badge.isVisible, isFalse);
+      },
+    );
+
+    test(
+      'leaves the counts alone in the middle, where it cannot know',
+      () async {
+        // What is unread above the reader is a sum of mentions, watched threads
+        // and plain messages counted over rows this app never fetched. The site
+        // says; this does not guess.
+        final subject = await reading(
+          held: channel(9, lastRead: 1, unread: 2, mentions: 1),
+        );
+
+        await subject.chat.markRead(site, 9, 2);
+
+        expect(held(subject.store)?.tracking.unreadCount, 2);
+        expect(held(subject.store)?.tracking.mentionCount, 1);
+        expect(held(subject.store)?.membership.lastReadMessageId, 2);
+      },
+    );
 
     test('keeps the counts while there is still a backlog in front', () async {
       // The last message *held* is not the last message there is when the
@@ -711,6 +857,80 @@ void main() {
       expect(subject.api.chatReadsMarked, hasLength(1));
     });
 
+    test(
+      'serializes read receipts and keeps only the newest queued one',
+      () async {
+        final api = _GatedChatReadApi();
+        final credentials = FakeApiCredentialReader()..keys[site] = 'key';
+        final store = Store()..put(site, channel(9, lastRead: 1));
+        final chat = ChatController(
+          api: api,
+          credentials: credentials,
+          store: store,
+        );
+        addTearDown(chat.dispose);
+
+        final first = chat.markRead(site, 9, 2);
+        await api.firstReadStarted.future;
+        final superseded = chat.markRead(site, 9, 3);
+        final newest = chat.markRead(site, 9, 4);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(api.chatReadsMarked, [(channelId: 9, messageId: 2)]);
+
+        api.firstReadGate.complete();
+        await Future.wait([first, superseded, newest]);
+
+        expect(api.chatReadsMarked, [
+          (channelId: 9, messageId: 2),
+          (channelId: 9, messageId: 4),
+        ]);
+      },
+    );
+
+    test('an old session cannot dequeue a new session read receipt', () async {
+      final api = _SessionReadRaceApi();
+      final credentials = FakeApiCredentialReader()..keys[site] = 'account-a';
+      final lifecycle = SiteLifecycle();
+      final store = Store()..put(site, channel(9, lastRead: 1));
+      final chat = ChatController(
+        api: api,
+        credentials: credentials,
+        store: store,
+        lifecycle: lifecycle,
+      );
+      addTearDown(chat.dispose);
+
+      final old = chat.markRead(site, 9, 2);
+      await api.firstReadStarted.future;
+
+      lifecycle.invalidate(site);
+      chat.forget(site);
+      credentials.keys[site] = 'account-b';
+      store.put(site, channel(9, lastRead: 1));
+
+      final current = chat.markRead(site, 9, 3);
+      await api.secondReadStarted.future;
+      final queued = chat.markRead(site, 9, 4);
+
+      api.firstReadGate.complete();
+      await old;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(api.chatReadsMarked, [
+        (channelId: 9, messageId: 2),
+        (channelId: 9, messageId: 3),
+      ]);
+
+      api.secondReadGate.complete();
+      await Future.wait([current, queued]);
+      expect(api.chatReadsMarked, [
+        (channelId: 9, messageId: 2),
+        (channelId: 9, messageId: 3),
+        (channelId: 9, messageId: 4),
+      ]);
+    });
+
     test('says nothing about a channel the reader does not follow', () async {
       // There is no membership row to move, and the site answers 404.
       final subject = await reading(held: channel(9, following: false));
@@ -761,4 +981,92 @@ void main() {
       expect(subject.chat.stream(site, 9).lastReadOnOpen, 3);
     });
   });
+}
+
+final class _GatedChatReadApi extends FakeDiscourseApi {
+  final Completer<void> firstReadStarted = Completer<void>();
+  final Completer<void> firstReadGate = Completer<void>();
+
+  @override
+  Future<void> markChatChannelRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    chatReadsMarked.add((channelId: channelId, messageId: messageId));
+    if (!firstReadStarted.isCompleted) {
+      firstReadStarted.complete();
+      await firstReadGate.future;
+    }
+  }
+}
+
+final class _SessionReadRaceApi extends FakeDiscourseApi {
+  final Completer<void> firstReadStarted = Completer<void>();
+  final Completer<void> firstReadGate = Completer<void>();
+  final Completer<void> secondReadStarted = Completer<void>();
+  final Completer<void> secondReadGate = Completer<void>();
+
+  @override
+  Future<void> markChatChannelRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    chatReadsMarked.add((channelId: channelId, messageId: messageId));
+    if (!firstReadStarted.isCompleted) {
+      firstReadStarted.complete();
+      await firstReadGate.future;
+      return;
+    }
+    if (!secondReadStarted.isCompleted) {
+      secondReadStarted.complete();
+      await secondReadGate.future;
+    }
+  }
+}
+
+final class _PagingRaceApi extends FakeDiscourseApi {
+  final Completer<ChatMessagePage> oldPage = Completer<ChatMessagePage>();
+  final Completer<ChatMessagePage> newPage = Completer<ChatMessagePage>();
+  final Completer<void> oldPageStarted = Completer<void>();
+  final Completer<void> newPageStarted = Completer<void>();
+
+  @override
+  Future<ChatMessagePage> chatMessages({
+    required String siteUrl,
+    required int channelId,
+    int? before,
+    int? after,
+    bool fromLastRead = false,
+    int pageSize = 50,
+    String? apiKey,
+    String? clientId,
+  }) {
+    if (fromLastRead) {
+      return Future.value(
+        page(
+          [message(5, minute: 5)],
+          canLoadMorePast: true,
+          canLoadMoreFuture: true,
+        ),
+      );
+    }
+    if (before == null) {
+      return Future.value(page([message(9, minute: 9)], canLoadMorePast: true));
+    }
+    if (before == 5) {
+      oldPageStarted.complete();
+      return oldPage.future;
+    }
+    if (before == 9) {
+      newPageStarted.complete();
+      return newPage.future;
+    }
+    throw StateError('Unexpected chat page before $before');
+  }
 }

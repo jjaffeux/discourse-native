@@ -22,12 +22,12 @@ class PostReactor {
   factory PostReactor.fromJson(Map<String, dynamic> json, String siteUrl) {
     return PostReactor(
       id: jsonInt(json['id']),
-      username: (json['username'] ?? '') as String,
+      username: jsonString(json['username']),
       // Absent on a site with `enable_names` off, where the username is the
       // only name anyone has.
       name: jsonText(json['name']),
-      avatarUrl: resolveAvatarUrl(json['avatar_template'] as String?, siteUrl),
-      reaction: (json['reaction'] ?? '') as String,
+      avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
+      reaction: jsonString(json['reaction']),
     );
   }
 
@@ -42,6 +42,19 @@ class PostReactor {
   final String reaction;
 
   String get displayName => name ?? username;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PostReactor &&
+          other.id == id &&
+          other.username == username &&
+          other.name == name &&
+          other.avatarUrl == avatarUrl &&
+          other.reaction == reaction;
+
+  @override
+  int get hashCode => Object.hash(id, username, name, avatarUrl, reaction);
 }
 
 /// Who reacted to a post, oldest first, as the site listed them.
@@ -68,10 +81,10 @@ class PostReactors with Storable<PostReactors> {
   }) => PostReactors(
     postId: postId,
     filter: filter,
-    reactors: [
-      for (final entry in json['users'] as List<dynamic>? ?? const [])
-        if (entry is Map<String, dynamic>) PostReactor.fromJson(entry, siteUrl),
-    ],
+    reactors: List.unmodifiable([
+      for (final entry in jsonObjects(json['users']))
+        PostReactor.fromJson(entry, siteUrl),
+    ]),
     total: jsonInt(json['total_rows']),
   );
 
@@ -95,6 +108,23 @@ class PostReactors with Storable<PostReactors> {
   /// String is as good an id as an int.
   @override
   Object get storeId => key(postId, filter);
+
+  @override
+  PostReactors merge(PostReactors incoming) =>
+      this == incoming ? this : incoming;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PostReactors &&
+          other.postId == postId &&
+          other.filter == filter &&
+          other.total == total &&
+          listEquals(other.reactors, reactors);
+
+  @override
+  int get hashCode =>
+      Object.hash(postId, filter, total, Object.hashAll(reactors));
 
   static String key(int postId, String? filter) =>
       filter == null ? '$postId' : '$postId:$filter';

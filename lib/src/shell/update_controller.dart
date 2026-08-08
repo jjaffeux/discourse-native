@@ -1,11 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/scheduler.dart';
-
 import '../data/app_release.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
+import '../foundation/frame_safe_notifier.dart';
 
 enum UpdateStatus {
   /// Nothing has been asked for yet, or the last thing asked for is finished
@@ -27,9 +25,9 @@ enum UpdateStatus {
 /// This is the [ComposerController] pattern, and it is here for the same
 /// reasons, heaviest first:
 ///
-///  - `ShellController._notify()` rebuilds every one of its scope's dependents:
-///    the rail, the sidebar, the main content, the topic list. A download
-///    progress tick has no business rebuilding any of them.
+///  - A shell notification makes every selector re-evaluate and wakes any
+///    deliberately broad scope subscriber. A download progress tick has no
+///    business touching site navigation or content state at all.
 ///  - None of this is shell state. Everything on [ShellController] is per-site
 ///    or per-navigation; this is the first thing that is fully meaningful with
 ///    zero sites connected, which is exactly the case the rail has to handle.
@@ -38,7 +36,7 @@ enum UpdateStatus {
 ///
 /// Widgets subscribe with a `ListenableBuilder` at the one place that needs it,
 /// the way [ComposerPanel] does.
-class UpdateController extends ChangeNotifier {
+class UpdateController extends FrameSafeNotifier {
   UpdateController({required this.updater, required this.store});
 
   final Updater updater;
@@ -72,16 +70,30 @@ class UpdateController extends ChangeNotifier {
   DateTime? _lastChecked;
   DateTime? get lastChecked => _lastChecked;
 
-  bool _disposed = false;
-  bool _notifyScheduled = false;
+  int _revision = 0;
+  UpdateChannel? _queuedChannel;
+  Future<void>? _channelChangeTask;
 
   /// Reads the stored channel and, if nobody has looked in a while, looks.
   Future<void> load() async {
     if (!isSupported) return;
 
-    _channel = await store.readChannel() ?? AppRelease.defaultChannel;
-    _lastChecked = await store.readLastChecked();
-    _notify();
+    final revision = _revision;
+    final UpdateChannel? storedChannel;
+    final DateTime? storedLastChecked;
+    try {
+      storedChannel = await store.readChannel();
+      storedLastChecked = await store.readLastChecked();
+    } catch (_) {
+      // Update preferences are optional. A later launch or explicit action can
+      // retry them without making the shell's startup Future fail.
+      return;
+    }
+    if (!_isCurrent(revision)) return;
+
+    _channel = storedChannel ?? AppRelease.defaultChannel;
+    _lastChecked = storedLastChecked;
+    notifySafely();
 
     final last = _lastChecked;
     if (last == null || DateTime.now().difference(last) >= _recheckAfter) {
@@ -106,19 +118,25 @@ class UpdateController extends ChangeNotifier {
     }
 
     final previous = _status;
+    final revision = _revision;
+    final channel = _channel;
     _status = UpdateStatus.checking;
     if (!silent) _error = null;
-    _notify();
+    notifySafely();
 
     try {
-      final release = await updater.check(channel: _channel);
+      final release = await updater.check(channel: channel);
+      if (!_isCurrent(revision)) return;
 
       _lastChecked = DateTime.now();
-      unawaited(store.writeLastChecked(_lastChecked!));
+      store.writeLastChecked(_lastChecked!).ignore();
 
       _available = release;
-      _status = release == null ? UpdateStatus.upToDate : UpdateStatus.available;
+      _status = release == null
+          ? UpdateStatus.upToDate
+          : UpdateStatus.available;
     } on UpdateException catch (e) {
+      if (!_isCurrent(revision)) return;
       if (silent) {
         // Put back whatever was on screen before, so a failed background check
         // cannot clear a release the user has already been offered.
@@ -128,7 +146,7 @@ class UpdateController extends ChangeNotifier {
         _status = UpdateStatus.failed;
       }
     } finally {
-      _notify();
+      if (_isCurrent(revision)) notifySafely();
     }
   }
 
@@ -140,20 +158,28 @@ class UpdateController extends ChangeNotifier {
     _status = UpdateStatus.downloading;
     _progress = 0;
     _error = null;
-    _notify();
+    notifySafely();
+    final revision = _revision;
 
     try {
-      await updater.download(release, onProgress: _onProgress);
+      await updater.download(
+        release,
+        onProgress: (fraction) {
+          if (_isCurrent(revision)) _onProgress(fraction);
+        },
+      );
+      if (!_isCurrent(revision)) return;
       _status = UpdateStatus.readyToInstall;
       _progress = 1;
     } on UpdateException catch (e) {
+      if (!_isCurrent(revision)) return;
       _error = e.message;
       // Back to `available`, not `failed`: the release is still on offer and
       // the button to try again is the same button.
       _status = UpdateStatus.available;
       _progress = 0;
     } finally {
-      _notify();
+      if (_isCurrent(revision)) notifySafely();
     }
   }
 
@@ -163,16 +189,18 @@ class UpdateController extends ChangeNotifier {
 
     _status = UpdateStatus.installing;
     _error = null;
-    _notify();
+    notifySafely();
+    final revision = _revision;
 
     try {
       await updater.installAndRestart();
     } on UpdateException catch (e) {
+      if (!_isCurrent(revision)) return;
       _error = e.message;
       // The download is still staged and still good, so offer the restart
       // again rather than making the user fetch it a second time.
       _status = UpdateStatus.readyToInstall;
-      _notify();
+      notifySafely();
     }
   }
 
@@ -180,29 +208,56 @@ class UpdateController extends ChangeNotifier {
   ///
   /// Discarding first is the point: a canary build downloaded a minute ago must
   /// not stay installable for someone who has since asked for stable.
-  Future<void> setChannel(UpdateChannel channel) async {
-    if (channel == _channel) return;
+  Future<void> setChannel(UpdateChannel channel) {
+    if (channel == _channel) {
+      return _channelChangeTask ?? Future<void>.value();
+    }
     if (_status == UpdateStatus.downloading ||
         _status == UpdateStatus.installing) {
-      return;
+      return Future<void>.value();
     }
 
+    _revision++;
+    _queuedChannel = channel;
     _channel = channel;
     _available = null;
     _progress = 0;
     _error = null;
     _status = UpdateStatus.idle;
-    _notify();
+    notifySafely();
 
-    await store.writeChannel(channel);
+    return _channelChangeTask ??= _drainChannelChanges();
+  }
+
+  Future<void> _drainChannelChanges() async {
     try {
-      await updater.discard();
-    } on UpdateException {
-      // Nothing staged, or it could not be removed. Neither is worth telling
-      // the user about, and the check below is what they are waiting on.
-    }
+      while (true) {
+        final channel = _queuedChannel;
+        if (channel == null) break;
+        _queuedChannel = null;
+        final revision = _revision;
 
-    await check();
+        try {
+          await store.writeChannel(channel);
+        } catch (_) {
+          // Keep the session's selection useful even when preferences are
+          // temporarily unavailable. A later channel change can persist it.
+        }
+        if (!_isCurrent(revision) || _queuedChannel != null) continue;
+
+        try {
+          await updater.discard();
+        } on UpdateException {
+          // Nothing staged, or it could not be removed. Neither is worth
+          // telling the user about, and the check below is what they await.
+        }
+        if (!_isCurrent(revision) || _queuedChannel != null) continue;
+
+        await check();
+      }
+    } finally {
+      _channelChangeTask = null;
+    }
   }
 
   /// Whole percent only. A download reports far more often than that, and a
@@ -211,34 +266,23 @@ class UpdateController extends ChangeNotifier {
     final clamped = fraction.clamp(0.0, 1.0);
     if ((clamped * 100).round() == (_progress * 100).round()) return;
     _progress = clamped;
-    _notify();
+    notifySafely();
   }
 
-  /// The deferral is copied from [ShellController._notify], for the reason
-  /// given at length there: a notification raised inside the build phase has to
-  /// wait for the end of the frame. Copied rather than lifted into a shared
-  /// base class, because that is a change to a two-thousand-line file for the
-  /// benefit of two call sites.
-  void _notify() {
-    if (_disposed) return;
-
-    if (SchedulerBinding.instance.schedulerPhase ==
-        SchedulerPhase.persistentCallbacks) {
-      if (_notifyScheduled) return;
-      _notifyScheduled = true;
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        _notifyScheduled = false;
-        if (!_disposed) notifyListeners();
-      });
-      return;
-    }
-
-    notifyListeners();
-  }
+  bool _isCurrent(int revision) => !isDisposed && revision == _revision;
 
   @override
   void dispose() {
-    _disposed = true;
+    _revision++;
+    // A desktop updater session owns a plugin controller and may still have a
+    // check or download in flight. Discard is its cancellation/close boundary;
+    // the controller's revision suppresses the resulting late completion.
+    try {
+      updater.discard().ignore();
+    } catch (_) {
+      // Disposal must still finish if an adapter fails before returning its
+      // Future. There is no live controller left to surface the failure on.
+    }
     super.dispose();
   }
 }

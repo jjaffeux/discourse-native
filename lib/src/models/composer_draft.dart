@@ -25,11 +25,11 @@ class ComposerDraft {
   static const String replyAction = 'reply';
 
   factory ComposerDraft.fromJson(Map<String, dynamic> json) => ComposerDraft(
-    reply: (json['reply'] ?? '') as String,
+    reply: jsonString(json['reply']),
     replyToPostNumber: jsonIntOrNull(json['reply_to_post_number']),
     replyToUsername: switch (json['reply_to_user']) {
-      final Map<String, dynamic> user => user['username'] as String?,
-      final String username => username,
+      final Map<String, dynamic> user => jsonText(user['username']),
+      final String username => jsonText(username),
       _ => null,
     },
     typingTime: Duration(milliseconds: jsonInt(json['typingTime'])),
@@ -76,4 +76,23 @@ class ComposerDraft {
   };
 
   String encode() => jsonEncode(toJson());
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ComposerDraft &&
+          other.reply == reply &&
+          other.replyToPostNumber == replyToPostNumber &&
+          other.replyToUsername == replyToUsername &&
+          other.typingTime == typingTime &&
+          other.composerTime == composerTime;
+
+  @override
+  int get hashCode => Object.hash(
+    reply,
+    replyToPostNumber,
+    replyToUsername,
+    typingTime,
+    composerTime,
+  );
 }

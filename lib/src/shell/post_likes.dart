@@ -28,8 +28,9 @@ import 'user_card.dart';
 /// the entry is always a heart, so the emoji and the panel's header are the
 /// two things left out.
 class PostLikes extends StatefulWidget {
-  const PostLikes({super.key, required this.post});
+  const PostLikes({super.key, required this.siteUrl, required this.post});
 
+  final String siteUrl;
   final Post post;
 
   @override
@@ -44,13 +45,20 @@ class _PostLikesState extends State<PostLikes> {
   /// Every open, not only the first: this is a list of what other people have
   /// just done, and it is cheap to ask again. Whatever was fetched last time
   /// stays on screen while the answer is on its way.
-  void _load() => unawaited(ShellScope.of(context).loadLikers(widget.post.id));
+  void _load() => unawaited(
+    ShellScope.read(
+      context,
+    ).loadLikers(widget.post.id, siteUrl: widget.siteUrl),
+  );
 
   /// Adds or removes this reader's like.
   Future<void> _toggle() async {
-    final controller = ShellScope.of(context);
-    final error = await controller.toggleLike(widget.post);
-    if (!mounted) return;
+    final controller = ShellScope.read(context);
+    final error = await controller.toggleLike(
+      widget.post,
+      siteUrl: widget.siteUrl,
+    );
+    if (!mounted || !identical(ShellScope.read(context), controller)) return;
 
     // Either way, and before the failure is reported: the names on screen are
     // one out if the like went through, and worth confirming if it did not.
@@ -67,14 +75,15 @@ class _PostLikesState extends State<PostLikes> {
 
   /// The touch equivalent of the panel: the same names, in a sheet.
   Future<void> _openSheet() async {
-    final controller = ShellScope.of(context);
+    final controller = ShellScope.read(context);
     final count = widget.post.likeCount;
-    unawaited(controller.loadLikers(widget.post.id));
+    unawaited(controller.loadLikers(widget.post.id, siteUrl: widget.siteUrl));
 
     await showShellSheet<void>(
       context: context,
       title: count == 1 ? '1 like' : '$count likes',
-      builder: (sheetContext) => _Likers(post: widget.post),
+      builder: (sheetContext) =>
+          _Likers(siteUrl: widget.siteUrl, post: widget.post),
     );
   }
 
@@ -98,7 +107,8 @@ class _PostLikesState extends State<PostLikes> {
             key: _panel,
             maxWidth: _panelWidth,
             onOpen: _load,
-            panelBuilder: (context) => _LikersPanel(post: post),
+            panelBuilder: (context) =>
+                _LikersPanel(siteUrl: widget.siteUrl, post: post),
             child: _LikeCount(
               post: post,
               onTap: post.canToggleLike ? _toggle : null,
@@ -177,8 +187,9 @@ class _LikeCount extends StatelessWidget {
 
 /// The floating version of the list, for a pointer.
 class _LikersPanel extends StatelessWidget {
-  const _LikersPanel({required this.post});
+  const _LikersPanel({required this.siteUrl, required this.post});
 
+  final String siteUrl;
   final Post post;
 
   @override
@@ -197,7 +208,7 @@ class _LikersPanel extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: _Likers(post: post),
+          child: _Likers(siteUrl: siteUrl, post: post),
         ),
       ),
     );
@@ -210,33 +221,106 @@ class _LikersPanel extends StatelessWidget {
 /// there is one answer to what a liker's row looks like rather than two that
 /// have to be kept in step.
 class _Likers extends StatelessWidget {
-  const _Likers({required this.post});
+  const _Likers({required this.siteUrl, required this.post});
 
   /// Enough for a handful of names before the list starts scrolling, without
   /// the panel ever growing taller than the post it hangs off.
   static const double _maxHeight = 220;
 
+  final String siteUrl;
   final Post post;
 
   @override
-  Widget build(BuildContext context) {
-    final controller = ShellScope.of(context);
+  Widget build(BuildContext context) => ShellSelector<_LikersSnapshot>(
+    select: (controller) => (
+      controller: controller,
+      likers: controller.likers(post.id, siteUrl: siteUrl),
+      error: controller.likersError(post.id, siteUrl: siteUrl),
+    ),
+    builder: (context, snapshot, _) => _LikersView(
+      maxHeight: _maxHeight,
+      siteUrl: siteUrl,
+      post: post,
+      snapshot: snapshot,
+    ),
+  );
+}
 
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) => ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: _maxHeight),
-        child: _body(context, controller),
-      ),
-    );
+typedef _LikersSnapshot = ({
+  ShellController controller,
+  PostLikers? likers,
+  String? error,
+});
+
+class _LikersView extends StatefulWidget {
+  const _LikersView({
+    required this.maxHeight,
+    required this.siteUrl,
+    required this.post,
+    required this.snapshot,
+  });
+
+  final double maxHeight;
+  final String siteUrl;
+  final Post post;
+  final _LikersSnapshot snapshot;
+
+  @override
+  State<_LikersView> createState() => _LikersViewState();
+}
+
+class _LikersViewState extends State<_LikersView> {
+  Object? _reloadToken;
+
+  @override
+  void didUpdateWidget(_LikersView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.snapshot.controller, widget.snapshot.controller) ||
+        oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.post.id != widget.post.id) {
+      _reloadAfterLayout();
+    }
   }
 
-  Widget _body(BuildContext context, ShellController controller) {
+  void _reloadAfterLayout() {
+    final token = Object();
+    _reloadToken = token;
+    final controller = widget.snapshot.controller;
+    final siteUrl = widget.siteUrl;
+    final postId = widget.post.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_reloadToken, token)) return;
+      _reloadToken = null;
+      if (!identical(widget.snapshot.controller, controller) ||
+          widget.siteUrl != siteUrl ||
+          widget.post.id != postId) {
+        return;
+      }
+      unawaited(controller.loadLikers(postId, siteUrl: siteUrl));
+    });
+  }
+
+  @override
+  void dispose() {
+    _reloadToken = null;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: BoxConstraints(maxHeight: widget.maxHeight),
+    child: _body(context),
+  );
+
+  Widget _body(BuildContext context) {
+    final post = widget.post;
+    final siteUrl = widget.siteUrl;
+    final snapshot = widget.snapshot;
     final theme = Theme.of(context);
-    final likers = controller.likers(post.id)?.likers;
+    final likers = snapshot.likers?.likers;
 
     if (likers == null) {
-      final error = controller.likersError(post.id);
+      final error = snapshot.error;
       if (error == null) {
         return const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
@@ -270,7 +354,7 @@ class _Likers extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final liker in likers) _LikerRow(liker: liker),
+          for (final liker in likers) _LikerRow(siteUrl: siteUrl, liker: liker),
           if (hidden > 0)
             Padding(
               padding: const EdgeInsets.only(top: 6, left: 2),
@@ -288,8 +372,9 @@ class _Likers extends StatelessWidget {
 }
 
 class _LikerRow extends StatelessWidget {
-  const _LikerRow({required this.liker});
+  const _LikerRow({required this.siteUrl, required this.liker});
 
+  final String siteUrl;
   final PostLiker liker;
 
   @override
@@ -298,6 +383,7 @@ class _LikerRow extends StatelessWidget {
 
     return UserCardTarget(
       username: liker.username,
+      siteUrl: siteUrl,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(

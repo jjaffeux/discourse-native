@@ -17,6 +17,7 @@ class MentionPill extends StatelessWidget {
     required this.label,
     required this.baseStyle,
     this.href,
+    this.siteUrl,
   });
 
   /// `@sam`, sigil and all, exactly as the post has it. Discourse lowercases
@@ -26,6 +27,7 @@ class MentionPill extends StatelessWidget {
 
   final TextStyle? baseStyle;
   final String? href;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +35,9 @@ class MentionPill extends StatelessWidget {
     return Pill(
       label: label,
       baseStyle: baseStyle,
-      onTap: target == null ? null : () => openLink(context, target),
+      onTap: target == null
+          ? null
+          : () => openLink(context, target, siteUrl: siteUrl),
     );
   }
 }
@@ -41,14 +45,15 @@ class MentionPill extends StatelessWidget {
 /// Hands `<a class="mention">` and `<a class="mention-group">` to [MentionPill],
 /// for [HtmlWidget.customWidgetBuilder].
 ///
-/// Takes no site url: the href is resolved against the site at *tap* time by
-/// `openLink`, which is where every other link in a post is resolved.
-///
 /// An unresolved mention arrives as `<span class="mention">` — somebody who is
 /// not a user, or one the reader may not see — and is deliberately not claimed.
 /// Discourse does not pill it either; it is prose that looks like a mention,
 /// and drawing it as one would promise a person who is not there.
-Widget? mentionWidgetBuilder(dom.Element element, TextStyle? baseStyle) {
+Widget? mentionWidgetBuilder(
+  dom.Element element,
+  TextStyle? baseStyle, {
+  String? siteUrl,
+}) {
   if (element.localName != 'a') return null;
   if (!element.classes.contains('mention') &&
       !element.classes.contains('mention-group')) {
@@ -65,6 +70,7 @@ Widget? mentionWidgetBuilder(dom.Element element, TextStyle? baseStyle) {
       label: label,
       baseStyle: baseStyle,
       href: element.attributes['href'],
+      siteUrl: siteUrl,
     ),
   );
 }

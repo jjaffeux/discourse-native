@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
-
-import '../../data/authenticator.dart';
-import '../../data/discourse_api.dart';
+import '../../data/api_credentials.dart';
+import '../../data/discourse_api_contracts.dart';
+import '../../data/site_lifecycle.dart';
 import '../../data/store.dart';
+import '../../foundation/frame_safe_notifier.dart';
 import 'post_reactors.dart';
 
 /// Who reacted to what, and whether we are still finding out.
@@ -15,31 +15,24 @@ import 'post_reactors.dart';
 /// Only the *asking* lives here. The lists themselves go in the [Store] under
 /// their own ids, so the panel and the sheet are drawing the same record and
 /// one being dismissed does not cost the other its names.
-class ReactionsController extends ChangeNotifier {
+class ReactionsController extends FrameSafeNotifier {
   ReactionsController({
     required this.api,
-    required this.authenticator,
+    required this.credentials,
     required this.store,
-  });
+    SiteLifecycle? lifecycle,
+  }) : lifecycle = lifecycle ?? SiteLifecycle();
 
-  final DiscourseApi api;
-  final Authenticator authenticator;
+  final ReactionsApi api;
+  final ApiCredentialReader credentials;
   final Store store;
+  final SiteLifecycle lifecycle;
 
   /// Kept outside the [Store] for the reason the likers' equivalents are: they
   /// are facts about a request, not about a post, and a record that has never
   /// been fetched has nowhere to hold them.
   final Set<String> _loading = {};
   final Map<String, String> _errors = {};
-
-  /// Bumped per site on [forget], so a fetch in flight when a site was
-  /// disconnected can tell on arrival that the store it fetched for has been
-  /// emptied since, and put nothing back into it.
-  final Map<String, int> _siteEpochs = {};
-
-  int _siteEpoch(String siteUrl) => _siteEpochs[siteUrl] ?? 0;
-
-  bool _disposed = false;
 
   static String _key(String siteUrl, int postId, String? filter) =>
       '$siteUrl~${PostReactors.key(postId, filter)}';
@@ -63,8 +56,8 @@ class ReactionsController extends ChangeNotifier {
   }) async {
     final key = _key(siteUrl, postId, filter);
     if (!_loading.add(key)) return;
-    final epoch = _siteEpoch(siteUrl);
-    _notify();
+    final lease = lifecycle.capture(siteUrl);
+    notifySafely();
 
     try {
       // Inside the guard, not before it: an unsigned macOS build's keychain can
@@ -75,50 +68,42 @@ class ReactionsController extends ChangeNotifier {
         siteUrl: siteUrl,
         postId: postId,
         reaction: filter,
-        apiKey: await authenticator.apiKeyFor(siteUrl),
-        clientId: await authenticator.clientId(),
+        apiKey: await credentials.apiKeyFor(siteUrl),
+        clientId: await credentials.clientId(),
       );
-      // A disconnect in flight empties the store; the epoch says whether one
-      // happened while this was away.
-      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
-      store.put(siteUrl, fetched);
-      _errors.remove(key);
+      if (isDisposed) return;
+      lease.commit(() {
+        store.put(siteUrl, fetched);
+        _errors.remove(key);
+      });
     } catch (_) {
-      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
-      // Names already on screen are better than an error where they were: they
-      // were true a moment ago, and the next open asks again.
-      if (reactors(siteUrl, postId, filter: filter) == null) {
-        _errors[key] = 'Could not find out who reacted.';
-      }
+      if (isDisposed) return;
+      lease.commit(() {
+        if (reactors(siteUrl, postId, filter: filter) == null) {
+          _errors[key] = 'Could not find out who reacted.';
+        }
+      });
     } finally {
-      _loading.remove(key);
-      _notify();
+      if (!isDisposed) {
+        lease.commit(() {
+          _loading.remove(key);
+          notifySafely();
+        });
+      }
     }
   }
 
   /// Forgets what was being asked for one site, for a disconnect.
   ///
   /// The lists themselves are the [Store]'s to forget; these are only the
-  /// questions in flight. Bumping the epoch is what tells an answer still on
-  /// its way that it arrives too late.
+  /// questions in flight. The shell invalidates the shared lifecycle first.
   void forget(String siteUrl) {
+    final loadingBefore = _loading.length;
+    final errorsBefore = _errors.length;
     _loading.removeWhere((key) => key.startsWith('$siteUrl~'));
     _errors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _siteEpochs[siteUrl] = _siteEpoch(siteUrl) + 1;
-  }
-
-  /// No scheduler-phase guard, unlike `ShellController._notify`. Everything
-  /// here is reached from a completed request or a hover timer, never from
-  /// inside a layout pass — there is no scroll handler in this class to be
-  /// dispatched from one.
-  void _notify() {
-    if (_disposed) return;
-    notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    super.dispose();
+    if (_loading.length != loadingBefore || _errors.length != errorsBefore) {
+      notifySafely();
+    }
   }
 }

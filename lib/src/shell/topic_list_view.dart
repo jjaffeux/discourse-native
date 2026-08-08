@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
@@ -24,17 +26,19 @@ class TopicListView extends StatefulWidget {
 class _TopicListViewState extends State<TopicListView> {
   ScrollController? _scroll;
   ListController? _list;
-  String? _destination;
+  (String?, String)? _feedIdentity;
+  Object? _loadMoreToken;
   bool _restored = false;
 
   /// Rebuilds the scroll controllers when the list underneath them changes, so
   /// each destination starts at its own remembered row rather than inheriting
   /// the previous one's.
-  void _syncControllers(String destination) {
-    if (_destination == destination) return;
+  void _syncControllers((String?, String) feedIdentity) {
+    if (_feedIdentity == feedIdentity) return;
 
     _disposeControllers();
-    _destination = destination;
+    _feedIdentity = feedIdentity;
+    _loadMoreToken = null;
     _restored = false;
     _scroll = ScrollController();
     _list = ListController();
@@ -42,7 +46,11 @@ class _TopicListViewState extends State<TopicListView> {
 
   /// Puts the row the user left at the top of the viewport, once there is a
   /// laid-out list to jump within.
-  void _restore(ShellController controller, String destination) {
+  void _restore(
+    ShellController controller,
+    String destination,
+    (String?, String) feedIdentity,
+  ) {
     if (_restored) return;
     _restored = true;
 
@@ -50,13 +58,13 @@ class _TopicListViewState extends State<TopicListView> {
     if (row <= 0) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _destination != destination) return;
+      if (!_isCurrent(controller, feedIdentity)) return;
       _jumpTo(row);
       // The first jump was measured against estimated heights for rows that
       // had never been built. Now that the real ones are laid out, land on the
       // same row again.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _destination != destination) return;
+        if (!_isCurrent(controller, feedIdentity)) return;
         _jumpTo(row);
       });
     });
@@ -100,43 +108,82 @@ class _TopicListViewState extends State<TopicListView> {
   Future<void> _showIncoming(
     ShellController controller,
     String destination,
+    (String?, String) feedIdentity,
   ) async {
     await controller.showIncoming(destination);
-    if (!mounted || _destination != destination) return;
+    if (!_isCurrent(controller, feedIdentity)) return;
 
     // The rows only exist after the frame that draws them.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _destination != destination) return;
+      if (!_isCurrent(controller, feedIdentity)) return;
       final scroll = _scroll;
       if (scroll != null && scroll.hasClients) scroll.jumpTo(0);
     });
   }
 
+  void _scheduleLoadMore(
+    ShellController controller,
+    String destination,
+    (String?, String) feedIdentity,
+    TopicFeed feed,
+  ) {
+    if (!feed.hasMore || feed.loadingMore || _loadMoreToken != null) return;
+
+    final token = Object();
+    _loadMoreToken = token;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (identical(_loadMoreToken, token)) _loadMoreToken = null;
+      if (!_isCurrent(controller, feedIdentity)) return;
+      if (!identical(widget.feed, feed)) return;
+      unawaited(controller.loadMoreFeed(destination));
+    });
+  }
+
+  bool _isCurrent(ShellController controller, (String?, String) feedIdentity) =>
+      mounted &&
+      _feedIdentity == feedIdentity &&
+      _currentFeedIdentity(controller) == feedIdentity;
+
+  static (String?, String) _currentFeedIdentity(ShellController controller) {
+    final siteUrl = controller.currentInstance?.url;
+    final destination = controller.currentFeedId ?? 'latest';
+    return (siteUrl, destination);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.of(context);
-    // Not `destinationId`: a category or tag list opened from a hashtag is a
-    // feed of its own, sitting over whichever sidebar entry is still selected.
-    final destination = controller.currentFeedId ?? 'latest';
-    final incoming = controller.incomingCount(destination);
+    return ShellSelector<_TopicListSnapshot>(
+      select: _topicListSnapshot,
+      builder: (context, state, _) => _build(context, state),
+    );
+  }
+
+  Widget _build(BuildContext context, _TopicListSnapshot state) {
+    final controller = ShellScope.read(context);
+    final destination = state.destination;
+    final feedIdentity = state.feedIdentity;
 
     return Column(
       children: [
         // Above the list rather than scrolling with it, so it is still there
         // when the topics it is announcing are twenty rows up.
-        if (incoming > 0)
+        if (state.incoming > 0)
           _IncomingBanner(
-            count: incoming,
+            count: state.incoming,
             destination: destination,
             loading: widget.feed.loadingIncoming,
-            onTap: () => _showIncoming(controller, destination),
+            onTap: () => _showIncoming(controller, destination, feedIdentity),
           ),
-        Expanded(child: _body(controller, destination)),
+        Expanded(child: _body(controller, destination, feedIdentity)),
       ],
     );
   }
 
-  Widget _body(ShellController controller, String destination) {
+  Widget _body(
+    ShellController controller,
+    String destination,
+    (String?, String) feedIdentity,
+  ) {
     final feed = widget.feed;
 
     if (feed.loading && feed.topicIds.isEmpty) {
@@ -149,28 +196,28 @@ class _TopicListViewState extends State<TopicListView> {
       return const _Message(icon: DIcons.inbox, text: 'Nothing here yet.');
     }
 
-    _syncControllers(destination);
-    _restore(controller, destination);
+    _syncControllers(feedIdentity);
+    _restore(controller, destination, feedIdentity);
 
     return RefreshIndicator(
       onRefresh: () => controller.loadFeed(destination, force: true),
       child: NotificationListener<ScrollNotification>(
         // Fetching on a scroll notification rather than from itemBuilder keeps
-        // the request off the hot path of building rows. It does not keep it
-        // out of the frame — a viewport applying new content dimensions starts
-        // a scroll from inside its own layout, and this runs there too. What
-        // makes that safe is ShellController deferring the notification it
-        // raises, not anything here.
+        // the request off the hot path of building rows. Both paths coalesce
+        // through a post-frame callback because a viewport can emit a scroll
+        // notification while applying new content dimensions during layout.
         onNotification: (notification) {
+          if (notification.depth != 0) return false;
           // Opening a topic tears this list down, so the position has to be
           // handed to the controller as it changes rather than on dispose.
-          if (notification.depth == 0 && _list?.isAttached == true) {
+          if (_isCurrent(controller, feedIdentity) &&
+              _list?.isAttached == true) {
             if (_list!.visibleRange case final range?) {
               controller.saveFeedScrollRow(destination, range.$1);
             }
           }
           if (notification.metrics.extentAfter < _loadMoreThreshold) {
-            controller.loadMoreFeed(destination);
+            _scheduleLoadMore(controller, destination, feedIdentity, feed);
           }
           return false;
         },
@@ -181,7 +228,7 @@ class _TopicListViewState extends State<TopicListView> {
         child: SuperListView.separated(
           // Switching destinations swaps the controller, so the scrollable has
           // to be a new one rather than re-attached to a different controller.
-          key: ValueKey(destination),
+          key: ValueKey(feedIdentity),
           controller: _scroll,
           listController: _list,
           padding: const EdgeInsets.symmetric(vertical: 4),
@@ -197,12 +244,11 @@ class _TopicListViewState extends State<TopicListView> {
 
             // The end is in view; fetch before the user gets there.
             if (index == feed.topicIds.length - 1 && feed.hasMore) {
-              WidgetsBinding.instance.addPostFrameCallback(
-                (_) => controller.loadMoreFeed(destination),
-              );
+              _scheduleLoadMore(controller, destination, feedIdentity, feed);
             }
 
-            return _TopicRow(topicId: feed.topicIds[index]);
+            final topicId = feed.topicIds[index];
+            return _TopicRow(key: ValueKey(topicId), topicId: topicId);
           },
         ),
       ),
@@ -311,30 +357,57 @@ class _LoadingMoreRow extends StatelessWidget {
 /// topic — which clears its unread state wherever that topic appears — redraws
 /// this row alone, without the list it is in being rebuilt or even told.
 class _TopicRow extends StatelessWidget {
-  const _TopicRow({required this.topicId});
+  const _TopicRow({super.key, required this.topicId});
 
   final int topicId;
 
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.of(context);
-    final siteUrl = controller.currentInstance?.url;
-    if (siteUrl == null) return const SizedBox.shrink();
+    return ShellSelector<String?>(
+      select: (controller) => controller.currentInstance?.url,
+      builder: (context, siteUrl, _) {
+        if (siteUrl == null) return const SizedBox.shrink();
+        final controller = ShellScope.read(context);
 
-    return ValueListenableBuilder<Topic?>(
-      valueListenable: controller.topicRef(siteUrl, topicId),
-      builder: (context, topic, _) => topic == null
-          // The id is in a list, so the topic was stored with it. A gap here
-          // means the site was just disconnected and this list is one frame
-          // from being torn down.
-          ? const SizedBox.shrink()
-          : _TopicRowBody(
-              topic: topic,
-              category: controller.categoryFor(topic.categoryId),
-              onTap: () => controller.openTopic(topic),
-            ),
+        return ValueListenableBuilder<Topic?>(
+          valueListenable: controller.topicRef(siteUrl, topicId),
+          builder: (context, topic, _) => topic == null
+              // The id is in a list, so the topic was stored with it. A gap
+              // here means the site was just disconnected and this list is
+              // one frame from being torn down.
+              ? const SizedBox.shrink()
+              : ShellSelector<TopicCategory?>(
+                  select: (controller) => controller.categoryFor(
+                    topic.categoryId,
+                    siteUrl: siteUrl,
+                  ),
+                  builder: (context, category, _) => _TopicRowBody(
+                    topic: topic,
+                    category: category,
+                    onTap: () => controller.openTopic(topic),
+                  ),
+                ),
+        );
+      },
     );
   }
+}
+
+typedef _TopicListSnapshot = ({
+  (String?, String) feedIdentity,
+  String destination,
+  int incoming,
+});
+
+_TopicListSnapshot _topicListSnapshot(ShellController controller) {
+  // Not `destinationId`: a category or tag list opened from a hashtag is a
+  // feed of its own, sitting over whichever sidebar entry is still selected.
+  final destination = controller.currentFeedId ?? 'latest';
+  return (
+    feedIdentity: _TopicListViewState._currentFeedIdentity(controller),
+    destination: destination,
+    incoming: controller.incomingCount(destination),
+  );
 }
 
 class _TopicRowBody extends StatelessWidget {

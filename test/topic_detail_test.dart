@@ -149,9 +149,23 @@ void main() {
       store.put(site, post(1, 1));
       store.put(site, post(1, 1));
 
-      expect(notifications, 2);
+      expect(notifications, 1);
       expect(ref.value?.id, 1);
       expect(store.length, 1);
+    });
+
+    test('a changed post replaces the record and tells its watcher', () {
+      final store = Store();
+      final first = store.put(site, post(1, 1));
+      final ref = store.ref<Post>(site, 1);
+      var notifications = 0;
+      ref.addListener(() => notifications++);
+
+      final changed = store.put(site, post(1, 1, raw: 'new source'));
+
+      expect(changed, isNot(same(first)));
+      expect(changed.raw, 'new source');
+      expect(notifications, 1);
     });
 
     test('a re-read does not take back markdown already in hand', () {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/content_route.dart';
@@ -39,8 +41,8 @@ class ReactionsPlugin implements SitePlugin<Reactions> {
       Reactions.fromJson(json);
 
   @override
-  Widget? postFooter(Post post) =>
-      post.hasReactions ? ReactionsRow(post: post) : null;
+  Widget? postFooter(String siteUrl, Post post) =>
+      post.hasReactions ? ReactionsRow(siteUrl: siteUrl, post: post) : null;
 
   /// Replaces Like on a post that has reactions, and offers whichever of the
   /// three things a tap can mean here.
@@ -93,28 +95,38 @@ class ReactionsPlugin implements SitePlugin<Reactions> {
   List<SidebarSection> sidebarSections(BuildContext context) => const [];
 
   @override
+  Listenable? sidebarListenable(BuildContext context) => null;
+
+  @override
   Widget? content(BuildContext context, ContentRoute route) => null;
 
   @override
-  PostMenuContribution postMenu(BuildContext context, Post post) {
+  PostMenuContribution postMenu(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+  ) {
     if (!post.hasReactions) return PostMenuContribution.none;
     // Replaced even where nothing can be offered — a post the reader may not
     // react to must not fall back to a Like that writes to the wrong table.
     if (!post.canReact) return const PostMenuContribution(replacesLike: true);
 
-    final controller = ShellScope.of(context);
-    final siteUrl = controller.currentInstance?.url ?? '';
-    final config = controller.currentSiteConfig;
+    final controller = ShellScope.read(context);
+    final config = controller.siteConfigFor(siteUrl);
     final held = post.reactions!.mine;
     final target = held?.id ?? config.mainReaction;
 
     void report(Future<String?> work) {
       final messenger = ScaffoldMessenger.maybeOf(context);
-      work.then((error) {
-        if (error != null) {
-          messenger?.showSnackBar(SnackBar(content: Text(error)));
-        }
-      });
+      unawaited(
+        work.then((error) {
+          if (error == null || messenger == null || !messenger.mounted) return;
+          if (!identical(ShellScope.maybeRead(messenger.context), controller)) {
+            return;
+          }
+          messenger.showSnackBar(SnackBar(content: Text(error)));
+        }),
+      );
     }
 
     return PostMenuContribution(
@@ -140,10 +152,10 @@ class ReactionsPlugin implements SitePlugin<Reactions> {
             if (target == null) {
               // Nothing known to send. The picker is where a reader chooses,
               // and this is the one path that does not need the setting.
-              showReactionPicker(context, post);
+              unawaited(showReactionPicker(context, siteUrl, post));
               return;
             }
-            report(controller.toggleReaction(post, target));
+            report(controller.toggleReaction(post, target, siteUrl: siteUrl));
           },
         ),
         if (target != null && config.offeredReactions.isNotEmpty)
@@ -151,7 +163,8 @@ class ReactionsPlugin implements SitePlugin<Reactions> {
             icon: DIcons.farFaceSmile,
             label: 'React',
             tooltip: 'Pick a reaction',
-            onInvoke: () => showReactionPicker(context, post),
+            onInvoke: () =>
+                unawaited(showReactionPicker(context, siteUrl, post)),
           ),
       ],
     );

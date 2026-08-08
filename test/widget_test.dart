@@ -2,15 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart' show kSecondaryButton;
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
-import 'package:super_sliver_list/super_sliver_list.dart';
-
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/emoji_cache.dart';
@@ -20,14 +11,17 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/found_user.dart';
-import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
@@ -35,34 +29,39 @@ import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
-import 'package:discourse_native/src/shell/emoji.dart';
-import 'package:discourse_native/src/models/found_hashtag.dart';
-import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/models/user_card.dart';
-import 'package:discourse_native/src/shell/composer_autocomplete.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/shell_controller.dart';
-import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
-import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
-import 'package:discourse_native/src/shell/topic_view.dart';
+import 'package:discourse_native/src/shell/composer_autocomplete.dart';
+import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/empty_state.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
-import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/post_footer.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_metrics.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show kSecondaryButton;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 import 'support/finders.dart';
@@ -155,6 +154,36 @@ List<String> watchBrowser(WidgetTester tester) {
   });
   addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
   return launched;
+}
+
+final class _GatedUserCardApi extends FakeDiscourseApi {
+  _GatedUserCardApi({
+    required this.cardGate,
+    required super.feeds,
+    required super.topics,
+  });
+
+  final Completer<void> cardGate;
+  final started = Completer<void>();
+  final List<String> cardSites = [];
+
+  @override
+  Future<UserCard> userCard({
+    required String siteUrl,
+    required String username,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    cardsRequested.add(username);
+    cardSites.add(siteUrl);
+    started.complete();
+    await cardGate.future;
+    return UserCard(
+      username: username,
+      name: 'First-site profile',
+      title: 'From Meta',
+    );
+  }
 }
 
 /// The account avatar in the top right, wherever the layout has put it.
@@ -671,8 +700,8 @@ void main() {
 
       expect(
         api.feedPaths.where((p) => p == '/latest.json').length,
-        1,
-        reason: 'cached lists should not be refetched',
+        2,
+        reason: 'sign-in refreshes the personalized list, revisiting reuses it',
       );
     });
 
@@ -1103,7 +1132,7 @@ void main() {
           child: MaterialApp(
             home: LayoutBuilder(
               builder: (context, _) {
-                ShellScope.of(context).loadMoreFeed('latest');
+                unawaited(ShellScope.of(context).loadMoreFeed('latest'));
                 return const SizedBox.expand();
               },
             ),
@@ -1420,7 +1449,8 @@ void main() {
       expect(auth.connected, ['https://meta.discourse.org']);
       expect(find.byTooltip('Joffrey'), findsOneWidget);
       expect(find.text('meta.discourse.org'), findsWidgets);
-      expect(store.saveCount, 1);
+      // First the old identity is removed, then the verified one is recorded.
+      expect(store.saveCount, 2);
     });
 
     testWidgets('backing out of the browser is not an error', (tester) async {
@@ -2294,6 +2324,37 @@ void main() {
 
       expect(api.cardsRequested, ['joffreyj', 'joffreyj']);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an open card keeps the site that it was loaded from', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final api = _GatedUserCardApi(
+        cardGate: gate,
+        feeds: {'/latest.json': listed},
+        topics: {7: detail},
+      );
+
+      await openTopic(tester, api);
+      final shell = ShellScope.read(tester.element(find.byType(TopicView)));
+
+      await tester.tap(find.text('Joffrey'));
+      await tester.pump();
+      await api.started.future;
+      await tester.pump(const Duration(milliseconds: 200));
+
+      shell.selectInstance(1);
+      await tester.pump();
+
+      gate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(api.cardSites, ['https://meta.discourse.org']);
+      expect(shell.currentInstance?.url, 'https://team.discourse.org');
+      expect(find.text('First-site profile'), findsOneWidget);
+      expect(find.text('From Meta'), findsOneWidget);
     });
   });
 
@@ -5270,6 +5331,62 @@ void main() {
       expect(api.draftsSaved.single['data'], contains('Half a thought'));
     });
 
+    testWidgets('a new draft after a queued reply uses its returned sequence', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draftSequence: 4)},
+        creation: const PostCreation(
+          outcome: PostOutcome.enqueued,
+          draftSequence: 9,
+        ),
+      );
+
+      await openComposer(tester, api);
+      await tester.enterText(find.byType(TextField), 'Held for review');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Reply'));
+      await tester.pumpAndSettle();
+      api.draftsSaved.clear();
+
+      await tester.enterText(find.byType(TextField), 'A different reply');
+      await settleDraft(tester);
+
+      expect(api.draftsSaved, hasLength(1));
+      expect(api.draftsSaved.single['sequence'], 9);
+      expect(api.draftsSaved.single['data'], contains('A different reply'));
+    });
+
+    testWidgets('a slow save cannot clear a newer draft', (tester) async {
+      final gate = Completer<void>();
+      final drafts = FakeDraftStore();
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draftSequence: 4)},
+        draftGate: gate,
+      );
+
+      await openComposer(tester, api, drafts: drafts);
+      await tester.enterText(find.byType(TextField), 'First revision');
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), 'Latest revision');
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+
+      expect(api.draftsSaved, hasLength(1));
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(api.draftsSaved, hasLength(2));
+      expect(api.draftsSaved.last['data'], contains('Latest revision'));
+      expect(drafts.events.where((event) => event == 'clear'), hasLength(1));
+      expect(drafts.events.last, 'clear');
+    });
+
     testWidgets('a draft is put back when the composer is reopened', (
       tester,
     ) async {
@@ -6015,10 +6132,19 @@ void main() {
 
         expect(find.text('CHAT'), findsNothing);
 
+        final shell = ShellScope.read(
+          tester.element(find.byType(InstanceSidebar)),
+        );
+        var shellNotifications = 0;
+        void countShellNotification() => shellNotifications += 1;
+        shell.addListener(countShellNotification);
+        addTearDown(() => shell.removeListener(countShellNotification));
+
         gate.complete();
         await tester.pumpAndSettle();
 
         expect(find.text('CHAT'), findsOneWidget);
+        expect(shellNotifications, 0);
       });
 
       testWidgets('draws nothing for an account that follows no channels', (
@@ -6153,6 +6279,41 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(renderedText('Hello there'), findsOneWidget);
+      });
+
+      testWidgets('updates a loading channel without notifying the shell', (
+        tester,
+      ) async {
+        final gate = Completer<void>();
+        await pumpChat(
+          tester,
+          api: FakeDiscourseApi(
+            totals: withChat,
+            chatChannelsBySite: {
+              site: (public: [channel(9)], direct: const []),
+            },
+            chatMessagesByKey: {
+              key(9): page([msg(1)]),
+            },
+            chatMessageGate: gate,
+          ),
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pump();
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        var shellNotifications = 0;
+        void countShellNotification() => shellNotifications += 1;
+        shell.addListener(countShellNotification);
+        addTearDown(() => shell.removeListener(countShellNotification));
+
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(renderedText('Hello there'), findsOneWidget);
+        expect(shellNotifications, 0);
       });
 
       testWidgets('puts the newest message at the bottom', (tester) async {
@@ -6431,41 +6592,42 @@ void main() {
         },
       );
 
-      testWidgets('opens where the reader left off, not at the newest message', (
-        tester,
-      ) async {
-        // The reason the open is anchored at all. Landing at the live edge
-        // would put the newest message on screen, and the reader would be
-        // credited with a backlog they have not looked at.
-        final backlog = [
-          for (var id = 1; id <= 40; id++) msg(id, minute: id),
-        ];
-        final api = FakeDiscourseApi(
-          totals: withChat,
-          chatChannelsBySite: {
-            site: (
-              public: [channel(9, lastRead: 5, unread: 35)],
-              direct: const [],
-            ),
-          },
-          chatMessagesByKey: {key(9): page(backlog)},
-        );
+      testWidgets(
+        'opens where the reader left off, not at the newest message',
+        (tester) async {
+          // The reason the open is anchored at all. Landing at the live edge
+          // would put the newest message on screen, and the reader would be
+          // credited with a backlog they have not looked at.
+          final backlog = [
+            for (var id = 1; id <= 40; id++) msg(id, minute: id),
+          ];
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            chatChannelsBySite: {
+              site: (
+                public: [channel(9, lastRead: 5, unread: 35)],
+                direct: const [],
+              ),
+            },
+            chatMessagesByKey: {key(9): page(backlog)},
+          );
 
-        await pumpChat(tester, api: api, size: phone);
-        await tester.tap(sidebarDestination('Bugs'));
-        await pumpUntilRead(tester);
+          await pumpChat(tester, api: api, size: phone);
+          await tester.tap(sidebarDestination('Bugs'));
+          await pumpUntilRead(tester);
 
-        // It asked the site to place them, rather than placing them itself.
-        expect(api.chatMessagesRequested.single.fromLastRead, isTrue);
-        // Credited with what the screen holds around message 5, and nowhere
-        // near the forty the channel has.
-        final marked = api.chatReadsMarked.single.messageId;
-        expect(marked, greaterThan(5));
-        expect(marked, lessThan(40));
-        // And the line they left off at is on screen, which is the point of
-        // landing there.
-        expect(find.text('New'), findsOneWidget);
-      });
+          // It asked the site to place them, rather than placing them itself.
+          expect(api.chatMessagesRequested.single.fromLastRead, isTrue);
+          // Credited with what the screen holds around message 5, and nowhere
+          // near the forty the channel has.
+          final marked = api.chatReadsMarked.single.messageId;
+          expect(marked, greaterThan(5));
+          expect(marked, lessThan(40));
+          // And the line they left off at is on screen, which is the point of
+          // landing there.
+          expect(find.text('New'), findsOneWidget);
+        },
+      );
 
       testWidgets('holds the reader still when the present is paged in', (
         tester,
@@ -6551,11 +6713,7 @@ void main() {
               site: (public: [channel(9, lastRead: 1)], direct: const []),
             },
             chatMessagesByKey: {
-              key(9): page([
-                msg(1),
-                msg(2, minute: 1),
-                msg(3, minute: 2),
-              ]),
+              key(9): page([msg(1), msg(2, minute: 1), msg(3, minute: 2)]),
             },
           );
 

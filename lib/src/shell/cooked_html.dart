@@ -25,10 +25,19 @@ import 'shell_scope.dart';
 /// Onebox bodies come back through here, which is why an onebox containing a
 /// code block gets the same code block a post does.
 class CookedHtml extends StatelessWidget {
-  const CookedHtml({super.key, required this.html, this.textStyle});
+  const CookedHtml({
+    super.key,
+    required this.html,
+    this.textStyle,
+    this.siteUrl,
+  });
 
   final String html;
   final TextStyle? textStyle;
+
+  /// The site that cooked [html]. Direct callers may omit it and inherit the
+  /// selected site; long-lived application content always supplies it.
+  final String? siteUrl;
 
   /// Inline code and emoji size themselves against the prose around them, so
   /// unlike the other builders those two need the style the widget was given.
@@ -39,13 +48,13 @@ class CookedHtml extends StatelessWidget {
   ) =>
       (element) =>
           emojiWidgetBuilder(element, siteUrl, textStyle) ??
-          mentionWidgetBuilder(element, textStyle) ??
-          hashtagWidgetBuilder(element, textStyle) ??
-          imageGridWidgetBuilder(element) ??
-          lightboxWidgetBuilder(element) ??
-          oneboxWidgetBuilder(element) ??
-          inlineOneboxWidgetBuilder(element) ??
-          quoteWidgetBuilder(element) ??
+          mentionWidgetBuilder(element, textStyle, siteUrl: siteUrl) ??
+          hashtagWidgetBuilder(element, textStyle, siteUrl: siteUrl) ??
+          imageGridWidgetBuilder(element, siteUrl: siteUrl) ??
+          lightboxWidgetBuilder(element, siteUrl: siteUrl) ??
+          oneboxWidgetBuilder(element, siteUrl: siteUrl) ??
+          inlineOneboxWidgetBuilder(element, siteUrl: siteUrl) ??
+          quoteWidgetBuilder(element, siteUrl: siteUrl) ??
           codeBlockWidgetBuilder(element) ??
           inlineCodeWidgetBuilder(element, textStyle);
 
@@ -58,22 +67,24 @@ class CookedHtml extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = textStyle ?? Theme.of(context).textTheme.bodyMedium;
-    // `maybeOf`, because this also renders outside the shell — a quote or an
+    // `maybeRead`, because this also renders outside the shell — a quote or an
     // onebox in a test. Emoji fall back to their shortcode there, which is what
     // they did everywhere before [emojiWidgetBuilder] existed.
-    final siteUrl = ShellScope.maybeOf(context)?.currentInstance?.url;
+    final resolvedSiteUrl =
+        siteUrl ?? ShellScope.maybeRead(context)?.currentInstance?.url;
 
     return HtmlWidget(
       html,
+      baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
       textStyle: style,
       renderMode: RenderMode.column,
-      customWidgetBuilder: _customWidget(style, siteUrl),
+      customWidgetBuilder: _customWidget(style, resolvedSiteUrl),
       customStylesBuilder: _customStyles,
-      // The builders close over [style] and [siteUrl], and [HtmlWidget] caches
-      // what they built — so a change to either has to say so to reach the
-      // inline code and the emoji.
-      rebuildTriggers: [style, siteUrl],
-      onTapUrl: (url) => openLink(context, url),
+      // The builders close over the style and resolved site, and [HtmlWidget]
+      // caches what they built — so a change to either has to say so to reach
+      // the inline code and the emoji.
+      rebuildTriggers: [style, resolvedSiteUrl],
+      onTapUrl: (url) => openLink(context, url, siteUrl: resolvedSiteUrl),
     );
   }
 }

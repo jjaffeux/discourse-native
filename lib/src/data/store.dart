@@ -59,11 +59,12 @@ class Ref<T extends Object> extends ChangeNotifier
 class Store {
   /// (site, type, id). A record, not a string: no separator to collide with,
   /// and no formatting on every lookup.
-  final Map<(String, Type, Object), Object> _refs = {};
+  final Map<(String, Type, Object), Ref<Object>> _refs = {};
 
   /// The ref for a record, whether or not it has been fetched.
   ///
-  /// Stable for the life of the store, so a widget can hold on to it.
+  /// Stable until [forget] is called for this site, so a widget can hold on to
+  /// it for the lifetime of a connected site.
   Ref<T> ref<T extends Storable<T>>(String siteUrl, Object id) =>
       _cell<T>(siteUrl, id);
 
@@ -130,11 +131,17 @@ class Store {
   /// than disposed — a widget may still be listening while the frame that
   /// removes it is drawn, and a disposed notifier it re-listens to would throw.
   void forget(String siteUrl) {
+    final forgotten = <Ref<Object>>[];
     _refs.removeWhere((key, ref) {
       if (key.$1 != siteUrl) return false;
-      (ref as Ref)._set(null);
+      forgotten.add(ref);
       return true;
     });
+    // Detach every ref before notifying. A listener may synchronously look up
+    // another record, and mutating a map from inside removeWhere would throw.
+    for (final ref in forgotten) {
+      ref._set(null);
+    }
   }
 
   @visibleForTesting

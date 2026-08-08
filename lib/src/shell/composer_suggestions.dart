@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'avatar_image.dart';
 import 'composer_autocomplete.dart';
-import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 import 'composer_controller.dart';
 import 'emoji.dart';
 import 'shell_metrics.dart';
@@ -39,16 +39,46 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
   final GlobalKey _anchorKey = GlobalKey();
   final ValueNotifier<Rect?> _anchor = ValueNotifier<Rect?>(null);
 
-  ComposerAutocomplete get _popup => widget.composer.autocomplete;
+  late ComposerAutocomplete _popup;
+  Object? _popupSyncToken;
 
   @override
   void initState() {
     super.initState();
+    _popup = widget.composer.autocomplete;
     _popup.addListener(_onPopupChanged);
+    _syncPopupAfterLayout(_popup);
+  }
+
+  @override
+  void didUpdateWidget(ComposerSuggestionField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = widget.composer.autocomplete;
+    if (identical(_popup, next)) {
+      if (next.isOpen) _syncPopupAfterLayout(next);
+      return;
+    }
+
+    _popup.removeListener(_onPopupChanged);
+    _popup = next;
+    _popup.addListener(_onPopupChanged);
+    _syncPopupAfterLayout(next);
+  }
+
+  void _syncPopupAfterLayout(ComposerAutocomplete expected) {
+    final token = Object();
+    _popupSyncToken = token;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!identical(_popupSyncToken, token)) return;
+      _popupSyncToken = null;
+      if (!mounted || !identical(_popup, expected)) return;
+      _onPopupChanged();
+    });
   }
 
   @override
   void dispose() {
+    _popupSyncToken = null;
     _popup.removeListener(_onPopupChanged);
     _anchor.dispose();
     super.dispose();
@@ -254,7 +284,9 @@ class _SuggestionRow extends StatelessWidget {
                     child: _Swatch(colorValues: colorValues),
                   ),
                   ArtIcon(:final name, :final colorValue) => DIcon(
-                    name == null ? DIcons.tag : DIcons.byName[name] ?? DIcons.tag,
+                    name == null
+                        ? DIcons.tag
+                        : DIcons.byName[name] ?? DIcons.tag,
                     size: 18,
                     color: colorValue == null
                         ? theme.colorScheme.onSurfaceVariant

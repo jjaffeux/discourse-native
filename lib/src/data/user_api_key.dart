@@ -64,7 +64,8 @@ class UserApiKeyProtocol {
   const UserApiKeyProtocol();
 
   static const String redirectScheme = 'discourse';
-  static const String redirectUrl = '$redirectScheme://auth_redirect';
+  static const String redirectHost = 'auth_redirect';
+  static const String redirectUrl = '$redirectScheme://$redirectHost';
 
   /// `session_info` gives us the username; `read`/`write` are what a client
   /// needs to be useful. No `push` scope — there is no push server yet.
@@ -77,7 +78,9 @@ class UserApiKeyProtocol {
     required String clientId,
     required String applicationName,
   }) {
-    return Uri.parse('$siteUrl/user-api-key/new').replace(
+    return Uri.parse(siteUrl).replace(
+      path: '/user-api-key/new',
+      fragment: '',
       queryParameters: {
         'application_name': applicationName,
         'client_id': clientId,
@@ -91,7 +94,21 @@ class UserApiKeyProtocol {
 
   /// Pulls the `payload` parameter out of the redirect we were sent back to.
   String payloadFromCallback(String callbackUrl) {
-    final payload = Uri.parse(callbackUrl).queryParameters['payload'];
+    final Uri callback;
+    try {
+      callback = Uri.parse(callbackUrl);
+    } on FormatException catch (error) {
+      throw UserApiAuthException(UserApiAuthFailure.badReply, '$error');
+    }
+
+    if (callback.scheme != redirectScheme || callback.host != redirectHost) {
+      throw const UserApiAuthException(
+        UserApiAuthFailure.badReply,
+        'unexpected callback URL',
+      );
+    }
+
+    final payload = callback.queryParameters['payload'];
     if (payload == null || payload.isEmpty) {
       throw const UserApiAuthException(
         UserApiAuthFailure.badReply,
@@ -104,12 +121,13 @@ class UserApiKeyProtocol {
   /// Decrypts the reply and checks it answers the nonce we sent.
   UserApiCredentials decodePayload({
     required String payload,
-    required RSAPrivateKey privateKey,
+    required String privateKeyPem,
     required String expectedNonce,
   }) {
     final Map<String, dynamic> decoded;
     try {
       final cipherText = base64Decode(payload.replaceAll(RegExp(r'\s'), ''));
+      final privateKey = CryptoUtils.rsaPrivateKeyFromPem(privateKeyPem);
       final plain = _decryptPkcs1(cipherText, privateKey);
       decoded = jsonDecode(utf8.decode(plain)) as Map<String, dynamic>;
     } catch (e) {
@@ -124,8 +142,8 @@ class UserApiKeyProtocol {
       );
     }
 
-    final key = decoded['key'] as String?;
-    if (key == null || key.isEmpty) {
+    final key = decoded['key'];
+    if (key is! String || key.isEmpty) {
       throw const UserApiAuthException(
         UserApiAuthFailure.badReply,
         'no key in payload',

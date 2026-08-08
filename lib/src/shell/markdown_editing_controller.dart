@@ -43,17 +43,20 @@ class MarkdownEditingController extends TextEditingController {
   /// answer changed when nothing about the text did.
   int _artwork = 0;
 
-  /// Urls already asked for, so a shortcode that is being typed does not
+  /// Urls currently being loaded, so a shortcode that is being typed does not
   /// queue a fetch per keystroke.
-  final Set<String> _asked = {};
+  ///
+  /// Completed requests are removed. [EmojiCache] owns the longer-lived
+  /// success, permanent-failure and transient-failure state; keeping a second
+  /// permanent record here would prevent its cooldown retry from ever running.
+  final Set<String> _loadingEmoji = {};
 
   bool _disposed = false;
 
   List<MarkdownRun>? _runs;
   String? _scanned;
 
-  TextSpan? _span;
-  Object? _spanKey;
+  _CachedMarkdownSpan? _cachedSpan;
 
   /// How many times the source has actually been read, so a test can hold the
   /// memoisation to account rather than trusting it.
@@ -101,15 +104,18 @@ class MarkdownEditingController extends TextEditingController {
     // Moving the caret changes none of the rest, and returning the *same* span
     // rather than an equal one is what makes that free: `RenderEditable`'s
     // `text` setter compares by identity first and skips the relayout.
-    final key = Object.hash(
-      source,
-      base,
-      theme.brightness,
-      composing,
-      revealed,
-      _artwork,
-    );
-    if (_spanKey == key && _span != null) return _span!;
+    final cached = _cachedSpan;
+    if (cached != null &&
+        cached.matches(
+          source: source,
+          style: base,
+          theme: theme,
+          composing: composing,
+          revealed: revealed,
+          artwork: _artwork,
+        )) {
+      return cached.span;
+    }
 
     // What a repaint found it could not draw yet, asked about once at the end
     // rather than once per run — a paragraph pasted with forty hashtags is one
@@ -161,8 +167,16 @@ class MarkdownEditingController extends TextEditingController {
       pills?.resolve(unresolvedRefs, unresolvedNames);
     }
 
-    _spanKey = key;
-    return _span = span;
+    _cachedSpan = _CachedMarkdownSpan(
+      source: source,
+      style: base,
+      theme: theme,
+      composing: composing,
+      revealed: revealed,
+      artwork: _artwork,
+      span: span,
+    );
+    return span;
   }
 
   /// Something a run was waiting on has landed: repaint.
@@ -220,9 +234,10 @@ class MarkdownEditingController extends TextEditingController {
     // A name the site does not have 404s once, is remembered as a failure, and
     // stays text forever at no further cost.
     if (!cache.isCached(url)) {
-      if (_asked.add(url)) {
+      if (_loadingEmoji.add(url)) {
         unawaited(
           cache.load(url).then((_) {
+            _loadingEmoji.remove(url);
             if (_disposed) return;
             artworkArrived();
             // Notifying with the value unchanged is what repaints the field,
@@ -241,10 +256,7 @@ class MarkdownEditingController extends TextEditingController {
 
     final size = (base.fontSize ?? 14) * emojiScale;
     return [
-      TextSpan(
-        text: text.substring(run.start, run.end - 1),
-        style: _hidden,
-      ),
+      TextSpan(text: text.substring(run.start, run.end - 1), style: _hidden),
       WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         style: base,
@@ -312,10 +324,7 @@ class MarkdownEditingController extends TextEditingController {
     return _placeholder(
       run,
       base,
-      MentionPill(
-        label: text.substring(run.start, run.end),
-        baseStyle: base,
-      ),
+      MentionPill(label: text.substring(run.start, run.end), baseStyle: base),
     );
   }
 
@@ -426,6 +435,48 @@ class MarkdownEditingController extends TextEditingController {
   }
 }
 
+/// Everything that can change the span tree without changing the source.
+///
+/// The theme is compared by identity deliberately. [ThemeData.operator ==]
+/// walks the entire theme, which would put a large deep comparison back on
+/// every caret move. A stable inherited theme is the same object, while a
+/// theme animation or replacement supplies a new one and must repaint even
+/// when both themes have the same brightness.
+class _CachedMarkdownSpan {
+  const _CachedMarkdownSpan({
+    required this.source,
+    required this.style,
+    required this.theme,
+    required this.composing,
+    required this.revealed,
+    required this.artwork,
+    required this.span,
+  });
+
+  final String source;
+  final TextStyle style;
+  final ThemeData theme;
+  final TextRange? composing;
+  final int revealed;
+  final int artwork;
+  final TextSpan span;
+
+  bool matches({
+    required String source,
+    required TextStyle style,
+    required ThemeData theme,
+    required TextRange? composing,
+    required int revealed,
+    required int artwork,
+  }) =>
+      this.source == source &&
+      this.style == style &&
+      identical(this.theme, theme) &&
+      this.composing == composing &&
+      this.revealed == revealed &&
+      this.artwork == artwork;
+}
+
 /// How a marked-up stretch of source is drawn.
 ///
 /// Block level first, then inline, then the marker dimming last — a `**` inside
@@ -498,8 +549,7 @@ TextStyle markdownStyle(
   // Links are coloured but never underlined: an underline in an editable is
   // the IME's way of saying a character is not committed yet, and a link that
   // borrows it would be lying about the state of the text.
-  if (mask &
-          (Md.linkText | Md.linkUrl | Md.mention | Md.emoji | Md.hashtag) !=
+  if (mask & (Md.linkText | Md.linkUrl | Md.mention | Md.emoji | Md.hashtag) !=
       0) {
     style = style.copyWith(color: theme.colorScheme.primary);
   }

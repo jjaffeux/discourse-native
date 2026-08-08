@@ -33,15 +33,18 @@ class Topic with Storable<Topic> {
     Map<String, dynamic> json,
     Map<int, String?> avatarsByUserId,
   ) {
-    final posters = (json['posters'] as List<dynamic>? ?? const [])
-        .map((p) => avatarsByUserId[(p as Map<String, dynamic>)['user_id']])
-        .whereType<String>()
-        .toList();
+    final resolvedPosters = <String>[];
+    for (final poster in jsonObjects(json['posters'])) {
+      final id = jsonIntOrNull(poster['user_id']);
+      final avatar = id == null ? null : avatarsByUserId[id];
+      if (avatar != null) resolvedPosters.add(avatar);
+    }
+    final posters = List<String>.unmodifiable(resolvedPosters);
 
     return Topic(
       id: jsonInt(json['id']),
       title: jsonTitle(json['title'], json['fancy_title']),
-      slug: (json['slug'] ?? '') as String,
+      slug: jsonString(json['slug']),
       categoryId: json['category_id'] == null
           ? null
           : jsonInt(json['category_id']),
@@ -96,9 +99,12 @@ class Topic with Storable<Topic> {
   /// avatars are resolved from. Taking that literally would blank the faces on
   /// a row that had them.
   @override
-  Topic merge(Topic incoming) => incoming.posterAvatars.isEmpty
-      ? incoming.copyWith(posterAvatars: posterAvatars)
-      : incoming;
+  Topic merge(Topic incoming) {
+    final merged = incoming.posterAvatars.isEmpty
+        ? incoming.copyWith(posterAvatars: posterAvatars)
+        : incoming;
+    return this == merged ? this : merged;
+  }
 
   Topic copyWith({
     String? title,
@@ -120,8 +126,49 @@ class Topic with Storable<Topic> {
     unreadPosts: markRead ? 0 : unreadPosts,
     newPosts: markRead ? 0 : newPosts,
     seen: markRead ? true : seen,
-    posterAvatars: posterAvatars ?? this.posterAvatars,
+    posterAvatars: posterAvatars == null
+        ? this.posterAvatars
+        : List.unmodifiable(posterAvatars),
   );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Topic &&
+          other.id == id &&
+          other.title == title &&
+          other.slug == slug &&
+          other.categoryId == categoryId &&
+          other.postsCount == postsCount &&
+          other.replyCount == replyCount &&
+          other.views == views &&
+          other.likeCount == likeCount &&
+          other.bumpedAt == bumpedAt &&
+          other.pinned == pinned &&
+          other.closed == closed &&
+          other.unreadPosts == unreadPosts &&
+          other.newPosts == newPosts &&
+          other.seen == seen &&
+          listEquals(other.posterAvatars, posterAvatars);
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    title,
+    slug,
+    categoryId,
+    postsCount,
+    replyCount,
+    views,
+    likeCount,
+    bumpedAt,
+    pinned,
+    closed,
+    unreadPosts,
+    newPosts,
+    seen,
+    Object.hashAll(posterAvatars),
+  ]);
 }
 
 /// One page of a topic list, plus what the rows need to render.
@@ -133,20 +180,22 @@ class TopicList {
   /// resolved into the topics here rather than left for the widgets.
   factory TopicList.fromJson(Map<String, dynamic> json, String siteUrl) {
     final avatars = <int, String?>{};
-    for (final user in (json['users'] as List<dynamic>? ?? const [])) {
-      final map = user as Map<String, dynamic>;
-      avatars[jsonInt(map['id'])] = resolveAvatarUrl(
-        map['avatar_template'] as String?,
+    for (final user in jsonObjects(json['users'])) {
+      final id = jsonIntOrNull(user['id']);
+      if (id == null) continue;
+      avatars[id] = resolveAvatarUrl(
+        jsonText(user['avatar_template']),
         siteUrl,
       );
     }
 
-    final list = json['topic_list'] as Map<String, dynamic>? ?? const {};
+    final list = jsonObject(json['topic_list']);
     return TopicList(
-      topics: (list['topics'] as List<dynamic>? ?? const [])
-          .map((t) => Topic.fromJson(t as Map<String, dynamic>, avatars))
-          .toList(),
-      moreTopicsUrl: list['more_topics_url'] as String?,
+      topics: List.unmodifiable([
+        for (final topic in jsonObjects(list['topics']))
+          Topic.fromJson(topic, avatars),
+      ]),
+      moreTopicsUrl: jsonText(list['more_topics_url']),
     );
   }
 
@@ -180,9 +229,9 @@ class TopicCategory with Storable<TopicCategory> {
 
   factory TopicCategory.fromJson(Map<String, dynamic> json) => TopicCategory(
     id: jsonInt(json['id']),
-    name: (json['name'] ?? '') as String,
-    color: (json['color'] ?? '888888') as String,
-    slug: (json['slug'] ?? '') as String,
+    name: jsonString(json['name']),
+    color: jsonString(json['color'], fallback: '888888'),
+    slug: jsonString(json['slug']),
     parentCategoryId: json['parent_category_id'] == null
         ? null
         : jsonInt(json['parent_category_id']),
@@ -206,4 +255,21 @@ class TopicCategory with Storable<TopicCategory> {
 
   @override
   Object get storeId => id;
+
+  @override
+  TopicCategory merge(TopicCategory incoming) =>
+      this == incoming ? this : incoming;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TopicCategory &&
+          other.id == id &&
+          other.name == name &&
+          other.color == color &&
+          other.slug == slug &&
+          other.parentCategoryId == parentCategoryId;
+
+  @override
+  int get hashCode => Object.hash(id, name, color, slug, parentCategoryId);
 }

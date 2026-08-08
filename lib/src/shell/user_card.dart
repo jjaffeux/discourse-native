@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -13,6 +15,8 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu_message.dart';
 
+final _userCardTransitionCurve = CurveTween(curve: Curves.easeOutCubic);
+
 /// Makes [child] open the card for [username] when clicked.
 ///
 /// Wraps rather than replaces its child, so an avatar and a name can each be
@@ -22,10 +26,12 @@ class UserCardTarget extends StatelessWidget {
     super.key,
     required this.username,
     required this.child,
+    this.siteUrl,
   });
 
   final String username;
   final Widget child;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +41,9 @@ class UserCardTarget extends StatelessWidget {
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => showUserCard(context: context, username: username),
+        onTap: () => unawaited(
+          showUserCard(context: context, username: username, siteUrl: siteUrl),
+        ),
         child: child,
       ),
     );
@@ -58,8 +66,11 @@ String? usernameFromProfileUrl(Uri url) {
 /// no shell above [context] to ask, or when the URL is not a profile on the
 /// site being read: a profile elsewhere is that site's page, and the card here
 /// could only be fetched from this one.
-bool showUserCardForUrl(BuildContext context, String url) {
-  final instance = ShellScope.maybeOf(context)?.currentInstance;
+bool showUserCardForUrl(BuildContext context, String url, {String? siteUrl}) {
+  final controller = ShellScope.maybeRead(context);
+  final instance = siteUrl == null
+      ? controller?.currentInstance
+      : controller?.instances.where((site) => site.url == siteUrl).firstOrNull;
   if (instance == null) return false;
 
   final uri = Uri.tryParse(url);
@@ -68,7 +79,9 @@ bool showUserCardForUrl(BuildContext context, String url) {
   final username = usernameFromProfileUrl(uri);
   if (username == null) return false;
 
-  showUserCard(context: context, username: username);
+  unawaited(
+    showUserCard(context: context, username: username, siteUrl: instance.url),
+  );
   return true;
 }
 
@@ -79,8 +92,11 @@ bool showUserCardForUrl(BuildContext context, String url) {
 Future<void> showUserCard({
   required BuildContext context,
   required String username,
+  String? siteUrl,
 }) {
-  final controller = ShellScope.of(context);
+  final controller = ShellScope.read(context);
+  final targetSite = siteUrl ?? controller.currentInstance?.url;
+  if (targetSite == null) return Future<void>.value();
   final box = context.findRenderObject() as RenderBox?;
   final overlay =
       Navigator.of(context).overlay?.context.findRenderObject() as RenderBox?;
@@ -97,7 +113,7 @@ Future<void> showUserCard({
           ),
         );
 
-  controller.loadUserCard(username);
+  unawaited(controller.loadUserCard(username, siteUrl: targetSite));
 
   return showGeneralDialog<void>(
     context: context,
@@ -105,16 +121,10 @@ Future<void> showUserCard({
     barrierLabel: 'Dismiss',
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 140),
-    pageBuilder: (context, animation, secondaryAnimation) => _UserCardPopup(
-      controller: controller,
-      username: username,
-      anchor: anchor,
-    ),
+    pageBuilder: (context, animation, secondaryAnimation) =>
+        _UserCardPopup(username: username, siteUrl: targetSite, anchor: anchor),
     transitionBuilder: (context, animation, secondary, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-      );
+      final curved = animation.drive(_userCardTransitionCurve);
       return FadeTransition(
         opacity: curved,
         child: ScaleTransition(
@@ -129,8 +139,8 @@ Future<void> showUserCard({
 
 class _UserCardPopup extends StatelessWidget {
   const _UserCardPopup({
-    required this.controller,
     required this.username,
+    required this.siteUrl,
     required this.anchor,
   });
 
@@ -142,9 +152,64 @@ class _UserCardPopup extends StatelessWidget {
   /// Smallest gap between the card and the window edges.
   static const double _margin = 12;
 
+  final String username;
+  final String siteUrl;
+  final Rect? anchor;
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<ShellController>(
+    select: (controller) => controller,
+    builder: (context, controller, _) => _ControllerUserCardPopup(
+      key: ObjectKey(controller),
+      controller: controller,
+      username: username,
+      siteUrl: siteUrl,
+      anchor: anchor,
+    ),
+  );
+}
+
+class _ControllerUserCardPopup extends StatefulWidget {
+  const _ControllerUserCardPopup({
+    super.key,
+    required this.controller,
+    required this.username,
+    required this.siteUrl,
+    required this.anchor,
+  });
+
   final ShellController controller;
   final String username;
+  final String siteUrl;
   final Rect? anchor;
+
+  @override
+  State<_ControllerUserCardPopup> createState() =>
+      _ControllerUserCardPopupState();
+}
+
+class _ControllerUserCardPopupState extends State<_ControllerUserCardPopup> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final controller = widget.controller;
+    try {
+      await controller.load();
+    } catch (_) {
+      return;
+    }
+    if (!mounted || !identical(widget.controller, controller)) return;
+    if (!controller.loaded) return;
+    if (!controller.contains(widget.siteUrl)) {
+      unawaited(Navigator.of(context).maybePop());
+      return;
+    }
+    await controller.loadUserCard(widget.username, siteUrl: widget.siteUrl);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -156,15 +221,19 @@ class _UserCardPopup extends StatelessWidget {
         autofocus: true,
         child: CustomSingleChildLayout(
           delegate: AnchoredLayout(
-            anchor: anchor,
-            maxWidth: width,
-            gap: _gap,
-            margin: _margin,
+            anchor: widget.anchor,
+            maxWidth: _UserCardPopup.width,
+            gap: _UserCardPopup._gap,
+            margin: _UserCardPopup._margin,
           ),
           child: ListenableBuilder(
-            listenable: controller,
+            listenable: widget.controller,
             builder: (context, _) => _CardSurface(
-              child: _CardBody(controller: controller, username: username),
+              child: _CardBody(
+                controller: widget.controller,
+                username: widget.username,
+                siteUrl: widget.siteUrl,
+              ),
             ),
           ),
         ),
@@ -199,22 +268,30 @@ class _CardSurface extends StatelessWidget {
 }
 
 class _CardBody extends StatelessWidget {
-  const _CardBody({required this.controller, required this.username});
+  const _CardBody({
+    required this.controller,
+    required this.username,
+    required this.siteUrl,
+  });
 
   final ShellController controller;
   final String username;
+  final String siteUrl;
 
   @override
   Widget build(BuildContext context) {
-    final card = controller.userCard(username);
-    if (card != null) return _CardContent(card: card, controller: controller);
+    final card = controller.userCard(username, siteUrl: siteUrl);
+    if (card != null) {
+      return _CardContent(card: card, siteUrl: siteUrl);
+    }
 
-    final error = controller.userCardError(username);
+    final error = controller.userCardError(username, siteUrl: siteUrl);
     if (error != null) {
       return UserMenuMessage(
         text: error,
         height: 132,
-        onRetry: () => controller.loadUserCard(username, force: true),
+        onRetry: () =>
+            controller.loadUserCard(username, force: true, siteUrl: siteUrl),
       );
     }
     return const UserMenuMessage(text: null, height: 132);
@@ -222,16 +299,14 @@ class _CardBody extends StatelessWidget {
 }
 
 class _CardContent extends StatelessWidget {
-  const _CardContent({required this.card, required this.controller});
+  const _CardContent({required this.card, required this.siteUrl});
 
   final UserCard card;
-  final ShellController controller;
+  final String siteUrl;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final siteUrl = controller.currentInstance?.url;
-
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -320,7 +395,11 @@ class _CardContent extends StatelessWidget {
             ),
             if (card.bioExcerpt case final bio?) ...[
               const SizedBox(height: 14),
-              CookedHtml(html: bio, textStyle: theme.textTheme.bodySmall),
+              CookedHtml(
+                html: bio,
+                textStyle: theme.textTheme.bodySmall,
+                siteUrl: siteUrl,
+              ),
             ],
             const SizedBox(height: 14),
             Wrap(
@@ -339,9 +418,7 @@ class _CardContent extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
-                onPressed: siteUrl == null
-                    ? null
-                    : () => openExternalLink('$siteUrl${card.path}'),
+                onPressed: () => openExternalLink('$siteUrl${card.path}'),
                 icon: const DIcon(DIcons.upRightFromSquare, size: 16),
                 label: const Text('View profile'),
               ),

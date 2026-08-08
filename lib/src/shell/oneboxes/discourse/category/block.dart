@@ -203,8 +203,9 @@ class DiscourseCategoryData {
 /// Claims `aside.onebox.category-onebox`, for the dispatch in `onebox.dart`.
 final OneboxEngine discourseCategoryBlock = OneboxEngine(
   matches: (aside) => aside.classes.contains('category-onebox'),
-  build: (aside, envelope) => OneboxCard(
+  build: (aside, envelope, siteUrl) => OneboxCard(
     data: envelope,
+    siteUrl: siteUrl,
     child: DiscourseCategoryOnebox(data: DiscourseCategoryData.from(aside)),
   ),
 );

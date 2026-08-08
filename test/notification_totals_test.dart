@@ -20,6 +20,16 @@ Map<String, Object?> published({
 };
 
 void main() {
+  test('account identity and chat capability participate in equality', () {
+    const baseline = NotificationTotals(username: 'sam');
+
+    expect(baseline, isNot(const NotificationTotals(username: 'alex')));
+    expect(
+      baseline,
+      isNot(const NotificationTotals(username: 'sam', hasChatEnabled: true)),
+    );
+  });
+
   group('withNotification', () {
     test('derives the notification count the way the endpoint does', () {
       // `UserNotificationTotalSerializer` reports

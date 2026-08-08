@@ -9,6 +9,7 @@ import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
+import 'site_url.dart';
 import 'user_card.dart';
 
 /// Renders quotes natively instead of as styled HTML.
@@ -110,18 +111,19 @@ class QuoteData {
 }
 
 /// Hands quotes to [QuoteBlock], for [HtmlWidget.customWidgetBuilder].
-Widget? quoteWidgetBuilder(dom.Element element) {
+Widget? quoteWidgetBuilder(dom.Element element, {String? siteUrl}) {
   final isQuote =
       element.localName == 'blockquote' ||
       (element.localName == 'aside' && element.classes.contains('quote'));
   if (!isQuote) return null;
-  return QuoteBlock(data: QuoteData.from(element));
+  return QuoteBlock(data: QuoteData.from(element), siteUrl: siteUrl);
 }
 
 class QuoteBlock extends StatelessWidget {
-  const QuoteBlock({super.key, required this.data});
+  const QuoteBlock({super.key, required this.data, this.siteUrl});
 
   final QuoteData data;
+  final String? siteUrl;
 
   static const double _avatarSize = 20;
   static const double _barWidth = 3;
@@ -151,9 +153,13 @@ class QuoteBlock extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (hasHeader) ...[_Header(data: data), const SizedBox(height: 8)],
+            if (hasHeader) ...[
+              _Header(data: data, siteUrl: siteUrl),
+              const SizedBox(height: 8),
+            ],
             CookedHtml(
               html: data.bodyHtml,
+              siteUrl: siteUrl,
               textStyle: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -166,9 +172,10 @@ class QuoteBlock extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.data});
+  const _Header({required this.data, required this.siteUrl});
 
   final QuoteData data;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -218,21 +225,23 @@ class _Header extends StatelessWidget {
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => openLink(context, link),
+          onTap: () => openLink(context, link, siteUrl: siteUrl),
           child: row,
         ),
       );
     }
     if (data.username case final username?) {
-      return UserCardTarget(username: username, child: row);
+      return UserCardTarget(username: username, siteUrl: siteUrl, child: row);
     }
     return row;
   }
 
   /// Quote avatars are written site-relative, unlike the absolute URLs the
-  /// JSON payloads carry, so they need the current site to resolve against.
+  /// JSON payloads carry, so they need the source site to resolve against.
   String? _absoluteAvatar(BuildContext context, String src) {
-    final url = ShellScope.maybeOf(context)?.absoluteUrl(src) ?? src;
+    final url =
+        ShellScope.maybeRead(context)?.absoluteUrl(src, siteUrl: siteUrl) ??
+        resolveSiteUrl(src, siteUrl);
     return url.startsWith('http') ? url : null;
   }
 }

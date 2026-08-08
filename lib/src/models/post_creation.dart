@@ -31,7 +31,10 @@ class PostCreation {
     // `nested_post` asks for the envelope, which is the only shape that carries
     // `action`. A site that answers with the bare post instead has published
     // it — the envelope is only ever dropped when there is nothing to report.
-    final nested = json['post'] as Map<String, dynamic>?;
+    final nested = switch (json['post']) {
+      final Map<String, dynamic> post => post,
+      _ => null,
+    };
     final post = nested ?? (json.containsKey('id') ? json : null);
 
     return PostCreation(

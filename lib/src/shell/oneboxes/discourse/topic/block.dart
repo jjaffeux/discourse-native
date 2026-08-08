@@ -3,6 +3,8 @@ import 'package:html/dom.dart' as dom;
 
 import '../../../../theme/d_icon.dart';
 import '../../../../theme/d_icons.dart';
+import '../../../image_decode.dart';
+import '../../../site_url.dart';
 import '../../onebox.dart';
 
 /// A Discourse topic on some site, oneboxed from another:
@@ -13,9 +15,10 @@ import '../../onebox.dart';
 /// which lands in `quote.dart`. This is the cross-site shape: title, category
 /// and tags, and the excerpt the remote site advertised.
 class DiscourseTopicOnebox extends StatelessWidget {
-  const DiscourseTopicOnebox({super.key, required this.data});
+  const DiscourseTopicOnebox({super.key, required this.data, this.siteUrl});
 
   final DiscourseTopicData data;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +30,7 @@ class DiscourseTopicOnebox extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _Thumbnail(thumbnail: thumbnail),
+        _Thumbnail(thumbnail: thumbnail, siteUrl: siteUrl),
         const SizedBox(width: 12),
         Expanded(child: text),
       ],
@@ -111,9 +114,10 @@ class DiscourseTopicOnebox extends StatelessWidget {
 }
 
 class _Thumbnail extends StatelessWidget {
-  const _Thumbnail({required this.thumbnail});
+  const _Thumbnail({required this.thumbnail, required this.siteUrl});
 
   final OneboxThumbnail thumbnail;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -124,8 +128,9 @@ class _Thumbnail extends StatelessWidget {
         child: AspectRatio(
           aspectRatio: thumbnail.aspectRatio ?? 1,
           child: Image.network(
-            thumbnail.src,
+            resolveSiteUrl(thumbnail.src, siteUrl),
             fit: BoxFit.cover,
+            cacheWidth: imagePhysicalPixels(context, 88),
             errorBuilder: (context, error, stackTrace) => const SizedBox(),
           ),
         ),
@@ -252,8 +257,12 @@ class DiscourseTopicData {
 /// Claims `aside.onebox.discoursetopic`, for the dispatch in `onebox.dart`.
 final OneboxEngine discourseTopicBlock = OneboxEngine(
   matches: (aside) => aside.classes.contains('discoursetopic'),
-  build: (aside, envelope) => OneboxCard(
+  build: (aside, envelope, siteUrl) => OneboxCard(
     data: envelope,
-    child: DiscourseTopicOnebox(data: DiscourseTopicData.from(aside, envelope)),
+    siteUrl: siteUrl,
+    child: DiscourseTopicOnebox(
+      data: DiscourseTopicData.from(aside, envelope),
+      siteUrl: siteUrl,
+    ),
   ),
 );

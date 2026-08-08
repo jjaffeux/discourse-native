@@ -1,6 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:discourse_native/src/models/list_link.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ListLink.parse', () {

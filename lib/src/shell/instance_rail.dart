@@ -7,6 +7,7 @@ import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
 import 'avatar_image.dart';
 import 'instance_actions.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'update_controller.dart';
 import 'update_sheet.dart';
@@ -19,31 +20,113 @@ class InstanceRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
 
-    return ColoredBox(
-      color: theme.shell.rail,
-      child: SafeArea(
-        right: false,
-        // The add button trails the instances inside the scrollable list, the
-        // way Discord does it, rather than being pinned to the bottom.
-        child: ListView.builder(
-          // The traffic lights are cleared by the title bar above the shell, so
-          // the rail only needs its own padding here.
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          itemCount: controller.instances.length + 1,
-          itemBuilder: (context, index) {
-            if (index == controller.instances.length) {
-              return const _RailFooter();
-            }
-            final instance = controller.instances[index];
-            return _RailItem(
-              instance: instance,
-              selected: index == controller.instanceIndex,
-              badgeCount: controller.railBadgeFor(instance),
-              onTap: () => controller.selectInstance(index),
-            );
-          },
+    return ShellSelector<_RailSnapshot>(
+      select: _RailSnapshot.from,
+      builder: (context, state, _) {
+        final controller = ShellScope.read(context);
+        return ListenableBuilder(
+          listenable: controller.accountActivity.totalsListenable,
+          builder: (context, _) => ColoredBox(
+            color: theme.shell.rail,
+            child: SafeArea(
+              right: false,
+              child: switch (state.loadStatus) {
+                InstanceLoadStatus.loading => const Center(
+                  child: SizedBox.square(
+                    dimension: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+                InstanceLoadStatus.failed => const _RailLoadFailure(),
+                InstanceLoadStatus.ready => ListView.builder(
+                  // The traffic lights are cleared by the title bar above the
+                  // shell, so the rail only needs its own padding here.
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  itemCount: state.instances.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == state.instances.length) {
+                      return const _RailFooter();
+                    }
+                    final instance = state.instances[index];
+                    return _RailItem(
+                      key: ValueKey(instance.url),
+                      instance: instance,
+                      selected: index == state.selectedIndex,
+                      badgeCount: controller.railBadgeFor(instance),
+                      onTap: () => controller.selectInstance(index),
+                    );
+                  },
+                ),
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RailSnapshot {
+  _RailSnapshot.from(ShellController controller)
+    : instances = controller.instances,
+      selectedIndex = controller.instanceIndex,
+      loadStatus = controller.loadStatus;
+
+  final List<DiscourseInstance> instances;
+  final int selectedIndex;
+  final InstanceLoadStatus loadStatus;
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! _RailSnapshot ||
+        selectedIndex != other.selectedIndex ||
+        loadStatus != other.loadStatus) {
+      return false;
+    }
+    if (instances.length != other.instances.length) return false;
+    for (var index = 0; index < instances.length; index++) {
+      if (!identical(instances[index], other.instances[index])) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    selectedIndex,
+    loadStatus,
+    Object.hashAll(instances.map(identityHashCode)),
+  );
+}
+
+class _RailLoadFailure extends StatelessWidget {
+  const _RailLoadFailure();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Tooltip(
+        message: 'Retry loading sites',
+        child: InkWell(
+          key: const ValueKey('instance-load-retry-rail'),
+          onTap: ShellScope.read(context).load,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.error.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: DIcon(
+              DIcons.arrowsRotate,
+              size: 20,
+              color: theme.colorScheme.error,
+            ),
+          ),
         ),
       ),
     );
@@ -60,7 +143,7 @@ class _RailFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final updates = ShellScope.of(context).updates;
+    final updates = ShellScope.read(context).updates;
 
     return Column(
       children: [
@@ -91,7 +174,7 @@ class _UpdateButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final updates = ShellScope.of(context).updates;
+    final updates = ShellScope.read(context).updates;
 
     // Subscribed here rather than through ShellScope, so that finding an update
     // re-badges this button without rebuilding the sidebar, the topic list and
@@ -190,6 +273,7 @@ class _UpdateButton extends StatelessWidget {
 
 class _RailItem extends StatelessWidget {
   const _RailItem({
+    super.key,
     required this.instance,
     required this.selected,
     required this.badgeCount,

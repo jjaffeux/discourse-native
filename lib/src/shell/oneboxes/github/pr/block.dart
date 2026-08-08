@@ -14,9 +14,10 @@ import '../github.dart';
 /// branches, a row of facts, then the body underneath. The web lays that out
 /// with a CSS grid; this is the same arrangement as a column beside a column.
 class GithubPullRequestOnebox extends StatelessWidget {
-  const GithubPullRequestOnebox({super.key, required this.data});
+  const GithubPullRequestOnebox({super.key, required this.data, this.siteUrl});
 
   final GithubPullRequestData data;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +57,7 @@ class GithubPullRequestOnebox extends StatelessWidget {
                     _Branches(base: data.baseLabel!, head: data.headLabel!),
                   ],
                   const SizedBox(height: 6),
-                  _Info(data: data),
+                  _Info(data: data, siteUrl: siteUrl),
                 ],
               ),
             ),
@@ -99,9 +100,10 @@ class _Branches extends StatelessWidget {
 }
 
 class _Info extends StatelessWidget {
-  const _Info({required this.data});
+  const _Info({required this.data, required this.siteUrl});
 
   final GithubPullRequestData data;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -136,12 +138,14 @@ class _Info extends StatelessWidget {
             login: data.userLogin!,
             avatarUrl: data.userAvatarUrl,
             url: data.userUrl,
+            siteUrl: siteUrl,
           ),
         if (data.additions != null && data.deletions != null)
           GithubLineCounts(
             additions: data.additions!,
             deletions: data.deletions!,
             url: data.titleUrl == null ? null : '${data.titleUrl}/files',
+            siteUrl: siteUrl,
           ),
       ],
     );
@@ -297,8 +301,12 @@ class GithubPullRequestData {
 /// Claims `aside.onebox.githubpullrequest`, for the dispatch in `onebox.dart`.
 final OneboxEngine githubPullRequestBlock = OneboxEngine(
   matches: (aside) => aside.classes.contains('githubpullrequest'),
-  build: (aside, envelope) => OneboxCard(
+  build: (aside, envelope, siteUrl) => OneboxCard(
     data: envelope,
-    child: GithubPullRequestOnebox(data: GithubPullRequestData.from(aside)),
+    siteUrl: siteUrl,
+    child: GithubPullRequestOnebox(
+      data: GithubPullRequestData.from(aside),
+      siteUrl: siteUrl,
+    ),
   ),
 );

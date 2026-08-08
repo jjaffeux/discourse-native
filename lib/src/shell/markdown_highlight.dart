@@ -158,6 +158,46 @@ class _Scan {
   /// per run would then draw one picture over two shortcodes.
   final Set<int> _cuts = {};
 
+  /// Any run of characters that does not cross a blank line.
+  ///
+  /// A mark cannot span a paragraph break — an unclosed `*` at the end of one
+  /// paragraph would otherwise reach forward and italicise everything down to
+  /// the next asterisk anywhere in the post.
+  static const String _within = r'(?:(?!\n\s*\n)[\s\S])*?';
+
+  // A scan runs on every text change. Keep the compiled expressions with the
+  // scanner type rather than rebuilding them for every line and every pass.
+  static final RegExp _headingPattern = RegExp(r'^(#{1,6})(\s+)');
+  static final RegExp _quotePattern = RegExp(r'^(>+)(\s?)');
+  static final RegExp _inlineCodePattern = RegExp(
+    r'(`+)([^`]|[^`][\s\S]*?[^`])\1',
+  );
+  static final RegExp _linkPattern = RegExp(r'\[([^\]\n]*)\]\(([^)\s]*)\)');
+  static final RegExp _bareUrlPattern = RegExp(r'https?://[^\s<>\[\]()]+');
+  static final RegExp _mentionPattern = RegExp(
+    r'@([a-zA-Z0-9_][a-zA-Z0-9_.-]*)',
+  );
+  static final RegExp _hashtagPattern = RegExp(
+    r'(?<!/)#([\wÀ-῿Ⰰ-퟿:-]'
+    r'(?:[\wÀ-῿Ⰰ-퟿:.-]{0,99}'
+    r'[\wÀ-῿Ⰰ-퟿:-])?)',
+  );
+  static final RegExp _emojiPattern = RegExp(r':([a-z0-9_+-]+(?::t[1-6])?):');
+  static final RegExp _boldItalicPattern = RegExp(
+    '\\*\\*\\*(?=\\S)($_within\\S)\\*\\*\\*',
+  );
+  static final RegExp _boldPattern = RegExp('\\*\\*(?=\\S)($_within\\S)\\*\\*');
+  static final RegExp _asteriskItalicPattern = RegExp(
+    '\\*(?=\\S)($_within\\S)\\*',
+  );
+  static final RegExp _strikethroughPattern = RegExp(
+    '~~(?=\\S)($_within\\S)~~',
+  );
+  static final RegExp _underscoreItalicPattern = RegExp(
+    '(?<![\\w_])_(?=\\S)($_within\\S)_(?![\\w_])',
+  );
+  static final RegExp _boundaryPattern = RegExp(r'[\w@#./-]');
+
   void _mark(int start, int end, int flag, [String? note]) {
     for (var i = start; i < end && i < source.length; i++) {
       mask[i] |= flag;
@@ -205,6 +245,7 @@ class _Scan {
   void blocks() {
     var offset = 0;
     var bodyStart = -1;
+    _Fence? openingFence;
     String? language;
 
     for (final line in source.split('\n')) {
@@ -213,16 +254,18 @@ class _Scan {
 
       if (bodyStart >= 0) {
         // Inside a fence: only its own closing line ends it.
-        if (fence != null && fence.info.isEmpty) {
+        if (fence != null && fence.closes(openingFence!)) {
           _mark(offset, end, Md.marker);
           _close(offset, end);
           _highlightFence(bodyStart, offset, language);
           bodyStart = -1;
+          openingFence = null;
           language = null;
         }
       } else if (fence != null) {
         _mark(offset, end, Md.marker);
         _close(offset, end);
+        openingFence = fence;
         language = fence.info.isEmpty ? null : fence.info;
         bodyStart = end + 1;
       } else {
@@ -243,7 +286,7 @@ class _Scan {
   /// Headings and blockquotes, which claim a marker and then leave the rest of
   /// the line to the inline pass.
   void _lineBlock(int offset, String line) {
-    final heading = RegExp(r'^(#{1,6})(\s+)').firstMatch(line);
+    final heading = _headingPattern.firstMatch(line);
     if (heading != null) {
       final level = heading.group(1)!.length;
       _mark(offset, offset + heading.end, Md.marker);
@@ -252,7 +295,7 @@ class _Scan {
       return;
     }
 
-    final quote = RegExp(r'^(>+)(\s?)').firstMatch(line);
+    final quote = _quotePattern.firstMatch(line);
     if (quote != null) {
       _mark(offset, offset + quote.end, Md.marker);
       _close(offset, offset + quote.end);
@@ -303,9 +346,7 @@ class _Scan {
   }
 
   void _inlineCode() {
-    for (final match in RegExp(
-      r'(`+)([^`]|[^`][\s\S]*?[^`])\1',
-    ).allMatches(source)) {
+    for (final match in _inlineCodePattern.allMatches(source)) {
       if (!_free(match.start, match.end)) continue;
       final ticks = match.group(1)!.length;
       _mark(match.start, match.start + ticks, Md.marker);
@@ -343,9 +384,7 @@ class _Scan {
   }
 
   void _links() {
-    for (final match in RegExp(
-      r'\[([^\]\n]*)\]\(([^)\s]*)\)',
-    ).allMatches(source)) {
+    for (final match in _linkPattern.allMatches(source)) {
       final textStart = match.start + 1;
       final textEnd = textStart + match.group(1)!.length;
       final urlStart = textEnd + 2;
@@ -369,7 +408,7 @@ class _Scan {
   }
 
   void _bareUrls() {
-    for (final match in RegExp(r'https?://[^\s<>\[\]()]+').allMatches(source)) {
+    for (final match in _bareUrlPattern.allMatches(source)) {
       if (!_free(match.start, match.end)) continue;
       _mark(match.start, match.end, Md.linkUrl);
       _close(match.start, match.end);
@@ -377,9 +416,7 @@ class _Scan {
   }
 
   void _mentions() {
-    for (final match in RegExp(
-      r'@([a-zA-Z0-9_][a-zA-Z0-9_.-]*)',
-    ).allMatches(source)) {
+    for (final match in _mentionPattern.allMatches(source)) {
       if (!_free(match.start, match.end)) continue;
       // `joffrey@example.com` is an address, not a mention of `example`.
       if (match.start > 0 && !_isBoundary(source[match.start - 1])) continue;
@@ -404,11 +441,7 @@ class _Scan {
   /// whitespace after the hashes, so `# Heading` is a heading and `#heading` is
   /// not, exactly as CommonMark and Discourse both have it.
   void _hashtags() {
-    for (final match in RegExp(
-      r'(?<!/)#([\wÀ-῿Ⰰ-퟿:-]'
-      r'(?:[\wÀ-῿Ⰰ-퟿:.-]{0,99}'
-      r'[\wÀ-῿Ⰰ-퟿:-])?)',
-    ).allMatches(source)) {
+    for (final match in _hashtagPattern.allMatches(source)) {
       if (!_free(match.start, match.end)) continue;
       // `##foo` is not a hashtag of `#foo`, and `a#b` is not one at all.
       if (match.start > 0 && !_isBoundary(source[match.start - 1])) continue;
@@ -420,9 +453,7 @@ class _Scan {
   }
 
   void _emoji() {
-    for (final match in RegExp(
-      r':([a-z0-9_+-]+(?::t[1-6])?):',
-    ).allMatches(source)) {
+    for (final match in _emojiPattern.allMatches(source)) {
       if (!_free(match.start, match.end)) continue;
       // The name goes in the token so whatever draws this does not have to
       // parse the colons back off it.
@@ -438,24 +469,13 @@ class _Scan {
   /// Longest marker first, or the opening `**` of a bold run is read as an
   /// italic `*` followed by a stray one.
   void _emphasis() {
-    _pairs(
-      RegExp('\\*\\*\\*(?=\\S)($_within\\S)\\*\\*\\*'),
-      3,
-      Md.bold | Md.italic,
-    );
-    _pairs(RegExp('\\*\\*(?=\\S)($_within\\S)\\*\\*'), 2, Md.bold);
-    _pairs(RegExp('\\*(?=\\S)($_within\\S)\\*'), 1, Md.italic);
-    _pairs(RegExp('~~(?=\\S)($_within\\S)~~'), 2, Md.strikethrough);
+    _pairs(_boldItalicPattern, 3, Md.bold | Md.italic);
+    _pairs(_boldPattern, 2, Md.bold);
+    _pairs(_asteriskItalicPattern, 1, Md.italic);
+    _pairs(_strikethroughPattern, 2, Md.strikethrough);
     // Underscores only between word boundaries: `snake_case_name` is a name.
-    _pairs(RegExp('(?<![\\w_])_(?=\\S)($_within\\S)_(?![\\w_])'), 1, Md.italic);
+    _pairs(_underscoreItalicPattern, 1, Md.italic);
   }
-
-  /// Any run of characters that does not cross a blank line.
-  ///
-  /// A mark cannot span a paragraph break — an unclosed `*` at the end of one
-  /// paragraph would otherwise reach forward and italicise everything down to
-  /// the next asterisk anywhere in the post.
-  static const String _within = r'(?:(?!\n\s*\n)[\s\S])*?';
 
   void _pairs(RegExp pattern, int width, int flag) {
     for (final match in pattern.allMatches(source)) {
@@ -480,7 +500,7 @@ class _Scan {
   /// of `x#@sam` no longer reading as a mention, which is not a sentence
   /// anybody writes.
   static bool _isBoundary(String character) =>
-      !RegExp(r'[\w@#./-]').hasMatch(character);
+      !_boundaryPattern.hasMatch(character);
 
   /// Collapses equal neighbours, so the span tree has one child per visible
   /// change rather than one per character.
@@ -505,13 +525,22 @@ class _Scan {
 
 /// An opening or closing ``` line.
 class _Fence {
-  const _Fence(this.info);
+  const _Fence(this.delimiter, this.info);
+
+  final String delimiter;
 
   /// What follows the backticks on an opening fence — the language, usually.
   final String info;
+
+  bool closes(_Fence opening) =>
+      info.isEmpty &&
+      delimiter.codeUnitAt(0) == opening.delimiter.codeUnitAt(0) &&
+      delimiter.length >= opening.delimiter.length;
 }
 
+final RegExp _fencePattern = RegExp(r'^\s{0,3}(`{3,}|~{3,})\s*(.*)$');
+
 _Fence? _fenceAt(String line) {
-  final match = RegExp(r'^\s{0,3}(?:`{3,}|~{3,})\s*(.*)$').firstMatch(line);
-  return match == null ? null : _Fence(match.group(1)!.trim());
+  final match = _fencePattern.firstMatch(line);
+  return match == null ? null : _Fence(match.group(1)!, match.group(2)!.trim());
 }

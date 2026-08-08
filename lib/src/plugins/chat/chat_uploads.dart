@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../shell/image_decode.dart';
 import '../../shell/lightbox.dart';
 import '../../shell/open_link.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -16,8 +18,9 @@ import 'chat_message.dart';
 /// them, a chat message's attachments are only ever in the `uploads` array and
 /// there is nothing in `cooked` to draw.
 class ChatUploads extends StatelessWidget {
-  const ChatUploads({super.key, required this.uploads});
+  const ChatUploads({super.key, required this.siteUrl, required this.uploads});
 
+  final String siteUrl;
   final List<ChatUpload> uploads;
 
   /// Never wider than this, however large the image was. Roughly what
@@ -41,8 +44,8 @@ class ChatUploads extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: upload.kind == ChatUploadKind.image
-                ? _Image(upload: upload, gallery: images)
-                : _Attachment(upload: upload),
+                ? _Image(siteUrl: siteUrl, upload: upload, gallery: images)
+                : _Attachment(siteUrl: siteUrl, upload: upload),
           ),
       ],
     );
@@ -50,8 +53,13 @@ class ChatUploads extends StatelessWidget {
 }
 
 class _Image extends StatelessWidget {
-  const _Image({required this.upload, required this.gallery});
+  const _Image({
+    required this.siteUrl,
+    required this.upload,
+    required this.gallery,
+  });
 
+  final String siteUrl;
   final ChatUpload upload;
 
   /// Every image on this message, so opening one can be swiped through the
@@ -70,9 +78,8 @@ class _Image extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final controller = ShellScope.maybeOf(context);
 
-    String absolute(String url) => controller?.absoluteUrl(url) ?? url;
+    String absolute(String url) => _absoluteUploadUrl(siteUrl, url);
 
     final ratio = upload.aspectRatio;
     // Shrink to fit, never blow a small image up — Discourse's own rule.
@@ -85,22 +92,25 @@ class _Image extends StatelessWidget {
       absolute(upload.thumbnailUrl ?? upload.url),
       fit: BoxFit.cover,
       width: double.infinity,
+      cacheWidth: imagePhysicalPixels(context, width),
       errorBuilder: (context, error, stackTrace) =>
           UnavailableImage(color: theme.shell.placeholder),
     );
 
-    if (ratio != null) picture = AspectRatio(aspectRatio: ratio, child: picture);
+    if (ratio != null) {
+      picture = AspectRatio(aspectRatio: ratio, child: picture);
+    }
 
     return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: width, maxHeight: ChatUploads.maxHeight),
+      constraints: BoxConstraints(
+        maxWidth: width,
+        maxHeight: ChatUploads.maxHeight,
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: Material(
           color: _placeholder ?? theme.shell.floating,
-          child: InkWell(
-            onTap: () => _open(context, absolute),
-            child: picture,
-          ),
+          child: InkWell(onTap: () => _open(context, absolute), child: picture),
         ),
       ),
     );
@@ -130,23 +140,25 @@ class _Image extends StatelessWidget {
     final images = [for (final u in gallery) imageOf(u)];
     final index = gallery.indexOf(upload);
 
-    Navigator.of(context, rootNavigator: true).push(
-      PageRouteBuilder<void>(
-        opaque: false,
-        barrierColor: Colors.black.withValues(alpha: 0.92),
-        barrierDismissible: true,
-        barrierLabel: MaterialLocalizations.of(
-          context,
-        ).modalBarrierDismissLabel,
-        transitionDuration: const Duration(milliseconds: 200),
-        reverseTransitionDuration: const Duration(milliseconds: 200),
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            LightboxGallery(
-              images: images,
-              initialIndex: index < 0 ? 0 : index,
-            ),
-        transitionsBuilder: (context, animation, secondary, child) =>
-            FadeTransition(opacity: animation, child: child),
+    unawaited(
+      Navigator.of(context, rootNavigator: true).push(
+        PageRouteBuilder<void>(
+          opaque: false,
+          barrierColor: Colors.black.withValues(alpha: 0.92),
+          barrierDismissible: true,
+          barrierLabel: MaterialLocalizations.of(
+            context,
+          ).modalBarrierDismissLabel,
+          transitionDuration: const Duration(milliseconds: 200),
+          reverseTransitionDuration: const Duration(milliseconds: 200),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              LightboxGallery(
+                images: images,
+                initialIndex: index < 0 ? 0 : index,
+              ),
+          transitionsBuilder: (context, animation, secondary, child) =>
+              FadeTransition(opacity: animation, child: child),
+        ),
       ),
     );
   }
@@ -158,8 +170,9 @@ class _Image extends StatelessWidget {
 /// for a step that cannot yet post any of it, and a link that hands the file to
 /// the system is honest about what it does.
 class _Attachment extends StatelessWidget {
-  const _Attachment({required this.upload});
+  const _Attachment({required this.siteUrl, required this.upload});
 
+  final String siteUrl;
   final ChatUpload upload;
 
   @override
@@ -168,7 +181,7 @@ class _Attachment extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(6),
-      onTap: () => openLink(context, upload.url),
+      onTap: () => openLink(context, _absoluteUploadUrl(siteUrl, upload.url)),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
@@ -208,4 +221,12 @@ class _Attachment extends StatelessWidget {
       ),
     );
   }
+}
+
+String _absoluteUploadUrl(String siteUrl, String url) {
+  if (url.startsWith('//')) return 'https:$url';
+
+  final parsed = Uri.tryParse(url);
+  if (parsed == null || parsed.hasScheme) return url;
+  return '$siteUrl${url.startsWith('/') ? '' : '/'}$url';
 }

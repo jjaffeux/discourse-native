@@ -106,9 +106,10 @@ class SmallActionDescription {
 /// Some small actions carry a message of their own (a close reason, say); that
 /// is drawn underneath.
 class SmallActionTile extends StatelessWidget {
-  const SmallActionTile({super.key, required this.post});
+  const SmallActionTile({super.key, required this.post, this.siteUrl});
 
   final Post post;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +174,7 @@ class SmallActionTile extends StatelessWidget {
               child: CookedHtml(
                 html: post.cooked,
                 textStyle: theme.textTheme.bodySmall?.copyWith(color: muted),
+                siteUrl: siteUrl,
               ),
             ),
         ],

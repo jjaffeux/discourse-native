@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../data/avatar_loader.dart';
+import 'image_decode.dart';
 
 /// Draws an avatar whatever format the site serves it in.
 ///
@@ -58,13 +61,15 @@ class _AvatarImageState extends State<AvatarImage> {
     }
 
     _resolved = false;
-    loader.load(url).then((bytes) {
-      if (!mounted || widget.url != url) return;
-      setState(() {
-        _bytes = bytes;
-        _resolved = true;
-      });
-    });
+    unawaited(
+      loader.load(url).then((bytes) {
+        if (!mounted || widget.url != url) return;
+        setState(() {
+          _bytes = bytes;
+          _resolved = true;
+        });
+      }),
+    );
   }
 
   @override
@@ -82,8 +87,12 @@ class _AvatarImageState extends State<AvatarImage> {
       );
     }
 
-    return Image.memory(
-      bytes.bytes,
+    return Image(
+      image: memoryImageForLayout(
+        context,
+        bytes.bytes,
+        logicalSize: Size.square(widget.size),
+      ),
       width: widget.size,
       height: widget.size,
       fit: BoxFit.cover,

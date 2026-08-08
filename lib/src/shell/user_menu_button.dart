@@ -1,8 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'platform.dart';
 import 'shell_scope.dart';
 import 'user_menu.dart';
+
+typedef _AccountAvatarSnapshot = ({
+  String? siteUrl,
+  String? avatarUrl,
+  String? username,
+  String? displayName,
+  bool connecting,
+});
 
 /// The account avatar in the top right of whichever column reaches the top
 /// right of the window, and the way into [UserMenuPanel].
@@ -44,11 +54,12 @@ class _UserMenuButtonState extends State<UserMenuButton> {
   /// long after the tap and has nowhere in the shell to live. A snack bar is
   /// what is left once the account card that used to carry it is gone.
   Future<void> _connect() async {
-    final controller = ShellScope.of(context);
+    final controller = ShellScope.read(context);
     final messenger = ScaffoldMessenger.of(context);
 
     await controller.connectCurrentInstance();
 
+    if (!mounted || !identical(ShellScope.read(context), controller)) return;
     final error = controller.connectError;
     if (error == null) return;
     messenger.showSnackBar(SnackBar(content: Text(error)));
@@ -56,77 +67,97 @@ class _UserMenuButtonState extends State<UserMenuButton> {
 
   void _openMenu() {
     if (context.isTouch) {
-      showUserMenuSheet(context);
+      unawaited(showUserMenuSheet(context));
       return;
     }
     _menu.isOpen ? _menu.close() : _menu.open();
   }
 
   @override
-  Widget build(BuildContext context) {
-    final controller = ShellScope.of(context);
-    final instance = controller.currentInstance;
-    if (instance == null) return const SizedBox.shrink();
+  Widget build(BuildContext context) => ShellSelector<_AccountAvatarSnapshot>(
+    select: (controller) {
+      final instance = controller.currentInstance;
+      final user = instance?.user;
+      return (
+        siteUrl: instance?.url,
+        avatarUrl: user?.avatarUrl,
+        username: user?.username,
+        displayName: user?.displayName,
+        connecting: controller.connecting,
+      );
+    },
+    builder: (context, account, _) {
+      final siteUrl = account.siteUrl;
+      if (siteUrl == null) return const SizedBox.shrink();
+      final controller = ShellScope.read(context);
 
-    final user = instance.user;
-    final connecting = controller.connecting;
+      return ListenableBuilder(
+        listenable: controller.accountActivity.totalsListenable,
+        builder: (context, _) {
+          final connecting = account.connecting;
 
-    // What the menu itself counts, which is things addressed to this account —
-    // notifications, messages, chat, the review queue. Kept live by the site's
-    // own `/notification/` channel, so it appears without the menu being
-    // opened or the app being relaunched.
-    final unread = (controller.currentTotals?.badge ?? 0) > 0;
+          // What the menu itself counts, which is things addressed to this account —
+          // notifications, messages, chat, the review queue. Kept live by the site's
+          // own `/notification/` channel, so it appears without the menu being
+          // opened or the app being relaunched.
+          final unread =
+              (controller.accountActivity.totalsFor(siteUrl)?.badge ?? 0) > 0;
 
-    final avatar = Padding(
-      padding: const EdgeInsets.all(5),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          UserMenuAvatar(
-            avatarUrl: user?.avatarUrl,
-            initial: user?.username.characters.first.toUpperCase(),
-            connecting: connecting,
-            size: widget.size,
-          ),
-          // A dot rather than the number the web shows: the rail already
-          // carries the count for every site, and repeating it here would say
-          // the same thing twice at two different sizes.
-          if (unread && !connecting)
-            Positioned(
-              top: -1,
-              right: -1,
-              child: _UnreadDot(ringColor: widget.ringColor),
+          final avatar = Padding(
+            padding: const EdgeInsets.all(5),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                UserMenuAvatar(
+                  avatarUrl: account.avatarUrl,
+                  initial: account.username?.characters.first.toUpperCase(),
+                  connecting: connecting,
+                  size: widget.size,
+                ),
+                // A dot rather than the number the web shows: the rail already
+                // carries the count for every site, and repeating it here would
+                // say the same thing twice at two different sizes.
+                if (unread && !connecting)
+                  Positioned(
+                    top: -1,
+                    right: -1,
+                    child: _UnreadDot(ringColor: widget.ringColor),
+                  ),
+              ],
             ),
-        ],
-      ),
-    );
+          );
 
-    return MenuAnchor(
-      controller: _menu,
-      alignmentOffset: const Offset(0, 6),
-      // The panel draws its own surface, so that it can hold a margin between
-      // itself and the window edges the overlay would otherwise pin it to.
-      style: const MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(Colors.transparent),
-        surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
-        shadowColor: WidgetStatePropertyAll(Colors.transparent),
-        elevation: WidgetStatePropertyAll(0),
-        padding: WidgetStatePropertyAll(EdgeInsets.zero),
-      ),
-      menuChildren: [UserMenuPanel(onDismiss: _menu.close)],
-      child: Tooltip(
-        message: connecting
-            ? 'Connecting…'
-            : user?.displayName ?? 'Not signed in',
-        child: InkWell(
-          key: UserMenuButton.avatarKey,
-          onTap: connecting ? null : (user == null ? _connect : _openMenu),
-          borderRadius: BorderRadius.circular(20),
-          child: avatar,
-        ),
-      ),
-    );
-  }
+          return MenuAnchor(
+            controller: _menu,
+            alignmentOffset: const Offset(0, 6),
+            // The panel draws its own surface, so that it can hold a margin
+            // between itself and the window edges the overlay would pin it to.
+            style: const MenuStyle(
+              backgroundColor: WidgetStatePropertyAll(Colors.transparent),
+              surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+              shadowColor: WidgetStatePropertyAll(Colors.transparent),
+              elevation: WidgetStatePropertyAll(0),
+              padding: WidgetStatePropertyAll(EdgeInsets.zero),
+            ),
+            menuChildren: [UserMenuPanel(onDismiss: _menu.close)],
+            child: Tooltip(
+              message: connecting
+                  ? 'Connecting…'
+                  : account.displayName ?? 'Not signed in',
+              child: InkWell(
+                key: UserMenuButton.avatarKey,
+                onTap: connecting
+                    ? null
+                    : (account.username == null ? _connect : _openMenu),
+                borderRadius: BorderRadius.circular(20),
+                child: avatar,
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
 }
 
 /// The unread mark on the avatar. Sized and coloured like the rail's badge, so

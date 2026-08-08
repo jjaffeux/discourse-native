@@ -56,11 +56,14 @@ class ChatPlugin implements SitePlugin<ChatChannel> {
   ChatChannel? readPost(Map<String, dynamic> json, String siteUrl) => null;
 
   @override
-  Widget? postFooter(Post post) => null;
+  Widget? postFooter(String siteUrl, Post post) => null;
 
   @override
-  PostMenuContribution postMenu(BuildContext context, Post post) =>
-      PostMenuContribution.none;
+  PostMenuContribution postMenu(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+  ) => PostMenuContribution.none;
 
   /// Nothing yet. Reading a channel live rides `/chat/:id` and the per-user
   /// tracking channel, neither of which is a topic — and `SiteTracker` watches
@@ -74,7 +77,7 @@ class ChatPlugin implements SitePlugin<ChatChannel> {
 
   @override
   List<SidebarSection> sidebarSections(BuildContext context) {
-    final controller = ShellScope.of(context);
+    final controller = ShellScope.read(context);
     final siteUrl = controller.currentInstance?.url;
     if (siteUrl == null) return const [];
 
@@ -87,19 +90,19 @@ class ChatPlugin implements SitePlugin<ChatChannel> {
       if (public.isNotEmpty)
         SidebarSection(
           title: 'Chat',
-          destinations: [
-            for (final channel in public) _destination(channel),
-          ],
+          destinations: [for (final channel in public) _destination(channel)],
         ),
       if (direct.isNotEmpty)
         SidebarSection(
           title: 'Direct messages',
-          destinations: [
-            for (final channel in direct) _destination(channel),
-          ],
+          destinations: [for (final channel in direct) _destination(channel)],
         ),
     ];
   }
+
+  @override
+  Listenable sidebarListenable(BuildContext context) =>
+      ShellScope.read(context).chat;
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {

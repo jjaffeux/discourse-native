@@ -12,9 +12,10 @@ import '../github.dart';
 /// Same arrangement as the pull request onebox — icon column beside title and
 /// facts, body underneath — with labels in place of branches and diff counts.
 class GithubIssueOnebox extends StatelessWidget {
-  const GithubIssueOnebox({super.key, required this.data});
+  const GithubIssueOnebox({super.key, required this.data, this.siteUrl});
 
   final GithubIssueData data;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +50,7 @@ class GithubIssueOnebox extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  _Info(data: data),
+                  _Info(data: data, siteUrl: siteUrl),
                   if (data.labels.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Wrap(
@@ -72,9 +73,10 @@ class GithubIssueOnebox extends StatelessWidget {
 }
 
 class _Info extends StatelessWidget {
-  const _Info({required this.data});
+  const _Info({required this.data, required this.siteUrl});
 
   final GithubIssueData data;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +105,7 @@ class _Info extends StatelessWidget {
             login: data.userLogin!,
             avatarUrl: data.userAvatarUrl,
             url: data.userUrl,
+            siteUrl: siteUrl,
           ),
       ],
     );
@@ -234,8 +237,12 @@ class GithubIssueData {
 /// Claims `aside.onebox.githubissue`, for the dispatch in `onebox.dart`.
 final OneboxEngine githubIssueBlock = OneboxEngine(
   matches: (aside) => aside.classes.contains('githubissue'),
-  build: (aside, envelope) => OneboxCard(
+  build: (aside, envelope, siteUrl) => OneboxCard(
     data: envelope,
-    child: GithubIssueOnebox(data: GithubIssueData.from(aside)),
+    siteUrl: siteUrl,
+    child: GithubIssueOnebox(
+      data: GithubIssueData.from(aside),
+      siteUrl: siteUrl,
+    ),
   ),
 );

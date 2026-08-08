@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/shell/image_grid.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -333,6 +334,41 @@ void main() {
 
       expect(find.byType(ImageGridCarousel), findsOneWidget);
       expect(find.dIcon(DIcons.chevronRight), findsNothing);
+    });
+
+    testWidgets('clamps the page when an edited grid removes images', (
+      tester,
+    ) async {
+      Future<void> pump(int count) => tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ImageGridCarousel(
+                data: parse(grid(count, mode: 'carousel')),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await pump(3);
+      final originalController = tester
+          .widget<PageView>(find.byType(PageView))
+          .controller!;
+      originalController.jumpToPage(2);
+      await tester.pump();
+      expect(originalController.page, 2);
+
+      await pump(1);
+      await tester.pump();
+
+      final updatedController = tester
+          .widget<PageView>(find.byType(PageView))
+          .controller!;
+      expect(updatedController, same(originalController));
+      expect(updatedController.page, 0);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('moves on the arrow keys once the track has focus', (

@@ -21,11 +21,11 @@ class PostLiker {
   factory PostLiker.fromJson(Map<String, dynamic> json, String siteUrl) {
     return PostLiker(
       id: jsonInt(json['id']),
-      username: (json['username'] ?? '') as String,
+      username: jsonString(json['username']),
       // Absent on a site with `enable_names` off, where the username is the
       // only name anyone has.
       name: jsonText(json['name']),
-      avatarUrl: resolveAvatarUrl(json['avatar_template'] as String?, siteUrl),
+      avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
     );
   }
 
@@ -35,6 +35,18 @@ class PostLiker {
   final String? avatarUrl;
 
   String get displayName => name ?? username;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PostLiker &&
+          other.id == id &&
+          other.username == username &&
+          other.name == name &&
+          other.avatarUrl == avatarUrl;
+
+  @override
+  int get hashCode => Object.hash(id, username, name, avatarUrl);
 }
 
 /// Who liked a post, oldest like first, as the site listed them.
@@ -57,11 +69,10 @@ class PostLikers with Storable<PostLikers> {
     required String siteUrl,
   }) => PostLikers(
     postId: postId,
-    likers: [
-      for (final entry
-          in json['post_action_users'] as List<dynamic>? ?? const [])
-        if (entry is Map<String, dynamic>) PostLiker.fromJson(entry, siteUrl),
-    ],
+    likers: List.unmodifiable([
+      for (final entry in jsonObjects(json['post_action_users']))
+        PostLiker.fromJson(entry, siteUrl),
+    ]),
   );
 
   final int postId;
@@ -69,4 +80,17 @@ class PostLikers with Storable<PostLikers> {
 
   @override
   Object get storeId => postId;
+
+  @override
+  PostLikers merge(PostLikers incoming) => this == incoming ? this : incoming;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PostLikers &&
+          other.postId == postId &&
+          listEquals(other.likers, likers);
+
+  @override
+  int get hashCode => Object.hash(postId, Object.hashAll(likers));
 }

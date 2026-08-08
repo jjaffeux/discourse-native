@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
@@ -9,26 +12,74 @@ import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'post_actions.dart';
 import 'post_footer.dart';
-import 'user_card.dart';
 import 'relative_time.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'small_action.dart';
+import 'user_card.dart';
 
 /// A topic and its posts.
-class TopicView extends StatelessWidget {
+class TopicView extends StatefulWidget {
   const TopicView({super.key});
 
   /// Start fetching the next batch about a screen before the end.
   static const double _loadMoreThreshold = 900;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
-    final topic = controller.currentTopic;
+  State<TopicView> createState() => _TopicViewState();
+}
 
-    if (topic == null) {
-      if (controller.currentTopicLoading) {
+class _TopicViewState extends State<TopicView> {
+  Object? _loadMoreToken;
+  (String, int, int)? _loadMoreTarget;
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<_TopicViewSnapshot>(
+    select: _TopicViewSnapshot.from,
+    builder: _build,
+  );
+
+  void _scheduleLoadMore(
+    ShellController controller,
+    _TopicViewSnapshot snapshot,
+  ) {
+    final siteUrl = snapshot.siteUrl;
+    final topicId = snapshot.topicId;
+    if (siteUrl == null ||
+        topicId == null ||
+        !snapshot.hasMore ||
+        snapshot.loadingMore) {
+      return;
+    }
+
+    final target = (siteUrl, topicId, snapshot.postIds.length);
+    if (_loadMoreToken != null && _loadMoreTarget == target) return;
+
+    final token = Object();
+    _loadMoreToken = token;
+    _loadMoreTarget = target;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (identical(_loadMoreToken, token)) {
+        _loadMoreToken = null;
+        _loadMoreTarget = null;
+      }
+      if (!mounted) return;
+      if (!identical(ShellScope.read(context), controller)) return;
+      if (_TopicViewSnapshot.from(controller) != snapshot) return;
+      unawaited(controller.loadMorePosts());
+    });
+  }
+
+  Widget _build(
+    BuildContext context,
+    _TopicViewSnapshot snapshot,
+    Widget? child,
+  ) {
+    final theme = Theme.of(context);
+    final controller = ShellScope.read(context);
+
+    if (snapshot.topicId == null) {
+      if (snapshot.loading) {
         return const Center(child: CircularProgressIndicator());
       }
       return Center(
@@ -57,18 +108,19 @@ class TopicView extends StatelessWidget {
 
     // The footer is a spinner, so it may only appear while actually loading —
     // otherwise it spins forever at the bottom of a topic with more to fetch.
-    final showFooter = controller.loadingMorePosts;
+    final showFooter = snapshot.loadingMore;
 
     // Which posts are on screen, and in what order. The posts themselves are
     // in the store; each tile watches its own, so an edit or a deletion redraws
     // one tile rather than walking the whole stream.
-    final postIds = controller.currentPostIds;
-    final siteUrl = controller.currentInstance!.url;
+    final postIds = snapshot.postIds;
+    final siteUrl = snapshot.siteUrl!;
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
-        if (notification.metrics.extentAfter < _loadMoreThreshold) {
-          controller.loadMorePosts();
+        if (notification.depth == 0 &&
+            notification.metrics.extentAfter < TopicView._loadMoreThreshold) {
+          _scheduleLoadMore(controller, snapshot);
         }
         return false;
       },
@@ -84,6 +136,7 @@ class TopicView extends StatelessWidget {
       // the last, whose builder asks for the next page. That would walk the
       // whole topic on open.
       child: SuperListView.separated(
+        key: ValueKey((siteUrl, snapshot.topicId)),
         // Lazy, like the topic list: a 500-post topic builds only what shows.
         itemCount: postIds.length + (showFooter ? 1 : 0),
         separatorBuilder: (context, _) =>
@@ -96,16 +149,69 @@ class TopicView extends StatelessWidget {
           // Building the last post means the end is in view. Scrolling alone
           // is not enough: twenty short posts may not fill the window, leaving
           // nothing to scroll and the rest never fetched.
-          if (index == postIds.length - 1 && controller.currentTopicHasMore) {
-            WidgetsBinding.instance.addPostFrameCallback(
-              (_) => controller.loadMorePosts(),
-            );
+          if (index == postIds.length - 1 && snapshot.hasMore) {
+            _scheduleLoadMore(controller, snapshot);
           }
-          return _StoredPost(siteUrl: siteUrl, postId: postIds[index]);
+          final postId = postIds[index];
+          return _StoredPost(
+            key: ValueKey(postId),
+            siteUrl: siteUrl,
+            postId: postId,
+          );
         },
       ),
     );
   }
+}
+
+@immutable
+class _TopicViewSnapshot {
+  const _TopicViewSnapshot({
+    required this.topicId,
+    required this.siteUrl,
+    required this.postIds,
+    required this.loading,
+    required this.loadingMore,
+    required this.hasMore,
+  });
+
+  factory _TopicViewSnapshot.from(ShellController controller) =>
+      _TopicViewSnapshot(
+        topicId: controller.currentTopic?.id,
+        siteUrl: controller.currentInstance?.url,
+        postIds: controller.currentPostIds,
+        loading: controller.currentTopicLoading,
+        loadingMore: controller.loadingMorePosts,
+        hasMore: controller.currentTopicHasMore,
+      );
+
+  final int? topicId;
+  final String? siteUrl;
+  final List<int> postIds;
+  final bool loading;
+  final bool loadingMore;
+  final bool hasMore;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _TopicViewSnapshot &&
+          topicId == other.topicId &&
+          siteUrl == other.siteUrl &&
+          listEquals(postIds, other.postIds) &&
+          loading == other.loading &&
+          loadingMore == other.loadingMore &&
+          hasMore == other.hasMore;
+
+  @override
+  int get hashCode => Object.hash(
+    topicId,
+    siteUrl,
+    Object.hashAll(postIds),
+    loading,
+    loadingMore,
+    hasMore,
+  );
 }
 
 /// Draws whichever post the store holds under [postId].
@@ -114,7 +220,7 @@ class TopicView extends StatelessWidget {
 /// markdown for the composer all write one record, and only the tile watching
 /// that record is rebuilt.
 class _StoredPost extends StatelessWidget {
-  const _StoredPost({required this.siteUrl, required this.postId});
+  const _StoredPost({super.key, required this.siteUrl, required this.postId});
 
   final String siteUrl;
   final int postId;
@@ -122,22 +228,23 @@ class _StoredPost extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<Post?>(
-      valueListenable: ShellScope.of(context).postRef(siteUrl, postId),
+      valueListenable: ShellScope.read(context).postRef(siteUrl, postId),
       builder: (context, post, _) {
         // Gone for good — deleted outright rather than soft-deleted — in the
         // frame before the stream that named it is rewritten without it.
         if (post == null) return const SizedBox.shrink();
         return post.isSmallAction
-            ? SmallActionTile(post: post)
-            : _PostTile(post: post);
+            ? SmallActionTile(post: post, siteUrl: siteUrl)
+            : _PostTile(siteUrl: siteUrl, post: post);
       },
     );
   }
 }
 
 class _PostTile extends StatefulWidget {
-  const _PostTile({required this.post});
+  const _PostTile({required this.siteUrl, required this.post});
 
+  final String siteUrl;
   final Post post;
 
   @override
@@ -171,6 +278,7 @@ class _PostTileState extends State<_PostTile> {
           (false, false) => Colors.transparent,
         },
         child: PostActions(
+          siteUrl: widget.siteUrl,
           post: post,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -181,6 +289,7 @@ class _PostTileState extends State<_PostTile> {
                   children: [
                     UserCardTarget(
                       username: post.username,
+                      siteUrl: widget.siteUrl,
                       child: ClipOval(
                         child: SizedBox(
                           width: 32,
@@ -213,6 +322,7 @@ class _PostTileState extends State<_PostTile> {
                           Flexible(
                             child: UserCardTarget(
                               username: post.username,
+                              siteUrl: widget.siteUrl,
                               child: Text(
                                 post.displayName,
                                 maxLines: 1,
@@ -267,8 +377,9 @@ class _PostTileState extends State<_PostTile> {
                 CookedHtml(
                   html: post.cooked,
                   textStyle: theme.textTheme.bodyMedium,
+                  siteUrl: widget.siteUrl,
                 ),
-                PostFooter(post: post),
+                PostFooter(siteUrl: widget.siteUrl, post: post),
               ],
             ),
           ),

@@ -34,8 +34,8 @@ class DiscourseInstance {
           ? null
           : DiscourseUser.fromJson(json['user'] as Map<String, dynamic>),
       // Absent for every site stored before this existed, which is what the
-      // unknown default is for. Nothing here may be required: `InstanceStore`
-      // answers a decode failure by forgetting the user's whole rail.
+      // unknown default is for. A malformed optional value makes only this
+      // stored entry unreadable; `InstanceStore` preserves the other sites.
       config: json['config'] == null
           ? const SiteConfig.unknown()
           : SiteConfig.fromJson(json['config'] as Map<String, dynamic>),

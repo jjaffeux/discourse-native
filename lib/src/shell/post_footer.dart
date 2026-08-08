@@ -14,16 +14,17 @@ import 'post_likes.dart';
 /// An ordered fallthrough with the core answer at the end, the same shape as
 /// `cooked_html.dart`'s builder chain and `open_link.dart`'s dispatch.
 class PostFooter extends StatelessWidget {
-  const PostFooter({super.key, required this.post});
+  const PostFooter({super.key, required this.siteUrl, required this.post});
 
+  final String siteUrl;
   final Post post;
 
   @override
   Widget build(BuildContext context) {
     for (final plugin in sitePlugins) {
-      final footer = plugin.postFooter(post);
+      final footer = plugin.postFooter(siteUrl, post);
       if (footer != null) return footer;
     }
-    return PostLikes(post: post);
+    return PostLikes(siteUrl: siteUrl, post: post);
   }
 }

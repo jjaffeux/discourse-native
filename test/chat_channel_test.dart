@@ -1,6 +1,6 @@
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 const String site = 'https://meta.discourse.org';
 
@@ -74,8 +74,11 @@ Map<String, dynamic> payload({
 }) => {
   'public_channels': public,
   'direct_message_channels': direct,
-  'tracking': {'channel_tracking': tracking ?? const {}, 'thread_tracking': {}},
-  'meta': {'message_bus_last_ids': {}},
+  'tracking': {
+    'channel_tracking': tracking ?? const <String, dynamic>{},
+    'thread_tracking': <String, dynamic>{},
+  },
+  'meta': {'message_bus_last_ids': <String, dynamic>{}},
 };
 
 Map<String, dynamic> counts({
@@ -93,23 +96,26 @@ ChatChannel channelFrom(Map<String, dynamic> json) =>
 
 void main() {
   group('reading a channel', () {
-    test('takes the title the site computed rather than naming anyone again', () {
-      // The multi-user title is the server's job: it has already dropped the
-      // reader, sorted the rest by the site's own naming rules and truncated
-      // past seven. Recomputing it here could only disagree.
-      final channel = channelFrom(
-        directChannel(
-          title: 'hawk, kris and 3 others',
-          group: true,
-          users: const [
-            {'id': 2, 'username': 'hawk'},
-            {'id': 3, 'username': 'kris'},
-          ],
-        ),
-      );
+    test(
+      'takes the title the site computed rather than naming anyone again',
+      () {
+        // The multi-user title is the server's job: it has already dropped the
+        // reader, sorted the rest by the site's own naming rules and truncated
+        // past seven. Recomputing it here could only disagree.
+        final channel = channelFrom(
+          directChannel(
+            title: 'hawk, kris and 3 others',
+            group: true,
+            users: const [
+              {'id': 2, 'username': 'hawk'},
+              {'id': 3, 'username': 'kris'},
+            ],
+          ),
+        );
 
-      expect(channel.title, 'hawk, kris and 3 others');
-    });
+        expect(channel.title, 'hawk, kris and 3 others');
+      },
+    );
 
     test('prefers the unicode title, because that is text a Text can draw', () {
       final channel = channelFrom(
@@ -119,9 +125,12 @@ void main() {
       expect(channel.title, 'Ship it 🎉');
     });
 
-    test('falls back to the plain title where the site sent no unicode one', () {
-      expect(channelFrom(categoryChannel(title: 'Bugs')).title, 'Bugs');
-    });
+    test(
+      'falls back to the plain title where the site sent no unicode one',
+      () {
+        expect(channelFrom(categoryChannel(title: 'Bugs')).title, 'Bugs');
+      },
+    );
 
     test('reads a category colour without the hash the site leaves off', () {
       // `0088CC`, not `#0088CC` — Discourse writes bare hex because the value
@@ -135,9 +144,12 @@ void main() {
       expect(channelFrom(categoryChannel(color: 'nope')).categoryColor, isNull);
     });
 
-    test('gives a direct channel no colour, having no category to borrow one from', () {
-      expect(channelFrom(directChannel()).categoryColor, isNull);
-    });
+    test(
+      'gives a direct channel no colour, having no category to borrow one from',
+      () {
+        expect(channelFrom(directChannel()).categoryColor, isNull);
+      },
+    );
 
     test('reads a direct channel as the people in it, the reader excluded', () {
       final channel = channelFrom(directChannel());
@@ -233,30 +245,36 @@ void main() {
       expect(channels.public.single.tracking.mentionCount, 1);
     });
 
-    test('reads a channel the report skipped as three zeroes, as the site does', () {
-      final channels = ChatChannel.parse(
-        payload(public: [categoryChannel()], tracking: const {}),
-        site,
-      );
+    test(
+      'reads a channel the report skipped as three zeroes, as the site does',
+      () {
+        final channels = ChatChannel.parse(
+          payload(public: [categoryChannel()], tracking: const {}),
+          site,
+        );
 
-      expect(channels.public.single.tracking, ChatTracking.none);
-    });
+        expect(channels.public.single.tracking, ChatTracking.none);
+      },
+    );
 
-    test('orders the public channels by slug, which is what the sidebar shows', () {
-      // The site orders these by lower(name), and a channel's name and slug
-      // differ often enough that the two disagree.
-      final channels = ChatChannel.parse(
-        payload(
-          public: [
-            categoryChannel(id: 1, title: 'Announcements', slug: 'zebra'),
-            categoryChannel(id: 2, title: 'Zoology', slug: 'alpha'),
-          ],
-        ),
-        site,
-      );
+    test(
+      'orders the public channels by slug, which is what the sidebar shows',
+      () {
+        // The site orders these by lower(name), and a channel's name and slug
+        // differ often enough that the two disagree.
+        final channels = ChatChannel.parse(
+          payload(
+            public: [
+              categoryChannel(id: 1, title: 'Announcements', slug: 'zebra'),
+              categoryChannel(id: 2, title: 'Zoology', slug: 'alpha'),
+            ],
+          ),
+          site,
+        );
 
-      expect(channels.public.map((c) => c.id), [2, 1]);
-    });
+        expect(channels.public.map((c) => c.id), [2, 1]);
+      },
+    );
 
     test('leaves the direct messages in the order the site sent them', () {
       // Already newest-conversation-first server side; re-sorting here could
@@ -302,12 +320,15 @@ void main() {
       expect(withCounts(categoryChannel()).badge.isVisible, isFalse);
     });
 
-    test('is quiet for an unread public channel, which is not addressed to you', () {
-      final badge = withCounts(categoryChannel(), unread: 4).badge;
+    test(
+      'is quiet for an unread public channel, which is not addressed to you',
+      () {
+        final badge = withCounts(categoryChannel(), unread: 4).badge;
 
-      expect(badge.dot, isTrue);
-      expect(badge.urgent, isFalse);
-    });
+        expect(badge.dot, isTrue);
+        expect(badge.urgent, isFalse);
+      },
+    );
 
     test('is urgent for a mention, which is', () {
       final badge = withCounts(categoryChannel(), unread: 4, mentions: 1).badge;
@@ -315,12 +336,15 @@ void main() {
       expect(badge.urgent, isTrue);
     });
 
-    test('is urgent for an unread direct message, addressed to you by construction', () {
-      final badge = withCounts(directChannel(), unread: 1).badge;
+    test(
+      'is urgent for an unread direct message, addressed to you by construction',
+      () {
+        final badge = withCounts(directChannel(), unread: 1).badge;
 
-      expect(badge.dot, isTrue);
-      expect(badge.urgent, isTrue);
-    });
+        expect(badge.dot, isTrue);
+        expect(badge.urgent, isTrue);
+      },
+    );
 
     test('is urgent for an unread watched thread', () {
       expect(
@@ -329,17 +353,20 @@ void main() {
       );
     });
 
-    test('says nothing at all for a muted channel, which is what muting means', () {
-      final channel = ChatChannel.parse(
-        payload(
-          public: [categoryChannel(muted: true)],
-          tracking: {'9': counts(unread: 9, mentions: 2)},
-        ),
-        site,
-      ).public.single;
+    test(
+      'says nothing at all for a muted channel, which is what muting means',
+      () {
+        final channel = ChatChannel.parse(
+          payload(
+            public: [categoryChannel(muted: true)],
+            tracking: {'9': counts(unread: 9, mentions: 2)},
+          ),
+          site,
+        ).public.single;
 
-      expect(channel.badge.isVisible, isFalse);
-    });
+        expect(channel.badge.isVisible, isFalse);
+      },
+    );
 
     test('draws a dot rather than a number, whatever the count', () {
       expect(withCounts(categoryChannel(), unread: 99).badge.count, 0);
@@ -347,9 +374,12 @@ void main() {
   });
 
   group('route ids', () {
-    test('round-trips a channel id through the id its sidebar entry carries', () {
-      expect(ChatChannel.channelIdIn(ChatChannel.routeId(42)), 42);
-    });
+    test(
+      'round-trips a channel id through the id its sidebar entry carries',
+      () {
+        expect(ChatChannel.channelIdIn(ChatChannel.routeId(42)), 42);
+      },
+    );
 
     test('claims no route it did not write', () {
       expect(ChatChannel.channelIdIn('latest'), isNull);
@@ -357,9 +387,12 @@ void main() {
       expect(ChatChannel.channelIdIn('messages'), isNull);
     });
 
-    test('claims nothing from a route that only starts like one of its own', () {
-      expect(ChatChannel.channelIdIn('chat-c-'), isNull);
-      expect(ChatChannel.channelIdIn('chat-c-abc'), isNull);
-    });
+    test(
+      'claims nothing from a route that only starts like one of its own',
+      () {
+        expect(ChatChannel.channelIdIn('chat-c-'), isNull);
+        expect(ChatChannel.channelIdIn('chat-c-abc'), isNull);
+      },
+    );
   });
 }

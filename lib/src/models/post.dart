@@ -50,12 +50,12 @@ class Post with Storable<Post> {
     return Post(
       id: jsonInt(json['id']),
       postNumber: jsonInt(json['post_number']),
-      username: (json['username'] ?? '') as String,
+      username: jsonString(json['username']),
       name: jsonText(json['name']),
       // Server-rendered HTML. Discourse does the markdown, oneboxing, emoji
       // and mention rendering, which is far too much to redo client side.
-      cooked: (json['cooked'] ?? '') as String,
-      avatarUrl: resolveAvatarUrl(json['avatar_template'] as String?, siteUrl),
+      cooked: jsonString(json['cooked']),
+      avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
       createdAt: jsonDate(json['created_at']),
       userTitle: jsonText(json['user_title']),
       replyCount: jsonInt(json['reply_count']),
@@ -100,8 +100,7 @@ class Post with Storable<Post> {
   static ({int count, bool acted, bool canAct, bool canUndo}) _likeSummary(
     Object? summaries,
   ) {
-    for (final entry in summaries as List<dynamic>? ?? const []) {
-      if (entry is! Map<String, dynamic>) continue;
+    for (final entry in jsonObjects(summaries)) {
       if (jsonInt(entry['id']) != likeActionId) continue;
       return (
         count: jsonInt(entry['count']),
@@ -209,8 +208,12 @@ class Post with Storable<Post> {
   /// rather than "no longer has one". Letting that through would send the
   /// composer back to the site for a body it already had.
   @override
-  Post merge(Post incoming) =>
-      incoming.raw == null && raw != null ? incoming.withRaw(raw!) : incoming;
+  Post merge(Post incoming) {
+    final merged = incoming.raw == null && raw != null
+        ? incoming.withRaw(raw!)
+        : incoming;
+    return this == merged ? this : merged;
+  }
 
   Post withRaw(String raw) => copyWith(raw: raw);
 
@@ -292,6 +295,63 @@ class Post with Storable<Post> {
     raw: raw ?? this.raw,
     plugins: plugins ?? this.plugins,
   );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Post &&
+          other.id == id &&
+          other.postNumber == postNumber &&
+          other.username == username &&
+          other.name == name &&
+          other.cooked == cooked &&
+          other.avatarUrl == avatarUrl &&
+          other.createdAt == createdAt &&
+          other.userTitle == userTitle &&
+          other.replyCount == replyCount &&
+          other.isStaff == isStaff &&
+          other.canEdit == canEdit &&
+          other.canDelete == canDelete &&
+          other.canRecover == canRecover &&
+          other.deletedAt == deletedAt &&
+          other.userDeleted == userDeleted &&
+          other.postType == postType &&
+          other.actionCode == actionCode &&
+          other.actionCodeWho == actionCodeWho &&
+          other.likeCount == likeCount &&
+          other.liked == liked &&
+          other.canLike == canLike &&
+          other.canUnlike == canUnlike &&
+          other.raw == raw &&
+          other.plugins == plugins;
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    postNumber,
+    username,
+    name,
+    cooked,
+    avatarUrl,
+    createdAt,
+    userTitle,
+    replyCount,
+    isStaff,
+    canEdit,
+    canDelete,
+    canRecover,
+    deletedAt,
+    userDeleted,
+    postType,
+    actionCode,
+    actionCodeWho,
+    likeCount,
+    liked,
+    canLike,
+    canUnlike,
+    raw,
+    plugins,
+  ]);
 }
 
 /// Avatar templates are site-relative and carry a `{size}` placeholder.
@@ -333,17 +393,17 @@ class TopicDetail with Storable<TopicDetail> {
 
   /// Reads a topic payload into the topic and its posts.
   static TopicPayload parse(Map<String, dynamic> json, String siteUrl) {
-    final postStream = json['post_stream'] as Map<String, dynamic>? ?? const {};
-    final details = json['details'] as Map<String, dynamic>? ?? const {};
+    final postStream = jsonObject(json['post_stream']);
+    final details = jsonObject(json['details']);
     return (
       detail: TopicDetail(
         id: jsonInt(json['id']),
         title: jsonTitle(json['title'], json['fancy_title']),
         // Every post id in the topic, even the ones not fetched yet — this is
         // what makes paging through a long topic possible.
-        stream: (postStream['stream'] as List<dynamic>? ?? const [])
-            .map(jsonInt)
-            .toList(),
+        stream: List.unmodifiable(
+          jsonArray(postStream['stream']).map(jsonIntOrNull).whereType<int>(),
+        ),
         postsCount: jsonInt(json['posts_count']),
         categoryId: json['category_id'] == null
             ? null
@@ -360,9 +420,10 @@ class TopicDetail with Storable<TopicDetail> {
         draft: ComposerDraft.decode(json['draft']),
         draftSequence: jsonInt(json['draft_sequence']),
       ),
-      posts: (postStream['posts'] as List<dynamic>? ?? const [])
-          .map((p) => Post.fromJson(p as Map<String, dynamic>, siteUrl))
-          .toList(),
+      posts: List.unmodifiable([
+        for (final post in jsonObjects(postStream['posts']))
+          Post.fromJson(post, siteUrl),
+      ]),
     );
   }
 
@@ -433,11 +494,13 @@ class TopicDetail with Storable<TopicDetail> {
   TopicDetail merge(TopicDetail incoming) {
     final arrived = incoming.stream.toSet();
     final missing = stream.where((id) => !arrived.contains(id)).toList();
-    if (missing.isEmpty) return incoming;
-    return incoming.copyWith(
-      stream: [...incoming.stream, ...missing],
-      postsCount: incoming.postsCount + missing.length,
-    );
+    final merged = missing.isEmpty
+        ? incoming
+        : incoming.copyWith(
+            stream: [...incoming.stream, ...missing],
+            postsCount: incoming.postsCount + missing.length,
+          );
+    return this == merged ? this : merged;
   }
 
   TopicDetail copyWith({
@@ -450,11 +513,36 @@ class TopicDetail with Storable<TopicDetail> {
   }) => TopicDetail(
     id: id,
     title: title ?? this.title,
-    stream: stream ?? this.stream,
+    stream: stream == null ? this.stream : List.unmodifiable(stream),
     postsCount: postsCount ?? this.postsCount,
     categoryId: categoryId,
     canCreatePost: canCreatePost,
     draft: clearDraft ? null : (draft ?? this.draft),
     draftSequence: draftSequence ?? this.draftSequence,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TopicDetail &&
+          other.id == id &&
+          other.title == title &&
+          listEquals(other.stream, stream) &&
+          other.postsCount == postsCount &&
+          other.categoryId == categoryId &&
+          other.canCreatePost == canCreatePost &&
+          other.draft == draft &&
+          other.draftSequence == draftSequence;
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    title,
+    Object.hashAll(stream),
+    postsCount,
+    categoryId,
+    canCreatePost,
+    draft,
+    draftSequence,
   );
 }

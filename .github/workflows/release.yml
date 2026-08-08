@@ -69,9 +69,11 @@ jobs:
             ca-certificates curl git unzip xz-utils zip file sudo jq \
             apt-utils gnupg dpkg-dev
 
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # The checkout, the Flutter SDK and pub's git-dependency clones are all
       # owned by a different uid than the one these steps run as, so git refuses
@@ -104,7 +106,8 @@ jobs:
           pkg-config --exists gtk+-3.0 webkit2gtk-4.1 libsoup-3.0 libsecret-1 \
                               libcrypto
 
-      - uses: subosito/flutter-action@v2
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
@@ -157,7 +160,8 @@ jobs:
             echo "prerelease=$PRERELEASE"
           } >> "$GITHUB_OUTPUT"
 
-      - run: flutter pub get
+      - name: Resolve dependencies
+        run: flutter pub get --enforce-lockfile
 
       # A broken canary that installs itself is worse than no canary.
       - name: Analyze and test
@@ -372,7 +376,7 @@ jobs:
       # A direct download for anyone who will not add a repository, which is
       # the fallback the reference install docs offer too.
       - name: Publish the .deb on Releases
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: ${{ steps.v.outputs.tag }}
           target_commitish: ${{ github.sha }}

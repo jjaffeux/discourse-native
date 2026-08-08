@@ -11,9 +11,10 @@ import '../github.dart';
 /// The first line of the commit message as the title, then who committed it,
 /// when, and what the diff touched.
 class GithubCommitOnebox extends StatelessWidget {
-  const GithubCommitOnebox({super.key, required this.data});
+  const GithubCommitOnebox({super.key, required this.data, this.siteUrl});
 
   final GithubCommitData data;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +49,7 @@ class GithubCommitOnebox extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  _Info(data: data),
+                  _Info(data: data, siteUrl: siteUrl),
                 ],
               ),
             ),
@@ -61,9 +62,10 @@ class GithubCommitOnebox extends StatelessWidget {
 }
 
 class _Info extends StatelessWidget {
-  const _Info({required this.data});
+  const _Info({required this.data, required this.siteUrl});
 
   final GithubCommitData data;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -88,12 +90,14 @@ class _Info extends StatelessWidget {
             login: data.authorLogin!,
             avatarUrl: data.authorAvatarUrl,
             url: data.authorUrl,
+            siteUrl: siteUrl,
           ),
         if (data.additions != null && data.deletions != null)
           GithubLineCounts(
             additions: data.additions!,
             deletions: data.deletions!,
             url: data.titleUrl,
+            siteUrl: siteUrl,
           ),
       ],
     );
@@ -193,8 +197,12 @@ class GithubCommitData {
 /// Claims `aside.onebox.githubcommit`, for the dispatch in `onebox.dart`.
 final OneboxEngine githubCommitBlock = OneboxEngine(
   matches: (aside) => aside.classes.contains('githubcommit'),
-  build: (aside, envelope) => OneboxCard(
+  build: (aside, envelope, siteUrl) => OneboxCard(
     data: envelope,
-    child: GithubCommitOnebox(data: GithubCommitData.from(aside)),
+    siteUrl: siteUrl,
+    child: GithubCommitOnebox(
+      data: GithubCommitData.from(aside),
+      siteUrl: siteUrl,
+    ),
   ),
 );

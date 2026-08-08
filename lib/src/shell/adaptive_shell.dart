@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'empty_state.dart';
 import 'instance_rail.dart';
 import 'instance_sidebar.dart';
@@ -70,13 +73,11 @@ class _CompactShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.of(context);
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        controller.handleBack();
+        ShellScope.read(context).handleBack();
       },
       child: Row(
         children: [
@@ -86,34 +87,50 @@ class _CompactShell extends StatelessWidget {
           ),
           Expanded(
             child: ShellPanel(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: _slide,
-                child: switch ((
-                  controller.loaded,
-                  controller.hasInstances,
-                  controller.mobilePane,
-                )) {
-                  // Nothing until the stored sites have been read, so the
-                  // empty state does not flash on launch.
-                  (false, _, _) => const SizedBox.shrink(),
-                  (true, false, _) => const EmptyState(
-                    key: ValueKey(MobilePane.sidebar),
+              child:
+                  ShellSelector<
+                    ({
+                      InstanceLoadStatus loadStatus,
+                      bool hasInstances,
+                      MobilePane pane,
+                    })
+                  >(
+                    select: (controller) => (
+                      loadStatus: controller.loadStatus,
+                      hasInstances: controller.hasInstances,
+                      pane: controller.mobilePane,
+                    ),
+                    builder: (context, state, _) => AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: _slide,
+                      child: switch ((
+                        state.loadStatus,
+                        state.hasInstances,
+                        state.pane,
+                      )) {
+                        (InstanceLoadStatus.loading, _, _) =>
+                          const _ShellLoadProgress(),
+                        (InstanceLoadStatus.failed, _, _) =>
+                          const _ShellLoadFailure(),
+                        (InstanceLoadStatus.ready, false, _) =>
+                          const EmptyState(key: ValueKey(MobilePane.sidebar)),
+                        // Only one pane is on screen at a time here, so whichever
+                        // one it is carries the avatar — unless the title bar has it.
+                        (InstanceLoadStatus.ready, true, MobilePane.sidebar) =>
+                          InstanceSidebar(
+                            key: const ValueKey(MobilePane.sidebar),
+                            showUserMenu: ShellTitleBar.columnsCarryUserMenu,
+                          ),
+                        (InstanceLoadStatus.ready, true, MobilePane.content) =>
+                          const MainContent(
+                            key: ValueKey(MobilePane.content),
+                            layout: ShellLayout.compact,
+                          ),
+                      },
+                    ),
                   ),
-                  // Only one pane is on screen at a time here, so whichever one
-                  // it is carries the avatar — unless the title bar has it.
-                  (true, true, MobilePane.sidebar) => InstanceSidebar(
-                    key: const ValueKey(MobilePane.sidebar),
-                    showUserMenu: ShellTitleBar.columnsCarryUserMenu,
-                  ),
-                  (true, true, MobilePane.content) => const MainContent(
-                    key: ValueKey(MobilePane.content),
-                    layout: ShellLayout.compact,
-                  ),
-                },
-              ),
             ),
           ),
         ],
@@ -146,32 +163,102 @@ class _WideShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.of(context);
-
     return Row(
       children: [
         // The rail sits directly on the backdrop, with no panel of its own.
         const SizedBox(width: AdaptiveShell.railWidth, child: InstanceRail()),
         Expanded(
           child: ShellPanel(
-            child: controller.hasInstances
-                ? Row(
-                    children: [
-                      const SizedBox(
-                        width: AdaptiveShell.sidebarWidth,
-                        child: InstanceSidebar(),
-                      ),
-                      Expanded(child: MainContent(layout: layout)),
-                    ],
-                  )
-                // Nothing until the stored sites have been read, so the empty
-                // state does not flash on launch.
-                : controller.loaded
-                ? const EmptyState()
-                : const SizedBox.shrink(),
+            child:
+                ShellSelector<
+                  ({InstanceLoadStatus loadStatus, bool hasInstances})
+                >(
+                  select: (controller) => (
+                    loadStatus: controller.loadStatus,
+                    hasInstances: controller.hasInstances,
+                  ),
+                  builder: (context, state, _) => switch (state.loadStatus) {
+                    InstanceLoadStatus.loading => const _ShellLoadProgress(),
+                    InstanceLoadStatus.failed => const _ShellLoadFailure(),
+                    InstanceLoadStatus.ready when state.hasInstances => Row(
+                      children: [
+                        const SizedBox(
+                          width: AdaptiveShell.sidebarWidth,
+                          child: InstanceSidebar(),
+                        ),
+                        Expanded(child: MainContent(layout: layout)),
+                      ],
+                    ),
+                    InstanceLoadStatus.ready => const EmptyState(),
+                  },
+                ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ShellLoadProgress extends StatelessWidget {
+  const _ShellLoadProgress();
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: Theme.of(context).shell.content,
+    child: const Center(child: CircularProgressIndicator()),
+  );
+}
+
+class _ShellLoadFailure extends StatelessWidget {
+  const _ShellLoadFailure();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ColoredBox(
+      color: theme.shell.content,
+      child: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DIcon(
+                    DIcons.triangleExclamation,
+                    size: 48,
+                    color: theme.colorScheme.error,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "Couldn't load your sites",
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your saved sites have not been changed. Try loading them again.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                    key: const ValueKey('instance-load-retry-panel'),
+                    onPressed: ShellScope.read(context).load,
+                    icon: const DIcon(DIcons.arrowsRotate, size: 18),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

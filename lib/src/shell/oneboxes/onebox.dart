@@ -4,7 +4,9 @@ import 'package:html/dom.dart' as dom;
 
 import '../../theme/app_theme.dart';
 import '../cooked_html.dart';
+import '../image_decode.dart';
 import '../open_link.dart';
+import '../site_url.dart';
 import 'discourse/category/block.dart';
 import 'discourse/topic/block.dart';
 import 'discourse/user/block.dart';
@@ -187,7 +189,8 @@ class OneboxEngine {
   final bool Function(dom.Element aside) matches;
 
   /// Builds the whole widget for the aside, [envelope] included.
-  final Widget Function(dom.Element aside, OneboxData envelope) build;
+  final Widget Function(dom.Element aside, OneboxData envelope, String? siteUrl)
+  build;
 }
 
 /// The engines this app draws natively, first claim wins. Anything none of
@@ -203,23 +206,26 @@ final List<OneboxEngine> _engines = [
 
 /// Hands `aside.onebox` to whichever engine claims it, for
 /// [HtmlWidget.customWidgetBuilder].
-Widget? oneboxWidgetBuilder(dom.Element element) {
+Widget? oneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
   if (element.localName != 'aside') return null;
   if (!element.classes.contains('onebox')) return null;
 
   final envelope = OneboxData.from(element);
   for (final engine in _engines) {
-    if (engine.matches(element)) return engine.build(element, envelope);
+    if (engine.matches(element)) {
+      return engine.build(element, envelope, siteUrl);
+    }
   }
-  return OneboxCard(data: envelope);
+  return OneboxCard(data: envelope, siteUrl: siteUrl);
 }
 
 /// The card every onebox sits in: the site header, and either a body an
 /// engine built or the generic title-and-thumbnail one.
 class OneboxCard extends StatelessWidget {
-  const OneboxCard({super.key, required this.data, this.child});
+  const OneboxCard({super.key, required this.data, this.child, this.siteUrl});
 
   final OneboxData data;
+  final String? siteUrl;
 
   /// The engine-specific body. Null asks for the generic one, which is what
   /// unknown engines get.
@@ -245,7 +251,7 @@ class OneboxCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (data.siteName != null || data.siteIcon != null) ...[
-            _Header(icon: data.siteIcon, name: data.siteName),
+            _Header(icon: data.siteIcon, name: data.siteName, siteUrl: siteUrl),
             const SizedBox(height: 10),
           ],
           child ?? _genericBody(context),
@@ -257,7 +263,7 @@ class OneboxCard extends StatelessWidget {
     if (url == null) return card;
 
     return InkWell(
-      onTap: () => openLink(context, url),
+      onTap: () => openLink(context, url, siteUrl: siteUrl),
       borderRadius: BorderRadius.circular(8),
       child: card,
     );
@@ -277,6 +283,7 @@ class OneboxCard extends StatelessWidget {
         _Thumbnail(
           thumbnail: thumbnail,
           width: thumbnail.isAvatar ? _avatarSize : _thumbnailWidth,
+          siteUrl: siteUrl,
         ),
         const SizedBox(width: 12),
         Expanded(child: text),
@@ -301,17 +308,26 @@ class OneboxCard extends StatelessWidget {
         if (title != null && data.bodyHtml.isNotEmpty)
           const SizedBox(height: 4),
         if (data.bodyHtml.isNotEmpty)
-          CookedHtml(html: data.bodyHtml, textStyle: theme.textTheme.bodySmall),
+          CookedHtml(
+            html: data.bodyHtml,
+            textStyle: theme.textTheme.bodySmall,
+            siteUrl: siteUrl,
+          ),
       ],
     );
   }
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.icon, required this.name});
+  const _Header({
+    required this.icon,
+    required this.name,
+    required this.siteUrl,
+  });
 
   final String? icon;
   final String? name;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -321,9 +337,10 @@ class _Header extends StatelessWidget {
       children: [
         if (icon != null) ...[
           Image.network(
-            icon!,
+            resolveSiteUrl(icon!, siteUrl),
             width: 16,
             height: 16,
+            cacheWidth: imagePhysicalPixels(context, 16),
             errorBuilder: (context, error, stackTrace) => const SizedBox(),
           ),
           const SizedBox(width: 6),
@@ -345,10 +362,15 @@ class _Header extends StatelessWidget {
 }
 
 class _Thumbnail extends StatelessWidget {
-  const _Thumbnail({required this.thumbnail, required this.width});
+  const _Thumbnail({
+    required this.thumbnail,
+    required this.width,
+    required this.siteUrl,
+  });
 
   final OneboxThumbnail thumbnail;
   final double width;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -357,8 +379,9 @@ class _Thumbnail extends StatelessWidget {
     final image = AspectRatio(
       aspectRatio: thumbnail.aspectRatio ?? 1,
       child: Image.network(
-        thumbnail.src,
+        resolveSiteUrl(thumbnail.src, siteUrl),
         fit: BoxFit.cover,
+        cacheWidth: imagePhysicalPixels(context, width),
         errorBuilder: (context, error, stackTrace) => const SizedBox(),
       ),
     );

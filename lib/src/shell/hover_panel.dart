@@ -62,6 +62,7 @@ class HoverPanelState extends State<HoverPanel> {
   Timer? _opening;
   Timer? _closing;
   ScrollPosition? _scroll;
+  Object? _anchorSyncToken;
 
   /// Whether the panel is up, for a caller deciding whether what it is showing
   /// is worth refreshing.
@@ -74,6 +75,30 @@ class HoverPanelState extends State<HoverPanel> {
     if (identical(position, _scroll)) return;
     _scroll?.removeListener(_onScroll);
     _scroll = position?..addListener(_onScroll);
+    _refreshAnchorAfterLayout();
+  }
+
+  @override
+  void didUpdateWidget(HoverPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _refreshAnchorAfterLayout();
+  }
+
+  void _refreshAnchorAfterLayout() {
+    if (!_portal.isShowing) return;
+    final token = Object();
+    _anchorSyncToken = token;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!identical(_anchorSyncToken, token)) return;
+      _anchorSyncToken = null;
+      if (!mounted || !_portal.isShowing) return;
+      final anchor = _anchorRect();
+      if (anchor == null) {
+        close();
+      } else {
+        _anchor.value = anchor;
+      }
+    });
   }
 
   /// A panel pinned to a row that is moving reads as broken. Discourse's own
@@ -142,6 +167,7 @@ class HoverPanelState extends State<HoverPanel> {
 
   @override
   void dispose() {
+    _anchorSyncToken = null;
     _opening?.cancel();
     _closing?.cancel();
     _scroll?.removeListener(_onScroll);

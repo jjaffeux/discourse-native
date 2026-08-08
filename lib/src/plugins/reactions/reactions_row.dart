@@ -1,12 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/post.dart';
 import '../../shell/avatar_image.dart';
-import '../../shell/emoji.dart';
 import '../../shell/hover_panel.dart';
 import '../../shell/platform.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
+import '../../shell/site_emoji_image.dart';
 import '../../shell/user_card.dart';
 import '../../theme/app_theme.dart';
 import 'post_reactors.dart';
@@ -24,8 +26,9 @@ import 'reactions_controller.dart';
 /// total beside them: `Reactions.userCount` is not their sum and can exceed it,
 /// and a total that does not add up is worse than none.
 class ReactionsRow extends StatelessWidget {
-  const ReactionsRow({super.key, required this.post});
+  const ReactionsRow({super.key, required this.siteUrl, required this.post});
 
+  final String siteUrl;
   final Post post;
 
   @override
@@ -46,6 +49,7 @@ class ReactionsRow extends StatelessWidget {
           children: [
             for (final entry in reactions.entries)
               ReactionPill(
+                siteUrl: siteUrl,
                 post: post,
                 reaction: entry,
                 mine: reactions.mine?.id == entry.id,
@@ -65,6 +69,7 @@ class ReactionsRow extends StatelessWidget {
 class ReactionPill extends StatefulWidget {
   const ReactionPill({
     super.key,
+    required this.siteUrl,
     required this.post,
     required this.reaction,
     required this.mine,
@@ -74,6 +79,7 @@ class ReactionPill extends StatefulWidget {
   /// a taller pill, so the row keeps the density Discourse's own has.
   static const double minTarget = 44;
 
+  final String siteUrl;
   final Post post;
   final Reaction reaction;
 
@@ -90,13 +96,13 @@ class _ReactionPillState extends State<ReactionPill> {
   final GlobalKey<HoverPanelState> _panel = GlobalKey<HoverPanelState>();
 
   void _load() {
-    final controller = ShellScope.of(context);
-    final siteUrl = controller.currentInstance?.url;
-    if (siteUrl == null) return;
-    controller.reactions.load(
-      siteUrl: siteUrl,
-      postId: widget.post.id,
-      filter: widget.reaction.id,
+    final controller = ShellScope.read(context);
+    unawaited(
+      controller.reactions.load(
+        siteUrl: widget.siteUrl,
+        postId: widget.post.id,
+        filter: widget.reaction.id,
+      ),
     );
   }
 
@@ -108,16 +114,17 @@ class _ReactionPillState extends State<ReactionPill> {
     await showShellSheet<void>(
       context: context,
       title: count == 1 ? '1 reaction' : '$count reactions',
-      builder: (sheetContext) =>
-          ReactorList(post: widget.post, filter: widget.reaction.id),
+      builder: (sheetContext) => ReactorList(
+        siteUrl: widget.siteUrl,
+        post: widget.post,
+        filter: widget.reaction.id,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
-    final siteUrl = controller.currentInstance?.url ?? '';
 
     return GestureDetector(
       // Long press is the touch way in. The post underneath opens its own
@@ -128,8 +135,11 @@ class _ReactionPillState extends State<ReactionPill> {
         key: _panel,
         maxWidth: _panelWidth,
         onOpen: _load,
-        panelBuilder: (context) =>
-            _ReactorPanel(post: widget.post, filter: widget.reaction.id),
+        panelBuilder: (context) => _ReactorPanel(
+          siteUrl: widget.siteUrl,
+          post: widget.post,
+          filter: widget.reaction.id,
+        ),
         child: Semantics(
           label: widget.reaction.count == 1
               ? '1 ${widget.reaction.id} reaction'
@@ -156,8 +166,9 @@ class _ReactionPillState extends State<ReactionPill> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    EmojiImage(
-                      url: controller.emojiUrlFor(siteUrl, widget.reaction.id),
+                    SiteEmojiImage(
+                      siteUrl: widget.siteUrl,
+                      name: widget.reaction.id,
                       size: 16,
                       alt: ':${widget.reaction.id}:',
                       style: theme.textTheme.labelSmall,
@@ -185,8 +196,13 @@ class _ReactionPillState extends State<ReactionPill> {
 
 /// The floating version of the list, for a pointer.
 class _ReactorPanel extends StatelessWidget {
-  const _ReactorPanel({required this.post, required this.filter});
+  const _ReactorPanel({
+    required this.siteUrl,
+    required this.post,
+    required this.filter,
+  });
 
+  final String siteUrl;
   final Post post;
   final String? filter;
 
@@ -206,7 +222,7 @@ class _ReactorPanel extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: ReactorList(post: post, filter: filter),
+          child: ReactorList(siteUrl: siteUrl, post: post, filter: filter),
         ),
       ),
     );
@@ -219,46 +235,145 @@ class _ReactorPanel extends StatelessWidget {
 /// there is one answer to what a row looks like rather than two that have to be
 /// kept in step.
 class ReactorList extends StatelessWidget {
-  const ReactorList({super.key, required this.post, this.filter});
+  const ReactorList({
+    super.key,
+    required this.siteUrl,
+    required this.post,
+    this.filter,
+  });
 
   /// Enough for a handful of names before the list starts scrolling, without
   /// the panel ever growing taller than the post it hangs off.
   static const double _maxHeight = 220;
 
+  final String siteUrl;
   final Post post;
 
   /// The emoji this list is narrowed to, or null for everyone.
   final String? filter;
 
   @override
-  Widget build(BuildContext context) {
-    final controller = ShellScope.of(context);
+  Widget build(BuildContext context) => ShellSelector<ReactionsController>(
+    select: (controller) => controller.reactions,
+    builder: (context, reactions, _) => _ReactorListView(
+      reactions: reactions,
+      siteUrl: siteUrl,
+      post: post,
+      filter: filter,
+    ),
+  );
+}
 
-    return ListenableBuilder(
-      // The reactions controller rather than the shell, so a list arriving
-      // redraws the list and nothing else.
-      listenable: controller.reactions,
-      builder: (context, _) => ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: _maxHeight),
-        child: _body(
-          context,
-          controller.reactions,
-          controller.currentInstance?.url ?? '',
-        ),
-      ),
-    );
+typedef _ReactorListSnapshot = ({PostReactors? reactors, String? error});
+
+class _ReactorListView extends StatefulWidget {
+  const _ReactorListView({
+    required this.reactions,
+    required this.siteUrl,
+    required this.post,
+    required this.filter,
+  });
+
+  final ReactionsController reactions;
+  final String siteUrl;
+  final Post post;
+  final String? filter;
+
+  @override
+  State<_ReactorListView> createState() => _ReactorListViewState();
+}
+
+class _ReactorListViewState extends State<_ReactorListView> {
+  late _ReactorListSnapshot _snapshot;
+  Object? _reloadToken;
+
+  @override
+  void initState() {
+    super.initState();
+    _snapshot = _select();
+    widget.reactions.addListener(_onReactionsChanged);
   }
 
-  Widget _body(
-    BuildContext context,
-    ReactionsController reactions,
-    String siteUrl,
-  ) {
+  @override
+  void didUpdateWidget(_ReactorListView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final controllerChanged = !identical(oldWidget.reactions, widget.reactions);
+    final queryChanged =
+        oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.post.id != widget.post.id ||
+        oldWidget.filter != widget.filter;
+
+    if (controllerChanged) {
+      oldWidget.reactions.removeListener(_onReactionsChanged);
+      widget.reactions.addListener(_onReactionsChanged);
+    }
+    if (controllerChanged || queryChanged) {
+      _snapshot = _select();
+      _reloadAfterLayout();
+    }
+  }
+
+  _ReactorListSnapshot _select() => (
+    reactors: widget.reactions.reactors(
+      widget.siteUrl,
+      widget.post.id,
+      filter: widget.filter,
+    ),
+    error: widget.reactions.error(
+      widget.siteUrl,
+      widget.post.id,
+      filter: widget.filter,
+    ),
+  );
+
+  void _onReactionsChanged() {
+    final next = _select();
+    if (next == _snapshot) return;
+    setState(() => _snapshot = next);
+  }
+
+  void _reloadAfterLayout() {
+    final token = Object();
+    _reloadToken = token;
+    final reactions = widget.reactions;
+    final siteUrl = widget.siteUrl;
+    final postId = widget.post.id;
+    final filter = widget.filter;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_reloadToken, token)) return;
+      _reloadToken = null;
+      if (!identical(widget.reactions, reactions) ||
+          widget.siteUrl != siteUrl ||
+          widget.post.id != postId ||
+          widget.filter != filter) {
+        return;
+      }
+      unawaited(
+        reactions.load(siteUrl: siteUrl, postId: postId, filter: filter),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _reloadToken = null;
+    widget.reactions.removeListener(_onReactionsChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(maxHeight: ReactorList._maxHeight),
+    child: _body(context),
+  );
+
+  Widget _body(BuildContext context) {
+    final siteUrl = widget.siteUrl;
     final theme = Theme.of(context);
-    final held = reactions.reactors(siteUrl, post.id, filter: filter);
+    final held = _snapshot.reactors;
 
     if (held == null) {
-      final error = reactions.error(siteUrl, post.id, filter: filter);
+      final error = _snapshot.error;
       if (error == null) {
         return const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
@@ -320,10 +435,10 @@ class _ReactorRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final controller = ShellScope.of(context);
 
     return UserCardTarget(
       username: reactor.username,
+      siteUrl: siteUrl,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
@@ -363,8 +478,9 @@ class _ReactorRow extends StatelessWidget {
             // Which emoji they gave. Drawn even in a list already narrowed to
             // one, because the sheet's title is a count rather than a picture.
             const SizedBox(width: 8),
-            EmojiImage(
-              url: controller.emojiUrlFor(siteUrl, reactor.reaction),
+            SiteEmojiImage(
+              siteUrl: siteUrl,
+              name: reactor.reaction,
               size: 14,
               alt: ':${reactor.reaction}:',
               style: theme.textTheme.labelSmall,

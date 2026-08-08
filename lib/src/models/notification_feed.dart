@@ -35,11 +35,15 @@ class NotificationFeed {
   /// Tapping a notification marks it read on the site, and the row should stop
   /// standing out the moment it is tapped rather than when the request lands.
   NotificationFeed withRead(int id) {
+    final index = notifications.indexWhere(
+      (notification) => notification.id == id && notification.isUnread,
+    );
+    if (index < 0) return this;
+
+    final updated = List<DiscourseNotification>.of(notifications);
+    updated[index] = updated[index].asRead();
     return NotificationFeed(
-      notifications: [
-        for (final notification in notifications)
-          notification.id == id ? notification.asRead() : notification,
-      ],
+      notifications: updated,
       loading: loading,
       error: error,
       loaded: loaded,
