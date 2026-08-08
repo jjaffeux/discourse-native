@@ -569,21 +569,10 @@ class _DestinationTileState extends State<_DestinationTile> {
                     ),
                   )
                 else
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.error,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Text(
-                      '${badge.count}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onError,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  Text(
+                    '${badge.count}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: foreground,
                     ),
                   ),
             ],

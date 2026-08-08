@@ -13,7 +13,7 @@ import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
-import 'package:flutter/material.dart' show Size;
+import 'package:flutter/material.dart' show Row, Size;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -33,6 +33,25 @@ const _draft = UserDraft(
 );
 
 void main() {
+  testWidgets('the sidebar shows the draft count as plain trailing text', (
+    tester,
+  ) async {
+    await _pump(tester);
+
+    final count = find.descendant(
+      of: find.byType(InstanceSidebar),
+      matching: find.text('1'),
+    );
+
+    expect(count, findsOneWidget);
+    Object? parent;
+    tester.element(count).visitAncestorElements((element) {
+      parent = element.widget;
+      return false;
+    });
+    expect(parent, isA<Row>());
+  });
+
   testWidgets('the sidebar opens the account-backed drafts page', (
     tester,
   ) async {
