@@ -52,6 +52,7 @@ import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -314,6 +315,47 @@ void main() {
       expect(api.topicPostNumbersOpened, [3]);
       expect(controller.currentContent?.topicId, 7);
       expect(controller.search.query, isEmpty);
+    });
+
+    testWidgets('renders site emoji in search titles and excerpts', (
+      tester,
+    ) async {
+      const hit = SearchPostHit(
+        postId: 70,
+        topicId: 7,
+        postNumber: 3,
+        topicTitle: 'News :sparkles:',
+        topicSlug: 'news',
+        username: 'sam',
+        excerpt: SearchExcerpt([
+          SearchExcerptSegment('Bard :'),
+          SearchExcerptSegment('cry', highlighted: true),
+          SearchExcerptSegment(': image'),
+        ]),
+      );
+      final api = FakeDiscourseApi(
+        searchResults: const {
+          'emoji': SearchResults(hits: [hit]),
+        },
+      );
+      await pumpShell(tester, laptop, api: api);
+      EmojiCache.instance = EmojiCache(
+        client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
+      );
+      addTearDown(EmojiCache.instance.clear);
+
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'emoji');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
+            .map((emoji) => emoji.name),
+        ['sparkles', 'cry'],
+      );
+      expect(find.textContaining(':sparkles:'), findsNothing);
+      expect(find.textContaining(':cry:'), findsNothing);
     });
 
     testWidgets('supports the focus shortcut, arrows, enter, and escape', (
