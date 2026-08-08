@@ -342,6 +342,42 @@ void main() {
     expect(find.text('Discourse Meta'), findsNothing);
   });
 
+  testWidgets('the sidebar header shows only the forum title', (tester) async {
+    await pumpShell(tester, desktop);
+
+    final sidebar = find.byType(InstanceSidebar);
+    expect(
+      find.descendant(of: sidebar, matching: find.text('Discourse Meta')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: sidebar, matching: find.text('meta.discourse.org')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('the sidebar header opens a destructive forum menu', (
+    tester,
+  ) async {
+    await pumpShell(tester, desktop);
+
+    await tester.tap(find.text('Discourse Meta'));
+    await tester.pumpAndSettle();
+
+    final remove = find.widgetWithText(MenuItemButton, 'Remove forum');
+    expect(remove, findsOneWidget);
+    expect(find.text('More Options'), findsNothing);
+
+    final button = tester.widget<MenuItemButton>(remove);
+    final theme = Theme.of(tester.element(remove));
+    expect(button.style?.foregroundColor?.resolve({}), theme.colorScheme.error);
+    expect(button.style?.iconColor?.resolve({}), theme.colorScheme.error);
+
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
+    expect(find.text('Remove Discourse Meta?'), findsOneWidget);
+  });
+
   group('adding a site', () {
     testWidgets('shows the empty state with nothing connected', (tester) async {
       await pumpShell(tester, desktop, instances: const []);
@@ -1518,7 +1554,7 @@ void main() {
       // Authorized against the selected site, not some other one.
       expect(auth.connected, ['https://meta.discourse.org']);
       expect(find.byTooltip('Joffrey'), findsOneWidget);
-      expect(find.text('meta.discourse.org'), findsWidgets);
+      expect(find.text('meta.discourse.org'), findsNothing);
       // First the old identity is removed, then the verified one is recorded.
       expect(store.saveCount, 2);
     });

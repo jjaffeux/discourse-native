@@ -7,6 +7,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';
+import 'instance_actions.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
@@ -15,7 +16,6 @@ import 'user_menu_button.dart';
 typedef _SidebarSnapshot = ({
   String? siteUrl,
   String? name,
-  String? host,
   String? destinationId,
   List<SidebarSection> sections,
 });
@@ -38,7 +38,6 @@ class InstanceSidebar extends StatelessWidget {
       return (
         siteUrl: instance?.url,
         name: instance?.title,
-        host: instance?.host,
         destinationId: controller.destinationId,
         sections: instance?.sections ?? const <SidebarSection>[],
       );
@@ -57,11 +56,7 @@ class InstanceSidebar extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _SidebarHeader(
-                name: sidebar.name!,
-                host: sidebar.host!,
-                showUserMenu: showUserMenu,
-              ),
+              _SidebarHeader(name: sidebar.name!, showUserMenu: showUserMenu),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -118,27 +113,44 @@ class InstanceSidebar extends StatelessWidget {
 }
 
 class _SidebarHeader extends StatelessWidget {
-  const _SidebarHeader({
-    required this.name,
-    required this.host,
-    required this.showUserMenu,
-  });
+  const _SidebarHeader({required this.name, required this.showUserMenu});
 
   final String name;
-  final String host;
   final bool showUserMenu;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return InkWell(
-      // Site switcher / site settings menu, once there is something to show.
-      onTap: () {},
-      // The sidebar is the panel's left column, so this header sits in the
-      // panel's rounded corner — the highlight has to follow it.
-      borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(ShellPanel.cornerRadius),
+    return MenuAnchor(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+      menuChildren: [
+        MenuItemButton(
+          leadingIcon: const DIcon(DIcons.trashCan, size: 18),
+          style: MenuItemButton.styleFrom(
+            foregroundColor: theme.colorScheme.error,
+            iconColor: theme.colorScheme.error,
+          ),
+          onPressed: () async {
+            final instance = ShellScope.read(context).currentInstance;
+            if (instance != null) {
+              await confirmInstanceRemoval(context, instance);
+            }
+          },
+          child: const Text('Remove forum'),
+        ),
+      ],
+      builder: (context, menu, child) => InkWell(
+        onTap: menu.open,
+        // The sidebar is the panel's left column, so this header sits in the
+        // panel's rounded corner — the highlight has to follow it.
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(ShellPanel.cornerRadius),
+        ),
+        child: child,
       ),
       child: Container(
         height: shellHeaderHeight,
@@ -151,27 +163,13 @@ class _SidebarHeader extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    host,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             DIcon(

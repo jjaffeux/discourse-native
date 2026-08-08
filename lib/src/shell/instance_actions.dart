@@ -8,6 +8,58 @@ import 'platform.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 
+/// Asks before removing [instance], then performs the removal through the
+/// shell that owns it. Both the rail's context actions and the sidebar header
+/// menu use this path so signing out behaves the same from either affordance.
+Future<void> confirmInstanceRemoval(
+  BuildContext context,
+  DiscourseInstance instance,
+) async {
+  final controller = ShellScope.read(context);
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      final theme = Theme.of(dialogContext);
+
+      return AlertDialog(
+        title: Text('Remove ${instance.title}?'),
+        content: Text(
+          'This signs out of ${instance.host} and takes it out of the rail. '
+          'Nothing on the site itself changes, and you can add it back at '
+          'any time.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
+              foregroundColor: theme.colorScheme.onError,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmed != true || !context.mounted) return;
+  if (!identical(ShellScope.read(context), controller)) return;
+  final removed = await controller.removeInstance(instance);
+  if (removed ||
+      !context.mounted ||
+      !identical(ShellScope.read(context), controller)) {
+    return;
+  }
+  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    SnackBar(content: Text("Couldn't remove ${instance.title}. Try again.")),
+  );
+}
+
 /// What can be done with one site in the rail, kept behind the gesture each
 /// platform already means "what else can this do": a right click with a
 /// pointer, a long press on a touch screen.
@@ -88,50 +140,7 @@ class _InstanceActionsState extends State<InstanceActions> {
   }
 
   Future<void> _confirmRemoval() async {
-    final controller = ShellScope.read(context);
-    final instance = widget.instance;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        final theme = Theme.of(dialogContext);
-
-        return AlertDialog(
-          title: Text('Remove ${instance.title}?'),
-          content: Text(
-            'This signs out of ${instance.host} and takes it out of the rail. '
-            'Nothing on the site itself changes, and you can add it back at '
-            'any time.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.error,
-                foregroundColor: theme.colorScheme.onError,
-              ),
-              child: const Text('Remove'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true || !mounted) return;
-    if (!identical(ShellScope.read(context), controller)) return;
-    final removed = await controller.removeInstance(instance);
-    if (removed ||
-        !mounted ||
-        !identical(ShellScope.read(context), controller)) {
-      return;
-    }
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text("Couldn't remove ${instance.title}. Try again.")),
-    );
+    await confirmInstanceRemoval(context, widget.instance);
   }
 
   List<Widget> _items(ThemeData theme) {
