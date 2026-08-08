@@ -767,7 +767,17 @@ void main() {
 
     expect(find.text('COMMUNITY'), findsNothing);
     expect(find.byTooltip('Collapse Community'), findsNothing);
-    expect(sidebarDestination('Topics'), findsOneWidget);
+    final topics = sidebarDestination('Topics');
+    expect(topics, findsOneWidget);
+
+    final topicsTile = find
+        .ancestor(of: topics, matching: find.byType(InkWell))
+        .first;
+    final sidebarTop = tester.getTopLeft(find.byType(InstanceSidebar)).dy;
+    expect(
+      tester.getTopLeft(topicsTile).dy - sidebarTop - shellHeaderHeight,
+      greaterThanOrEqualTo(8),
+    );
   });
 
   testWidgets('sidebar section chevrons follow their actions', (tester) async {
