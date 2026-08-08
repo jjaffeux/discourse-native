@@ -345,6 +345,42 @@ void main() {
     );
   });
 
+  test('switches rooms when the old room echoes the explicit leave', () async {
+    final secondJoinPayload = fixture('join_mesh');
+    final secondRoomJson = secondJoinPayload['room'] as Map<String, dynamic>;
+    secondRoomJson
+      ..['id'] = 8
+      ..['name'] = 'Breakroom'
+      ..['slug'] = 'breakroom';
+    transport.pluginResponses['POST /resenha/rooms/8/join.json'] =
+        secondJoinPayload;
+
+    await controller.ensureLoaded(firstSite);
+    await controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: controller.room(firstSite, 7)!,
+    );
+    final firstMedia = mediaFactory.sessions.single;
+
+    final switching = controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: ResenhaRoom.fromJson(secondRoomJson),
+    );
+    firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+      'type': 'participants',
+      'participants': const <Object?>[],
+    });
+    await switching;
+
+    expect(controller.call?.room.id, 8);
+    expect(controller.call?.room.name, 'Breakroom');
+    expect(firstMedia.disposeCount, 1);
+    expect(systemCall.ends, 1);
+    expect(mediaFactory.sessions, hasLength(2));
+  });
+
   test(
     'heartbeats, synchronizes call controls, and responds to CallKit',
     () async {

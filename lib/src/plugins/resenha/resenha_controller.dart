@@ -394,20 +394,21 @@ final class ResenhaController extends ChangeNotifier {
       );
     }
     final call = _call;
-    if (call?.siteUrl == siteUrl && call?.room.id == roomId) {
+    if (call != null && call.siteUrl == siteUrl && call.room.id == roomId) {
       final userId = userIdFor(siteUrl);
-      if (userId != null &&
+      if (call.status != ResenhaCallStatus.leaving &&
+          userId != null &&
           !participants.any((participant) => participant.id == userId)) {
         unawaited(_leave(notifyServer: false, clearImmediately: true));
         return;
       }
       var canPublishAudio = true;
       if (userId != null) {
-        canPublishAudio = _canPublishAudio(call!.room, participants, userId);
+        canPublishAudio = _canPublishAudio(call.room, participants, userId);
         unawaited(call.media.setAudioPublishingAllowed(canPublishAudio));
         if (!canPublishAudio) unawaited(call.media.setMuted(true));
       }
-      _call = call!.copyWith(
+      _call = call.copyWith(
         room: call.room.withParticipants(participants),
         muted: canPublishAudio ? null : true,
       );
