@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -184,6 +185,161 @@ void main() {
 
       expect(subject.chat.publicChannels(site), hasLength(1));
       expect(subject.chat.publicChannels(other), isEmpty);
+    });
+
+    test('builds the same aggregate header indicators as core', () async {
+      final subject = build(
+        channels: {
+          site: (
+            public: [
+              ChatChannel(
+                id: 9,
+                title: 'Bugs',
+                kind: ChatChannelKind.category,
+                tracking: const ChatTracking(
+                  unreadCount: 7,
+                  mentionCount: 2,
+                  watchedThreadsUnreadCount: 1,
+                ),
+              ),
+            ],
+            direct: [
+              ChatChannel(
+                id: 12,
+                title: 'hawk',
+                kind: ChatChannelKind.directMessage,
+                tracking: const ChatTracking(
+                  unreadCount: 100,
+                  watchedThreadsUnreadCount: 2,
+                ),
+              ),
+            ],
+          ),
+        },
+      );
+      await subject.chat.loadChannels(site);
+
+      final all = subject.chat.headerIndicator(
+        site,
+        ChatHeaderIndicatorPreference.allNew,
+      );
+      expect(all.urgentCount, 105);
+      expect(all.label, '99+');
+      expect(
+        subject.chat
+            .headerIndicator(
+              site,
+              ChatHeaderIndicatorPreference.directMessagesAndMentions,
+            )
+            .urgentCount,
+        105,
+      );
+      expect(
+        subject.chat
+            .headerIndicator(site, ChatHeaderIndicatorPreference.onlyMentions)
+            .urgentCount,
+        2,
+      );
+      expect(
+        subject.chat
+            .headerIndicator(site, ChatHeaderIndicatorPreference.never)
+            .isVisible,
+        isFalse,
+      );
+    });
+
+    test('uses a dot for ordinary public-channel unread activity', () async {
+      final subject = build(
+        channels: {
+          site: (public: [channel(9, unread: 42)], direct: const []),
+        },
+      );
+      await subject.chat.loadChannels(site);
+
+      expect(
+        subject.chat
+            .headerIndicator(site, ChatHeaderIndicatorPreference.allNew)
+            .unread,
+        isTrue,
+      );
+      expect(
+        subject.chat
+            .headerIndicator(
+              site,
+              ChatHeaderIndicatorPreference.directMessagesAndMentions,
+            )
+            .isVisible,
+        isFalse,
+      );
+    });
+
+    test('uses a dot for an ordinary unread thread', () async {
+      final subject = build(
+        channels: {
+          site: (
+            public: const [
+              ChatChannel(
+                id: 9,
+                title: 'Bugs',
+                kind: ChatChannelKind.category,
+                unreadThreadCount: 1,
+              ),
+            ],
+            direct: const [],
+          ),
+        },
+      );
+      await subject.chat.loadChannels(site);
+
+      expect(
+        subject.chat
+            .headerIndicator(site, ChatHeaderIndicatorPreference.allNew)
+            .unread,
+        isTrue,
+      );
+    });
+
+    test('the shortcut prefers the server’s last channel', () async {
+      final subject = build(
+        channels: {
+          site: (
+            public: [channel(9)],
+            direct: [
+              const ChatChannel(
+                id: 12,
+                title: 'hawk',
+                kind: ChatChannelKind.directMessage,
+              ),
+            ],
+          ),
+        },
+      );
+      await subject.chat.loadChannels(site);
+
+      expect(subject.chat.shortcutChannel(site, lastChannelId: 9)?.id, 9);
+      expect(subject.chat.shortcutChannel(site, lastChannelId: 404)?.id, 12);
+    });
+
+    test('the shortcut remembers a channel opened in this client', () async {
+      final subject = build(
+        channels: {
+          site: (
+            public: [channel(9)],
+            direct: [
+              const ChatChannel(
+                id: 12,
+                title: 'hawk',
+                kind: ChatChannelKind.directMessage,
+              ),
+            ],
+          ),
+        },
+        messages: {key(12): page(const [])},
+      );
+      await subject.chat.loadChannels(site);
+      await subject.chat.openChannel(site, 12);
+
+      expect(subject.chat.shortcutChannel(site, lastChannelId: 9)?.id, 12);
     });
   });
 

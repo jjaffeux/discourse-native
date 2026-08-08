@@ -42,6 +42,7 @@ import '../models/topic_link.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../plugins/chat/chat_controller.dart';
+import '../plugins/chat/chat_plugin.dart';
 import '../plugins/poll/poll.dart';
 import '../plugins/reactions/reaction.dart';
 import '../plugins/reactions/reactions_controller.dart';
@@ -5146,6 +5147,31 @@ class ShellController extends FrameSafeNotifier {
         }
       }
     }
+  }
+
+  /// Opens the channel core would choose when its header chat icon is clicked.
+  ///
+  /// The channel list may still be arriving when the icon first appears, so
+  /// this waits on that shared request and then verifies that the reader has
+  /// not switched sites in the meantime.
+  Future<void> openChat() async {
+    final instance = currentInstance;
+    if (instance == null || !instance.isConnected) return;
+    final totals = currentTotals;
+    if (totals?.hasChatEnabled != true ||
+        instance.user?.hasChatEnabled == false) {
+      return;
+    }
+
+    final siteUrl = instance.url;
+    await chat.loadChannels(siteUrl);
+    if (currentInstance?.url != siteUrl) return;
+
+    final channel = chat.shortcutChannel(
+      siteUrl,
+      lastChannelId: currentInstance?.user?.lastChatChannelId,
+    );
+    if (channel != null) selectDestination(ChatPlugin.destination(channel));
   }
 
   /// Restores a draft into the composer mode this client supports.

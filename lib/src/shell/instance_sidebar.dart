@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../data/sidebar_section_store.dart';
 import '../models/sidebar.dart';
+import '../plugins/chat/chat_header_button.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -235,6 +236,10 @@ class _SidebarHeader extends StatelessWidget {
             ),
             if (showUserMenu) ...[
               const SizedBox(width: 4),
+              ChatHeaderButton(
+                hideWhenChatActive: true,
+                ringColor: theme.shell.sidebar,
+              ),
               const UserMenuButton(),
             ],
           ],

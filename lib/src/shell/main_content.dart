@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/content_route.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
+import '../plugins/chat/chat_header_button.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -253,8 +254,13 @@ class _ContentHeader extends StatelessWidget {
                 ),
               // Only where there is no title bar above to hold it: this is the
               // furthest right the shell goes once the strip is gone.
-              if (ShellTitleBar.columnsCarryUserMenu)
+              if (ShellTitleBar.columnsCarryUserMenu) ...[
+                ChatHeaderButton(
+                  hideWhenChatActive: layout.isCompact,
+                  ringColor: theme.shell.content,
+                ),
                 UserMenuButton(ringColor: theme.shell.content),
+              ],
             ],
           );
         },

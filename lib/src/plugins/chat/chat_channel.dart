@@ -189,6 +189,7 @@ class ChatChannel with Storable<ChatChannel> {
     this.users = const [],
     this.membership = ChatMembership.none,
     this.tracking = ChatTracking.none,
+    this.unreadThreadCount = 0,
     this.threadingEnabled = false,
     this.lastMessageAt,
   });
@@ -201,6 +202,7 @@ class ChatChannel with Storable<ChatChannel> {
     Map<String, dynamic> json,
     String siteUrl, {
     ChatTracking tracking = ChatTracking.none,
+    int unreadThreadCount = 0,
   }) {
     final chatable = jsonObject(json['chatable']);
     final kind = ChatChannelKind.read(json['chatable_type']);
@@ -234,6 +236,7 @@ class ChatChannel with Storable<ChatChannel> {
           : const [],
       membership: ChatMembership.fromJson(json['current_user_membership']),
       tracking: tracking,
+      unreadThreadCount: unreadThreadCount,
       threadingEnabled: json['threading_enabled'] == true,
       lastMessageAt: jsonDate(jsonObject(json['last_message'])['created_at']),
     );
@@ -256,6 +259,7 @@ class ChatChannel with Storable<ChatChannel> {
     final tracking = jsonObject(
       jsonObject(json['tracking'])['channel_tracking'],
     );
+    final unreadThreadOverview = jsonObject(json['unread_thread_overview']);
 
     ChatTracking trackingFor(int id) {
       final entry = tracking['$id'];
@@ -270,6 +274,9 @@ class ChatChannel with Storable<ChatChannel> {
           entry,
           siteUrl,
           tracking: trackingFor(jsonInt(entry['id'])),
+          unreadThreadCount: jsonObject(
+            unreadThreadOverview['${jsonInt(entry['id'])}'],
+          ).length,
         ),
     ];
 
@@ -327,6 +334,10 @@ class ChatChannel with Storable<ChatChannel> {
   final ChatMembership membership;
   final ChatTracking tracking;
 
+  /// Threads with unread replies, including ordinary untracked threads.
+  /// Mentions and watched threads remain separately counted in [tracking].
+  final int unreadThreadCount;
+
   /// Whether replies in this channel form threads.
   ///
   /// Load-bearing for what the stream contains, not only for how it is drawn:
@@ -370,7 +381,9 @@ class ChatChannel with Storable<ChatChannel> {
         (isDirectMessage && tracking.unreadCount > 0)) {
       return const SidebarBadge.dot(urgent: true);
     }
-    if (tracking.unreadCount > 0) return const SidebarBadge.dot();
+    if (tracking.unreadCount > 0 || unreadThreadCount > 0) {
+      return const SidebarBadge.dot();
+    }
     return SidebarBadge.none;
   }
 
@@ -397,6 +410,7 @@ class ChatChannel with Storable<ChatChannel> {
         users: users,
         membership: membership.withLastRead(messageId),
         tracking: caughtUp ? ChatTracking.none : tracking,
+        unreadThreadCount: caughtUp ? 0 : unreadThreadCount,
         threadingEnabled: threadingEnabled,
         lastMessageAt: lastMessageAt,
       );
@@ -448,6 +462,7 @@ class ChatChannel with Storable<ChatChannel> {
           listEquals(other.users, users) &&
           other.membership == membership &&
           other.tracking == tracking &&
+          other.unreadThreadCount == unreadThreadCount &&
           other.threadingEnabled == threadingEnabled &&
           other.lastMessageAt == lastMessageAt;
 
@@ -465,6 +480,7 @@ class ChatChannel with Storable<ChatChannel> {
     Object.hashAll(users),
     membership,
     tracking,
+    unreadThreadCount,
     threadingEnabled,
     lastMessageAt,
   ]);

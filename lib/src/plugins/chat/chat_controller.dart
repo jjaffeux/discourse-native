@@ -6,8 +6,32 @@ import '../../data/site_lifecycle.dart';
 import '../../data/store.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
+import '../../models/discourse_user.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
+
+/// What Discourse's chat shortcut paints over its comment icon.
+@immutable
+class ChatHeaderIndicator {
+  const ChatHeaderIndicator._({this.urgentCount, this.unread = false});
+
+  static const none = ChatHeaderIndicator._();
+  static const dot = ChatHeaderIndicator._(unread: true);
+
+  const ChatHeaderIndicator.urgent(int count) : this._(urgentCount: count);
+
+  final int? urgentCount;
+  final bool unread;
+
+  bool get isVisible => urgentCount != null || unread;
+
+  /// Core caps the header number, but not the underlying count, at 99.
+  String? get label => switch (urgentCount) {
+    null => null,
+    > 99 => '99+',
+    final count => '$count',
+  };
+}
 
 /// What the main region knows about one channel, at one moment.
 ///
@@ -208,12 +232,14 @@ class ChatController extends FrameSafeNotifier {
   final Set<String> _loading = {};
   final Map<String, String> _errors = {};
   final Map<String, int> _attempts = {};
+  final Map<String, Future<void>> _channelRequests = {};
 
   /// Channel ids in the order the sidebar draws them. The channels themselves
   /// are in the [Store]; these two lists are the orderings, which no record
   /// holds.
   final Map<String, List<int>> _publicIds = {};
   final Map<String, List<int>> _directIds = {};
+  final Map<String, int> _lastOpenedChannelIds = {};
 
   /// One channel's stream, keyed `'$siteUrl~$channelId'`.
   final Map<String, ChatStreamState> _streams = {};
@@ -243,6 +269,66 @@ class ChatController extends FrameSafeNotifier {
 
   List<ChatChannel> directChannels(String siteUrl) =>
       _resolve(siteUrl, _directIds[siteUrl]);
+
+  /// The header's aggregate signal, following ChatHeaderIconUnreadIndicator.
+  ///
+  /// Urgent means every direct-message unread, every mention and every watched
+  /// thread unread. Ordinary public-channel activity and unread untracked
+  /// threads are the quieter dot, shown only for the `all_new` preference.
+  ChatHeaderIndicator headerIndicator(
+    String siteUrl,
+    ChatHeaderIndicatorPreference preference,
+  ) {
+    final public = publicChannels(siteUrl);
+    final direct = directChannels(siteUrl);
+    final all = [...public, ...direct];
+    final mentions = all.fold(
+      0,
+      (count, channel) => count + channel.tracking.mentionCount,
+    );
+
+    if (preference == ChatHeaderIndicatorPreference.never) {
+      return ChatHeaderIndicator.none;
+    }
+    if (preference == ChatHeaderIndicatorPreference.onlyMentions) {
+      return mentions > 0
+          ? ChatHeaderIndicator.urgent(mentions)
+          : ChatHeaderIndicator.none;
+    }
+
+    final urgent = all.fold(0, (count, channel) {
+      final tracking = channel.tracking;
+      return count +
+          tracking.mentionCount +
+          tracking.watchedThreadsUnreadCount +
+          (channel.isDirectMessage ? tracking.unreadCount : 0);
+    });
+    if (urgent > 0) return ChatHeaderIndicator.urgent(urgent);
+
+    if (preference == ChatHeaderIndicatorPreference.allNew &&
+        all.any(
+          (channel) =>
+              channel.tracking.unreadCount > 0 || channel.unreadThreadCount > 0,
+        )) {
+      return ChatHeaderIndicator.dot;
+    }
+    return ChatHeaderIndicator.none;
+  }
+
+  /// Where the shortcut lands: the channel most recently opened in this app,
+  /// then the server's last channel when it is still in the account's followed
+  /// lists, then the newest direct message, then the first public channel. The
+  /// latter two are the native fallback for core's browse screen, which this
+  /// client does not have yet.
+  ChatChannel? shortcutChannel(String siteUrl, {int? lastChannelId}) {
+    final preferredId = _lastOpenedChannelIds[siteUrl] ?? lastChannelId;
+    if (preferredId != null) {
+      final last = channel(siteUrl, preferredId);
+      if (last != null) return last;
+    }
+    return directChannels(siteUrl).firstOrNull ??
+        publicChannels(siteUrl).firstOrNull;
+  }
 
   List<ChatChannel> _resolve(String siteUrl, List<int>? ids) => [
     for (final id in ids ?? const <int>[])
@@ -300,10 +386,29 @@ class ChatController extends FrameSafeNotifier {
   /// on — no chat section exists yet to hold one — and a site that will not
   /// answer is simply a site drawn without chat, which is the same argument
   /// `SiteConfig` makes for having no error state.
-  Future<void> loadChannels(String siteUrl, {bool force = false}) async {
+  Future<void> loadChannels(String siteUrl, {bool force = false}) {
     final key = _channelsKey(siteUrl);
-    if (!force && _publicIds.containsKey(siteUrl)) return;
-    if ((_attempts[key] ?? 0) >= maxChannelAttempts) return;
+    if (!force && _publicIds.containsKey(siteUrl)) return Future.value();
+    if ((_attempts[key] ?? 0) >= maxChannelAttempts) return Future.value();
+
+    // Unlike a caller that merely wants the sidebar to redraw eventually, the
+    // shortcut needs to wait for the same in-flight answer before choosing its
+    // destination. Share the task as well as the HTTP request.
+    final active = _channelRequests[key];
+    if (active != null) return active;
+
+    late final Future<void> request;
+    request = _loadChannels(siteUrl, key).whenComplete(() {
+      if (identical(_channelRequests[key], request)) {
+        final removed = _channelRequests.remove(key);
+        assert(identical(removed, request));
+      }
+    });
+    _channelRequests[key] = request;
+    return request;
+  }
+
+  Future<void> _loadChannels(String siteUrl, String key) async {
     if (!_loading.add(key)) return;
 
     final lease = lifecycle.capture(siteUrl);
@@ -368,11 +473,13 @@ class ChatController extends FrameSafeNotifier {
   /// is what [loadOlder] and [loadNewer] depend on, and merging a window fetched
   /// around one message into a window around another would leave a hole in the
   /// middle that nothing could ever fill.
-  Future<void> openChannel(String siteUrl, int channelId) =>
-      DiagnosticsSink.runOperation(
-        'chat.loadWindow',
-        () => _fetchWindow(siteUrl, channelId, fromLastRead: true),
-      );
+  Future<void> openChannel(String siteUrl, int channelId) {
+    _lastOpenedChannelIds[siteUrl] = channelId;
+    return DiagnosticsSink.runOperation(
+      'chat.loadWindow',
+      () => _fetchWindow(siteUrl, channelId, fromLastRead: true),
+    );
+  }
 
   /// Puts the newest page on screen, wherever the reader was.
   ///
@@ -794,6 +901,7 @@ class ChatController extends FrameSafeNotifier {
   /// themselves are the [Store]'s to forget.
   void forget(String siteUrl) {
     _loading.removeWhere((key) => key.startsWith('$siteUrl~'));
+    _channelRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _errors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _attempts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _streams.removeWhere((key, _) => key.startsWith('$siteUrl~'));
@@ -817,6 +925,7 @@ class ChatController extends FrameSafeNotifier {
     }
     _publicIds.remove(siteUrl);
     _directIds.remove(siteUrl);
+    _lastOpenedChannelIds.remove(siteUrl);
     notifySafely();
   }
 

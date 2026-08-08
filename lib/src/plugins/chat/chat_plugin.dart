@@ -107,13 +107,13 @@ class ChatPlugin implements SitePlugin<ChatChannel> {
         SidebarSection(
           id: 'chat',
           title: 'Chat',
-          destinations: [for (final channel in public) _destination(channel)],
+          destinations: [for (final channel in public) destination(channel)],
         ),
       if (direct.isNotEmpty)
         SidebarSection(
           id: 'direct-messages',
           title: 'Direct messages',
-          destinations: [for (final channel in direct) _destination(channel)],
+          destinations: [for (final channel in direct) destination(channel)],
         ),
     ];
   }
@@ -135,18 +135,19 @@ class ChatPlugin implements SitePlugin<ChatChannel> {
   /// glyph for several people; a channel shows its emoji, or `comment` — which
   /// is what Discourse's own `d-chat` resolves to — tinted with the colour of
   /// the category it lives in.
-  SidebarDestination _destination(ChatChannel channel) => SidebarDestination(
-    id: ChatChannel.routeId(channel.id),
-    label: channel.title,
-    icon: switch (channel.kind) {
-      ChatChannelKind.directMessage when channel.users.length > 1 =>
-        DIcons.users,
-      ChatChannelKind.directMessage => DIcons.user,
-      _ => DIcons.comment,
-    },
-    emoji: channel.emoji,
-    avatarUrl: channel.avatarUrl,
-    iconColor: channel.categoryColor,
-    badge: channel.badge,
-  );
+  static SidebarDestination destination(ChatChannel channel) =>
+      SidebarDestination(
+        id: ChatChannel.routeId(channel.id),
+        label: channel.title,
+        icon: switch (channel.kind) {
+          ChatChannelKind.directMessage when channel.users.length > 1 =>
+            DIcons.users,
+          ChatChannelKind.directMessage => DIcons.user,
+          _ => DIcons.comment,
+        },
+        emoji: channel.emoji,
+        avatarUrl: channel.avatarUrl,
+        iconColor: channel.categoryColor,
+        badge: channel.badge,
+      );
 }

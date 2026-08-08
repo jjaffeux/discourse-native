@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/search_results.dart';
@@ -2484,6 +2485,41 @@ void _writeGroups() {
         expect(user.draftCount, 3);
       },
     );
+
+    test('reads the current account’s chat header state', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'current_user': {
+                'id': 7,
+                'username': 'sam',
+                'has_chat_enabled': true,
+                'do_not_disturb_until': '2027-01-02T03:04:05.000Z',
+                'custom_fields': {'last_chat_channel_id': '42'},
+                'user_option': {
+                  'chat_header_indicator_preference': 'only_mentions',
+                },
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final user = await api.currentUser(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+      );
+
+      expect(user.hasChatEnabled, isTrue);
+      expect(
+        user.chatHeaderIndicatorPreference,
+        ChatHeaderIndicatorPreference.onlyMentions,
+      );
+      expect(user.doNotDisturbUntil, DateTime.utc(2027, 1, 2, 3, 4, 5));
+      expect(user.lastChatChannelId, 42);
+    });
 
     test('reads a page of portable composer drafts', () async {
       late Uri asked;
