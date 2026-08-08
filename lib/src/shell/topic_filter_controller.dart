@@ -236,6 +236,14 @@ class TopicFilterController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void select(int index) {
+    if (index < 0 || index >= _suggestions.length || index == _selectedIndex) {
+      return;
+    }
+    _selectedIndex = index;
+    notifyListeners();
+  }
+
   Future<void> acceptSelected() async {
     final choice = selected ?? _suggestions.firstOrNull;
     if (choice != null) await accept(choice);

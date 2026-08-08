@@ -270,54 +270,58 @@ class _SuggestionList extends StatelessWidget {
               itemCount: filter.suggestions.length,
               itemBuilder: (context, index) {
                 final suggestion = filter.suggestions[index];
+                final isSelected = index == filter.selectedIndex;
                 return MouseRegion(
                   cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => unawaited(filter.accept(suggestion)),
-                    child: Container(
-                      key: ValueKey('topic-filter-suggestion-$index'),
-                      color: index == filter.selectedIndex
-                          ? theme.shell.hover
-                          : null,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 9,
-                      ),
-                      child: Row(
-                        children: [
-                          DIcon(
-                            suggestion.category == null
-                                ? DIcons.filter
-                                : DIcons.folder,
-                            size: 16,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Flexible(
-                            child: Text(
-                              suggestion.category?.name ?? suggestion.name,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                  onEnter: (_) => filter.select(index),
+                  child: Semantics(
+                    button: true,
+                    selected: isSelected,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => unawaited(filter.accept(suggestion)),
+                      child: Container(
+                        key: ValueKey('topic-filter-suggestion-$index'),
+                        color: isSelected ? theme.shell.hover : null,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 9,
+                        ),
+                        child: Row(
+                          children: [
+                            DIcon(
+                              suggestion.category == null
+                                  ? DIcons.filter
+                                  : DIcons.folder,
+                              size: 16,
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
-                          ),
-                          if (suggestion.category == null)
-                            if (suggestion.description
-                                case final description?) ...[
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  description,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
+                            const SizedBox(width: 10),
+                            Flexible(
+                              child: Text(
+                                suggestion.category?.name ?? suggestion.name,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            ],
-                        ],
+                            ),
+                            if (suggestion.category == null)
+                              if (suggestion.description
+                                  case final description?) ...[
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    description,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
