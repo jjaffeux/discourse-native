@@ -33,6 +33,19 @@ BG_TO="#39245C"
 # from this so the mark looks the same size whichever platform you are on.
 MARK_RATIO="0.62"
 
+# The mark shadow is deliberately tighter and darker than a conventional UI
+# shadow: after macOS reduces the 1024px master to Dock size, a broad low-alpha
+# blur disappears into the purple. The plate gets a separate, softer shadow on
+# macOS, where the icon owns its rounded silhouette and transparent margin.
+SHADOW_COLOR="#12091F"
+MARK_SHADOW_OPACITY="0.72"
+MARK_SHADOW_SIGMA="22"
+MARK_SHADOW_Y="28"
+PLATE_SHADOW_COLOR="#08040E"
+PLATE_SHADOW_OPACITY="0.48"
+PLATE_SHADOW_SIGMA="20"
+PLATE_SHADOW_Y="18"
+
 [ -f "$SRC" ] || { echo "missing $SRC" >&2; exit 1; }
 command -v rsvg-convert >/dev/null || { echo "need rsvg-convert (brew install librsvg)" >&2; exit 1; }
 command -v magick >/dev/null || { echo "need magick (brew install imagemagick)" >&2; exit 1; }
@@ -49,6 +62,18 @@ trap 'rm -rf "$WORK"' EXIT
 
 render_mark() { # <px> <out>
   rsvg-convert -w "$1" -h "$1" "$SRC" -o "$2"
+}
+
+# Adds a clipped drop shadow without changing the layer's canvas. Both the
+# input and output remain 1024px masters, keeping the later Lanczos downscales
+# deterministic. Splicing in transparent rows before cropping back to the
+# master size moves the blur downward without wrapping it to the top edge.
+add_shadow() { # <layer> <sigma> <y-offset> <colour> <opacity> <out>
+  magick "$1" \
+    \( +clone -channel A -blur "0x$2" -evaluate multiply "$5" \
+      +channel -fill "$4" -colorize 100 -background none -gravity north \
+      -splice "0x$3" -crop 1024x1024+0+0 +repage \) \
+    +swap -compose Over -composite -depth 8 "$6"
 }
 
 # Paints the diagonal background. Two-point `barycentric` puts BG_FROM exactly
@@ -70,8 +95,13 @@ render_mark "$MARK" "$WORK/mark.png"
 # Full-bleed square, opaque: iOS, Android's legacy launcher icon, Windows,
 # Linux. The platforms that round the corners do it themselves.
 gradient 1024 "0,0" "1023,1023" "$WORK/square_bg.png"
-magick "$WORK/square_bg.png" \
+magick -size 1024x1024 xc:none \
   \( "$WORK/mark.png" -resize "$(echo "1024 * $MARK_RATIO" | bc)x" \) \
+  -gravity center -composite -depth 8 "$WORK/square_mark_plain.png"
+add_shadow "$WORK/square_mark_plain.png" "$MARK_SHADOW_SIGMA" \
+  "$MARK_SHADOW_Y" "$SHADOW_COLOR" "$MARK_SHADOW_OPACITY" \
+  "$WORK/square_mark.png"
+magick "$WORK/square_bg.png" "$WORK/square_mark.png" \
   -gravity center -composite -alpha remove -alpha off -depth 8 "$WORK/square.png"
 
 # macOS keeps transparent margins and carries its own rounded-rect plate,
@@ -87,10 +117,19 @@ gradient 824 "0,0" "823,823" "$WORK/plate_bg.png"
 magick -size 1024x1024 xc:black \
   -fill white -draw "roundrectangle 100,100 924,924 185,185" \
   -alpha off "$WORK/plate_mask.png"
+magick -size 1024x1024 xc:none \
+  \( "$WORK/mark.png" -resize "$(echo "824 * $MARK_RATIO" | bc)x" \) \
+  -gravity center -composite -depth 8 "$WORK/plate_mark_plain.png"
+# 824 / 1024 of the full-square mark treatment.
+add_shadow "$WORK/plate_mark_plain.png" "18" "23" \
+  "$SHADOW_COLOR" "$MARK_SHADOW_OPACITY" "$WORK/plate_mark.png"
 magick -size 1024x1024 xc:none "$WORK/plate_bg.png" -gravity center -composite \
   "$WORK/plate_mask.png" -alpha off -compose CopyOpacity -composite \
-  \( "$WORK/mark.png" -resize "$(echo "824 * $MARK_RATIO" | bc)x" \) \
-  -gravity center -compose Over -composite -depth 8 "$WORK/plate.png"
+  "$WORK/plate_mark.png" -gravity center -compose Over -composite \
+  -depth 8 "$WORK/plate_artwork.png"
+add_shadow "$WORK/plate_artwork.png" "$PLATE_SHADOW_SIGMA" \
+  "$PLATE_SHADOW_Y" "$PLATE_SHADOW_COLOR" "$PLATE_SHADOW_OPACITY" \
+  "$WORK/plate.png"
 
 # Android adaptive icons hand the system a 108dp layer and show only the middle
 # 72dp of it, so the mark has to be sized against that 72dp viewport to end up
@@ -98,7 +137,11 @@ magick -size 1024x1024 xc:none "$WORK/plate_bg.png" -gravity center -composite \
 ADAPTIVE_RATIO="$(echo "scale=4; $MARK_RATIO * 72 / 108" | bc)"
 magick -size 1024x1024 xc:none \
   \( "$WORK/mark.png" -resize "$(echo "1024 * $ADAPTIVE_RATIO" | bc)x" \) \
-  -gravity center -composite -depth 8 "$WORK/adaptive_fg.png"
+  -gravity center -composite -depth 8 "$WORK/adaptive_mark_plain.png"
+# 72 / 108 of the full-square treatment. The monochrome silhouette below
+# deliberately remains shadow-free so the launcher can tint it cleanly.
+add_shadow "$WORK/adaptive_mark_plain.png" "15" "19" \
+  "$SHADOW_COLOR" "$MARK_SHADOW_OPACITY" "$WORK/adaptive_fg.png"
 
 # The background layer is cropped to that same 72dp viewport, so the gradient
 # is anchored to the viewport's corners — 170.67 and 853.33 on a 1024 layer —
@@ -109,7 +152,7 @@ gradient 1024 "170.67,170.67" "853.33,853.33" "$WORK/adaptive_bg.png"
 
 # Themed (monochrome) Android icons are the same layer flattened to its
 # silhouette; the launcher tints it to whatever the wallpaper palette says.
-magick "$WORK/adaptive_fg.png" -alpha extract \
+magick "$WORK/adaptive_mark_plain.png" -alpha extract \
   \( +clone -fill white -colorize 100 \) +swap \
   -alpha off -compose CopyOpacity -composite -depth 8 "$WORK/adaptive_mono.png"
 
@@ -163,7 +206,11 @@ EOF
 
 MACOS_SET="macos/Runner/Assets.xcassets/AppIcon.appiconset"
 
-for size in 16 32 64 128 256 512 1024; do
+# At 16px the plate shadow is smaller than a pixel, so it softens the silhouette
+# instead of reading as depth. Keep the mark shadow, but leave the plate shadow
+# to macOS there; every Dock-sized representation uses the full plate.
+emit "$WORK/plate_artwork.png" 16 "$MACOS_SET/app_icon_16.png"
+for size in 32 64 128 256 512 1024; do
   emit "$WORK/plate.png" "$size" "$MACOS_SET/app_icon_${size}.png"
 done
 
@@ -293,11 +340,23 @@ mkdir -p "$LINUX_ICONS/scalable/apps"
   printf '      <stop offset="0" stop-color="%s"/>\n' "$BG_FROM"
   printf '      <stop offset="1" stop-color="%s"/>\n' "$BG_TO"
   echo '    </linearGradient>'
+  echo '    <filter id="mark-shadow" x="-30%" y="-30%" width="160%" height="170%" color-interpolation-filters="sRGB">'
+  echo '      <feGaussianBlur in="SourceAlpha" stdDeviation="4.3" result="blur"/>'
+  echo '      <feOffset in="blur" dy="5.5" result="offset-blur"/>'
+  printf '      <feFlood flood-color="%s" flood-opacity="%s" result="shadow-color"/>\n' "$SHADOW_COLOR" "$MARK_SHADOW_OPACITY"
+  echo '      <feComposite in="shadow-color" in2="offset-blur" operator="in" result="shadow"/>'
+  echo '      <feMerge>'
+  echo '        <feMergeNode in="shadow"/>'
+  echo '        <feMergeNode in="SourceGraphic"/>'
+  echo '      </feMerge>'
+  echo '    </filter>'
   echo '  </defs>'
   echo '  <rect width="512" height="512" fill="url(#bg)"/>'
   # 0.62 of 512 is 317.44, centred, and the mark's own viewBox rescales into it.
-  echo '  <svg x="97.28" y="97.28" width="317.44" height="317.44" viewBox="17 16.35 70.4 70.4">'
-  grep '<path' "$SRC" | sed 's/^  /    /'
+  echo '  <svg x="97.28" y="97.28" width="317.44" height="317.44" viewBox="-0.5 0 103.9 103.9" overflow="visible">'
+  echo '    <g filter="url(#mark-shadow)">'
+  grep '<path' "$SRC" | sed 's/^  /      /'
+  echo '    </g>'
   echo '  </svg>'
   echo '</svg>'
 } > "$LINUX_ICONS/scalable/apps/org.discourse.native.svg"
