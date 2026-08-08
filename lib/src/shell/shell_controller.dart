@@ -35,6 +35,7 @@ import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
+import '../models/topic_filter.dart';
 import '../models/topic_link.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
@@ -658,6 +659,7 @@ class ShellController extends FrameSafeNotifier {
   }
 
   final Map<String, TopicFeed> _feeds = {};
+  final Map<String, String> _filterQueries = {};
 
   /// Identity of the newest whole-list request for each feed.
   ///
@@ -740,6 +742,13 @@ class ShellController extends FrameSafeNotifier {
     final username = instance.user?.username;
     return switch (feedId) {
       'latest' => '/latest.json',
+      'filter' => Uri(
+        path: '/filter.json',
+        queryParameters: switch (_filterQueries[instance.url]) {
+          final query? when query.isNotEmpty => {'q': query},
+          _ => null,
+        },
+      ).toString(),
       'messages' when username != null =>
         '/topics/private-messages/$username.json',
       _ => null,
@@ -778,7 +787,10 @@ class ShellController extends FrameSafeNotifier {
     final tracker = _trackers[instance.url];
     final announced = tracker?.incoming.topicIds(destinationId) ?? const [];
     tracker?.incoming.reset(destinationId);
-    _feeds[key] = const TopicFeed.loading();
+    _feeds[key] = TopicFeed(
+      loading: true,
+      filterOptions: existing?.filterOptions ?? const [],
+    );
     _notify();
 
     try {
@@ -805,10 +817,12 @@ class ShellController extends FrameSafeNotifier {
       lease.commit(() {
         if (!identical(_feedRevisions[key], revision)) return;
         tracker?.incoming.restore(destinationId, announced);
-        _feeds[key] = TopicFeed.failed(
-          e.failure == SiteLookupFailure.notDiscourse
+        _feeds[key] = TopicFeed(
+          error: e.failure == SiteLookupFailure.notDiscourse
               ? 'Not allowed — try reconnecting to ${instance.host}.'
               : "Couldn't reach ${instance.host}.",
+          loaded: true,
+          filterOptions: existing?.filterOptions ?? const [],
         );
         _notify();
       });
@@ -822,13 +836,119 @@ class ShellController extends FrameSafeNotifier {
       lease.commit(() {
         if (!identical(_feedRevisions[key], revision)) return;
         tracker?.incoming.restore(destinationId, announced);
-        _feeds[key] = TopicFeed.failed("Couldn't load ${instance.host}.");
+        _feeds[key] = TopicFeed(
+          error: "Couldn't load ${instance.host}.",
+          loaded: true,
+          filterOptions: existing?.filterOptions ?? const [],
+        );
         _notify();
       });
     }
   }
 
   final Map<String, int> _feedRows = {};
+
+  String filterQueryFor(String siteUrl) => _filterQueries[siteUrl] ?? '';
+
+  /// Submits the text on the Filter destination. Editing the field alone does
+  /// not call this; core only refreshes its list on Enter or clear.
+  Future<void> submitTopicFilter(String query) async {
+    final instance = currentInstance;
+    if (instance == null || _destinationId != 'filter') return;
+    _filterQueries[instance.url] = query;
+    _feedRows.remove(_feedKey(instance.url, 'filter'));
+    await loadFeed('filter', force: true);
+  }
+
+  List<TopicCategory> filterCategoriesFor(String siteUrl) =>
+      _categoriesBySite[siteUrl] ?? const [];
+
+  Future<List<TopicFilterLookupValue>> searchFilterTags({
+    required String siteUrl,
+    required String term,
+  }) => _filterLookup(
+    siteUrl,
+    'topics.filter.tags',
+    (apiKey, clientId) => api.searchFilterTags(
+      siteUrl: siteUrl,
+      term: term,
+      apiKey: apiKey,
+      clientId: clientId,
+    ),
+  );
+
+  Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
+    required String siteUrl,
+    required String term,
+  }) => _filterLookup(
+    siteUrl,
+    'topics.filter.tagGroups',
+    (apiKey, clientId) => api.searchFilterTagGroups(
+      siteUrl: siteUrl,
+      term: term,
+      apiKey: apiKey,
+      clientId: clientId,
+    ),
+  );
+
+  Future<List<TopicFilterLookupValue>> searchFilterGroups({
+    required String siteUrl,
+    required String term,
+  }) => _filterLookup(
+    siteUrl,
+    'topics.filter.groups',
+    (apiKey, clientId) => apiKey == null
+        ? Future.value(const [])
+        : api.searchFilterGroups(
+            siteUrl: siteUrl,
+            term: term,
+            apiKey: apiKey,
+            clientId: clientId,
+          ),
+  );
+
+  Future<List<TopicFilterLookupValue>> searchFilterUsers({
+    required String siteUrl,
+    required String term,
+  }) => _filterLookup(
+    siteUrl,
+    'topics.filter.users',
+    (apiKey, clientId) async => [
+      for (final user in await api.searchUsers(
+        siteUrl: siteUrl,
+        term: term,
+        apiKey: apiKey,
+        clientId: clientId,
+      ))
+        TopicFilterLookupValue(name: user.username, description: user.name),
+    ],
+  );
+
+  Future<List<T>> _filterLookup<T>(
+    String siteUrl,
+    String operation,
+    Future<List<T>> Function(String? apiKey, String clientId) lookup,
+  ) async {
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final found = await lookup(
+        await authenticator.apiKeyFor(siteUrl),
+        await authenticator.clientId(),
+      );
+      return !isDisposed && lease.isCurrent ? found : const [];
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          operation,
+          degraded: false,
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      return const [];
+    }
+  }
 
   /// The row at the top of [destinationId]'s list when the user last saw it.
   ///
@@ -4780,6 +4900,7 @@ class ShellController extends FrameSafeNotifier {
     chat.forget(siteUrl);
     resenha.forget(siteUrl);
     _feeds.removeWhere((key, _) => key.startsWith('$siteUrl|'));
+    _filterQueries.remove(siteUrl);
     _feedRevisions.removeWhere((key, _) => key.startsWith('$siteUrl|'));
     _feedRows.removeWhere((key, _) => key.startsWith('$siteUrl|'));
     _feedPageRequests.removeWhere((key, _) => key.startsWith('$siteUrl|'));

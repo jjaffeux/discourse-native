@@ -180,6 +180,9 @@ class DiscourseInstance {
           icon: DIcons.inbox,
         ),
         SidebarDestination(id: 'drafts', label: 'Drafts', icon: DIcons.pencil),
+        // Core keeps Filter in the secondary Community links. Native has no
+        // More drawer, so its equivalent is the final visible row.
+        SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
       ],
     ),
   ];

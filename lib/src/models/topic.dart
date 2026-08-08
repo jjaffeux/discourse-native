@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../data/store.dart';
 import 'json.dart';
 import 'post.dart' show resolveAvatarUrl;
+import 'topic_filter.dart';
 import 'topic_tag.dart';
 
 export 'topic_tag.dart';
@@ -265,6 +266,7 @@ class TopicList {
     required this.topics,
     this.moreTopicsUrl,
     this.canCreateTopic = false,
+    this.filterOptions = const [],
   });
 
   /// Avatar templates live in a separate `users` array keyed by id, so they are
@@ -288,6 +290,10 @@ class TopicList {
       ]),
       moreTopicsUrl: jsonText(list['more_topics_url']),
       canCreateTopic: list['can_create_topic'] == true,
+      filterOptions: List.unmodifiable([
+        for (final value in jsonArray(list['filter_option_info']))
+          ?TopicFilterOption.parse(value),
+      ]),
     );
   }
 
@@ -296,6 +302,7 @@ class TopicList {
   /// Where the next page lives, as Discourse reports it, or null at the end.
   final String? moreTopicsUrl;
   final bool canCreateTopic;
+  final List<TopicFilterOption> filterOptions;
 
   /// [moreTopicsUrl] arrives without an extension — `/latest?page=1` — and that
   /// route serves HTML. The JSON page is `/latest.json?page=1`.

@@ -26,6 +26,7 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -394,6 +395,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.bookmarkList,
     this.reminderList = const [],
     this.feeds = const {},
+    this.filterOptionsByPath = const {},
     this.creatableFeedPaths = const {},
     this.categoryList = const [],
     this.composerCapabilities = const TopicComposerCapabilities(),
@@ -421,6 +423,10 @@ class FakeDiscourseApi implements DiscourseApi {
     this.customEmojisBySite = const {},
     this.userSearches = const {},
     this.userSearchGate,
+    this.filterTagSearches = const {},
+    this.filterTagGroupSearches = const {},
+    this.filterGroupSearches = const {},
+    this.filterSuggestionGate,
     this.hashtagSearches = const {},
     this.hashtagSearchGate,
     this.hashtagsByRef = const {},
@@ -482,6 +488,7 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Returned by [topicList], keyed by path; a missing path fails.
   final Map<String, List<Topic>> feeds;
+  final Map<String, List<TopicFilterOption>> filterOptionsByPath;
   final Set<String> creatableFeedPaths;
 
   /// Returned by [categories].
@@ -605,6 +612,14 @@ class FakeDiscourseApi implements DiscourseApi {
   /// When set, [searchUsers] waits on it, so a test can hold an answer in
   /// flight while the query moves on.
   final Completer<void>? userSearchGate;
+
+  final Map<String, List<TopicFilterLookupValue>> filterTagSearches;
+  final Map<String, List<TopicFilterLookupValue>> filterTagGroupSearches;
+  final Map<String, List<TopicFilterLookupValue>> filterGroupSearches;
+  final Completer<void>? filterSuggestionGate;
+  final List<String> filterTagSearchesRequested = [];
+  final List<String> filterTagGroupSearchesRequested = [];
+  final List<String> filterGroupSearchesRequested = [];
 
   /// Returned by [searchHashtags], keyed by term. A term nobody listed answers
   /// with nothing, the way a real site does for a slug it does not have.
@@ -851,6 +866,7 @@ class FakeDiscourseApi implements DiscourseApi {
       topics: topics,
       moreTopicsUrl: nextPages[path],
       canCreateTopic: creatableFeedPaths.contains(path),
+      filterOptions: filterOptionsByPath[path] ?? const [],
     );
   }
 
@@ -976,6 +992,45 @@ class FakeDiscourseApi implements DiscourseApi {
     userSearchesRequested.add((term: term, topicId: topicId));
     if (userSearchGate != null) await userSearchGate!.future;
     return userSearches[term] ?? const [];
+  }
+
+  @override
+  Future<List<TopicFilterLookupValue>> searchFilterTags({
+    required String siteUrl,
+    required String term,
+    int limit = 5,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    filterTagSearchesRequested.add(term);
+    await filterSuggestionGate?.future;
+    return filterTagSearches[term] ?? const [];
+  }
+
+  @override
+  Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
+    required String siteUrl,
+    required String term,
+    int limit = 10,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    filterTagGroupSearchesRequested.add(term);
+    await filterSuggestionGate?.future;
+    return filterTagGroupSearches[term] ?? const [];
+  }
+
+  @override
+  Future<List<TopicFilterLookupValue>> searchFilterGroups({
+    required String siteUrl,
+    required String term,
+    int limit = 10,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    filterGroupSearchesRequested.add(term);
+    await filterSuggestionGate?.future;
+    return filterGroupSearches[term] ?? const [];
   }
 
   @override

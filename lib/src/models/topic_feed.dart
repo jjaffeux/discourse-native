@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'topic.dart';
+import 'topic_filter.dart';
 
 /// What the main region knows about one list, at one moment.
 ///
@@ -20,6 +21,7 @@ class TopicFeed {
     this.loaded = false,
     this.nextPagePath,
     this.canCreateTopic = false,
+    this.filterOptions = const [],
   });
 
   const TopicFeed.loading() : this(loading: true);
@@ -32,6 +34,7 @@ class TopicFeed {
         loaded: true,
         nextPagePath: list.nextPagePath,
         canCreateTopic: list.canCreateTopic,
+        filterOptions: list.filterOptions,
       );
 
   TopicFeed copyWith({
@@ -42,6 +45,7 @@ class TopicFeed {
     String? nextPagePath,
     bool clearNextPage = false,
     bool? canCreateTopic,
+    List<TopicFilterOption>? filterOptions,
   }) {
     return TopicFeed(
       topicIds: topicIds ?? this.topicIds,
@@ -52,6 +56,7 @@ class TopicFeed {
       loaded: loaded,
       nextPagePath: clearNextPage ? null : (nextPagePath ?? this.nextPagePath),
       canCreateTopic: canCreateTopic ?? this.canCreateTopic,
+      filterOptions: filterOptions ?? this.filterOptions,
     );
   }
 
@@ -77,6 +82,7 @@ class TopicFeed {
   /// one that has not been fetched.
   final bool loaded;
   final bool canCreateTopic;
+  final List<TopicFilterOption> filterOptions;
 
   bool get isEmpty => loaded && error == null && topicIds.isEmpty;
 }

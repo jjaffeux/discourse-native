@@ -20,6 +20,7 @@ import '../models/site_appearance.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
+import '../models/topic_filter.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../plugins/chat/chat_channel.dart';
@@ -714,7 +715,7 @@ class DiscourseApi
     String? clientId,
   }) async {
     final query = {
-      'term': term,
+      if (term.isNotEmpty) 'term': term else 'last_seen_users': 'true',
       'limit': '$limit',
       if (topicId != null) 'topic_id': '$topicId',
     };
@@ -733,6 +734,124 @@ class DiscourseApi
         ],
         _ => const <FoundUser>[],
       };
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// Tags matching a value being typed on the topic filter page.
+  Future<List<TopicFilterLookupValue>> searchFilterTags({
+    required String siteUrl,
+    required String term,
+    int limit = 5,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse(
+        '$siteUrl/tags/filter/search.json',
+      ).replace(queryParameters: {'q': term, 'limit': '$limit'}),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    try {
+      final body = jsonDecode(response.body);
+      if (body is! Map<String, dynamic>) return const [];
+      return List.unmodifiable([
+        for (final item in jsonObjects(body['results']))
+          if (jsonText(item['name']) case final name?)
+            TopicFilterLookupValue(
+              name: name,
+              description: '${jsonInt(item['count'])}',
+            ),
+      ]);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// Visible tag groups matching a value typed on the topic filter page.
+  Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
+    required String siteUrl,
+    required String term,
+    int limit = 10,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse(
+        '$siteUrl/tag_groups/filter/search.json',
+      ).replace(queryParameters: {'q': term, 'limit': '$limit'}),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    try {
+      final body = jsonDecode(response.body);
+      if (body is! Map<String, dynamic>) return const [];
+      return List.unmodifiable([
+        for (final item in jsonObjects(body['results']))
+          if (jsonText(item['name']) case final name?)
+            TopicFilterLookupValue(
+              name: name,
+              description: [
+                for (final tag in jsonObjects(item['tags']))
+                  ?jsonText(tag['name']),
+              ].join(', '),
+            ),
+      ]);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// Groups visible to the connected account for `group:` completions.
+  Future<List<TopicFilterLookupValue>> searchFilterGroups({
+    required String siteUrl,
+    required String term,
+    int limit = 10,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse('$siteUrl/groups/search.json').replace(
+        queryParameters: {if (term.isNotEmpty) 'term': term, 'limit': '$limit'},
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    try {
+      final body = jsonDecode(response.body);
+      if (body is! List<dynamic>) return const [];
+      return List.unmodifiable([
+        for (final item in body)
+          if (item is Map<String, dynamic>)
+            if (jsonText(item['name']) case final name?)
+              TopicFilterLookupValue(
+                name: name,
+                description: jsonText(item['full_name']) ?? name,
+              ),
+      ]);
     } catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
