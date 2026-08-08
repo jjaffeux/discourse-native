@@ -7,6 +7,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';
+import 'forum_search.dart';
 import 'instance_actions.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
@@ -59,6 +60,7 @@ class InstanceSidebar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _SidebarHeader(name: sidebar.name!, showUserMenu: showUserMenu),
+              if (showUserMenu) const _SidebarSearchRow(),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -115,6 +117,23 @@ class InstanceSidebar extends StatelessWidget {
       );
     },
   );
+}
+
+class _SidebarSearchRow extends StatelessWidget {
+  const _SidebarSearchRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 5),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: theme.shell.divider)),
+      ),
+      child: const ForumSearch(dense: true),
+    );
+  }
 }
 
 class _SidebarHeader extends StatelessWidget {

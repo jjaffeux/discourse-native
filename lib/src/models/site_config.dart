@@ -30,6 +30,7 @@ class SiteConfig {
     this.simultaneousUploads = 15,
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
+    this.minSearchTermLength = defaultMinSearchTermLength,
     this.resenha = const ResenhaClientConfig(),
   });
 
@@ -65,6 +66,7 @@ class SiteConfig {
     'avif',
     'jxl',
   };
+  static const int defaultMinSearchTermLength = 3;
 
   /// Reads `GET /site/settings.json`, which is `SiteSetting.client_settings_json`
   /// — every setting marked `client: true`, core's and every plugin's alike.
@@ -112,6 +114,9 @@ class SiteConfig {
       },
       maxImageWidth: _positiveInt(json['max_image_width'], 690),
       maxImageHeight: _positiveInt(json['max_image_height'], 500),
+      minSearchTermLength:
+          jsonIntOrNull(json['min_search_term_length'])?.clamp(1, 100) ??
+          defaultMinSearchTermLength,
       resenha: ResenhaClientConfig.fromSettings(json),
     );
   }
@@ -144,6 +149,9 @@ class SiteConfig {
         jsonIntOrNull(json['simultaneousUploads'])?.clamp(0, 30) ?? 15,
     maxImageWidth: _positiveInt(json['maxImageWidth'], 690),
     maxImageHeight: _positiveInt(json['maxImageHeight'], 500),
+    minSearchTermLength:
+        jsonIntOrNull(json['minSearchTermLength'])?.clamp(1, 100) ??
+        defaultMinSearchTermLength,
     resenha: jsonObject(json['resenha']).isEmpty
         ? const ResenhaClientConfig()
         : ResenhaClientConfig.fromJson(jsonObject(json['resenha'])),
@@ -163,6 +171,7 @@ class SiteConfig {
     'simultaneousUploads': simultaneousUploads,
     'maxImageWidth': maxImageWidth,
     'maxImageHeight': maxImageHeight,
+    'minSearchTermLength': minSearchTermLength,
     'resenha': resenha.toJson(),
   };
 
@@ -205,6 +214,7 @@ class SiteConfig {
   final int simultaneousUploads;
   final int maxImageWidth;
   final int maxImageHeight;
+  final int minSearchTermLength;
   final ResenhaClientConfig resenha;
 
   bool canUploadImage(String filename, {required bool staff}) {
@@ -293,6 +303,7 @@ class SiteConfig {
       other.simultaneousUploads == simultaneousUploads &&
       other.maxImageWidth == maxImageWidth &&
       other.maxImageHeight == maxImageHeight &&
+      other.minSearchTermLength == minSearchTermLength &&
       other.resenha == resenha &&
       listEquals(other.offeredReactions, offeredReactions);
 
@@ -310,6 +321,7 @@ class SiteConfig {
     simultaneousUploads,
     maxImageWidth,
     maxImageHeight,
+    minSearchTermLength,
     resenha,
     Object.hashAll(offeredReactions),
   );

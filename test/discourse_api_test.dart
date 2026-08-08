@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
+import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -777,6 +778,55 @@ void _authGroups() {
 }
 
 void _feedGroups() {
+  group('searchPosts', () {
+    test(
+      'asks header search for topic hits and parses the ranked posts',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(
+              jsonEncode({
+                'topics': [
+                  {'id': 7, 'title': 'Search topic', 'slug': 'search-topic'},
+                ],
+                'posts': [
+                  {
+                    'id': 70,
+                    'topic_id': 7,
+                    'post_number': 3,
+                    'username': 'sam',
+                    'blurb': 'A result',
+                  },
+                ],
+                'grouped_search_result': {'error': null},
+              }),
+              200,
+            );
+          }),
+        );
+
+        final result = await api.searchPosts(
+          siteUrl: 'https://example.com',
+          term: 'user:sam title words',
+          apiKey: 'secret',
+          clientId: 'client',
+        );
+
+        expect(sent.url.path, '/search/query.json');
+        expect(sent.url.queryParameters, {
+          'term': 'user:sam title words',
+          'type_filter': 'topic',
+        });
+        expect(sent.headers['User-Api-Key'], 'secret');
+        expect(sent.headers['User-Api-Client-Id'], 'client');
+        expect(result, isA<SearchResults>());
+        expect(result.hits.single.postNumber, 3);
+      },
+    );
+  });
+
   group('topicList', () {
     test(
       'parses topics and resolves poster avatars from the users array',

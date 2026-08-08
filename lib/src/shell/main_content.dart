@@ -13,6 +13,7 @@ import 'adaptive_shell.dart';
 import 'composer_controller.dart';
 import 'composer_panel.dart';
 import 'draft_list.dart';
+import 'forum_search.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -153,89 +154,110 @@ class _ContentHeader extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.shell.divider)),
       ),
-      child: Row(
-        children: [
-          if (showBack)
-            IconButton(
-              onPressed: () =>
-                  controller.handleBack(canReturnToSidebar: layout.isCompact),
-              icon: const DIcon(DIcons.arrowLeft, size: 20),
-              tooltip: 'Back',
-            )
-          else
-            const SizedBox(width: 8),
-          if (route.color case final color?)
-            Container(
-              width: 12,
-              height: 12,
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: DIcon(
-                route.icon,
-                size: 18,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (route.isTopic && siteUrl != null)
-                  TopicTitle(
-                    route.title,
-                    siteUrl: siteUrl!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final carriesSearch = !ShellTitleBar.isSupported;
+          final showRouteIdentity =
+              !carriesSearch || constraints.maxWidth >= 620;
+          final searchWidth = constraints.maxWidth >= 800 ? 360.0 : 260.0;
+
+          return Row(
+            children: [
+              if (showBack)
+                IconButton(
+                  onPressed: () => controller.handleBack(
+                    canReturnToSidebar: layout.isCompact,
+                  ),
+                  icon: const DIcon(DIcons.arrowLeft, size: 20),
+                  tooltip: 'Back',
+                )
+              else
+                const SizedBox(width: 8),
+              if (showRouteIdentity)
+                if (route.color case final color?)
+                  Container(
+                    width: 12,
+                    height: 12,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(3),
                     ),
                   )
                 else
-                  Text(
-                    route.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                if (route.subtitle case final subtitle?)
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: DIcon(
+                      route.icon,
+                      size: 18,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
+              if (showRouteIdentity)
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (route.isTopic && siteUrl != null)
+                        TopicTitle(
+                          route.title,
+                          siteUrl: siteUrl!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      else
+                        Text(
+                          route.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      if (route.subtitle case final subtitle?)
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                )
+              else if (carriesSearch)
+                const Expanded(child: ForumSearch(dense: true)),
+              if (carriesSearch && showRouteIdentity) ...[
+                SizedBox(
+                  width: searchWidth,
+                  child: const ForumSearch(dense: true),
+                ),
+                const SizedBox(width: 4),
               ],
-            ),
-          ),
-          if (route.isTopic && canReply)
-            IconButton(
-              onPressed: () => controller.openReply(),
-              icon: const DIcon(DIcons.reply, size: 20),
-              tooltip: 'Reply to this topic',
-            ),
-          if (!route.isTopic && canCreateTopic)
-            IconButton(
-              onPressed: () => unawaited(controller.openNewTopic()),
-              icon: const DIcon(DIcons.plus, size: 20),
-              tooltip: 'New topic',
-            ),
-          // Only where there is no title bar above to hold it: this is the
-          // furthest right the shell goes once the strip is gone.
-          if (ShellTitleBar.columnsCarryUserMenu)
-            UserMenuButton(ringColor: theme.shell.content),
-        ],
+              if (route.isTopic && canReply)
+                IconButton(
+                  onPressed: () => controller.openReply(),
+                  icon: const DIcon(DIcons.reply, size: 20),
+                  tooltip: 'Reply to this topic',
+                ),
+              if (!route.isTopic && canCreateTopic)
+                IconButton(
+                  onPressed: () => unawaited(controller.openNewTopic()),
+                  icon: const DIcon(DIcons.plus, size: 20),
+                  tooltip: 'New topic',
+                ),
+              // Only where there is no title bar above to hold it: this is the
+              // furthest right the shell goes once the strip is gone.
+              if (ShellTitleBar.columnsCarryUserMenu)
+                UserMenuButton(ringColor: theme.shell.content),
+            ],
+          );
+        },
       ),
     );
   }

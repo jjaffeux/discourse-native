@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../data/diagnostics_panel_width_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
@@ -65,7 +67,28 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleSearchShortcut);
     unawaited(_restoreDiagnosticsWidth());
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);
+    super.dispose();
+  }
+
+  bool _handleSearchShortcut(KeyEvent event) {
+    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.keyK) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    final modifierPressed = defaultTargetPlatform == TargetPlatform.macOS
+        ? keyboard.isMetaPressed
+        : keyboard.isControlPressed;
+    if (!modifierPressed) return false;
+
+    ShellScope.read(context).search.requestFocus();
+    return true;
   }
 
   Future<void> _restoreDiagnosticsWidth() async {
