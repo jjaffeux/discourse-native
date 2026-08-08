@@ -7,8 +7,10 @@ import '../data/discourse_api.dart';
 import '../data/draft_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/composer_draft.dart';
+import '../models/composer_upload.dart';
 import '../models/topic_tag.dart';
 import 'composer_autocomplete.dart';
+import 'composer_images.dart';
 import 'composer_marks.dart';
 import 'composer_pills.dart';
 import 'composer_triggers.dart';
@@ -197,6 +199,12 @@ class ComposerController extends ChangeNotifier {
     ComposerSearch? search,
     String Function(String name)? resolveEmoji,
     ComposerPills? pills,
+    this.imageUploader,
+    ComposerUploadUrlResolver? resolveUploadUrls,
+    this.canUploadImage,
+    this.simultaneousUploads = 15,
+    int maxImageWidth = 690,
+    int maxImageHeight = 500,
     int pollMaximumOptions = 20,
     int minimumRequiredTags = 0,
     DateTime Function()? now,
@@ -204,6 +212,9 @@ class ComposerController extends ChangeNotifier {
          resolveEmoji: resolveEmoji,
          pills: pills,
          pollMaximumOptions: pollMaximumOptions,
+         resolveUploadUrls: resolveUploadUrls,
+         maxImageWidth: maxImageWidth,
+         maxImageHeight: maxImageHeight,
        ),
        autocomplete = ComposerAutocomplete(search: search),
        _typing = TypingClock(now: now),
@@ -254,6 +265,10 @@ class ComposerController extends ChangeNotifier {
   /// Persists the draft. Supplied by the shell, which owns the site and the
   /// key; the composer only decides *when*.
   final Future<int?> Function(ComposerDraftSave save)? onSaveDraft;
+
+  final ComposerImageUploader? imageUploader;
+  final bool Function(String filename)? canUploadImage;
+  final int simultaneousUploads;
 
   /// What will be posted, and what is typed into.
   ///
@@ -365,6 +380,208 @@ class ComposerController extends ChangeNotifier {
     _notify();
   }
 
+  final List<ComposerUploadItem> _uploads = [];
+  final Map<int, _PendingComposerUpload> _pendingUploads = {};
+  int _nextUploadId = 0;
+  int _nextUploadBatch = 0;
+
+  List<ComposerUploadItem> get uploads => List.unmodifiable(_uploads);
+  bool get hasActiveUploads => _uploads.any(
+    (upload) =>
+        upload.status == ComposerUploadStatus.uploading ||
+        upload.status == ComposerUploadStatus.retrying,
+  );
+
+  /// Starts valid images at the text position underneath the drop pointer.
+  void addDroppedImages(Iterable<ComposerUploadFile> files, int offset) {
+    if (_disposed || imageUploader == null) return;
+    final all = files.toList();
+    final valid = all
+        .where((file) => canUploadImage?.call(file.name) ?? true)
+        .toList();
+    final rejected = all.length - valid.length;
+    if (rejected > 0) {
+      showNotice(
+        rejected == 1
+            ? 'That file type is not allowed for images on this site.'
+            : '$rejected file types are not allowed for images on this site.',
+      );
+    }
+    if (valid.isEmpty) return;
+    if (simultaneousUploads > 0 && valid.length > simultaneousUploads) {
+      showNotice('Drop at most $simultaneousUploads images at a time.');
+      return;
+    }
+
+    final batch = _nextUploadBatch++;
+    final anchor = offset.clamp(0, text.text.length);
+    for (var order = 0; order < valid.length; order++) {
+      final id = _nextUploadId++;
+      final file = valid[order];
+      _pendingUploads[id] = _PendingComposerUpload(
+        batch: batch,
+        order: order,
+        anchor: anchor,
+      );
+      _uploads.add(
+        ComposerUploadItem(
+          id: id,
+          file: file,
+          progress: 0,
+          status: ComposerUploadStatus.uploading,
+        ),
+      );
+      _startUpload(id);
+    }
+    _recomputeCanSubmit();
+    _notify();
+  }
+
+  void retryUpload(int id) {
+    final index = _uploadIndex(id);
+    final pending = _pendingUploads[id];
+    if (_disposed || index < 0 || pending == null) return;
+    pending.abort = Completer<void>();
+    pending.result = null;
+    pending.failed = false;
+    _uploads[index] = _uploads[index].copyWith(
+      progress: 0,
+      status: ComposerUploadStatus.retrying,
+      clearError: true,
+    );
+    _startUpload(id);
+    _recomputeCanSubmit();
+    _notify();
+  }
+
+  void cancelUpload(int id) {
+    final pending = _pendingUploads.remove(id);
+    if (pending != null && !pending.abort.isCompleted) pending.abort.complete();
+    _uploads.removeWhere((upload) => upload.id == id);
+    if (pending != null) _flushReadyUploads(pending.batch);
+    _recomputeCanSubmit();
+    _notify();
+  }
+
+  void removeUpload(int id) => cancelUpload(id);
+
+  void _startUpload(int id) {
+    final uploader = imageUploader;
+    final pending = _pendingUploads[id];
+    final index = _uploadIndex(id);
+    if (uploader == null || pending == null || index < 0) return;
+    final file = _uploads[index].file;
+    unawaited(
+      uploader(
+        file,
+        abortTrigger: pending.abort.future,
+        onProgress: (progress) {
+          if (_disposed || !_pendingUploads.containsKey(id)) return;
+          final current = _uploadIndex(id);
+          if (current < 0) return;
+          final previous = _uploads[current].progress;
+          _uploads[current] = _uploads[current].copyWith(
+            progress: progress.clamp(previous, 1),
+          );
+          _notify();
+        },
+      ).then(
+        (result) {
+          if (_disposed || !_pendingUploads.containsKey(id)) return;
+          pending.result = result;
+          text.cacheImageUrl(result.shortUrl, result.previewUrl);
+          _flushReadyUploads(pending.batch);
+        },
+        onError: (Object error) {
+          if (_disposed || !_pendingUploads.containsKey(id)) return;
+          pending.failed = true;
+          final current = _uploadIndex(id);
+          if (current < 0) return;
+          _uploads[current] = _uploads[current].copyWith(
+            status: ComposerUploadStatus.failed,
+            error: switch (error) {
+              ComposerUploadException(:final message) => message,
+              _ => "Couldn't upload ${file.name}.",
+            },
+          );
+          _flushReadyUploads(pending.batch);
+          _recomputeCanSubmit();
+          _notify();
+        },
+      ),
+    );
+  }
+
+  void _flushReadyUploads(int batch) {
+    while (true) {
+      final waiting =
+          _pendingUploads.entries
+              .where((entry) => entry.value.batch == batch)
+              .toList()
+            ..sort((a, b) => a.value.order.compareTo(b.value.order));
+      if (waiting.isEmpty) break;
+      final first = waiting.where((entry) => !entry.value.failed).firstOrNull;
+      if (first == null) break;
+      final result = first.value.result;
+      if (result == null) break;
+
+      final earlierFailed = waiting
+          .where(
+            (entry) =>
+                entry.value.failed && entry.value.order < first.value.order,
+          )
+          .map((entry) => entry.value)
+          .toList();
+      final insertionOffset = first.value.anchor;
+
+      final insertion = _imageBlockInsertion(
+        text.text,
+        insertionOffset,
+        uploadImageMarkdown(result),
+      );
+      _pendingUploads.remove(first.key);
+      _uploads.removeWhere((upload) => upload.id == first.key);
+      _insertAt(insertionOffset, insertion);
+      // A failed earlier item still owns the slot before what just landed. Its
+      // anchor moved with the text insertion like every other pending upload;
+      // put it back at the boundary so a later retry restores drop order.
+      for (final pending in earlierFailed) {
+        pending.anchor = insertionOffset;
+      }
+    }
+    _recomputeCanSubmit();
+    _notify();
+  }
+
+  int _uploadIndex(int id) => _uploads.indexWhere((upload) => upload.id == id);
+
+  void _insertAt(int offset, String insertion) {
+    final old = text.value;
+    final at = offset.clamp(0, old.text.length);
+    int move(int value) => value < at ? value : value + insertion.length;
+    text.value = old.copyWith(
+      text: old.text.replaceRange(at, at, insertion),
+      selection: old.selection.isValid
+          ? TextSelection(
+              baseOffset: move(old.selection.baseOffset),
+              extentOffset: move(old.selection.extentOffset),
+            )
+          : TextSelection.collapsed(offset: at + insertion.length),
+      composing: TextRange.empty,
+    );
+  }
+
+  static String _imageBlockInsertion(
+    String source,
+    int offset,
+    String markdown,
+  ) {
+    final at = offset.clamp(0, source.length);
+    final before = at > 0 && source[at - 1] != '\n' ? '\n' : '';
+    final after = at < source.length && source[at] != '\n' ? '\n' : '';
+    return '$before$markdown$after';
+  }
+
   Timer? _wait;
   bool _rateLimited = false;
 
@@ -376,6 +593,49 @@ class ComposerController extends ChangeNotifier {
   void toggleMark(ComposerMark mark) {
     if (_disposed) return;
     text.value = toggleMarkdownMark(text.value, mark.marker);
+  }
+
+  void setImageAlt(ComposerImageBlock image, String alt) {
+    _replaceImage(image, image.toMarkdown(alt: alt.trim()));
+  }
+
+  void setImageScale(ComposerImageBlock image, int scale) {
+    var width = image.width;
+    var height = image.height;
+    if (width == null || height == null) {
+      final natural = text.naturalImageSize(image);
+      if (natural == null || natural.isEmpty) return;
+      final ratio = [
+        text.maxImageWidth / natural.width,
+        text.maxImageHeight / natural.height,
+        1.0,
+      ].reduce((a, b) => a < b ? a : b);
+      width = (natural.width * ratio).floor();
+      height = (natural.height * ratio).floor();
+    }
+    _replaceImage(
+      image,
+      image.toMarkdown(width: width, height: height, scale: scale),
+    );
+  }
+
+  void removeImage(ComposerImageBlock image) => _replaceImage(image, '');
+
+  void _replaceImage(ComposerImageBlock image, String replacement) {
+    if (_disposed ||
+        image.start < 0 ||
+        image.end > text.text.length ||
+        text.text.substring(image.start, image.end) != image.source) {
+      return;
+    }
+    final old = text.value;
+    text.value = old.copyWith(
+      text: old.text.replaceRange(image.start, image.end, replacement),
+      selection: TextSelection.collapsed(
+        offset: image.start + replacement.length,
+      ),
+      composing: TextRange.empty,
+    );
   }
 
   /// Writes [suggestion] over the trigger that is open.
@@ -419,7 +679,8 @@ class ComposerController extends ChangeNotifier {
       _canSubmit &&
       _state == ComposerState.editing &&
       !_rateLimited &&
-      !_loadingBody;
+      !_loadingBody &&
+      !hasActiveUploads;
 
   /// Marks an edit composer as waiting for the post it is going to rewrite.
   void beginLoadingBody() {
@@ -820,6 +1081,7 @@ class ComposerController extends ChangeNotifier {
     if (!_replacingDocument) autocomplete.update(text.value);
 
     if (text.text == _lastText) return;
+    _moveUploadAnchors(_lastText, text.text);
     _lastText = text.text;
     _draftRevision++;
 
@@ -833,6 +1095,32 @@ class ComposerController extends ChangeNotifier {
     // rather than read off the text: an edit typed back to what it said is a
     // change to the button with no change to whether the field is empty.
     _recomputeCanSubmit();
+  }
+
+  void _moveUploadAnchors(String before, String after) {
+    if (_pendingUploads.isEmpty || before == after) return;
+    var prefix = 0;
+    final shared = before.length < after.length ? before.length : after.length;
+    while (prefix < shared && before[prefix] == after[prefix]) {
+      prefix++;
+    }
+    var suffix = 0;
+    while (suffix < before.length - prefix &&
+        suffix < after.length - prefix &&
+        before[before.length - suffix - 1] ==
+            after[after.length - suffix - 1]) {
+      suffix++;
+    }
+    final oldEnd = before.length - suffix;
+    final newEnd = after.length - suffix;
+    final delta = newEnd - oldEnd;
+    for (final pending in _pendingUploads.values) {
+      pending.anchor = switch (pending.anchor) {
+        final anchor when anchor < prefix => anchor,
+        final anchor when anchor > oldEnd => anchor + delta,
+        _ => newEnd,
+      };
+    }
   }
 
   void _onMetadataChanged() {
@@ -875,6 +1163,11 @@ class ComposerController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    for (final pending in _pendingUploads.values) {
+      if (!pending.abort.isCompleted) pending.abort.complete();
+    }
+    _pendingUploads.clear();
+    _uploads.clear();
     _wait?.cancel();
     _draftTimer?.cancel();
     text.removeListener(_onTextChanged);
@@ -885,4 +1178,19 @@ class ComposerController extends ChangeNotifier {
     focus.dispose();
     super.dispose();
   }
+}
+
+class _PendingComposerUpload {
+  _PendingComposerUpload({
+    required this.batch,
+    required this.order,
+    required this.anchor,
+  });
+
+  final int batch;
+  final int order;
+  int anchor;
+  Completer<void> abort = Completer<void>();
+  ComposerUploadResult? result;
+  bool failed = false;
 }

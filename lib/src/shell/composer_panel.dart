@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart';
 
+import '../models/composer_upload.dart';
 import '../models/topic.dart';
 import '../plugins/poll/poll_composer_parser.dart';
 import '../plugins/poll/poll_composer_pill.dart';
@@ -12,8 +15,10 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'composer_controller.dart';
+import 'composer_images.dart';
 import 'composer_marks.dart';
 import 'composer_suggestions.dart';
+import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -123,6 +128,8 @@ class ComposerPanel extends StatelessWidget {
                   ),
                 ] else
                   const Spacer(),
+                if (composer.uploads.isNotEmpty)
+                  _UploadQueue(composer: composer),
                 _Footer(
                   // Only ever says something when there is something to say.
                   // "Draft saved" every two seconds is noise; not being saved
@@ -520,11 +527,101 @@ class _ComposerEditorState extends State<_ComposerEditor> {
   PollComposerBlock? _hoveredPoll;
   Timer? _hideTimer;
   bool _menuHovered = false;
+  bool _dragging = false;
+  ComposerImageBlock? _selectedImage;
+  final TextEditingController _imageAlt = TextEditingController();
 
   @override
   void dispose() {
     _hideTimer?.cancel();
+    _imageAlt.dispose();
     super.dispose();
+  }
+
+  RenderEditable? get _renderEditable {
+    RenderEditable? found;
+    void visit(RenderObject object) {
+      if (found != null) return;
+      if (object is RenderEditable) {
+        found = object;
+        return;
+      }
+      object.visitChildren(visit);
+    }
+
+    final root = _stackKey.currentContext?.findRenderObject();
+    if (root != null) visit(root);
+    return found;
+  }
+
+  void _moveDropCaret(Offset globalPosition) {
+    final editable = _renderEditable;
+    if (editable == null) return;
+    final position = editable.getPositionForPoint(globalPosition);
+    widget.composer.text.selection = TextSelection.collapsed(
+      offset: position.offset.clamp(0, widget.composer.text.text.length),
+    );
+    widget.composer.focus.requestFocus();
+  }
+
+  void _dropImages(DropDoneDetails details) {
+    _moveDropCaret(details.globalPosition);
+    if (details.files.any((item) => item is DropItemDirectory)) {
+      widget.composer.showNotice('Folders cannot be uploaded here.');
+    }
+    final files = details.files
+        .whereType<DropItemFile>()
+        .map(
+          (item) => ComposerUploadFile(
+            name: item.name,
+            length: () => _droppedFileLength(item),
+            openRead: () => _openDroppedFile(item),
+          ),
+        )
+        .toList();
+    setState(() => _dragging = false);
+    widget.composer.addDroppedImages(
+      files,
+      widget.composer.text.selection.extentOffset,
+    );
+  }
+
+  Stream<List<int>> _openDroppedFile(DropItemFile item) async* {
+    final bookmark = item.extraAppleBookmark;
+    var scoped = false;
+    if (bookmark != null && bookmark.isNotEmpty) {
+      scoped = await DesktopDrop.instance.startAccessingSecurityScopedResource(
+        bookmark: bookmark,
+      );
+    }
+    try {
+      yield* item.openRead();
+    } finally {
+      if (scoped) {
+        await DesktopDrop.instance.stopAccessingSecurityScopedResource(
+          bookmark: bookmark!,
+        );
+      }
+    }
+  }
+
+  Future<int> _droppedFileLength(DropItemFile item) async {
+    final bookmark = item.extraAppleBookmark;
+    var scoped = false;
+    if (bookmark != null && bookmark.isNotEmpty) {
+      scoped = await DesktopDrop.instance.startAccessingSecurityScopedResource(
+        bookmark: bookmark,
+      );
+    }
+    try {
+      return await item.length();
+    } finally {
+      if (scoped) {
+        await DesktopDrop.instance.stopAccessingSecurityScopedResource(
+          bookmark: bookmark!,
+        );
+      }
+    }
   }
 
   void _onHover(PointerHoverEvent event) {
@@ -572,11 +669,54 @@ class _ComposerEditorState extends State<_ComposerEditor> {
     final pointer = _pointerDown;
     _pointerDown = null;
     if (pointer == null) return;
+    final image = widget.composer.text.collapsedImageAtGlobalPosition(pointer);
+    if (image != null) {
+      _selectImage(image);
+      return;
+    }
+    if (_selectedImage != null) setState(() => _selectedImage = null);
     final block = widget.composer.text.collapsedPollAtGlobalPosition(pointer);
     if (block == null) return;
 
     _hideMenu();
     widget.composer.text.expandPollAsRaw(block);
+    widget.composer.focus.requestFocus();
+  }
+
+  void _selectImage(ComposerImageBlock image) {
+    _hideMenu();
+    widget.composer.text.suppressCollapsedCaretForImage(image);
+    _imageAlt.text = image.alt;
+    setState(() => _selectedImage = image);
+  }
+
+  void _saveImageAlt() {
+    final image = _selectedImage;
+    if (image == null) return;
+    widget.composer.setImageAlt(image, _imageAlt.text);
+    setState(() => _selectedImage = null);
+    widget.composer.focus.requestFocus();
+  }
+
+  void _scaleImage(int scale) {
+    final image = _selectedImage;
+    if (image == null) return;
+    widget.composer.setImageScale(image, scale);
+    setState(() => _selectedImage = null);
+    widget.composer.focus.requestFocus();
+  }
+
+  void _deleteImage() {
+    final image = _selectedImage;
+    if (image == null) return;
+    widget.composer.removeImage(image);
+    setState(() => _selectedImage = null);
+    widget.composer.focus.requestFocus();
+  }
+
+  void _dismissImage() {
+    if (_selectedImage == null) return;
+    setState(() => _selectedImage = null);
     widget.composer.focus.requestFocus();
   }
 
@@ -616,77 +756,245 @@ class _ComposerEditorState extends State<_ComposerEditor> {
     return (left, top.clamp(0.0, maxTop));
   }
 
+  (double, double)? _imageMenuPosition(BoxConstraints constraints) {
+    final image = _selectedImage;
+    final stack = _stackKey.currentContext?.findRenderObject();
+    final rect = image == null
+        ? null
+        : widget.composer.text.collapsedImageGlobalRect(image);
+    if (stack is! RenderBox || !stack.hasSize || rect == null) return null;
+    final topLeft = stack.globalToLocal(rect.topLeft);
+    final bottomRight = stack.globalToLocal(rect.bottomRight);
+    const width = 310.0;
+    const height = 92.0;
+    final left = topLeft.dx.clamp(
+      0.0,
+      constraints.maxWidth > width ? constraints.maxWidth - width : 0.0,
+    );
+    var top = topLeft.dy - height - _menuGap;
+    if (top < 0) top = bottomRight.dy + _menuGap;
+    return (
+      left,
+      top.clamp(
+        0.0,
+        constraints.maxHeight > height ? constraints.maxHeight - height : 0.0,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final menuPosition = _menuPosition(constraints);
-      return NotificationListener<PollComposerPillHoverNotification>(
-        onNotification: _onPillHover,
-        child: MouseRegion(
-          // Retained as a fallback for embedders that do not hit-test inline
-          // children, and to close the menu when the pointer leaves the field.
-          onHover: _onHover,
-          onExit: (_) => _scheduleHide(),
-          child: Stack(
-            key: _stackKey,
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(
-                child: Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: (event) => _pointerDown = event.position,
-                  child: ComposerSuggestionField(
-                    composer: widget.composer,
-                    field: TextField(
-                      // Not decoration: a new key builds a new editable, and
-                      // with it a new undo stack. It is the only way to stop undo
-                      // reaching back into a reply that has already been sent.
-                      key: ValueKey(widget.composer.fieldGeneration),
-                      controller: widget.composer.text,
-                      focusNode: widget.composer.focus,
-                      autofocus: true,
-                      expands: true,
-                      maxLines: null,
-                      minLines: null,
-                      textAlignVertical: TextAlignVertical.top,
-                      keyboardType: TextInputType.multiline,
-                      textCapitalization: TextCapitalization.sentences,
-                      onTapAlwaysCalled: true,
-                      onTap: _onFieldTap,
-                      style: widget.textStyle,
-                      decoration: InputDecoration.collapsed(
-                        hintText: widget.hintText,
-                        hintStyle: widget.hintStyle,
+      final imageMenuPosition = _imageMenuPosition(constraints);
+      return DropTarget(
+        enable: !context.isTouch,
+        onDragEntered: (details) {
+          _moveDropCaret(details.globalPosition);
+          if (!_dragging) setState(() => _dragging = true);
+        },
+        onDragUpdated: (details) => _moveDropCaret(details.globalPosition),
+        onDragExited: (_) {
+          if (_dragging) setState(() => _dragging = false);
+        },
+        onDragDone: _dropImages,
+        child: NotificationListener<PollComposerPillHoverNotification>(
+          onNotification: _onPillHover,
+          child: MouseRegion(
+            // Retained as a fallback for embedders that do not hit-test inline
+            // children, and to close the menu when the pointer leaves the field.
+            onHover: _onHover,
+            onExit: (_) => _scheduleHide(),
+            child: Stack(
+              key: _stackKey,
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (event) => _pointerDown = event.position,
+                    child: ComposerSuggestionField(
+                      composer: widget.composer,
+                      field: TextField(
+                        // Not decoration: a new key builds a new editable, and
+                        // with it a new undo stack. It is the only way to stop undo
+                        // reaching back into a reply that has already been sent.
+                        key: ValueKey(widget.composer.fieldGeneration),
+                        controller: widget.composer.text,
+                        focusNode: widget.composer.focus,
+                        autofocus: true,
+                        expands: true,
+                        maxLines: null,
+                        minLines: null,
+                        textAlignVertical: TextAlignVertical.top,
+                        keyboardType: TextInputType.multiline,
+                        textCapitalization: TextCapitalization.sentences,
+                        onTapAlwaysCalled: true,
+                        onTap: _onFieldTap,
+                        style: widget.textStyle,
+                        decoration: InputDecoration.collapsed(
+                          hintText: widget.hintText,
+                          hintStyle: widget.hintStyle,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              if (menuPosition case (final left, final top))
-                Positioned(
-                  left: left,
-                  top: top,
-                  child: MouseRegion(
-                    onEnter: (_) {
-                      _hideTimer?.cancel();
-                      _menuHovered = true;
-                    },
-                    onExit: (_) {
-                      _menuHovered = false;
-                      _scheduleHide();
-                    },
-                    child: _PollComposerMenu(
-                      onEdit: _editPoll,
-                      onRemove: _removePoll,
+                if (menuPosition case (final left, final top))
+                  Positioned(
+                    left: left,
+                    top: top,
+                    child: MouseRegion(
+                      onEnter: (_) {
+                        _hideTimer?.cancel();
+                        _menuHovered = true;
+                      },
+                      onExit: (_) {
+                        _menuHovered = false;
+                        _scheduleHide();
+                      },
+                      child: _PollComposerMenu(
+                        onEdit: _editPoll,
+                        onRemove: _removePoll,
+                      ),
                     ),
                   ),
-                ),
-            ],
+                if (imageMenuPosition case (final left, final top))
+                  Positioned(
+                    left: left,
+                    top: top,
+                    child: _ImageComposerMenu(
+                      image: _selectedImage!,
+                      alt: _imageAlt,
+                      onSaveAlt: _saveImageAlt,
+                      onScale: _scaleImage,
+                      onRemove: _deleteImage,
+                      onDismiss: _dismissImage,
+                    ),
+                  ),
+                if (_dragging)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.06),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.primary,
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Align(
+                          alignment: Alignment.topCenter,
+                          child: Padding(
+                            padding: EdgeInsets.all(8),
+                            child: Text('Drop images to upload'),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       );
     },
   );
+}
+
+class _ImageComposerMenu extends StatelessWidget {
+  const _ImageComposerMenu({
+    required this.image,
+    required this.alt,
+    required this.onSaveAlt,
+    required this.onScale,
+    required this.onRemove,
+    required this.onDismiss,
+  });
+
+  final ComposerImageBlock image;
+  final TextEditingController alt;
+  final VoidCallback onSaveAlt;
+  final void Function(int scale) onScale;
+  final VoidCallback onRemove;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const scales = [50, 75, 100];
+    final scale = scales.contains(image.scale) ? image.scale! : 100;
+    final scaleIndex = scales.indexOf(scale);
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): onDismiss},
+      child: Material(
+        elevation: 5,
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          width: 310,
+          height: 92,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 4, 6),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: scaleIndex > 0
+                          ? () => onScale(scales[scaleIndex - 1])
+                          : null,
+                      icon: const Icon(Icons.zoom_out, size: 18),
+                      tooltip: 'Decrease image size',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    Text('$scale%', style: theme.textTheme.labelMedium),
+                    IconButton(
+                      onPressed: scaleIndex < scales.length - 1
+                          ? () => onScale(scales[scaleIndex + 1])
+                          : null,
+                      icon: const Icon(Icons.zoom_in, size: 18),
+                      tooltip: 'Increase image size',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: onRemove,
+                      icon: const DIcon(DIcons.trashCan, size: 16),
+                      tooltip: 'Remove image',
+                      color: theme.colorScheme.error,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+                SizedBox(
+                  height: 34,
+                  child: TextField(
+                    controller: alt,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => onSaveAlt(),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'Add image description',
+                      suffixIcon: IconButton(
+                        onPressed: onSaveAlt,
+                        tooltip: 'Save alt text',
+                        icon: const Icon(Icons.check, size: 16),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _PollComposerMenu extends StatelessWidget {
@@ -836,6 +1144,118 @@ class _Toolbar extends StatelessWidget {
   }
 
   static String _shortcutHint(String label) => label == 'Bold' ? '⌘B' : '⌘I';
+}
+
+class _UploadQueue extends StatelessWidget {
+  const _UploadQueue({required this.composer});
+
+  final ComposerController composer;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 92),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        itemCount: composer.uploads.length,
+        separatorBuilder: (_, _) =>
+            Divider(height: 1, color: theme.colorScheme.outlineVariant),
+        itemBuilder: (context, index) {
+          final upload = composer.uploads[index];
+          final failed = upload.status == ComposerUploadStatus.failed;
+          return SizedBox(
+            height: failed ? 52 : 40,
+            child: Row(
+              children: [
+                const SizedBox(width: 10),
+                Icon(
+                  failed ? Icons.error_outline : Icons.image_outlined,
+                  size: 18,
+                  color: failed
+                      ? theme.colorScheme.error
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        upload.file.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelMedium,
+                      ),
+                      if (failed)
+                        Tooltip(
+                          message:
+                              upload.error ?? "Couldn't upload this image.",
+                          child: Text(
+                            upload.error ?? "Couldn't upload this image.",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.error,
+                            ),
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: LinearProgressIndicator(
+                            value: upload.progress,
+                            minHeight: 3,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (failed) ...[
+                  IconButton(
+                    onPressed: () => composer.retryUpload(upload.id),
+                    icon: const Icon(Icons.refresh, size: 17),
+                    tooltip: 'Retry upload',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  IconButton(
+                    onPressed: () => composer.removeUpload(upload.id),
+                    icon: const Icon(Icons.close, size: 17),
+                    tooltip: 'Remove upload',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ] else ...[
+                  SizedBox(
+                    width: 42,
+                    child: Text(
+                      '${(upload.progress * 100).round()}%',
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.labelSmall,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => composer.cancelUpload(upload.id),
+                    icon: const Icon(Icons.close, size: 17),
+                    tooltip: 'Cancel upload',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+                const SizedBox(width: 2),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _Footer extends StatelessWidget {

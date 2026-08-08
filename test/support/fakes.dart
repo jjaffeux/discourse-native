@@ -12,6 +12,7 @@ import 'package:discourse_native/src/data/updater.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
+import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
@@ -1488,6 +1489,24 @@ class FakeDiscourseApi implements DiscourseApi {
     required String draftKey,
     String? clientId,
   }) async => (draft: serverDrafts[draftKey], sequence: 0);
+
+  @override
+  Future<ComposerUploadResult> uploadComposerImage({
+    required String siteUrl,
+    required String apiKey,
+    required ComposerUploadFile file,
+    required void Function(double progress) onProgress,
+    required Future<void> abortTrigger,
+    String? clientId,
+  }) => throw UnimplementedError('No uploads configured for this fake.');
+
+  @override
+  Future<Map<String, String>> lookupUploadUrls({
+    required String siteUrl,
+    required String apiKey,
+    required Iterable<String> shortUrls,
+    String? clientId,
+  }) async => const {};
 
   @override
   void close() => closeCalls += 1;

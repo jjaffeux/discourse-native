@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../diagnostics/diagnostic_error_cause.dart';
 import '../models/bookmark.dart';
 import '../models/composer_draft.dart';
+import '../models/composer_upload.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
 import '../models/found_hashtag.dart';
@@ -1470,6 +1471,158 @@ class DiscourseApi
     }
 
     return jsonIntOrNull(body['draft_sequence']);
+  }
+
+  /// Uploads one composer image while reporting progress over the file bytes.
+  Future<ComposerUploadResult> uploadComposerImage({
+    required String siteUrl,
+    required String apiKey,
+    required ComposerUploadFile file,
+    required void Function(double progress) onProgress,
+    required Future<void> abortTrigger,
+    String? clientId,
+  }) async {
+    final int fileLength;
+    try {
+      final resolvedLength = await Future.any<int?>([
+        abortTrigger.then((_) => null),
+        file.length().then<int?>((value) => value),
+      ]);
+      if (resolvedLength == null) {
+        throw const ComposerUploadException('Upload cancelled.');
+      }
+      fileLength = resolvedLength;
+    } on ComposerUploadException {
+      rethrow;
+    } catch (_) {
+      throw ComposerUploadException("Couldn't read ${file.name}.");
+    }
+
+    var sent = 0;
+    final timeoutAbort = Completer<void>();
+    final timer = Timer(const Duration(minutes: 5), timeoutAbort.complete);
+    final request =
+        http.AbortableMultipartRequest(
+            'POST',
+            Uri.parse('$siteUrl/uploads.json'),
+            abortTrigger: Future.any<void>([abortTrigger, timeoutAbort.future]),
+          )
+          ..headers.addAll(authHeaders(apiKey, clientId: clientId))
+          ..fields['upload_type'] = 'composer'
+          ..files.add(
+            http.MultipartFile(
+              'file',
+              file.openRead().map((chunk) {
+                sent += chunk.length;
+                onProgress(
+                  fileLength == 0 ? 0 : (sent / fileLength).clamp(0, 1),
+                );
+                return chunk;
+              }),
+              fileLength,
+              filename: file.name,
+            ),
+          );
+
+    final http.Response response;
+    try {
+      response = await sendBoundedHttpRequest(
+        _client,
+        request,
+        timeout: const Duration(minutes: 5),
+        maxBodyBytes: _maxResponseBytes,
+      );
+    } catch (error) {
+      throw ComposerUploadException(
+        error is http.RequestAbortedException
+            ? 'Upload cancelled.'
+            : "Couldn't upload ${file.name}.",
+      );
+    } finally {
+      timer.cancel();
+    }
+
+    final decoded = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ComposerUploadException(
+        _uploadError(decoded, file.name),
+        statusCode: response.statusCode,
+      );
+    }
+
+    final originalFilename = jsonText(decoded['original_filename']);
+    final url = jsonText(decoded['url']);
+    final shortUrl = jsonText(decoded['short_url']) ?? url;
+    if (originalFilename == null || url == null || shortUrl == null) {
+      throw ComposerUploadException(
+        "The site returned an incomplete upload for ${file.name}.",
+        statusCode: response.statusCode,
+      );
+    }
+    final thumbnail = jsonObject(decoded['thumbnail']);
+    onProgress(1);
+    return ComposerUploadResult(
+      originalFilename: originalFilename,
+      shortUrl: shortUrl,
+      url: _absoluteUploadUrl(siteUrl, url),
+      width: jsonIntOrNull(decoded['width']),
+      height: jsonIntOrNull(decoded['height']),
+      thumbnailWidth: jsonIntOrNull(decoded['thumbnail_width']),
+      thumbnailHeight: jsonIntOrNull(decoded['thumbnail_height']),
+      thumbnailUrl: switch (jsonText(thumbnail['url'])) {
+        final value? => _absoluteUploadUrl(siteUrl, value),
+        null => null,
+      },
+    );
+  }
+
+  /// Resolves the compact `upload://` URLs stored in raw post markdown.
+  Future<Map<String, String>> lookupUploadUrls({
+    required String siteUrl,
+    required String apiKey,
+    required Iterable<String> shortUrls,
+    String? clientId,
+  }) async {
+    final requested = shortUrls.toSet();
+    if (requested.isEmpty) return const {};
+    final request =
+        http.Request('POST', Uri.parse('$siteUrl/uploads/lookup-urls'))
+          ..headers.addAll(authHeaders(apiKey, clientId: clientId))
+          ..body = jsonEncode({'short_urls': requested.toList()});
+    final response = await _send(request);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ComposerUploadException(
+        "Couldn't load image previews.",
+        statusCode: response.statusCode,
+      );
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List<dynamic>) return const {};
+    return {
+      for (final value in decoded)
+        if (value is Map<String, dynamic>)
+          if ((jsonText(value['short_url']), jsonText(value['url'])) case (
+            final shortUrl?,
+            final url?,
+          ))
+            shortUrl: _absoluteUploadUrl(siteUrl, url),
+    };
+  }
+
+  static String _absoluteUploadUrl(String siteUrl, String url) =>
+      Uri.parse(siteUrl).resolve(url).toString();
+
+  static String _uploadError(Map<String, dynamic> body, String filename) {
+    final message = jsonText(body['message']);
+    if (message != null && message.trim().isNotEmpty) return message.trim();
+    final errors = jsonArray(body['errors'])
+        .map(jsonText)
+        .whereType<String>()
+        .where((value) => value.trim().isNotEmpty)
+        .toList();
+    return errors.isEmpty
+        ? "Couldn't upload $filename."
+        : errors.map((value) => value.trim()).join('\n');
   }
 
   /// Restores a server draft, including drafts created on another client.
