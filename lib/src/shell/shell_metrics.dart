@@ -10,6 +10,7 @@ const double shellHeaderHeight = 52;
 /// Fixed for now. It wants to be draggable, and it wants to grow with the
 /// text scale rather than showing one line at twice the size.
 const double composerHeight = 220;
+const double topicComposerHeight = 380;
 
 /// How wide the composer's completion list is drawn.
 ///

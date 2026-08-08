@@ -25,6 +25,9 @@ class PostCreation {
     this.post,
     this.draftSequence,
     this.message,
+    this.topicId,
+    this.topicSlug,
+    this.topicTitle,
   });
 
   factory PostCreation.fromJson(Map<String, dynamic> json, String siteUrl) {
@@ -47,6 +50,11 @@ class PostCreation {
       // keeps the one it had gets a 409 on its next draft save.
       draftSequence: jsonIntOrNull(post?['draft_sequence']),
       message: jsonText(json['message']),
+      topicId:
+          jsonIntOrNull(post?['topic_id']) ?? jsonIntOrNull(json['topic_id']),
+      topicSlug: jsonText(post?['topic_slug']) ?? jsonText(json['topic_slug']),
+      topicTitle:
+          jsonText(post?['topic_title']) ?? jsonText(json['topic_title']),
     );
   }
 
@@ -60,6 +68,11 @@ class PostCreation {
 
   /// Something the site wants the author to read — why it was queued, usually.
   final String? message;
+
+  /// Canonical topic identity included when this was a topic creation.
+  final int? topicId;
+  final String? topicSlug;
+  final String? topicTitle;
 
   bool get isEnqueued => outcome == PostOutcome.enqueued;
 }

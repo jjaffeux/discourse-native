@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 
 import '../data/discourse_api.dart';
 import '../data/draft_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/composer_draft.dart';
+import '../models/topic_tag.dart';
 import 'composer_autocomplete.dart';
 import 'composer_marks.dart';
 import 'composer_pills.dart';
@@ -18,6 +20,8 @@ import 'markdown_editing_controller.dart';
 /// comes time to submit. Switching sites while a reply is half written must not
 /// send it to the site the user switched to, and every other cache in the shell
 /// is site-keyed for the same reason.
+enum ComposerMode { reply, newTopic, postEdit, topicEdit, tagsEdit }
+
 @immutable
 class ComposerTarget {
   const ComposerTarget({
@@ -29,12 +33,22 @@ class ComposerTarget {
     this.replyToUsername,
     this.editingPostId,
     this.editingPostNumber,
-  });
+    ComposerMode? mode,
+    this.originFeedId,
+    this.initialCategoryId,
+    this.initialTags = const [],
+  }) : mode =
+           mode ??
+           (editingPostId == null ? ComposerMode.reply : ComposerMode.postEdit);
 
   final String siteUrl;
   final int topicId;
   final String slug;
   final String topicTitle;
+  final ComposerMode mode;
+  final String? originFeedId;
+  final int? initialCategoryId;
+  final List<TopicTag> initialTags;
 
   /// The post being answered, or null when the reply is to the topic itself.
   final int? replyToPostNumber;
@@ -48,10 +62,19 @@ class ComposerTarget {
   /// Its number in the topic, for saying which post is being edited.
   final int? editingPostNumber;
 
-  bool get isEdit => editingPostId != null;
+  bool get isEdit => switch (mode) {
+    ComposerMode.postEdit ||
+    ComposerMode.topicEdit ||
+    ComposerMode.tagsEdit => true,
+    _ => false,
+  };
+  bool get isNewTopic => mode == ComposerMode.newTopic;
+  bool get editsTopicMetadata => mode == ComposerMode.topicEdit;
+  bool get isTagsEdit => mode == ComposerMode.tagsEdit;
 
   /// What Discourse files a draft for this topic under.
-  String get draftKey => 'topic_$topicId';
+  String get draftKey =>
+      isNewTopic ? ComposerDraft.newTopicDraftKey : 'topic_$topicId';
 
   ComposerTarget replyingTo(int? postNumber, String? username) =>
       ComposerTarget(
@@ -61,6 +84,10 @@ class ComposerTarget {
         topicTitle: topicTitle,
         replyToPostNumber: postNumber,
         replyToUsername: username,
+        mode: mode,
+        originFeedId: originFeedId,
+        initialCategoryId: initialCategoryId,
+        initialTags: initialTags,
       );
 }
 
@@ -171,6 +198,7 @@ class ComposerController extends ChangeNotifier {
     String Function(String name)? resolveEmoji,
     ComposerPills? pills,
     int pollMaximumOptions = 20,
+    int minimumRequiredTags = 0,
     DateTime Function()? now,
   }) : text = MarkdownEditingController(
          resolveEmoji: resolveEmoji,
@@ -180,8 +208,21 @@ class ComposerController extends ChangeNotifier {
        autocomplete = ComposerAutocomplete(search: search),
        _typing = TypingClock(now: now),
        _now = now ?? DateTime.now,
-       _openedAt = (now ?? DateTime.now)() {
+       _openedAt = (now ?? DateTime.now)(),
+       title = TextEditingController(
+         text: _target.editsTopicMetadata ? _target.topicTitle : '',
+       ),
+       _categoryId = _target.initialCategoryId,
+       _tags = List.unmodifiable(_target.initialTags),
+       _originalTitle = _target.editsTopicMetadata ? _target.topicTitle : '',
+       _originalCategoryId = _target.initialCategoryId,
+       _originalTags = List.unmodifiable(_target.initialTags),
+       // Named publicly for callers; the backing field stays encapsulated.
+       // ignore: prefer_initializing_formals
+       _minimumRequiredTags = minimumRequiredTags {
     text.addListener(_onTextChanged);
+    title.addListener(_onMetadataChanged);
+    _recomputeCanSubmit();
   }
 
   /// Waits this long after the last keystroke before saving, so a save is not
@@ -220,6 +261,61 @@ class ComposerController extends ChangeNotifier {
   /// string is untouched, and every other caller here treats it as the plain
   /// controller it still is.
   final MarkdownEditingController text;
+  final TextEditingController title;
+
+  int? _categoryId;
+  int? get categoryId => _categoryId;
+
+  List<TopicTag> _tags;
+  List<TopicTag> get tags => _tags;
+
+  String _originalTitle;
+  int? _originalCategoryId;
+  List<TopicTag> _originalTags;
+  int _minimumRequiredTags;
+  String get originalTitle => _originalTitle;
+  List<TopicTag> get originalTags => _originalTags;
+
+  bool get metadataChanged =>
+      title.text.trim() != _originalTitle.trim() ||
+      _categoryId != _originalCategoryId ||
+      !listEquals(_tags, _originalTags);
+
+  String? get taxonomyValidationMessage => _tags.length < _minimumRequiredTags
+      ? 'Choose at least $_minimumRequiredTags tags for this category.'
+      : null;
+
+  void setCategory(int? value, {int minimumRequiredTags = 0}) {
+    if (_disposed ||
+        (value == _categoryId && minimumRequiredTags == _minimumRequiredTags)) {
+      return;
+    }
+    _categoryId = value;
+    _minimumRequiredTags = minimumRequiredTags;
+    _onMetadataChanged();
+  }
+
+  void setMinimumRequiredTags(int value) {
+    if (_disposed || value == _minimumRequiredTags) return;
+    _minimumRequiredTags = value;
+    _recomputeCanSubmit();
+    _notify();
+  }
+
+  void setTags(Iterable<TopicTag> value) {
+    final next = List<TopicTag>.unmodifiable(value);
+    if (_disposed || listEquals(next, _tags)) return;
+    _tags = next;
+    _onMetadataChanged();
+  }
+
+  void metadataSettled() {
+    _originalTitle = title.text.trim();
+    _originalCategoryId = _categoryId;
+    _originalTags = _tags;
+    _recomputeCanSubmit();
+    _notify();
+  }
 
   final FocusNode focus = FocusNode();
 
@@ -262,6 +358,12 @@ class ComposerController extends ChangeNotifier {
   /// Something the site wants read — that the post was queued for review,
   /// usually.
   String? get notice => _notice;
+
+  void showNotice(String? message) {
+    if (_disposed) return;
+    _notice = message;
+    _notify();
+  }
 
   Timer? _wait;
   bool _rateLimited = false;
@@ -385,6 +487,12 @@ class ComposerController extends ChangeNotifier {
   /// This composer's contents, in the shape Discourse stores drafts in.
   ComposerDraft get draft => ComposerDraft(
     reply: text.text,
+    action: _target.isNewTopic
+        ? ComposerDraft.createTopicAction
+        : ComposerDraft.replyAction,
+    title: _target.isNewTopic ? title.text : null,
+    categoryId: _target.isNewTopic ? _categoryId : null,
+    tags: _target.isNewTopic ? _tags : const [],
     replyToPostNumber: _target.replyToPostNumber,
     replyToUsername: _target.replyToUsername,
     typingTime: typingDuration,
@@ -396,13 +504,20 @@ class ComposerController extends ChangeNotifier {
   /// Only when nothing has been typed yet: a restore that lands after someone
   /// has started writing must not overwrite them.
   void restore(ComposerDraft draft) {
-    if (_disposed || text.text.isNotEmpty) return;
+    if (_disposed || text.text.isNotEmpty || title.text.isNotEmpty) return;
     _replaceDocument(
       TextEditingValue(
         text: draft.reply,
         selection: TextSelection.collapsed(offset: draft.reply.length),
       ),
     );
+    if (_target.isNewTopic) {
+      _replaceMetadata(
+        titleValue: draft.title ?? '',
+        categoryId: draft.categoryId,
+        tags: draft.tags,
+      );
+    }
     _draftStatus = DraftStatus.clean;
     _localDraftFailed = false;
     _notify();
@@ -653,6 +768,10 @@ class ComposerController extends ChangeNotifier {
     _notice =
         message ?? 'Your reply was sent for review, so it is not posted yet.';
     _replaceDocument(TextEditingValue.empty);
+    if (_target.isNewTopic) {
+      _replaceMetadata(titleValue: '', categoryId: null, tags: const []);
+      _minimumRequiredTags = 0;
+    }
     _typing.reset();
     _openedAt = _now();
     _fieldGeneration++;
@@ -671,6 +790,22 @@ class ComposerController extends ChangeNotifier {
     } finally {
       _replacingDocument = false;
     }
+  }
+
+  void _replaceMetadata({
+    required String titleValue,
+    required int? categoryId,
+    required Iterable<TopicTag> tags,
+  }) {
+    _replacingDocument = true;
+    try {
+      title.text = titleValue;
+      _categoryId = categoryId;
+      _tags = List.unmodifiable(tags);
+    } finally {
+      _replacingDocument = false;
+    }
+    _recomputeCanSubmit();
   }
 
   void _onTextChanged() {
@@ -697,7 +832,32 @@ class ComposerController extends ChangeNotifier {
     // rebuild the panel for nothing. Which means it has to be computed here
     // rather than read off the text: an edit typed back to what it said is a
     // change to the button with no change to whether the field is empty.
-    final next = raw.isNotEmpty && raw != _originalRaw;
+    _recomputeCanSubmit();
+  }
+
+  void _onMetadataChanged() {
+    if (_disposed || _replacingDocument) return;
+    _draftRevision++;
+    _typing.tick();
+    _scheduleDraft();
+    _recomputeCanSubmit();
+  }
+
+  void _recomputeCanSubmit() {
+    final next = switch (_target.mode) {
+      ComposerMode.reply => raw.isNotEmpty,
+      ComposerMode.newTopic =>
+        raw.isNotEmpty &&
+            title.text.trim().isNotEmpty &&
+            taxonomyValidationMessage == null,
+      ComposerMode.postEdit => raw.isNotEmpty && raw != _originalRaw,
+      ComposerMode.topicEdit =>
+        title.text.trim().isNotEmpty &&
+            taxonomyValidationMessage == null &&
+            (metadataChanged || (raw.isNotEmpty && raw != _originalRaw)),
+      ComposerMode.tagsEdit =>
+        taxonomyValidationMessage == null && !listEquals(_tags, _originalTags),
+    };
     if (next == _canSubmit) return;
     _canSubmit = next;
     _notify();
@@ -718,7 +878,9 @@ class ComposerController extends ChangeNotifier {
     _wait?.cancel();
     _draftTimer?.cancel();
     text.removeListener(_onTextChanged);
+    title.removeListener(_onMetadataChanged);
     text.dispose();
+    title.dispose();
     autocomplete.dispose();
     focus.dispose();
     super.dispose();

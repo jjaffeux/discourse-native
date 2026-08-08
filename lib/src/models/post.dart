@@ -4,6 +4,7 @@ import '../data/store.dart';
 import '../plugins/site_plugin.dart';
 import 'composer_draft.dart';
 import 'json.dart';
+import 'topic_tag.dart';
 
 /// One post in a topic.
 @immutable
@@ -387,6 +388,9 @@ class TopicDetail with Storable<TopicDetail> {
     this.postsCount = 0,
     this.categoryId,
     this.canCreatePost = false,
+    this.canEdit = false,
+    this.canEditTags = false,
+    this.tags = const [],
     this.archived = false,
     this.draft,
     this.draftSequence = 0,
@@ -416,6 +420,11 @@ class TopicDetail with Storable<TopicDetail> {
         // still use it. Absent when read signed out, which is also the right
         // answer — there is no key to post with.
         canCreatePost: details['can_create_post'] == true,
+        canEdit: details['can_edit'] == true,
+        canEditTags: details['can_edit_tags'] == true,
+        tags: List.unmodifiable(
+          jsonArray(json['tags']).map(TopicTag.parse).whereType<TopicTag>(),
+        ),
         archived: json['archived'] == true,
         // The topic payload already carries any draft for it, so opening a
         // composer needs no request of its own.
@@ -440,6 +449,9 @@ class TopicDetail with Storable<TopicDetail> {
 
   /// Whether this reader may reply here.
   final bool canCreatePost;
+  final bool canEdit;
+  final bool canEditTags;
+  final List<TopicTag> tags;
 
   /// Archived topics reject poll writes even when their posts remain visible.
   final bool archived;
@@ -516,13 +528,21 @@ class TopicDetail with Storable<TopicDetail> {
     bool clearDraft = false,
     int? draftSequence,
     bool? archived,
+    int? categoryId,
+    bool clearCategory = false,
+    List<TopicTag>? tags,
+    bool? canEdit,
+    bool? canEditTags,
   }) => TopicDetail(
     id: id,
     title: title ?? this.title,
     stream: stream == null ? this.stream : List.unmodifiable(stream),
     postsCount: postsCount ?? this.postsCount,
-    categoryId: categoryId,
+    categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
     canCreatePost: canCreatePost,
+    canEdit: canEdit ?? this.canEdit,
+    canEditTags: canEditTags ?? this.canEditTags,
+    tags: tags == null ? this.tags : List.unmodifiable(tags),
     archived: archived ?? this.archived,
     draft: clearDraft ? null : (draft ?? this.draft),
     draftSequence: draftSequence ?? this.draftSequence,
@@ -538,6 +558,9 @@ class TopicDetail with Storable<TopicDetail> {
           other.postsCount == postsCount &&
           other.categoryId == categoryId &&
           other.canCreatePost == canCreatePost &&
+          other.canEdit == canEdit &&
+          other.canEditTags == canEditTags &&
+          listEquals(other.tags, tags) &&
           other.archived == archived &&
           other.draft == draft &&
           other.draftSequence == draftSequence;
@@ -550,6 +573,9 @@ class TopicDetail with Storable<TopicDetail> {
     postsCount,
     categoryId,
     canCreatePost,
+    canEdit,
+    canEditTags,
+    Object.hashAll(tags),
     archived,
     draft,
     draftSequence,

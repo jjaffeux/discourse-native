@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/topic.dart';
 import '../plugins/poll/poll_composer_parser.dart';
 import '../plugins/poll/poll_composer_pill.dart';
 import '../plugins/poll/poll_plugin.dart';
@@ -13,8 +14,10 @@ import '../theme/d_icons.dart';
 import 'composer_controller.dart';
 import 'composer_marks.dart';
 import 'composer_suggestions.dart';
+import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
+import 'shell_sheet.dart';
 
 /// The reply composer, docked under the post stream.
 ///
@@ -43,7 +46,11 @@ class ComposerPanel extends StatelessWidget {
         final notice = composer.notice;
 
         return Container(
-          height: composerHeight,
+          height: target.isNewTopic || target.editsTopicMetadata
+              ? topicComposerHeight
+              : target.isTagsEdit
+              ? 190
+              : composerHeight,
           decoration: BoxDecoration(
             color: theme.shell.content,
             border: Border(top: BorderSide(color: theme.shell.divider)),
@@ -76,26 +83,46 @@ class ComposerPanel extends StatelessWidget {
             child: Column(
               children: [
                 _Header(target: target, onClose: controller.closeComposer),
-                _Toolbar(composer: composer),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    child: _ComposerEditor(
-                      composer: composer,
-                      hintText: switch (target) {
-                        _ when composer.loadingBody => 'Loading that post…',
-                        _ when target.isEdit => 'Edit this post…',
-                        _ when target.replyToUsername != null =>
-                          'Reply to @${target.replyToUsername}…',
-                        _ => 'Write a reply…',
-                      },
-                      textStyle: theme.textTheme.bodyMedium,
-                      hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                if (target.isNewTopic || target.editsTopicMetadata)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+                    child: TextField(
+                      controller: composer.title,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        labelText: 'Title',
                       ),
                     ),
                   ),
-                ),
+                if (target.isNewTopic ||
+                    target.editsTopicMetadata ||
+                    target.isTagsEdit)
+                  _TopicTaxonomy(composer: composer),
+                if (!target.isTagsEdit) ...[
+                  _Toolbar(composer: composer),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      child: _ComposerEditor(
+                        composer: composer,
+                        hintText: switch (target) {
+                          _ when composer.loadingBody => 'Loading that post…',
+                          _ when target.isNewTopic => 'Write your topic…',
+                          _ when target.isEdit => 'Edit this post…',
+                          _ when target.replyToUsername != null =>
+                            'Reply to @${target.replyToUsername}…',
+                          _ => 'Write a reply…',
+                        },
+                        textStyle: theme.textTheme.bodyMedium,
+                        hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ] else
+                  const Spacer(),
                 _Footer(
                   // Only ever says something when there is something to say.
                   // "Draft saved" every two seconds is noise; not being saved
@@ -104,13 +131,17 @@ class ComposerPanel extends StatelessWidget {
                   message:
                       error?.message ??
                       notice ??
+                      composer.taxonomyValidationMessage ??
                       (composer.localDraftFailed
                           ? "Couldn't save this draft on this device."
                           : composer.draftStatus == DraftStatus.failing ||
                                 composer.draftsGaveUp
                           ? 'Not saved on the site — kept on this device only.'
                           : null),
-                  isError: error != null || composer.localDraftFailed,
+                  isError:
+                      error != null ||
+                      composer.localDraftFailed ||
+                      composer.taxonomyValidationMessage != null,
                   busy:
                       composer.submitting ||
                       composer.state == ComposerState.checking ||
@@ -120,6 +151,7 @@ class ComposerPanel extends StatelessWidget {
                   label: switch (composer) {
                     _ when composer.canRecheck => 'Check again',
                     _ when target.isEdit => 'Save',
+                    _ when target.isNewTopic => 'Create topic',
                     _ => 'Reply',
                   },
                   onSubmit: switch (composer) {
@@ -133,6 +165,330 @@ class ComposerPanel extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _TopicTaxonomy extends StatelessWidget {
+  const _TopicTaxonomy({required this.composer});
+
+  final ComposerController composer;
+
+  @override
+  Widget build(BuildContext context) =>
+      ShellSelector<
+        ({
+          List<TopicCategory> categories,
+          TopicComposerCapabilities capabilities,
+        })
+      >(
+        select: (controller) => (
+          categories: controller.topicComposerCategories(
+            composer.target.siteUrl,
+          ),
+          capabilities: controller.topicComposerCapabilities(
+            composer.target.siteUrl,
+          ),
+        ),
+        builder: (context, state, _) {
+          final shell = ShellScope.read(context);
+          final category = state.categories
+              .where((item) => item.id == composer.categoryId)
+              .firstOrNull;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                if (!composer.target.isTagsEdit)
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        _pickCategory(context, shell, state.categories),
+                    icon: category == null
+                        ? const DIcon(DIcons.folder, size: 15)
+                        : Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: Color(category.colorValue),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                    label: Text(category?.name ?? 'Category'),
+                  ),
+                if (!composer.target.isTagsEdit) const SizedBox(width: 8),
+                if (state.capabilities.canTagTopics || composer.tags.isNotEmpty)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => showShellSheet<void>(
+                        context: context,
+                        title: 'Tags',
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                        builder: (_) => _TagPickerSheet(
+                          composer: composer,
+                          capabilities: state.capabilities,
+                        ),
+                      ),
+                      icon: const DIcon(DIcons.tag, size: 15),
+                      label: Text(
+                        composer.tags.isEmpty
+                            ? 'Tags'
+                            : composer.tags.map((tag) => tag.name).join(', '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      );
+
+  Future<void> _pickCategory(
+    BuildContext context,
+    ShellController shell,
+    List<TopicCategory> all,
+  ) async {
+    final permitted = all.where((category) => category.canCreateTopic).toList();
+    final permittedIds = permitted.map((category) => category.id).toSet();
+    final allowed = <TopicCategory>[];
+    final visited = <int>{};
+    void appendChildren(int? parentId) {
+      final children =
+          permitted
+              .where(
+                (category) => parentId == null
+                    ? category.parentCategoryId == null ||
+                          !permittedIds.contains(category.parentCategoryId)
+                    : category.parentCategoryId == parentId,
+              )
+              .toList()
+            ..sort(
+              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+            );
+      for (final child in children) {
+        if (!visited.add(child.id)) continue;
+        allowed.add(child);
+        appendChildren(child.id);
+      }
+    }
+
+    appendChildren(null);
+    final selected = await showShellSheet<int>(
+      context: context,
+      title: 'Choose category',
+      padding: EdgeInsets.zero,
+      builder: (sheetContext) => Column(
+        children: [
+          for (final category in allowed)
+            ListTile(
+              contentPadding: EdgeInsets.only(
+                left: category.parentCategoryId == null ? 20 : 44,
+                right: 16,
+              ),
+              leading: Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: Color(category.colorValue),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              title: Text(category.name),
+              trailing: category.id == composer.categoryId
+                  ? const DIcon(DIcons.check, size: 16)
+                  : null,
+              onTap: () => Navigator.pop(sheetContext, category.id),
+            ),
+        ],
+      ),
+    );
+    if (selected != null) {
+      await shell.changeComposerCategory(composer, selected);
+    }
+  }
+}
+
+class _TagPickerSheet extends StatefulWidget {
+  const _TagPickerSheet({required this.composer, required this.capabilities});
+
+  final ComposerController composer;
+  final TopicComposerCapabilities capabilities;
+
+  @override
+  State<_TagPickerSheet> createState() => _TagPickerSheetState();
+}
+
+class _TagPickerSheetState extends State<_TagPickerSheet> {
+  final TextEditingController _query = TextEditingController();
+  Timer? _debounce;
+  int _revision = 0;
+  TopicTagSearch _result = const TopicTagSearch();
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_search(''));
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _query.dispose();
+    super.dispose();
+  }
+
+  void _changed(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () => _search(value));
+  }
+
+  Future<void> _search(String term) async {
+    final revision = ++_revision;
+    setState(() => _loading = true);
+    try {
+      final result = await ShellScope.read(
+        context,
+      ).searchComposerTags(widget.composer, term.trim());
+      if (!mounted || revision != _revision) return;
+      setState(() {
+        _result = result;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted || revision != _revision) return;
+      setState(() {
+        _result = const TopicTagSearch(forbiddenMessage: "Couldn't load tags.");
+        _loading = false;
+      });
+    }
+  }
+
+  bool _selected(TopicTag tag) => widget.composer.tags.any(
+    (selected) => selected.id == tag.id || selected.name == tag.name,
+  );
+
+  void _toggle(TopicTag tag) {
+    if (tag.disabled) return;
+    final tags = [...widget.composer.tags];
+    final index = tags.indexWhere(
+      (selected) => selected.id == tag.id || selected.name == tag.name,
+    );
+    if (index >= 0) {
+      tags.removeAt(index);
+    } else {
+      final maximum = widget.capabilities.maxTagsPerTopic;
+      if (maximum != null && tags.length >= maximum) return;
+      tags.add(tag);
+    }
+    widget.composer.setTags(tags);
+    setState(() {});
+  }
+
+  TopicTag? get _newTag {
+    if (!widget.capabilities.canCreateTag || _result.isForbidden) return null;
+    final name = _query.text.trim();
+    if (name.isEmpty ||
+        widget.composer.tags.any(
+          (tag) => tag.name.toLowerCase() == name.toLowerCase(),
+        ) ||
+        _result.results.any(
+          (tag) => tag.name.toLowerCase() == name.toLowerCase(),
+        )) {
+      return null;
+    }
+    final maximumLength = widget.capabilities.maxTagLength;
+    if (maximumLength != null && name.length > maximumLength) return null;
+    final maximumTags = widget.capabilities.maxTagsPerTopic;
+    if (maximumTags != null && widget.composer.tags.length >= maximumTags) {
+      return null;
+    }
+    final source = widget.capabilities.tagsFilterRegexp;
+    if (source != null && source.isNotEmpty) {
+      try {
+        var pattern = source;
+        if (pattern.startsWith('/') && pattern.lastIndexOf('/') > 0) {
+          pattern = pattern.substring(1, pattern.lastIndexOf('/'));
+        }
+        final match = RegExp(pattern).firstMatch(name);
+        if (match == null || match.start != 0 || match.end != name.length) {
+          return null;
+        }
+      } catch (_) {
+        return null;
+      }
+    }
+    return TopicTag(name: name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final newTag = _newTag;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _query,
+          autofocus: true,
+          onChanged: (value) {
+            _changed(value);
+            setState(() {});
+          },
+          onSubmitted: (_) {
+            if (newTag != null) _toggle(newTag);
+          },
+          decoration: const InputDecoration(
+            prefixIcon: DIcon(DIcons.magnifyingGlass, size: 17),
+            hintText: 'Search tags',
+          ),
+        ),
+        if (widget.composer.tags.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final tag in widget.composer.tags)
+                InputChip(label: Text(tag.name), onDeleted: () => _toggle(tag)),
+            ],
+          ),
+        ],
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else ...[
+          if (_result.explanation case final message?)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                message,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+          if (newTag != null)
+            ListTile(
+              leading: const DIcon(DIcons.plus, size: 16),
+              title: Text('Create “${newTag.name}”'),
+              onTap: () => _toggle(newTag),
+            ),
+          for (final tag in _result.results)
+            CheckboxListTile(
+              value: _selected(tag),
+              onChanged: tag.disabled ? null : (_) => _toggle(tag),
+              title: Text(tag.name),
+              subtitle: tag.disabledReason == null
+                  ? null
+                  : Text(tag.disabledReason!),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+        ],
+      ],
     );
   }
 }
@@ -391,7 +747,11 @@ class _Header extends StatelessWidget {
         child: Row(
           children: [
             DIcon(
-              target.isEdit ? DIcons.pencil : DIcons.reply,
+              target.isNewTopic
+                  ? DIcons.plus
+                  : target.isEdit
+                  ? DIcons.pencil
+                  : DIcons.reply,
               size: 16,
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -399,6 +759,8 @@ class _Header extends StatelessWidget {
             Expanded(
               child: Text(
                 switch ((target.editingPostNumber, replyTo)) {
+                  _ when target.isNewTopic => 'Create a new topic',
+                  _ when target.isTagsEdit => 'Edit topic tags',
                   (final number?, _) => 'Edit post #$number',
                   (_, final username?) => 'Reply to @$username',
                   _ => 'Reply to ${target.topicTitle}',

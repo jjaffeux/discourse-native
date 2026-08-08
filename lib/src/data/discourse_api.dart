@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../diagnostics/diagnostic_error_cause.dart';
 import '../models/bookmark.dart';
+import '../models/composer_draft.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
 import '../models/found_hashtag.dart';
@@ -934,6 +935,53 @@ class DiscourseApi
     return List.unmodifiable(result);
   }
 
+  /// Session-scoped permissions and validation data used by a topic composer.
+  Future<TopicComposerCapabilities> topicComposerCapabilities({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse('$siteUrl/site.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return TopicComposerCapabilities.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Tags available for the selected category in the topic composer.
+  Future<TopicTagSearch> searchTopicTags({
+    required String siteUrl,
+    required String apiKey,
+    required String term,
+    int? categoryId,
+    Iterable<int> selectedTagIds = const [],
+    int limit = 20,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse('$siteUrl/tags/filter/search.json').replace(
+        queryParameters: <String, dynamic>{
+          'q': term,
+          'limit': '$limit',
+          if (categoryId != null) 'categoryId': '$categoryId',
+          if (selectedTagIds.isNotEmpty)
+            'selected_tag_ids[]': selectedTagIds.map((id) => '$id').toList(),
+          'filterForInput': 'true',
+        },
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return TopicTagSearch.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   /// Replies to a topic.
   ///
   /// Returns what the site did with the post, which is not always "posted it" —
@@ -982,6 +1030,82 @@ class DiscourseApi
     return PostCreation.fromJson(body, siteUrl);
   }
 
+  /// Creates a topic. The tag objects deliberately retain both id and name:
+  /// current Discourse servers no longer accept the old list of bare strings.
+  Future<PostCreation> createTopic({
+    required String siteUrl,
+    required String apiKey,
+    required String title,
+    required String raw,
+    required Duration typingDuration,
+    required Duration composerOpenDuration,
+    int? categoryId,
+    Iterable<TopicTag> tags = const [],
+    String draftKey = ComposerDraft.newTopicDraftKey,
+    String? clientId,
+  }) async {
+    final body = await _write(
+      Uri.parse('$siteUrl/posts.json'),
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'title': title,
+        'raw': raw,
+        'category': categoryId,
+        'tags': tags.map((tag) => tag.toJson()).toList(),
+        'typing_duration_msecs': typingDuration.inMilliseconds,
+        'composer_open_duration_msecs': composerOpenDuration.inMilliseconds,
+        'draft_key': draftKey,
+        'nested_post': true,
+      },
+    );
+    return PostCreation.fromJson(body, siteUrl);
+  }
+
+  /// Updates topic metadata before a first-post body edit.
+  Future<void> updateTopic({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required String title,
+    required String originalTitle,
+    required Iterable<TopicTag> tags,
+    required Iterable<TopicTag> originalTags,
+    int? categoryId,
+    String? clientId,
+  }) async {
+    await _write(
+      Uri.parse('$siteUrl/t/$topicId.json'),
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'title': title,
+        'category_id': categoryId,
+        'tags': tags.map((tag) => tag.toJson()).toList(),
+        'original_title': originalTitle,
+        'original_tags': originalTags.map((tag) => tag.toJson()).toList(),
+      },
+    );
+  }
+
+  Future<void> updateTopicTags({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required Iterable<TopicTag> tags,
+    String? clientId,
+  }) async {
+    await _write(
+      Uri.parse('$siteUrl/t/$topicId/tags.json'),
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'tags': tags.map((tag) => tag.toJson()).toList()},
+    );
+  }
+
   /// Rewrites an existing post, and returns it as the site now holds it.
   ///
   /// Safe to retry, unlike [createPost]: the same raw sent twice leaves the
@@ -991,6 +1115,7 @@ class DiscourseApi
     required String apiKey,
     required int postId,
     required String raw,
+    String? originalText,
     String? editReason,
     String? clientId,
   }) async {
@@ -1002,7 +1127,11 @@ class DiscourseApi
       // Nested, which is what the controller reads — a top-level `raw` is
       // ignored and the post comes back unchanged.
       body: {
-        'post': {'raw': raw, 'edit_reason': ?editReason},
+        'post': {
+          'raw': raw,
+          'original_text': ?originalText,
+          'edit_reason': ?editReason,
+        },
       },
     );
 
@@ -1312,6 +1441,30 @@ class DiscourseApi
     }
 
     return jsonIntOrNull(body['draft_sequence']);
+  }
+
+  /// Restores a server draft, including drafts created on another client.
+  Future<({ComposerDraft? draft, int sequence})> draft({
+    required String siteUrl,
+    required String apiKey,
+    required String draftKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse('$siteUrl/drafts/${Uri.encodeComponent(draftKey)}.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (
+      draft: switch (body['draft']) {
+        final String value => ComposerDraft.decode(value),
+        final Map<String, dynamic> value => ComposerDraft.fromJson(value),
+        _ => null,
+      },
+      sequence: jsonIntOrNull(body['draft_sequence']) ?? 0,
+    );
   }
 
   /// Shared write, and the only path in here that sends a body.

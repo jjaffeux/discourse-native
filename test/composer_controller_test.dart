@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_parser.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
@@ -256,6 +257,93 @@ void main() {
       expect(saves.single.draft.reply, replacement);
     },
   );
+
+  testWidgets('new topics track taxonomy in the new_topic draft', (
+    tester,
+  ) async {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 0,
+        slug: '',
+        topicTitle: 'New topic',
+        mode: ComposerMode.newTopic,
+        originFeedId: 'latest',
+        initialCategoryId: 4,
+      ),
+    );
+    addTearDown(composer.dispose);
+
+    composer.title.text = 'A useful title';
+    composer.text.text = 'The body';
+    composer.setTags(const [TopicTag(id: 7, name: 'feature')]);
+
+    expect(composer.canSubmit, isTrue);
+    expect(composer.target.draftKey, 'new_topic');
+    expect(composer.draft.action, ComposerDraft.createTopicAction);
+    expect(composer.draft.title, 'A useful title');
+    expect(composer.draft.categoryId, 4);
+    expect(composer.draft.tags.single.toJson(), {'id': 7, 'name': 'feature'});
+  });
+
+  testWidgets('restores all new topic draft fields', (tester) async {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 0,
+        slug: '',
+        topicTitle: 'New topic',
+        mode: ComposerMode.newTopic,
+      ),
+    );
+    addTearDown(composer.dispose);
+
+    composer.restore(
+      const ComposerDraft(
+        action: ComposerDraft.createTopicAction,
+        title: 'Restored',
+        reply: 'Restored body',
+        categoryId: 3,
+        tags: [TopicTag(name: 'mobile')],
+      ),
+    );
+
+    expect(composer.title.text, 'Restored');
+    expect(composer.raw, 'Restored body');
+    expect(composer.categoryId, 3);
+    expect(composer.tags.single.name, 'mobile');
+  });
+
+  testWidgets('topic edits distinguish metadata and body baselines', (
+    tester,
+  ) async {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 7,
+        slug: 'a-topic',
+        topicTitle: 'Original',
+        editingPostId: 11,
+        editingPostNumber: 1,
+        mode: ComposerMode.topicEdit,
+        initialCategoryId: 2,
+        initialTags: [TopicTag(id: 4, name: 'old')],
+      ),
+    );
+    addTearDown(composer.dispose);
+    composer.loadedBody('Original body');
+
+    expect(composer.canSubmit, isFalse);
+    composer.title.text = 'Changed title';
+    expect(composer.metadataChanged, isTrue);
+    expect(composer.canSubmit, isTrue);
+
+    composer.metadataSettled();
+    expect(composer.metadataChanged, isFalse);
+    expect(composer.canSubmit, isFalse);
+    composer.text.text = 'Changed body';
+    expect(composer.canSubmit, isTrue);
+  });
 }
 
 const _target = ComposerTarget(

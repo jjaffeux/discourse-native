@@ -3,46 +3,9 @@ import 'package:flutter/foundation.dart';
 import '../data/store.dart';
 import 'json.dart';
 import 'post.dart' show resolveAvatarUrl;
+import 'topic_tag.dart';
 
-/// One tag attached to a topic-list row.
-///
-/// Current Discourse sites send an object so a client can build the canonical
-/// `/tag/{slug}/{id}` link. Older sites sent only the name, which is why [id]
-/// and [slug] are optional rather than guessed here.
-@immutable
-class TopicTag {
-  const TopicTag({required this.name, this.id, this.slug});
-
-  static TopicTag? parse(Object? value) {
-    if (value is String) {
-      final name = jsonText(value);
-      return name == null ? null : TopicTag(name: name);
-    }
-    if (value is! Map<String, dynamic>) return null;
-
-    final name = jsonText(value['name']);
-    if (name == null) return null;
-    return TopicTag(
-      id: jsonIntOrNull(value['id']),
-      name: name,
-      slug: jsonText(value['slug']),
-    );
-  }
-
-  final int? id;
-  final String name;
-  final String? slug;
-
-  @override
-  bool operator ==(Object other) =>
-      other is TopicTag &&
-      other.id == id &&
-      other.name == name &&
-      other.slug == slug;
-
-  @override
-  int get hashCode => Object.hash(id, name, slug);
-}
+export 'topic_tag.dart';
 
 /// A row in a topic list.
 ///
@@ -177,6 +140,8 @@ class Topic with Storable<Topic> {
 
   Topic copyWith({
     String? title,
+    int? categoryId,
+    bool clearCategory = false,
     int? postsCount,
     int? lastReadPostNumber,
     int? highestPostNumber,
@@ -187,7 +152,7 @@ class Topic with Storable<Topic> {
     id: id,
     title: title ?? this.title,
     slug: slug,
-    categoryId: categoryId,
+    categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
     postsCount: postsCount ?? this.postsCount,
     replyCount: replyCount,
     views: views,
@@ -257,7 +222,11 @@ class Topic with Storable<Topic> {
 /// One page of a topic list, plus what the rows need to render.
 @immutable
 class TopicList {
-  const TopicList({required this.topics, this.moreTopicsUrl});
+  const TopicList({
+    required this.topics,
+    this.moreTopicsUrl,
+    this.canCreateTopic = false,
+  });
 
   /// Avatar templates live in a separate `users` array keyed by id, so they are
   /// resolved into the topics here rather than left for the widgets.
@@ -279,6 +248,7 @@ class TopicList {
           Topic.fromJson(topic, avatars),
       ]),
       moreTopicsUrl: jsonText(list['more_topics_url']),
+      canCreateTopic: list['can_create_topic'] == true,
     );
   }
 
@@ -286,6 +256,7 @@ class TopicList {
 
   /// Where the next page lives, as Discourse reports it, or null at the end.
   final String? moreTopicsUrl;
+  final bool canCreateTopic;
 
   /// [moreTopicsUrl] arrives without an extension — `/latest?page=1` — and that
   /// route serves HTML. The JSON page is `/latest.json?page=1`.
@@ -308,6 +279,8 @@ class TopicCategory with Storable<TopicCategory> {
     required this.color,
     this.slug = '',
     this.parentCategoryId,
+    this.permission,
+    this.minimumRequiredTags = 0,
   });
 
   factory TopicCategory.fromJson(Map<String, dynamic> json) => TopicCategory(
@@ -318,6 +291,8 @@ class TopicCategory with Storable<TopicCategory> {
     parentCategoryId: json['parent_category_id'] == null
         ? null
         : jsonInt(json['parent_category_id']),
+    permission: jsonIntOrNull(json['permission']),
+    minimumRequiredTags: jsonInt(json['minimum_required_tags']),
   );
 
   final int id;
@@ -333,6 +308,12 @@ class TopicCategory with Storable<TopicCategory> {
   /// subcategory — parent on the left, child on the right — and which
   /// therefore needs a second colour to look up.
   final int? parentCategoryId;
+
+  /// `1` is Discourse's full permission: topics may be created here.
+  final int? permission;
+  final int minimumRequiredTags;
+
+  bool get canCreateTopic => permission == 1;
 
   int get colorValue => int.tryParse('FF$color', radix: 16) ?? 0xFF888888;
 
@@ -351,8 +332,89 @@ class TopicCategory with Storable<TopicCategory> {
           other.name == name &&
           other.color == color &&
           other.slug == slug &&
-          other.parentCategoryId == parentCategoryId;
+          other.parentCategoryId == parentCategoryId &&
+          other.permission == permission &&
+          other.minimumRequiredTags == minimumRequiredTags;
 
   @override
-  int get hashCode => Object.hash(id, name, color, slug, parentCategoryId);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    color,
+    slug,
+    parentCategoryId,
+    permission,
+    minimumRequiredTags,
+  );
+}
+
+/// Session-scoped answers used by the topic composer.
+@immutable
+class TopicComposerCapabilities {
+  const TopicComposerCapabilities({
+    this.canTagTopics = false,
+    this.canCreateTag = false,
+    this.tagsFilterRegexp,
+    this.uncategorizedCategoryId,
+    this.maxTagLength,
+    this.maxTagsPerTopic,
+  });
+
+  factory TopicComposerCapabilities.fromJson(Map<String, dynamic> json) =>
+      TopicComposerCapabilities(
+        canTagTopics: json['can_tag_topics'] == true,
+        canCreateTag: json['can_create_tag'] == true,
+        tagsFilterRegexp: jsonText(json['tags_filter_regexp']),
+        uncategorizedCategoryId: jsonIntOrNull(
+          json['uncategorized_category_id'],
+        ),
+        maxTagLength: jsonIntOrNull(json['max_tag_length']),
+        maxTagsPerTopic: jsonIntOrNull(json['max_tags_per_topic']),
+      );
+
+  final bool canTagTopics;
+  final bool canCreateTag;
+  final String? tagsFilterRegexp;
+  final int? uncategorizedCategoryId;
+  final int? maxTagLength;
+  final int? maxTagsPerTopic;
+}
+
+@immutable
+class TopicTagSearch {
+  const TopicTagSearch({
+    this.tags = const [],
+    this.forbidden = false,
+    this.forbiddenMessage,
+  });
+
+  factory TopicTagSearch.fromJson(Map<String, dynamic> json) => TopicTagSearch(
+    tags: List.unmodifiable([
+      for (final item in jsonObjects(json['results']))
+        if (jsonText(item['name']) case final name?)
+          TopicTag(
+            id: jsonIntOrNull(item['id']),
+            name: name,
+            slug: jsonText(item['slug']),
+            count: jsonInt(item['count']),
+            disabled: item['disabled'] == true,
+            disabledReason: jsonText(item['title']),
+          ),
+    ]),
+    forbidden:
+        json['forbidden'] == true ||
+        (json['forbidden'] is List && (json['forbidden'] as List).isNotEmpty) ||
+        (jsonText(json['forbidden'])?.isNotEmpty ?? false),
+    forbiddenMessage:
+        jsonText(json['forbidden_message']) ?? jsonText(json['forbidden']),
+  );
+
+  final List<TopicTag> tags;
+  final bool forbidden;
+  final String? forbiddenMessage;
+
+  List<TopicTag> get results => tags;
+  bool get isForbidden => forbidden;
+  String? get explanation =>
+      forbiddenMessage ?? (forbidden ? 'Tags are not allowed here.' : null);
 }
