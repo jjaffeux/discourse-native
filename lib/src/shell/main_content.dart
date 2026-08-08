@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/content_route.dart';
+import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
@@ -17,6 +18,7 @@ import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 import 'title_bar.dart';
+import 'topic_filter_page.dart';
 import 'topic_list_view.dart';
 import 'topic_title.dart';
 import 'topic_view.dart';
@@ -73,6 +75,15 @@ class _MainContentBody extends StatelessWidget {
                       route.id == 'drafts' &&
                       state.siteUrl != null
                   ? DraftListView(siteUrl: state.siteUrl!)
+                  : !route.isTopic &&
+                        route.id == 'filter' &&
+                        state.siteUrl != null &&
+                        state.feed != null
+                  ? TopicFilterPage(
+                      siteUrl: state.siteUrl!,
+                      feed: state.feed!,
+                      categories: state.filterCategories,
+                    )
                   : switch ((route.isTopic, pluginContent, state.feed)) {
                       // A topic route wins over its originating list.
                       (true, _, _) => const TopicView(),
@@ -322,6 +333,7 @@ class _MainContentSnapshot {
     required this.canPop,
     required this.canReply,
     required this.canCreateTopic,
+    required this.filterCategories,
   });
 
   factory _MainContentSnapshot.from(ShellController controller) =>
@@ -333,6 +345,13 @@ class _MainContentSnapshot {
         canPop: controller.canPopContent,
         canReply: controller.canReplyHere,
         canCreateTopic: controller.canCreateTopicHere,
+        filterCategories: switch ((
+          controller.currentContent?.id,
+          controller.currentInstance?.url,
+        )) {
+          ('filter', final siteUrl?) => controller.filterCategoriesFor(siteUrl),
+          _ => const [],
+        },
       );
 
   final String? siteUrl;
@@ -342,6 +361,7 @@ class _MainContentSnapshot {
   final bool canPop;
   final bool canReply;
   final bool canCreateTopic;
+  final List<TopicCategory> filterCategories;
 
   @override
   bool operator ==(Object other) =>
@@ -352,7 +372,8 @@ class _MainContentSnapshot {
       identical(composer, other.composer) &&
       canPop == other.canPop &&
       canReply == other.canReply &&
-      canCreateTopic == other.canCreateTopic;
+      canCreateTopic == other.canCreateTopic &&
+      identical(filterCategories, other.filterCategories);
 
   @override
   int get hashCode => Object.hash(
@@ -363,5 +384,6 @@ class _MainContentSnapshot {
     canPop,
     canReply,
     canCreateTopic,
+    identityHashCode(filterCategories),
   );
 }
