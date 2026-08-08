@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/topic_filter_controller.dart';
 import 'package:discourse_native/src/shell/topic_filter_page.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -322,19 +323,19 @@ void main() {
       await mouse.addPointer();
       await mouse.moveTo(tester.getCenter(firstRow));
       await tester.pump();
-      expect(tester.widget<Container>(firstRow).color, isNotNull);
+      _expectSelectedRow(tester, firstRow);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
-      expect(tester.widget<Container>(secondRow).color, isNotNull);
+      _expectSelectedRow(tester, secondRow);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pump();
-      expect(tester.widget<Container>(firstRow).color, isNotNull);
+      _expectSelectedRow(tester, firstRow);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pump();
-      expect(tester.widget<Container>(secondRow).color, isNotNull);
+      _expectSelectedRow(tester, secondRow);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
@@ -342,6 +343,27 @@ void main() {
       expect(api.feedPaths, ['/latest.json', '/filter.json']);
     },
   );
+
+  testWidgets('enter accepts the first filter suggestion', (tester) async {
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': [], '/filter.json': []},
+      filterOptionsByPath: const {
+        '/filter.json': [_tagOption],
+      },
+    );
+    await _pump(tester, api);
+    await tester.tap(find.text('Filter'));
+    await tester.pumpAndSettle();
+
+    final field = find.byKey(const ValueKey('topic-filter-input'));
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(field).controller!.text, 'tag:');
+    expect(api.feedPaths, ['/latest.json', '/filter.json']);
+  });
 
   testWidgets('categories loaded after the feed become filter suggestions', (
     tester,
@@ -374,6 +396,15 @@ void main() {
 
     expect(find.text('Feature requests'), findsOneWidget);
   });
+}
+
+void _expectSelectedRow(WidgetTester tester, Finder row) {
+  final theme = Theme.of(tester.element(row));
+  final decoration = tester.widget<Container>(row).decoration! as BoxDecoration;
+  final border = decoration.border! as Border;
+  expect(decoration.color, theme.shell.selected);
+  expect(border.left.color, theme.colorScheme.primary);
+  expect(border.left.width, 3);
 }
 
 Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
