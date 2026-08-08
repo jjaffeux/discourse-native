@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 typedef _PlatformErrorHandler = bool Function(Object, StackTrace);
 
@@ -56,6 +57,29 @@ final class DiagnosticsGlobalErrorBinding {
     required String source,
   }) {
     if (_closed || _wasReportedThisMicrotask(error)) return;
+
+    // Framework errors can be reported while Flutter is laying out or
+    // painting. Recording them immediately would notify diagnostics widgets,
+    // whose rebuild then schedules another frame from inside the current one.
+    // Keep forwarding the original error synchronously, but publish its
+    // diagnostic once the frame has finished.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _recordUnhandledError(error, stackTrace, source: source);
+      });
+      return;
+    }
+
+    _recordUnhandledError(error, stackTrace, source: source);
+  }
+
+  void _recordUnhandledError(
+    Object error,
+    StackTrace stackTrace, {
+    required String source,
+  }) {
+    if (_closed) return;
     try {
       _sink.reportError(
         error,

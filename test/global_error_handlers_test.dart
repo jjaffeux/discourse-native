@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -146,6 +147,47 @@ void main() {
     expect(FlutterError.onError, same(newerFlutterHandler));
     expect(PlatformDispatcher.instance.onError, same(newerPlatformHandler));
   });
+
+  testWidgets(
+    'defers diagnostics notifications for errors reported during a frame',
+    (tester) async {
+      final count = ValueNotifier(0);
+      addTearDown(count.dispose);
+      final sink = _NotifyingSink(count);
+      final forwarded = <FlutterErrorDetails>[];
+      FlutterError.onError = forwarded.add;
+      final binding = DiagnosticsGlobalErrorBinding.install(sink);
+      addTearDown(binding.close);
+      var reported = false;
+
+      tester.binding.addPersistentFrameCallback((_) {
+        if (reported) return;
+        reported = true;
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: StateError('paint failure'),
+            stack: StackTrace.current,
+          ),
+        );
+      });
+
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: ValueListenableBuilder(
+            valueListenable: count,
+            builder: (context, value, child) => Text('$value'),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(forwarded, hasLength(1));
+      expect(sink.records, 1);
+      expect(find.text('1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 final class _RecordingSink implements DiagnosticsSink {
@@ -176,6 +218,28 @@ final class _RecordingSink implements DiagnosticsSink {
         degraded: degraded,
       ),
     );
+  }
+}
+
+final class _NotifyingSink implements DiagnosticsSink {
+  _NotifyingSink(this.count);
+
+  final ValueNotifier<int> count;
+  int records = 0;
+
+  @override
+  void reportError(
+    Object error,
+    StackTrace stackTrace, {
+    String? operation,
+    String source = 'application',
+    DiagnosticSeverity severity = DiagnosticSeverity.error,
+    bool handled = true,
+    bool degraded = true,
+    String? correlationId,
+  }) {
+    records += 1;
+    count.value += 1;
   }
 }
 
