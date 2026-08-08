@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../data/sidebar_section_store.dart';
 import '../models/sidebar.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
@@ -26,12 +29,17 @@ typedef _SidebarSnapshot = ({
 /// whole area next to the rail; on wider ones it sits between the rail and the
 /// main content.
 class InstanceSidebar extends StatelessWidget {
-  const InstanceSidebar({super.key, this.showUserMenu = false});
+  const InstanceSidebar({
+    super.key,
+    this.showUserMenu = false,
+    this.sectionStore = const SidebarSectionStore(),
+  });
 
   /// Whether the header carries the account avatar. Only true where the
   /// sidebar is the column reaching the top right corner — on compact layouts
   /// the main content is not on screen to hold it.
   final bool showUserMenu;
+  final SidebarSectionStore sectionStore;
 
   @override
   Widget build(BuildContext context) => ShellSelector<_SidebarSnapshot>(
@@ -75,8 +83,10 @@ class InstanceSidebar extends StatelessWidget {
                         children: [
                           for (final section in sidebar.sections)
                             _Section(
-                              key: ValueKey(section.title),
+                              key: ValueKey((sidebar.siteUrl, section.id)),
+                              siteUrl: sidebar.siteUrl!,
                               section: section,
+                              store: sectionStore,
                               selectedId: sidebar.destinationId,
                               badgeFor: controller.sidebarBadgeFor,
                               onSelect: controller.selectDestination,
@@ -99,8 +109,10 @@ class InstanceSidebar extends StatelessWidget {
                               context,
                             ))
                               _Section(
-                                key: ValueKey(section.title),
+                                key: ValueKey((sidebar.siteUrl, section.id)),
+                                siteUrl: sidebar.siteUrl!,
                                 section: section,
+                                store: sectionStore,
                                 selectedId: sidebar.destinationId,
                                 badgeFor: controller.sidebarBadgeFor,
                                 onSelect: controller.selectDestination,
@@ -212,23 +224,76 @@ class _SidebarHeader extends StatelessWidget {
   }
 }
 
-class _Section extends StatelessWidget {
+class _Section extends StatefulWidget {
   const _Section({
     super.key,
+    required this.siteUrl,
     required this.section,
+    required this.store,
     required this.selectedId,
     required this.badgeFor,
     required this.onSelect,
   });
 
+  final String siteUrl;
   final SidebarSection section;
+  final SidebarSectionStore store;
   final String? selectedId;
   final int Function(String destinationId) badgeFor;
   final ValueChanged<SidebarDestination> onSelect;
 
   @override
+  State<_Section> createState() => _SectionState();
+}
+
+class _SectionState extends State<_Section> {
+  bool _collapsed = false;
+  int _restoreGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restore());
+  }
+
+  @override
+  void didUpdateWidget(_Section oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.section.id != widget.section.id ||
+        !identical(oldWidget.store, widget.store)) {
+      _collapsed = false;
+      unawaited(_restore());
+    }
+  }
+
+  Future<void> _restore() async {
+    final generation = ++_restoreGeneration;
+    final collapsed = await widget.store.read(
+      siteUrl: widget.siteUrl,
+      sectionId: widget.section.id,
+    );
+    if (!mounted || generation != _restoreGeneration) return;
+    if (collapsed != _collapsed) setState(() => _collapsed = collapsed);
+  }
+
+  void _toggle() {
+    _restoreGeneration++;
+    final collapsed = !_collapsed;
+    setState(() => _collapsed = collapsed);
+    unawaited(
+      widget.store.write(
+        siteUrl: widget.siteUrl,
+        sectionId: widget.section.id,
+        collapsed: collapsed,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final section = widget.section;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -238,12 +303,41 @@ class _Section extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  section.title.toUpperCase(),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.6,
+                child: Tooltip(
+                  message:
+                      '${_collapsed ? 'Expand' : 'Collapse'} ${section.title}',
+                  child: Semantics(
+                    button: true,
+                    expanded: !_collapsed,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(4),
+                      onTap: _toggle,
+                      child: SizedBox(
+                        height: 32,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                section.title.toUpperCase(),
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.6,
+                                ),
+                              ),
+                            ),
+                            DIcon(
+                              _collapsed
+                                  ? DIcons.chevronRight
+                                  : DIcons.chevronDown,
+                              size: 11,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -257,23 +351,24 @@ class _Section extends StatelessWidget {
             ],
           ),
         ),
-        for (final destination in section.destinations) ...[
-          _DestinationTile(
-            key: ValueKey(destination.id),
-            destination: destination,
-            selected: destination.id == selectedId,
-            badgeCount: badgeFor(destination.id),
-            onTap: destination.onTap ?? () => onSelect(destination),
-          ),
-          for (final child in destination.children)
+        if (!_collapsed)
+          for (final destination in section.destinations) ...[
             _DestinationTile(
-              key: ValueKey(child.id),
-              destination: child,
-              selected: false,
-              badgeCount: 0,
-              onTap: child.onTap ?? () {},
+              key: ValueKey(destination.id),
+              destination: destination,
+              selected: destination.id == widget.selectedId,
+              badgeCount: widget.badgeFor(destination.id),
+              onTap: destination.onTap ?? () => widget.onSelect(destination),
             ),
-        ],
+            for (final child in destination.children)
+              _DestinationTile(
+                key: ValueKey(child.id),
+                destination: child,
+                selected: false,
+                badgeCount: 0,
+                onTap: child.onTap ?? () {},
+              ),
+          ],
       ],
     );
   }

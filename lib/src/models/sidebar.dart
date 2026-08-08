@@ -123,6 +123,7 @@ class SidebarDestination {
 @immutable
 class SidebarSection {
   const SidebarSection({
+    required this.id,
     required this.title,
     required this.destinations,
     this.actionIcon,
@@ -130,6 +131,8 @@ class SidebarSection {
     this.onAction,
   });
 
+  /// Stable identity used for presentation preferences such as collapsing.
+  final String id;
   final String title;
   final List<SidebarDestination> destinations;
   final DIconData? actionIcon;

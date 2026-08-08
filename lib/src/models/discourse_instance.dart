@@ -165,6 +165,7 @@ class DiscourseInstance {
   /// authenticated request, so they are not here yet.
   List<SidebarSection> get sections => const [
     SidebarSection(
+      id: 'community',
       title: 'Community',
       destinations: [
         // `layer-group` is what Discourse's own sidebar gives Everything.

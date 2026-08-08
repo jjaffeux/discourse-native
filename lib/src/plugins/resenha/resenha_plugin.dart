@@ -68,6 +68,7 @@ final class ResenhaPlugin implements SitePlugin<ResenhaRoom> {
 
     return [
       SidebarSection(
+        id: 'voice-rooms',
         title: 'Voice rooms',
         actionIcon: DIcons.plus,
         actionLabel: 'Create voice room',

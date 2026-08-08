@@ -63,6 +63,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
@@ -506,6 +507,37 @@ void main() {
       find.descendant(of: sidebar, matching: find.text('meta.discourse.org')),
       findsNothing,
     );
+  });
+
+  testWidgets('sidebar sections remember their collapsed state per forum', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    addTearDown(() => SharedPreferences.setMockInitialValues({}));
+
+    await pumpShell(tester, desktop);
+
+    expect(sidebarDestination('Topics'), findsOneWidget);
+    await tester.tap(find.byTooltip('Collapse Community'));
+    await tester.pumpAndSettle();
+
+    expect(sidebarDestination('Topics'), findsNothing);
+    expect(find.byTooltip('Expand Community'), findsOneWidget);
+
+    // Rebuild the entire app to model closing and reopening it.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await pumpShell(tester, desktop);
+
+    expect(sidebarDestination('Topics'), findsNothing);
+    expect(find.byTooltip('Expand Community'), findsOneWidget);
+
+    // The same section on another forum has its own preference.
+    await tester.tap(find.text('DT'));
+    await tester.pumpAndSettle();
+
+    expect(sidebarDestination('Topics'), findsOneWidget);
+    expect(find.byTooltip('Collapse Community'), findsOneWidget);
   });
 
   testWidgets('sidebar destinations show a background when hovered', (
