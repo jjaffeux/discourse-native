@@ -1,0 +1,22 @@
+{
+  "rooms": [
+    {
+      "id": 7,
+      "name": "Conf Room 1",
+      "slug": "conf-room-1",
+      "public": false,
+      "ephemeral": false,
+      "room_type": "stage",
+      "member_count": 4,
+      "message_bus_last_id": 91,
+      "active_participants": [
+        { "id": 1, "username": "sam", "role": "moderator" }
+      ],
+      "video_enabled": true,
+      "video_allowed": true,
+      "max_quality_profile": "maximum"
+    }
+  ],
+  "can_create_room": true,
+  "index_message_bus_last_id": 144
+}

@@ -14,11 +14,13 @@ import 'shell_scope.dart';
 /// What kind of thing a `#hashtag` names.
 enum HashtagKind {
   category,
-  tag;
+  tag,
+  room;
 
   static HashtagKind? parse(String? type) => switch (type) {
     'category' => HashtagKind.category,
     'tag' => HashtagKind.tag,
+    'room' => HashtagKind.room,
     _ => null,
   };
 }
@@ -46,7 +48,11 @@ enum HashtagStyle {
 DIconData iconFor(String? icon, HashtagKind kind) {
   final named = icon == null ? null : DIcons.byName[icon];
   if (named != null) return named;
-  return kind == HashtagKind.category ? DIcons.folder : DIcons.tag;
+  return switch (kind) {
+    HashtagKind.category => DIcons.folder,
+    HashtagKind.tag => DIcons.tag,
+    HashtagKind.room => DIcons.microphoneLines,
+  };
 }
 
 /// The colour swatch ahead of a category hashtag.

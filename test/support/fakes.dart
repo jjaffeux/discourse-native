@@ -329,6 +329,30 @@ class FakeSiteTracker implements SiteTracker {
   void deliverTopicMessage(String channel, Object? data) =>
       _onTopicMessage?.call(channel, data);
 
+  final Map<String, List<void Function(Object?)>> pluginChannelCallbacks = {};
+  final Map<String, int?> pluginChannelLastIds = {};
+
+  @override
+  SiteMessageBusSubscription watchPluginChannel(
+    String channel,
+    void Function(Object? data) onMessage, {
+    int? lastId,
+  }) {
+    pluginChannelLastIds[channel] = lastId;
+    (pluginChannelCallbacks[channel] ??= []).add(onMessage);
+    return _FakeSiteMessageBusSubscription(() {
+      pluginChannelCallbacks[channel]?.remove(onMessage);
+    });
+  }
+
+  void deliverPluginMessage(String channel, Object? data) {
+    for (final callback in List.of(
+      pluginChannelCallbacks[channel] ?? const [],
+    )) {
+      callback(data);
+    }
+  }
+
   @override
   void start() => polling = true;
 
@@ -341,6 +365,20 @@ class FakeSiteTracker implements SiteTracker {
   @override
   Future<void> dispose() async {
     disposed = true;
+  }
+}
+
+final class _FakeSiteMessageBusSubscription
+    implements SiteMessageBusSubscription {
+  _FakeSiteMessageBusSubscription(this._cancel);
+  final void Function() _cancel;
+  bool _cancelled = false;
+
+  @override
+  void cancel() {
+    if (_cancelled) return;
+    _cancelled = true;
+    _cancel();
   }
 }
 
@@ -402,9 +440,15 @@ class FakeDiscourseApi implements DiscourseApi {
     this.chatMessagesByKey = const {},
     this.chatMessageGate,
     this.chatReadFailure,
+    this.pluginResponses = const {},
   });
 
   final Map<String, DiscourseInstance> results;
+  final Map<String, Map<String, dynamic>> pluginResponses;
+  final List<
+    ({String siteUrl, String method, String path, Map<String, Object?> body})
+  >
+  pluginWrites = [];
   final SiteLookupFailure? failure;
 
   /// Returned by [currentUser]; defaults to a plausible account.
@@ -930,6 +974,7 @@ class FakeDiscourseApi implements DiscourseApi {
   Future<List<FoundHashtag>> searchHashtags({
     required String siteUrl,
     required String term,
+    List<String> order = DiscourseApi.hashtagOrder,
     String? apiKey,
     String? clientId,
   }) async {
@@ -1330,6 +1375,85 @@ class FakeDiscourseApi implements DiscourseApi {
   }) async {
     chatReadsMarked.add((channelId: channelId, messageId: messageId));
     if (chatReadFailure != null) throw chatReadFailure!;
+  }
+
+  @override
+  Future<ChatMessagePage> chatThreadMessages({
+    required String siteUrl,
+    required int channelId,
+    required int threadId,
+    int? before,
+    int? after,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final base = 'thread-$channelId-$threadId';
+    final directional = before != null
+        ? '$base~past~$before'
+        : after != null
+        ? '$base~future~$after'
+        : base;
+    final found = chatMessagesByKey[directional] ?? chatMessagesByKey[base];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
+  }
+
+  @override
+  Future<int?> sendChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required String message,
+    int? threadId,
+    String? clientId,
+  }) async => 1;
+
+  @override
+  Future<void> markChatThreadRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required int messageId,
+    String? clientId,
+  }) async {}
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    final response = pluginResponses['GET $path'];
+    if (response == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return response;
+  }
+
+  @override
+  Future<Map<String, dynamic>> pluginWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  }) async {
+    pluginWrites.add((
+      siteUrl: siteUrl,
+      method: method,
+      path: path,
+      body: body,
+    ));
+    final response = pluginResponses['$method $path'];
+    if (response == null) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return response;
   }
 
   @override

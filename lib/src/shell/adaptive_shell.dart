@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../data/diagnostics_panel_width_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/diagnostics_scope.dart';
+import '../plugins/resenha/resenha_call_widget.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -110,12 +111,24 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               ? const _CompactShell()
               : _WideShell(layout: layout);
 
-          Widget framedShell(Widget body) => Column(
+          Widget framedShell(Widget body) => Stack(
             children: [
-              // Spans every shell column. On compact and medium layouts this
-              // frame sits under the app-wide diagnostics modal layer.
-              const ShellTitleBar(),
-              Expanded(child: body),
+              Positioned.fill(
+                child: Column(
+                  children: [
+                    // Spans every shell column. On compact and medium layouts this
+                    // frame sits under the app-wide diagnostics modal layer.
+                    const ShellTitleBar(),
+                    Expanded(child: body),
+                  ],
+                ),
+              ),
+              const Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: false,
+                  child: ResenhaCallWidget(),
+                ),
+              ),
             ],
           );
 

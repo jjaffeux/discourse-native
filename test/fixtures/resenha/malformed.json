@@ -1,0 +1,5 @@
+{
+  "rooms": [null, false, "room", { "id": "7", "name": 88, "active_participants": [null, "user", { "id": "2" }] }],
+  "can_create_room": "yes",
+  "index_message_bus_last_id": "not-an-integer"
+}

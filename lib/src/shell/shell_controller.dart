@@ -41,7 +41,10 @@ import '../plugins/chat/chat_controller.dart';
 import '../plugins/poll/poll.dart';
 import '../plugins/reactions/reaction.dart';
 import '../plugins/reactions/reactions_controller.dart';
+import '../plugins/resenha/resenha_api.dart';
+import '../plugins/resenha/resenha_controller.dart';
 import '../plugins/site_plugin.dart';
+import '../theme/d_icons.dart';
 import 'account_activity_controller.dart';
 import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
@@ -211,6 +214,18 @@ class ShellController extends FrameSafeNotifier {
     credentials: authenticator,
     store: store,
     lifecycle: lifecycle,
+  );
+
+  /// Voice/video rooms across every connected site. Unlike topic and chat
+  /// state this owns one app-global media session, so it deliberately survives
+  /// switching the selected site.
+  late final ResenhaController resenha = ResenhaController(
+    api: ResenhaApi(api),
+    chatApi: api,
+    credentials: authenticator,
+    trackerFor: (siteUrl) => _trackers[siteUrl],
+    userIdFor: (siteUrl) => _instanceAt(siteUrl)?.user?.id,
+    onCallSiteChanged: _syncTracking,
   );
 
   SitePresentationController? _sitePresentation;
@@ -921,9 +936,15 @@ class ShellController extends FrameSafeNotifier {
   /// off screen instead of starting over.
   void _syncTracking() {
     final instance = currentInstance;
+    final callSiteUrl = resenha.activeSiteUrl;
 
     for (final entry in _trackers.entries) {
-      if (entry.key != instance?.url) entry.value.stop();
+      if (entry.key != instance?.url && entry.key != callSiteUrl) {
+        entry.value.stop();
+      }
+    }
+    if (callSiteUrl != null && callSiteUrl != instance?.url) {
+      _trackers[callSiteUrl]?.start();
     }
     if (instance == null) return;
 
@@ -1143,7 +1164,8 @@ class ShellController extends FrameSafeNotifier {
         return;
       }
       _trackers[siteUrl] = tracker;
-      if (currentInstance?.url != siteUrl) {
+      resenha.attachTracker(siteUrl);
+      if (currentInstance?.url != siteUrl && resenha.activeSiteUrl != siteUrl) {
         tracker.stop();
       } else {
         _syncTopicWatch(siteUrl, tracker);
@@ -1259,10 +1281,15 @@ class ShellController extends FrameSafeNotifier {
   void setForeground(bool foreground) {
     if (foreground == _foreground) return;
     _foreground = foreground;
+    resenha.setForeground(foreground);
     if (!foreground) return;
 
     final instance = currentInstance;
     if (instance != null) _trackers[instance.url]?.pollNow();
+    final callSite = resenha.activeSiteUrl;
+    if (callSite != null && callSite != instance?.url) {
+      _trackers[callSite]?.pollNow();
+    }
   }
 
   final Set<String> _topicsLoading = {};
@@ -1490,6 +1517,33 @@ class ShellController extends FrameSafeNotifier {
     // whose feed does not exist yet — that is the placeholder screen, and it
     // would flash in before the list arrived.
     unawaited(loadFeed(route.id));
+    return true;
+  }
+
+  /// Opens a Resenha room link on a connected, signed-in site.
+  Future<bool> openResenhaUrl(String url) async {
+    if (!resenha.supportedPlatform) return false;
+    final uri = Uri.tryParse(absoluteUrl(url));
+    if (uri == null) return false;
+    final match = RegExp(r'^/resenha/r/([^/]+)/?$').firstMatch(uri.path);
+    if (match == null) return false;
+    final index = _instances.indexWhere((instance) => instance.serves(uri));
+    if (index < 0 || !_instances[index].isConnected) return false;
+    if (index != _instanceIndex) selectInstance(index);
+    final instance = _instances[index];
+    await resenha.ensureLoaded(instance.url);
+    final room = await resenha.resolveRoom(
+      instance.url,
+      Uri.decodeComponent(match.group(1)!),
+    );
+    if (room == null) return false;
+    pushContent(
+      ContentRoute(
+        id: 'resenha-room-${room.id}',
+        title: room.name,
+        icon: DIcons.microphoneLines,
+      ),
+    );
     return true;
   }
 
@@ -3993,6 +4047,10 @@ class ShellController extends FrameSafeNotifier {
       found = await api.searchHashtags(
         siteUrl: siteUrl,
         term: term,
+        order: [
+          ...DiscourseApi.hashtagOrder,
+          if (resenha.directory(siteUrl) != null) 'room',
+        ],
         apiKey: await authenticator.apiKeyFor(siteUrl),
         clientId: await authenticator.clientId(),
       );
@@ -4700,6 +4758,7 @@ class ShellController extends FrameSafeNotifier {
 
     reactions.forget(siteUrl);
     chat.forget(siteUrl);
+    resenha.forget(siteUrl);
     _feeds.removeWhere((key, _) => key.startsWith('$siteUrl|'));
     _feedRevisions.removeWhere((key, _) => key.startsWith('$siteUrl|'));
     _feedRows.removeWhere((key, _) => key.startsWith('$siteUrl|'));
@@ -4732,6 +4791,7 @@ class ShellController extends FrameSafeNotifier {
     if (refreshAppearance) {
       unawaited(_presentation.ensureAppearance(instance.url));
     }
+    if (instance.isConnected) unawaited(resenha.ensureLoaded(instance.url));
     unawaited(loadFeed(destination.id));
   }
 
@@ -4778,6 +4838,18 @@ class ShellController extends FrameSafeNotifier {
     _notify();
   }
 
+  /// Opens the active call's room even when its site is not the one currently
+  /// selected. The call itself stays untouched; only navigation moves.
+  void openResenhaRoom({required String siteUrl, required ContentRoute route}) {
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0) return;
+    if (index != _instanceIndex) {
+      _instanceIndex = index;
+      _resetToInstanceDefault();
+    }
+    pushContent(route);
+  }
+
   /// Unwinds one step: first through the content stack, then — on compact
   /// layouts only — back out to the sidebar.
   ///
@@ -4812,6 +4884,7 @@ class ShellController extends FrameSafeNotifier {
     accountActivity.dispose();
     reactions.dispose();
     chat.dispose();
+    resenha.dispose();
     final presentation = _sitePresentation;
     if (presentation != null) {
       presentation.removeListener(_notify);

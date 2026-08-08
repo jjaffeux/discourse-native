@@ -1,0 +1,20 @@
+{
+  "memberships": [
+    {
+      "id": 8,
+      "room_id": 7,
+      "user_id": 1,
+      "role": 1,
+      "role_name": "moderator",
+      "user": { "id": 1, "username": "sam" }
+    },
+    {
+      "id": 9,
+      "room_id": 7,
+      "user_id": 2,
+      "role": 2,
+      "role_name": "speaker",
+      "user": { "id": 2, "username": "lee" }
+    }
+  ]
+}

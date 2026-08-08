@@ -1,0 +1,60 @@
+{
+  "id": 7,
+  "name": "Conf Room 1",
+  "slug": "conf-room-1",
+  "description": "Daily engineering room",
+  "cooked_description": "<p>Daily engineering room</p>",
+  "description_excerpt": "Daily engineering room",
+  "public": false,
+  "ephemeral": false,
+  "room_type": "stage",
+  "max_participants": 20,
+  "member_count": 4,
+  "message_bus_last_id": 91,
+  "creator_id": 1,
+  "can_manage": true,
+  "video_enabled": true,
+  "video_allowed": true,
+  "chat_channel_id": 42,
+  "chat_idle_minutes": 15,
+  "chat_thread_title_template": "Team meeting at {time}",
+  "chat_available": true,
+  "livekit_enabled": true,
+  "max_quality_profile": "high",
+  "membership": {
+    "id": 8,
+    "room_id": 7,
+    "user_id": 1,
+    "role": 1,
+    "role_name": "moderator",
+    "user": { "id": 1, "username": "sam" }
+  },
+  "recording": {
+    "started_at": 1786204800.25,
+    "started_by": { "id": 1, "username": "sam" }
+  },
+  "active_participants": [
+    {
+      "id": 1,
+      "username": "sam",
+      "name": "Sam Example",
+      "avatar_template": "/user_avatar/example.com/sam/{size}/1_2.png",
+      "role": "moderator",
+      "is_muted": false,
+      "is_deafened": false,
+      "is_video_on": true,
+      "is_screen_sharing": false,
+      "watching_video": true,
+      "idle_state": "active"
+    },
+    {
+      "id": 2,
+      "username": "lee",
+      "role": "participant",
+      "is_muted": true,
+      "hand_raised_at": 1786204801.5,
+      "unknown_future_field": "ignored"
+    }
+  ],
+  "unknown_optional_field": { "future": true }
+}

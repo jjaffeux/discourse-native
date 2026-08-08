@@ -30,8 +30,9 @@ typedef SiteTrackerFactory =
 abstract interface class SiteMessageBusSession {
   SiteMessageBusSubscription subscribe(
     String channel,
-    void Function(Object? data) onMessage,
-  );
+    void Function(Object? data) onMessage, {
+    int? lastId,
+  });
 
   void start();
 
@@ -301,6 +302,17 @@ class SiteTracker {
     }
   }
 
+  /// A cancellable plugin-owned channel, optionally starting at the snapshot
+  /// cursor returned by the HTTP endpoint that preceded it.
+  SiteMessageBusSubscription watchPluginChannel(
+    String channel,
+    void Function(Object? data) onMessage, {
+    int? lastId,
+  }) {
+    _ensureActive();
+    return _bus.subscribe(channel, onMessage, lastId: lastId);
+  }
+
   void _onTopicMessage(Object? data) {
     if (_disposed) return;
     if (incoming.notify(data)) onIncomingTopics();
@@ -455,9 +467,14 @@ final class _MessageBusSession
   @override
   SiteMessageBusSubscription subscribe(
     String channel,
-    void Function(Object? data) onMessage,
-  ) => _MessageBusSubscription(
-    _client.subscribe(channel, (data, globalId, messageId) => onMessage(data)),
+    void Function(Object? data) onMessage, {
+    int? lastId,
+  }) => _MessageBusSubscription(
+    _client.subscribe(
+      channel,
+      (data, globalId, messageId) => onMessage(data),
+      lastId: lastId ?? MessageBusPosition.newMessages,
+    ),
   );
 
   @override

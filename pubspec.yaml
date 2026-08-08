@@ -72,6 +72,11 @@ dependencies:
   # Only for the updater's recovery marker, which has to live somewhere the
   # app can find again after the bundle has been replaced underneath it.
   path_provider: ^2.1.6
+  # Native media transports for the Resenha voice-room plugin. Pinned exactly:
+  # both packages expose a native ABI and must be upgraded together after
+  # exercising Mesh and LiveKit rooms on every supported platform.
+  flutter_webrtc: 1.5.2
+  livekit_client: 2.9.0
 
 dev_dependencies:
   flutter_test:

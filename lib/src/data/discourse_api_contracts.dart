@@ -99,6 +99,57 @@ abstract interface class ChatApi {
     required int messageId,
     String? clientId,
   });
+
+  Future<ChatMessagePage> chatThreadMessages({
+    required String siteUrl,
+    required int channelId,
+    required int threadId,
+    int? before,
+    int? after,
+    String? apiKey,
+    String? clientId,
+  });
+
+  Future<int?> sendChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required String message,
+    int? threadId,
+    String? clientId,
+  });
+
+  Future<void> markChatThreadRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required int messageId,
+    String? clientId,
+  });
+}
+
+/// Narrow authenticated JSON transport used by repository-owned plugins.
+///
+/// Keeping this boundary generic prevents every optional plugin from growing
+/// the already-large core API contract while preserving the shared HTTP safety
+/// and write-error mapping.
+abstract interface class PluginApiTransport {
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String apiKey,
+    String? clientId,
+  });
+
+  Future<Map<String, dynamic>> pluginWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  });
 }
 
 abstract interface class ReactionsApi {
