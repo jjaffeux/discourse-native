@@ -12,6 +12,7 @@ import 'avatar_image.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'topic_title.dart';
 
 /// The first real screen: a list of topics from the site.
 class TopicListView extends StatefulWidget {
@@ -384,6 +385,7 @@ class _TopicRow extends StatelessWidget {
                   builder: (context, category, _) => _TopicRowBody(
                     topic: topic,
                     category: category,
+                    siteUrl: siteUrl,
                     onTap: () => controller.openTopic(topic),
                   ),
                 ),
@@ -414,11 +416,13 @@ class _TopicRowBody extends StatelessWidget {
   const _TopicRowBody({
     required this.topic,
     required this.category,
+    required this.siteUrl,
     required this.onTap,
   });
 
   final Topic topic;
   final TopicCategory? category;
+  final String siteUrl;
   final VoidCallback onTap;
 
   @override
@@ -448,8 +452,9 @@ class _TopicRowBody extends StatelessWidget {
                           ),
                         ),
                       Expanded(
-                        child: Text(
+                        child: TopicTitle(
                           topic.title,
+                          siteUrl: siteUrl,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyLarge?.copyWith(
