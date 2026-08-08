@@ -80,8 +80,9 @@ discourse-bookmark-clock
 # --- Composer
 bold
 italic
-fab-markdown
-a
+
+# --- Oneboxes
+tag
 
 # --- Updates
 arrows-rotate

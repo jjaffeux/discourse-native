@@ -10,12 +10,18 @@ import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
+import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/inline_code.dart';
+import 'package:discourse_native/src/shell/mention.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 
 import 'support/fakes.dart';
+import 'support/finders.dart';
 
 /// Cooked HTML on its own, with no shell above it — which is how a quote or an
 /// onebox body can also be rendered, and is the case [CookedHtml] uses
@@ -38,6 +44,7 @@ Future<ShellController> pumpCookedInShell(
   WidgetTester tester,
   String html, {
   http.Client? emoji,
+  FakeDiscourseApi? api,
 }) async {
   EmojiCache.instance = EmojiCache(
     client: emoji ?? MockClient((_) async => http.Response('', 404)),
@@ -46,7 +53,7 @@ Future<ShellController> pumpCookedInShell(
 
   final controller = ShellController(
     instanceStore: FakeInstanceStore([instance('meta.discourse.org')]),
-    api: FakeDiscourseApi(),
+    api: api ?? FakeDiscourseApi(),
     authenticator: FakeAuthenticator(),
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
@@ -77,6 +84,17 @@ final Uint8List onePixelPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8'
   'BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
 );
+
+/// The flattened text of the paragraph containing [within].
+///
+/// Distinct from [renderedText], which matches *any* `RichText` — including the
+/// one a pill's own `Text` builds. This is how to ask what the paragraph itself
+/// says, where a pill shows up as the `￼` a `WidgetSpan` flattens to.
+String paragraphOf(WidgetTester tester, String within) => tester
+    .widgetList<RichText>(find.byType(RichText))
+    .firstWhere((widget) => widget.text.toPlainText().contains(within))
+    .text
+    .toPlainText();
 
 bool isUnderlined(WidgetTester tester, String text) =>
     styleOf(tester, text).decoration?.contains(TextDecoration.underline) ??
@@ -143,6 +161,319 @@ void main() {
       );
 
       expect(isUnderlined(tester, 'meta'), isFalse);
+    });
+  });
+
+  group('mentions', () {
+    // What Discourse cooks for a name it resolved.
+    const sam = '<p>ask <a class="mention" href="/u/sam">@sam</a> about it</p>';
+
+    testWidgets('are drawn as a pill rather than as a link', (tester) async {
+      await pumpCooked(tester, sam);
+
+      expect(find.byType(MentionPill), findsOneWidget);
+      expect(find.text('@sam'), findsOneWidget);
+
+      // The label is drawn by the pill now, not by the paragraph — which is
+      // the whole difference between a pill and a styled link. The paragraph
+      // keeps one placeholder where the mention was.
+      //
+      // `renderedText` is no help here: it matches any RichText, and the
+      // pill's own Text builds one saying exactly `@sam`.
+      expect(paragraphOf(tester, 'about it'), contains('￼'));
+      expect(paragraphOf(tester, 'about it'), isNot(contains('@sam')));
+    });
+
+    testWidgets('keep the case the post was written in', (tester) async {
+      // Discourse lowercases the href and leaves the text alone, and the text
+      // is what a reader recognises.
+      await pumpCooked(
+        tester,
+        '<p><a class="mention" href="/u/sam">@sAm</a></p>',
+      );
+
+      expect(find.text('@sAm'), findsOneWidget);
+      expect(tester.widget<MentionPill>(find.byType(MentionPill)).href, '/u/sam');
+    });
+
+    testWidgets('a group mention is a pill too', (tester) async {
+      await pumpCooked(
+        tester,
+        '<p><a class="mention-group notify" href="/groups/staff">@staff</a></p>',
+      );
+
+      expect(find.byType(MentionPill), findsOneWidget);
+      expect(find.text('@staff'), findsOneWidget);
+    });
+
+    testWidgets('one the site could not resolve stays text', (tester) async {
+      // A span, not an anchor: nobody by that name, or nobody this reader may
+      // see. Discourse does not pill it, and neither should we — a pill would
+      // promise a person who is not there.
+      await pumpCooked(tester, '<p>ask <span class="mention">@nobody</span></p>');
+
+      expect(find.byType(MentionPill), findsNothing);
+      expect(renderedText('@nobody'), findsOneWidget);
+    });
+
+    testWidgets('leave an ordinary link alone', (tester) async {
+      await pumpCooked(
+        tester,
+        '<p><a href="https://meta.discourse.org">meta</a></p>',
+      );
+
+      expect(find.byType(MentionPill), findsNothing);
+      expect(renderedText('meta'), findsOneWidget);
+    });
+
+    testWidgets('a name longer than the line is cut, not an overflow', (
+      tester,
+    ) async {
+      // A pill does not wrap, so on a narrow enough line it is wider than the
+      // Row it sits in — which throws rather than drawing. The name comes from
+      // the site, and a post is not where that should be discovered.
+      tester.view.physicalSize = const Size(320, 600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await pumpCooked(
+        tester,
+        '<p>hi <a class="mention" href="/u/x">'
+        '@a_username_far_longer_than_any_line_could_ever_hold</a></p>',
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(MentionPill), findsOneWidget);
+    });
+  });
+
+  group('hashtags', () {
+    /// What Discourse cooks. The `<svg>` is always `square-full`, whatever the
+    /// type — it is a placeholder its own client replaces at runtime.
+    String cooked({
+      required String type,
+      required String slug,
+      required int id,
+      required String href,
+      String? styleType,
+      String? icon,
+      String? emoji,
+      String? text,
+    }) =>
+        '<p>see <a class="hashtag-cooked" href="$href" data-type="$type" '
+        'data-slug="$slug" data-id="$id"'
+        '${styleType == null ? '' : ' data-style-type="$styleType"'}'
+        '${icon == null ? '' : ' data-icon="$icon"'}'
+        '${emoji == null ? '' : ' data-emoji="$emoji"'}'
+        '><span class="hashtag-icon-placeholder"><svg class="fa d-icon '
+        'd-icon-square-full svg-icon svg-node"><use href="#square-full">'
+        '</use></svg></span><span>${text ?? slug}</span></a> for more</p>';
+
+    final category = cooked(
+      type: 'category',
+      slug: 'bug',
+      id: 5,
+      href: '/c/bug/5',
+      styleType: 'square',
+    );
+
+    FakeDiscourseApi withCategories(List<TopicCategory> categories) =>
+        FakeDiscourseApi(
+          feeds: {'/latest.json': const <Topic>[]},
+          categoryList: categories,
+        );
+
+    testWidgets('a category is drawn as a pill with its own colour', (
+      tester,
+    ) async {
+      await pumpCookedInShell(
+        tester,
+        category,
+        api: withCategories(const [
+          TopicCategory(id: 5, name: 'Bug', color: '0088CC', slug: 'bug'),
+        ]),
+      );
+
+      expect(find.text('bug'), findsOneWidget);
+      final square = tester.widget<CategorySquare>(find.byType(CategorySquare));
+      expect(square.color, const Color(0xFF0088CC));
+      expect(square.parentColor, isNull);
+      // The label is the pill's, not the paragraph's.
+      expect(paragraphOf(tester, 'for more'), isNot(contains('bug')));
+    });
+
+    testWidgets('a subcategory square is split, parent on the left', (
+      tester,
+    ) async {
+      await pumpCookedInShell(
+        tester,
+        cooked(
+          type: 'category',
+          slug: 'child',
+          id: 12,
+          href: '/c/parent/child/12',
+          styleType: 'square',
+          text: 'Parent > Child',
+        ),
+        api: withCategories(const [
+          TopicCategory(id: 7, name: 'Parent', color: 'FF0000', slug: 'parent'),
+          TopicCategory(
+            id: 12,
+            name: 'Child',
+            color: '00FF00',
+            slug: 'child',
+            parentCategoryId: 7,
+          ),
+        ]),
+      );
+
+      final square = tester.widget<CategorySquare>(find.byType(CategorySquare));
+      expect(square.parentColor, const Color(0xFFFF0000));
+      expect(square.color, const Color(0xFF00FF00));
+      // Discourse writes the full name into the anchor; it beats the slug.
+      expect(find.text('Parent > Child'), findsOneWidget);
+    });
+
+    testWidgets('a category nobody has fetched still draws', (tester) async {
+      // The category list is capped on a large site, so this is ordinary
+      // rather than exceptional. The label and the tap are what matter.
+      await pumpCookedInShell(tester, category, api: withCategories(const []));
+
+      expect(find.text('bug'), findsOneWidget);
+      expect(
+        tester.widget<CategorySquare>(find.byType(CategorySquare)).color,
+        isNull,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a tag draws its glyph and no swatch', (tester) async {
+      await pumpCookedInShell(
+        tester,
+        cooked(
+          type: 'tag',
+          slug: 'ux',
+          id: 3,
+          href: '/tag/ux/3',
+          styleType: 'icon',
+          icon: 'tag',
+        ),
+      );
+
+      expect(find.text('ux'), findsOneWidget);
+      expect(find.byType(CategorySquare), findsNothing);
+      expect(find.dIcon(DIcons.tag), findsOneWidget);
+    });
+
+    testWidgets('an icon the app does not carry falls back to the kind', (
+      tester,
+    ) async {
+      // `data-icon` is whatever an admin picked, and the sprite here holds
+      // what this app draws rather than all of Font Awesome.
+      await pumpCookedInShell(
+        tester,
+        cooked(
+          type: 'category',
+          slug: 'known',
+          id: 6,
+          href: '/c/known/6',
+          styleType: 'icon',
+          icon: 'not-an-icon-this-app-has',
+        ),
+      );
+
+      expect(find.dIcon(DIcons.folder), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an emoji style draws the artwork', (tester) async {
+      await pumpCookedInShell(
+        tester,
+        cooked(
+          type: 'category',
+          slug: 'rocket',
+          id: 8,
+          href: '/c/rocket/8',
+          styleType: 'emoji',
+          emoji: 'rocket',
+        ),
+        emoji: MockClient((_) async => http.Response.bytes(onePixelPng, 200)),
+      );
+
+      expect(find.byType(EmojiImage), findsOneWidget);
+      expect(find.byType(CategorySquare), findsNothing);
+    });
+
+    testWidgets('the placeholder svg leaves nothing behind', (tester) async {
+      // Every cooked hashtag carries the same `square-full` glyph whatever it
+      // is — a placeholder Discourse's own client replaces. Drawing it would
+      // put a filled square on every tag on the site, beside the real prefix.
+      await pumpCookedInShell(tester, category, api: withCategories(const []));
+
+      expect(find.byType(CategorySquare), findsOneWidget);
+      expect(find.byType(DIcon), findsNothing);
+      expect(paragraphOf(tester, 'for more'), isNot(contains('square')));
+    });
+
+    testWidgets('one the site could not resolve stays text', (tester) async {
+      await pumpCooked(
+        tester,
+        '<p>see <span class="hashtag-raw">#secret</span> for more</p>',
+      );
+
+      expect(find.byType(HashtagPill), findsNothing);
+      expect(renderedText('#secret'), findsOneWidget);
+    });
+
+    testWidgets('are left alone with no shell to resolve the site', (
+      tester,
+    ) async {
+      // A quote or an onebox rendered outside the shell. The pill still draws;
+      // it simply has no categories to colour itself from.
+      await pumpCooked(tester, category);
+
+      expect(find.text('bug'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('leave an ordinary link alone', (tester) async {
+      await pumpCooked(tester, '<p><a href="/c/bug/5">the category</a></p>');
+
+      expect(find.byType(HashtagPill), findsNothing);
+      expect(renderedText('the category'), findsOneWidget);
+    });
+
+    testWidgets('a post that is nothing but a hashtag still draws a chip', (
+      tester,
+    ) async {
+      // A paragraph with no text around the anchor reaches the renderer as a
+      // block, with a tight width — where a chip that took the constraint at
+      // face value would draw as a full-width bar.
+      await pumpCookedInShell(
+        tester,
+        cooked(
+          type: 'category',
+          slug: 'bug',
+          id: 5,
+          href: '/c/bug/5',
+          styleType: 'square',
+        ).replaceAll('see ', '').replaceAll(' for more', ''),
+        api: withCategories(const [
+          TopicCategory(id: 5, name: 'Bug', color: '0088CC', slug: 'bug'),
+        ]),
+      );
+
+      // The outermost Container in the pill is the chip itself; the inner one
+      // is the colour swatch.
+      final chip = tester.getSize(
+        find
+            .descendant(
+              of: find.byType(HashtagPill),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      expect(chip.width, lessThan(200));
     });
   });
 

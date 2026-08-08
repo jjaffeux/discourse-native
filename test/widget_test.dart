@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/foundation.dart';
@@ -8,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:super_editor/super_editor.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'package:discourse_native/src/app.dart';
@@ -20,6 +20,8 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/found_user.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -34,8 +36,10 @@ import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
+import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -45,6 +49,8 @@ import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/empty_state.dart';
+import 'package:discourse_native/src/shell/hashtag.dart';
+import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -2443,6 +2449,220 @@ void main() {
       expect(renderedText('Other topic body'), findsOneWidget);
       expect(launched, isEmpty);
     });
+
+    testWidgets('a category link opens the list here', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': listed,
+          '/c/bug/5.json': [
+            const Topic(id: 3, title: 'A bug report', slug: 'a-bug-report'),
+          ],
+        },
+        topics: {7: linking('/c/bug/5', 'the bug category')},
+      );
+
+      final launched = await openPostLinking(tester, api);
+      await tester.tapOnText(find.textRange.ofSubstring('the bug category'));
+      await tester.pumpAndSettle();
+
+      expect(api.feedPaths, contains('/c/bug/5.json'));
+      expect(find.text('A bug report'), findsOneWidget);
+      expect(launched, isEmpty);
+
+      // Pushed over the topic rather than replacing the sidebar's selection,
+      // so there is a way back to what was being read.
+      await tester.tap(find.dIcon(DIcons.arrowLeft));
+      await tester.pumpAndSettle();
+      expect(renderedText('the bug category'), findsOneWidget);
+    });
+
+    testWidgets('a subcategory keeps its whole path', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': listed,
+          '/c/parent/child/12.json': [
+            const Topic(id: 3, title: 'Nested topic', slug: 'nested-topic'),
+          ],
+        },
+        topics: {7: linking('/c/parent/child/12', 'the nested one')},
+      );
+
+      await openPostLinking(tester, api);
+      await tester.tapOnText(find.textRange.ofSubstring('the nested one'));
+      await tester.pumpAndSettle();
+
+      // `/c/child/12.json` would be a different category, and would 404.
+      expect(api.feedPaths, contains('/c/parent/child/12.json'));
+      expect(find.text('Nested topic'), findsOneWidget);
+    });
+
+    testWidgets('a tag link opens the list here', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': listed,
+          '/tag/ux/3.json': [
+            const Topic(id: 4, title: 'A tagged topic', slug: 'a-tagged-topic'),
+          ],
+        },
+        topics: {7: linking('/tag/ux/3', 'the ux tag')},
+      );
+
+      final launched = await openPostLinking(tester, api);
+      await tester.tapOnText(find.textRange.ofSubstring('the ux tag'));
+      await tester.pumpAndSettle();
+
+      expect(api.feedPaths, contains('/tag/ux/3.json'));
+      expect(find.text('A tagged topic'), findsOneWidget);
+      expect(launched, isEmpty);
+    });
+
+    testWidgets('a filtered category list goes to the browser', (tester) async {
+      // A real route, but one this app has no screen for. Showing the
+      // unfiltered list instead would be answering a different question.
+      const url = 'https://meta.discourse.org/c/bug/5/l/top';
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: linking(url, 'the top of it')},
+      );
+
+      final launched = await openPostLinking(tester, api);
+      await tester.tapOnText(find.textRange.ofSubstring('the top of it'));
+      await tester.pumpAndSettle();
+
+      expect(launched, [url]);
+      expect(api.feedPaths, isNot(contains('/c/bug/5/l/top.json')));
+    });
+
+    testWidgets('a category on a site not in the rail goes to the browser', (
+      tester,
+    ) async {
+      const url = 'https://example.com/c/bug/5';
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: linking(url, 'somewhere else')},
+      );
+
+      final launched = await openPostLinking(tester, api);
+      await tester.tapOnText(find.textRange.ofSubstring('somewhere else'));
+      await tester.pumpAndSettle();
+
+      expect(launched, [url]);
+    });
+
+    testWidgets('the same category is not stacked twice', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': listed,
+          '/c/bug/5.json': [
+            const Topic(id: 3, title: 'A bug report', slug: 'a-bug-report'),
+          ],
+        },
+        topics: {7: linking('/c/bug/5', 'the bug category')},
+      );
+
+      await openPostLinking(tester, api);
+      await tester.tapOnText(find.textRange.ofSubstring('the bug category'));
+      await tester.pumpAndSettle();
+
+      // Already looking at it: the list is not fetched again, and one tap back
+      // still reaches the post.
+      final before = api.feedPaths.length;
+      await tester.tap(find.text('A bug report'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.dIcon(DIcons.arrowLeft));
+      await tester.pumpAndSettle();
+
+      expect(api.feedPaths.length, before);
+      expect(find.text('A bug report'), findsOneWidget);
+    });
+
+    testWidgets('a cooked hashtag opens the list it names', (tester) async {
+      // The whole feature end to end: the markup Discourse actually writes,
+      // drawn as a pill, tapped, landing on the category's own list — without
+      // the browser being involved at any point.
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': listed,
+          '/c/bug/5.json': [
+            const Topic(id: 3, title: 'A bug report', slug: 'a-bug-report'),
+          ],
+        },
+        categoryList: const [
+          TopicCategory(id: 5, name: 'Bug', color: '0088CC', slug: 'bug'),
+        ],
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                username: 'joffreyj',
+                cooked:
+                    '<p>filed under <a class="hashtag-cooked" href="/c/bug/5" '
+                    'data-type="category" data-slug="bug" data-id="5" '
+                    'data-style-type="square"><span '
+                    'class="hashtag-icon-placeholder"></span>'
+                    '<span>Bug</span></a></p>',
+              ),
+            ],
+            stream: const [1],
+          ),
+        },
+      );
+
+      final launched = await openPostLinking(tester, api);
+      expect(find.byType(HashtagPill), findsOneWidget);
+
+      await tester.tap(find.byType(HashtagPill));
+      await tester.pumpAndSettle();
+
+      expect(api.feedPaths, contains('/c/bug/5.json'));
+      expect(find.text('A bug report'), findsOneWidget);
+      expect(launched, isEmpty);
+    });
+
+    testWidgets('a mention opens the card', (tester) async {
+      // The markup Discourse actually cooks for `@joffreyj`, which the `/u/`
+      // case above does not cover: a mention is drawn as a pill, and a pill
+      // claims the anchor — so it stops being an ordinary link and has to
+      // carry the tap itself.
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                username: 'joffreyj',
+                cooked:
+                    '<p>ask <a class="mention" href="/u/joffreyj">'
+                    '@joffreyj</a> about it</p>',
+              ),
+            ],
+            stream: const [1],
+          ),
+        },
+        cards: {
+          'joffreyj': UserCard(
+            username: 'joffreyj',
+            name: 'Joffrey',
+            createdAt: DateTime.utc(2015, 3, 4),
+          ),
+        },
+      );
+
+      final launched = await openPostLinking(tester, api);
+      await tester.tapOnText(find.textRange.ofSubstring('@joffreyj'));
+      await tester.pumpAndSettle();
+
+      expect(api.cardsRequested, ['joffreyj']);
+      expect(launched, isEmpty);
+    });
   });
 
   group('replying', () {
@@ -2668,6 +2888,41 @@ void main() {
       expect(renderedText('Held for review.'), findsNothing);
 
       // It was accepted, so sending again would queue a second copy.
+      expect(tester.widget<FilledButton>(sendButton()).onPressed, isNull);
+    });
+
+    testWidgets('undo does not hand a queued reply back', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+        creation: const PostCreation(
+          outcome: PostOutcome.enqueued,
+          message: 'Your post is in the queue.',
+        ),
+      );
+
+      await openTopic(tester, api);
+      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Held for review.');
+      await tester.pumpAndSettle();
+      // What gets recorded for undo is throttled. Without waiting that out
+      // there is nothing on the stack, and this passes on a composer that
+      // would hand the reply straight back.
+      await tester.pump(const Duration(milliseconds: 600));
+
+      await tester.tap(sendButton());
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+
+      // Undo reaching back over the clear is the double post the clear is
+      // there to prevent: the text returns, and the send button it returns
+      // under works.
+      expect(find.text('Held for review.'), findsNothing);
       expect(tester.widget<FilledButton>(sendButton()).onPressed, isNull);
     });
 
@@ -4239,11 +4494,7 @@ void main() {
       // The main reaction is not the only one a site allows, and the menu's
       // toggle can only give it or take back what is held — the grid is where
       // the rest are chosen.
-      final api = await openTopic(
-        tester,
-        config: configured,
-        posts: [post()],
-      );
+      final api = await openTopic(tester, config: configured, posts: [post()]);
 
       await hoverPost(tester);
       await tester.tap(find.byTooltip('Pick a reaction'));
@@ -4352,9 +4603,7 @@ void main() {
       expect(find.byType(ReactionsRow), findsOneWidget);
       expect(pill('1'), findsOneWidget);
 
-      await gesture.moveTo(
-        tester.getCenter(renderedText('First post body!')),
-      );
+      await gesture.moveTo(tester.getCenter(renderedText('First post body!')));
       await tester.pumpAndSettle();
       expect(find.byTooltip('Remove your clap reaction'), findsOneWidget);
     });
@@ -4495,7 +4744,7 @@ void main() {
     });
   });
 
-  group('rich mode', () {
+  group('composer toolbar', () {
     const me = DiscourseUser(username: 'joffreyj', name: 'Joffrey');
 
     final listed = [
@@ -4538,55 +4787,27 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('posts exactly the markdown that was written', (tester) async {
+    testWidgets('never turns spell check on', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
       );
 
       await openComposer(tester, api);
-      await tester.enterText(
-        find.byType(TextField),
-        'press <kbd>Esc</kbd> to close',
+
+      // `EditableText` routes around `controller.buildTextSpan` entirely once
+      // spell check results arrive (editable_text.dart:5984), so a
+      // spell-checked composer is one with no markdown highlighting — and it
+      // would fail by flickering rather than by breaking. This is the tripwire.
+      expect(
+        tester
+            .widget<TextField>(find.byType(TextField))
+            .spellCheckConfiguration,
+        isNull,
       );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byTooltip('Edit richly'));
-      await tester.pumpAndSettle();
-      expect(find.byType(SuperEditor), findsOneWidget);
-      // The tags are gone from the surface — they are attributions now.
-      expect(find.byType(TextField), findsNothing);
-
-      await tester.tap(find.widgetWithText(FilledButton, 'Reply'));
-      await tester.pumpAndSettle();
-
-      // And the payload is byte-for-byte what was typed. The document model
-      // is a view; the markdown is the thing.
-      expect(api.created.single['raw'], 'press <kbd>Esc</kbd> to close');
     });
 
-    testWidgets('goes back to the markdown unchanged', (tester) async {
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail()},
-      );
-
-      await openComposer(tester, api);
-      await tester.enterText(find.byType(TextField), 'hey @sam **look**');
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byTooltip('Edit richly'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Edit the markdown'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(SuperEditor), findsNothing);
-      expect(find.text('hey @sam **look**'), findsOneWidget);
-    });
-
-    testWidgets('the toolbar marks up the markdown in plain mode', (
-      tester,
-    ) async {
+    testWidgets('marks up the markdown around the selection', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
@@ -4613,27 +4834,356 @@ void main() {
       await tester.pumpAndSettle();
       expect(field.controller!.text, 'say ***hello***');
     });
+  });
 
-    testWidgets('is refused for a post it would rewrite', (tester) async {
-      final api = FakeDiscourseApi(
+  group('composer autocomplete', () {
+    const me = DiscourseUser(username: 'joffreyj', name: 'Joffrey');
+
+    final listed = [
+      const Topic(id: 7, title: 'A real topic', slug: 'a-real-topic'),
+    ];
+
+    TopicPayload detail() => topicPayload(
+      id: 7,
+      title: 'A real topic',
+      posts: const [
+        Post(
+          id: 1,
+          postNumber: 1,
+          username: 'sam',
+          cooked: '<p>First post body</p>',
+        ),
+      ],
+      stream: const [1],
+      postsCount: 1,
+      canCreatePost: true,
+    );
+
+    FakeDiscourseApi api() => FakeDiscourseApi(
+      feeds: {'/latest.json': listed},
+      topics: {7: detail()},
+      userSearches: {
+        'sa': const [
+          FoundUser(username: 'sam', name: 'Sam Saffron'),
+          FoundUser(username: 'sally'),
+        ],
+      },
+      hashtagSearches: {
+        'ran': const [
+          FoundHashtag(
+            type: 'category',
+            ref: 'random',
+            slug: 'random',
+            text: 'Random',
+            id: 5,
+            colors: ['0088CC'],
+          ),
+          FoundHashtag(
+            type: 'tag',
+            ref: 'random::tag',
+            slug: 'random',
+            text: 'random',
+            id: 12,
+            styleType: 'icon',
+            icon: 'tag',
+            secondaryText: 'x0',
+          ),
+        ],
+      },
+      emojisBySite: {
+        'https://meta.discourse.org': const [
+          SiteEmoji(name: 'smile', url: 'https://meta.discourse.org/s.png'),
+          SiteEmoji(name: 'smirk', url: 'https://meta.discourse.org/k.png'),
+        ],
+      },
+    );
+
+    Future<void> openComposer(WidgetTester tester, FakeDiscourseApi api) async {
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: me),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.pumpAndSettle();
+    }
+
+    TextField field(WidgetTester tester) =>
+        tester.widget<TextField>(find.byType(TextField));
+
+    testWidgets('offers people once enough has been typed', (tester) async {
+      final fake = api();
+      await openComposer(tester, fake);
+
+      await tester.enterText(find.byType(TextField), 'hey @sa');
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
+
+      // Asserted on the real name and the second username, both of which are
+      // unique — `sam` also wrote the post being replied to.
+      expect(find.text('Sam Saffron'), findsOneWidget);
+      expect(find.text('sally'), findsOneWidget);
+      // The topic is part of the question: Discourse ranks people already in
+      // it first, which is what puts the person being replied to at the top.
+      expect(fake.userSearchesRequested.single.topicId, 7);
+    });
+
+    testWidgets('writes the whole mention when one is picked', (tester) async {
+      await openComposer(tester, api());
+
+      await tester.enterText(find.byType(TextField), 'hey @sa');
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(field(tester).controller!.text, 'hey @sam ');
+      expect(find.text('Sam Saffron'), findsNothing);
+    });
+
+    testWidgets('arrowing down picks the second name', (tester) async {
+      await openComposer(tester, api());
+
+      await tester.enterText(find.byType(TextField), 'hey @sa');
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(field(tester).controller!.text, 'hey @sally ');
+    });
+
+    testWidgets('escape closes the list, not the reply', (tester) async {
+      await openComposer(tester, api());
+
+      await tester.enterText(find.byType(TextField), 'hey @sa');
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
+      expect(find.text('Sam Saffron'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      // The list is gone and the half-written reply is still there. Getting
+      // this wrong throws away what somebody was writing, which is why the
+      // popup handles keys through a plain Focus rather than a second
+      // CallbackShortcuts — that one reports a key handled whenever an
+      // activator matches, open or not.
+      expect(find.text('Sam Saffron'), findsNothing);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(field(tester).controller!.text, 'hey @sa');
+
+      // And the second one still closes the composer.
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+    });
+
+    testWidgets('cmd+enter still sends with the list open', (tester) async {
+      final fake = api();
+      await openComposer(tester, fake);
+
+      await tester.enterText(find.byType(TextField), 'hey @sa');
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
+      expect(find.text('Sam Saffron'), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await tester.pumpAndSettle();
+
+      // An open list does not get to decide when a reply is posted.
+      expect(fake.created.single['raw'], 'hey @sa');
+    });
+
+    testWidgets('offers emoji without asking the site again', (tester) async {
+      final fake = api();
+      await openComposer(tester, fake);
+
+      await tester.enterText(find.byType(TextField), 'a :sm');
+      await tester.pumpAndSettle();
+
+      expect(find.text('smile'), findsOneWidget);
+      expect(find.text('smirk'), findsOneWidget);
+      // Fetched once when the composer opened, not per keystroke.
+      expect(fake.emojisRequested, ['https://meta.discourse.org']);
+    });
+
+    testWidgets('offers categories and tags once # is typed', (tester) async {
+      final fake = api();
+      await openComposer(tester, fake);
+
+      await tester.enterText(find.byType(TextField), 'see #ran');
+      await tester.pumpAndSettle();
+
+      expect(fake.hashtagSearchesRequested, ['ran']);
+      // The site's own name for each, so a subcategory reads as one.
+      expect(find.text('Random'), findsOneWidget);
+      expect(find.text('random'), findsOneWidget);
+      // A tag says how many topics carry it; a category does not.
+      expect(find.text('x0'), findsOneWidget);
+    });
+
+    testWidgets('writes the ref, not the slug, when one is picked', (
+      tester,
+    ) async {
+      await openComposer(tester, api());
+
+      await tester.enterText(find.byType(TextField), 'see #ran');
+      await tester.pumpAndSettle();
+
+      // The tag, whose slug collides with the category's — which is the whole
+      // reason the site sends a `ref` at all.
+      await tester.tap(find.text('random'));
+      await tester.pumpAndSettle();
+
+      expect(field(tester).controller!.text, 'see #random::tag ');
+    });
+
+    testWidgets('a picked hashtag pills without asking again', (tester) async {
+      // The site already said what `random` is when it offered it, so
+      // accepting it is not a reason to ask a second time. This is the path
+      // almost every hashtag in a post takes.
+      final fake = api();
+      await openComposer(tester, fake);
+
+      await tester.enterText(find.byType(TextField), 'see #ran');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Random'));
+      await tester.pumpAndSettle();
+
+      expect(field(tester).controller!.text, 'see #random ');
+      expect(find.byType(HashtagPill), findsOneWidget);
+      expect(fake.hashtagLookupsRequested, isEmpty);
+    });
+
+    testWidgets('a picked mention pills without asking again', (tester) async {
+      final fake = api();
+      await openComposer(tester, fake);
+
+      await tester.enterText(find.byType(TextField), 'hey @sa');
+      await tester.pumpAndSettle();
+      // By the real name, which only the suggestion row carries — the post
+      // under the composer is by `sam` too.
+      await tester.tap(find.text('Sam Saffron'));
+      await tester.pumpAndSettle();
+
+      expect(field(tester).controller!.text, 'hey @sam ');
+      expect(find.byType(MentionPill), findsOneWidget);
+      expect(fake.mentionChecksRequested, isEmpty);
+    });
+
+    testWidgets('a hand-typed name is checked once, then pills', (
+      tester,
+    ) async {
+      final fake = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+        realUsernames: const {'sam'},
+      );
+      await openComposer(tester, fake);
+
+      // Typed out rather than picked, so nothing has vouched for it yet.
+      await tester.enterText(find.byType(TextField), 'ask @sam now');
+      await tester.pumpAndSettle();
+
+      expect(fake.mentionChecksRequested, [
+        {'sam'},
+      ]);
+      expect(find.byType(MentionPill), findsOneWidget);
+    });
+
+    testWidgets('a hand-typed name nobody has stays text', (tester) async {
+      final fake = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
       );
+      await openComposer(tester, fake);
 
-      await openComposer(tester, api);
-      // A table has no representation yet, so the offer is withdrawn rather
-      // than silently reformatting someone's post.
-      await tester.enterText(
-        find.byType(TextField),
-        '| a | b |\n| - | - |\n| 1 | 2 |',
-      );
+      await tester.enterText(find.byType(TextField), 'ask @nobody now');
       await tester.pumpAndSettle();
 
-      expect(
-        find.byTooltip('Rich editing is not available for this post'),
-        findsOneWidget,
+      expect(fake.mentionChecksRequested, [
+        {'nobody'},
+      ]);
+      expect(find.byType(MentionPill), findsNothing);
+    });
+
+    testWidgets('says nothing about a hash inside a word', (tester) async {
+      final fake = api();
+      await openComposer(tester, fake);
+
+      await tester.enterText(find.byType(TextField), 'issue a#ran');
+      await tester.pumpAndSettle();
+
+      expect(fake.hashtagSearchesRequested, isEmpty);
+    });
+
+    testWidgets('writes the shortcode when an emoji is picked', (tester) async {
+      await openComposer(tester, api());
+
+      await tester.enterText(find.byType(TextField), 'a :sm');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('smirk'));
+      await tester.pumpAndSettle();
+
+      // Still markdown. The picture, when there is one, is a drawing of this.
+      expect(field(tester).controller!.text, 'a :smirk: ');
+    });
+
+    testWidgets('draws the artwork for a shortcode that was written', (
+      tester,
+    ) async {
+      // Through the real reply composer rather than the controller alone.
+      // `resolveEmoji` is injected per composer, and it was once wired to the
+      // edit composer and not this one — which the controller's own tests
+      // could not see, because they pass the resolver themselves.
+      await openComposer(tester, api());
+
+      // `pumpShell` answers 404 for every emoji, which is right for the tests
+      // that are about cooked HTML and wrong for this one. Swapped after the
+      // shell is up so only this composer sees artwork.
+      EmojiCache.instance = EmojiCache(
+        client: MockClient((_) async => http.Response.bytes(emojiPng, 200)),
       );
-      expect(find.byTooltip('Edit richly'), findsNothing);
+      addTearDown(EmojiCache.instance.clear);
+
+      await tester.enterText(find.byType(TextField), 'hey :smile:');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EmojiImage), findsOneWidget);
+      // And the shortcode is still every character of what will be posted.
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'hey :smile:',
+      );
+    });
+
+    testWidgets('says nothing about an email address', (tester) async {
+      final fake = api();
+      await openComposer(tester, fake);
+
+      await tester.enterText(find.byType(TextField), 'write to sam@example');
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pumpAndSettle();
+
+      expect(fake.userSearchesRequested, isEmpty);
     });
   });
 
@@ -5289,7 +5839,10 @@ void main() {
 
     /// Totals from a site that has chat, which is the only thing that makes
     /// this app ask for channels at all.
-    const withChat = NotificationTotals(chatNotifications: 0, hasChatEnabled: true);
+    const withChat = NotificationTotals(
+      chatNotifications: 0,
+      hasChatEnabled: true,
+    );
     const withoutChat = NotificationTotals();
 
     ChatChannel channel(
@@ -5308,7 +5861,9 @@ void main() {
       kind: ChatChannelKind.category,
       slug: slug ?? title.toLowerCase(),
       emoji: emoji,
-      categoryColor: color == null ? null : Color(int.parse('FF$color', radix: 16)),
+      categoryColor: color == null
+          ? null
+          : Color(int.parse('FF$color', radix: 16)),
       membership: ChatMembership(
         following: true,
         muted: muted,
@@ -5357,10 +5912,19 @@ void main() {
     ChatMessagePage page(
       List<ChatMessage> messages, {
       bool canLoadMorePast = false,
-    }) => (messages: messages, canLoadMorePast: canLoadMorePast);
+      bool canLoadMoreFuture = false,
+    }) => (
+      messages: messages,
+      canLoadMorePast: canLoadMorePast,
+      canLoadMoreFuture: canLoadMoreFuture,
+    );
 
-    String key(int channelId, [int? before]) =>
-        FakeDiscourseApi.chatMessagesKey(channelId, before);
+    String key(int channelId, {int? before, int? after}) =>
+        FakeDiscourseApi.chatMessagesKey(
+          channelId,
+          before: before,
+          after: after,
+        );
 
     /// A signed-in site, so the totals call the chat gate hangs off has an
     /// account to be made as.
@@ -5391,6 +5955,18 @@ void main() {
         authenticator: FakeAuthenticator()..keys[site] = 'meta-key',
       );
       await tester.pumpAndSettle();
+    }
+
+    /// Settles the tree, then waits out the half second a channel has to sit
+    /// still before the reader is credited with what is on it.
+    ///
+    /// The second pump is not belt and braces: `pumpAndSettle` stops when no
+    /// more frames are scheduled, and a pending timer schedules none — so
+    /// without it the debounce is a coin toss on how many frames the fetch
+    /// happened to cause.
+    Future<void> pumpUntilRead(WidgetTester tester) async {
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 600));
     }
 
     group('in the sidebar', () {
@@ -5435,11 +6011,7 @@ void main() {
         // arrives late, and a section with a spinner in it says something
         // untrue about how many channels there are.
         final gate = Completer<void>();
-        await pumpChat(
-          tester,
-          public: [channel(9)],
-          channelGate: gate,
-        );
+        await pumpChat(tester, public: [channel(9)], channelGate: gate);
 
         expect(find.text('CHAT'), findsNothing);
 
@@ -5474,34 +6046,38 @@ void main() {
         expect(sidebarDestination('hawk'), findsOneWidget);
       });
 
-      testWidgets('draws a channel emoji where an ordinary entry draws an icon', (
-        tester,
-      ) async {
-        await pumpChat(tester, public: [channel(9, emoji: 'bug')]);
+      testWidgets(
+        'draws a channel emoji where an ordinary entry draws an icon',
+        (tester) async {
+          await pumpChat(tester, public: [channel(9, emoji: 'bug')]);
 
-        // The artwork is answered 404 in these tests, so the shortcode is what
-        // lands — which is exactly the fallback the emoji widget promises.
-        expect(
-          find.descendant(
-            of: find.byType(InstanceSidebar),
-            matching: find.byType(EmojiImage),
-          ),
-          findsOneWidget,
-        );
-      });
+          // The artwork is answered 404 in these tests, so the shortcode is what
+          // lands — which is exactly the fallback the emoji widget promises.
+          expect(
+            find.descendant(
+              of: find.byType(InstanceSidebar),
+              matching: find.byType(EmojiImage),
+            ),
+            findsOneWidget,
+          );
+        },
+      );
 
       testWidgets('draws the other person’s face on a one-to-one conversation', (
         tester,
       ) async {
         await pumpChat(tester, direct: [dm(12)]);
 
-        expect(
-          find.descendant(
-            of: find.byType(InstanceSidebar),
-            matching: find.byType(AvatarImage),
-          ),
-          findsOneWidget,
+        final avatar = find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.byType(AvatarImage),
         );
+        expect(avatar, findsOneWidget);
+        // Round, not an ellipse: the row's prefix slot is a fixed width, and a
+        // fixed width is a tight constraint that a SizedBox inside it cannot
+        // shrink below. See the message tile's own version of this.
+        final size = tester.getSize(avatar);
+        expect(size.width, size.height);
       });
 
       testWidgets('draws a dot rather than a number, however much is unread', (
@@ -5539,7 +6115,11 @@ void main() {
     });
 
     group('a channel', () {
-      testWidgets('PROBE avatar size', (tester) async {
+      testWidgets('draws a round avatar rather than an oval', (tester) async {
+        // The gutter that keeps a chained row's body aligned is a fixed width,
+        // and a fixed width is a *tight* constraint — which a SizedBox inside it
+        // cannot shrink below, so the avatar came out gutter-wide and
+        // avatar-tall and ClipOval turned it into an ellipse.
         await pumpChat(
           tester,
           public: [channel(9)],
@@ -5550,15 +6130,14 @@ void main() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
 
-        final avatar = find.descendant(
-          of: find.byType(ChatMessageTile),
-          matching: find.byType(AvatarImage),
+        final size = tester.getSize(
+          find.descendant(
+            of: find.byType(ChatMessageTile),
+            matching: find.byType(AvatarImage),
+          ),
         );
-        // ignore: avoid_print
-        print('AVATAR RECT: ${tester.getRect(avatar)}');
-        final clip = find.ancestor(of: avatar, matching: find.byType(ClipOval)).first;
-        // ignore: avoid_print
-        print('CLIPOVAL RECT: ${tester.getRect(clip)}');
+
+        expect(size.width, size.height);
       });
 
       testWidgets('opens the channel the sidebar entry names', (tester) async {
@@ -5706,31 +6285,32 @@ void main() {
         expect(find.text('12 KB'), findsOneWidget);
       });
 
-      testWidgets('shows the reactions a message has without offering to add one', (
-        tester,
-      ) async {
-        await pumpChat(
-          tester,
-          public: [channel(9)],
-          messages: {
-            key(9): page([
-              msg(
-                1,
-                reactions: const [
-                  ChatReaction(emoji: 'heart', count: 3, reacted: true),
-                ],
-              ),
-            ]),
-          },
-        );
+      testWidgets(
+        'shows the reactions a message has without offering to add one',
+        (tester) async {
+          await pumpChat(
+            tester,
+            public: [channel(9)],
+            messages: {
+              key(9): page([
+                msg(
+                  1,
+                  reactions: const [
+                    ChatReaction(emoji: 'heart', count: 3, reacted: true),
+                  ],
+                ),
+              ]),
+            },
+          );
 
-        await tester.tap(sidebarDestination('Bugs'));
-        await tester.pumpAndSettle();
+          await tester.tap(sidebarDestination('Bugs'));
+          await tester.pumpAndSettle();
 
-        expect(find.text('3'), findsOneWidget);
-        // Reacting is a write, and this step makes none.
-        expect(find.byType(ReactionPill), findsNothing);
-      });
+          expect(find.text('3'), findsOneWidget);
+          // Reacting is a write, and this step makes none.
+          expect(find.byType(ReactionPill), findsNothing);
+        },
+      );
 
       testWidgets('says how many replies a message gathered into a thread', (
         tester,
@@ -5784,32 +6364,30 @@ void main() {
         expect(find.text('Could not load this channel.'), findsOneWidget);
       });
 
-      testWidgets('asks for older messages when a short channel does not fill the window', (
-        tester,
-      ) async {
-        // Nothing to scroll, so the scroll threshold can never fire — the last
-        // row being built is what says the top of the stream is on screen.
-        final api = FakeDiscourseApi(
-          totals: withChat,
-          chatChannelsBySite: {
-            site: (public: [channel(9)], direct: const []),
-          },
-          chatMessagesByKey: {
-            key(9): page([msg(5, minute: 5)], canLoadMorePast: true),
-            key(9, 5): page([msg(1)]),
-          },
-        );
+      testWidgets(
+        'asks for older messages when a short channel does not fill the window',
+        (tester) async {
+          // Nothing to scroll, so the scroll threshold can never fire — the last
+          // row being built is what says the top of the stream is on screen.
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            chatChannelsBySite: {
+              site: (public: [channel(9)], direct: const []),
+            },
+            chatMessagesByKey: {
+              key(9): page([msg(5, minute: 5)], canLoadMorePast: true),
+              key(9, before: 5): page([msg(1)]),
+            },
+          );
 
-        await pumpChat(tester, api: api);
-        await tester.tap(sidebarDestination('Bugs'));
-        await tester.pumpAndSettle();
+          await pumpChat(tester, api: api);
+          await tester.tap(sidebarDestination('Bugs'));
+          await tester.pumpAndSettle();
 
-        expect(api.chatMessagesRequested, [
-          (channelId: 9, before: null),
-          (channelId: 9, before: 5),
-        ]);
-        expect(renderedText('Hello there'), findsNWidgets(2));
-      });
+          expect(api.chatMessagesRequested.map((ask) => ask.before), [null, 5]);
+          expect(renderedText('Hello there'), findsNWidgets(2));
+        },
+      );
 
       testWidgets('stops asking once the site says there is nothing older', (
         tester,
@@ -5831,25 +6409,239 @@ void main() {
         expect(api.chatMessagesRequested, hasLength(1));
       });
 
-      testWidgets('divides the messages the reader has not seen from the rest', (
+      testWidgets(
+        'divides the messages the reader has not seen from the rest',
+        (tester) async {
+          await pumpChat(
+            tester,
+            public: [channel(9, lastRead: 1)],
+            messages: {
+              key(9): page([
+                msg(1, cooked: '<p>Seen</p>'),
+                msg(2, cooked: '<p>Unseen</p>', minute: 1),
+                msg(3, cooked: '<p>Also unseen</p>', minute: 2),
+              ]),
+            },
+          );
+
+          await tester.tap(sidebarDestination('Bugs'));
+          await tester.pumpAndSettle();
+
+          expect(find.text('New'), findsOneWidget);
+        },
+      );
+
+      testWidgets('opens where the reader left off, not at the newest message', (
         tester,
       ) async {
-        await pumpChat(
-          tester,
-          public: [channel(9, lastRead: 1)],
-          messages: {
+        // The reason the open is anchored at all. Landing at the live edge
+        // would put the newest message on screen, and the reader would be
+        // credited with a backlog they have not looked at.
+        final backlog = [
+          for (var id = 1; id <= 40; id++) msg(id, minute: id),
+        ];
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          chatChannelsBySite: {
+            site: (
+              public: [channel(9, lastRead: 5, unread: 35)],
+              direct: const [],
+            ),
+          },
+          chatMessagesByKey: {key(9): page(backlog)},
+        );
+
+        await pumpChat(tester, api: api, size: phone);
+        await tester.tap(sidebarDestination('Bugs'));
+        await pumpUntilRead(tester);
+
+        // It asked the site to place them, rather than placing them itself.
+        expect(api.chatMessagesRequested.single.fromLastRead, isTrue);
+        // Credited with what the screen holds around message 5, and nowhere
+        // near the forty the channel has.
+        final marked = api.chatReadsMarked.single.messageId;
+        expect(marked, greaterThan(5));
+        expect(marked, lessThan(40));
+        // And the line they left off at is on screen, which is the point of
+        // landing there.
+        expect(find.text('New'), findsOneWidget);
+      });
+
+      testWidgets('holds the reader still when the present is paged in', (
+        tester,
+      ) async {
+        // Newer messages land *under* a reversed list and push it up by their
+        // own height. Without pinning, catching up on three messages would
+        // carry the reader thirty forward and credit them with the lot.
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          chatChannelsBySite: {
+            site: (public: [channel(9, lastRead: 1)], direct: const []),
+          },
+          chatMessagesByKey: {
             key(9): page([
-              msg(1, cooked: '<p>Seen</p>'),
-              msg(2, cooked: '<p>Unseen</p>', minute: 1),
-              msg(3, cooked: '<p>Also unseen</p>', minute: 2),
+              msg(1),
+              msg(2, minute: 1),
+              msg(3, minute: 2),
+            ], canLoadMoreFuture: true),
+            key(9, after: 3): page([
+              for (var id = 4; id <= 33; id++) msg(id, minute: id),
             ]),
           },
         );
 
+        await pumpChat(tester, api: api, size: phone);
+        await tester.tap(sidebarDestination('Bugs'));
+        await pumpUntilRead(tester);
+
+        // The window reached the present — and the reader did not.
+        expect(api.chatMessagesRequested.last.after, 3);
+        expect(
+          api.chatReadsMarked.map((mark) => mark.messageId),
+          isNot(contains(33)),
+        );
+      });
+
+      testWidgets('offers the way back to the present, and takes it', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          chatChannelsBySite: {
+            site: (public: [channel(9, lastRead: 1)], direct: const []),
+          },
+          chatMessagesByKey: {
+            key(9): page([
+              msg(1, cooked: '<p>Back then</p>'),
+              msg(2, cooked: '<p>Also back then</p>', minute: 1),
+            ], canLoadMoreFuture: true),
+            // What the site answers once the window is asked for afresh.
+            FakeDiscourseApi.chatMessagesLatestKey(9): page([
+              msg(80, cooked: '<p>Right now</p>', minute: 80),
+            ]),
+          },
+        );
+
+        await pumpChat(tester, api: api, size: phone);
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
 
-        expect(find.text('New'), findsOneWidget);
+        // A window with messages still in front of it is not the present, so
+        // the button is there whatever the scroll position says.
+        final button = find.dIcon(DIcons.chevronDown);
+        expect(button, findsOneWidget);
+
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+
+        expect(api.chatMessagesRequested.last.fromLastRead, isFalse);
+        expect(renderedText('Right now'), findsOneWidget);
+        expect(button, findsNothing);
+      });
+
+      testWidgets(
+        'leaves the divider where it was, though reading has moved past it',
+        (tester) async {
+          // Reading the channel credits the reader with all three messages
+          // within the pump below. A divider drawn from the membership would
+          // have gone with it; this one is pinned to the fetch.
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            chatChannelsBySite: {
+              site: (public: [channel(9, lastRead: 1)], direct: const []),
+            },
+            chatMessagesByKey: {
+              key(9): page([
+                msg(1),
+                msg(2, minute: 1),
+                msg(3, minute: 2),
+              ]),
+            },
+          );
+
+          await pumpChat(tester, api: api);
+          await tester.tap(sidebarDestination('Bugs'));
+          await pumpUntilRead(tester);
+
+          expect(api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
+          expect(find.text('New'), findsOneWidget);
+        },
+      );
+
+      testWidgets('credits the reader with the messages it puts on screen', (
+        tester,
+      ) async {
+        // The whole path: the viewport is measured, the newest row on it is a
+        // message, and the site is told about that one.
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          chatChannelsBySite: {
+            site: (
+              public: [channel(9, unread: 3, lastRead: 1)],
+              direct: const [],
+            ),
+          },
+          chatMessagesByKey: {
+            key(9): page([msg(1), msg(2, minute: 1), msg(3, minute: 2)]),
+          },
+        );
+
+        await pumpChat(tester, api: api);
+        expect(api.chatReadsMarked, isEmpty);
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await pumpUntilRead(tester);
+
+        expect(api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
+      });
+
+      testWidgets('credits the reader on the way out of a channel', (
+        tester,
+      ) async {
+        // Discourse writes from its teardown for this: leaving inside the
+        // debounce window is leaving having read it, and a cancelled timer
+        // would throw that away.
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          chatChannelsBySite: {
+            site: (public: [channel(9, unread: 1)], direct: const []),
+          },
+          chatMessagesByKey: {
+            key(9): page([msg(1)]),
+          },
+        );
+
+        await pumpChat(tester, api: api, size: phone);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // Still inside the 500ms the reader has to hold still for.
+        expect(api.chatReadsMarked, isEmpty);
+
+        await tester.tap(find.dIcon(DIcons.arrowLeft));
+        await tester.pumpAndSettle();
+
+        expect(api.chatReadsMarked, [(channelId: 9, messageId: 1)]);
+      });
+
+      testWidgets('tells the site nothing about a channel nobody opened', (
+        tester,
+      ) async {
+        // Drawing a row in the sidebar is not reading it.
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          chatChannelsBySite: {
+            site: (public: [channel(9, unread: 3)], direct: const []),
+          },
+          chatMessagesByKey: {
+            key(9): page([msg(1)]),
+          },
+        );
+
+        await pumpChat(tester, api: api);
+
+        expect(api.chatReadsMarked, isEmpty);
       });
 
       testWidgets('shows the channel on its own pane on a phone', (
@@ -5879,3 +6671,9 @@ void main() {
     });
   });
 }
+
+/// A 1x1 transparent PNG — the smallest thing `Image.memory` will accept.
+final Uint8List emojiPng = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
+  'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+);

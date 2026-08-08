@@ -3,7 +3,13 @@
     "allow": [
       "Read(//tmp/**)",
       "Bash(flutter *)",
-      "WebFetch(grep.app)"
+      "WebFetch(grep.app)",
+      "Bash(curl *)",
+      "Bash(ls *)",
+      "Bash(grep *)",
+      "Bash(git *)",
+      "Bash(cat *)",
+      "Bash(dart *)"
     ]
   },
   "$version": 4

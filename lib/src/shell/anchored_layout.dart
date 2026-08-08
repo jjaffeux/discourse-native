@@ -20,6 +20,7 @@ class AnchoredLayout extends SingleChildLayoutDelegate {
     required this.maxWidth,
     this.gap = 8,
     this.margin = 12,
+    this.preferAbove = false,
   });
 
   final Rect? anchor;
@@ -33,6 +34,14 @@ class AnchoredLayout extends SingleChildLayoutDelegate {
 
   /// The smallest gap between the panel and the window's own edges.
   final double margin;
+
+  /// Whether to try above the anchor before below it.
+  ///
+  /// The composer's completion list wants this. The field it hangs off sits at
+  /// the bottom of the window, so "below unless it does not fit" happens to
+  /// land above anyway — and a layout that is right by accident stops being
+  /// right the first time the panel changes height.
+  final bool preferAbove;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
@@ -56,10 +65,18 @@ class AnchoredLayout extends SingleChildLayoutDelegate {
     }
 
     final below = target.bottom + gap;
+    final above = target.top - gap - childSize.height;
     final fitsBelow = below + childSize.height <= size.height - margin;
-    final top = fitsBelow
-        ? below
-        : math.max(margin, target.top - gap - childSize.height);
+    final fitsAbove = above >= margin;
+
+    final double top;
+    if (preferAbove) {
+      top = fitsAbove
+          ? above
+          : math.min(below, size.height - margin - childSize.height);
+    } else {
+      top = fitsBelow ? below : math.max(margin, above);
+    }
 
     final maxLeft = math.max(margin, size.width - childSize.width - margin);
     return Offset(target.left.clamp(margin, maxLeft), top);
@@ -70,5 +87,6 @@ class AnchoredLayout extends SingleChildLayoutDelegate {
       oldDelegate.anchor != anchor ||
       oldDelegate.maxWidth != maxWidth ||
       oldDelegate.gap != gap ||
-      oldDelegate.margin != margin;
+      oldDelegate.margin != margin ||
+      oldDelegate.preferAbove != preferAbove;
 }

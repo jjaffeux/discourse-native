@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
@@ -22,10 +23,31 @@ ChatMessage message(int id, {int second = 0, int minute = 0}) => ChatMessage(
 ChatMessagePage page(
   List<ChatMessage> messages, {
   bool canLoadMorePast = false,
-}) => (messages: messages, canLoadMorePast: canLoadMorePast);
+  bool canLoadMoreFuture = false,
+}) => (
+  messages: messages,
+  canLoadMorePast: canLoadMorePast,
+  canLoadMoreFuture: canLoadMoreFuture,
+);
 
-ChatChannel channel(int id, {String title = 'Bugs'}) =>
-    ChatChannel(id: id, title: title, kind: ChatChannelKind.category);
+/// Followed by default, which is the only kind `/chat/api/me/channels` returns.
+ChatChannel channel(
+  int id, {
+  String title = 'Bugs',
+  bool following = true,
+  int? lastRead,
+  int unread = 0,
+  int mentions = 0,
+}) => ChatChannel(
+  id: id,
+  title: title,
+  kind: ChatChannelKind.category,
+  membership: ChatMembership(
+    following: following,
+    lastReadMessageId: lastRead,
+  ),
+  tracking: ChatTracking(unreadCount: unread, mentionCount: mentions),
+);
 
 /// A controller wired to a fake site the reader is already signed in to.
 ({ChatController chat, FakeDiscourseApi api, Store store}) build({
@@ -33,12 +55,14 @@ ChatChannel channel(int id, {String title = 'Bugs'}) =>
   Map<String, ChatMessagePage> messages = const {},
   Completer<void>? channelGate,
   Completer<void>? messageGate,
+  WriteException? readFailure,
 }) {
   final api = FakeDiscourseApi(
     chatChannelsBySite: channels,
     chatChannelGate: channelGate,
     chatMessagesByKey: messages,
     chatMessageGate: messageGate,
+    chatReadFailure: readFailure,
   );
   final authenticator = FakeAuthenticator()..keys[site] = 'key';
   final store = Store();
@@ -53,8 +77,11 @@ ChatChannel channel(int id, {String title = 'Bugs'}) =>
   );
 }
 
-String key(int channelId, [int? before]) =>
-    FakeDiscourseApi.chatMessagesKey(channelId, before);
+String key(int channelId, {int? before, int? after}) =>
+    FakeDiscourseApi.chatMessagesKey(channelId, before: before, after: after);
+
+String latestKey(int channelId) =>
+    FakeDiscourseApi.chatMessagesLatestKey(channelId);
 
 void main() {
   // No widgets here, but the controller defers a notification raised mid-frame
@@ -145,7 +172,10 @@ void main() {
   });
 
   group('opening a channel', () {
-    test('asks for the newest page and holds it oldest first', () async {
+    test('asks from where the reader left off and holds it oldest first', () async {
+      // The site resolves the anchor from the membership, so this asks for it
+      // by name rather than naming a message. A reader who has never opened
+      // the channel is answered with the newest page by the same request.
       final subject = build(
         messages: {
           key(9): page([message(1), message(2, minute: 1)]),
@@ -154,7 +184,7 @@ void main() {
 
       await subject.chat.openChannel(site, 9);
 
-      expect(subject.api.chatMessagesRequested, [(channelId: 9, before: null)]);
+      expect(subject.api.chatMessagesRequested.single.fromLastRead, isTrue);
       expect(subject.chat.stream(site, 9).messageIds, [1, 2]);
       expect(subject.chat.stream(site, 9).fetchedOnce, isTrue);
     });
@@ -203,7 +233,7 @@ void main() {
       final subject = build(
         messages: {
           key(9): page([message(9, minute: 9)], canLoadMorePast: true),
-          key(9, 5): page([message(1), message(2, minute: 1)]),
+          key(9, before: 5): page([message(1), message(2, minute: 1)]),
         },
       );
 
@@ -244,22 +274,146 @@ void main() {
     });
   });
 
+  group('paging towards the present', () {
+    /// A window anchored behind the present, which is the only shape that has
+    /// anything in front of it to fetch.
+    ({ChatController chat, FakeDiscourseApi api, Store store}) anchored({
+      Map<String, ChatMessagePage> extra = const {},
+    }) => build(
+      messages: {
+        key(9): page([message(5, minute: 5)], canLoadMoreFuture: true),
+        ...extra,
+      },
+    );
+
+    test('reads what the site said is still in front of the window', () async {
+      final subject = anchored();
+
+      await subject.chat.openChannel(site, 9);
+
+      expect(subject.chat.stream(site, 9).canLoadMoreFuture, isTrue);
+      expect(subject.chat.stream(site, 9).atPresent, isFalse);
+    });
+
+    test('appends the page after the newest message it holds', () async {
+      final subject = anchored(
+        extra: {
+          key(9, after: 5): page([message(6, minute: 6), message(7, minute: 7)]),
+        },
+      );
+
+      await subject.chat.openChannel(site, 9);
+      await subject.chat.loadNewer(site, 9);
+
+      expect(subject.api.chatMessagesRequested.last.after, 5);
+      expect(subject.chat.stream(site, 9).messageIds, [5, 6, 7]);
+      // The site answered without saying there was more, so the window now
+      // runs to the present and the jump-to-now affordance has nothing to do.
+      expect(subject.chat.stream(site, 9).atPresent, isTrue);
+    });
+
+    test('does not ask at all from a window already at the present', () async {
+      // Which is every window fetched at the live edge, so this is the common
+      // case rather than an edge one.
+      final subject = build(
+        messages: {
+          key(9): page([message(5)]),
+        },
+      );
+
+      await subject.chat.openChannel(site, 9);
+      await subject.chat.loadNewer(site, 9);
+
+      expect(subject.api.chatMessagesRequested, hasLength(1));
+    });
+
+    test('stops asking when a page arrives with nothing new in it', () async {
+      final subject = anchored(
+        extra: {
+          key(9, after: 5): page([message(5, minute: 5)], canLoadMoreFuture: true),
+        },
+      );
+
+      await subject.chat.openChannel(site, 9);
+      await subject.chat.loadNewer(site, 9);
+
+      expect(subject.chat.stream(site, 9).atPresent, isTrue);
+      expect(subject.chat.stream(site, 9).messageIds, [5]);
+    });
+
+    test('keeps the messages on screen when a page fails', () async {
+      final subject = anchored();
+
+      await subject.chat.openChannel(site, 9);
+      await subject.chat.loadNewer(site, 9);
+
+      expect(subject.chat.stream(site, 9).messageIds, [5]);
+      expect(subject.chat.stream(site, 9).error, isNull);
+    });
+  });
+
+  group('jumping to the present', () {
+    test('asks for the newest page rather than the anchored one', () async {
+      final subject = build(
+        messages: {
+          key(9): page([message(5, minute: 5)], canLoadMoreFuture: true),
+          latestKey(9): page([message(9, minute: 9)]),
+        },
+      );
+      await subject.chat.openChannel(site, 9);
+
+      await subject.chat.showLatest(site, 9);
+
+      expect(subject.api.chatMessagesRequested.last.fromLastRead, isFalse);
+      expect(subject.chat.stream(site, 9).messageIds, [9]);
+      expect(subject.chat.stream(site, 9).atPresent, isTrue);
+    });
+
+    test('is a scroll rather than a fetch when the present is already held', () async {
+      final subject = build(
+        messages: {
+          key(9): page([message(5)]),
+        },
+      );
+      await subject.chat.openChannel(site, 9);
+
+      await subject.chat.showLatest(site, 9);
+
+      expect(subject.api.chatMessagesRequested, hasLength(1));
+    });
+
+    test('tells the view to reposition, which paging does not', () async {
+      final subject = build(
+        messages: {
+          key(9): page([message(5, minute: 5)], canLoadMorePast: true),
+          key(9, before: 5): page([message(1)]),
+        },
+      );
+
+      await subject.chat.openChannel(site, 9);
+      final opened = subject.chat.stream(site, 9).fetches;
+
+      await subject.chat.loadOlder(site, 9);
+      expect(subject.chat.stream(site, 9).fetches, opened);
+
+      await subject.chat.openChannel(site, 9);
+      expect(subject.chat.stream(site, 9).fetches, opened + 1);
+    });
+  });
+
   group('paging into the past', () {
     test('pages before the oldest message it holds', () async {
       final subject = build(
         messages: {
           key(9): page([message(5, minute: 5)], canLoadMorePast: true),
-          key(9, 5): page([message(1), message(2, minute: 1)]),
+          key(9, before: 5): page([message(1), message(2, minute: 1)]),
         },
       );
 
       await subject.chat.openChannel(site, 9);
       await subject.chat.loadOlder(site, 9);
 
-      expect(subject.api.chatMessagesRequested.last, (
-        channelId: 9,
-        before: 5,
-      ));
+      expect(subject.api.chatMessagesRequested.last.before, 5);
       expect(subject.chat.stream(site, 9).messageIds, [1, 2, 5]);
     });
 
@@ -282,7 +436,7 @@ void main() {
       final subject = build(
         messages: {
           key(9): page([message(5, minute: 5)], canLoadMorePast: true),
-          key(9, 5): page([message(5, minute: 5)], canLoadMorePast: true),
+          key(9, before: 5): page([message(5, minute: 5)], canLoadMorePast: true),
         },
       );
 
@@ -297,7 +451,7 @@ void main() {
       final subject = build(
         messages: {
           key(9): page([message(5, minute: 5)], canLoadMorePast: true),
-          key(9, 5): page([message(1)]),
+          key(9, before: 5): page([message(1)]),
         },
       );
       await subject.chat.openChannel(site, 9);
@@ -346,7 +500,7 @@ void main() {
       final subject = build(
         messages: {
           key(9): page([message(5, minute: 5)], canLoadMorePast: true),
-          key(9, 5): page([message(3, minute: 3), message(5, minute: 5)]),
+          key(9, before: 5): page([message(3, minute: 3), message(5, minute: 5)]),
         },
       );
 
@@ -381,7 +535,7 @@ void main() {
           key(9): page([message(2, minute: 5)], canLoadMorePast: true),
           // A higher id but an earlier date: the site orders by date first and
           // so does this, because that is what keeps its cursors meaningful.
-          key(9, 2): page([message(30, minute: 1)]),
+          key(9, before: 2): page([message(30, minute: 1)]),
         },
       );
 
@@ -442,6 +596,169 @@ void main() {
 
       expect(subject.api.chatChannelsRequested, [site, site]);
       expect(subject.chat.publicChannels(site), hasLength(1));
+    });
+  });
+
+  group('crediting the reader with what they have seen', () {
+    /// A site with one three-message channel, already open.
+    Future<({ChatController chat, FakeDiscourseApi api, Store store})> reading({
+      ChatChannel? held,
+      WriteException? readFailure,
+    }) async {
+      final subject = build(
+        channels: {
+          site: (public: [held ?? channel(9)], direct: const []),
+        },
+        messages: {
+          key(9): page([
+            message(1),
+            message(2, minute: 1),
+            message(3, minute: 2),
+          ]),
+        },
+        readFailure: readFailure,
+      );
+      await subject.chat.loadChannels(site);
+      await subject.chat.openChannel(site, 9);
+      return subject;
+    }
+
+    ChatChannel? held(Store store) => store.read<ChatChannel>(site, 9);
+
+    test('tells the site the newest message the reader has had on screen', () async {
+      final subject = await reading(held: channel(9, lastRead: 1));
+
+      await subject.chat.markRead(site, 9, 3);
+
+      expect(subject.api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
+      expect(held(subject.store)?.membership.lastReadMessageId, 3);
+    });
+
+    test('empties the counts on reaching the newest message there is', () async {
+      final subject = await reading(
+        held: channel(9, lastRead: 1, unread: 2, mentions: 1),
+      );
+
+      await subject.chat.markRead(site, 9, 3);
+
+      expect(held(subject.store)?.tracking, ChatTracking.none);
+      expect(held(subject.store)?.badge.isVisible, isFalse);
+    });
+
+    test('leaves the counts alone in the middle, where it cannot know', () async {
+      // What is unread above the reader is a sum of mentions, watched threads
+      // and plain messages counted over rows this app never fetched. The site
+      // says; this does not guess.
+      final subject = await reading(
+        held: channel(9, lastRead: 1, unread: 2, mentions: 1),
+      );
+
+      await subject.chat.markRead(site, 9, 2);
+
+      expect(held(subject.store)?.tracking.unreadCount, 2);
+      expect(held(subject.store)?.tracking.mentionCount, 1);
+      expect(held(subject.store)?.membership.lastReadMessageId, 2);
+    });
+
+    test('keeps the counts while there is still a backlog in front', () async {
+      // The last message *held* is not the last message there is when the
+      // window is anchored behind the present, and emptying the counts there
+      // would say the reader had caught up with messages they have not been
+      // sent yet.
+      final subject = build(
+        channels: {
+          site: (
+            public: [channel(9, lastRead: 1, unread: 9)],
+            direct: const [],
+          ),
+        },
+        messages: {
+          key(9): page([
+            message(1),
+            message(2, minute: 1),
+            message(3, minute: 2),
+          ], canLoadMoreFuture: true),
+        },
+      );
+      await subject.chat.loadChannels(site);
+      await subject.chat.openChannel(site, 9);
+
+      await subject.chat.markRead(site, 9, 3);
+
+      expect(held(subject.store)?.membership.lastReadMessageId, 3);
+      expect(held(subject.store)?.tracking.unreadCount, 9);
+    });
+
+    test('never moves the reader backwards into the past', () async {
+      // Which is also the site's rule — `ensure_message_id_recency` — and the
+      // reader's: paging up must not undo what they have already read.
+      final subject = await reading(held: channel(9, lastRead: 3));
+
+      await subject.chat.markRead(site, 9, 1);
+
+      expect(subject.api.chatReadsMarked, isEmpty);
+      expect(held(subject.store)?.membership.lastReadMessageId, 3);
+    });
+
+    test('writes once for a message it has already recorded', () async {
+      // The optimistic update is the whole of the de-duplication: a second
+      // scroll tick that sees the same message reads back its own answer.
+      final subject = await reading(held: channel(9, lastRead: 1));
+
+      await subject.chat.markRead(site, 9, 3);
+      await subject.chat.markRead(site, 9, 3);
+
+      expect(subject.api.chatReadsMarked, hasLength(1));
+    });
+
+    test('says nothing about a channel the reader does not follow', () async {
+      // There is no membership row to move, and the site answers 404.
+      final subject = await reading(held: channel(9, following: false));
+
+      await subject.chat.markRead(site, 9, 3);
+
+      expect(subject.api.chatReadsMarked, isEmpty);
+    });
+
+    test('says nothing about a channel it has never heard of', () async {
+      final subject = build();
+
+      await subject.chat.markRead(site, 404, 3);
+
+      expect(subject.api.chatReadsMarked, isEmpty);
+    });
+
+    test('keeps the guess when the site refuses the write', () async {
+      // Nobody asked for this and nobody is waiting on it, so there is nothing
+      // to tell and nothing to put back. The next channel list corrects it.
+      final subject = await reading(
+        held: channel(9, lastRead: 1, unread: 2),
+        readFailure: const WriteException(WriteFailure.unreachable),
+      );
+
+      await subject.chat.markRead(site, 9, 3);
+
+      expect(held(subject.store)?.membership.lastReadMessageId, 3);
+      expect(held(subject.store)?.tracking, ChatTracking.none);
+    });
+
+    test('pins the unread divider to where the reader was on opening', () async {
+      // Otherwise the line slides down the screen ahead of the reader and then
+      // vanishes, which is the reason Discourse snapshots it too.
+      final subject = await reading(held: channel(9, lastRead: 1));
+
+      await subject.chat.markRead(site, 9, 3);
+
+      expect(subject.chat.stream(site, 9).lastReadOnOpen, 1);
+    });
+
+    test('moves the divider only when the channel is opened again', () async {
+      final subject = await reading(held: channel(9, lastRead: 1));
+      await subject.chat.markRead(site, 9, 3);
+
+      await subject.chat.openChannel(site, 9);
+
+      expect(subject.chat.stream(site, 9).lastReadOnOpen, 3);
     });
   });
 }

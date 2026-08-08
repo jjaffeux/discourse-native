@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'list_link.dart';
 import 'sidebar.dart';
 
 /// One entry in the main content stack.
@@ -19,7 +20,25 @@ class ContentRoute {
     this.color,
     this.topicId,
     this.slug,
+    this.feedPath,
   });
+
+  /// A filtered topic list — a category or a tag — opened from a hashtag.
+  ///
+  /// Unlike a sidebar destination this route brings its own [feedPath], because
+  /// nothing in the app knows the list exists until a post mentions it. The id
+  /// is derived from that path so the same category opened twice is the same
+  /// route, and so its feed is cached under a key nothing else can collide
+  /// with.
+  factory ContentRoute.list(ListLink link, {String? title, Color? color}) {
+    return ContentRoute(
+      id: 'list-${link.feedPath}',
+      title: title ?? link.placeholderTitle,
+      icon: link.kind == ListKind.category ? DIcons.folder : DIcons.tag,
+      color: color,
+      feedPath: link.feedPath,
+    );
+  }
 
   /// A specific topic, opened from a list.
   factory ContentRoute.topic({
@@ -48,7 +67,8 @@ class ContentRoute {
       subtitle = null,
       color = destination.color,
       topicId = null,
-      slug = null;
+      slug = null,
+      feedPath = null;
 
   final String id;
   final String title;
@@ -59,6 +79,11 @@ class ContentRoute {
   /// Set when this route is a topic rather than a list.
   final int? topicId;
   final String? slug;
+
+  /// Where this route's topic list lives, for a route that carries its own —
+  /// see [ContentRoute.list]. Null for everything the sidebar opens, whose
+  /// feeds `ShellController` already knows the address of.
+  final String? feedPath;
 
   bool get isTopic => topicId != null;
 

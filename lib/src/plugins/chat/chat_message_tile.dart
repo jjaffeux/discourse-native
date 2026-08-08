@@ -46,10 +46,9 @@ class ChatMessageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ChatMessage?>(
-      valueListenable: ShellScope.of(context).chat.messageRef(
-        siteUrl,
-        messageId,
-      ),
+      valueListenable: ShellScope.of(
+        context,
+      ).chat.messageRef(siteUrl, messageId),
       builder: (context, message, _) {
         // Gone for good, in the frame before the stream that named it is
         // rewritten without it.
@@ -84,33 +83,45 @@ class _Tile extends StatelessWidget {
             children: [
               SizedBox(
                 width: ChatMessageTile.gutter,
+                // Aligned rather than handed straight to the gutter: a fixed
+                // width is a *tight* constraint, and a SizedBox cannot shrink
+                // below one it is given — `tightFor(...).enforce(incoming)`
+                // clamps it straight back. Without this the avatar came out
+                // gutter-wide and avatar-tall, and ClipOval drew the ellipse
+                // that made of it. Align loosens what it passes down, so the
+                // 28 asked for below is the 28 that arrives.
                 child: chained
                     ? const SizedBox.shrink()
-                    : Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: UserCardTarget(
-                          username: message.author.username,
-                          child: ClipOval(
-                            child: SizedBox(
-                              width: 28,
-                              height: 28,
-                              child: AvatarImage(
-                                url: message.author.avatarUrl,
-                                size: 28,
-                                fallback: ColoredBox(
-                                  color: theme.shell.floating,
-                                  child: Center(
-                                    child: Text(
-                                      message.author.username.isEmpty
-                                          ? '?'
-                                          : message.author.username
-                                                .characters
-                                                .first
-                                                .toUpperCase(),
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                    : Align(
+                        alignment: Alignment.topLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: UserCardTarget(
+                            username: message.author.username,
+                            child: ClipOval(
+                              child: SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: AvatarImage(
+                                  url: message.author.avatarUrl,
+                                  size: 28,
+                                  fallback: ColoredBox(
+                                    color: theme.shell.floating,
+                                    child: Center(
+                                      child: Text(
+                                        message.author.username.isEmpty
+                                            ? '?'
+                                            : message
+                                                  .author
+                                                  .username
+                                                  .characters
+                                                  .first
+                                                  .toUpperCase(),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -216,10 +227,7 @@ class _ReplyIndicator extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.only(
-        left: ChatMessageTile.gutter,
-        bottom: 2,
-      ),
+      padding: const EdgeInsets.only(left: ChatMessageTile.gutter, bottom: 2),
       child: Row(
         children: [
           DIcon(

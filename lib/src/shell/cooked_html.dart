@@ -4,10 +4,13 @@ import 'package:html/dom.dart' as dom;
 
 import 'code_block.dart';
 import 'emoji.dart';
+import 'hashtag.dart';
 import 'image_grid.dart';
 import 'inline_code.dart';
 import 'lightbox.dart';
-import 'onebox.dart';
+import 'mention.dart';
+import 'oneboxes/inline.dart';
+import 'oneboxes/onebox.dart';
 import 'open_link.dart';
 import 'quote.dart';
 import 'shell_scope.dart';
@@ -36,9 +39,12 @@ class CookedHtml extends StatelessWidget {
   ) =>
       (element) =>
           emojiWidgetBuilder(element, siteUrl, textStyle) ??
+          mentionWidgetBuilder(element, textStyle) ??
+          hashtagWidgetBuilder(element, textStyle) ??
           imageGridWidgetBuilder(element) ??
           lightboxWidgetBuilder(element) ??
           oneboxWidgetBuilder(element) ??
+          inlineOneboxWidgetBuilder(element) ??
           quoteWidgetBuilder(element) ??
           codeBlockWidgetBuilder(element) ??
           inlineCodeWidgetBuilder(element, textStyle);

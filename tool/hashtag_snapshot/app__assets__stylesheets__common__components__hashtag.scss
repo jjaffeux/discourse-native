@@ -1,0 +1,108 @@
+.hashtag-cooked {
+  @include mention;
+
+  &:visited,
+  &:hover {
+    color: var(--primary);
+  }
+
+  .hashtag-icon-placeholder {
+    width: 0.72em;
+    height: 0.72em;
+    display: inline-block;
+    color: var(--primary-medium);
+    margin-right: var(--space-1);
+  }
+
+  img.emoji,
+  svg {
+    width: 0.93em;
+    height: 0.93em;
+    vertical-align: -0.125em;
+    margin-right: var(--space-1);
+  }
+
+  .hashtag-category-square {
+    display: inline-block;
+    width: 0.72em;
+    height: 0.72em;
+    margin-left: 0.1em;
+    margin-right: var(--space-1);
+  }
+}
+
+.hashtag-autocomplete {
+  max-height: 13.5em;
+  overflow-y: auto;
+  box-shadow: var(--shadow-dropdown);
+  border-radius: 8px;
+
+  &__fadeout {
+    height: inherit;
+    max-height: inherit;
+    overflow-y: auto;
+
+    &::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 1.5em;
+      background: linear-gradient(
+        to bottom,
+        rgb(var(--secondary-rgb), 0),
+        rgb(var(--secondary-rgb), 100%)
+      );
+    }
+  }
+
+  &__option {
+    &:last-of-type {
+      .hashtag-autocomplete__link {
+        position: relative;
+        z-index: 1;
+      }
+    }
+  }
+
+  &__link {
+    .autocomplete & {
+      // silly but needed to overrule the autocomplete styles
+      gap: var(--space-2);
+    }
+
+    .hashtag-category-icon,
+    .hashtag-category-emoji {
+      width: 1em;
+      height: 1em;
+    }
+
+    .hashtag-category-square {
+      width: 0.93em;
+      height: 0.93em;
+      display: inline-block;
+    }
+
+    img.emoji,
+    svg {
+      width: 0.93em;
+      height: 0.93em;
+      vertical-align: top;
+    }
+  }
+
+  &__text {
+    display: flex;
+    align-items: center;
+    gap: 0.25em;
+    flex: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  &__meta-text {
+    color: var(--primary-700);
+    font-size: var(--font-down-1);
+  }
+}

@@ -55,7 +55,10 @@ class DIcon extends StatelessWidget {
   /// with padding baked in, so the same number means a visibly larger icon.
   /// Scaling the glyph down inside its box matches both Material's optical size
   /// and the 0.86em Discourse gives `.d-icon` on the web.
-  static const double _glyphScale = 0.875;
+  /// Public because a caller that has been given a *glyph* size — a pill, whose
+  /// dimensions come from Discourse's stylesheet — has to divide by this to get
+  /// the box size this widget wants.
+  static const double glyphScale = 0.875;
 
   @override
   Widget build(BuildContext context) {
@@ -69,8 +72,8 @@ class DIcon extends StatelessWidget {
       child: Center(
         child: SvgPicture.string(
           icon.svg,
-          width: box * _glyphScale,
-          height: box * _glyphScale,
+          width: box * glyphScale,
+          height: box * glyphScale,
           fit: BoxFit.contain,
           colorFilter: ColorFilter.mode(
             opacity == 1.0 ? tint : tint.withValues(alpha: tint.a * opacity),

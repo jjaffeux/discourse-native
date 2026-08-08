@@ -776,6 +776,415 @@ void _feedGroups() {
     );
   });
 
+  group('searchUsers', () {
+    test('asks with the term, the limit and the topic', () async {
+      Uri? asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          return http.Response(
+            jsonEncode({
+              'users': [
+                {
+                  'username': 'sam',
+                  'name': 'Sam Saffron',
+                  'avatar_template': '/user_avatar/x/sam/{size}/1.png',
+                },
+                {'username': 'sally'},
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final found = await api.searchUsers(
+        siteUrl: 'https://example.com',
+        term: 'sa',
+        topicId: 7,
+      );
+
+      expect(asked!.path, '/u/search/users.json');
+      expect(asked!.queryParameters, {
+        'term': 'sa',
+        'limit': '10',
+        // Discourse ranks people already in the topic first, so leaving this
+        // off would offer alphabetical strangers over the person being
+        // replied to.
+        'topic_id': '7',
+      });
+      expect(found.map((user) => user.username), ['sam', 'sally']);
+      expect(found.first.name, 'Sam Saffron');
+      expect(found.first.avatarUrl, contains('example.com'));
+      // Absent on a site with `enable_names` off.
+      expect(found.last.name, isNull);
+    });
+
+    test('leaves the topic out when there is not one', () async {
+      Uri? asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          return http.Response(jsonEncode({'users': []}), 200);
+        }),
+      );
+
+      await api.searchUsers(siteUrl: 'https://example.com', term: 'sa');
+
+      expect(asked!.queryParameters.containsKey('topic_id'), isFalse);
+    });
+
+    test('an answer it cannot read is a failure, not an empty list', () async {
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('not json', 200)),
+      );
+
+      await expectLater(
+        api.searchUsers(siteUrl: 'https://example.com', term: 'sa'),
+        throwsA(isA<SiteLookupException>()),
+      );
+    });
+  });
+
+  group('searchHashtags', () {
+    /// One row of what `/hashtags/search.json` answers with.
+    Map<String, dynamic> row({
+      required String type,
+      required String ref,
+      required String slug,
+      required String text,
+      required int id,
+      String styleType = 'square',
+      String? icon,
+      String? emoji,
+      List<String>? colors,
+      String? secondaryText,
+    }) => {
+      'relative_url': type == 'category' ? '/c/$slug/$id' : '/tag/$slug/$id',
+      'text': text,
+      'description': null,
+      'style_type': styleType,
+      'emoji': emoji,
+      'icon': icon,
+      'colors': colors,
+      'type': type,
+      'ref': ref,
+      'slug': slug,
+      'id': id,
+      'secondary_text': ?secondaryText,
+    };
+
+    test('asks with the term and the type order', () async {
+      Uri? asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          return http.Response(jsonEncode({'results': []}), 200);
+        }),
+      );
+
+      await api.searchHashtags(siteUrl: 'https://example.com', term: 'ran');
+
+      expect(asked!.path, '/hashtags/search.json');
+      // `order` is required — the controller does `params.require(:order)`
+      // and answers 400 without it. `queryParameters` collapses a repeated
+      // key to its last value, so the assertion has to be on the plural.
+      expect(asked!.queryParametersAll, {
+        'term': ['ran'],
+        'order[]': ['category', 'tag'],
+      });
+    });
+
+    test('reads a category and a tag', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'success': 'OK',
+              'results': [
+                row(
+                  type: 'category',
+                  ref: 'random',
+                  slug: 'random',
+                  text: 'Random',
+                  id: 5,
+                  icon: 'folder',
+                  colors: ['0088CC'],
+                ),
+                row(
+                  type: 'tag',
+                  ref: 'random::tag',
+                  slug: 'random',
+                  text: 'random',
+                  id: 12,
+                  styleType: 'icon',
+                  icon: 'tag',
+                  secondaryText: 'x0',
+                ),
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final found = await api.searchHashtags(
+        siteUrl: 'https://example.com',
+        term: 'random',
+      );
+
+      expect(found.map((f) => f.type), ['category', 'tag']);
+      // The ref, not the slug, is what gets written into the post — it is the
+      // only form that survives two things sharing a name.
+      expect(found[1].ref, 'random::tag');
+      expect(found[1].slug, 'random');
+      expect(found[1].secondaryText, 'x0');
+      expect(found.first.colorValues, [0xFF0088CC]);
+    });
+
+    test('reads a subcategory as parent then child', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'results': [
+                row(
+                  type: 'category',
+                  ref: 'parent:child',
+                  slug: 'child',
+                  text: 'Parent > Child',
+                  id: 12,
+                  colors: ['FF0000', '00FF00'],
+                ),
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final found = await api.searchHashtags(
+        siteUrl: 'https://example.com',
+        term: 'child',
+      );
+
+      expect(found.single.ref, 'parent:child');
+      expect(found.single.text, 'Parent > Child');
+      expect(found.single.colorValues, [0xFFFF0000, 0xFF00FF00]);
+    });
+
+    test('a body that is not what we asked for is unreachable', () async {
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('<html>nope', 200)),
+      );
+
+      expect(
+        () => api.searchHashtags(siteUrl: 'https://example.com', term: 'x'),
+        throwsA(isA<SiteLookupException>()),
+      );
+    });
+  });
+
+  group('lookupHashtags', () {
+    test('asks with every ref and reads the reply keyed by type', () async {
+      Uri? asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          return http.Response(
+            jsonEncode({
+              'category': [
+                {
+                  'type': 'category',
+                  'ref': 'bug',
+                  'slug': 'bug',
+                  'text': 'Bug',
+                  'id': 5,
+                  'colors': ['0088CC'],
+                },
+              ],
+              'tag': [
+                {
+                  'type': 'tag',
+                  'ref': 'ux::tag',
+                  'slug': 'ux',
+                  'text': 'ux',
+                  'id': 3,
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final found = await api.lookupHashtags(
+        siteUrl: 'https://example.com',
+        refs: ['bug', 'ux::tag'],
+      );
+
+      expect(asked!.path, '/hashtags.json');
+      expect(asked!.queryParametersAll['slugs[]'], ['bug', 'ux::tag']);
+      expect(asked!.queryParametersAll['order[]'], ['category', 'tag']);
+      expect(found.map((f) => f.ref), containsAll(['bug', 'ux::tag']));
+    });
+
+    test('a ref the site does not resolve is simply absent', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async =>
+              http.Response(jsonEncode({'category': [], 'tag': []}), 200),
+        ),
+      );
+
+      final found = await api.lookupHashtags(
+        siteUrl: 'https://example.com',
+        refs: ['nothing'],
+      );
+
+      expect(found, isEmpty);
+    });
+
+    test('asks for nothing when there is nothing to ask about', () async {
+      var called = false;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          called = true;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      expect(
+        await api.lookupHashtags(siteUrl: 'https://example.com', refs: const []),
+        isEmpty,
+      );
+      expect(called, isFalse);
+    });
+
+    test('never asks about more than the site will answer', () async {
+      Uri? asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await api.lookupHashtags(
+        siteUrl: 'https://example.com',
+        refs: [for (var i = 0; i < 50; i++) 'ref$i'],
+      );
+
+      expect(
+        asked!.queryParametersAll['slugs[]'],
+        hasLength(DiscourseApi.hashtagsPerRequest),
+      );
+    });
+  });
+
+  group('checkMentions', () {
+    test('asks with the names and the topic, and folds in groups', () async {
+      Uri? asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          return http.Response(
+            jsonEncode({
+              'users': ['sam'],
+              // A name the reader cannot notify here is still a real account,
+              // and Discourse still links it — so a reason is not a refusal.
+              'user_reasons': {'sam': 'private'},
+              'groups': {
+                'staff': {'user_count': 12},
+              },
+              'here_count': 42,
+            }),
+            200,
+          );
+        }),
+      );
+
+      final real = await api.checkMentions(
+        siteUrl: 'https://example.com',
+        names: ['sam', 'nobody', 'staff'],
+        topicId: 7,
+      );
+
+      expect(asked!.path, '/composer/mentions');
+      expect(asked!.queryParametersAll['names[]'], ['sam', 'nobody', 'staff']);
+      expect(asked!.queryParameters['topic_id'], '7');
+      expect(real, {'sam', 'staff'});
+    });
+
+    test('asks for nothing when there is nothing to ask about', () async {
+      var called = false;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          called = true;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      expect(
+        await api.checkMentions(
+          siteUrl: 'https://example.com',
+          names: const [],
+        ),
+        isEmpty,
+      );
+      expect(called, isFalse);
+    });
+  });
+
+  group('emojis', () {
+    test('flattens the groups the site lists them in', () async {
+      final paths = <String>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          paths.add(request.url.path);
+          return http.Response(
+            jsonEncode({
+              'smileys_&_emotion': [
+                {'name': 'smile', 'url': '/images/emoji/twitter/smile.png'},
+                {'name': 'grin', 'url': 'https://cdn.example.com/grin.png'},
+              ],
+              'default': [
+                {'name': 'shipit', 'url': '/uploads/shipit.png'},
+                // Malformed rows are dropped rather than read loosely.
+                {'name': 'no_url'},
+              ],
+              'not_a_group': 'nonsense',
+            }),
+            200,
+          );
+        }),
+      );
+
+      final emojis = await api.emojis(siteUrl: 'https://example.com');
+
+      expect(paths, ['/emojis.json']);
+      expect(emojis.map((e) => e.name), ['smile', 'grin', 'shipit']);
+      // Site-relative urls are resolved; an absolute one is left as the site
+      // wrote it, CDN and all.
+      expect(
+        emojis.first.url,
+        'https://example.com/images/emoji/twitter/smile.png',
+      );
+      expect(emojis[1].url, 'https://cdn.example.com/grin.png');
+    });
+
+    test('an answer it cannot read is a failure, not an empty list', () async {
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('not json', 200)),
+      );
+
+      await expectLater(
+        api.emojis(siteUrl: 'https://example.com'),
+        throwsA(isA<SiteLookupException>()),
+      );
+    });
+  });
+
   group('customEmojis', () {
     test('reads a payload shaped as an object of name to url', () async {
       final paths = <String>[];
@@ -1040,17 +1449,20 @@ void _feedGroups() {
           );
         });
 
-    test('asks the route that answers with only the channels a reader follows', () async {
-      late Uri seen;
-      final api = DiscourseApi(client: serving((r) => seen = r.url));
+    test(
+      'asks the route that answers with only the channels a reader follows',
+      () async {
+        late Uri seen;
+        final api = DiscourseApi(client: serving((r) => seen = r.url));
 
-      await api.chatChannels(siteUrl: 'https://example.com');
+        await api.chatChannels(siteUrl: 'https://example.com');
 
-      expect(seen.path, '/chat/api/me/channels.json');
-      // The route takes no parameters at all — the reader's own memberships are
-      // the whole of the query.
-      expect(seen.queryParameters, isEmpty);
-    });
+        expect(seen.path, '/chat/api/me/channels.json');
+        // The route takes no parameters at all — the reader's own memberships are
+        // the whole of the query.
+        expect(seen.queryParameters, isEmpty);
+      },
+    );
 
     test('reads the public and the direct lists apart', () async {
       final api = DiscourseApi(client: serving((_) {}));
@@ -1062,19 +1474,22 @@ void _feedGroups() {
       expect(channels.public.single.tracking.unreadCount, 3);
     });
 
-    test('sends the user api key, an anonymous reader having no channels', () async {
-      late Map<String, String> headers;
-      final api = DiscourseApi(client: serving((r) => headers = r.headers));
+    test(
+      'sends the user api key, an anonymous reader having no channels',
+      () async {
+        late Map<String, String> headers;
+        final api = DiscourseApi(client: serving((r) => headers = r.headers));
 
-      await api.chatChannels(
-        siteUrl: 'https://example.com',
-        apiKey: 'key',
-        clientId: 'client',
-      );
+        await api.chatChannels(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          clientId: 'client',
+        );
 
-      expect(headers['User-Api-Key'], 'key');
-      expect(headers['User-Api-Client-Id'], 'client');
-    });
+        expect(headers['User-Api-Key'], 'key');
+        expect(headers['User-Api-Client-Id'], 'client');
+      },
+    );
 
     test('reports a site that refuses the way every other read does', () async {
       // 403 is what a site with chat off, or a reader who may not use it, gets.
@@ -1141,53 +1556,67 @@ void _feedGroups() {
       expect(seen.queryParameters, isNot(contains('direction')));
     });
 
-    test('asks for the page before a message it holds, that message excluded', () async {
-      late Uri seen;
-      final api = DiscourseApi(client: serving((r) => seen = r.url));
+    test(
+      'asks for the page before a message it holds, that message excluded',
+      () async {
+        late Uri seen;
+        final api = DiscourseApi(client: serving((r) => seen = r.url));
 
-      await api.chatMessages(
-        siteUrl: 'https://example.com',
-        channelId: 9,
-        before: 40,
-      );
+        await api.chatMessages(
+          siteUrl: 'https://example.com',
+          channelId: 9,
+          before: 40,
+        );
 
-      expect(seen.queryParameters['direction'], 'past');
-      expect(seen.queryParameters['target_message_id'], '40');
-    });
+        expect(seen.queryParameters['direction'], 'past');
+        expect(seen.queryParameters['target_message_id'], '40');
+      },
+    );
 
-    test('never asks to fetch from last read, there being no way to page forward', () async {
-      late Uri seen;
-      final api = DiscourseApi(client: serving((r) => seen = r.url));
+    test(
+      'never asks to fetch from last read, there being no way to page forward',
+      () async {
+        late Uri seen;
+        final api = DiscourseApi(client: serving((r) => seen = r.url));
 
-      await api.chatMessages(siteUrl: 'https://example.com', channelId: 9);
+        await api.chatMessages(siteUrl: 'https://example.com', channelId: 9);
 
-      expect(seen.queryParameters, isNot(contains('fetch_from_last_read')));
-    });
+        expect(seen.queryParameters, isNot(contains('fetch_from_last_read')));
+      },
+    );
 
-    test('sends the page size the site caps at, so the code names the real one', () async {
-      late Uri seen;
-      final api = DiscourseApi(client: serving((r) => seen = r.url));
+    test(
+      'sends the page size the site caps at, so the code names the real one',
+      () async {
+        late Uri seen;
+        final api = DiscourseApi(client: serving((r) => seen = r.url));
 
-      await api.chatMessages(
-        siteUrl: 'https://example.com',
-        channelId: 9,
-        pageSize: 20,
-      );
+        await api.chatMessages(
+          siteUrl: 'https://example.com',
+          channelId: 9,
+          pageSize: 20,
+        );
 
-      expect(seen.queryParameters['page_size'], '20');
-    });
+        expect(seen.queryParameters['page_size'], '20');
+      },
+    );
 
-    test('reads a null can_load_more_past as no more rather than as unknown', () async {
-      // Ruby leaves the flag for the direction it did not paginate unassigned.
-      final api = DiscourseApi(client: serving((_) {}, canLoadMorePast: null));
+    test(
+      'reads a null can_load_more_past as no more rather than as unknown',
+      () async {
+        // Ruby leaves the flag for the direction it did not paginate unassigned.
+        final api = DiscourseApi(
+          client: serving((_) {}, canLoadMorePast: null),
+        );
 
-      final page = await api.chatMessages(
-        siteUrl: 'https://example.com',
-        channelId: 9,
-      );
+        final page = await api.chatMessages(
+          siteUrl: 'https://example.com',
+          channelId: 9,
+        );
 
-      expect(page.canLoadMorePast, isFalse);
-    });
+        expect(page.canLoadMorePast, isFalse);
+      },
+    );
 
     test('reads a channel that says there is more behind it', () async {
       final api = DiscourseApi(client: serving((_) {}, canLoadMorePast: true));
@@ -1198,6 +1627,49 @@ void _feedGroups() {
       );
 
       expect(page.canLoadMorePast, isTrue);
+    });
+  });
+
+  group('markChatChannelRead', () {
+    test('names the message the reader has got to, in the query', () async {
+      String? method;
+      late Uri seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          method = request.method;
+          seen = request.url;
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.markChatChannelRead(
+        siteUrl: 'https://example.com',
+        apiKey: 'the-key',
+        channelId: 9,
+        messageId: 44,
+      );
+
+      expect(method, 'PUT');
+      expect(seen.path, '/chat/api/channels/9/read.json');
+      // In the query string, which is where Discourse's own client puts it.
+      expect(seen.queryParameters['message_id'], '44');
+    });
+
+    test('reports a refusal rather than swallowing it', () async {
+      // The controller swallows it; the route does not get to decide that.
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('', 404)),
+      );
+
+      await expectLater(
+        api.markChatChannelRead(
+          siteUrl: 'https://example.com',
+          apiKey: 'the-key',
+          channelId: 9,
+          messageId: 44,
+        ),
+        throwsA(isA<WriteException>()),
+      );
     });
   });
 

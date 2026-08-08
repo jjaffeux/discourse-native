@@ -1,4 +1,10 @@
-import 'package:discourse_native/src/shell/onebox.dart';
+import 'package:discourse_native/src/shell/oneboxes/discourse/category/block.dart';
+import 'package:discourse_native/src/shell/oneboxes/discourse/topic/block.dart';
+import 'package:discourse_native/src/shell/oneboxes/discourse/user/block.dart';
+import 'package:discourse_native/src/shell/oneboxes/github/commit/block.dart';
+import 'package:discourse_native/src/shell/oneboxes/github/issue/block.dart';
+import 'package:discourse_native/src/shell/oneboxes/github/pr/block.dart';
+import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,10 +43,10 @@ const String twitterOnebox = '''
 </aside>
 ''';
 
-OneboxData parse(String source) {
-  final aside = html.parse(source).querySelector('aside.onebox')!;
-  return OneboxData.from(aside);
-}
+dom.Element aside(String source) =>
+    html.parse(source).querySelector('aside.onebox')!;
+
+OneboxData parse(String source) => OneboxData.from(aside(source));
 
 void main() {
   group('OneboxData', () {
@@ -114,6 +120,41 @@ void main() {
       );
       expect(oneboxWidgetBuilder(element('<p>hello</p>')), isNull);
     });
+
+    test('hands engines the asides they claim', () {
+      Widget body(Widget widget) =>
+          (widget as OneboxCard).child ?? const SizedBox();
+
+      expect(
+        body(oneboxWidgetBuilder(aside(prOnebox))!),
+        isA<GithubPullRequestOnebox>(),
+      );
+      expect(
+        body(oneboxWidgetBuilder(aside(issueOnebox))!),
+        isA<GithubIssueOnebox>(),
+      );
+      expect(
+        body(oneboxWidgetBuilder(aside(commitOnebox))!),
+        isA<GithubCommitOnebox>(),
+      );
+      expect(
+        body(oneboxWidgetBuilder(aside(discourseTopicOnebox))!),
+        isA<DiscourseTopicOnebox>(),
+      );
+      expect(
+        body(oneboxWidgetBuilder(aside(userOnebox))!),
+        isA<DiscourseUserOnebox>(),
+      );
+      expect(
+        body(oneboxWidgetBuilder(aside(categoryOnebox))!),
+        isA<DiscourseCategoryOnebox>(),
+      );
+      // An engine nobody wrote yet still lands on its feet.
+      expect(
+        (oneboxWidgetBuilder(aside(genericOnebox))! as OneboxCard).child,
+        isNull,
+      );
+    });
   });
 
   group('OneboxCard', () {
@@ -135,3 +176,67 @@ void main() {
     });
   });
 }
+
+/// Minimal asides for the dispatch test; the full shapes live in each
+/// engine's own test.
+const String prOnebox = '''
+<aside class="onebox githubpullrequest" data-onebox-src="https://github.com/discourse/discourse/pull/1">
+  <article class="onebox-body">
+    <div class="github-row">
+      <div class="github-info-container">
+        <h4><a href="https://github.com/discourse/discourse/pull/1">Title (#1)</a></h4>
+      </div>
+    </div>
+  </article>
+</aside>
+''';
+
+const String issueOnebox = '''
+<aside class="onebox githubissue" data-onebox-src="https://github.com/discourse/discourse/issues/1">
+  <article class="onebox-body">
+    <div class="github-row">
+      <div class="github-info-container">
+        <h4><a href="https://github.com/discourse/discourse/issues/1">Title</a></h4>
+      </div>
+    </div>
+  </article>
+</aside>
+''';
+
+const String commitOnebox = '''
+<aside class="onebox githubcommit" data-onebox-src="https://github.com/discourse/discourse/commit/abc1234">
+  <article class="onebox-body">
+    <div class="github-row">
+      <div class="github-info-container">
+        <h4><a href="https://github.com/discourse/discourse/commit/abc1234">Fix</a></h4>
+      </div>
+    </div>
+  </article>
+</aside>
+''';
+
+const String discourseTopicOnebox = '''
+<aside class="onebox discoursetopic" data-onebox-src="https://meta.discourse.org/t/some-topic/123">
+  <article class="onebox-body">
+    <div class="title-wrapper">
+      <h3><a href="https://meta.discourse.org/t/some-topic/123">Some topic</a></h3>
+    </div>
+  </article>
+</aside>
+''';
+
+const String userOnebox = '''
+<aside class="onebox" data-onebox-src="https://meta.discourse.org/u/octocat">
+  <article class="onebox-body user-onebox">
+    <h3><a href="https://meta.discourse.org/u/octocat">@octocat</a></h3>
+  </article>
+</aside>
+''';
+
+const String categoryOnebox = '''
+<aside class="onebox category-onebox" data-onebox-src="https://meta.discourse.org/c/feature/60">
+  <article class="onebox-body category-onebox-body">
+    <h3><a class="badge-category__wrapper" href="https://meta.discourse.org/c/feature/60"><span class="badge-category__name">feature</span></a></h3>
+  </article>
+</aside>
+''';

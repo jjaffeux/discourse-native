@@ -4,9 +4,12 @@ import 'package:flutter/widgets.dart';
 
 import '../data/discourse_api.dart';
 import '../models/composer_draft.dart';
-import 'package:super_editor/super_editor.dart';
 
+import 'composer_autocomplete.dart';
+import 'composer_pills.dart';
 import 'composer_marks.dart';
+import 'composer_triggers.dart';
+import 'markdown_editing_controller.dart';
 
 /// What a composer is writing to.
 ///
@@ -104,17 +107,6 @@ enum ComposerState {
   unresolved,
 }
 
-/// Which editing surface the composer is showing.
-enum ComposerMode {
-  /// The markdown itself, in a plain field. Always available, and always what
-  /// gets posted.
-  plain,
-
-  /// A document model over the same markdown. Only offered for text that
-  /// survives the round trip unchanged.
-  rich,
-}
-
 /// How the draft of an open composer is getting on.
 enum DraftStatus {
   /// Nothing written since the last save, or nothing written at all.
@@ -136,10 +128,21 @@ enum DraftStatus {
 /// nothing outside this panel, and the shell's notifier rebuilds the rail, the
 /// sidebar and the whole post list along with it.
 class ComposerController extends ChangeNotifier {
-  ComposerController(this._target, {this.onSaveDraft, DateTime Function()? now})
-    : _typing = TypingClock(now: now),
-      _now = now ?? DateTime.now,
-      _openedAt = (now ?? DateTime.now)() {
+  ComposerController(
+    this._target, {
+    this.onSaveDraft,
+    ComposerSearch? search,
+    String Function(String name)? resolveEmoji,
+    ComposerPills? pills,
+    DateTime Function()? now,
+  }) : text = MarkdownEditingController(
+         resolveEmoji: resolveEmoji,
+         pills: pills,
+       ),
+       autocomplete = ComposerAutocomplete(search: search),
+       _typing = TypingClock(now: now),
+       _now = now ?? DateTime.now,
+       _openedAt = (now ?? DateTime.now)() {
     text.addListener(_onTextChanged);
   }
 
@@ -161,8 +164,28 @@ class ComposerController extends ChangeNotifier {
   /// key; the composer only decides *when*.
   final Future<void> Function(ComposerController composer)? onSaveDraft;
 
-  final TextEditingController text = TextEditingController();
+  /// What will be posted, and what is typed into.
+  ///
+  /// A [MarkdownEditingController] only to change how it is *drawn* — the
+  /// string is untouched, and every other caller here treats it as the plain
+  /// controller it still is.
+  final MarkdownEditingController text;
+
   final FocusNode focus = FocusNode();
+
+  /// Bumped every time the field starts a fresh document, for the panel to key
+  /// the editable on.
+  ///
+  /// Rebuilding under a new key is the only way to drop the undo stack: it
+  /// lives in the state of `EditableText`'s `UndoHistory`, nothing exposes it —
+  /// `UndoHistoryController` offers `undo` and `redo` and no way to forget —
+  /// and emptying the text does not touch it. Without this, undo walks straight
+  /// back over the clear in [enqueued]; see there for what that costs.
+  int get fieldGeneration => _fieldGeneration;
+  int _fieldGeneration = 0;
+
+  /// The mention and emoji popup over this composer.
+  final ComposerAutocomplete autocomplete;
 
   final TypingClock _typing;
   final DateTime Function() _now;
@@ -197,84 +220,26 @@ class ComposerController extends ChangeNotifier {
   /// than earning a second refusal.
   bool get rateLimited => _rateLimited;
 
-  ComposerMode _mode = ComposerMode.plain;
-  ComposerMode get mode => _mode;
-
-  /// Whether what is written can be edited richly without being rewritten.
-  ///
-  /// Asked of the text as it stands, not once at open: pasting a table takes
-  /// rich mode away again, which is the honest answer.
-  bool get canUseRichMode => richModeAvailable(text.text);
-
-  /// Swaps surfaces, refusing to enter rich mode for text it would rewrite.
-  void toggleMode() {
-    if (_disposed) return;
-    if (_mode == ComposerMode.rich) {
-      _mode = ComposerMode.plain;
-    } else {
-      if (!canUseRichMode) return;
-      _mode = ComposerMode.rich;
-    }
-    _notify();
-  }
-
-  Editor? _richEditor;
-  DocumentComposer? _richDocumentComposer;
-
-  /// Lets the rich surface make itself reachable, so the toolbar can drive it
-  /// without the panel having to thread the editor through every button.
-  void attachRichEditor(Editor editor, DocumentComposer documentComposer) {
-    _richEditor = editor;
-    _richDocumentComposer = documentComposer;
-  }
-
-  void detachRichEditor(Editor editor) {
-    if (!identical(_richEditor, editor)) return;
-    _richEditor = null;
-    _richDocumentComposer = null;
-  }
-
-  /// Turns [mark] on or off, whichever surface is showing.
+  /// Turns [mark] on or off around the selection.
   void toggleMark(ComposerMark mark) {
     if (_disposed) return;
-    switch (_mode) {
-      case ComposerMode.plain:
-        text.value = toggleMarkdownMark(text.value, mark.marker);
-      case ComposerMode.rich:
-        _toggleRichMark(mark);
-    }
+    text.value = toggleMarkdownMark(text.value, mark.marker);
   }
 
-  void _toggleRichMark(ComposerMark mark) {
-    final editor = _richEditor;
-    final selection = _richDocumentComposer?.selection;
-    if (editor == null || selection == null) return;
-
-    if (selection.isCollapsed) {
-      // No selection yet: arm it for whatever gets typed next, the way every
-      // other editor does.
-      _richDocumentComposer?.preferences.toggleStyle(mark.attribution);
-      return;
-    }
-
-    editor.execute([
-      ToggleTextAttributionsRequest(
-        documentRange: selection,
-        attributions: {mark.attribution},
-      ),
-    ]);
-  }
-
-  /// Takes the markdown the rich surface produced.
+  /// Writes [suggestion] over the trigger that is open.
   ///
-  /// Goes through [text] like anything else, so drafts, the typing clock and
-  /// the send button all behave exactly as they do when someone types.
-  void setRawFromRichEditor(String markdown) {
-    if (_disposed || text.text == markdown) return;
-    text.value = TextEditingValue(
-      text: markdown,
-      selection: TextSelection.collapsed(offset: markdown.length),
-    );
+  /// Through `text.value` rather than poked into `text.text`, so
+  /// [_onTextChanged] fires: the draft timer, the typing clock and `canSubmit`
+  /// all hang off that one notification, and a mention inserted around it
+  /// would be text the site never hears about. It also keeps the insertion on
+  /// the undo stack, which an assignment with no valid selection would not.
+  void acceptSuggestion(ComposerSuggestion suggestion) {
+    if (_disposed) return;
+    final open = autocomplete.trigger;
+    if (open == null) return;
+
+    text.value = applyComposerCompletion(text.value, open, suggestion.value);
+    autocomplete.close();
   }
 
   bool _canSubmit = false;
@@ -513,6 +478,12 @@ class ComposerController extends ChangeNotifier {
   /// The text goes, because the reply *was* accepted — leaving it would put a
   /// working send button under writing that has already been submitted, and
   /// pressing it queues a second copy.
+  ///
+  /// Emptying the field is not enough on its own: the undo stack outlives it,
+  /// so one Ctrl+Z would step back over the clear and hand the submitted text
+  /// back, under a send button this composer has just made live again. The
+  /// reply that was accepted is a finished document, so the field starts a new
+  /// one — see [fieldGeneration].
   void enqueued(String? message) {
     if (_disposed) return;
     draftSettled();
@@ -521,10 +492,26 @@ class ComposerController extends ChangeNotifier {
     _notice =
         message ?? 'Your reply was sent for review, so it is not posted yet.';
     text.clear();
+    _fieldGeneration++;
     _notify();
   }
 
+  String _lastText = '';
+
   void _onTextChanged() {
+    // A `TextEditingController` notifies on selection as well as on text, so
+    // this runs on every click, every arrow key and every frame of a selection
+    // drag. None of what follows is about the caret: ticking the clock here
+    // counts reading time as typing time against Discourse's fast-typer check,
+    // and scheduling a draft here spends a request re-sending text the site
+    // already has.
+    // Ahead of the guard below, because the popup is the one thing here that
+    // *is* about the caret: clicking away from a half-typed name closes it.
+    autocomplete.update(text.value);
+
+    if (text.text == _lastText) return;
+    _lastText = text.text;
+
     _typing.tick();
     _scheduleDraft();
 
@@ -554,6 +541,7 @@ class ComposerController extends ChangeNotifier {
     _draftTimer?.cancel();
     text.removeListener(_onTextChanged);
     text.dispose();
+    autocomplete.dispose();
     focus.dispose();
     super.dispose();
   }

@@ -1,4 +1,7 @@
 import 'dart:async';
+// Only for the category badge colour a list route carries; the shell otherwise
+// has no opinion about how anything is painted.
+import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -17,13 +20,17 @@ import '../models/composer_draft.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
+import '../models/list_link.dart';
 import '../models/notification.dart';
 import '../models/notification_feed.dart';
 import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/post_likers.dart';
+import '../models/found_hashtag.dart';
+import '../models/found_user.dart';
 import '../models/site_config.dart';
+import '../models/site_emoji.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../models/topic_link.dart';
@@ -33,7 +40,10 @@ import '../plugins/chat/chat_controller.dart';
 import '../plugins/reactions/reaction.dart';
 import '../plugins/reactions/reactions_controller.dart';
 import '../plugins/site_plugin.dart';
+import 'composer_autocomplete.dart';
+import 'composer_triggers.dart';
 import 'composer_controller.dart';
+import 'composer_pills.dart';
 import 'update_controller.dart';
 
 /// Which pane occupies the space next to the rail when the shell is compact.
@@ -106,9 +116,11 @@ class ShellController extends ChangeNotifier {
   /// region, which is the same class of state as [_feeds] and [_totals] and
   /// already goes through [_notify]. One protocol rather than two, and this one
   /// is already guarded against being raised mid-frame.
-  late final ChatController chat =
-      ChatController(api: api, authenticator: authenticator, store: store)
-        ..addListener(_notify);
+  late final ChatController chat = ChatController(
+    api: api,
+    authenticator: authenticator,
+    store: store,
+  )..addListener(_notify);
 
   bool _connecting = false;
 
@@ -466,11 +478,24 @@ class ShellController extends ChangeNotifier {
       '$siteUrl|$destinationId';
 
   /// The list currently filling the main region, if the destination has one.
+  /// Which feed the main region is showing.
+  ///
+  /// A route that brought its own list — a category or tag opened from a
+  /// hashtag — answers for itself; everything else is the sidebar destination
+  /// that is selected. Deliberately not [destinationId] alone: a hashtag is
+  /// pushed *over* whatever list it was read from, and that list stays
+  /// selected in the sidebar so back still means something.
+  String? get currentFeedId {
+    final route = currentContent;
+    if (route != null && route.feedPath != null) return route.id;
+    return _destinationId;
+  }
+
   TopicFeed? get currentFeed {
     final instance = currentInstance;
-    final destination = _destinationId;
-    if (instance == null || destination == null) return null;
-    return _feeds[_feedKey(instance.url, destination)];
+    final feedId = currentFeedId;
+    if (instance == null || feedId == null) return null;
+    return _feeds[_feedKey(instance.url, feedId)];
   }
 
   /// Category badge for a topic, once categories have been fetched.
@@ -490,11 +515,20 @@ class ShellController extends ChangeNotifier {
   Ref<Post> postRef(String siteUrl, int postId) =>
       store.ref<Post>(siteUrl, postId);
 
-  /// The list route behind a sidebar entry, or null when there is none to
-  /// fetch (messages needs a signed-in user to name the inbox).
-  static String? _feedPath(String destinationId, DiscourseInstance instance) {
+  /// Where [feedId]'s list lives, or null when there is none to fetch
+  /// (messages needs a signed-in user to name the inbox).
+  ///
+  /// Routes that carry their own path are looked up first, and from the *stack*
+  /// rather than from a map of their own: a category route exists exactly as
+  /// long as it is open, and giving it a second home to be evicted from would
+  /// be one more thing to keep in step with the back button.
+  String? _feedPath(String feedId, DiscourseInstance instance) {
+    for (final route in _contentStack.reversed) {
+      if (route.id == feedId && route.feedPath != null) return route.feedPath;
+    }
+
     final username = instance.user?.username;
-    return switch (destinationId) {
+    return switch (feedId) {
       'latest' => '/latest.json',
       'messages' when username != null =>
         '/topics/private-messages/$username.json',
@@ -975,6 +1009,48 @@ class ShellController extends ChangeNotifier {
     return true;
   }
 
+  /// Opens the category or tag list [url] points at, if this is one and a site
+  /// in the rail serves it.
+  ///
+  /// The sibling of [openTopicUrl], and the same shape: a hashtag in a post is
+  /// a link like any other, and where it belongs is decided the same way.
+  ///
+  /// [title] is what the site called the list, where the caller knows — a
+  /// cooked hashtag carries the real name, which beats un-slugging the URL.
+  bool openListUrl(String url, {String? title}) {
+    final link = ListLink.parse(absoluteUrl(url));
+    if (link == null) return false;
+
+    final index = _instances.indexWhere((i) => i.serves(link.uri));
+    if (index < 0) return false;
+
+    if (index != _instanceIndex) selectInstance(index);
+
+    // The badge colour, where the categories have landed. Null is not a
+    // failure — the header draws its icon plain, as it does for every sidebar
+    // destination.
+    final category = link.kind == ListKind.category
+        ? categoryFor(link.id)
+        : null;
+
+    final route = ContentRoute.list(
+      link,
+      title: title,
+      color: category == null ? null : Color(category.colorValue),
+    );
+
+    // Already looking at it. Pushing a second copy would only cost a back tap,
+    // the way `openTopicUrl` says of a topic linking to itself.
+    if (currentContent?.id == route.id) return true;
+
+    pushContent(route);
+    // In the same turn as the push, so the main region never draws a route
+    // whose feed does not exist yet — that is the placeholder screen, and it
+    // would flash in before the list arrived.
+    unawaited(loadFeed(route.id));
+    return true;
+  }
+
   Future<void> loadTopic(int topicId, String slug, {bool force = false}) async {
     final instance = currentInstance;
     if (instance == null) return;
@@ -987,6 +1063,14 @@ class ShellController extends ChangeNotifier {
     // opened is never asked.
     unawaited(_ensureSiteConfig(instance));
     unawaited(_ensureCustomEmojis(instance));
+    // A hashtag in a post needs its category to know what colour to draw, and
+    // a topic opened from a notification or a link has never loaded a feed —
+    // which until now was the only thing that asked for them.
+    unawaited(
+      authenticator.apiKeyFor(instance.url).then(
+        (apiKey) => _ensureCategories(instance, apiKey),
+      ),
+    );
 
     final key = _topicKey(instance.url, topicId);
     if (_topicsLoading.contains(key)) return;
@@ -1151,8 +1235,13 @@ class ShellController extends ChangeNotifier {
       replyToPostNumber: replyToPostNumber,
       replyToUsername: replyToUsername,
     );
-    final composer = ComposerController(target, onSaveDraft: _saveDraft)
-      ..draftSequence = _draftSequence(target);
+    final composer = ComposerController(
+      target,
+      onSaveDraft: _saveDraft,
+      search: _composerSearch(target),
+      resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
+      pills: _composerPills(target),
+    )..draftSequence = _draftSequence(target);
     _composer = composer;
     _notify();
 
@@ -1184,11 +1273,76 @@ class ShellController extends ChangeNotifier {
     // No `onSaveDraft`: Discourse files a topic's drafts under one key, so
     // saving here would overwrite an unfinished reply with the text of a post
     // that is already published.
-    final composer = ComposerController(target);
+    // Rewriting a post wants mentions and emoji as much as writing one does.
+    final composer = ComposerController(
+      target,
+      search: _composerSearch(target),
+      resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
+      pills: _composerPills(target),
+    );
     _composer = composer;
     _notify();
 
     unawaited(_loadEditBody(composer, post));
+  }
+
+  /// How a composer for [target] finds people and emoji.
+  ///
+  /// Closed over the target's own site and topic rather than reading the
+  /// current instance when a key is pressed, for the reason [ComposerTarget]
+  /// carries a siteUrl at all: switching sites while a reply is half written
+  /// must not send the search — or the name it completes — to the site the
+  /// user switched to.
+  ComposerSearch _composerSearch(ComposerTarget target) {
+    unawaited(ensureEmojis(target.siteUrl));
+
+    return (
+      users: (term) async {
+        final found = await searchUsers(
+          siteUrl: target.siteUrl,
+          topicId: target.topicId,
+          term: term,
+        );
+        return [
+          for (final user in found)
+            ComposerSuggestion(
+              kind: ComposerTriggerKind.mention,
+              value: user.username,
+              label: user.username,
+              detail: user.name,
+              art: ArtAvatar(user.avatarUrl),
+            ),
+        ];
+      },
+      hashtags: (term) async {
+        final found = await searchHashtags(
+          siteUrl: target.siteUrl,
+          term: term,
+        );
+        return [
+          for (final hashtag in found)
+            ComposerSuggestion(
+              kind: ComposerTriggerKind.hashtag,
+              // The ref, not the slug: it is what the site cooks against, and
+              // the only form that finds a subcategory or tells two things
+              // that share a name apart.
+              value: hashtag.ref,
+              label: hashtag.text,
+              detail: hashtag.secondaryText,
+              art: _hashtagArt(hashtag),
+            ),
+        ];
+      },
+      emojis: (query) => [
+        for (final emoji in searchEmojis(target.siteUrl, query))
+          ComposerSuggestion(
+            kind: ComposerTriggerKind.emoji,
+            value: emoji.name,
+            label: emoji.name,
+            art: ArtImage(emoji.url),
+          ),
+      ],
+    );
   }
 
   /// Fills an edit composer with the post's markdown.
@@ -1393,21 +1547,17 @@ class ShellController extends ChangeNotifier {
     // putting the whole stale snapshot back would undo it — and unlike a
     // like, whose success path puts the site's full answer over the guess, a
     // reaction's answer is merged selectively and could never heal that.
-    store.update<Post>(
-      siteUrl,
-      post.id,
-      (current) {
-        final reactions = current.reactions;
-        if (reactions == null) return current;
-        return current.withPlugins(
-          current.plugins.withValue<Reactions>(
-            reactions
-                .withToggled(reaction)
-                .withMainReaction(siteConfigFor(siteUrl).mainReaction),
-          ),
-        );
-      },
-    );
+    store.update<Post>(siteUrl, post.id, (current) {
+      final reactions = current.reactions;
+      if (reactions == null) return current;
+      return current.withPlugins(
+        current.plugins.withValue<Reactions>(
+          reactions
+              .withToggled(reaction)
+              .withMainReaction(siteConfigFor(siteUrl).mainReaction),
+        ),
+      );
+    });
     _notify();
 
     /// Puts the reactions back the way they were, and nothing else — the twin
@@ -1834,9 +1984,7 @@ class ShellController extends ChangeNotifier {
     final held = store.read<Post>(target.siteUrl, updated.id);
     store.put(
       target.siteUrl,
-      held == null
-          ? updated
-          : updated.withLikesOf(held).withPluginsOf(held),
+      held == null ? updated : updated.withLikesOf(held).withPluginsOf(held),
     );
 
     if (identical(_composer, composer)) {
@@ -2180,6 +2328,259 @@ class ShellController extends ChangeNotifier {
   /// `_configAttempts` is.
   final Map<String, int> _customEmojiAttempts = {};
 
+  /// Every emoji a site allows, for the composer's `:` completion.
+  ///
+  /// A separate map from [_customEmojis], which answers a different question:
+  /// that one is "where does the artwork for this name live", asked once a
+  /// reaction is already on screen. This is "what names are there at all",
+  /// which only somebody writing a post ever needs.
+  final Map<String, List<SiteEmoji>> _emojis = {};
+  final Set<String> _emojisLoading = {};
+  final Map<String, int> _emojiAttempts = {};
+
+  /// Fetches the emoji a site allows, once, bounded the way settings are.
+  ///
+  /// Public and taking a url rather than an instance because the only caller
+  /// is a composer, which knows the site it is writing to and little else.
+  /// Asked for when a composer opens rather than when a topic does: it is a
+  /// long list and only somebody writing will ever need it, but opening the
+  /// composer is early enough that it is always in hand before anyone has
+  /// typed two characters.
+  Future<void> ensureEmojis(String siteUrl) async {
+    if (_emojis.containsKey(siteUrl)) return;
+    if (!_emojisLoading.add(siteUrl)) return;
+
+    final attempts = _emojiAttempts[siteUrl] ?? 0;
+    if (attempts >= _maxConfigAttempts) {
+      _emojisLoading.remove(siteUrl);
+      return;
+    }
+    _emojiAttempts[siteUrl] = attempts + 1;
+
+    final epoch = _siteEpoch(siteUrl);
+    try {
+      final emojis = await api.emojis(
+        siteUrl: siteUrl,
+        apiKey: await authenticator.apiKeyFor(siteUrl),
+        clientId: await authenticator.clientId(),
+      );
+      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
+      _emojis[siteUrl] = emojis;
+      // A list landing a moment after somebody typed `:sm` fills the popup
+      // that is already open, rather than making them type another letter.
+      _composer?.autocomplete.refresh();
+    } catch (_) {
+      // The completion offers nothing. Typing the shortcode still works —
+      // it is only ever text — so there is nothing to report.
+    } finally {
+      _emojisLoading.remove(siteUrl);
+    }
+  }
+
+  /// The emoji whose names match [query], best match first.
+  ///
+  /// Synchronous over what has already been fetched: there is no network in an
+  /// emoji search, and making the popup wait out a debounce for one would be a
+  /// delay with nothing behind it.
+  List<SiteEmoji> searchEmojis(String siteUrl, String query, {int limit = 7}) {
+    final all = _emojis[siteUrl];
+    if (all == null) return const [];
+
+    final needle = query.toLowerCase();
+    final matches = <(int, SiteEmoji)>[
+      for (final emoji in all)
+        if (emoji.rank(needle) case final rank?) (rank, emoji),
+    ];
+    matches.sort((a, b) {
+      if (a.$1 != b.$1) return a.$1.compareTo(b.$1);
+      final length = a.$2.name.length.compareTo(b.$2.name.length);
+      return length != 0 ? length : a.$2.name.compareTo(b.$2.name);
+    });
+    return [for (final match in matches.take(limit)) match.$2];
+  }
+
+  /// What a hashtag row draws on its left, from the style the site reported.
+  ///
+  /// The same three shapes the cooked pill has, and for the same reason: a row
+  /// that looked different from what the post will look like would be
+  /// offering something other than what it writes.
+  static SuggestionArt _hashtagArt(FoundHashtag hashtag) =>
+      switch (hashtag.styleType) {
+        'emoji' when hashtag.emoji != null => ArtIcon(hashtag.icon),
+        'icon' => ArtIcon(
+          hashtag.icon,
+          colorValue: hashtag.colorValues.isEmpty
+              ? null
+              : hashtag.colorValues.last,
+        ),
+        // A tag has no colour of its own, so it keeps its glyph rather than
+        // drawing an empty swatch.
+        _ when hashtag.type != 'category' => ArtIcon(hashtag.icon),
+        _ => ArtSquare(hashtag.colorValues),
+      };
+
+  /// What each site has said a `#ref` is. A null value is a ref it was asked
+  /// about and did not have — remembered, so it is not asked twice.
+  final Map<String, Map<String, FoundHashtag?>> _hashtags = {};
+  final Map<String, Set<String>> _hashtagsInFlight = {};
+
+  /// The same, for usernames: true is somebody, false is nobody.
+  final Map<String, Map<String, bool>> _mentioned = {};
+  final Map<String, Set<String>> _mentionsInFlight = {};
+
+  /// Categories and tags matching [term].
+  ///
+  /// Never throws, for the reason [searchUsers] gives: a popup that says
+  /// "could not reach the site" while somebody is mid-word is noise.
+  Future<List<FoundHashtag>> searchHashtags({
+    required String siteUrl,
+    required String term,
+  }) async {
+    final List<FoundHashtag> found;
+    try {
+      found = await api.searchHashtags(
+        siteUrl: siteUrl,
+        term: term,
+        apiKey: await authenticator.apiKeyFor(siteUrl),
+        clientId: await authenticator.clientId(),
+      );
+    } catch (_) {
+      return const [];
+    }
+
+    // Everything offered is now known, so accepting a suggestion draws its
+    // pill without a second round trip. This is the path almost every hashtag
+    // in a post takes.
+    final known = _hashtags.putIfAbsent(siteUrl, () => {});
+    for (final hashtag in found) {
+      known[hashtag.ref] = hashtag;
+    }
+    return found;
+  }
+
+  /// What the composer needs before it may draw a pill over what is typed.
+  ComposerPills _composerPills(ComposerTarget target) {
+    final siteUrl = target.siteUrl;
+    return (
+      hashtag: (ref) => _hashtags[siteUrl]?[ref],
+      mention: (username) => _mentioned[siteUrl]?[username],
+      resolve: (refs, usernames) {
+        unawaited(_resolveHashtags(siteUrl, refs));
+        unawaited(_resolveMentions(siteUrl, target.topicId, usernames));
+      },
+    );
+  }
+
+  /// Asks what [refs] are, once each.
+  ///
+  /// Anything already answered or already in flight is dropped here rather
+  /// than by the caller, which repaints far more often than it learns anything
+  /// new. A failure is left unanswered rather than remembered as one: the site
+  /// being unreachable says nothing about whether a category exists, and the
+  /// next repaint may as well ask again.
+  Future<void> _resolveHashtags(String siteUrl, Set<String> refs) async {
+    final known = _hashtags.putIfAbsent(siteUrl, () => {});
+    final inFlight = _hashtagsInFlight.putIfAbsent(siteUrl, () => {});
+
+    final ask = [
+      for (final ref in refs)
+        if (!known.containsKey(ref) && inFlight.add(ref)) ref,
+    ];
+    if (ask.isEmpty) return;
+
+    final epoch = _siteEpoch(siteUrl);
+    try {
+      final found = await api.lookupHashtags(
+        siteUrl: siteUrl,
+        refs: ask,
+        apiKey: await authenticator.apiKeyFor(siteUrl),
+        clientId: await authenticator.clientId(),
+      );
+      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
+
+      for (final ref in ask) {
+        known[ref] = null;
+      }
+      for (final hashtag in found) {
+        known[hashtag.ref] = hashtag;
+      }
+      _composer?.text.artworkArrived();
+    } catch (_) {
+      // Nothing to report: the ref stays text, and asking again is free.
+    } finally {
+      inFlight.removeAll(ask);
+    }
+  }
+
+  /// The same for usernames, through `/composer/mentions`.
+  Future<void> _resolveMentions(
+    String siteUrl,
+    int topicId,
+    Set<String> usernames,
+  ) async {
+    final known = _mentioned.putIfAbsent(siteUrl, () => {});
+    final inFlight = _mentionsInFlight.putIfAbsent(siteUrl, () => {});
+
+    final ask = [
+      for (final name in usernames)
+        if (!known.containsKey(name) && inFlight.add(name)) name,
+    ];
+    if (ask.isEmpty) return;
+
+    final epoch = _siteEpoch(siteUrl);
+    try {
+      final real = await api.checkMentions(
+        siteUrl: siteUrl,
+        names: ask,
+        topicId: topicId,
+        apiKey: await authenticator.apiKeyFor(siteUrl),
+        clientId: await authenticator.clientId(),
+      );
+      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
+
+      for (final name in ask) {
+        known[name] = real.contains(name);
+      }
+      _composer?.text.artworkArrived();
+    } catch (_) {
+      // As above.
+    } finally {
+      inFlight.removeAll(ask);
+    }
+  }
+
+  /// Accounts matching [term] in [topicId].
+  ///
+  /// Never throws. A popup that says "could not reach the site" while somebody
+  /// is mid-word is noise; an empty list simply closes it, and the mention can
+  /// still be typed out by hand.
+  Future<List<FoundUser>> searchUsers({
+    required String siteUrl,
+    required int topicId,
+    required String term,
+  }) async {
+    final List<FoundUser> found;
+    try {
+      found = await api.searchUsers(
+        siteUrl: siteUrl,
+        term: term,
+        topicId: topicId,
+        apiKey: await authenticator.apiKeyFor(siteUrl),
+        clientId: await authenticator.clientId(),
+      );
+    } catch (_) {
+      return const [];
+    }
+
+    // The site just named these, so they exist — accepting one draws its pill
+    // without asking again.
+    final known = _mentioned.putIfAbsent(siteUrl, () => {});
+    for (final user in found) {
+      known[user.username] = true;
+    }
+    return found;
+  }
+
   /// Where the artwork for one emoji lives on a site: the upload's own
   /// address when it is one, otherwise the address the settings build.
   ///
@@ -2450,6 +2851,15 @@ class ShellController extends ChangeNotifier {
     _configAttempts.remove(instance.url);
     _customEmojis.remove(instance.url);
     _customEmojiAttempts.remove(instance.url);
+    _emojis.remove(instance.url);
+    _emojiAttempts.remove(instance.url);
+    // Both of these are what a *signed-in* reader was allowed to see — the
+    // names of private categories, and which accounts exist. Left behind, the
+    // next reader of this site would be drawing pills out of them.
+    _hashtags.remove(instance.url);
+    _hashtagsInFlight.remove(instance.url);
+    _mentioned.remove(instance.url);
+    _mentionsInFlight.remove(instance.url);
     reactions.forget(instance.url);
     chat.forget(instance.url);
     _feeds.removeWhere((key, _) => key.startsWith('${instance.url}|'));

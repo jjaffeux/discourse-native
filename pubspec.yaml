@@ -62,8 +62,6 @@ dependencies:
   # sees an ImageProvider and a page index. Replacing it is a one-file job.
   photo_view: ^0.15.0
   super_sliver_list: ^0.4.1
-  super_editor: 0.3.0-dev.52
-  markdown: ^7.3.1
   # message_bus is the transport every live update on a Discourse rides on, so
   # anything that has to change without being asked — the incoming-topics
   # banner today, presence and post streams later — goes through this. Pure
@@ -75,7 +73,7 @@ dependencies:
   # Sparkle-style in-app updates: a signed app-archive.json -> release.json ->
   # app.zip chain, verified against pinned Ed25519 keys.
   #
-  # Pinned exactly, no caret, following super_editor below. 3.0.0, 3.1.0 and
+  # Pinned exactly, no caret. 3.0.0, 3.1.0 and
   # 3.1.1 shipped inside 41 hours with breaking release-signing changes in two
   # of them, and this is the code that replaces the binary — re-read the
   # changelog before any bump rather than treating it as routine.

@@ -306,6 +306,61 @@ Two things worth knowing if you touch the lists:
 `find.textContaining` both ignore — widget tests need a `byWidgetPredicate`
 finder to assert on post content.
 
+### Composing
+
+Discourse stores raw markdown, so the composer's field text **is** the payload.
+There is no document model in between. That is a decision, not a gap: a rich
+editor over markdown has to convert both ways, and the round trip is lossy for
+anything it does not implement — an earlier `super_editor` composer had to
+*refuse* rich mode for tables, lists and fenced blocks rather than silently
+rewrite someone's post.
+
+What replaced it is Discord's approach: don't convert the markdown, decorate it.
+`MarkdownEditingController` overrides `buildTextSpan`, so `**bold**` draws faint
+asterisks around a bold word while `controller.text` keeps every character. The
+markers stay visible on purpose — hiding them is where an editor starts lying
+about what will be posted.
+
+One invariant carries the whole thing:
+
+> the painted text equals `controller.text`, character for character.
+
+Flutter neither asserts nor converts when those disagree. `RenderEditable`
+computes caret positions, hit testing, word boundaries and select-all from the
+flattened span tree (`plainText`) and hands the results straight back as offsets
+into the field's string. So:
+
+- **No `WidgetSpan` may stand in for more than one character.** A placeholder is
+  worth exactly one `0xFFFC` code unit however wide it draws, so one replacing
+  the seven characters of `:smile:` silently puts every later offset out by six.
+  `markdown_highlight_test.dart` fuzzes 2000 inputs against the invariant, and
+  `markdown_editing_controller_test.dart` round-trips the caret for it.
+- **The composer field must never set `spellCheckConfiguration`.** `EditableText`
+  routes around `controller.buildTextSpan` entirely once spell-check results
+  arrive, so highlighting would vanish by flickering rather than by breaking.
+  There is a test asserting it stays null.
+
+`:smile:` draws the real artwork, and the way it does that is the interesting
+part. The `WidgetSpan` stands in for exactly **one** character — the closing
+colon — while the other six stay in the span tree as real text at `fontSize: 0`
+and full transparency: six offsets, no pixels. Seven characters in, seven code
+units out. Substitution only happens once the bytes are cached, so nothing
+reflows under the caret mid-word and a name the site does not have 404s once and
+stays text. Put the caret strictly inside and the characters come back to edit,
+the way Obsidian's live preview does.
+
+`@`, `#` and `:` open a completion list. Trigger detection is pure
+(`composer_triggers.dart`) and refuses more than it accepts — an email address
+is not a mention, a lone colon is punctuation, a `#` inside a word is not a
+hashtag, and a caret in the middle of a word is somebody reading rather than
+composing. What the three kinds share and where they differ is under
+[Mentions and hashtags](#mentions-and-hashtags); the short version is that a
+hashtag completes to a *ref* rather than a slug, and refs contain colons, which
+the walk has to be taught to cross. The list handles keys through a
+plain `Focus` rather than a second `CallbackShortcuts`, which reports a key
+handled whenever one of its activators matches, open or not — binding Escape
+that way would close the composer instead of the list and throw away the reply.
+
 ### Likes
 
 There is no `like_count` on a post. Likes arrive in `actions_summary`, the array
@@ -643,6 +698,8 @@ Every tapped link — in a post, a quote attribution, a onebox card — goes thr
 | `/t/{slug}/{id}` on the site being read   | here, as a topic route         |
 | a topic on another site in the rail       | that site, then the topic      |
 | `/u/{username}` on the site being read    | that person's card             |
+| `/c/{slug…}/{id}` — a category            | here, as a filtered topic list |
+| `/tag/{slug}/{id}` — a tag                | the same                       |
 | anything else                             | the platform browser           |
 
 Two things make this work. Discourse writes its internal links site-relative, so
@@ -655,6 +712,105 @@ only by their port.
 A link only knows the slug, so a topic opened from one is titled from the slug
 until the real title arrives with the topic and replaces it.
 
+The two list routes are the only ones that carry their own feed path
+([`ContentRoute.feedPath`](lib/src/models/content_route.dart)). Every other
+destination is one the sidebar already knows the address of; a category exists
+here only because a post mentioned it, so the route brings the address with it
+and `_feedPath` looks in the content stack before its own table. The path is the
+href with `.json` appended and is never rebuilt from the slug and the id — a
+category's slug path is arbitrarily deep, and a tag with no slug is written
+`/tag/12-tag/12`. Only the *unfiltered* list is claimed: `/c/x/5/l/top` is a
+filter with no screen here, and showing the unfiltered list instead would be
+answering a different question.
+
+### Mentions and hashtags
+
+Discourse draws `@sam`, `#support` and `#bug` as **pills** — a rounded tinted
+chip with the name in it, and for a category a coloured square beside it. All
+three share one SCSS mixin upstream, which is as clear a statement as the
+stylesheet can make that they are one idea; [`Pill`](lib/src/shell/pill.dart) is
+the same statement here, and every measurement in it is a ratio of the
+surrounding prose for the reason `emojiScale` gives.
+
+A pill is a widget rather than a style, and that costs something worth writing
+down: claiming an element in `customWidgetBuilder` means `HtmlWidget` never
+walks its children, never runs `customStylesBuilder` over it, and never fires
+`onTapUrl` for it. So the pill draws its own label and carries its own tap. It
+also means `find.text` sees the pill's label while the paragraph it sits in has
+only the `￼` a `WidgetSpan` flattens to — `cooked_html_test.dart` has a
+`paragraphOf` helper beside `renderedText` because the two now answer different
+questions.
+
+Two things about the cooked markup are worth knowing before reading
+[`hashtag.dart`](lib/src/shell/hashtag.dart), because both look like bugs
+otherwise:
+
+- **The `<svg>` inside a hashtag is a placeholder.** Every one Discourse cooks
+  carries the same `d-icon-square-full`, whatever the hashtag is; its own client
+  throws that away and redraws from `data-type`, `data-style-type`, `data-icon`
+  and `data-emoji`. Reading it would put a filled square on every tag on the
+  site. The attributes are read and the svg is ignored.
+- **The colour is not in the markup at all.** On the web it arrives in a
+  generated stylesheet. Here the read path already has it: `data-id` *is* the
+  category id, and categories are fetched once per site and read back by id. So
+  a cooked hashtag costs no request. The composer cannot do that — it has a
+  *ref* (`parent:child`, `name::tag`), the identity store is keyed by id and
+  cannot be enumerated — so it asks `/hashtags.json`. Two keys, two sources; the
+  asymmetry is the design, not an oversight.
+
+The honest limitation: `/categories.json` paginates to twenty parents on a large
+or lazy-loading site, so some hashtags draw a neutral square with the right name
+and a working tap. That is what Discourse itself shows before its own colours
+arrive, and the topic-row badge has had the same gap for as long as it has
+existed.
+
+Not everything gets a pill, and that is deliberate. An unresolved mention cooks
+as `<span class="mention">` and an unresolved hashtag as
+`<span class="hashtag-raw">`; Discourse leaves both as plain text, and so does
+this. A pill over `@nobody` would promise a person who is not there. Group
+mentions do get one — they are real links — but no glyph, because a glyph would
+be encoding *this app's* lack of a group screen rather than anything about the
+post.
+
+**In the composer** the same pills are drawn over the text being typed, which is
+the emoji trick from
+[`markdown_editing_controller.dart`](lib/src/shell/markdown_editing_controller.dart)
+applied twice more: the run's last character becomes a `WidgetSpan` and the rest
+stay as real text at `fontSize: 0` and full transparency, so *n* characters in
+is still *n* code units out and every later caret offset still means what it
+says. Three details fall out of that:
+
+- **The reveal rule differs by kind, and has to.** A `:smile:` run only exists
+  once it is closed, so revealing it *strictly* inside is right — a caret at
+  either end must not, or typing the final colon would never show the picture.
+  A mention or a hashtag has no closing character: the run grows under the caret
+  as it is typed, so the caret is always at its end. Strictly-inside would
+  substitute a chip mid-word *and* ask the site about every prefix along the
+  way. Adjacency is what keeps `#ran` as text until the space that finishes it —
+  and what makes the lookups batch, one request per paragraph rather than one
+  per keystroke.
+- **The composer asks before it draws.** `@nobody` and `#TODO` cook as plain
+  text, so a pill over either would be the field claiming something the post
+  will not do — the exact failure the document-model composer was removed for.
+  Names go through `/composer/mentions` and refs through `/hashtags.json`, each
+  asked once and remembered, including the noes. Accepting a suggestion costs
+  nothing at all: the search already said what it was, and the answer is kept.
+- **The composer pill shows the characters that are in the field.** The cooked
+  pill shows the site's own `Parent > Child`; the composer shows `#parent:child`,
+  because what is drawn there has to be what will be posted. This is the thing
+  in the feature most likely to be "fixed" by a later reader.
+
+`#` completes like `@` and `:` do, with one wrinkle. The autocomplete inserts a
+**ref** and never a slug — `parent:child`, `name::tag` — since that is the only
+form that survives a subcategory or two things sharing a name. Refs contain
+colons, and the backward walk in
+[`composer_triggers.dart`](lib/src/shell/composer_triggers.dart) stops at one,
+which left `#parent:child` looking like an emoji called `child`. So when a colon
+stops the walk it keeps going, over colons as well as names, and if a `#` opens
+the whole run it was a hashtag all along. Only in that direction: an emoji name
+may not contain a colon, so nothing a `#` starts can be mistaken for one and
+`:smile:` is untouched.
+
 ### Oneboxes
 
 Oneboxes are the exception to "let `HtmlWidget` draw the cooked HTML". Discourse
@@ -664,9 +820,31 @@ elements, and treats a `<style>` tag as non-rendering. So none of Discourse's
 `onebox.scss` can be reused here, at any price, and an untouched onebox arrives
 as an unstyled pile of text and images.
 
-[`onebox.dart`](lib/src/shell/onebox.dart) draws them natively instead. It does
-*not* reimplement one widget per engine — there are dozens and they churn.
-It reads the envelope every engine shares, which is `_layout.mustache` upstream:
+[`oneboxes/`](lib/src/shell/oneboxes/) draws them natively instead. One file
+per onebox, laid out by what the onebox is:
+
+```
+oneboxes/
+  onebox.dart                  the envelope, the generic card, the dispatch
+  inline.dart                  a.inline-onebox, and the chip it becomes
+  github/
+    github.dart                octicons, status colors, shared body parts
+    pr/block.dart              aside.onebox.githubpullrequest
+    pr/inline.dart             an inline PR link, with its status glyph
+    issue/block.dart           aside.onebox.githubissue
+    issue/inline.dart          an inline issue link
+    commit/block.dart          aside.onebox.githubcommit
+  discourse/
+    topic/block.dart           aside.onebox.discoursetopic, a topic elsewhere
+    topic/inline.dart          an inline link to a topic
+    user/block.dart            a profile on the site the post was written on
+    category/block.dart        a category on the site the post was written on
+```
+
+Not every onebox gets a file — there are dozens of engines and they churn.
+[`onebox.dart`](lib/src/shell/oneboxes/onebox.dart) reads the envelope every
+engine shares, which is `_layout.mustache` upstream, and whatever no engine
+claims is handed back to `HtmlWidget` inside the native card:
 
 | Markup                    | Drawn as                                    |
 | ------------------------- | ------------------------------------------- |
@@ -678,11 +856,27 @@ It reads the envelope every engine shares, which is `_layout.mustache` upstream:
 
 That last row is what keeps unknown and future engines working: whatever the
 parser has no opinion about still reaches the reader, inside native chrome.
-`img.onebox-avatar` is the one engine-specific signal honoured — Twitter and
-friends lead with an avatar, which reads wrong as a rectangular thumbnail.
+`img.onebox-avatar` is the one engine-specific signal the generic card honours
+— Twitter and friends lead with an avatar, which reads wrong as a rectangular
+thumbnail.
 
-The parser never mutates the DOM it is handed; the body remainder is serialized
-back to a string. The document belongs to the caller's `HtmlWidget`.
+The GitHub engines draw their bodies the way the web's stylesheet arranges
+them — icon column beside the title, the facts, then the body underneath —
+with the octicons taken from Discourse's templates and the `--gh-status-*`
+colors of `github-pr-status.scss` for pull requests. The internal engines draw
+the oneboxes Discourse writes for links to itself: a topic on another site,
+and a same-site profile or category. A same-site *topic* link arrives as an
+`aside.quote` — Discourse renders it as a quote of the first post — so it is
+`quote.dart`'s, not an onebox engine.
+
+Inline oneboxes are the other shape: a link that did not sit alone on its line
+keeps its anchor and gets its title fetched instead —
+`<a class="inline-onebox">`. Those read as ordinary links, which is what the
+web shows, so only the ones with something to add are claimed: a pull request
+gets its status glyph ahead of the title.
+
+The parsers never mutate the DOM they are handed; a body remainder is
+serialized back to a string. The document belongs to the caller's `HtmlWidget`.
 
 The remainder goes back through [`CookedHtml`](lib/src/shell/cooked_html.dart),
 not through a bare `HtmlWidget`, so an onebox containing a code block gets the
@@ -740,16 +934,23 @@ reads as code rather than as confetti, and so an unanticipated language still
 lands somewhere sensible.
 
 Since this depends on markup no one versions or announces,
-`tool/onebox_contract.dart` diffs the upstream templates and SCSS against
+`tool/markup_contract.dart` diffs the upstream templates and SCSS against
 `tool/onebox_snapshot/`:
 
 ```sh
-dart run tool/onebox_contract.dart             # fails if upstream moved
-dart run tool/onebox_contract.dart --update    # accept, then read the diff
+dart run tool/markup_contract.dart             # fails if upstream moved
+dart run tool/markup_contract.dart --update    # accept, then read the diff
 ```
 
 It is a drift detector, not a source of styling — the SCSS is snapshotted
 because it is where the class names the parser matches on are given meaning.
+
+It carries a second contract for the same reason, over the mention and hashtag
+markup in `tool/hashtag_snapshot/`. Each names what to re-read when it drifts,
+because "check whether the onebox parsers still handle it" is wrong advice for a
+hashtag. A path that has *moved* fails harder than one that changed — upstream
+put the JS under `frontend/` at some point, and a check that quietly reported no
+drift because it could not find the file would be worse than no check.
 
 ### Avatars
 
@@ -833,7 +1034,7 @@ flutter test integration_test -d <device> # real app, real network, real storage
 And one check that is about upstream rather than about this code:
 
 ```sh
-dart run tool/onebox_contract.dart        # see Oneboxes
+dart run tool/markup_contract.dart        # see Oneboxes, and Mentions
 ```
 
 The live tests are skipped by default (see `dart_test.yaml`) so an offline or CI
@@ -938,7 +1139,8 @@ lib/
       post_action.dart         one entry in the post menu, core's or a plugin's
       hover_panel.dart         opens a panel when a pointer rests on something
       anchored_layout.dart     places a floating panel against what it is about
-      onebox.dart              native rendering of aside.onebox
+      oneboxes/                native rendering of aside.onebox, one file per
+                               onebox: github/, discourse/, inline
       code_block.dart          native rendering of pre
       syntax.dart              tokenizes code via package:highlight
       external_link.dart       opens links in the platform browser

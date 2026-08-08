@@ -175,6 +175,7 @@ class TopicCategory with Storable<TopicCategory> {
     required this.name,
     required this.color,
     this.slug = '',
+    this.parentCategoryId,
   });
 
   factory TopicCategory.fromJson(Map<String, dynamic> json) => TopicCategory(
@@ -182,6 +183,9 @@ class TopicCategory with Storable<TopicCategory> {
     name: (json['name'] ?? '') as String,
     color: (json['color'] ?? '888888') as String,
     slug: (json['slug'] ?? '') as String,
+    parentCategoryId: json['parent_category_id'] == null
+        ? null
+        : jsonInt(json['parent_category_id']),
   );
 
   final int id;
@@ -190,6 +194,13 @@ class TopicCategory with Storable<TopicCategory> {
   /// Six hex digits, no leading `#` — how Discourse stores it.
   final String color;
   final String slug;
+
+  /// The category this one sits under, or null for a top-level one.
+  ///
+  /// Kept for the hashtag square, which Discourse splits down the middle for a
+  /// subcategory — parent on the left, child on the right — and which
+  /// therefore needs a second colour to look up.
+  final int? parentCategoryId;
 
   int get colorValue => int.tryParse('FF$color', radix: 16) ?? 0xFF888888;
 

@@ -10,3 +10,13 @@ const double shellHeaderHeight = 52;
 /// Fixed for now. It wants to be draggable, and it wants to grow with the
 /// text scale rather than showing one line at twice the size.
 const double composerHeight = 220;
+
+/// How wide the composer's completion list is drawn.
+///
+/// Wide enough for a username and a real name side by side, narrow enough that
+/// it reads as a list attached to a word rather than as a panel of its own.
+const double composerSuggestionsWidth = 320;
+
+/// One row of it. Fixed so the list's height is known before it is built,
+/// which is what keeps it from ever needing to scroll.
+const double composerSuggestionRowHeight = 40;

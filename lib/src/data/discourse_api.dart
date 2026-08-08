@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
+import '../models/found_hashtag.dart';
+import '../models/found_user.dart';
 import '../models/json.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
@@ -13,6 +15,7 @@ import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/post_likers.dart';
 import '../models/site_config.dart';
+import '../models/site_emoji.dart';
 import '../models/topic.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
@@ -540,14 +543,233 @@ class DiscourseApi {
         },
         final List<dynamic> list => {
           for (final item in list)
-            if (item case {
-              'name': final String name,
-              'url': final String url,
-            })
+            if (item case {'name': final String name, 'url': final String url})
               name: url,
         },
         _ => const <String, String>{},
       };
+    } catch (_) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+  }
+
+  /// Accounts whose names match [term], for the composer's `@` completion.
+  ///
+  /// [topicId] is not decoration: Discourse's own `UserSearch` ranks people
+  /// already in the topic first, which is the difference between offering the
+  /// person being replied to and offering an alphabetical stranger.
+  ///
+  /// Groups are deliberately not asked for. Mentioning one is a different act
+  /// with its own permissions, and offering something we cannot check the
+  /// reader is allowed to do is worse than not offering it.
+  Future<List<FoundUser>> searchUsers({
+    required String siteUrl,
+    required String term,
+    int? topicId,
+    int limit = 10,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final query = {
+      'term': term,
+      'limit': '$limit',
+      if (topicId != null) 'topic_id': '$topicId',
+    };
+    final response = await _get(
+      Uri.parse('$siteUrl/u/search/users.json').replace(queryParameters: query),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    try {
+      return switch (jsonDecode(response.body)) {
+        {'users': final List<dynamic> users} => [
+          for (final user in users)
+            if (user is Map<String, dynamic>) FoundUser.fromJson(user, siteUrl),
+        ],
+        _ => const <FoundUser>[],
+      };
+    } catch (_) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+  }
+
+  /// How many refs one lookup may carry, matching Discourse's own cap
+  /// (`HashtagsController::HASHTAGS_PER_REQUEST`). A request over it is
+  /// rejected outright rather than truncated.
+  static const int hashtagsPerRequest = 20;
+
+  /// The order hashtag results are ranked in, and the set of types asked for.
+  ///
+  /// Discourse reads this per context from `Site#hashtag_configurations`, which
+  /// is served by `/site.json` — this app reads `/site/settings.json` and so
+  /// does not have it. Core's default for the composer is what is sent, which
+  /// is what the overwhelming majority of sites run.
+  static const List<String> hashtagOrder = ['category', 'tag'];
+
+  /// Categories and tags matching [term], best first.
+  ///
+  /// `order[]` is not optional decoration: `HashtagsController#search` does
+  /// `params.require(:order)` and answers 400 without it.
+  Future<List<FoundHashtag>> searchHashtags({
+    required String siteUrl,
+    required String term,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse('$siteUrl/hashtags/search.json').replace(
+        // `<String, dynamic>` so the list is emitted as a repeated parameter.
+        // A `Map<String, String>` would stringify it to `[category, tag]` and
+        // the site would reject the lot.
+        queryParameters: <String, dynamic>{
+          'term': term,
+          'order[]': hashtagOrder,
+        },
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    try {
+      return switch (jsonDecode(response.body)) {
+        {'results': final List<dynamic> results} => [
+          for (final item in results)
+            if (item is Map<String, dynamic>)
+              ?FoundHashtag.fromJson(item),
+        ],
+        _ => const <FoundHashtag>[],
+      };
+    } catch (_) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+  }
+
+  /// What [refs] actually name on this site, for refs already written down.
+  ///
+  /// The composer's other question: `searchHashtags` answers "what could this
+  /// become", this answers "what is this". Anything the site does not resolve —
+  /// or will not show this reader — is simply absent from the reply, which is
+  /// the caller's cue to leave it as text.
+  ///
+  /// The response is keyed by type rather than being a list, and the keys are
+  /// flattened back out here: which type a ref turned out to be is already on
+  /// the item.
+  Future<List<FoundHashtag>> lookupHashtags({
+    required String siteUrl,
+    required Iterable<String> refs,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final slugs = refs.take(hashtagsPerRequest).toList();
+    if (slugs.isEmpty) return const [];
+
+    final response = await _get(
+      Uri.parse('$siteUrl/hashtags.json').replace(
+        queryParameters: <String, dynamic>{
+          'slugs[]': slugs,
+          'order[]': hashtagOrder,
+        },
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    try {
+      final body = jsonDecode(response.body);
+      if (body is! Map<String, dynamic>) return const [];
+      return [
+        for (final entry in body.values)
+          if (entry is List<dynamic>)
+            for (final item in entry)
+              if (item is Map<String, dynamic>) ?FoundHashtag.fromJson(item),
+      ];
+    } catch (_) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+  }
+
+  /// Which of [names] the site would actually notify.
+  ///
+  /// The composer asks before drawing a mention as a pill: a name nobody has
+  /// cooks as plain text, and a pill over it would be the composer promising a
+  /// person who is not there.
+  ///
+  /// Groups come back under their own key and are folded in — a group mention
+  /// cooks as a pill too. `user_reasons` is deliberately ignored: a name the
+  /// reader cannot notify *here* is still a real account, and Discourse still
+  /// links it.
+  Future<Set<String>> checkMentions({
+    required String siteUrl,
+    required Iterable<String> names,
+    int? topicId,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final asked = names.take(hashtagsPerRequest).toList();
+    if (asked.isEmpty) return const {};
+
+    final response = await _get(
+      Uri.parse('$siteUrl/composer/mentions').replace(
+        queryParameters: <String, dynamic>{
+          'names[]': asked,
+          if (topicId != null) 'topic_id': '$topicId',
+        },
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    try {
+      final body = jsonDecode(response.body);
+      if (body is! Map<String, dynamic>) return const {};
+      return {
+        for (final name in (body['users'] as List<dynamic>? ?? const []))
+          if (name is String) name,
+        ...?(body['groups'] as Map<String, dynamic>?)?.keys,
+      };
+    } catch (_) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+  }
+
+  /// Every emoji a site allows, flattened out of the groups it lists them in.
+  ///
+  /// `/emojis.json` answers with `Emoji.grouped` — an object of group name to
+  /// list — and the grouping is a picker's business, not a completion's. The
+  /// site has already dropped the emoji it denies, so nothing here has to, and
+  /// custom uploads are in the same payload carrying their own upload url.
+  Future<List<SiteEmoji>> emojis({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse('$siteUrl/emojis.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return const [];
+
+      return [
+        for (final group in decoded.values)
+          if (group is List<dynamic>)
+            for (final emoji in group)
+              if (emoji case {
+                'name': final String name,
+                'url': final String url,
+              })
+                if (_absoluteIcon(url, siteUrl) case final resolved?)
+                  SiteEmoji(name: name, url: resolved),
+      ];
     } catch (_) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
@@ -1046,33 +1268,48 @@ class DiscourseApi {
 
   /// One page of a channel's messages, oldest first.
   ///
-  /// Two shapes, and only two. Without [before] the site answers with the
-  /// newest [pageSize] messages, which is where reading starts. With it, the
-  /// page immediately older than a message already held, that message excluded.
+  /// Four shapes, and the caller picks exactly one:
   ///
-  /// Deliberately *not* `fetch_from_last_read`: with no direction that takes
-  /// the query's around-target branch — 25 messages either side of where the
-  /// reader left off — which anchors the stream somewhere that is not the end
-  /// and then needs a way to page forward to escape. Landing on the newest
-  /// message means the only direction that exists is backwards, which is the
-  /// only one this app has. Nothing here marks anything read either, so a
-  /// last-read anchor would strand the reader at a position that never moves.
+  /// * nothing — the newest [pageSize] messages. The present, which is where
+  ///   "jump to now" lands.
+  /// * [fromLastRead] — the site resolves the target to this reader's
+  ///   `last_read_message_id` and takes the query's *around-target* branch: 25
+  ///   messages either side of where they left off. This is where opening a
+  ///   channel starts, and it is what Discourse's own client sends. A reader
+  ///   who has never opened the channel has no last-read, the target resolves
+  ///   to nil, and the answer is the newest page — the same bytes as sending
+  ///   nothing, which is why there is no separate case for it here.
+  /// * [before] — the page immediately older than a message already held, that
+  ///   message excluded.
+  /// * [after] — the same, forwards. Only reachable because [fromLastRead] can
+  ///   anchor the stream somewhere that is not the end; without it there would
+  ///   be nothing in front to fetch.
   ///
   /// [pageSize] is capped at 50 server side and sent explicitly so the number
-  /// in the code is the number that applies.
+  /// in the code is the number that applies. The around-target branch ignores
+  /// it and answers with its own 25-and-25.
   ///
   /// Worth knowing rather than discovering: this `GET` writes. The controller
   /// runs `update_membership_last_viewed_at`, so opening a channel touches
-  /// `last_viewed_at`. It does not touch `last_read_message_id`, so nothing is
-  /// marked read by reading it.
+  /// `last_viewed_at`. It does not touch `last_read_message_id` — that is
+  /// [markChatChannelRead]'s job — so nothing is marked read by reading it.
   Future<ChatMessagePage> chatMessages({
     required String siteUrl,
     required int channelId,
     int? before,
+    int? after,
+    bool fromLastRead = false,
     int pageSize = 50,
     String? apiKey,
     String? clientId,
   }) async {
+    assert(
+      [before != null, after != null, fromLastRead].where((on) => on).length <=
+          1,
+      'A page is asked for in one shape at a time; the site reads only the '
+      'first it recognises and the caller would not be told which.',
+    );
+
     // Absent params are left out rather than sent empty, and the failure mode
     // is worse than an error: `target_message_id=` casts to nil server side and
     // is treated as *absent*, so `direction=past` with an empty target answers
@@ -1082,7 +1319,9 @@ class DiscourseApi {
     // loud. This one is the quiet one.)
     final query = [
       'page_size=$pageSize',
+      if (fromLastRead) 'fetch_from_last_read=true',
       if (before != null) ...['direction=past', 'target_message_id=$before'],
+      if (after != null) ...['direction=future', 'target_message_id=$after'],
     ].join('&');
 
     final response = await _get(
@@ -1097,6 +1336,38 @@ class DiscourseApi {
       siteUrl,
     );
   }
+
+  /// Credits the reader with everything in a channel up to [messageId].
+  ///
+  /// The id goes in the query string rather than the body, which is where
+  /// Discourse's own client puts it. Nothing comes back worth reading: the
+  /// answer is `{"success":"OK"}`, and what the site now believes about the
+  /// counts arrives on the tracking channel rather than here.
+  ///
+  /// Only ever forwards. `ensure_message_id_recency` refuses an id older than
+  /// the one already recorded, so a stale write — one whose reader has since
+  /// scrolled on — is answered rather than obeyed. That makes this safe to
+  /// send out of order, which a debounced caller inevitably does.
+  ///
+  /// The site does more than move a number: it marks the mentions in what was
+  /// just read as read too, and in a direct channel without threading it
+  /// catches the thread memberships up as well. So this is the whole of
+  /// "I have seen it", not a piece of it.
+  Future<void> markChatChannelRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) => _write(
+    Uri.parse(
+      '$siteUrl/chat/api/channels/$channelId/read.json?message_id=$messageId',
+    ),
+    method: 'PUT',
+    apiKey: apiKey,
+    clientId: clientId,
+    body: const {},
+  );
 
   /// Tells the site to forget the key, so deleting our copy does not leave a
   /// live key sitting in the user's authorized-apps list forever.

@@ -212,7 +212,11 @@ class LightboxThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final ratio = image.aspectRatio;
 
-    Widget tile = LightboxTile(anchor: anchor, image: image);
+    Widget tile = LightboxTile(
+      anchor: anchor,
+      image: image,
+      fillsBox: ratio != null,
+    );
 
     // Reserve the slot from the size the markup declared, so the post does not
     // reflow as images land.
@@ -246,11 +250,18 @@ class LightboxTile extends StatelessWidget {
     required this.anchor,
     required this.image,
     this.fit = BoxFit.cover,
+    this.fillsBox = true,
   });
 
   final dom.Element anchor;
   final LightboxImage image;
   final BoxFit fit;
+
+  /// Whether something above bounds the height. False for markup that declared
+  /// no size and so got no [AspectRatio]: asking to fill an unbounded box there
+  /// is an infinite height, and the image sizes itself from its own pixels
+  /// instead.
+  final bool fillsBox;
 
   @override
   Widget build(BuildContext context) {
@@ -268,7 +279,7 @@ class LightboxTile extends StatelessWidget {
               image.thumbnailSrc ?? image.fullSrc,
               fit: fit,
               width: double.infinity,
-              height: double.infinity,
+              height: fillsBox ? double.infinity : null,
               errorBuilder: (context, error, stackTrace) =>
                   UnavailableImage(color: theme.shell.placeholder),
             ),

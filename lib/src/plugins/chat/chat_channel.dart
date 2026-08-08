@@ -98,10 +98,23 @@ class ChatMembership {
   /// The newest message the reader has been credited with seeing, or null on a
   /// channel they have never opened.
   ///
-  /// Nothing in this app writes it — see `ChatController.openChannel` — so it
-  /// is where the reader left off on some other client. That is enough for the
-  /// stream to say where the new messages start.
+  /// Written by `ChatController.markRead` as the reader scrolls, and by the
+  /// site's own answer whenever the channel list is fetched again — so on a
+  /// channel this app has not had on screen it is where the reader left off on
+  /// some other client.
   final int? lastReadMessageId;
+
+  /// This membership with the reader credited up to [messageId].
+  ///
+  /// Deliberately not guarded here: going backwards is a question about
+  /// *whether to write*, which `ChatController.markRead` answers before it
+  /// gets this far, and a silent clamp inside a value type would hide a caller
+  /// that had it wrong.
+  ChatMembership withLastRead(int messageId) => ChatMembership(
+    following: following,
+    muted: muted,
+    lastReadMessageId: messageId,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -364,6 +377,33 @@ class ChatChannel with Storable<ChatChannel> {
     if (tracking.unreadCount > 0) return const SidebarBadge.dot();
     return SidebarBadge.none;
   }
+
+  /// This channel with the reader credited up to [messageId].
+  ///
+  /// [caughtUp] says the reader has reached the newest message there is, and
+  /// is what empties the counts. Only then, which is Discourse's own rule:
+  /// what is unread in the middle of a channel is a sum this client cannot
+  /// compute — mentions, watched threads and plain messages are counted apart,
+  /// and the site counts them from rows this app never fetched. So the counts
+  /// go to zero when the answer is certainly zero, and otherwise stand until
+  /// the site sends its own.
+  ChatChannel withLastRead(int messageId, {required bool caughtUp}) =>
+      ChatChannel(
+        id: id,
+        title: title,
+        kind: kind,
+        slug: slug,
+        emoji: emoji,
+        description: description,
+        categoryColor: categoryColor,
+        readRestricted: readRestricted,
+        isGroup: isGroup,
+        users: users,
+        membership: membership.withLastRead(messageId),
+        tracking: caughtUp ? ChatTracking.none : tracking,
+        threadingEnabled: threadingEnabled,
+        lastMessageAt: lastMessageAt,
+      );
 
   /// The id a channel's sidebar entry carries, and — because
   /// `ContentRoute.fromDestination` copies it — the id of the route it opens.

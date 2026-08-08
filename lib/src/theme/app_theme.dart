@@ -27,6 +27,8 @@ class ShellColors extends ThemeExtension<ShellColors> {
     required this.floating,
     required this.hover,
     required this.placeholder,
+    required this.marker,
+    required this.mention,
   });
 
   final Color rail;
@@ -50,6 +52,26 @@ class ShellColors extends ThemeExtension<ShellColors> {
   /// is ever drawn in it, so anything orange on screen is a to-do list item.
   final Color placeholder;
 
+  /// The markdown syntax itself in the composer — the `**`, the `#`, the
+  /// backticks.
+  ///
+  /// Its own colour rather than [CodeColors.comment], which reads as "de-
+  /// emphasised" but only reaches 4.3:1 against [content] in the dark scheme.
+  /// These characters are not decoration: someone who cannot read the `**`
+  /// cannot tell bold from italic, and the two post differently. Both values
+  /// clear 4.5:1 against the surface the composer is drawn on.
+  final Color marker;
+
+  /// Behind a mention or hashtag pill, mirroring Discourse's
+  /// `--mention-background-color`.
+  ///
+  /// Not [rail], which is the nearest existing neutral and the wrong one: in
+  /// the dark scheme it is *darker* than every surface a pill is drawn on —
+  /// [content], [sidebar] where chat renders, [floating] in a user card —
+  /// while Discourse's is a step lighter than its surface. It is also what
+  /// inline code fills with, and a mention is not a code span.
+  final Color mention;
+
   static const ShellColors dark = ShellColors(
     rail: Color(0xFF131417),
     sidebar: Color(0xFF1A1C20),
@@ -59,6 +81,8 @@ class ShellColors extends ThemeExtension<ShellColors> {
     floating: Color(0xFF272B32),
     hover: Color(0xFF262A30),
     placeholder: Color(0xFFFF9E4D),
+    marker: Color(0xFF8B939F),
+    mention: Color(0xFF3A3F48),
   );
 
   static const ShellColors light = ShellColors(
@@ -70,6 +94,8 @@ class ShellColors extends ThemeExtension<ShellColors> {
     floating: Color(0xFFFFFFFF),
     hover: Color(0xFFF6F8F9),
     placeholder: Color(0xFFC25400),
+    marker: Color(0xFF6B7280),
+    mention: Color(0xFFDFE4E9),
   );
 
   @override
@@ -82,6 +108,8 @@ class ShellColors extends ThemeExtension<ShellColors> {
     Color? floating,
     Color? hover,
     Color? placeholder,
+    Color? marker,
+    Color? mention,
   }) {
     return ShellColors(
       rail: rail ?? this.rail,
@@ -92,6 +120,8 @@ class ShellColors extends ThemeExtension<ShellColors> {
       floating: floating ?? this.floating,
       hover: hover ?? this.hover,
       placeholder: placeholder ?? this.placeholder,
+      marker: marker ?? this.marker,
+      mention: mention ?? this.mention,
     );
   }
 
@@ -107,6 +137,8 @@ class ShellColors extends ThemeExtension<ShellColors> {
       floating: Color.lerp(floating, other.floating, t)!,
       hover: Color.lerp(hover, other.hover, t)!,
       placeholder: Color.lerp(placeholder, other.placeholder, t)!,
+      marker: Color.lerp(marker, other.marker, t)!,
+      mention: Color.lerp(mention, other.mention, t)!,
     );
   }
 }

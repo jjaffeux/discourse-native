@@ -353,15 +353,19 @@ class ChatThreadPreview {
 }
 
 /// One page of a channel, always oldest first, and whether the site says there
-/// is more behind it.
+/// is more on either side of it.
 ///
-/// `can_load_more_future` is deliberately absent. This app asks for messages in
-/// exactly two shapes — the newest page, and the page before one it holds — and
-/// on the first the server answers `false` while on the second it leaves the
-/// local unassigned and Ruby serialises `nil`. Reading it would be reading a
-/// null and calling it an answer. Nothing here pages forward, so nothing here
-/// needs to know.
-typedef ChatMessagePage = ({List<ChatMessage> messages, bool canLoadMorePast});
+/// Both flags are read as `== true` rather than defaulted, because the site
+/// only answers the one the request was about: a page asked for by direction
+/// leaves the other local unassigned, and Ruby serialises that as `nil`. So a
+/// missing flag is "the site did not say", which for a stream that already
+/// holds the messages in that direction is the same as "no more" — the shape
+/// `Post.canEdit` already uses.
+typedef ChatMessagePage = ({
+  List<ChatMessage> messages,
+  bool canLoadMorePast,
+  bool canLoadMoreFuture,
+});
 
 /// One message in a channel.
 @immutable
@@ -425,11 +429,8 @@ class ChatMessage with Storable<ChatMessage> {
     );
   }
 
-  /// Reads a `Chat::MessagesSerializer` payload.
-  ///
-  /// `can_load_more_past` is read as `== true` rather than defaulted, which
-  /// turns the Ruby-`nil` it arrives as on a direction-paginated response into a
-  /// non-event by construction — the shape `Post.canEdit` already uses.
+  /// Reads a `Chat::MessagesSerializer` payload. See [ChatMessagePage] for why
+  /// both flags are read as `== true` rather than defaulted.
   static ChatMessagePage parsePage(
     Map<String, dynamic> json,
     String siteUrl,
@@ -442,6 +443,7 @@ class ChatMessage with Storable<ChatMessage> {
             ChatMessage.fromJson(entry, siteUrl),
       ],
       canLoadMorePast: meta['can_load_more_past'] == true,
+      canLoadMoreFuture: meta['can_load_more_future'] == true,
     );
   }
 

@@ -19,15 +19,19 @@ class ChatStreamState {
     this.messageIds = const [],
     this.loading = false,
     this.loadingOlder = false,
+    this.loadingNewer = false,
     this.canLoadMorePast = false,
+    this.canLoadMoreFuture = false,
     this.fetchedOnce = false,
+    this.fetches = 0,
+    this.lastReadOnOpen,
     this.error,
   });
 
   /// Oldest first, and **contiguous** — there is never a hole in the middle.
   /// That is the invariant paging depends on: [ChatController.loadOlder] pages
-  /// before the first of these, so a gap anywhere above it could never be
-  /// filled.
+  /// before the first of these and [ChatController.loadNewer] after the last,
+  /// so a gap anywhere between them could never be filled.
   final List<int> messageIds;
 
   /// A first page is on its way and there is nothing to show behind it.
@@ -36,11 +40,42 @@ class ChatStreamState {
   /// A page of history is on its way, under what is already on screen.
   final bool loadingOlder;
 
+  /// A page towards the present is on its way, over what is already on screen.
+  final bool loadingNewer;
+
   final bool canLoadMorePast;
+
+  /// Whether there are messages between the newest one held and the present.
+  ///
+  /// False for a stream fetched at the live edge, which is most of them. True
+  /// only while the reader is anchored back where they left off with a backlog
+  /// in front of them — which is what [ChatController.openChannel] does, and
+  /// the reason [ChatController.loadNewer] exists at all.
+  final bool canLoadMoreFuture;
 
   /// Whether the site has answered at all, which is what tells an empty channel
   /// apart from one that has not been read yet.
   final bool fetchedOnce;
+
+  /// How many times this stream has been *replaced* — opened, or jumped to the
+  /// present — as opposed to paged into.
+  ///
+  /// The view's cue to position itself: a fresh window means the scroll offset
+  /// it is holding describes messages that are no longer there, so it has to
+  /// land somewhere deliberately rather than inherit it. Paging changes the
+  /// list without changing where the reader is, and leaves this alone.
+  final int fetches;
+
+  /// Where the reader had got to when this stream was fetched, which is what
+  /// the unread divider is drawn from.
+  ///
+  /// A snapshot rather than the membership's live answer, and that is the
+  /// whole point of it: [ChatController.markRead] moves the membership as the
+  /// reader scrolls, so a divider that watched it would slide down the screen
+  /// ahead of them and then vanish. Discourse pins the same line to a
+  /// `newestMessage` captured at fetch time, for the same reason. It moves
+  /// when the stream is replaced — a re-open — and not before.
+  final int? lastReadOnOpen;
 
   final String? error;
 
@@ -50,11 +85,20 @@ class ChatStreamState {
   /// nothing to page from.
   int? get oldestId => messageIds.firstOrNull;
 
+  /// The message to page after, and the one the reader is caught up to when
+  /// there is nothing in front of it.
+  int? get newestId => messageIds.lastOrNull;
+
+  /// Whether the newest message held is the newest there is.
+  bool get atPresent => !canLoadMoreFuture;
+
   ChatStreamState copyWith({
     List<int>? messageIds,
     bool? loading,
     bool? loadingOlder,
+    bool? loadingNewer,
     bool? canLoadMorePast,
+    bool? canLoadMoreFuture,
     bool? fetchedOnce,
     String? error,
     bool clearError = false,
@@ -62,8 +106,14 @@ class ChatStreamState {
     messageIds: messageIds ?? this.messageIds,
     loading: loading ?? this.loading,
     loadingOlder: loadingOlder ?? this.loadingOlder,
+    loadingNewer: loadingNewer ?? this.loadingNewer,
     canLoadMorePast: canLoadMorePast ?? this.canLoadMorePast,
+    canLoadMoreFuture: canLoadMoreFuture ?? this.canLoadMoreFuture,
     fetchedOnce: fetchedOnce ?? this.fetchedOnce,
+    // Carried rather than settable: both belong to the fetch that built this
+    // window, and every copy of one is the same window still.
+    fetches: fetches,
+    lastReadOnOpen: lastReadOnOpen,
     error: clearError ? null : (error ?? this.error),
   );
 }
@@ -137,6 +187,7 @@ class ChatController extends ChangeNotifier {
   static String _channelsKey(String siteUrl) => '$siteUrl~channels';
   static String _streamKey(String siteUrl, int id) => '$siteUrl~$id';
   static String _olderKey(String siteUrl, int id) => '$siteUrl~$id~past';
+  static String _newerKey(String siteUrl, int id) => '$siteUrl~$id~future';
 
   // --- reads -------------------------------------------------------------
 
@@ -225,7 +276,21 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  /// Puts a channel's newest page on screen.
+  /// Puts a channel on screen where the reader left off.
+  ///
+  /// Anchored rather than at the live edge, which is what Discourse's own
+  /// client does — `fetchMessages({fetch_from_last_read: true})` — and the
+  /// reason matters more here than it does there, because [markRead] is
+  /// watching: landing on the newest message means the newest message is on
+  /// screen, and a reader three hundred messages behind would have all three
+  /// hundred credited to them in the half second before they could scroll.
+  /// Anchoring is what makes reading a thing the reader does rather than a
+  /// thing that happens to them.
+  ///
+  /// A reader with no last-read is answered with the newest page, by the
+  /// server, for free — the target resolves to nil and the query takes its
+  /// no-target branch. So a channel opened for the first time still starts at
+  /// the present, without this having to ask a different question.
   ///
   /// Asked again on every open, the way the reactor lists are: this is a list of
   /// what other people have just said, it is stale within minutes, and there is
@@ -233,10 +298,28 @@ class ChatController extends ChangeNotifier {
   /// screen while the answer is on its way.
   ///
   /// The answer **replaces** the stream rather than merging into it. Contiguity
-  /// is what [loadOlder] depends on, and merging a newest page into an older one
-  /// the reader had scrolled back to would leave a hole in the middle that
-  /// nothing could ever fill.
-  Future<void> openChannel(String siteUrl, int channelId) async {
+  /// is what [loadOlder] and [loadNewer] depend on, and merging a window fetched
+  /// around one message into a window around another would leave a hole in the
+  /// middle that nothing could ever fill.
+  Future<void> openChannel(String siteUrl, int channelId) =>
+      _fetchWindow(siteUrl, channelId, fromLastRead: true);
+
+  /// Puts the newest page on screen, wherever the reader was.
+  ///
+  /// The way out of an anchored stream, and the same two-step Discourse's
+  /// `scrollToLatestMessage` makes: when there is nothing in front of what is
+  /// held, the present is already on screen and this is a scroll rather than a
+  /// fetch — which is the view's half of it, so this simply does nothing.
+  Future<void> showLatest(String siteUrl, int channelId) {
+    if (stream(siteUrl, channelId).atPresent) return Future.value();
+    return _fetchWindow(siteUrl, channelId, fromLastRead: false);
+  }
+
+  Future<void> _fetchWindow(
+    String siteUrl,
+    int channelId, {
+    required bool fromLastRead,
+  }) async {
     final key = _streamKey(siteUrl, channelId);
     if (!_loading.add(key)) return;
 
@@ -254,6 +337,7 @@ class ChatController extends ChangeNotifier {
       final page = await api.chatMessages(
         siteUrl: siteUrl,
         channelId: channelId,
+        fromLastRead: fromLastRead,
         pageSize: pageSize,
         apiKey: await authenticator.apiKeyFor(siteUrl),
         clientId: await authenticator.clientId(),
@@ -264,7 +348,17 @@ class ChatController extends ChangeNotifier {
       _streams[key] = ChatStreamState(
         messageIds: _sortedIds(siteUrl, page.messages),
         canLoadMorePast: page.canLoadMorePast,
+        canLoadMoreFuture: page.canLoadMoreFuture,
         fetchedOnce: true,
+        // Bumped off whatever was held rather than off the new state, so the
+        // view can tell this window from the one it was drawing. See
+        // [ChatStreamState.fetches].
+        fetches: held.fetches + 1,
+        // Taken here, once, because this is the moment the stream is replaced
+        // and both the divider and the anchor belong to the stream. See
+        // [ChatStreamState.lastReadOnOpen].
+        lastReadOnOpen: channel(siteUrl, channelId)?.membership
+            .lastReadMessageId,
       );
     } catch (_) {
       if (_disposed || epoch != _siteEpoch(siteUrl)) return;
@@ -343,6 +437,130 @@ class ChatController extends ChangeNotifier {
       if (current != null) _streams[key] = current.copyWith(loadingOlder: false);
       _loading.remove(guard);
       _notify();
+    }
+  }
+
+  /// Appends the page immediately after the newest message held.
+  ///
+  /// [loadOlder] read forwards, and every argument it makes applies mirrored —
+  /// including the "brought nothing new" override, which is safe for the same
+  /// reason: `direction=future` answers with ids strictly above the newest held
+  /// one, so anything it returns is new by construction.
+  ///
+  /// Only ever does anything on a stream [openChannel] anchored behind the
+  /// present. On a stream fetched at the live edge `canLoadMoreFuture` is
+  /// false, and this is the cheapest place to say so.
+  Future<void> loadNewer(String siteUrl, int channelId) async {
+    final key = _streamKey(siteUrl, channelId);
+    final held = stream(siteUrl, channelId);
+    final after = held.newestId;
+    if (!held.canLoadMoreFuture || after == null) return;
+
+    final guard = _newerKey(siteUrl, channelId);
+    if (_loading.contains(key) || !_loading.add(guard)) return;
+
+    final epoch = _siteEpoch(siteUrl);
+    _streams[key] = held.copyWith(loadingNewer: true);
+    _notify();
+
+    try {
+      final page = await api.chatMessages(
+        siteUrl: siteUrl,
+        channelId: channelId,
+        after: after,
+        pageSize: pageSize,
+        apiKey: await authenticator.apiKeyFor(siteUrl),
+        clientId: await authenticator.clientId(),
+      );
+      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
+
+      store.putAll(siteUrl, page.messages);
+      final current = _streams[key] ?? const ChatStreamState();
+      final merged = _sortedIds(
+        siteUrl,
+        page.messages,
+        held: current.messageIds,
+      );
+
+      _streams[key] = current.copyWith(
+        messageIds: merged,
+        canLoadMoreFuture:
+            merged.length > current.messageIds.length && page.canLoadMoreFuture,
+        fetchedOnce: true,
+      );
+    } catch (_) {
+      if (_disposed || epoch != _siteEpoch(siteUrl)) return;
+      // Same as [loadOlder]: what is on screen is still true, and scrolling
+      // down again asks again.
+    } finally {
+      final current = _streams[key];
+      if (current != null) _streams[key] = current.copyWith(loadingNewer: false);
+      _loading.remove(guard);
+      _notify();
+    }
+  }
+
+  /// Credits the reader with everything in a channel up to [messageId].
+  ///
+  /// Called from the view as the reader scrolls, debounced there — the same
+  /// division Discourse draws, where the component watches the viewport and
+  /// `chatApi.markChannelAsRead` is the thing it calls. What lives here is
+  /// every rule about *whether* the write happens.
+  ///
+  /// Optimistic, and deliberately not undone when the write fails. There is
+  /// nothing to tell the reader — this is not an action they took — and the
+  /// site is the one keeping score: the next fetch of the channel list brings
+  /// its answer, which corrects anything this got wrong. Putting a badge back
+  /// under a reader who has visibly read the messages would be the worse lie.
+  Future<void> markRead(String siteUrl, int channelId, int messageId) async {
+    final held = channel(siteUrl, channelId);
+    if (held == null) return;
+
+    // Only a followed channel has a membership row to move. The site is blunt
+    // about the rest — `find_for_user(following: true)` misses, and the answer
+    // is a 404 — and this app only ever draws followed channels anyway.
+    if (!held.membership.following) return;
+
+    // Never backwards, which is both the site's rule and the reader's: paging
+    // into the past must not undo what they have already seen. This is also
+    // the whole of the de-duplication, and enough of it — the second call for
+    // a message already recorded is the common one, and it stops here.
+    final lastRead = held.membership.lastReadMessageId;
+    if (lastRead != null && lastRead >= messageId) return;
+
+    // Both halves are load-bearing since the stream can be anchored behind the
+    // present: the reader is caught up only if this is the last message held
+    // *and* there is nothing in front of it. Discourse asks its loader the same
+    // two questions — `!canLoadMoreFuture && firstMessage.id === last.id`.
+    final window = stream(siteUrl, channelId);
+    final caughtUp = window.atPresent && window.newestId == messageId;
+
+    // Before the keychain, not after: the await below is a gap two scroll
+    // ticks can both arrive in, and the guard above is only a guard once the
+    // answer it reads has been written.
+    store.update<ChatChannel>(
+      siteUrl,
+      channelId,
+      (current) => current.withLastRead(messageId, caughtUp: caughtUp),
+    );
+    _notify();
+
+    try {
+      final apiKey = await authenticator.apiKeyFor(siteUrl);
+      // A channel on screen belongs to a connected site, so this is the
+      // unsigned-macOS-keychain case rather than a reader without a key. The
+      // guess stands; nothing else can be done with it.
+      if (apiKey == null) return;
+
+      await api.markChatChannelRead(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        channelId: channelId,
+        messageId: messageId,
+        clientId: await authenticator.clientId(),
+      );
+    } catch (_) {
+      // See above: there is nobody to tell, and nothing to put back.
     }
   }
 

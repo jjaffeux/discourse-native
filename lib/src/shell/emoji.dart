@@ -101,8 +101,9 @@ class _EmojiImageState extends State<EmojiImage> {
 /// Discourse's stylesheet fixes `img.emoji` at 20px against a 15px body. Here
 /// the surrounding style varies — a post is `bodyMedium`, an onebox body and a
 /// user card bio are `bodySmall` — so the ratio is kept rather than the pixels,
-/// the way [InlineCode] keeps `0.875`.
-const double _emojiScale = 1.35;
+/// the way [InlineCode] keeps `0.875`. Public because the composer draws the
+/// same artwork over a shortcode someone is typing, and the two must agree.
+const double emojiScale = 1.35;
 
 /// Hands `<img class="emoji">` to [EmojiImage], for
 /// [HtmlWidget.customWidgetBuilder].
@@ -131,7 +132,7 @@ Widget? emojiWidgetBuilder(
   return InlineCustomWidget(
     child: EmojiImage(
       url: url,
-      size: (baseStyle?.fontSize ?? 14) * _emojiScale,
+      size: (baseStyle?.fontSize ?? 14) * emojiScale,
       alt: element.attributes['alt'] ?? element.attributes['title'] ?? '',
       style: baseStyle,
     ),

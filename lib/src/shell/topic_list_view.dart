@@ -115,7 +115,9 @@ class _TopicListViewState extends State<TopicListView> {
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.of(context);
-    final destination = controller.destinationId ?? 'latest';
+    // Not `destinationId`: a category or tag list opened from a hashtag is a
+    // feed of its own, sitting over whichever sidebar entry is still selected.
+    final destination = controller.currentFeedId ?? 'latest';
     final incoming = controller.incomingCount(destination);
 
     return Column(

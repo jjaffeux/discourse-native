@@ -31,6 +31,12 @@ const String singleImage = '''
 <p>After.</p>
 ''';
 
+/// A lightboxed image whose `img` carries no `width`/`height` — which chat's
+/// markup does, and which leaves the tile with no declared aspect ratio.
+const String sizelessImage = '''
+<div class="lightbox-wrapper"><a class="lightbox" href="https://example.com/full.png" title="no-size.png"><img src="https://example.com/thumb.png"><div class="meta"><span class="informations">1000×1000 1 MB</span></div></a></div>
+''';
+
 /// Three images in one post, the middle one inside a spoiler.
 const String threeImages = '''
 <div class="lightbox-wrapper"><a class="lightbox" href="https://example.com/one.png" title="one.png"><img src="https://example.com/one-t.png" width="100" height="100"><div class="meta"><span class="informations">1000×1000 1 MB</span></div></a></div>
@@ -213,6 +219,18 @@ void main() {
       expect(find.byType(LightboxThumbnail), findsOneWidget);
       expect(renderedText('Before.'), findsOneWidget);
       expect(renderedText('After.'), findsOneWidget);
+    });
+
+    testWidgets('lays out an image whose markup declared no size', (
+      tester,
+    ) async {
+      // No `width`/`height` means no [AspectRatio] to bound the tile, and a
+      // post scrolls, so a tile that asks to fill its box asks for an infinite
+      // height and takes the viewport's layout down with it.
+      await pumpCooked(tester, sizelessImage);
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(LightboxThumbnail), findsOneWidget);
     });
 
     testWidgets('does not print the .meta overlay as stray text', (

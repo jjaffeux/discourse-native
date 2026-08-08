@@ -13,13 +13,16 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/incoming_topics.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -334,6 +337,15 @@ class FakeDiscourseApi implements DiscourseApi {
     this.likerGate,
     this.siteConfigs = const {},
     this.customEmojisBySite = const {},
+    this.userSearches = const {},
+    this.userSearchGate,
+    this.hashtagSearches = const {},
+    this.hashtagSearchGate,
+    this.hashtagsByRef = const {},
+    this.hashtagLookupGate,
+    this.realUsernames = const {},
+    this.mentionCheckGate,
+    this.emojisBySite = const {},
     this.reactorsById = const {},
     this.reactorGate,
     this.reactionResponses = const {},
@@ -343,6 +355,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.chatChannelGate,
     this.chatMessagesByKey = const {},
     this.chatMessageGate,
+    this.chatReadFailure,
   });
 
   final Map<String, DiscourseInstance> results;
@@ -463,6 +476,53 @@ class FakeDiscourseApi implements DiscourseApi {
   /// Site urls passed to [customEmojis], in order.
   final List<String> customEmojisRequired = [];
 
+  /// Returned by [searchUsers], keyed by term. A term nobody listed answers
+  /// with nothing, which is what a real site does for a name it does not have.
+  final Map<String, List<FoundUser>> userSearches;
+
+  /// The searches asked for, in order.
+  final List<({String term, int? topicId})> userSearchesRequested = [];
+
+  /// When set, [searchUsers] waits on it, so a test can hold an answer in
+  /// flight while the query moves on.
+  final Completer<void>? userSearchGate;
+
+  /// Returned by [searchHashtags], keyed by term. A term nobody listed answers
+  /// with nothing, the way a real site does for a slug it does not have.
+  final Map<String, List<FoundHashtag>> hashtagSearches;
+
+  /// The terms asked for, in order.
+  final List<String> hashtagSearchesRequested = [];
+
+  /// When set, [searchHashtags] waits on it, so a test can hold an answer in
+  /// flight while the query moves on.
+  final Completer<void>? hashtagSearchGate;
+
+  /// What [lookupHashtags] resolves, keyed by ref. A ref nobody listed is
+  /// absent from the reply, which is how a real site says "not one of mine".
+  final Map<String, FoundHashtag> hashtagsByRef;
+
+  /// The batches of refs looked up, in order — so a test can show that typing
+  /// a ref asks nothing and finishing it asks once.
+  final List<Set<String>> hashtagLookupsRequested = [];
+
+  final Completer<void>? hashtagLookupGate;
+
+  /// The usernames [checkMentions] confirms. Anything else is somebody who
+  /// does not exist, and must stay text.
+  final Set<String> realUsernames;
+
+  final List<Set<String>> mentionChecksRequested = [];
+
+  final Completer<void>? mentionCheckGate;
+
+  /// Returned by [emojis], keyed by site url.
+  final Map<String, List<SiteEmoji>> emojisBySite;
+
+  /// Site urls passed to [emojis], in order — so a test can show the list is
+  /// fetched once and not per keystroke.
+  final List<String> emojisRequested = [];
+
   /// Returned by [postReactors], keyed by `PostReactors.key(postId, filter)`;
   /// a missing one fails.
   final Map<String, PostReactors> reactorsById;
@@ -508,17 +568,36 @@ class FakeDiscourseApi implements DiscourseApi {
   /// fails, so a test only has to name the pages it expects to be asked for.
   final Map<String, ChatMessagePage> chatMessagesByKey;
 
-  /// The newest page of a channel is keyed by the channel alone; an older page
-  /// by the message it was asked to page before.
-  static String chatMessagesKey(int channelId, int? before) =>
-      before == null ? '$channelId' : '$channelId~$before';
+  /// The window a channel opens on is keyed by the channel alone; a page by
+  /// the message and the direction it was asked to page from.
+  static String chatMessagesKey(int channelId, {int? before, int? after}) =>
+      switch ((before, after)) {
+        (final int target, _) => '$channelId~past~$target',
+        (_, final int target) => '$channelId~future~$target',
+        _ => '$channelId',
+      };
 
-  /// The `(channelId, before)` pairs passed to [chatMessages], in order.
-  final List<({int channelId, int? before})> chatMessagesRequested = [];
+  /// What a jump to the present is answered with, when a test names it.
+  ///
+  /// Falls back to [chatMessagesKey], because most of the time the two are the
+  /// same window and saying so twice would only be noise. A test that wants
+  /// the anchored window to differ from the newest page — the whole point of
+  /// jumping — names this one as well.
+  static String chatMessagesLatestKey(int channelId) => '$channelId~latest';
+
+  /// Every ask passed to [chatMessages], in order and in the shape it was made.
+  final List<({int channelId, int? before, int? after, bool fromLastRead})>
+  chatMessagesRequested = [];
 
   /// When set, [chatMessages] waits on it, so a test can look at a channel
   /// while its first page is still on the way.
   final Completer<void>? chatMessageGate;
+
+  /// Thrown by [markChatChannelRead] instead of answering.
+  final WriteException? chatReadFailure;
+
+  /// Every [markChatChannelRead] call, in order.
+  final List<({int channelId, int messageId})> chatReadsMarked = [];
 
   /// Thrown by [saveDraft] instead of answering.
   final WriteException? draftFailure;
@@ -692,6 +771,71 @@ class FakeDiscourseApi implements DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return config;
+  }
+
+  @override
+  Future<List<FoundUser>> searchUsers({
+    required String siteUrl,
+    required String term,
+    int? topicId,
+    int limit = 10,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    userSearchesRequested.add((term: term, topicId: topicId));
+    if (userSearchGate != null) await userSearchGate!.future;
+    return userSearches[term] ?? const [];
+  }
+
+  @override
+  Future<List<FoundHashtag>> searchHashtags({
+    required String siteUrl,
+    required String term,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    hashtagSearchesRequested.add(term);
+    if (hashtagSearchGate != null) await hashtagSearchGate!.future;
+    return hashtagSearches[term] ?? const [];
+  }
+
+  @override
+  Future<List<FoundHashtag>> lookupHashtags({
+    required String siteUrl,
+    required Iterable<String> refs,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final asked = refs.toSet();
+    hashtagLookupsRequested.add(asked);
+    if (hashtagLookupGate != null) await hashtagLookupGate!.future;
+    return [
+      for (final ref in asked) ?hashtagsByRef[ref],
+    ];
+  }
+
+  @override
+  Future<Set<String>> checkMentions({
+    required String siteUrl,
+    required Iterable<String> names,
+    int? topicId,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final asked = names.toSet();
+    mentionChecksRequested.add(asked);
+    if (mentionCheckGate != null) await mentionCheckGate!.future;
+    return asked.intersection(realUsernames);
+  }
+
+  @override
+  Future<List<SiteEmoji>> emojis({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    emojisRequested.add(siteUrl);
+    return emojisBySite[siteUrl] ?? const [];
   }
 
   @override
@@ -887,17 +1031,45 @@ class FakeDiscourseApi implements DiscourseApi {
     required String siteUrl,
     required int channelId,
     int? before,
+    int? after,
+    bool fromLastRead = false,
     int pageSize = 50,
     String? apiKey,
     String? clientId,
   }) async {
-    chatMessagesRequested.add((channelId: channelId, before: before));
+    chatMessagesRequested.add((
+      channelId: channelId,
+      before: before,
+      after: after,
+      fromLastRead: fromLastRead,
+    ));
     if (chatMessageGate != null) await chatMessageGate!.future;
-    final found = chatMessagesByKey[chatMessagesKey(channelId, before)];
+    final asksForLatest = !fromLastRead && before == null && after == null;
+    final found =
+        (asksForLatest
+            ? chatMessagesByKey[chatMessagesLatestKey(channelId)]
+            : null) ??
+        chatMessagesByKey[chatMessagesKey(
+          channelId,
+          before: before,
+          after: after,
+        )];
     if (found == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return found;
+  }
+
+  @override
+  Future<void> markChatChannelRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    chatReadsMarked.add((channelId: channelId, messageId: messageId));
+    if (chatReadFailure != null) throw chatReadFailure!;
   }
 
   @override

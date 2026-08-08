@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../theme/app_theme.dart';
-import 'cooked_html.dart';
-import 'open_link.dart';
+import '../../theme/app_theme.dart';
+import '../cooked_html.dart';
+import '../open_link.dart';
+import 'discourse/category/block.dart';
+import 'discourse/topic/block.dart';
+import 'discourse/user/block.dart';
+import 'github/commit/block.dart';
+import 'github/issue/block.dart';
+import 'github/pr/block.dart';
 
 /// Renders Discourse oneboxes natively instead of as styled HTML.
 ///
@@ -13,14 +19,16 @@ import 'open_link.dart';
 /// elements. So none of Discourse's onebox CSS can be reused here, and an
 /// unhandled onebox renders as an unstyled pile of text and images.
 ///
-/// Rather than reimplement one widget per onebox engine (there are dozens, and
-/// they change), this reads the envelope every engine shares — the `_layout`
-/// template in `lib/onebox/templates` — and hands whatever is left of the body
-/// back to [HtmlWidget]. New and unknown engines therefore still show their
-/// content, inside native chrome.
+/// Every onebox arrives in the envelope the `_layout` template writes —
+/// `aside.onebox`, `header.source`, `article.onebox-body` — which
+/// [OneboxData] reads. The engines under this directory claim the asides
+/// whose body they know how to draw (the GitHub ones, the links to Discourse
+/// itself); everything else falls back to the generic [OneboxCard], which
+/// hands the body it did not claim back to [HtmlWidget]. New and unknown
+/// engines therefore still show their content, inside native chrome.
 ///
-/// `tool/onebox_contract.dart` checks that envelope for drift against
-/// discourse/discourse.
+/// `tool/onebox_contract.dart` checks the envelope and the engines' markup
+/// for drift against discourse/discourse.
 class OneboxData {
   const OneboxData({
     required this.url,
@@ -172,17 +180,50 @@ class OneboxThumbnail {
   }
 }
 
-/// Hands `aside.onebox` to [OneboxCard], for [HtmlWidget.customWidgetBuilder].
+/// A body parser for one engine, and the test that decides the aside is one.
+class OneboxEngine {
+  const OneboxEngine({required this.matches, required this.build});
+
+  final bool Function(dom.Element aside) matches;
+
+  /// Builds the whole widget for the aside, [envelope] included.
+  final Widget Function(dom.Element aside, OneboxData envelope) build;
+}
+
+/// The engines this app draws natively, first claim wins. Anything none of
+/// them recognises lands on the generic [OneboxCard].
+final List<OneboxEngine> _engines = [
+  githubPullRequestBlock,
+  githubIssueBlock,
+  githubCommitBlock,
+  discourseTopicBlock,
+  discourseUserBlock,
+  discourseCategoryBlock,
+];
+
+/// Hands `aside.onebox` to whichever engine claims it, for
+/// [HtmlWidget.customWidgetBuilder].
 Widget? oneboxWidgetBuilder(dom.Element element) {
   if (element.localName != 'aside') return null;
   if (!element.classes.contains('onebox')) return null;
-  return OneboxCard(data: OneboxData.from(element));
+
+  final envelope = OneboxData.from(element);
+  for (final engine in _engines) {
+    if (engine.matches(element)) return engine.build(element, envelope);
+  }
+  return OneboxCard(data: envelope);
 }
 
+/// The card every onebox sits in: the site header, and either a body an
+/// engine built or the generic title-and-thumbnail one.
 class OneboxCard extends StatelessWidget {
-  const OneboxCard({super.key, required this.data});
+  const OneboxCard({super.key, required this.data, this.child});
 
   final OneboxData data;
+
+  /// The engine-specific body. Null asks for the generic one, which is what
+  /// unknown engines get.
+  final Widget? child;
 
   static const double _thumbnailWidth = 88;
   static const double _avatarSize = 44;
@@ -207,7 +248,7 @@ class OneboxCard extends StatelessWidget {
             _Header(icon: data.siteIcon, name: data.siteName),
             const SizedBox(height: 10),
           ],
-          _body(context),
+          child ?? _genericBody(context),
         ],
       ),
     );
@@ -222,9 +263,9 @@ class OneboxCard extends StatelessWidget {
     );
   }
 
-  Widget _body(BuildContext context) {
+  Widget _genericBody(BuildContext context) {
     final thumbnail = data.thumbnail;
-    final text = _text(context);
+    final text = _genericText(context);
 
     if (thumbnail == null) return text;
 
@@ -243,7 +284,7 @@ class OneboxCard extends StatelessWidget {
     );
   }
 
-  Widget _text(BuildContext context) {
+  Widget _genericText(BuildContext context) {
     final theme = Theme.of(context);
     final title = data.title;
 
