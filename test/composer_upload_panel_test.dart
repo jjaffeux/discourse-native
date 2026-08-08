@@ -7,6 +7,7 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -30,11 +31,13 @@ void main() {
     addTearDown(shell.dispose);
     await _pumpPanel(tester, shell, composer);
 
+    expect(find.text('Write a reply…'), findsOneWidget);
     composer.text.text = 'body';
     composer.addDroppedImages([_file], 4);
     calls.single.onProgress(0.37);
     await tester.pump();
 
+    expect(find.text('Write a reply…'), findsNothing);
     expect(find.text('photo.png'), findsOneWidget);
     expect(find.text('37%'), findsOneWidget);
     expect(find.byTooltip('Cancel upload'), findsOneWidget);
@@ -122,6 +125,44 @@ void main() {
         .onPressed!();
     await tester.pump();
     expect(composer.text.text, isEmpty);
+  });
+
+  testWidgets('an image taller than the editor scrolls inside it', (
+    tester,
+  ) async {
+    final composer = ComposerController(
+      _target,
+      resolveUploadUrls: (_) async => const {},
+    );
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.text = '![tall|640x480](upload://photo)';
+    await _pumpPanel(tester, shell, composer);
+    await tester.pumpAndSettle();
+
+    final editor = find.byType(EditableText);
+    final scrollable = find.descendant(
+      of: editor,
+      matching: find.byType(Scrollable),
+    );
+    final scrollState = tester.state<ScrollableState>(scrollable);
+    expect(scrollState.position.maxScrollExtent, greaterThan(0));
+    scrollState.position.jumpTo(0);
+    await tester.pump();
+
+    final preview = find.byType(ComposerImagePreview);
+    final oldTop = tester.getTopLeft(preview).dy;
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getRect(find.byType(TextField)).center,
+        scrollDelta: const Offset(0, 80),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(scrollState.position.pixels, greaterThan(0));
+    expect(tester.getTopLeft(preview).dy, lessThan(oldTop));
   });
 }
 

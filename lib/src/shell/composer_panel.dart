@@ -530,11 +530,32 @@ class _ComposerEditorState extends State<_ComposerEditor> {
   bool _dragging = false;
   ComposerImageBlock? _selectedImage;
   final TextEditingController _imageAlt = TextEditingController();
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.composer.text.imageScrollController = _scroll;
+  }
+
+  @override
+  void didUpdateWidget(_ComposerEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.composer, widget.composer)) return;
+    if (identical(oldWidget.composer.text.imageScrollController, _scroll)) {
+      oldWidget.composer.text.imageScrollController = null;
+    }
+    widget.composer.text.imageScrollController = _scroll;
+  }
 
   @override
   void dispose() {
     _hideTimer?.cancel();
     _imageAlt.dispose();
+    if (identical(widget.composer.text.imageScrollController, _scroll)) {
+      widget.composer.text.imageScrollController = null;
+    }
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -810,31 +831,50 @@ class _ComposerEditorState extends State<_ComposerEditor> {
               clipBehavior: Clip.none,
               children: [
                 Positioned.fill(
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: widget.composer.text,
+                    builder: (context, value, _) => value.text.isEmpty
+                        ? IgnorePointer(
+                            child: Align(
+                              alignment: Alignment.topLeft,
+                              child: Text(
+                                widget.hintText,
+                                style: widget.hintStyle,
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ),
+                Positioned.fill(
                   child: Listener(
                     behavior: HitTestBehavior.translucent,
                     onPointerDown: (event) => _pointerDown = event.position,
                     child: ComposerSuggestionField(
                       composer: widget.composer,
-                      field: TextField(
-                        // Not decoration: a new key builds a new editable, and
-                        // with it a new undo stack. It is the only way to stop undo
-                        // reaching back into a reply that has already been sent.
-                        key: ValueKey(widget.composer.fieldGeneration),
-                        controller: widget.composer.text,
-                        focusNode: widget.composer.focus,
-                        autofocus: true,
-                        expands: true,
-                        maxLines: null,
-                        minLines: null,
-                        textAlignVertical: TextAlignVertical.top,
-                        keyboardType: TextInputType.multiline,
-                        textCapitalization: TextCapitalization.sentences,
-                        onTapAlwaysCalled: true,
-                        onTap: _onFieldTap,
-                        style: widget.textStyle,
-                        decoration: InputDecoration.collapsed(
-                          hintText: widget.hintText,
-                          hintStyle: widget.hintStyle,
+                      field: ClipRect(
+                        child: TextField(
+                          // Not decoration: a new key builds a new editable, and
+                          // with it a new undo stack. It is the only way to stop undo
+                          // reaching back into a reply that has already been sent.
+                          key: ValueKey(widget.composer.fieldGeneration),
+                          controller: widget.composer.text,
+                          scrollController: _scroll,
+                          focusNode: widget.composer.focus,
+                          autofocus: true,
+                          expands: true,
+                          maxLines: null,
+                          minLines: null,
+                          textAlignVertical: TextAlignVertical.top,
+                          keyboardType: TextInputType.multiline,
+                          textCapitalization: TextCapitalization.sentences,
+                          onTapAlwaysCalled: true,
+                          onTap: _onFieldTap,
+                          style: widget.textStyle,
+                          // InputDecorator only gives the editable one text line
+                          // even when the TextField expands. The composer draws
+                          // its hint separately so this viewport fills the editor.
+                          decoration: null,
                         ),
                       ),
                     ),

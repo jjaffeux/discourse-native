@@ -15,8 +15,7 @@ class ComposerImagePreview extends StatelessWidget {
   final String? url;
   final void Function(Size size) onNaturalSize;
 
-  @override
-  Widget build(BuildContext context) {
+  static Size displaySize(ComposerImageBlock image) {
     final sourceWidth = image.width?.toDouble() ?? 360;
     final sourceHeight = image.height?.toDouble() ?? sourceWidth / (16 / 9);
     final scale = (image.scale ?? 100) / 100;
@@ -25,16 +24,20 @@ class ComposerImagePreview extends StatelessWidget {
       190 / sourceHeight,
       1.0,
     ].reduce((a, b) => a < b ? a : b);
-    final width = sourceWidth * bound * scale;
-    final height = sourceHeight * bound * scale;
+    return Size(sourceWidth * bound * scale, sourceHeight * bound * scale);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = displaySize(image);
     final source = url;
 
     return Semantics(
       image: source != null,
       label: image.alt.isEmpty ? 'Image' : image.alt,
       child: Container(
-        width: width,
-        height: height,
+        width: size.width,
+        height: size.height,
         margin: const EdgeInsets.symmetric(vertical: 4),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(

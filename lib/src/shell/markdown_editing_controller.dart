@@ -67,6 +67,14 @@ class MarkdownEditingController extends TextEditingController {
   final Set<String> _resolvingImageUrls = {};
   final Set<String> _failedImageUrls = {};
   final Map<String, Size> _naturalImageSizes = {};
+  ScrollController? _imageScrollController;
+  ScrollController? get imageScrollController => _imageScrollController;
+
+  set imageScrollController(ScrollController? value) {
+    if (identical(_imageScrollController, value)) return;
+    _imageScrollController = value;
+    artworkArrived();
+  }
 
   List<ComposerImageBlock> get imageBlocks =>
       List.unmodifiable(_imageBlocksFor(text));
@@ -409,12 +417,12 @@ class MarkdownEditingController extends TextEditingController {
     final span = TextSpan(style: base, children: children);
     // The one thing that must never drift.
     //
-    // Length, not contents: a WidgetSpan flattens to one `0xFFFC` where the
-    // source has its own character, so the two strings differ exactly at the
-    // placeholders and nowhere else. What everything downstream depends on —
-    // the caret, hit testing, word boundaries, select-all — is that an offset
-    // means the same position in both, and Flutter neither asserts that nor
-    // converts between them when it stops being true.
+    // Length, not contents: projected widgets flatten to `0xFFFC`, and image
+    // tokens also lend some of their hidden characters to transparent line
+    // breaks. What everything downstream depends on — the caret, hit testing,
+    // word boundaries, select-all — is that an offset means the same position
+    // in both, and Flutter neither asserts that nor converts between them when
+    // it stops being true.
     assert(
       span.toPlainText(includeSemanticsLabels: false).length == source.length,
       'the painted text drifted from the source',
@@ -450,14 +458,18 @@ class MarkdownEditingController extends TextEditingController {
     if (image.url.startsWith('upload://') && url == null) {
       unresolved.add(image.url);
     }
+    // RenderEditable paints tall WidgetSpans at full size but does not include
+    // their height in its scroll extent. Project enough token characters as
+    // transparent line breaks to reserve the same vertical space while keeping
+    // one laid-out character for every raw Markdown character.
+    final imageHeight = ComposerImagePreview.displaySize(image).height + 8;
+    final lineHeight = (base.fontSize ?? 14) * (base.height ?? 1.4);
+    final breaks = (imageHeight / lineHeight).ceil().clamp(
+      1,
+      image.end - image.start - 1,
+    );
     return [
-      TextSpan(
-        text: text.substring(image.start, image.end - 1),
-        style: _hidden,
-      ),
       WidgetSpan(
-        // Images are blocks. Centering a tall placeholder on the text baseline
-        // puts most of it above the editable and over the composer toolbar.
         alignment: PlaceholderAlignment.top,
         style: base,
         child: KeyedSubtree(
@@ -466,17 +478,34 @@ class MarkdownEditingController extends TextEditingController {
             () => GlobalKey(debugLabel: 'composer-image-${image.start}'),
           ),
           child: IgnorePointer(
-            child: ComposerImagePreview(
-              image: image,
-              url: url,
-              onNaturalSize: (size) {
-                if (_naturalImageSizes[image.url] == size) return;
-                _naturalImageSizes[image.url] = size;
-                artworkArrived();
-              },
+            child: _FollowEditorScroll(
+              controller: _imageScrollController,
+              child: ComposerImagePreview(
+                image: image,
+                url: url,
+                onNaturalSize: (size) {
+                  if (_naturalImageSizes[image.url] == size) return;
+                  _naturalImageSizes[image.url] = size;
+                  artworkArrived();
+                },
+              ),
             ),
           ),
         ),
+      ),
+      TextSpan(
+        text: List.filled(breaks, '\n').join(),
+        style: TextStyle(
+          color: const Color(0x00000000),
+          fontFamily: base.fontFamily,
+          fontFamilyFallback: base.fontFamilyFallback,
+          fontSize: base.fontSize,
+          height: base.height,
+        ),
+      ),
+      TextSpan(
+        text: text.substring(image.start + breaks + 1, image.end),
+        style: _hidden,
       ),
     ];
   }
@@ -776,6 +805,30 @@ class MarkdownEditingController extends TextEditingController {
       for (var i = 0; i < cuts.length - 1; i++)
         MarkdownRun(cuts[i], cuts[i + 1], run.mask, run.detail, run.token),
     ];
+  }
+}
+
+/// Inline children are not translated by RenderEditable's vertical viewport.
+/// Follow its scroll position so projected images move with their reserved
+/// lines and their global rects remain valid for the image controls.
+class _FollowEditorScroll extends StatelessWidget {
+  const _FollowEditorScroll({required this.controller, required this.child});
+
+  final ScrollController? controller;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scroll = controller;
+    if (scroll == null) return child;
+    return AnimatedBuilder(
+      animation: scroll,
+      child: child,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(0, scroll.hasClients ? -scroll.offset : 0),
+        child: child,
+      ),
+    );
   }
 }
 
