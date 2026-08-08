@@ -138,7 +138,7 @@ class _TopicFilterPageState extends State<TopicFilterPage> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
-        if (filter.isOpen && filter.selected != null) {
+        if (filter.isOpen) {
           unawaited(
             filter.ensureFreshSuggestions().then(
               (_) => filter.acceptSelected(),
@@ -282,11 +282,18 @@ class _SuggestionList extends StatelessWidget {
                       onTap: () => unawaited(filter.accept(suggestion)),
                       child: Container(
                         key: ValueKey('topic-filter-suggestion-$index'),
-                        color: isSelected ? theme.shell.hover : null,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 9,
+                        decoration: BoxDecoration(
+                          color: isSelected ? theme.shell.selected : null,
+                          border: Border(
+                            left: BorderSide(
+                              color: isSelected
+                                  ? theme.colorScheme.primary
+                                  : Colors.transparent,
+                              width: 3,
+                            ),
+                          ),
                         ),
+                        padding: const EdgeInsets.fromLTRB(9, 9, 12, 9),
                         child: Row(
                           children: [
                             DIcon(
