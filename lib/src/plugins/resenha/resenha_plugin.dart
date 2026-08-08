@@ -1,0 +1,138 @@
+import 'package:flutter/material.dart';
+import 'package:html/dom.dart' as dom;
+
+import '../../models/content_route.dart';
+import '../../models/post.dart';
+import '../../models/sidebar.dart';
+import '../../shell/composer_controller.dart';
+import '../../shell/shell_scope.dart';
+import '../../theme/d_icons.dart';
+import '../site_plugin.dart';
+import 'resenha_models.dart';
+import 'resenha_room_view.dart';
+
+final class ResenhaPlugin implements SitePlugin<ResenhaRoom> {
+  const ResenhaPlugin();
+
+  static String routeId(int roomId) => 'resenha-room-$roomId';
+
+  static int? roomIdIn(String routeId) {
+    const prefix = 'resenha-room-';
+    return routeId.startsWith(prefix)
+        ? int.tryParse(routeId.substring(prefix.length))
+        : null;
+  }
+
+  @override
+  String get name => 'resenha';
+
+  @override
+  Type get record => ResenhaRoom;
+
+  @override
+  ResenhaRoom? readPost(Map<String, dynamic> json, String siteUrl) => null;
+
+  @override
+  Widget? postBodyElement(String siteUrl, Post post, dom.Element element) =>
+      null;
+
+  @override
+  Widget? postFooter(String siteUrl, Post post) => null;
+
+  @override
+  PostMenuContribution postMenu(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+  ) => PostMenuContribution.none;
+
+  @override
+  List<ComposerToolbarContribution> composerToolbar(
+    BuildContext context,
+    ComposerController composer,
+  ) => const [];
+
+  @override
+  ResenhaRoom? mergeAfterPostEdit(ResenhaRoom? held, ResenhaRoom? incoming) =>
+      incoming;
+
+  @override
+  List<SidebarSection> sidebarSections(BuildContext context) {
+    final shell = ShellScope.read(context);
+    if (!shell.resenha.supportedPlatform) return const [];
+    final instance = shell.currentInstance;
+    if (instance == null || !instance.isConnected) return const [];
+    final controller = shell.resenha;
+    final directory = controller.directory(instance.url);
+    if (directory == null || directory.rooms.isEmpty) return const [];
+
+    return [
+      SidebarSection(
+        title: 'Voice rooms',
+        actionIcon: DIcons.plus,
+        actionLabel: 'Create voice room',
+        onAction: directory.canCreateRoom
+            ? () => showResenhaRoomEditor(context, siteUrl: instance.url)
+            : null,
+        destinations: [
+          for (final room in directory.rooms)
+            SidebarDestination(
+              id: routeId(room.id),
+              label: room.name,
+              icon: room.type == ResenhaRoomType.stage
+                  ? DIcons.earListen
+                  : DIcons.microphoneLines,
+              trailingLabel: room.participants.isEmpty
+                  ? null
+                  : '${room.participants.length}',
+              onTap: () => controller.join(
+                siteUrl: instance.url,
+                siteName: instance.title,
+                room: room,
+              ),
+              onSecondaryTap: () => shell.pushContent(
+                ContentRoute(
+                  id: routeId(room.id),
+                  title: room.name,
+                  icon: DIcons.microphoneLines,
+                ),
+              ),
+              children: [
+                for (final participant in room.participants)
+                  SidebarDestination(
+                    id: 'resenha-room-${room.id}-user-${participant.id}',
+                    label: participant.name ?? participant.username,
+                    icon: DIcons.user,
+                    avatarUrl: participant.avatarUrl(instance.url),
+                    trailingLabel: participant.handRaisedAt != null
+                        ? '✋'
+                        : participant.muted
+                        ? 'muted'
+                        : null,
+                    indent: 1,
+                    enabled: false,
+                  ),
+              ],
+            ),
+        ],
+      ),
+    ];
+  }
+
+  @override
+  Listenable sidebarListenable(BuildContext context) =>
+      ShellScope.read(context).resenha;
+
+  @override
+  Widget? content(BuildContext context, ContentRoute route) {
+    final roomId = roomIdIn(route.id);
+    if (roomId == null) return null;
+    return ResenhaRoomView(roomId: roomId);
+  }
+
+  @override
+  List<String> topicChannels(int topicId) => const [];
+
+  @override
+  List<int> stalePosts(String channel, Object? data) => const [];
+}

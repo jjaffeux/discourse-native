@@ -1,0 +1,26 @@
+{
+  "transport": "mesh",
+  "ice": {
+    "servers": [
+      { "urls": ["stun:stun.example.com:3478"] },
+      {
+        "urls": "turn:turn.example.com:3478?transport=udp",
+        "username": "temporary-user",
+        "credential": "temporary-credential"
+      }
+    ],
+    "transport_policy": "relay"
+  },
+  "room": {
+    "id": 7,
+    "name": "Conf Room 1",
+    "slug": "conf-room-1",
+    "public": false,
+    "ephemeral": false,
+    "room_type": "open",
+    "message_bus_last_id": 92,
+    "active_participants": [
+      { "id": 1, "username": "sam", "role": "participant" }
+    ]
+  }
+}

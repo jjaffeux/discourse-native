@@ -42,6 +42,14 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Discourse uses the microphone when you join a voice room.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Discourse uses the camera when you enable video in a voice room.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

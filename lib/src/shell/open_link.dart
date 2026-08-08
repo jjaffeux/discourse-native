@@ -34,6 +34,7 @@ Future<bool> openLink(
       resolveSiteUrl(url, siteUrl);
 
   if (showUserCardForUrl(context, target, siteUrl: siteUrl)) return true;
+  if (await controller?.openResenhaUrl(target) ?? false) return true;
   if (controller?.openTopicUrl(target) ?? false) return true;
   if (controller?.openListUrl(target, title: title) ?? false) return true;
   return openExternalLink(target);

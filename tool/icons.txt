@@ -43,6 +43,15 @@ filter
 copy
 play
 snowflake
+microphone-lines
+microphone-slash
+video
+video-slash
+display
+ear-listen
+hand
+phone-slash
+expand
 
 # --- Topics and posts
 comment

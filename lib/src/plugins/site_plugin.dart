@@ -10,6 +10,7 @@ import '../theme/d_icon.dart';
 import 'chat/chat_plugin.dart';
 import 'poll/poll_plugin.dart';
 import 'reactions/reactions_plugin.dart';
+import 'resenha/resenha_plugin.dart';
 
 /// One optional Discourse feature this app knows how to draw.
 ///
@@ -213,6 +214,7 @@ const List<SitePlugin<Object>> sitePlugins = <SitePlugin<Object>>[
   ReactionsPlugin(),
   PollPlugin(),
   ChatPlugin(),
+  ResenhaPlugin(),
 ];
 
 /// What plugins had to say about one record.

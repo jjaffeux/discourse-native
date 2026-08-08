@@ -63,6 +63,13 @@ class SidebarDestination {
     this.avatarUrl,
     this.iconColor,
     this.badge,
+    this.onTap,
+    this.children = const [],
+    this.trailingLabel,
+    this.indent = 0,
+    this.enabled = true,
+    this.trailingIcon,
+    this.onSecondaryTap,
   });
 
   final String id;
@@ -97,13 +104,35 @@ class SidebarDestination {
   /// What this entry already knows about what has not been read, or null — the
   /// ordinary case — to ask `ShellController.sidebarBadgeFor` instead.
   final SidebarBadge? badge;
+
+  /// An action row rather than ordinary content navigation.
+  final VoidCallback? onTap;
+
+  /// Non-navigation rows nested under this destination, such as people
+  /// currently present in a voice room.
+  final List<SidebarDestination> children;
+
+  final String? trailingLabel;
+  final int indent;
+  final bool enabled;
+  final DIconData? trailingIcon;
+  final VoidCallback? onSecondaryTap;
 }
 
 /// A titled group of destinations, e.g. "Categories" or "Chat".
 @immutable
 class SidebarSection {
-  const SidebarSection({required this.title, required this.destinations});
+  const SidebarSection({
+    required this.title,
+    required this.destinations,
+    this.actionIcon,
+    this.actionLabel,
+    this.onAction,
+  });
 
   final String title;
   final List<SidebarDestination> destinations;
+  final DIconData? actionIcon;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 }

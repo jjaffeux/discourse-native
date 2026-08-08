@@ -210,24 +210,46 @@ class _Section extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-          child: Text(
-            section.title.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-            ),
+          padding: const EdgeInsets.fromLTRB(16, 10, 8, 2),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  section.title.toUpperCase(),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+              if (section.onAction case final action?)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: section.actionLabel,
+                  onPressed: action,
+                  icon: DIcon(section.actionIcon ?? DIcons.plus, size: 15),
+                ),
+            ],
           ),
         ),
-        for (final destination in section.destinations)
+        for (final destination in section.destinations) ...[
           _DestinationTile(
             key: ValueKey(destination.id),
             destination: destination,
             selected: destination.id == selectedId,
             badgeCount: badgeFor(destination.id),
-            onTap: () => onSelect(destination),
+            onTap: destination.onTap ?? () => onSelect(destination),
           ),
+          for (final child in destination.children)
+            _DestinationTile(
+              key: ValueKey(child.id),
+              destination: child,
+              selected: false,
+              badgeCount: 0,
+              onTap: child.onTap ?? () {},
+            ),
+        ],
       ],
     );
   }
@@ -303,16 +325,23 @@ class _DestinationTile extends StatelessWidget {
     final theme = Theme.of(context);
     final foreground = selected
         ? theme.shell.selectedForeground
-        : theme.colorScheme.onSurfaceVariant;
+        : destination.enabled
+        ? theme.colorScheme.onSurfaceVariant
+        : theme.disabledColor;
 
     // A destination built fresh from live state already has the answer; core's
     // `const` sections cannot carry a moving number and ask the shell instead.
     final badge = destination.badge ?? SidebarBadge.count(badgeCount);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      padding: EdgeInsets.only(
+        left: 8.0 + destination.indent * 20,
+        right: 8,
+        top: 1,
+        bottom: 1,
+      ),
       child: InkWell(
-        onTap: onTap,
+        onTap: destination.enabled ? onTap : null,
         borderRadius: BorderRadius.circular(6),
         child: Container(
           height: 34,
@@ -340,6 +369,24 @@ class _DestinationTile extends StatelessWidget {
                   ),
                 ),
               ),
+              if (destination.trailingLabel case final label?)
+                Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: foreground,
+                  ),
+                ),
+              if (destination.onSecondaryTap case final action?)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Open ${destination.label}',
+                  onPressed: action,
+                  icon: DIcon(
+                    destination.trailingIcon ?? DIcons.chevronRight,
+                    size: 14,
+                    color: foreground,
+                  ),
+                ),
               if (badge.isVisible)
                 if (badge.dot)
                   // Red for what is addressed to the reader, the quieter colour

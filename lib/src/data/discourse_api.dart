@@ -113,7 +113,12 @@ class WriteException implements Exception, DiagnosticErrorCause {
 /// `/user-api-key/new` to confirm it is a Discourse new enough to expose the
 /// user API, then read `/site/basic-info.json` for the details we display.
 class DiscourseApi
-    implements AccountActivityApi, ChatApi, ReactionsApi, PollsApi {
+    implements
+        AccountActivityApi,
+        ChatApi,
+        ReactionsApi,
+        PollsApi,
+        PluginApiTransport {
   DiscourseApi({
     http.Client? client,
     this.timeout = const Duration(seconds: 10),
@@ -716,6 +721,7 @@ class DiscourseApi
   Future<List<FoundHashtag>> searchHashtags({
     required String siteUrl,
     required String term,
+    List<String> order = hashtagOrder,
     String? apiKey,
     String? clientId,
   }) async {
@@ -724,10 +730,7 @@ class DiscourseApi
         // `<String, dynamic>` so the list is emitted as a repeated parameter.
         // A `Map<String, String>` would stringify it to `[category, tag]` and
         // the site would reject the lot.
-        queryParameters: <String, dynamic>{
-          'term': term,
-          'order[]': hashtagOrder,
-        },
+        queryParameters: <String, dynamic>{'term': term, 'order[]': order},
       ),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -1435,6 +1438,49 @@ class DiscourseApi
     return response;
   }
 
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse(siteUrl).resolve(path),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      throw const FormatException('Expected a JSON object');
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> pluginWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  }) => _write(
+    Uri.parse(siteUrl).resolve(path),
+    method: method,
+    apiKey: apiKey,
+    clientId: clientId,
+    body: body,
+  );
+
   /// Who reacted to a post, oldest first, likers and reactors merged.
   ///
   /// [reaction] narrows it to one emoji. [limit] is clamped server side to
@@ -1606,6 +1652,73 @@ class DiscourseApi
     apiKey: apiKey,
     clientId: clientId,
     body: const {},
+  );
+
+  @override
+  Future<ChatMessagePage> chatThreadMessages({
+    required String siteUrl,
+    required int channelId,
+    required int threadId,
+    int? before,
+    int? after,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    assert(before == null || after == null);
+    final query = [
+      if (before != null) ...['direction=past', 'target_message_id=$before'],
+      if (after != null) ...['direction=future', 'target_message_id=$after'],
+    ].join('&');
+    final response = await _get(
+      Uri.parse(
+        '$siteUrl/chat/api/channels/$channelId/threads/$threadId/messages'
+        '${query.isEmpty ? '.json' : '.json?$query'}',
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return ChatMessage.parsePage(
+      jsonDecode(response.body) as Map<String, dynamic>,
+      siteUrl,
+    );
+  }
+
+  @override
+  Future<int?> sendChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required String message,
+    int? threadId,
+    String? clientId,
+  }) async {
+    final body = await _write(
+      Uri.parse('$siteUrl/chat/$channelId.json'),
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'message': message, 'thread_id': threadId},
+    );
+    return jsonIntOrNull(body['message_id']);
+  }
+
+  @override
+  Future<void> markChatThreadRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required int messageId,
+    String? clientId,
+  }) => _write(
+    Uri.parse(
+      '$siteUrl/chat/api/channels/$channelId/threads/$threadId/read.json',
+    ),
+    method: 'PUT',
+    apiKey: apiKey,
+    clientId: clientId,
+    body: {'message_id': messageId},
   );
 
   /// Tells the site to forget the key, so deleting our copy does not leave a

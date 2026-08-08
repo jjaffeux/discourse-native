@@ -192,4 +192,53 @@ void main() {
       expect(full == const SiteConfig.unknown(), isFalse);
     });
   });
+
+  group('Resenha client settings', () {
+    test('parses enabled capabilities and native quality caps', () {
+      final resenha = SiteConfig.fromSettings({
+        'resenha_enabled': true,
+        'resenha_video_enabled': true,
+        'resenha_video_max_publishers': 12,
+        'resenha_livekit_recording_enabled': true,
+        'resenha_max_voice_quality': 'high',
+        'resenha_max_camera_quality': 'standard',
+        'resenha_max_screen_share_quality': 'maximum',
+        'resenha_idle_threshold_minutes': 7,
+        'resenha_afk_auto_mute_threshold_minutes': 17,
+        'resenha_afk_disconnect_threshold_minutes': 37,
+        'resenha_auto_status_enabled': false,
+        'resenha_chat_enabled': false,
+      }).resenha;
+
+      expect(resenha.enabled, isTrue);
+      expect(resenha.videoEnabled, isTrue);
+      expect(resenha.videoMaxPublishers, 12);
+      expect(resenha.recordingEnabled, isTrue);
+      expect(resenha.maxVoiceQuality, 'high');
+      expect(resenha.maxCameraQuality, 'standard');
+      expect(resenha.maxScreenShareQuality, 'maximum');
+      expect(resenha.idleThresholdMinutes, 7);
+      expect(resenha.afkAutoMuteThresholdMinutes, 17);
+      expect(resenha.afkDisconnectThresholdMinutes, 37);
+      expect(resenha.autoStatusEnabled, isFalse);
+      expect(resenha.chatEnabled, isFalse);
+    });
+
+    test('defaults unknown values defensively and survives storage', () {
+      final config = SiteConfig.fromSettings({
+        'resenha_enabled': true,
+        'resenha_video_max_publishers': 1000,
+        'resenha_max_voice_quality': 'future-ultra',
+        'resenha_idle_threshold_minutes': -1,
+      });
+      final decoded = SiteConfig.fromJson(
+        jsonDecode(jsonEncode(config.toJson())) as Map<String, dynamic>,
+      );
+
+      expect(config.resenha.videoMaxPublishers, 8);
+      expect(config.resenha.maxVoiceQuality, 'maximum');
+      expect(config.resenha.idleThresholdMinutes, 5);
+      expect(decoded, config);
+    });
+  });
 }

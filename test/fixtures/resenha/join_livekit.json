@@ -1,0 +1,18 @@
+{
+  "transport": "livekit",
+  "ice": { "servers": [], "transport_policy": "all" },
+  "livekit": {
+    "url": "wss://livekit.example.com",
+    "token": "redacted-fixture-token"
+  },
+  "room": {
+    "id": 7,
+    "name": "Conf Room 1",
+    "slug": "conf-room-1",
+    "public": false,
+    "ephemeral": false,
+    "room_type": "open",
+    "message_bus_last_id": 93,
+    "active_participants": []
+  }
+}

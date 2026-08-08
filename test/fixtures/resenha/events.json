@@ -1,0 +1,23 @@
+[
+  {
+    "type": "participants",
+    "room_id": 7,
+    "participants": [
+      { "id": 1, "username": "sam", "role": "moderator" },
+      { "id": 2, "username": "lee", "role": "participant", "hand_raised_at": 1786204801.5 }
+    ]
+  },
+  { "type": "kicked", "room_id": 7 },
+  { "type": "role_change", "room_id": 7, "user_id": 2, "role": "speaker" },
+  { "type": "hand_raise", "room_id": 7, "user_id": 2, "raised": false, "reason": "dismissed" },
+  {
+    "type": "recording",
+    "room_id": 7,
+    "recording": {
+      "started_at": 1786204800.25,
+      "started_by": { "id": 1, "username": "sam" }
+    }
+  },
+  { "type": "recording", "room_id": 7, "recording": null },
+  { "type": "future_event", "room_id": 7, "payload": { "ignored": true } }
+]

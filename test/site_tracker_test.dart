@@ -260,6 +260,30 @@ void main() {
   });
 
   test(
+    'plugin watches forward snapshot cursors and can be cancelled',
+    () async {
+      final bus = _FakeMessageBusSession();
+      final tracker = _tracker(bus);
+      addTearDown(tracker.dispose);
+      final messages = <Object?>[];
+
+      final subscription = tracker.watchPluginChannel(
+        '/resenha/rooms/index',
+        messages.add,
+        lastId: 144,
+      );
+      expect(bus.lastIds['/resenha/rooms/index'], 144);
+
+      bus.deliver('/resenha/rooms/index', 'first');
+      subscription.cancel();
+      bus.deliver('/resenha/rooms/index', 'late');
+
+      expect(messages, ['first']);
+      expect(bus.activeSubscriptionCount('/resenha/rooms/index'), 0);
+    },
+  );
+
+  test(
     'reports a failed topic unsubscribe while the tracker is active',
     () async {
       final diagnostics = await DiagnosticsController.create(
@@ -399,6 +423,7 @@ final class _FakeMessageBusSession
     implements SiteMessageBusSession, SiteMessageBusErrorSource {
   final Map<String, List<_FakeMessageBusSubscription>> _subscriptions = {};
   final Map<String, List<void Function(Object?)>> _retainedCallbacks = {};
+  final Map<String, int?> lastIds = {};
   final StreamController<Object> _errors = StreamController<Object>.broadcast();
 
   String? failingChannel;
@@ -438,8 +463,9 @@ final class _FakeMessageBusSession
   @override
   SiteMessageBusSubscription subscribe(
     String channel,
-    void Function(Object? data) onMessage,
-  ) {
+    void Function(Object? data) onMessage, {
+    int? lastId,
+  }) {
     if (channel == failingChannel) {
       throw StateError('subscription failed');
     }
@@ -448,6 +474,7 @@ final class _FakeMessageBusSession
       throwsOnCancel: channel == failingCancellationChannel,
     );
     (_subscriptions[channel] ??= []).add(subscription);
+    lastIds[channel] = lastId;
     (_retainedCallbacks[channel] ??= []).add(onMessage);
     return subscription;
   }
