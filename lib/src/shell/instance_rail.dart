@@ -520,11 +520,14 @@ class _InstanceAvatar extends StatelessWidget {
       ),
     );
 
-    return AvatarImage(
-      url: instance.iconUrl,
-      size: 44,
-      fit: BoxFit.contain,
-      fallback: monogram,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: AvatarImage(
+        url: instance.iconUrl,
+        size: 44,
+        fit: BoxFit.contain,
+        fallback: monogram,
+      ),
     );
   }
 }

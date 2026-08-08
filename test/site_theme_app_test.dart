@@ -307,7 +307,7 @@ void main() {
     _expectReadableRailMonogram(tester, title: 'B', host: 'b.example');
   });
 
-  testWidgets('rail presents site logos without decoration or cropping', (
+  testWidgets('rail presents site logos with only a small corner radius', (
     tester,
   ) async {
     final previousLoader = AvatarLoader.instance;
@@ -338,6 +338,10 @@ void main() {
     final item = _railItem(title: 'A', host: 'a.example');
     final logo = find.descendant(of: item, matching: find.byType(AvatarImage));
     expect(tester.widget<AvatarImage>(logo).fit, BoxFit.contain);
+    final clip = tester.widget<ClipRRect>(
+      find.ancestor(of: logo, matching: find.byType(ClipRRect)),
+    );
+    expect(clip.borderRadius, BorderRadius.circular(8));
     expect(
       find.ancestor(of: logo, matching: find.byType(AnimatedContainer)),
       findsNothing,
