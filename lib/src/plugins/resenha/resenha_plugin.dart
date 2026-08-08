@@ -85,11 +85,29 @@ final class ResenhaPlugin implements SitePlugin<ResenhaRoom> {
               trailingLabel: room.participants.isEmpty
                   ? null
                   : '${room.participants.length}',
-              onTap: () => controller.join(
-                siteUrl: instance.url,
-                siteName: instance.title,
-                room: room,
-              ),
+              onTap: () async {
+                final replaceRoomPage =
+                    roomIdIn(shell.currentContent?.id ?? '') != null;
+                await controller.join(
+                  siteUrl: instance.url,
+                  siteName: instance.title,
+                  room: room,
+                );
+                final call = controller.call;
+                if (replaceRoomPage &&
+                    call?.siteUrl == instance.url &&
+                    call?.room.id == room.id) {
+                  shell.openResenhaRoom(
+                    siteUrl: instance.url,
+                    route: ContentRoute(
+                      id: routeId(room.id),
+                      title: room.name,
+                      icon: DIcons.microphoneLines,
+                    ),
+                    replaceCurrent: true,
+                  );
+                }
+              },
               onSecondaryTap: () => shell.pushContent(
                 ContentRoute(
                   id: routeId(room.id),

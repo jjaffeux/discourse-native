@@ -4840,12 +4840,24 @@ class ShellController extends FrameSafeNotifier {
 
   /// Opens the active call's room even when its site is not the one currently
   /// selected. The call itself stays untouched; only navigation moves.
-  void openResenhaRoom({required String siteUrl, required ContentRoute route}) {
+  void openResenhaRoom({
+    required String siteUrl,
+    required ContentRoute route,
+    bool replaceCurrent = false,
+  }) {
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0) return;
+    final sameInstance = index == _instanceIndex;
     if (index != _instanceIndex) {
       _instanceIndex = index;
       _resetToInstanceDefault();
+    }
+    if (replaceCurrent && sameInstance && _contentStack.isNotEmpty) {
+      _contentStack[_contentStack.length - 1] = route;
+      _mobilePane = MobilePane.content;
+      _syncTopicChannels();
+      _notify();
+      return;
     }
     pushContent(route);
   }
