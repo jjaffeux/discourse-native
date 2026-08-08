@@ -36,6 +36,7 @@ class DiagnosticsPanel extends StatefulWidget {
 
 class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
   final TextEditingController _search = TextEditingController();
+  final ScrollController _timeline = ScrollController();
 
   @override
   void didUpdateWidget(DiagnosticsPanel oldWidget) {
@@ -48,6 +49,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
   @override
   void dispose() {
     _search.dispose();
+    _timeline.dispose();
     super.dispose();
   }
 
@@ -251,8 +253,10 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
           child: visible.isEmpty
               ? _EmptyTimeline(hasEvents: events.isNotEmpty)
               : Scrollbar(
+                  controller: _timeline,
                   child: ListView.builder(
                     key: const ValueKey('diagnostics-timeline'),
+                    controller: _timeline,
                     itemExtent: 70,
                     itemCount: visible.length,
                     itemBuilder: (context, index) {

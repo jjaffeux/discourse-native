@@ -283,6 +283,11 @@ void main() {
     expect(request, findsOneWidget);
     expect(find.textContaining('topic load took too long'), findsOneWidget);
     expect(find.textContaining('Bodies, credentials, cookies'), findsOneWidget);
+    final timeline = tester.widget<ListView>(
+      find.byKey(const ValueKey('diagnostics-timeline')),
+    );
+    final scrollbar = tester.widget<Scrollbar>(find.byType(Scrollbar));
+    expect(scrollbar.controller, same(timeline.controller));
 
     await tester.tap(find.text('Requests'));
     await tester.pump();
