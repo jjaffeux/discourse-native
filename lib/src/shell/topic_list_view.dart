@@ -451,7 +451,7 @@ class _TopicRowBody extends StatelessWidget {
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
-                      Expanded(
+                      Flexible(
                         child: TopicTitle(
                           topic.title,
                           siteUrl: siteUrl,
@@ -468,6 +468,24 @@ class _TopicRowBody extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (topic.showUnreadCount) ...[
+                        const SizedBox(width: 8),
+                        _UnreadPill(count: topic.unreadCount),
+                      ],
+                      if (topic.showNewTopicDot) ...[
+                        const SizedBox(width: 8),
+                        const _TopicStateDot(
+                          key: ValueKey('new-topic-dot'),
+                          label: 'New topic',
+                        ),
+                      ],
+                      if (topic.showNewRepliesDot) ...[
+                        const SizedBox(width: 8),
+                        const _TopicStateDot(
+                          key: ValueKey('new-replies-dot'),
+                          label: 'Topic has new replies',
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -495,24 +513,6 @@ class _TopicRowBody extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             _Posters(avatars: topic.posterAvatars),
-            if (topic.showUnreadCount) ...[
-              const SizedBox(width: 8),
-              _UnreadPill(count: topic.unreadCount),
-            ],
-            if (topic.showNewTopicDot) ...[
-              const SizedBox(width: 8),
-              const _TopicStateDot(
-                key: ValueKey('new-topic-dot'),
-                label: 'New topic',
-              ),
-            ],
-            if (topic.showNewRepliesDot) ...[
-              const SizedBox(width: 8),
-              const _TopicStateDot(
-                key: ValueKey('new-replies-dot'),
-                label: 'Topic has new replies',
-              ),
-            ],
           ],
         ),
       ),

@@ -956,6 +956,29 @@ void main() {
       expect(find.byKey(const ValueKey('new-replies-dot')), findsNothing);
     });
 
+    testWidgets('topic state follows the title instead of the row edge', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            const Topic(
+              id: 9,
+              title: 'Short title',
+              slug: 'short-title',
+              seen: false,
+            ),
+          ],
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+
+      final title = tester.getRect(find.text('Short title'));
+      final dot = tester.getRect(find.byKey(const ValueKey('new-topic-dot')));
+      expect(dot.left - title.right, moreOrLessEquals(8, epsilon: 0.01));
+    });
+
     testWidgets('a nested topic only carries its new-replies dot', (
       tester,
     ) async {
