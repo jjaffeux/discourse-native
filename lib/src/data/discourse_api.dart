@@ -190,10 +190,18 @@ class DiscourseApi
     // A Discourse always has this route; a 404 means we are talking to
     // something else, or to a version that predates the user API.
     if (head.statusCode == 404) {
-      throw SiteLookupException(SiteLookupFailure.notDiscourse, term);
+      throw SiteLookupException(
+        SiteLookupFailure.notDiscourse,
+        term,
+        statusCode: head.statusCode,
+      );
     }
     if (head.statusCode != 200) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, term);
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        term,
+        statusCode: head.statusCode,
+      );
     }
 
     final apiVersion =
@@ -217,7 +225,11 @@ class DiscourseApi
         http.Request('GET', Uri.parse('$baseUrl/site/basic-info.json')),
       );
       if (response.statusCode != 200) {
-        throw SiteLookupException(SiteLookupFailure.unreachable, term);
+        throw SiteLookupException(
+          SiteLookupFailure.unreachable,
+          term,
+          statusCode: response.statusCode,
+        );
       }
       info = jsonDecode(response.body) as Map<String, dynamic>;
     } on SiteLookupException {
@@ -1407,10 +1419,18 @@ class DiscourseApi
     }
 
     if (response.statusCode == 403 || response.statusCode == 401) {
-      throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
+      throw SiteLookupException(
+        SiteLookupFailure.notDiscourse,
+        siteUrl,
+        statusCode: response.statusCode,
+      );
     }
     if (response.statusCode != 200) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        statusCode: response.statusCode,
+      );
     }
     return response;
   }
@@ -1603,7 +1623,11 @@ class DiscourseApi
 
     // 404 means the site predates the revoke route; nothing to do about it.
     if (response.statusCode >= 400 && response.statusCode != 404) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        statusCode: response.statusCode,
+      );
     }
   }
 

@@ -405,6 +405,7 @@ void main() {
         const SiteLookupException(
           SiteLookupFailure.unreachable,
           'reader:$secret@forum.example',
+          statusCode: 503,
         ),
         StackTrace.current,
         operation: 'site.add',
@@ -413,7 +414,7 @@ void main() {
       final event = controller.events.whereType<ErrorDiagnosticEvent>().single;
       expect(
         event.message,
-        'SiteLookupException(SiteLookupFailure.unreachable)',
+        'SiteLookupException(SiteLookupFailure.unreachable, statusCode: 503)',
       );
       expect(event.toString(), isNot(contains(secret)));
       expect(controller.buildJsonReport(), isNot(contains(secret)));

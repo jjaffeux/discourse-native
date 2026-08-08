@@ -13,12 +13,14 @@ class SiteLookupException implements Exception, DiagnosticErrorCause {
   const SiteLookupException(
     this.failure,
     this.term, {
+    this.statusCode,
     this.cause,
     this.causeStackTrace,
   });
 
   final SiteLookupFailure failure;
   final String term;
+  final int? statusCode;
   final Object? cause;
   final StackTrace? causeStackTrace;
 
@@ -36,7 +38,11 @@ class SiteLookupException implements Exception, DiagnosticErrorCause {
   };
 
   @override
-  String toString() => 'SiteLookupException($failure)';
+  String toString() => [
+    'SiteLookupException($failure',
+    if (statusCode != null) ', statusCode: $statusCode',
+    ')',
+  ].join();
 }
 
 abstract interface class AccountActivityApi {

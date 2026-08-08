@@ -1917,6 +1917,25 @@ void _feedGroups() {
 
       expect(paths, ['/t/12.json']);
     });
+
+    test('preserves a failed response status for diagnostics', () async {
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('', 503)),
+      );
+
+      await expectLater(
+        api.topic(siteUrl: 'https://example.com', slug: 'a-topic', id: 12),
+        throwsA(
+          isA<SiteLookupException>()
+              .having(
+                (error) => error.failure,
+                'failure',
+                SiteLookupFailure.unreachable,
+              )
+              .having((error) => error.statusCode, 'statusCode', 503),
+        ),
+      );
+    });
   });
 
   group('userCard', () {
