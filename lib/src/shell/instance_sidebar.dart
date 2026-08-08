@@ -26,6 +26,8 @@ typedef _SidebarSnapshot = ({
 class InstanceSidebar extends StatelessWidget {
   const InstanceSidebar({super.key, this.showUserMenu = false});
 
+  static const Key headerKey = ValueKey('instance-sidebar-header');
+
   /// Whether the header carries the account avatar. Only true where the
   /// sidebar is the column reaching the top right corner — on compact layouts
   /// the main content is not on screen to hold it.
@@ -132,58 +134,63 @@ class _SidebarHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return InkWell(
-      // Site switcher / site settings menu, once there is something to show.
-      onTap: () {},
-      // The sidebar is the panel's left column, so this header sits in the
-      // panel's rounded corner — the highlight has to follow it.
-      borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(ShellPanel.cornerRadius),
-      ),
-      child: Container(
-        height: shellHeaderHeight,
-        // The avatar keeps the main content header's inset, so it does not
-        // shift when a compact layout swaps one pane for the other.
-        padding: EdgeInsets.only(left: 16, right: showUserMenu ? 8 : 16),
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: theme.shell.divider)),
+    return Material(
+      key: InstanceSidebar.headerKey,
+      color: theme.shell.rail,
+      child: InkWell(
+        // Site switcher / site settings menu, once there is something to show.
+        onTap: () {},
+        // The sidebar is the panel's left column, so this header sits in the
+        // panel's rounded corner — the highlight has to follow it.
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(ShellPanel.cornerRadius),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+        child: Container(
+          height: shellHeaderHeight,
+          // The avatar keeps the main content header's inset, so it does not
+          // shift when a compact layout swaps one pane for the other.
+          padding: EdgeInsets.only(left: 16, right: showUserMenu ? 8 : 16),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: theme.shell.divider)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.shell.railForeground,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  Text(
-                    host,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    Text(
+                      host,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.shell.railForeground,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            DIcon(
-              DIcons.chevronDown,
-              size: 20,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            if (showUserMenu) ...[
-              const SizedBox(width: 4),
-              const UserMenuButton(),
+              DIcon(
+                DIcons.chevronDown,
+                size: 20,
+                color: theme.shell.railForeground,
+              ),
+              if (showUserMenu) ...[
+                const SizedBox(width: 4),
+                UserMenuButton(ringColor: theme.shell.rail),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
