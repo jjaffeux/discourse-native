@@ -193,7 +193,7 @@ class ShellController extends FrameSafeNotifier {
     String? apiKey,
     String? clientId,
   }) {
-    // A failed keychain deletion can leave an orphaned key behind. The stored
+    // A failed credential deletion can leave an orphaned key behind. The stored
     // instance identity is the account boundary: signed-out sites may refresh
     // their public colors, but must never forward that leftover credential.
     final instance = _instanceAt(siteUrl);
@@ -934,7 +934,7 @@ class ShellController extends FrameSafeNotifier {
     }
   }
 
-  /// Opens a site's connection, once the keychain has said who we are.
+  /// Opens a site's connection, once credential storage has said who we are.
   ///
   /// Signed out this still runs: `/latest` is public, so a reader with no
   /// account still gets the banner.
@@ -948,7 +948,7 @@ class ShellController extends FrameSafeNotifier {
     final String? apiKey;
     final String clientId;
     try {
-      // The persisted account state, not a keychain entry that may have failed
+      // The persisted account state, not a credential that may have failed
       // to delete, decides whether this session may open private channels.
       apiKey = instance.isConnected
           ? await authenticator.apiKeyFor(siteUrl)
@@ -1627,7 +1627,7 @@ class ShellController extends FrameSafeNotifier {
 
     final liked = !post.liked;
     // A transform of whatever is held now rather than a put of the tapped
-    // copy, for the reason `_writeReaction` gives: the keychain await above
+    // copy, for the reason `_writeReaction` gives: the credential await above
     // is a gap a re-read can land in. The guess is usually corrected by the
     // site's full answer, but an answer of 204 brings nothing, so a stale
     // snapshot put here would stand.
@@ -1728,7 +1728,7 @@ class ShellController extends FrameSafeNotifier {
     if (held == null) return null;
 
     // A transform of whatever is held now, not a put of the tapped copy: the
-    // keychain await above is a window an edit or a re-read can land in, and
+    // credential await above is a window an edit or a re-read can land in, and
     // putting the whole stale snapshot back would undo it — and unlike a
     // like, whose success path puts the site's full answer over the guess, a
     // reaction's answer is merged selectively and could never heal that.
@@ -1871,7 +1871,7 @@ class ShellController extends FrameSafeNotifier {
       final fetched = await api.postLikers(
         siteUrl: targetSite,
         postId: postId,
-        // Read inside the guard, not before it: a keychain that refuses —
+        // Read inside the guard, not before it: storage that refuses —
         // an unsigned macOS build answers `errSecMissingEntitlement` —
         // would otherwise leave the key in [_likersLoading] for the rest of
         // the session, and every later hover would find a fetch in flight
@@ -2166,7 +2166,7 @@ class ShellController extends FrameSafeNotifier {
 
     if (target.isEdit) return _submitEdit(composer, target, raw);
 
-    // Before any await: the keychain round trip below is a gap a second tap
+    // Before any await: the credential round trip below is a gap a second tap
     // can pass through, and a create sent twice posts twice — unlike an edit,
     // nothing undoes that.
     composer.beginSubmit();
@@ -2528,7 +2528,7 @@ class ShellController extends FrameSafeNotifier {
       final card = await api.userCard(
         siteUrl: targetSite,
         username: username,
-        // Read inside the guard, the way `loadLikers` does: a keychain that
+        // Read inside the guard, the way `loadLikers` does: storage that
         // throws would otherwise strand the key in [_userCardsLoading].
         apiKey: await authenticator.apiKeyFor(targetSite),
       );
@@ -3190,7 +3190,7 @@ class ShellController extends FrameSafeNotifier {
     try {
       await authenticator.disconnect(instance.url);
     } catch (_) {
-      // Connecting again overwrites a key the local keychain could not remove.
+      // Connecting again overwrites a key local storage could not remove.
     }
     if (!lease.isCurrent) return lease;
     await drafts.clearSite(instance.url, ifCurrent: () => lease.isCurrent);

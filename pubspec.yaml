@@ -13,7 +13,11 @@ dependencies:
   http: ^1.6.0
   shared_preferences: ^2.5.5
   flutter_web_auth_2: ^5.0.3
-  flutter_secure_storage: ^10.3.1
+  # Depend on the Darwin implementation directly. The umbrella
+  # flutter_secure_storage package auto-registers libsecret on Linux even when
+  # the app never calls it; Linux uses our mode-0600 XDG file store instead.
+  flutter_secure_storage_darwin: ^0.3.2
+  ffi: ^2.2.0
   basic_utils: ^5.8.2
   url_launcher: ^6.3.2
   pointycastle: ^4.0.0

@@ -34,8 +34,8 @@ env:
   FLUTTER_VERSION: 3.44.8
   APP_NAME: Discourse
   # The Debian package name, and so the command users type. Distinct from
-  # PACKAGE_ID, which is the GTK application id and the libsecret schema, and
-  # from BINARY_NAME, which is what the Flutter build emits.
+  # PACKAGE_ID, which is the GTK application id, and from BINARY_NAME, which is
+  # what the Flutter build emits.
   PKG: discourse-native
   PACKAGE_ID: org.discourse.native
   BINARY_NAME: discourse_native
@@ -94,7 +94,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-12-dev \
-            libwebkit2gtk-4.1-dev libsoup-3.0-dev libsecret-1-dev \
+            libwebkit2gtk-4.1-dev libsoup-3.0-dev \
             libssl-dev
           # Fail here rather than 200 lines into a cmake log.
           #
@@ -103,7 +103,7 @@ jobs:
           # artifact it stages. Its CURL dependency is gated behind
           # DESKTOP_UPDATER_NATIVE_RUNTIME, which defaults off, so that one is
           # not needed here.
-          pkg-config --exists gtk+-3.0 webkit2gtk-4.1 libsoup-3.0 libsecret-1 \
+          pkg-config --exists gtk+-3.0 webkit2gtk-4.1 libsoup-3.0 \
                               libcrypto
 
       - name: Set up Flutter
@@ -233,9 +233,6 @@ jobs:
           # debian/ source tree to run in. Asserted below by asking apt to
           # resolve them, which is what catches a name that does not exist.
           #
-          # gnome-keyring is Recommends, not Depends: the app needs *a* Secret
-          # Service or it forgets your account, but KWallet's bridge serves
-          # just as well and a KDE user should not be made to install GNOME's.
           # printf rather than a heredoc: a heredoc's terminator has to sit at
           # column 0, and every line inside a YAML block scalar is indented, so
           # the delimiter would never match and the script would run on to the
@@ -251,8 +248,7 @@ jobs:
             "Section: net" \
             "Priority: optional" \
             "Homepage: https://github.com/${{ github.repository }}" \
-            "Depends: libgtk-3-0, libglib2.0-0, libwebkit2gtk-4.1-0, libsoup-3.0-0, libsecret-1-0, libssl3" \
-            "Recommends: gnome-keyring" \
+            "Depends: libgtk-3-0, libglib2.0-0, libwebkit2gtk-4.1-0, libsoup-3.0-0, libssl3" \
             "Description: Native Discourse client" \
             " An experimental native client for Discourse forums, built with Flutter." \
             > "$ROOT/DEBIAN/control"

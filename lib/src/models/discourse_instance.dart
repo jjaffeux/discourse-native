@@ -85,7 +85,7 @@ class DiscourseInstance {
   final bool loginRequired;
 
   /// Who we are on this site, or null if not connected. Safe to persist; the
-  /// API key itself lives in the keychain, never here.
+  /// API key itself lives in platform-private storage, never here.
   final DiscourseUser? user;
 
   /// The last resolved theme colors for this site. They are safe to persist:

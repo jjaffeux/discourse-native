@@ -1,9 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'secure_store.dart';
+import 'private_storage.dart';
 
 abstract interface class DraftPersistence {
   Future<String?> read(String key);
@@ -22,24 +21,23 @@ final class DraftWriteException implements Exception {
   final Object? cause;
 }
 
-final class SecureDraftPersistence implements DraftPersistence {
-  SecureDraftPersistence({FlutterSecureStorage? storage})
-    : _storage = storage ?? SecureStore.platformStorage();
+final class PrivateDraftPersistence implements DraftPersistence {
+  PrivateDraftPersistence({PrivateStorage? storage})
+    : _storage = storage ?? platformPrivateStorage;
 
-  final FlutterSecureStorage _storage;
+  final PrivateStorage _storage;
 
   @override
-  Future<String?> read(String key) => _storage.read(key: key);
+  Future<String?> read(String key) => _storage.read(key);
 
   @override
   Future<Map<String, String>> readAll() => _storage.readAll();
 
   @override
-  Future<void> write(String key, String value) =>
-      _storage.write(key: key, value: value);
+  Future<void> write(String key, String value) => _storage.write(key, value);
 
   @override
-  Future<void> delete(String key) => _storage.delete(key: key);
+  Future<void> delete(String key) => _storage.delete(key);
 }
 
 /// The copy of a draft the site has not got yet.
@@ -55,10 +53,10 @@ final class SecureDraftPersistence implements DraftPersistence {
 ///
 /// Reads and cleanup are best-effort so storage trouble cannot break the
 /// composer. Writes surface [DraftWriteException]: claiming that text is safe
-/// on this device when the keychain rejected it would risk losing that text.
+/// on this device when private storage rejected it would risk losing that text.
 class DraftStore {
   DraftStore({DraftPersistence? persistence})
-    : _persistence = persistence ?? SecureDraftPersistence();
+    : _persistence = persistence ?? PrivateDraftPersistence();
 
   static const String _prefix = 'discourse_native.draft::';
 
@@ -78,9 +76,9 @@ class DraftStore {
     try {
       stored = await _persistence.read(key);
     } catch (_) {
-      // A failed read does not prove the secure copy is absent. Keep the
+      // A failed read does not prove the private copy is absent. Keep the
       // plaintext fallback available, but do not let it overwrite an unknown
-      // secure value or remove the only copy we can currently read.
+      // private value or remove the only copy we can currently read.
       return (await _preferences())?.getString(key);
     }
 

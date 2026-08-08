@@ -4,8 +4,8 @@ import 'updater.dart';
 
 /// Remembers which channel the user asked for, and when we last looked.
 ///
-/// Preferences rather than the keychain: neither of these is a secret, and the
-/// keychain is reserved for credentials (see [SecureStore]).
+/// Preferences rather than private storage: neither value is a secret, and
+/// private storage is reserved for credentials and unsent drafts.
 ///
 /// Every method swallows its own failures. Not being able to remember the
 /// channel is a reason to fall back to the built-in default, not a reason for

@@ -1,47 +1,49 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'user_api_key.dart';
+import 'private_storage.dart';
 
-/// Keychain-backed storage for anything that must not sit in plain
-/// preferences: the RSA key pair and the per-site API keys.
+abstract interface class ClientIdPersistence {
+  Future<String?> read();
+
+  Future<void> write(String value);
+}
+
+final class PreferencesClientIdPersistence implements ClientIdPersistence {
+  static const _key = 'discourse_native.client_id';
+
+  @override
+  Future<String?> read() async =>
+      (await SharedPreferences.getInstance()).getString(_key);
+
+  @override
+  Future<void> write(String value) async {
+    if (!await (await SharedPreferences.getInstance()).setString(_key, value)) {
+      throw StateError('Could not persist the client id');
+    }
+  }
+}
+
+/// Persistent per-install identity and per-site API keys.
 ///
-/// Note DiscourseMobile keeps these in AsyncStorage, which is not encrypted.
-/// There is no reason to copy that.
+/// API keys use [PrivateStorage]: Keychain on Apple, and a mode-0600 XDG data
+/// file on Linux. The non-secret client id lives in preferences.
 class SecureStore {
   SecureStore({
-    FlutterSecureStorage? storage,
+    PrivateStorage? storage,
+    ClientIdPersistence? clientIds,
     String Function()? tokenGenerator,
-  }) : _storage = storage ?? platformStorage(),
+  }) : _storage = storage ?? platformPrivateStorage,
+       _clientIds = clientIds ?? PreferencesClientIdPersistence(),
        _tokenGenerator = tokenGenerator ?? randomToken;
 
-  /// macOS only. The data protection keychain — the plugin's default — requires
-  /// the `keychain-access-groups` entitlement, which in turn requires signing
-  /// with a real development certificate; without one every read fails with
-  /// `errSecMissingEntitlement` (-34018).
-  ///
-  /// The file-based keychain is still the system keychain, just the older API,
-  /// and needs no entitlement. Switch this back once the macOS target is signed
-  /// with a team, and add the entitlement at the same time.
-  static const AppleOptions _macOptions = MacOsOptions(
-    usesDataProtectionKeychain: false,
-  );
+  static const String _legacyClientIdEntry = 'client_id';
 
-  /// Creates storage with the platform configuration shared by all sensitive
-  /// data stores in the app.
-  static FlutterSecureStorage platformStorage() =>
-      const FlutterSecureStorage(mOptions: _macOptions);
-
-  static const String _publicKeyEntry = 'rsa_public_key';
-  static const String _privateKeyEntry = 'rsa_private_key';
-  static const String _keyPairEntry = 'rsa_key_pair_v2';
-  static const String _clientIdEntry = 'client_id';
-
-  final FlutterSecureStorage _storage;
+  final PrivateStorage _storage;
+  final ClientIdPersistence _clientIds;
   final String Function() _tokenGenerator;
-  bool _legacyKeyPairCleanupChecked = false;
 
   String? _clientId;
   Future<String>? _clientIdRequest;
@@ -51,78 +53,6 @@ class SecureStore {
   final Map<String, Object> _apiKeyVersions = {};
 
   static String _apiKeyEntry(String siteUrl) => 'api_key::$siteUrl';
-
-  Future<AuthKeyPair?> readKeyPair() async {
-    final encoded = await _storage.read(key: _keyPairEntry);
-    final current = encoded == null ? null : _decodeKeyPair(encoded);
-    if (current != null) {
-      await _cleanupLegacyKeyPair();
-      return current;
-    }
-
-    final public = await _storage.read(key: _publicKeyEntry);
-    final private = await _storage.read(key: _privateKeyEntry);
-    if (public == null || private == null) return null;
-    final pair = AuthKeyPair(publicPem: public, privatePem: private);
-    try {
-      await writeKeyPair(pair);
-    } catch (_) {
-      // The atomic record is either complete or the legacy pair remains.
-      return pair;
-    }
-    await _deleteKnownLegacyKeyPair();
-    return pair;
-  }
-
-  Future<void> _deleteKnownLegacyKeyPair() async {
-    var complete = true;
-    for (final key in const [_publicKeyEntry, _privateKeyEntry]) {
-      try {
-        await _storage.delete(key: key);
-      } catch (_) {
-        complete = false;
-      }
-    }
-    _legacyKeyPairCleanupChecked = complete;
-  }
-
-  Future<void> _cleanupLegacyKeyPair() async {
-    if (_legacyKeyPairCleanupChecked) return;
-
-    var complete = true;
-    for (final key in const [_publicKeyEntry, _privateKeyEntry]) {
-      try {
-        if (await _storage.read(key: key) != null) {
-          await _storage.delete(key: key);
-        }
-      } catch (_) {
-        complete = false;
-      }
-    }
-    _legacyKeyPairCleanupChecked = complete;
-  }
-
-  Future<void> writeKeyPair(AuthKeyPair pair) => _storage.write(
-    key: _keyPairEntry,
-    value: jsonEncode({'public': pair.publicPem, 'private': pair.privatePem}),
-  );
-
-  static AuthKeyPair? _decodeKeyPair(String encoded) {
-    try {
-      final decoded = jsonDecode(encoded);
-      if (decoded case {
-        'public': final String public,
-        'private': final String private,
-      }) {
-        if (public.isNotEmpty && private.isNotEmpty) {
-          return AuthKeyPair(publicPem: public, privatePem: private);
-        }
-      }
-    } on FormatException {
-      return null;
-    }
-    return null;
-  }
 
   /// Stable per-install id, sent as `client_id` so a site can tell our
   /// installs apart and revoke one.
@@ -143,18 +73,29 @@ class SecureStore {
   }
 
   Future<String> _readOrCreateClientId() async {
-    final existing = await _storage.read(key: _clientIdEntry);
+    final existing = await _clientIds.read();
     if (existing != null && existing.isNotEmpty) return existing;
 
+    // Apple releases before the Linux file backend kept this non-secret value
+    // in Keychain. Move it out after the new preference write is durable.
+    final legacy = await _storage.read(_legacyClientIdEntry);
+    if (legacy != null && legacy.isNotEmpty) {
+      await _clientIds.write(legacy);
+      try {
+        await _storage.delete(_legacyClientIdEntry);
+      } catch (_) {}
+      return legacy;
+    }
+
     final created = _tokenGenerator();
-    await _storage.write(key: _clientIdEntry, value: created);
+    await _clientIds.write(created);
     return created;
   }
 
   /// Reads a site's key once per process and coalesces the initial lookup.
   ///
   /// API calls ask for credentials independently, often several at launch.
-  /// The keychain is an I/O boundary, not an in-memory map, so keeping the
+  /// Persistent storage is an I/O boundary, not an in-memory map, so keeping the
   /// stable result here avoids paying for the same platform round trip before
   /// every request. Writes and deletes invalidate pending reads synchronously.
   Future<String?> readApiKey(String siteUrl) async {
@@ -185,7 +126,7 @@ class SecureStore {
     }
 
     final version = _apiKeyVersions.putIfAbsent(siteUrl, Object.new);
-    final request = _storage.read(key: _apiKeyEntry(siteUrl));
+    final request = _storage.read(_apiKeyEntry(siteUrl));
     _apiKeyRequests[siteUrl] = request;
     try {
       final String? key;
@@ -241,7 +182,7 @@ class SecureStore {
     Object version,
   ) async {
     await _ignorePreviousFailure(previous);
-    await _storage.write(key: _apiKeyEntry(siteUrl), value: key);
+    await _storage.write(_apiKeyEntry(siteUrl), key);
     if (identical(_apiKeyVersions[siteUrl], version)) {
       _apiKeys[siteUrl] = key;
     }
@@ -251,7 +192,8 @@ class SecureStore {
   ///
   /// The plugin deletes twice, once for each synchronizable variant, and the
   /// synchronizable query needs the data protection keychain we deliberately
-  /// do not use (see [_macOptions]) — so it answers `errSecMissingEntitlement`
+  /// do not use (see [AppleKeychainStorage]) — so it answers
+  /// `errSecMissingEntitlement`
   /// (-34018). That is harmless while the other delete succeeds, since either
   /// one succeeding is reported as success. When there is no entry to delete
   /// the other one only finds nothing, and -34018 becomes the answer.
@@ -294,9 +236,9 @@ class SecureStore {
     await _ignorePreviousFailure(previous);
     final existing = previous == null && hadCachedValue
         ? cachedValue
-        : await _storage.read(key: _apiKeyEntry(siteUrl));
+        : await _storage.read(_apiKeyEntry(siteUrl));
     if (existing != null) {
-      await _storage.delete(key: _apiKeyEntry(siteUrl));
+      await _storage.delete(_apiKeyEntry(siteUrl));
     }
     if (identical(_apiKeyVersions[siteUrl], version)) {
       _apiKeys[siteUrl] = null;

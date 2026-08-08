@@ -178,7 +178,7 @@ class UserApiKeyProtocol {
 }
 
 /// An RSA key pair in the PEM forms we need: the public one goes to the site,
-/// the private one stays in the keychain.
+/// the private one stays in memory for the duration of the handshake.
 class AuthKeyPair {
   const AuthKeyPair({required this.publicPem, required this.privatePem});
 

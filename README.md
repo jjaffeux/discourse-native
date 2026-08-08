@@ -14,7 +14,7 @@ planned; see [Adding a platform](#adding-a-platform).
   ```sh
   sudo apt install clang cmake ninja-build pkg-config \
                    libgtk-3-dev liblzma-dev libstdc++-12-dev \
-                   libwebkit2gtk-4.1-dev libsoup-3.0-dev libsecret-1-dev \
+                   libwebkit2gtk-4.1-dev libsoup-3.0-dev \
                    libssl-dev
   ```
 
@@ -52,8 +52,9 @@ the rail can render immediately after launch. Credentials never go there.
 Tapping the user bar runs Discourse's **user API key** handshake, the same one
 DiscourseMobile uses (`SiteManager.generateAuthURL` / `handleAuthPayload`):
 
-1. A 2048-bit RSA key pair is generated once per install and kept in the
-   keychain. Generation runs in an isolate — it takes seconds.
+1. A fresh 2048-bit RSA key pair is generated for the handshake. Generation
+   runs in an isolate — it takes seconds — and the private half remains only in
+   memory until the callback has been decrypted.
 2. We open `{site}/user-api-key/new` in an `ASWebAuthenticationSession`, passing
    our public key, a random nonce, a client id and
    `auth_redirect=discourse://auth_redirect`.
@@ -985,8 +986,9 @@ forgotten locally either way, since keeping one we can no longer see is worse.
 
 ### macOS keychain
 
-`SecureStore` passes `MacOsOptions(usesDataProtectionKeychain: false)`. The
-plugin defaults to the data protection keychain, which needs the
+`AppleKeychainStorage` passes `usesDataProtectionKeychain: false` directly to
+the Darwin plugin. The plugin defaults to the data protection keychain, which
+needs the
 `keychain-access-groups` entitlement — and adding that entitlement makes the
 build require a real development certificate:
 
@@ -1014,14 +1016,15 @@ failure is visible, since unit tests never touch a real keychain. Note the
 round-trip test cannot catch the delete case on its own: there the entry is
 always there to delete.
 
-API keys live in the keychain via `flutter_secure_storage`, keyed by site URL —
-never in preferences. (DiscourseMobile keeps them in AsyncStorage, which is not
-encrypted; there was no reason to copy that.) The username and avatar *are*
-stored in preferences, so a relaunch knows who you are without a round trip.
+On Apple, API keys live in Keychain keyed by site URL. The client id, username
+and avatar are not secrets and live in preferences, so a relaunch knows who you
+are without a round trip. A client id left in Keychain by an older build is
+moved to preferences after the first successful preference write.
 
-Unsent local draft mirrors use the same keychain-backed storage. Older builds
-wrote them to preferences; the first read migrates that value and removes the
-plaintext copy only after the secure write succeeds.
+Unsent local draft mirrors use the same platform-private storage as API keys:
+Keychain on Apple and the private XDG file described below on Linux. Older
+builds wrote drafts to preferences; the first read moves that value only after
+the private write succeeds.
 
 ## Checks
 
@@ -1184,14 +1187,26 @@ nothing. They are also what makes signing in work: the web view intercepts the
 there is no URL scheme to register with the desktop and no site setting to
 change.
 
-`libsecret` needs a **running Secret Service** — gnome-keyring, or KWallet with
-its Secret Service bridge. Without one every keychain read fails, and since
-`SecureStore` has no fallback the app appears to sign in and then forgets.
+Linux does not use libsecret or require a Secret Service. API keys and unsent
+draft mirrors are stored in
+`$XDG_DATA_HOME/discourse-native/private-storage.json`, falling back to
+`$HOME/.local/share/discourse-native/private-storage.json`. The directory is
+forced to mode 0700 and the file to 0600; writes are flushed to a temporary file
+and atomically renamed over the previous version.
 
-`APPLICATION_ID` in `linux/CMakeLists.txt` is `org.discourse.native`, matching
-the macOS bundle identifier. It is not cosmetic: `flutter_secure_storage_linux`
-compiles it into the libsecret schema name, so changing it after a release
-orphans every user's API key and RSA key pair with no way back.
+This is deliberately filesystem-private, not independently encrypted. It
+relies on home-directory or full-disk encryption for protection while logged
+out, and does not claim to protect secrets from another process already running
+as the same user. Actual unattended encryption needs an external key source — a
+keyring, passphrase prompt or hardware — which is the dependency this backend
+is intended to avoid.
+
+Linux credentials written by builds that used libsecret cannot be read by this
+backend. Those users need to reconnect each site once; the old keyring item is
+left untouched. Because its server-side API key remains live, it should also be
+revoked from the site's authorized-applications page. `APPLICATION_ID` in
+`linux/CMakeLists.txt` remains `org.discourse.native`, matching the macOS bundle
+identifier and desktop file.
 
 The window has no custom title bar. `ShellTitleBar` is macOS-only, because it
 exists to keep the traffic lights clear of the rail on a window that hides its
@@ -1230,15 +1245,11 @@ then
 sudo apt update && sudo apt install discourse-native
 ```
 
-`Depends:` names webkit2gtk, libsecret and the rest, so apt pulls them in — there
-is no list of libraries to install by hand. That matters more than convenience
-here: webkit is linked, not loaded on demand, so a machine without it cannot
-start the app at all, and `ld.so` failing at exec shows nothing whatsoever from
-a desktop launcher.
-
-`gnome-keyring` is a `Recommends` rather than a `Depends`. The app needs *some*
-Secret Service or it forgets your account between launches, but KWallet's bridge
-serves as well, and a KDE user should not be made to install GNOME's.
+`Depends:` names webkit2gtk and the other linked libraries, so apt pulls them
+in — there is no list of libraries to install by hand. That matters more than
+convenience here: webkit is linked, not loaded on demand, so a machine without
+it cannot start the app at all, and `ld.so` failing at exec shows nothing
+whatsoever from a desktop launcher.
 
 For canary builds, point the same line at `apt/canary canary main` instead.
 There is also a `.deb` on each [release](https://github.com/jjaffeux/discourse-native/releases)
