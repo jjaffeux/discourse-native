@@ -1500,6 +1500,7 @@ void main() {
 
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 600));
       await tester.tap(find.dIcon(DIcons.arrowLeft));
       await tester.pumpAndSettle();
 

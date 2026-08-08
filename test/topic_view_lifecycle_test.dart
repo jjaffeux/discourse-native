@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -11,6 +12,62 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 void main() {
+  testWidgets('scrolling records the latest read post and reopening uses it', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+    final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([site]),
+      api: api,
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+    controller.store.put(
+      site.url,
+      const Topic(
+        id: 1,
+        title: 'One',
+        slug: 'one',
+        unreadPosts: 29,
+        lastReadPostNumber: 1,
+        highestPostNumber: 30,
+      ),
+    );
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+    final vertical = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.down,
+    );
+    // Pointer drags are clipped by the test viewport, so walk the lazy list
+    // down in a few screen-sized gestures instead of using one huge offset.
+    for (var i = 0; i < 6; i++) {
+      await tester.drag(vertical.first, const Offset(0, -500));
+      await tester.pumpAndSettle();
+    }
+    await tester.pump(const Duration(milliseconds: 600));
+
+    expect(api.topicReadsRecorded.last, (topicId: 1, postNumber: 30));
+    final row = controller.store.read<Topic>(site.url, 1)!;
+    expect(row.lastReadPostNumber, 30);
+    expect(row.hasUnread, isFalse);
+
+    expect(controller.handleBack(), isTrue);
+    controller.openTopic(row);
+
+    expect(controller.currentContent?.postNumber, 30);
+  });
+
   testWidgets('each topic starts with its own scroll position', (tester) async {
     final site = instance('meta.example');
     final controller = ShellController(

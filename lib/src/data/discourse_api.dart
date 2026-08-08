@@ -516,6 +516,32 @@ class DiscourseApi
     );
   }
 
+  /// Records the farthest post a signed-in reader has actually had on screen.
+  ///
+  /// Fetching a topic is not a read receipt in Discourse. Its web client sends
+  /// post timings separately, and `PostTiming.process_timings` advances
+  /// `last_read_post_number` from these post numbers. A small positive timing
+  /// is enough for a native viewport observation; [milliseconds] also becomes
+  /// the topic time so the request has the same shape as the web client's.
+  Future<void> recordTopicRead({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required int postNumber,
+    int milliseconds = 500,
+    String? clientId,
+  }) => _write(
+    Uri.parse('$siteUrl/topics/timings.json'),
+    method: 'POST',
+    apiKey: apiKey,
+    clientId: clientId,
+    body: {
+      'topic_id': topicId,
+      'topic_time': milliseconds,
+      'timings': {'$postNumber': milliseconds},
+    },
+  );
+
   /// Specific posts by id, for paging through a long topic.
   ///
   /// [includeRaw] asks for the markdown alongside the cooked HTML. Reading
