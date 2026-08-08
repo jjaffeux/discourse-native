@@ -22,6 +22,7 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -368,6 +369,8 @@ class FakeDiscourseApi implements DiscourseApi {
     this.likeGate,
     this.likersById = const {},
     this.likerGate,
+    this.siteAppearances = const {},
+    this.appearanceGate,
     this.siteConfigs = const {},
     this.customEmojisBySite = const {},
     this.userSearches = const {},
@@ -493,6 +496,12 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// When set, [postLikers] waits on it, so a test can hold the list in flight.
   final Completer<void>? likerGate;
+
+  /// Resolved appearances returned per site. Missing is the neutral optional
+  /// capability answer used by tests unrelated to theming.
+  final Map<String, SiteAppearance> siteAppearances;
+  final Completer<void>? appearanceGate;
+  final List<String> appearancesRequested = [];
 
   /// Returned by [siteConfig], keyed by site url. A missing one fails, which
   /// is the default and is deliberate: a test that has not said what a site's
@@ -810,6 +819,17 @@ class FakeDiscourseApi implements DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return config;
+  }
+
+  @override
+  Future<SiteAppearance?> siteAppearance({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    appearancesRequested.add(siteUrl);
+    await appearanceGate?.future;
+    return siteAppearances[siteUrl];
   }
 
   @override

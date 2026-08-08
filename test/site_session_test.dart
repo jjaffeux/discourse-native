@@ -6,11 +6,14 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/site_appearance_fixtures.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
 
@@ -102,6 +105,207 @@ final class _GatedCurrentUserApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     revokedKeys.add(apiKey);
+  }
+}
+
+final class _ConnectRaceAppearanceApi extends FakeDiscourseApi {
+  _ConnectRaceAppearanceApi({
+    required this.initialAnonymousAppearance,
+    required this.racingAnonymousAppearance,
+    required this.accountAppearance,
+  });
+
+  final SiteAppearance initialAnonymousAppearance;
+  final SiteAppearance racingAnonymousAppearance;
+  final SiteAppearance accountAppearance;
+  final initialAppearanceStarted = Completer<void>();
+  final currentUserStarted = Completer<void>();
+  final finishCurrentUser = Completer<void>();
+  final racingAppearanceStarted = Completer<void>();
+  final finishRacingAppearance = Completer<void>();
+  final accountAppearanceStarted = Completer<void>();
+  final List<({String? apiKey, String? clientId})> targetAppearanceRequests =
+      [];
+  int _anonymousAppearanceRequests = 0;
+
+  @override
+  Future<SiteAppearance?> siteAppearance({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (siteUrl != _siteUrl) return null;
+    targetAppearanceRequests.add((apiKey: apiKey, clientId: clientId));
+
+    if (apiKey != null) {
+      if (!accountAppearanceStarted.isCompleted) {
+        accountAppearanceStarted.complete();
+      }
+      return accountAppearance;
+    }
+
+    _anonymousAppearanceRequests++;
+    if (_anonymousAppearanceRequests == 1) {
+      initialAppearanceStarted.complete();
+      return initialAnonymousAppearance;
+    }
+
+    if (!racingAppearanceStarted.isCompleted) {
+      racingAppearanceStarted.complete();
+    }
+    await finishRacingAppearance.future;
+    return racingAnonymousAppearance;
+  }
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    currentUserStarted.complete();
+    await finishCurrentUser.future;
+    return const DiscourseUser(id: 2, username: 'account-b');
+  }
+}
+
+final class _RollbackAppearanceApi extends FakeDiscourseApi {
+  _RollbackAppearanceApi({
+    required this.authenticator,
+    required this.signedOutAppearance,
+    required this.accountAppearance,
+  });
+
+  final FakeAuthenticator authenticator;
+  final SiteAppearance signedOutAppearance;
+  final SiteAppearance accountAppearance;
+  final initialAppearanceStarted = Completer<void>();
+  final revocationStarted = Completer<void>();
+  final finishRevocation = Completer<void>();
+  final List<({String? apiKey, bool credentialsDiscarded})> appearanceRequests =
+      [];
+
+  @override
+  Future<SiteAppearance?> siteAppearance({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    appearanceRequests.add((
+      apiKey: apiKey,
+      credentialsDiscarded:
+          authenticator.disconnected.contains(siteUrl) &&
+          !authenticator.keys.containsKey(siteUrl),
+    ));
+    if (!initialAppearanceStarted.isCompleted) {
+      initialAppearanceStarted.complete();
+    }
+    return apiKey == null ? signedOutAppearance : accountAppearance;
+  }
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+  }
+
+  @override
+  Future<void> revokeApiKey({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    if (!revocationStarted.isCompleted) revocationStarted.complete();
+    await finishRevocation.future;
+  }
+}
+
+final class _DisconnectAppearanceApi extends FakeDiscourseApi {
+  _DisconnectAppearanceApi({
+    required this.signedOutAppearance,
+    required this.accountAppearance,
+  });
+
+  final SiteAppearance signedOutAppearance;
+  final SiteAppearance accountAppearance;
+  final initialAppearanceStarted = Completer<void>();
+  final signedOutAppearanceStarted = Completer<void>();
+  final List<({String? apiKey, String? clientId})> appearanceRequests = [];
+
+  @override
+  Future<SiteAppearance?> siteAppearance({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    appearanceRequests.add((apiKey: apiKey, clientId: clientId));
+    if (appearanceRequests.length == 1) {
+      initialAppearanceStarted.complete();
+    } else if (!signedOutAppearanceStarted.isCompleted) {
+      signedOutAppearanceStarted.complete();
+    }
+    return apiKey == null ? signedOutAppearance : accountAppearance;
+  }
+}
+
+final class _DisconnectRaceAppearanceApi extends FakeDiscourseApi {
+  _DisconnectRaceAppearanceApi({
+    required this.initialAccountAppearance,
+    required this.racingAccountAppearance,
+    required this.signedOutAppearance,
+  });
+
+  final SiteAppearance initialAccountAppearance;
+  final SiteAppearance racingAccountAppearance;
+  final SiteAppearance signedOutAppearance;
+  final initialAppearanceStarted = Completer<void>();
+  final revocationStarted = Completer<void>();
+  final finishRevocation = Completer<void>();
+  final racingAppearanceStarted = Completer<void>();
+  final finishRacingAppearance = Completer<void>();
+  final signedOutAppearanceStarted = Completer<void>();
+  final List<({String? apiKey, String? clientId})> targetAppearanceRequests =
+      [];
+  int _accountAppearanceRequests = 0;
+
+  @override
+  Future<SiteAppearance?> siteAppearance({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (siteUrl != _siteUrl) return null;
+    targetAppearanceRequests.add((apiKey: apiKey, clientId: clientId));
+    if (apiKey == null) {
+      if (!signedOutAppearanceStarted.isCompleted) {
+        signedOutAppearanceStarted.complete();
+      }
+      return signedOutAppearance;
+    }
+
+    _accountAppearanceRequests++;
+    if (_accountAppearanceRequests == 1) {
+      initialAppearanceStarted.complete();
+      return initialAccountAppearance;
+    }
+    if (!racingAppearanceStarted.isCompleted) {
+      racingAppearanceStarted.complete();
+    }
+    await finishRacingAppearance.future;
+    return racingAccountAppearance;
+  }
+
+  @override
+  Future<void> revokeApiKey({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    if (!revocationStarted.isCompleted) revocationStarted.complete();
+    await finishRevocation.future;
   }
 }
 
@@ -288,6 +492,400 @@ void main() {
       expect(shell.connectError, isNotNull);
     },
   );
+
+  for (final anonymousAppearanceCompletesBeforeConnect in [true, false]) {
+    test(
+      anonymousAppearanceCompletesBeforeConnect
+          ? 'connect replaces an anonymous appearance completed during lookup'
+          : 'connect rejects an anonymous appearance completed after lookup',
+      () async {
+        const otherSite = 'https://other.example.com';
+        final initialAnonymousAppearance = siteAppearance(
+          accent: const Color(0xFF112233),
+        );
+        final racingAnonymousAppearance = siteAppearance(
+          accent: const Color(0xFF0066BB),
+        );
+        final accountAppearance = siteAppearance(
+          accent: const Color(0xFFAA2200),
+        );
+        final store = FakeInstanceStore([
+          instance(
+            'meta.discourse.org',
+          ).copyWith(appearance: initialAnonymousAppearance),
+          instance('other.example.com'),
+        ]);
+        final authenticator = FakeAuthenticator(
+          credentials: const UserApiCredentials(
+            key: 'account-b-key',
+            apiVersion: 4,
+            push: false,
+          ),
+        );
+        final api = _ConnectRaceAppearanceApi(
+          initialAnonymousAppearance: initialAnonymousAppearance,
+          racingAnonymousAppearance: racingAnonymousAppearance,
+          accountAppearance: accountAppearance,
+        );
+        addTearDown(() {
+          if (!api.finishCurrentUser.isCompleted) {
+            api.finishCurrentUser.complete();
+          }
+          if (!api.finishRacingAppearance.isCompleted) {
+            api.finishRacingAppearance.complete();
+          }
+        });
+        final shell = ShellController(
+          instanceStore: store,
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+
+        await shell.load();
+        await api.initialAppearanceStarted.future;
+        await Future<void>.delayed(Duration.zero);
+        expect(shell.currentSiteAppearance, initialAnonymousAppearance);
+
+        final connecting = shell.connectCurrentInstance();
+        await api.currentUserStarted.future;
+
+        // Re-entering the target while account lookup is held open starts a
+        // public appearance request because the pending instance is signed out.
+        shell.selectInstance(1);
+        expect(shell.currentInstance?.url, otherSite);
+        shell.selectInstance(0);
+        await api.racingAppearanceStarted.future;
+
+        if (anonymousAppearanceCompletesBeforeConnect) {
+          api.finishRacingAppearance.complete();
+          await Future<void>.delayed(Duration.zero);
+          await Future<void>.delayed(Duration.zero);
+          expect(shell.currentSiteAppearance, racingAnonymousAppearance);
+          api.finishCurrentUser.complete();
+        } else {
+          api.finishCurrentUser.complete();
+          await api.accountAppearanceStarted.future;
+          api.finishRacingAppearance.complete();
+        }
+
+        await connecting;
+        await api.accountAppearanceStarted.future;
+        for (
+          var attempt = 0;
+          attempt < 10 && shell.currentSiteAppearance != accountAppearance;
+          attempt++
+        ) {
+          await Future<void>.delayed(Duration.zero);
+        }
+
+        expect(shell.currentInstance?.user?.username, 'account-b');
+        expect(shell.currentSiteAppearance, accountAppearance);
+        expect((await store.load()).first.appearance, accountAppearance);
+        expect(api.targetAppearanceRequests, [
+          (apiKey: null, clientId: null),
+          (apiKey: null, clientId: null),
+          (apiKey: 'account-b-key', clientId: 'test-client'),
+        ]);
+      },
+    );
+  }
+
+  test(
+    'a failed connection refreshes appearance only after discarding its key',
+    () async {
+      final signedOutAppearance = siteAppearance();
+      final accountAppearance = siteAppearance(accent: const Color(0xFFAA2200));
+      final stored = instance(
+        'meta.discourse.org',
+      ).copyWith(appearance: signedOutAppearance);
+      final store = FakeInstanceStore([stored]);
+      final authenticator = FakeAuthenticator(
+        credentials: const UserApiCredentials(
+          key: 'discarded-account-key',
+          apiVersion: 4,
+          push: false,
+        ),
+      );
+      final api = _RollbackAppearanceApi(
+        authenticator: authenticator,
+        signedOutAppearance: signedOutAppearance,
+        accountAppearance: accountAppearance,
+      );
+      final shell = ShellController(
+        instanceStore: store,
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(shell.dispose);
+
+      await shell.load();
+      await api.initialAppearanceStarted.future;
+      await Future<void>.delayed(Duration.zero);
+      expect(api.appearanceRequests, [
+        (apiKey: null, credentialsDiscarded: false),
+      ]);
+
+      final connecting = shell.connectCurrentInstance();
+      await api.revocationStarted.future;
+      await Future<void>.delayed(Duration.zero);
+
+      // Rollback has already cleared the account presentation, but revocation
+      // is deliberately held open and the replacement key still exists. No
+      // appearance request may cross that boundary with the doomed key.
+      expect(authenticator.keys[_siteUrl], 'discarded-account-key');
+      expect(api.appearanceRequests, [
+        (apiKey: null, credentialsDiscarded: false),
+      ]);
+
+      api.finishRevocation.complete();
+      await connecting;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(authenticator.keys[_siteUrl], isNull);
+      expect(api.appearanceRequests, [
+        (apiKey: null, credentialsDiscarded: false),
+        (apiKey: null, credentialsDiscarded: true),
+      ]);
+      expect(shell.currentSiteAppearance, signedOutAppearance);
+      expect((await store.load()).single.appearance, signedOutAppearance);
+      expect(shell.connectError, isNotNull);
+    },
+  );
+
+  test(
+    'a failed key deletion cannot authenticate a signed-out appearance',
+    () async {
+      final signedOutAppearance = siteAppearance();
+      final accountAppearance = siteAppearance(accent: const Color(0xFFAA2200));
+      final stored = instance('meta.discourse.org').copyWith(
+        user: const DiscourseUser(id: 7, username: 'account'),
+        appearance: accountAppearance,
+      );
+      final store = FakeInstanceStore([stored]);
+      final authenticator = FakeAuthenticator(
+        disconnectFailure: StateError('keychain unavailable'),
+      )..keys[_siteUrl] = 'orphaned-account-key';
+      final api = _DisconnectAppearanceApi(
+        signedOutAppearance: signedOutAppearance,
+        accountAppearance: accountAppearance,
+      );
+      final shell = ShellController(
+        instanceStore: store,
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(shell.dispose);
+
+      await shell.load();
+      await api.initialAppearanceStarted.future;
+      await Future<void>.delayed(Duration.zero);
+      expect(api.appearanceRequests, [
+        (apiKey: 'orphaned-account-key', clientId: 'test-client'),
+      ]);
+
+      expect(await shell.disconnectInstance(_siteUrl), isTrue);
+      await api.signedOutAppearanceStarted.future;
+      await Future<void>.delayed(Duration.zero);
+
+      // The keychain failure deliberately leaves the key behind. Instance
+      // identity, rather than key presence alone, must prevent it reaching the
+      // forum document once the account has been signed out.
+      expect(authenticator.keys[_siteUrl], 'orphaned-account-key');
+      expect(shell.currentInstance?.user, isNull);
+      expect(api.appearanceRequests, [
+        (apiKey: 'orphaned-account-key', clientId: 'test-client'),
+        (apiKey: null, clientId: null),
+      ]);
+      expect(shell.currentSiteAppearance, signedOutAppearance);
+      expect((await store.load()).single.appearance, signedOutAppearance);
+      expect(api.revoked, [_siteUrl]);
+    },
+  );
+
+  for (final accountAppearanceCompletesBeforeSignOut in [true, false]) {
+    test(
+      accountAppearanceCompletesBeforeSignOut
+          ? 'disconnect drops an account appearance completed during revocation'
+          : 'disconnect rejects an account appearance completed after sign-out',
+      () async {
+        const otherSite = 'https://other.example.com';
+        final initialAccountAppearance = siteAppearance(
+          accent: const Color(0xFF112233),
+        );
+        final racingAccountAppearance = siteAppearance(
+          accent: const Color(0xFFAA2200),
+        );
+        final signedOutAppearance = siteAppearance(
+          accent: const Color(0xFF0066BB),
+        );
+        final store = FakeInstanceStore([
+          instance('meta.discourse.org').copyWith(
+            user: const DiscourseUser(id: 7, username: 'account'),
+            appearance: initialAccountAppearance,
+          ),
+          instance('other.example.com'),
+        ]);
+        final authenticator = FakeAuthenticator()
+          ..keys[_siteUrl] = 'account-key';
+        final api = _DisconnectRaceAppearanceApi(
+          initialAccountAppearance: initialAccountAppearance,
+          racingAccountAppearance: racingAccountAppearance,
+          signedOutAppearance: signedOutAppearance,
+        );
+        addTearDown(() {
+          if (!api.finishRevocation.isCompleted) {
+            api.finishRevocation.complete();
+          }
+          if (!api.finishRacingAppearance.isCompleted) {
+            api.finishRacingAppearance.complete();
+          }
+        });
+        final shell = ShellController(
+          instanceStore: store,
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+
+        await shell.load();
+        await api.initialAppearanceStarted.future;
+        await Future<void>.delayed(Duration.zero);
+
+        final disconnecting = shell.disconnectInstance(_siteUrl);
+        await api.revocationStarted.future;
+
+        // Re-entering the site while revocation is held open starts a new
+        // authenticated appearance request in the generation created by the
+        // first forget.
+        shell.selectInstance(1);
+        expect(shell.currentInstance?.url, otherSite);
+        shell.selectInstance(0);
+        await api.racingAppearanceStarted.future;
+        expect(api.targetAppearanceRequests, [
+          (apiKey: 'account-key', clientId: 'test-client'),
+          (apiKey: 'account-key', clientId: 'test-client'),
+        ]);
+
+        if (accountAppearanceCompletesBeforeSignOut) {
+          api.finishRacingAppearance.complete();
+          await Future<void>.delayed(Duration.zero);
+          expect(shell.currentSiteAppearance, racingAccountAppearance);
+        }
+
+        api.finishRevocation.complete();
+        expect(await disconnecting, isTrue);
+        await api.signedOutAppearanceStarted.future;
+
+        if (!accountAppearanceCompletesBeforeSignOut) {
+          api.finishRacingAppearance.complete();
+        }
+        await Future<void>.delayed(Duration.zero);
+
+        expect(authenticator.keys[_siteUrl], isNull);
+        expect(shell.currentInstance?.user, isNull);
+        expect(api.targetAppearanceRequests, [
+          (apiKey: 'account-key', clientId: 'test-client'),
+          (apiKey: 'account-key', clientId: 'test-client'),
+          (apiKey: null, clientId: null),
+        ]);
+        expect(shell.currentSiteAppearance, signedOutAppearance);
+        expect(
+          (await store.load())
+              .firstWhere((instance) => instance.url == _siteUrl)
+              .appearance,
+          signedOutAppearance,
+        );
+      },
+    );
+  }
+
+  test('removal survives an instance replacement during revocation', () async {
+    const otherSite = 'https://other.example.com';
+    final initialAccountAppearance = siteAppearance(
+      accent: const Color(0xFF112233),
+    );
+    final racingAccountAppearance = siteAppearance(
+      accent: const Color(0xFFAA2200),
+    );
+    final signedOutAppearance = siteAppearance(accent: const Color(0xFF0066BB));
+    final connected = instance('meta.discourse.org').copyWith(
+      user: const DiscourseUser(id: 7, username: 'account'),
+      appearance: initialAccountAppearance,
+    );
+    final store = FakeInstanceStore([connected, instance('other.example.com')]);
+    final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'account-key';
+    final api = _DisconnectRaceAppearanceApi(
+      initialAccountAppearance: initialAccountAppearance,
+      racingAccountAppearance: racingAccountAppearance,
+      signedOutAppearance: signedOutAppearance,
+    );
+    addTearDown(() {
+      if (!api.finishRevocation.isCompleted) {
+        api.finishRevocation.complete();
+      }
+      if (!api.finishRacingAppearance.isCompleted) {
+        api.finishRacingAppearance.complete();
+      }
+    });
+    final shell = ShellController(
+      instanceStore: store,
+      api: api,
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(shell.dispose);
+
+    await shell.load();
+    await api.initialAppearanceStarted.future;
+    await Future<void>.delayed(Duration.zero);
+
+    final removing = shell.removeInstance(connected);
+    await api.revocationStarted.future;
+    shell.selectInstance(1);
+    shell.selectInstance(0);
+    await api.racingAppearanceStarted.future;
+
+    // This accepted response replaces the immutable instance object while
+    // removeInstance still holds the older snapshot supplied by its caller.
+    api.finishRacingAppearance.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(shell.currentSiteAppearance, racingAccountAppearance);
+
+    api.finishRevocation.complete();
+    expect(await removing, isTrue);
+    expect(authenticator.keys[_siteUrl], isNull);
+    expect(shell.instances.map((instance) => instance.url), [otherSite]);
+    expect((await store.load()).map((instance) => instance.url), [otherSite]);
+
+    // Re-adding the URL in the same process must start from public colors;
+    // the account palette completed during revocation was forgotten.
+    expect(await shell.addInstance(instance('meta.discourse.org')), isTrue);
+    await api.signedOutAppearanceStarted.future;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(api.targetAppearanceRequests, [
+      (apiKey: 'account-key', clientId: 'test-client'),
+      (apiKey: 'account-key', clientId: 'test-client'),
+      (apiKey: null, clientId: null),
+    ]);
+    expect(shell.currentSiteAppearance, signedOutAppearance);
+    expect(
+      (await store.load())
+          .firstWhere((instance) => instance.url == _siteUrl)
+          .appearance,
+      signedOutAppearance,
+    );
+  });
 
   test(
     'a failed connected-profile save rolls back the account and key',

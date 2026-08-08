@@ -157,7 +157,7 @@ class _PostActionsState extends State<PostActions> {
           icon: post.liked ? DIcons.heart : DIcons.farHeart,
           label: post.liked ? 'Remove like' : 'Like',
           tooltip: post.liked ? 'Remove your like' : 'Like this post',
-          tint: post.liked ? discourseLove : null,
+          tint: post.liked ? Theme.of(context).discourse.love : null,
           onInvoke: () => _report(
             controller,
             controller.toggleLike(post, siteUrl: widget.siteUrl),

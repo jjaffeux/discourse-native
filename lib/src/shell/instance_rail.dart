@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/discourse_instance.dart';
+import '../models/site_appearance.dart';
 import '../theme/app_theme.dart';
+import '../theme/color_contrast.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
@@ -32,10 +34,13 @@ class InstanceRail extends StatelessWidget {
             child: SafeArea(
               right: false,
               child: switch (state.loadStatus) {
-                InstanceLoadStatus.loading => const Center(
+                InstanceLoadStatus.loading => Center(
                   child: SizedBox.square(
                     dimension: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: theme.shell.railForeground,
+                    ),
                   ),
                 ),
                 InstanceLoadStatus.failed => const _RailLoadFailure(),
@@ -52,6 +57,7 @@ class InstanceRail extends StatelessWidget {
                     return _RailItem(
                       key: ValueKey(instance.url),
                       instance: instance,
+                      appearance: state.appearances[index],
                       selected: index == state.selectedIndex,
                       badgeCount: controller.railBadgeFor(instance),
                       onTap: () => controller.selectInstance(index),
@@ -70,10 +76,15 @@ class InstanceRail extends StatelessWidget {
 class _RailSnapshot {
   _RailSnapshot.from(ShellController controller)
     : instances = controller.instances,
+      appearances = [
+        for (final instance in controller.instances)
+          controller.siteAppearanceFor(instance.url),
+      ],
       selectedIndex = controller.instanceIndex,
       loadStatus = controller.loadStatus;
 
   final List<DiscourseInstance> instances;
+  final List<SiteAppearance?> appearances;
   final int selectedIndex;
   final InstanceLoadStatus loadStatus;
 
@@ -87,6 +98,7 @@ class _RailSnapshot {
     if (instances.length != other.instances.length) return false;
     for (var index = 0; index < instances.length; index++) {
       if (!identical(instances[index], other.instances[index])) return false;
+      if (appearances[index] != other.appearances[index]) return false;
     }
     return true;
   }
@@ -96,6 +108,7 @@ class _RailSnapshot {
     selectedIndex,
     loadStatus,
     Object.hashAll(instances.map(identityHashCode)),
+    Object.hashAll(appearances),
   );
 }
 
@@ -206,7 +219,7 @@ class _UpdateButton extends StatelessWidget {
           _ => (
             'Check for updates',
             DIcons.arrowsRotate,
-            theme.colorScheme.onSurfaceVariant,
+            theme.shell.railForeground,
             false,
           ),
         };
@@ -275,12 +288,14 @@ class _RailItem extends StatelessWidget {
   const _RailItem({
     super.key,
     required this.instance,
+    required this.appearance,
     required this.selected,
     required this.badgeCount,
     required this.onTap,
   });
 
   final DiscourseInstance instance;
+  final SiteAppearance? appearance;
   final bool selected;
   final int badgeCount;
   final VoidCallback onTap;
@@ -288,6 +303,29 @@ class _RailItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = _activePalette(
+      appearance,
+      MediaQuery.platformBrightnessOf(context),
+    );
+    final accent = palette?.tertiary ?? instance.accentColor;
+    final avatarBackground = selected
+        ? accent
+        : accent.withValues(alpha: accent.a * 0.16);
+    final scaffold = opaqueColorOnCanvas(
+      theme.scaffoldBackgroundColor,
+      theme.brightness,
+    );
+    final railSurface = Color.alphaBlend(theme.shell.rail, scaffold);
+    final avatarForeground = contrastSafeForeground(
+      background: avatarBackground,
+      backdrop: railSurface,
+      preferred: [
+        if (!selected) theme.shell.railForeground,
+        palette?.secondary,
+        palette?.primary,
+        if (selected) theme.shell.railForeground,
+      ],
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -301,7 +339,7 @@ class _RailItem extends StatelessWidget {
             width: 4,
             height: selected ? 32 : 0,
             decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface,
+              color: theme.shell.railForeground,
               borderRadius: const BorderRadius.horizontal(
                 right: Radius.circular(4),
               ),
@@ -330,9 +368,7 @@ class _RailItem extends StatelessWidget {
                         height: 44,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: selected
-                              ? instance.accentColor
-                              : instance.accentColor.withValues(alpha: 0.16),
+                          color: avatarBackground,
                           borderRadius: BorderRadius.circular(
                             selected ? 14 : 22,
                           ),
@@ -340,7 +376,7 @@ class _RailItem extends StatelessWidget {
                         clipBehavior: Clip.antiAlias,
                         child: _InstanceAvatar(
                           instance: instance,
-                          selected: selected,
+                          foreground: avatarForeground,
                         ),
                       ),
                       if (badgeCount > 0)
@@ -364,10 +400,10 @@ class _RailItem extends StatelessWidget {
 /// The site's own icon, falling back to a monogram while it loads or if the
 /// site does not publish one.
 class _InstanceAvatar extends StatelessWidget {
-  const _InstanceAvatar({required this.instance, required this.selected});
+  const _InstanceAvatar({required this.instance, required this.foreground});
 
   final DiscourseInstance instance;
-  final bool selected;
+  final Color foreground;
 
   @override
   Widget build(BuildContext context) {
@@ -377,7 +413,7 @@ class _InstanceAvatar extends StatelessWidget {
       child: Text(
         instance.monogram,
         style: theme.textTheme.labelLarge?.copyWith(
-          color: selected ? Colors.white : theme.colorScheme.onSurface,
+          color: foreground,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -385,6 +421,21 @@ class _InstanceAvatar extends StatelessWidget {
 
     return AvatarImage(url: instance.iconUrl, size: 44, fallback: monogram);
   }
+}
+
+ResolvedSitePalette? _activePalette(
+  SiteAppearance? appearance,
+  Brightness platformBrightness,
+) {
+  if (appearance == null) return null;
+  return switch (appearance.mode) {
+    SiteAppearanceMode.base => appearance.base ?? appearance.alternate,
+    SiteAppearanceMode.alternate => appearance.alternate ?? appearance.base,
+    SiteAppearanceMode.followSystem =>
+      platformBrightness == Brightness.dark
+          ? appearance.alternate ?? appearance.base
+          : appearance.base ?? appearance.alternate,
+  };
 }
 
 class _AddInstanceButton extends StatelessWidget {
@@ -404,10 +455,14 @@ class _AddInstanceButton extends StatelessWidget {
           height: 44,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withValues(alpha: 0.14),
+            color: theme.shell.railForeground.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(22),
           ),
-          child: DIcon(DIcons.plus, size: 22, color: theme.colorScheme.primary),
+          child: DIcon(
+            DIcons.plus,
+            size: 22,
+            color: theme.shell.railForeground,
+          ),
         ),
       ),
     );

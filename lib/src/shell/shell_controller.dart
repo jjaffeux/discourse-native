@@ -29,6 +29,7 @@ import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/post_likers.dart';
 import '../models/sidebar.dart';
+import '../models/site_appearance.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
@@ -171,17 +172,37 @@ class ShellController extends FrameSafeNotifier {
 
   SitePresentationController _createSitePresentationController() {
     final controller = SitePresentationController(
+      loadAppearance: _loadSiteAppearance,
       loadConfig: api.siteConfig,
       loadCustomEmojis: api.customEmojis,
       loadEmojis: api.emojis,
       credentials: authenticator,
       lifecycle: lifecycle,
+      readPersistedAppearance: (siteUrl) => _instanceAt(siteUrl)?.appearance,
       readPersistedConfig: (siteUrl) => _instanceAt(siteUrl)?.config,
+      onAppearanceLoaded: _persistSiteAppearance,
       onConfigLoaded: _persistSiteConfig,
       onEmojiIndexChanged: () => _composer?.autocomplete.refresh(),
     );
     controller.addListener(_notify);
     return controller;
+  }
+
+  Future<SiteAppearance?> _loadSiteAppearance({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) {
+    // A failed keychain deletion can leave an orphaned key behind. The stored
+    // instance identity is the account boundary: signed-out sites may refresh
+    // their public colors, but must never forward that leftover credential.
+    final authenticate =
+        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
+    return api.siteAppearance(
+      siteUrl: siteUrl,
+      apiKey: authenticate ? apiKey : null,
+      clientId: authenticate ? clientId : null,
+    );
   }
 
   String? _connectingSiteUrl;
@@ -368,13 +389,23 @@ class ShellController extends FrameSafeNotifier {
     final lease = await _revokeAndForget(instance);
     if (!lease.isCurrent) return false;
 
-    final index = _instances.indexOf(instance);
+    // Presentation metadata may have replaced the immutable instance object
+    // while revocation was in flight. URL is the rail identity; resolve the
+    // object owned by the new lifecycle generation before mutating the list.
+    final held = _instanceAt(instance.url);
+    if (held == null) return false;
+    final index = _instances.indexOf(held);
     if (index < 0) return false;
     final selected = currentInstance;
-    final signedOut = instance.copyWith(clearUser: true, clearConfig: true);
+    final removingSelected = selected?.url == held.url;
+    final signedOut = held.copyWith(
+      clearUser: true,
+      clearConfig: true,
+      clearAppearance: true,
+    );
     _instances.removeAt(index);
 
-    if (selected == instance) {
+    if (removingSelected) {
       // The site being read is the one going away, so there is somewhere new
       // to land: whatever took its place, or the end of a shortened rail.
       _instanceIndex = _instances.isEmpty
@@ -399,7 +430,7 @@ class ShellController extends FrameSafeNotifier {
 
       final restoredIndex = index.clamp(0, _instances.length);
       _instances.insert(restoredIndex, signedOut);
-      if (selected == instance) {
+      if (removingSelected) {
         _instanceIndex = restoredIndex;
         _mobilePane = MobilePane.sidebar;
         _resetToInstanceDefault();
@@ -2459,9 +2490,11 @@ class ShellController extends FrameSafeNotifier {
 
     final key = _userKey(targetSite, username);
     if (_userCardsLoading.contains(key)) return;
-    if (store.read<UserCard>(targetSite, username.toLowerCase()) != null &&
-        !force) {
-      return;
+    if (!force) {
+      if (_userCardErrors.containsKey(key)) return;
+      if (store.read<UserCard>(targetSite, username.toLowerCase()) != null) {
+        return;
+      }
     }
 
     _userCardsLoading.add(key);
@@ -2784,6 +2817,26 @@ class ShellController extends FrameSafeNotifier {
         : siteConfigFor(instance.url);
   }
 
+  /// The resolved color appearance for [siteUrl], if this Discourse exposes
+  /// modern color-definition stylesheets.
+  SiteAppearance? siteAppearanceFor(String siteUrl) =>
+      _presentation.appearanceFor(siteUrl);
+
+  SiteAppearance? get currentSiteAppearance {
+    final instance = currentInstance;
+    return instance == null ? null : siteAppearanceFor(instance.url);
+  }
+
+  Future<void> _persistSiteAppearance(
+    String siteUrl,
+    SiteAppearance appearance,
+  ) async {
+    final held = _instanceAt(siteUrl);
+    if (held == null || held.appearance == appearance) return;
+    _replaceInstance(held, held.copyWith(appearance: appearance));
+    await instanceStore.save(List.of(_instances));
+  }
+
   Future<void> _persistSiteConfig(String siteUrl, SiteConfig config) async {
     final held = _instanceAt(siteUrl);
     if (held == null || held.config == config) return;
@@ -2862,6 +2915,7 @@ class ShellController extends FrameSafeNotifier {
           apiVersion: connectedCredentials.apiVersion,
           clearUser: true,
           clearConfig: true,
+          clearAppearance: true,
         );
         _replaceInstance(held, pending!);
         _notify();
@@ -2897,6 +2951,17 @@ class ShellController extends FrameSafeNotifier {
         siteUrl: instance.url,
         apiKey: connectedCredentials.key,
       );
+      if (!lease.isCurrent) return;
+
+      // The signed-out boundary above deliberately lasts while the replacement
+      // account is being verified. Re-entering the site during that await can
+      // start an anonymous appearance refresh in the same generation. Rotate
+      // once more before publishing the connected identity so a completed
+      // public palette is not cached as the account palette, and a late public
+      // response cannot overwrite the authenticated refresh started below.
+      _forgetSiteState(instance.url);
+      lease = lifecycle.capture(instance.url);
+
       DiscourseInstance? connected;
       final accepted = lease.commit(() {
         final held = _instanceAt(instance.url);
@@ -2968,12 +3033,27 @@ class ShellController extends FrameSafeNotifier {
     rollbackLease.commit(() {
       final held = _instanceAt(instance.url);
       if (held == null) return;
-      _replaceInstance(held, held.copyWith(clearUser: true, clearConfig: true));
-      if (currentInstance?.url == instance.url) _resetToInstanceDefault();
+      _replaceInstance(
+        held,
+        held.copyWith(
+          clearUser: true,
+          clearConfig: true,
+          clearAppearance: true,
+        ),
+      );
+      if (currentInstance?.url == instance.url) {
+        // The replacement key still lives in the credential store until the
+        // cleanup below finishes. Reset the signed-out navigation now, but do
+        // not let its optional appearance refresh race that account boundary.
+        _resetToInstanceDefault(refreshAppearance: false);
+      }
       _notify();
     });
 
-    await _discardCredentials(instance.url, credentials.key);
+    final credentialsDiscarded = await _discardCredentials(
+      instance.url,
+      credentials.key,
+    );
     if (!rollbackLease.isCurrent) return rollbackLease;
 
     // The failure may have been the signed-out boundary or the final connected
@@ -2987,16 +3067,26 @@ class ShellController extends FrameSafeNotifier {
         break;
       } catch (_) {}
     }
+    if (credentialsDiscarded &&
+        rollbackLease.isCurrent &&
+        currentInstance?.url == instance.url) {
+      // This read is now necessarily anonymous. If deleting the local key
+      // failed, retaining native colors is safer than presenting another
+      // account-derived palette on a signed-out instance.
+      unawaited(_presentation.ensureAppearance(instance.url));
+    }
     return rollbackLease;
   }
 
-  Future<void> _discardCredentials(String siteUrl, String apiKey) async {
+  Future<bool> _discardCredentials(String siteUrl, String apiKey) async {
     try {
       await api.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey);
     } catch (_) {}
     try {
       await authenticator.disconnect(siteUrl);
+      return true;
     } catch (_) {}
+    return false;
   }
 
   /// Forgets the key and who we were, leaving the site in the rail.
@@ -3022,7 +3112,14 @@ class ShellController extends FrameSafeNotifier {
       // The settings go with the key. On a `login_required` site they were only
       // readable as that account, so keeping an answer that can no longer be
       // refreshed would leave the shell drawing something it cannot correct.
-      _replaceInstance(held, held.copyWith(clearUser: true, clearConfig: true));
+      _replaceInstance(
+        held,
+        held.copyWith(
+          clearUser: true,
+          clearConfig: true,
+          clearAppearance: true,
+        ),
+      );
       if (currentInstance?.url == instance.url) _resetToInstanceDefault();
       _notify();
     });
@@ -3075,7 +3172,15 @@ class ShellController extends FrameSafeNotifier {
     }
     if (!lease.isCurrent) return lease;
     await drafts.clearSite(instance.url, ifCurrent: () => lease.isCurrent);
-    return lease;
+    if (!lease.isCurrent) return lease;
+
+    // Revocation is asynchronous, so switching away and back can start fresh
+    // account-bound work in this generation. Forget once more before the
+    // caller commits removal or sign-out: completed state is dropped and late
+    // responses lose their lease. The caller receives the replacement lease
+    // so its persistence work still belongs to the new boundary.
+    _forgetSiteState(instance.url);
+    return lifecycle.capture(instance.url);
   }
 
   void _forgetSiteState(String siteUrl) {
@@ -3127,7 +3232,7 @@ class ShellController extends FrameSafeNotifier {
     if (index >= 0) _instances[index] = updated;
   }
 
-  void _resetToInstanceDefault() {
+  void _resetToInstanceDefault({bool refreshAppearance = true}) {
     final instance = currentInstance;
     _contentStack.clear();
     _syncTracking();
@@ -3140,6 +3245,9 @@ class ShellController extends FrameSafeNotifier {
     final destination = instance.defaultDestination;
     _destinationId = destination.id;
     _contentStack.add(ContentRoute.fromDestination(destination));
+    if (refreshAppearance) {
+      unawaited(_presentation.ensureAppearance(instance.url));
+    }
     unawaited(loadFeed(destination.id));
   }
 

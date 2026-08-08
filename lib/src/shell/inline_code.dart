@@ -55,8 +55,7 @@ class InlineCode extends StatelessWidget {
     return Container(
       padding: _padding,
       decoration: BoxDecoration(
-        // The surface a code block uses, so both read as the same material.
-        color: theme.shell.rail,
+        color: theme.code.inlineBackground,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(

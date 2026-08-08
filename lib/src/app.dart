@@ -9,12 +9,14 @@ import 'data/instance_store.dart';
 import 'data/site_tracker.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
+import 'models/site_appearance.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
 import 'theme/app_theme.dart';
 
-/// Root of the application. Follows the system light/dark setting.
+/// Root of the application. Uses each site's resolved appearance, falling
+/// back to the system light/dark setting when the site has not supplied one.
 ///
 /// [store] and [api] exist so tests can supply fakes; production uses the real
 /// implementations.
@@ -165,13 +167,76 @@ class _DiscourseAppState extends State<DiscourseApp>
     // Navigator, can still reach the controller.
     return ShellScope(
       controller: _controller,
-      child: MaterialApp(
-        title: 'Discourse',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
-        home: const AdaptiveShell(),
+      child: ShellSelector<_AppThemeSelection>(
+        select: _AppThemeSelection.from,
+        builder: (context, selection, _) {
+          final appearance = selection.appearance;
+          final base = appearance?.base ?? appearance?.alternate;
+          if (appearance == null || base == null) {
+            return _materialApp(
+              theme: AppTheme.light,
+              darkTheme: AppTheme.dark,
+              themeMode: ThemeMode.system,
+            );
+          }
+
+          final baseTheme = AppTheme.fromPalette(base);
+          final alternate = appearance.alternate;
+          final alternateTheme = AppTheme.fromPalette(
+            alternate ?? appearance.base ?? base,
+          );
+          final themeMode = switch (appearance.mode) {
+            SiteAppearanceMode.followSystem when alternate != null =>
+              ThemeMode.system,
+            SiteAppearanceMode.alternate when alternate != null =>
+              ThemeMode.dark,
+            SiteAppearanceMode.followSystem ||
+            SiteAppearanceMode.base ||
+            SiteAppearanceMode.alternate => ThemeMode.light,
+          };
+          return _materialApp(
+            theme: baseTheme,
+            darkTheme: alternateTheme,
+            themeMode: themeMode,
+          );
+        },
       ),
     );
   }
+
+  static Widget _materialApp({
+    required ThemeData theme,
+    required ThemeData darkTheme,
+    required ThemeMode themeMode,
+  }) => MaterialApp(
+    title: 'Discourse',
+    debugShowCheckedModeBanner: false,
+    theme: theme,
+    darkTheme: darkTheme,
+    themeMode: themeMode,
+    home: const AdaptiveShell(),
+  );
+}
+
+@immutable
+final class _AppThemeSelection {
+  const _AppThemeSelection(this.siteUrl, this.appearance);
+
+  factory _AppThemeSelection.from(ShellController controller) =>
+      _AppThemeSelection(
+        controller.currentInstance?.url,
+        controller.currentSiteAppearance,
+      );
+
+  final String? siteUrl;
+  final SiteAppearance? appearance;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _AppThemeSelection &&
+      other.siteUrl == siteUrl &&
+      other.appearance == appearance;
+
+  @override
+  int get hashCode => Object.hash(siteUrl, appearance);
 }

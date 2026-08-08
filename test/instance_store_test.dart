@@ -4,8 +4,11 @@ import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/site_appearance_fixtures.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -59,6 +62,27 @@ void main() {
       ]);
       expect(loaded.map((instance) => instance.title), ['One', 'Two']);
     });
+
+    test(
+      'ignores malformed optional appearance without dropping its site',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'discourse_native.instances': '''[
+          {
+            "url":"https://one.example",
+            "title":"One",
+            "appearance":{"base":{"primary":7}}
+          }
+        ]''',
+        });
+
+        final loaded = await store.load();
+
+        expect(loaded, hasLength(1));
+        expect(loaded.single.url, 'https://one.example');
+        expect(loaded.single.appearance, isNull);
+      },
+    );
   });
 
   group('round trip', () {
@@ -116,6 +140,23 @@ void main() {
 
       expect(loaded.map((i) => i.url), [first.url, second.url]);
       expect(loaded.every((i) => !i.isConnected), isTrue);
+    });
+
+    test('persists a resolved site appearance', () async {
+      final appearance = siteAppearance(
+        accent: const Color(0xFF123456),
+        alternateAccent: const Color(0xFFABCDEF),
+      );
+      final instance = DiscourseInstance(
+        url: 'https://theme.example.com',
+        title: 'Theme',
+        appearance: appearance,
+      );
+
+      await store.save([instance]);
+      final loaded = await store.load();
+
+      expect(loaded.single.appearance, appearance);
     });
 
     test('saving an empty rail wipes the stored one', () async {

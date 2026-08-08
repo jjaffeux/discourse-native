@@ -3,8 +3,16 @@ import 'package:flutter/foundation.dart';
 import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../models/site_appearance.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
+
+typedef SiteAppearanceLoader =
+    Future<SiteAppearance?> Function({
+      required String siteUrl,
+      String? apiKey,
+      String? clientId,
+    });
 
 typedef SiteConfigLoader =
     Future<SiteConfig> Function({
@@ -27,35 +35,46 @@ typedef SiteEmojiLoader =
 typedef PersistedSiteConfigReader = SiteConfig? Function(String siteUrl);
 typedef SiteConfigLoaded =
     Future<void> Function(String siteUrl, SiteConfig config);
+typedef PersistedSiteAppearanceReader =
+    SiteAppearance? Function(String siteUrl);
+typedef SiteAppearanceLoaded =
+    Future<void> Function(String siteUrl, SiteAppearance appearance);
 
-/// Per-site settings and emoji metadata used only to decide presentation.
+/// Per-site appearance, settings, and emoji metadata used to decide rendering.
 ///
 /// This state has different freshness and notification needs from navigation:
 /// settings and custom artwork can repaint visible content, while the complete
 /// emoji index only needs to refresh an open composer's autocomplete.
 final class SitePresentationController extends FrameSafeNotifier {
   SitePresentationController({
+    required this.loadAppearance,
     required this.loadConfig,
     required this.loadCustomEmojis,
     required this.loadEmojis,
     required this.credentials,
     required this.lifecycle,
+    required this.readPersistedAppearance,
     required this.readPersistedConfig,
+    required this.onAppearanceLoaded,
     required this.onConfigLoaded,
     required this.onEmojiIndexChanged,
     this.maxAttempts = 3,
   }) : assert(maxAttempts > 0);
 
+  final SiteAppearanceLoader loadAppearance;
   final SiteConfigLoader loadConfig;
   final CustomEmojiLoader loadCustomEmojis;
   final SiteEmojiLoader loadEmojis;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
+  final PersistedSiteAppearanceReader readPersistedAppearance;
   final PersistedSiteConfigReader readPersistedConfig;
+  final SiteAppearanceLoaded onAppearanceLoaded;
   final SiteConfigLoaded onConfigLoaded;
   final VoidCallback onEmojiIndexChanged;
   final int maxAttempts;
 
+  final _appearances = _RetryingSiteCache<SiteAppearance>();
   final _configs = _RetryingSiteCache<SiteConfig>();
   final _customEmojis = _RetryingSiteCache<Map<String, String>>();
   final _emojis = _RetryingSiteCache<List<SiteEmoji>>();
@@ -68,10 +87,51 @@ final class SitePresentationController extends FrameSafeNotifier {
   Object presentationTokenFor(String siteUrl) =>
       _presentationTokens[siteUrl] ?? _unchangedPresentation;
 
+  SiteAppearance? appearanceFor(String siteUrl) =>
+      _appearances[siteUrl] ?? readPersistedAppearance(siteUrl);
+
   SiteConfig configFor(String siteUrl) =>
       _configs[siteUrl] ??
       readPersistedConfig(siteUrl) ??
       const SiteConfig.unknown();
+
+  Future<void> ensureAppearance(String siteUrl) async {
+    if (isDisposed || !_appearances.start(siteUrl, maxAttempts)) return;
+    final lease = lifecycle.capture(siteUrl);
+
+    try {
+      final appearance = await _withCredentials(
+        siteUrl,
+        lease,
+        (apiKey, clientId) => loadAppearance(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+        ),
+      );
+      if (appearance == null || !appearance.isKnown || isDisposed) return;
+
+      var changed = false;
+      final accepted = lease.commit(() {
+        changed = appearanceFor(siteUrl) != appearance;
+        _appearances.complete(siteUrl, appearance);
+        if (changed) _notifyPresentationChanged(siteUrl);
+      });
+      if (!accepted || !lease.isCurrent) return;
+      if (!changed) return;
+
+      try {
+        await onAppearanceLoaded(siteUrl, appearance);
+      } catch (_) {
+        // The in-memory palette is still useful. A later rail write can retry
+        // persisting it with the rest of the instance snapshot.
+      }
+    } catch (_) {
+      // Appearance is optional; persisted or native colors remain in place.
+    } finally {
+      if (!isDisposed) lease.commit(() => _appearances.finish(siteUrl));
+    }
+  }
 
   String emojiUrlFor(String siteUrl, String name) {
     final custom = _customEmojis[siteUrl]?[name];
@@ -201,16 +261,22 @@ final class SitePresentationController extends FrameSafeNotifier {
   /// Drops one site's fetched state immediately; the shell owns invalidation.
   void forget(String siteUrl) {
     if (isDisposed) return;
+    final oldAppearance = appearanceFor(siteUrl);
     final oldConfig = configFor(siteUrl);
     final customChanged = _customEmojis[siteUrl]?.isNotEmpty ?? false;
     final emojiIndexChanged = _emojis.contains(siteUrl);
 
+    _appearances.forget(siteUrl);
     _configs.forget(siteUrl);
     _customEmojis.forget(siteUrl);
     _emojis.forget(siteUrl);
     _presentationTokens.remove(siteUrl);
 
-    if (oldConfig != configFor(siteUrl) || customChanged) notifySafely();
+    if (oldAppearance != appearanceFor(siteUrl) ||
+        oldConfig != configFor(siteUrl) ||
+        customChanged) {
+      notifySafely();
+    }
     if (emojiIndexChanged) onEmojiIndexChanged();
   }
 

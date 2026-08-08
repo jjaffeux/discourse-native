@@ -1,51 +1,74 @@
 import 'package:flutter/material.dart';
 
+import '../models/site_appearance.dart';
+import 'color_contrast.dart';
+
 /// The tertiary color of Discourse's default light scheme.
 const Color discourseBlue = Color(0xFF0088CC);
 
 /// What Discourse paints a like — `$love` in its stylesheets.
 ///
-/// One value for both brightnesses, unlike everything in [ShellColors]: a
-/// heart that changed color with the theme would stop reading as the same
-/// thing, and it is drawn on a floating surface either way.
+/// The fallback used until a site supplies its own `$love` value.
 const Color discourseLove = Color(0xFFFA6C8D);
+
+/// Discourse's default `$success` colour.
+const Color discourseSuccess = Color(0xFF009900);
+
+Color _readableOn(
+  Color background,
+  Color preferred, {
+  required Color backdrop,
+  Color? alternative,
+}) => contrastSafeForeground(
+  background: background,
+  backdrop: backdrop,
+  preferred: [preferred, alternative],
+);
 
 /// The stacked neutral surfaces the shell is built from.
 ///
 /// These live outside [ColorScheme] because the shell needs several distinct
 /// neutrals sitting directly next to each other, which Material's surface roles
-/// do not map onto cleanly. Per-instance color schemes will override these once
-/// we can read them from each site.
+/// do not map onto cleanly.
 @immutable
 class ShellColors extends ThemeExtension<ShellColors> {
   const ShellColors({
     required this.rail,
+    required this.railForeground,
     required this.sidebar,
     required this.content,
     required this.panel,
     required this.divider,
     required this.floating,
     required this.hover,
+    required this.selected,
+    required this.selectedForeground,
     required this.placeholder,
     required this.marker,
     required this.mention,
   });
 
   final Color rail;
+
+  /// Text and icon colour drawn directly on [rail].
+  final Color railForeground;
+
   final Color sidebar;
   final Color content;
   final Color panel;
   final Color divider;
 
   /// Surface for elements that float *over* the columns, such as the user bar.
-  /// Deliberately lighter than every column so the edge reads wherever it
-  /// happens to sit.
   final Color floating;
 
   /// Wash laid over [content] for the row the pointer is on. Opaque rather than
   /// a translucent tint so a hovered row does not go see-through over whatever
   /// happens to be painted behind the column.
   final Color hover;
+
+  /// Background and foreground for the currently selected navigation row.
+  final Color selected;
+  final Color selectedForeground;
 
   /// Text for anything the UI shows but cannot do yet: fake rows, stand-in
   /// counts, destinations with nothing behind them. Nothing that actually works
@@ -68,18 +91,21 @@ class ShellColors extends ThemeExtension<ShellColors> {
   /// Not [rail], which is the nearest existing neutral and the wrong one: in
   /// the dark scheme it is *darker* than every surface a pill is drawn on —
   /// [content], [sidebar] where chat renders, [floating] in a user card —
-  /// while Discourse's is a step lighter than its surface. It is also what
-  /// inline code fills with, and a mention is not a code span.
+  /// while Discourse's is a step lighter than its surface. Inline code has its
+  /// own [CodeColors.inlineBackground], because a mention is not a code span.
   final Color mention;
 
   static const ShellColors dark = ShellColors(
     rail: Color(0xFF131417),
+    railForeground: Color(0xFFDDDDDD),
     sidebar: Color(0xFF1A1C20),
     content: Color(0xFF212429),
     panel: Color(0xFF1A1C20),
     divider: Color(0xFF2B2E35),
     floating: Color(0xFF272B32),
     hover: Color(0xFF262A30),
+    selected: Color(0x290099DD),
+    selectedForeground: Color(0xFFDDDDDD),
     placeholder: Color(0xFFFF9E4D),
     marker: Color(0xFF8B939F),
     mention: Color(0xFF3A3F48),
@@ -87,12 +113,15 @@ class ShellColors extends ThemeExtension<ShellColors> {
 
   static const ShellColors light = ShellColors(
     rail: Color(0xFFE3E6EA),
+    railForeground: Color(0xFF222222),
     sidebar: Color(0xFFF1F3F5),
     content: Color(0xFFFFFFFF),
     panel: Color(0xFFF1F3F5),
     divider: Color(0xFFDBDFE4),
     floating: Color(0xFFFFFFFF),
     hover: Color(0xFFF6F8F9),
+    selected: Color(0x290088CC),
+    selectedForeground: Color(0xFF222222),
     placeholder: Color(0xFFC25400),
     marker: Color(0xFF6B7280),
     mention: Color(0xFFDFE4E9),
@@ -101,24 +130,30 @@ class ShellColors extends ThemeExtension<ShellColors> {
   @override
   ShellColors copyWith({
     Color? rail,
+    Color? railForeground,
     Color? sidebar,
     Color? content,
     Color? panel,
     Color? divider,
     Color? floating,
     Color? hover,
+    Color? selected,
+    Color? selectedForeground,
     Color? placeholder,
     Color? marker,
     Color? mention,
   }) {
     return ShellColors(
       rail: rail ?? this.rail,
+      railForeground: railForeground ?? this.railForeground,
       sidebar: sidebar ?? this.sidebar,
       content: content ?? this.content,
       panel: panel ?? this.panel,
       divider: divider ?? this.divider,
       floating: floating ?? this.floating,
       hover: hover ?? this.hover,
+      selected: selected ?? this.selected,
+      selectedForeground: selectedForeground ?? this.selectedForeground,
       placeholder: placeholder ?? this.placeholder,
       marker: marker ?? this.marker,
       mention: mention ?? this.mention,
@@ -130,12 +165,19 @@ class ShellColors extends ThemeExtension<ShellColors> {
     if (other is! ShellColors) return this;
     return ShellColors(
       rail: Color.lerp(rail, other.rail, t)!,
+      railForeground: Color.lerp(railForeground, other.railForeground, t)!,
       sidebar: Color.lerp(sidebar, other.sidebar, t)!,
       content: Color.lerp(content, other.content, t)!,
       panel: Color.lerp(panel, other.panel, t)!,
       divider: Color.lerp(divider, other.divider, t)!,
       floating: Color.lerp(floating, other.floating, t)!,
       hover: Color.lerp(hover, other.hover, t)!,
+      selected: Color.lerp(selected, other.selected, t)!,
+      selectedForeground: Color.lerp(
+        selectedForeground,
+        other.selectedForeground,
+        t,
+      )!,
       placeholder: Color.lerp(placeholder, other.placeholder, t)!,
       marker: Color.lerp(marker, other.marker, t)!,
       mention: Color.lerp(mention, other.mention, t)!,
@@ -146,12 +188,15 @@ class ShellColors extends ThemeExtension<ShellColors> {
 /// Colors for the token kinds a syntax highlighter reports.
 ///
 /// Like [ShellColors] these sit outside [ColorScheme], which has no roles for
-/// "string" or "comment". The two sets are tuned per brightness rather than
-/// derived from the seed: syntax colors have to stay distinguishable from each
-/// other, which a generated scheme does not guarantee.
+/// "string" or "comment". The fallbacks are tuned per brightness rather than
+/// derived from the seed, and a resolved site palette supplies the exact
+/// syntax roles: generated Material colors do not guarantee that tokens stay
+/// distinguishable from each other.
 @immutable
 class CodeColors extends ThemeExtension<CodeColors> {
   const CodeColors({
+    required this.blockBackground,
+    required this.inlineBackground,
     required this.keyword,
     required this.string,
     required this.comment,
@@ -159,6 +204,10 @@ class CodeColors extends ThemeExtension<CodeColors> {
     required this.name,
     required this.meta,
   });
+
+  /// Backgrounds for fenced blocks and inline code respectively.
+  final Color blockBackground;
+  final Color inlineBackground;
 
   /// Keywords, literals and operators.
   final Color keyword;
@@ -179,6 +228,8 @@ class CodeColors extends ThemeExtension<CodeColors> {
   final Color meta;
 
   static const CodeColors dark = CodeColors(
+    blockBackground: Color(0xFF131417),
+    inlineBackground: Color(0xFF131417),
     keyword: Color(0xFFC792EA),
     string: Color(0xFF9CCC7C),
     comment: Color(0xFF7E8794),
@@ -188,6 +239,8 @@ class CodeColors extends ThemeExtension<CodeColors> {
   );
 
   static const CodeColors light = CodeColors(
+    blockBackground: Color(0xFFE3E6EA),
+    inlineBackground: Color(0xFFE3E6EA),
     keyword: Color(0xFF8B2FA0),
     string: Color(0xFF2E7D32),
     comment: Color(0xFF6B7280),
@@ -198,6 +251,8 @@ class CodeColors extends ThemeExtension<CodeColors> {
 
   @override
   CodeColors copyWith({
+    Color? blockBackground,
+    Color? inlineBackground,
     Color? keyword,
     Color? string,
     Color? comment,
@@ -206,6 +261,8 @@ class CodeColors extends ThemeExtension<CodeColors> {
     Color? meta,
   }) {
     return CodeColors(
+      blockBackground: blockBackground ?? this.blockBackground,
+      inlineBackground: inlineBackground ?? this.inlineBackground,
       keyword: keyword ?? this.keyword,
       string: string ?? this.string,
       comment: comment ?? this.comment,
@@ -219,6 +276,12 @@ class CodeColors extends ThemeExtension<CodeColors> {
   CodeColors lerp(ThemeExtension<CodeColors>? other, double t) {
     if (other is! CodeColors) return this;
     return CodeColors(
+      blockBackground: Color.lerp(blockBackground, other.blockBackground, t)!,
+      inlineBackground: Color.lerp(
+        inlineBackground,
+        other.inlineBackground,
+        t,
+      )!,
       keyword: Color.lerp(keyword, other.keyword, t)!,
       string: Color.lerp(string, other.string, t)!,
       comment: Color.lerp(comment, other.comment, t)!,
@@ -229,35 +292,213 @@ class CodeColors extends ThemeExtension<CodeColors> {
   }
 }
 
+/// Discourse semantic colours with no Material [ColorScheme] equivalent.
+@immutable
+class DiscourseColors extends ThemeExtension<DiscourseColors> {
+  const DiscourseColors({required this.success, required this.love});
+
+  final Color success;
+  final Color love;
+
+  static const DiscourseColors light = DiscourseColors(
+    success: discourseSuccess,
+    love: discourseLove,
+  );
+
+  static const DiscourseColors dark = DiscourseColors(
+    success: Color(0xFF1CA551),
+    love: discourseLove,
+  );
+
+  @override
+  DiscourseColors copyWith({Color? success, Color? love}) => DiscourseColors(
+    success: success ?? this.success,
+    love: love ?? this.love,
+  );
+
+  @override
+  DiscourseColors lerp(ThemeExtension<DiscourseColors>? other, double t) {
+    if (other is! DiscourseColors) return this;
+    return DiscourseColors(
+      success: Color.lerp(success, other.success, t)!,
+      love: Color.lerp(love, other.love, t)!,
+    );
+  }
+}
+
 extension ShellColorsAccess on ThemeData {
   /// Shorthand for `Theme.of(context).extension<ShellColors>()!`.
   ShellColors get shell => extension<ShellColors>()!;
 
   /// Shorthand for `Theme.of(context).extension<CodeColors>()!`.
   CodeColors get code => extension<CodeColors>()!;
+
+  /// Shorthand for `Theme.of(context).extension<DiscourseColors>()!`.
+  DiscourseColors get discourse => extension<DiscourseColors>()!;
 }
 
 abstract final class AppTheme {
-  static ThemeData get light =>
-      _build(Brightness.light, ShellColors.light, CodeColors.light);
-  static ThemeData get dark =>
-      _build(Brightness.dark, ShellColors.dark, CodeColors.dark);
+  static ThemeData get light => _build(
+    Brightness.light,
+    ShellColors.light,
+    CodeColors.light,
+    DiscourseColors.light,
+  );
+  static ThemeData get dark => _build(
+    Brightness.dark,
+    ShellColors.dark,
+    CodeColors.dark,
+    DiscourseColors.dark,
+  );
+
+  /// Builds the native shell from the colors resolved by Discourse itself.
+  ///
+  /// Discourse names colors for their CSS jobs rather than Material roles:
+  /// `primary` is text, `secondary` is the page, and `tertiary` is its main
+  /// interactive accent. This is the single translation boundary between the
+  /// two vocabularies.
+  static ThemeData fromPalette(ResolvedSitePalette palette) {
+    final fallback = palette.brightness == Brightness.dark
+        ? ShellColors.dark
+        : ShellColors.light;
+    final shell = ShellColors(
+      rail: palette.headerBackground,
+      railForeground: palette.headerPrimary,
+      sidebar: palette.primaryVeryLow,
+      content: palette.secondary,
+      panel: palette.primaryVeryLow,
+      divider: palette.contentBorderColor,
+      floating: palette.secondaryVeryHigh,
+      hover: palette.hover,
+      selected: palette.selected,
+      selectedForeground: palette.selectedForeground,
+      // This is an app development affordance, not a Discourse theme role.
+      placeholder: fallback.placeholder,
+      marker: palette.primaryHigh,
+      mention: palette.mentionBackground,
+    );
+    final code = CodeColors(
+      blockBackground: palette.codeBlockBackground,
+      inlineBackground: palette.inlineCodeBackground,
+      keyword: palette.codeKeyword,
+      string: palette.codeString,
+      comment: palette.codeComment,
+      number: palette.codeNumber,
+      name: palette.codeName,
+      meta: palette.codeMeta,
+    );
+    final discourse = DiscourseColors(
+      success: palette.success,
+      love: palette.love,
+    );
+    final materialBackdrop = opaqueColorOnCanvas(
+      palette.secondary,
+      palette.brightness,
+    );
+
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: palette.tertiary,
+          brightness: palette.brightness,
+        ).copyWith(
+          primary: palette.tertiary,
+          onPrimary: _readableOn(
+            palette.tertiary,
+            palette.secondary,
+            backdrop: materialBackdrop,
+            alternative: palette.primary,
+          ),
+          primaryContainer: palette.tertiaryLow,
+          onPrimaryContainer: _readableOn(
+            palette.tertiaryLow,
+            palette.primary,
+            backdrop: materialBackdrop,
+            alternative: palette.secondary,
+          ),
+          secondary: palette.quaternary,
+          onSecondary: _readableOn(
+            palette.quaternary,
+            palette.secondary,
+            backdrop: materialBackdrop,
+            alternative: palette.primary,
+          ),
+          secondaryContainer: palette.quaternaryLow,
+          onSecondaryContainer: _readableOn(
+            palette.quaternaryLow,
+            palette.primary,
+            backdrop: materialBackdrop,
+            alternative: palette.secondary,
+          ),
+          tertiary: palette.highlight,
+          onTertiary: _readableOn(
+            palette.highlight,
+            palette.primary,
+            backdrop: materialBackdrop,
+            alternative: palette.secondary,
+          ),
+          tertiaryContainer: palette.highlightLow,
+          onTertiaryContainer: _readableOn(
+            palette.highlightLow,
+            palette.primary,
+            backdrop: materialBackdrop,
+            alternative: palette.secondary,
+          ),
+          error: palette.danger,
+          onError: _readableOn(
+            palette.danger,
+            palette.secondary,
+            backdrop: materialBackdrop,
+            alternative: palette.primary,
+          ),
+          errorContainer: palette.dangerLow,
+          onErrorContainer: _readableOn(
+            palette.dangerLow,
+            palette.primary,
+            backdrop: materialBackdrop,
+            alternative: palette.secondary,
+          ),
+          surface: palette.secondary,
+          onSurface: palette.primary,
+          onSurfaceVariant: palette.metadataColor,
+          surfaceContainerLowest: palette.secondary,
+          surfaceContainerLow: palette.primaryVeryLow,
+          surfaceContainer: palette.primaryVeryLow,
+          surfaceContainerHigh: palette.primaryLow,
+          surfaceContainerHighest: palette.primaryLow,
+          outline: palette.contentBorderColor,
+          outlineVariant: palette.contentBorderColor,
+          surfaceTint: palette.tertiary,
+        );
+
+    return _build(
+      palette.brightness,
+      shell,
+      code,
+      discourse,
+      colorScheme: colorScheme,
+    );
+  }
+
+  /// Alias for callers that describe theme creation by its input.
+  static ThemeData forPalette(ResolvedSitePalette palette) =>
+      fromPalette(palette);
 
   static ThemeData _build(
     Brightness brightness,
     ShellColors shell,
     CodeColors code,
-  ) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: discourseBlue,
-      brightness: brightness,
-    );
+    DiscourseColors discourse, {
+    ColorScheme? colorScheme,
+  }) {
+    final resolvedColorScheme =
+        colorScheme ??
+        ColorScheme.fromSeed(seedColor: discourseBlue, brightness: brightness);
 
     return ThemeData(
-      colorScheme: colorScheme,
+      colorScheme: resolvedColorScheme,
       // The backdrop the panels sit on, visible above them and behind the rail.
       scaffoldBackgroundColor: shell.rail,
-      extensions: [shell, code],
+      extensions: [shell, code, discourse],
       dividerTheme: DividerThemeData(
         color: shell.divider,
         thickness: 1,

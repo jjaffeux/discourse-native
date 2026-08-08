@@ -22,6 +22,10 @@ dependencies:
   # Used directly to read onebox markup out of cooked posts; also the DOM
   # flutter_widget_from_html_core hands to its custom builders.
   html: ^0.15.6
+  # Parses the generated color-definition stylesheet as CSS rather than with
+  # regular expressions. `html` already uses it for selectors; it is direct
+  # here because site appearance reads its syntax tree itself.
+  csslib: ^1.0.2
   # Syntax highlighting for code blocks. The Dart port of highlight.js, so it
   # knows the same ~190 languages and the same names Discourse writes. Last
   # published in 2021, which is tolerable for a pure-Dart tokenizer with no

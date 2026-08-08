@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/d_icons.dart';
 import 'discourse_user.dart';
 import 'sidebar.dart';
+import 'site_appearance.dart';
 import 'site_config.dart';
 
 /// A Discourse site the user has connected to — one entry in the rail.
@@ -19,6 +20,7 @@ class DiscourseInstance {
     this.apiVersion = 0,
     this.loginRequired = false,
     this.user,
+    this.appearance,
     this.config = const SiteConfig.unknown(),
   });
 
@@ -33,6 +35,9 @@ class DiscourseInstance {
       user: json['user'] == null
           ? null
           : DiscourseUser.fromJson(json['user'] as Map<String, dynamic>),
+      // Appearance is optional presentation metadata. An old, partial, or
+      // malformed value must not make the whole site disappear from the rail.
+      appearance: _appearanceFromJson(json['appearance']),
       // Absent for every site stored before this existed, which is what the
       // unknown default is for. A malformed optional value makes only this
       // stored entry unreadable; `InstanceStore` preserves the other sites.
@@ -50,6 +55,8 @@ class DiscourseInstance {
     bool? loginRequired,
     DiscourseUser? user,
     bool clearUser = false,
+    SiteAppearance? appearance,
+    bool clearAppearance = false,
     SiteConfig? config,
     bool clearConfig = false,
   }) {
@@ -61,6 +68,7 @@ class DiscourseInstance {
       apiVersion: apiVersion ?? this.apiVersion,
       loginRequired: loginRequired ?? this.loginRequired,
       user: clearUser ? null : (user ?? this.user),
+      appearance: clearAppearance ? null : (appearance ?? this.appearance),
       config: clearConfig
           ? const SiteConfig.unknown()
           : (config ?? this.config),
@@ -79,6 +87,10 @@ class DiscourseInstance {
   /// Who we are on this site, or null if not connected. Safe to persist; the
   /// API key itself lives in the keychain, never here.
   final DiscourseUser? user;
+
+  /// The last resolved theme colors for this site. They are safe to persist:
+  /// unlike the API key, compiled color variables contain no credentials.
+  final SiteAppearance? appearance;
 
   /// What this site's client settings said, or [SiteConfig.unknown] before it
   /// has been asked.
@@ -99,8 +111,21 @@ class DiscourseInstance {
     'apiVersion': apiVersion,
     'loginRequired': loginRequired,
     'user': user?.toJson(),
+    'appearance': appearance?.toJson(),
     'config': config.toJson(),
   };
+
+  static SiteAppearance? _appearanceFromJson(Object? value) {
+    if (value is! Map) return null;
+    try {
+      final appearance = SiteAppearance.fromJson(
+        Map<String, dynamic>.from(value),
+      );
+      return appearance.isKnown ? appearance : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Host and port, which is what identifies a site to a human.
   String get host => _authority(Uri.parse(url));
@@ -115,8 +140,8 @@ class DiscourseInstance {
   static String _authority(Uri uri) =>
       uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
 
-  /// Stand-in for the site's own color scheme, which needs an authenticated
-  /// request to read. Derived from [url] so a given site keeps its color.
+  /// Stable fallback used until the site's resolved appearance is available.
+  /// Derived from [url] so a given site keeps its color.
   Color get accentColor {
     final hash = url.codeUnits.fold<int>(
       0,

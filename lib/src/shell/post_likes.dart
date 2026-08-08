@@ -165,7 +165,7 @@ class _LikeCount extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const DIcon(DIcons.heart, size: 15, color: discourseLove),
+                DIcon(DIcons.heart, size: 15, color: theme.discourse.love),
                 const SizedBox(width: 5),
                 Text(
                   '${post.likeCount}',
