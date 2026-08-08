@@ -12,7 +12,11 @@ import 'post.dart' show resolveAvatarUrl;
 /// let its absent fields overwrite richer list state.
 @immutable
 class SearchResults {
-  const SearchResults({this.hits = const [], this.error});
+  const SearchResults({
+    this.hits = const [],
+    this.sections = const [],
+    this.error,
+  });
 
   factory SearchResults.fromJson(Map<String, dynamic> json, String siteUrl) {
     final topics = <int, _SearchTopic>{};
@@ -59,21 +63,118 @@ class SearchResults {
       );
     }
 
+    final grouped = jsonObject(json['grouped_search_result']);
+    final sections = <SearchResultSection>[
+      if (hits.isNotEmpty)
+        SearchResultSection(
+          kind: SearchResultKind.topic,
+          results: List.unmodifiable(hits),
+          hasMore: grouped['more_posts'] == true,
+        ),
+    ];
+
+    void addSection(
+      SearchResultKind kind,
+      String key,
+      SearchResult? Function(Map<String, dynamic>) parse, {
+      String? moreKey,
+    }) {
+      final results = <SearchResult>[
+        for (final value in jsonObjects(json[key])) ?parse(value),
+      ];
+      if (results.isEmpty) return;
+      sections.add(
+        SearchResultSection(
+          kind: kind,
+          results: List.unmodifiable(results),
+          hasMore: moreKey != null && grouped[moreKey] == true,
+        ),
+      );
+    }
+
+    // This is the same facet ordering as core's translateGroupedSearchResults:
+    // topics, categories, tags, users, then groups.
+    addSection(
+      SearchResultKind.category,
+      'categories',
+      SearchCategoryHit.fromJson,
+      moreKey: 'more_categories',
+    );
+    addSection(SearchResultKind.tag, 'tags', SearchTagHit.fromJson);
+    addSection(
+      SearchResultKind.user,
+      'users',
+      (value) => SearchUserHit.fromJson(value, siteUrl),
+      moreKey: 'more_users',
+    );
+    addSection(SearchResultKind.group, 'groups', SearchGroupHit.fromJson);
+
     return SearchResults(
       hits: List.unmodifiable(hits),
-      error: jsonText(jsonObject(json['grouped_search_result'])['error']),
+      sections: List.unmodifiable(sections),
+      error: jsonText(grouped['error']),
     );
   }
 
   final List<SearchPostHit> hits;
+
+  /// Ranked facets in the same order as the web header search.
+  ///
+  /// [hits] remains available as the topic/post facet because callers that
+  /// only care about opening posts should not have to downcast every result.
+  final List<SearchResultSection> sections;
+
+  /// A compatibility-aware view for manually constructed test answers.
+  List<SearchResultSection> get effectiveSections => sections.isNotEmpty
+      ? sections
+      : hits.isEmpty
+      ? const []
+      : [SearchResultSection(kind: SearchResultKind.topic, results: hits)];
+
+  List<SearchResult> get results => List.unmodifiable([
+    for (final section in effectiveSections) ...section.results,
+  ]);
 
   /// A successful response can still carry a refusal, such as overloaded
   /// search. This is the site's reader-facing explanation.
   final String? error;
 }
 
+enum SearchResultKind {
+  topic('Topics'),
+  category('Categories'),
+  tag('Tags'),
+  user('Users'),
+  group('Groups');
+
+  const SearchResultKind(this.label);
+
+  final String label;
+}
+
 @immutable
-class SearchPostHit {
+class SearchResultSection {
+  const SearchResultSection({
+    required this.kind,
+    required this.results,
+    this.hasMore = false,
+  });
+
+  final SearchResultKind kind;
+  final List<SearchResult> results;
+  final bool hasMore;
+}
+
+sealed class SearchResult {
+  const SearchResult();
+
+  SearchResultKind get kind;
+  Object get id;
+  String get path;
+}
+
+@immutable
+class SearchPostHit extends SearchResult {
   const SearchPostHit({
     required this.postId,
     required this.topicId,
@@ -99,6 +200,157 @@ class SearchPostHit {
   final SearchExcerpt excerpt;
 
   String get displayName => name ?? username;
+
+  @override
+  SearchResultKind get kind => SearchResultKind.topic;
+
+  @override
+  Object get id => postId;
+
+  @override
+  String get path =>
+      ['/t', Uri.encodeComponent(topicSlug), topicId, postNumber].join('/');
+}
+
+@immutable
+class SearchCategoryHit extends SearchResult {
+  const SearchCategoryHit({
+    required this.categoryId,
+    required this.name,
+    required this.slug,
+    this.color = '888888',
+  });
+
+  static SearchCategoryHit? fromJson(Map<String, dynamic> json) {
+    final id = jsonIntOrNull(json['id']);
+    final name = jsonText(json['name']);
+    if (id == null || id <= 0 || name == null) return null;
+    return SearchCategoryHit(
+      categoryId: id,
+      name: name,
+      slug: jsonText(json['slug']) ?? '',
+      color: jsonText(json['color']) ?? '888888',
+    );
+  }
+
+  final int categoryId;
+  final String name;
+  final String slug;
+  final String color;
+
+  int get colorValue => int.tryParse('FF$color', radix: 16) ?? 0xFF888888;
+
+  @override
+  SearchResultKind get kind => SearchResultKind.category;
+
+  @override
+  Object get id => categoryId;
+
+  @override
+  String get path => slug.isEmpty
+      ? '/c/$categoryId'
+      : '/c/${Uri.encodeComponent(slug)}/$categoryId';
+}
+
+@immutable
+class SearchTagHit extends SearchResult {
+  const SearchTagHit({required this.tagId, required this.name, this.slug});
+
+  static SearchTagHit? fromJson(Map<String, dynamic> json) {
+    final name = jsonText(json['name']);
+    if (name == null) return null;
+    return SearchTagHit(
+      tagId: jsonIntOrNull(json['id']),
+      name: name,
+      slug: jsonText(json['slug']),
+    );
+  }
+
+  final int? tagId;
+  final String name;
+  final String? slug;
+
+  @override
+  SearchResultKind get kind => SearchResultKind.tag;
+
+  @override
+  Object get id => tagId ?? name;
+
+  @override
+  String get path {
+    final encoded = Uri.encodeComponent(slug ?? name);
+    return tagId == null || tagId! <= 0
+        ? '/tag/$encoded'
+        : '/tag/$encoded/$tagId';
+  }
+}
+
+@immutable
+class SearchUserHit extends SearchResult {
+  const SearchUserHit({
+    required this.userId,
+    required this.username,
+    this.name,
+    this.avatarUrl,
+  });
+
+  static SearchUserHit? fromJson(Map<String, dynamic> json, String siteUrl) {
+    final username = jsonText(json['username']);
+    if (username == null) return null;
+    return SearchUserHit(
+      userId: jsonIntOrNull(json['id']),
+      username: username,
+      name: jsonText(json['name']),
+      avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
+    );
+  }
+
+  final int? userId;
+  final String username;
+  final String? name;
+  final String? avatarUrl;
+
+  @override
+  SearchResultKind get kind => SearchResultKind.user;
+
+  @override
+  Object get id => userId ?? username;
+
+  @override
+  String get path => '/u/${Uri.encodeComponent(username)}';
+}
+
+@immutable
+class SearchGroupHit extends SearchResult {
+  const SearchGroupHit({
+    required this.groupId,
+    required this.name,
+    this.fullName,
+  });
+
+  static SearchGroupHit? fromJson(Map<String, dynamic> json) {
+    final id = jsonIntOrNull(json['id']);
+    final name = jsonText(json['name']);
+    if (id == null || id <= 0 || name == null) return null;
+    return SearchGroupHit(
+      groupId: id,
+      name: name,
+      fullName: jsonText(json['full_name']) ?? jsonText(json['display_name']),
+    );
+  }
+
+  final int groupId;
+  final String name;
+  final String? fullName;
+
+  @override
+  SearchResultKind get kind => SearchResultKind.group;
+
+  @override
+  Object get id => groupId;
+
+  @override
+  String get path => '/g/${Uri.encodeComponent(name)}';
 }
 
 /// Plain, safe text plus the ranges the server marked as search matches.

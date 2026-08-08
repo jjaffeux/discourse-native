@@ -28,6 +28,38 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump();
     expect(api.terms, ['  in:title  ']);
+    expect(api.typeFilters, ['exclude_topics']);
+  });
+
+  testWidgets('mirrors core facet suggestions before the Enter topic search', (
+    tester,
+  ) async {
+    final api = _SearchApi();
+    final search = _controller(api)..selectSite(site);
+    addTearDown(search.dispose);
+
+    search.setQuery('@sam test');
+    await tester.pump(const Duration(milliseconds: 400));
+    api.complete('@sam test', _facetedResults);
+    await tester.pump();
+
+    expect(search.mode, SearchMode.facets);
+    expect(api.typeFilters, ['exclude_topics']);
+    expect(search.sections.map((section) => section.kind), [
+      SearchResultKind.tag,
+      SearchResultKind.group,
+    ]);
+
+    search.showTopics();
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+
+    expect(search.mode, SearchMode.topics);
+    expect(api.terms, ['@sam test', '@sam test']);
+    expect(api.typeFilters, ['exclude_topics', null]);
+    expect(search.sections.map((section) => section.kind), [
+      SearchResultKind.topic,
+    ]);
   });
 
   testWidgets('publishes only the newest result when responses cross', (
@@ -112,18 +144,46 @@ SearchResults _results(int id, String title) => SearchResults(
   ],
 );
 
+const _facetTopic = SearchPostHit(
+  postId: 1,
+  topicId: 10,
+  postNumber: 2,
+  topicTitle: 'Topic result',
+  topicSlug: 'topic-result',
+  username: 'sam',
+  excerpt: SearchExcerpt([SearchExcerptSegment('test')]),
+);
+
+const _facetedResults = SearchResults(
+  hits: [_facetTopic],
+  sections: [
+    SearchResultSection(kind: SearchResultKind.topic, results: [_facetTopic]),
+    SearchResultSection(
+      kind: SearchResultKind.tag,
+      results: [SearchTagHit(tagId: 2, name: 'flaky-test')],
+    ),
+    SearchResultSection(
+      kind: SearchResultKind.group,
+      results: [SearchGroupHit(groupId: 3, name: 'automation-test')],
+    ),
+  ],
+);
+
 class _SearchApi extends FakeDiscourseApi {
   final List<String> terms = [];
+  final List<String?> typeFilters = [];
   final Map<String, Completer<SearchResults>> _answers = {};
 
   @override
   Future<SearchResults> searchPosts({
     required String siteUrl,
     required String term,
+    String? typeFilter,
     String? apiKey,
     String? clientId,
   }) {
     terms.add(term);
+    typeFilters.add(typeFilter);
     return (_answers[term] ??= Completer<SearchResults>()).future;
   }
 

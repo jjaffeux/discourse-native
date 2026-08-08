@@ -850,52 +850,69 @@ void _authGroups() {
 
 void _feedGroups() {
   group('searchPosts', () {
-    test(
-      'asks header search for topic hits and parses the ranked posts',
-      () async {
-        late http.Request sent;
-        final api = DiscourseApi(
-          client: MockClient((request) async {
-            sent = request;
-            return http.Response(
-              jsonEncode({
-                'topics': [
-                  {'id': 7, 'title': 'Search topic', 'slug': 'search-topic'},
-                ],
-                'posts': [
-                  {
-                    'id': 70,
-                    'topic_id': 7,
-                    'post_number': 3,
-                    'username': 'sam',
-                    'blurb': 'A result',
-                  },
-                ],
-                'grouped_search_result': {'error': null},
-              }),
-              200,
-            );
-          }),
-        );
+    test("asks for facet suggestions with core's topic exclusion", () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'topics': [
+                {'id': 7, 'title': 'Search topic', 'slug': 'search-topic'},
+              ],
+              'posts': [
+                {
+                  'id': 70,
+                  'topic_id': 7,
+                  'post_number': 3,
+                  'username': 'sam',
+                  'blurb': 'A result',
+                },
+              ],
+              'grouped_search_result': {'error': null},
+            }),
+            200,
+          );
+        }),
+      );
 
-        final result = await api.searchPosts(
-          siteUrl: 'https://example.com',
-          term: 'user:sam title words',
-          apiKey: 'secret',
-          clientId: 'client',
-        );
+      final result = await api.searchPosts(
+        siteUrl: 'https://example.com',
+        term: 'user:sam title words',
+        typeFilter: 'exclude_topics',
+        apiKey: 'secret',
+        clientId: 'client',
+      );
 
-        expect(sent.url.path, '/search/query.json');
-        expect(sent.url.queryParameters, {
-          'term': 'user:sam title words',
-          'type_filter': 'topic',
-        });
-        expect(sent.headers['User-Api-Key'], 'secret');
-        expect(sent.headers['User-Api-Client-Id'], 'client');
-        expect(result, isA<SearchResults>());
-        expect(result.hits.single.postNumber, 3);
-      },
-    );
+      expect(sent.url.path, '/search/query.json');
+      expect(sent.url.queryParameters, {
+        'term': 'user:sam title words',
+        'type_filter': 'exclude_topics',
+      });
+      expect(sent.headers['User-Api-Key'], 'secret');
+      expect(sent.headers['User-Api-Client-Id'], 'client');
+      expect(result, isA<SearchResults>());
+      expect(result.hits.single.postNumber, 3);
+    });
+
+    test('omits the type filter for the Enter topic search', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'grouped_search_result': {'error': null},
+            }),
+            200,
+          );
+        }),
+      );
+
+      await api.searchPosts(siteUrl: 'https://example.com', term: '@sam test');
+
+      expect(sent.url.queryParameters, {'term': '@sam test'});
+    });
   });
 
   group('topicList', () {

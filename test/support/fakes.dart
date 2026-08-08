@@ -601,7 +601,8 @@ class FakeDiscourseApi implements DiscourseApi {
   final Map<String, SearchResults> searchResults;
   final Completer<void>? searchGate;
   final SiteLookupFailure? searchFailure;
-  final List<({String siteUrl, String term})> searchesRequested = [];
+  final List<({String siteUrl, String term, String? typeFilter})>
+  searchesRequested = [];
 
   /// Site urls passed to [siteConfig], in order.
   final List<String> siteConfigsRequested = [];
@@ -991,10 +992,15 @@ class FakeDiscourseApi implements DiscourseApi {
   Future<SearchResults> searchPosts({
     required String siteUrl,
     required String term,
+    String? typeFilter,
     String? apiKey,
     String? clientId,
   }) async {
-    searchesRequested.add((siteUrl: siteUrl, term: term));
+    searchesRequested.add((
+      siteUrl: siteUrl,
+      term: term,
+      typeFilter: typeFilter,
+    ));
     await searchGate?.future;
     if (searchFailure case final failure?) {
       throw SiteLookupException(failure, siteUrl);

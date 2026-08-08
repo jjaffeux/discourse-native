@@ -540,17 +540,18 @@ class DiscourseApi
     );
   }
 
-  /// The small, ranked result set Discourse serves under its header search.
+  /// The small, faceted result set Discourse serves under its header search.
   Future<SearchResults> searchPosts({
     required String siteUrl,
     required String term,
+    String? typeFilter,
     String? apiKey,
     String? clientId,
   }) async {
     final response = await _get(
       Uri.parse(
         '$siteUrl/search/query.json',
-      ).replace(queryParameters: {'term': term, 'type_filter': 'topic'}),
+      ).replace(queryParameters: {'term': term, 'type_filter': ?typeFilter}),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
