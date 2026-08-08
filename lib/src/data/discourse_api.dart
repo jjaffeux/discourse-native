@@ -18,6 +18,7 @@ import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/post_likers.dart';
 import '../models/search_results.dart';
+import '../models/sidebar.dart';
 import '../models/site_appearance.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
@@ -337,6 +338,44 @@ class DiscourseApi
           ?jsonText(group['name']),
       ]),
     );
+  }
+
+  /// Custom sidebar sections visible to the connected account.
+  ///
+  /// Discourse returns private sections owned by the user and public sections
+  /// together, plus its built-in Community section. The model parser excludes
+  /// that built-in so callers can append this result without duplicating the
+  /// app's native Community routes.
+  Future<List<SidebarSection>> customSidebarSections({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse('$siteUrl/sidebar_sections.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    try {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final sections = <SidebarSection>[];
+      var index = 0;
+      for (final json in jsonObjects(body['sidebar_sections'])) {
+        final section = SidebarSection.customFromJson(json, index: index);
+        if (section != null) sections.add(section);
+        index++;
+      }
+      return List.unmodifiable(sections);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
   }
 
   /// The colors Discourse resolved for this site and, when connected, the

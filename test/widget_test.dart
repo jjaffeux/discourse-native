@@ -19,6 +19,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/search_results.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -493,6 +494,52 @@ void main() {
 
     expect(find.text('Discourse Team'), findsOneWidget);
     expect(find.text('Discourse Meta'), findsNothing);
+  });
+
+  testWidgets('shows custom sidebar sections and opens their links', (
+    tester,
+  ) async {
+    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Discourse Meta',
+    ).copyWith(user: me);
+    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
+    final api = FakeDiscourseApi(
+      feeds: const {'/c/roadmap/4.json': []},
+      customSidebarSectionsBySite: {
+        site.url: const [
+          SidebarSection(
+            id: 'custom-2',
+            title: 'Projects',
+            destinations: [
+              SidebarDestination(
+                id: 'custom-2-20',
+                label: 'Roadmap',
+                icon: DIcons.fire,
+                url: '/c/roadmap/4',
+              ),
+            ],
+          ),
+        ],
+      },
+    );
+
+    await pumpShell(
+      tester,
+      laptop,
+      instances: [site],
+      api: api,
+      authenticator: auth,
+    );
+
+    expect(find.text('PROJECTS'), findsOneWidget);
+    expect(sidebarDestination('Roadmap'), findsOneWidget);
+
+    await tester.tap(sidebarDestination('Roadmap'));
+    await tester.pumpAndSettle();
+
+    expect(api.feedPaths, contains('/c/roadmap/4.json'));
   });
 
   testWidgets('the sidebar header shows only the forum title', (tester) async {

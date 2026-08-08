@@ -24,6 +24,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/search_results.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
@@ -453,11 +454,13 @@ class FakeDiscourseApi implements DiscourseApi {
     this.chatMessagesByKey = const {},
     this.chatMessageGate,
     this.chatReadFailure,
+    this.customSidebarSectionsBySite = const {},
     this.pluginResponses = const {},
     Map<String, WriteException>? pluginWriteFailures,
   }) : pluginWriteFailures = pluginWriteFailures ?? {};
 
   final Map<String, DiscourseInstance> results;
+  final Map<String, List<SidebarSection>> customSidebarSectionsBySite;
   final Map<String, Map<String, dynamic>> pluginResponses;
   final Map<String, WriteException> pluginWriteFailures;
   final List<
@@ -792,6 +795,13 @@ class FakeDiscourseApi implements DiscourseApi {
       // With an id, because that is what names the account's message_bus
       // channels — a user without one gets no live counters.
       const DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+
+  @override
+  Future<List<SidebarSection>> customSidebarSections({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async => customSidebarSectionsBySite[siteUrl] ?? const [];
 
   @override
   Future<NotificationTotals> notificationTotals({

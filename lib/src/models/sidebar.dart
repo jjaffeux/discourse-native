@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
+import 'json.dart';
 
 /// What a sidebar row says about what has not been read.
 ///
@@ -70,6 +72,7 @@ class SidebarDestination {
     this.enabled = true,
     this.trailingIcon,
     this.onSecondaryTap,
+    this.url,
   });
 
   final String id;
@@ -117,6 +120,10 @@ class SidebarDestination {
   final bool enabled;
   final DIconData? trailingIcon;
   final VoidCallback? onSecondaryTap;
+
+  /// A site or external link this row opens, for destinations supplied by a
+  /// custom Discourse sidebar section rather than a native app route.
+  final String? url;
 }
 
 /// A titled group of destinations, e.g. "Categories" or "Chat".
@@ -133,6 +140,50 @@ class SidebarSection {
 
   /// Stable identity used for presentation preferences such as collapsing.
   final String id;
+
+  /// Reads one user-created section from `/sidebar_sections.json`.
+  ///
+  /// That route also returns Discourse's built-in Community section. A
+  /// non-null `section_type` identifies those built-ins, which this app
+  /// already supplies itself, so they are deliberately left out here.
+  static SidebarSection? customFromJson(
+    Map<String, dynamic> json, {
+    required int index,
+  }) {
+    if (json['section_type'] != null) return null;
+    final title = jsonText(json['title']);
+    if (title == null) return null;
+
+    final sectionId = jsonIntOrNull(json['id']) ?? index;
+    final destinations = <SidebarDestination>[];
+    var linkIndex = 0;
+    for (final link in jsonObjects(json['links'])) {
+      final name = jsonText(link['name']);
+      final value = jsonText(link['value']);
+      if (name == null || value == null) {
+        linkIndex++;
+        continue;
+      }
+      final linkId = jsonIntOrNull(link['id']) ?? linkIndex;
+      final iconName = jsonText(link['icon']);
+      destinations.add(
+        SidebarDestination(
+          id: 'custom-$sectionId-$linkId',
+          label: name,
+          icon: DIcons.byName[iconName] ?? DIcons.link,
+          url: value,
+        ),
+      );
+      linkIndex++;
+    }
+
+    return SidebarSection(
+      id: 'custom-$sectionId',
+      title: title,
+      destinations: List.unmodifiable(destinations),
+    );
+  }
+
   final String title;
   final List<SidebarDestination> destinations;
   final DIconData? actionIcon;

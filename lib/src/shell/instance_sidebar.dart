@@ -12,6 +12,7 @@ import 'avatar_image.dart';
 import 'emoji.dart';
 import 'forum_search.dart';
 import 'instance_actions.dart';
+import 'open_link.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
@@ -50,7 +51,12 @@ class InstanceSidebar extends StatelessWidget {
         name: instance?.title,
         destinationId: controller.destinationId,
         draftCount: instance?.user?.draftCount ?? 0,
-        sections: instance?.sections ?? const <SidebarSection>[],
+        sections: instance == null
+            ? const <SidebarSection>[]
+            : [
+                ...instance.sections,
+                ...controller.customSidebarSectionsFor(instance.url),
+              ],
       );
     },
     builder: (context, sidebar, _) {
@@ -89,7 +95,21 @@ class InstanceSidebar extends StatelessWidget {
                               store: sectionStore,
                               selectedId: sidebar.destinationId,
                               badgeFor: controller.sidebarBadgeFor,
-                              onSelect: controller.selectDestination,
+                              onSelect: (destination) {
+                                final url = destination.url;
+                                if (url == null) {
+                                  controller.selectDestination(destination);
+                                } else {
+                                  unawaited(
+                                    openLink(
+                                      context,
+                                      url,
+                                      title: destination.label,
+                                      siteUrl: sidebar.siteUrl,
+                                    ),
+                                  );
+                                }
+                              },
                             ),
                         ],
                       ),
