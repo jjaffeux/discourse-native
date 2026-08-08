@@ -105,11 +105,13 @@ class ChatPlugin implements SitePlugin<ChatChannel> {
     return [
       if (public.isNotEmpty)
         SidebarSection(
+          id: 'chat',
           title: 'Chat',
           destinations: [for (final channel in public) _destination(channel)],
         ),
       if (direct.isNotEmpty)
         SidebarSection(
+          id: 'direct-messages',
           title: 'Direct messages',
           destinations: [for (final channel in direct) _destination(channel)],
         ),
