@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
+import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';
 import 'shell_search_controller.dart';
@@ -124,15 +126,47 @@ class _ForumSearchState extends State<ForumSearch> {
     }
     if (event.logicalKey == LogicalKeyboardKey.enter ||
         event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-      _openSelected();
+      if (_focus.hasFocus) {
+        _submitFromField();
+      } else {
+        _openSelected();
+      }
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }
 
   void _openSelected() {
-    final hit = _search?.selectedHit;
-    if (hit != null) ShellScope.read(context).openSearchResult(hit);
+    final result = _search?.selectedResult;
+    if (result != null) _openResult(result);
+  }
+
+  void _submitFromField() {
+    final search = _search;
+    if (search == null) return;
+    if (search.mode == SearchMode.facets) {
+      search.showTopics();
+    } else {
+      _openSelected();
+    }
+  }
+
+  void _openResult(SearchResult result) {
+    if (result case final SearchPostHit hit) {
+      ShellScope.read(context).openSearchResult(hit);
+      return;
+    }
+
+    final siteUrl = _search?.siteUrl;
+    _search?.clear();
+    unawaited(
+      openLink(
+        context,
+        result.path,
+        title: _resultTitle(result),
+        siteUrl: siteUrl,
+      ),
+    );
   }
 
   @override
@@ -168,7 +202,7 @@ class _ForumSearchState extends State<ForumSearch> {
           menuChildren: [
             SizedBox(
               width: panelWidth,
-              child: _SearchPanel(search: search),
+              child: _SearchPanel(search: search, onOpen: _openResult),
             ),
           ],
           builder: (context, menu, child) => Focus(
@@ -233,7 +267,7 @@ class _ForumSearchState extends State<ForumSearch> {
                               maxLines: 1,
                               textInputAction: TextInputAction.search,
                               onChanged: search.setQuery,
-                              onSubmitted: (_) => _openSelected(),
+                              onSubmitted: (_) => _submitFromField(),
                             ),
                           ],
                         ),
@@ -277,9 +311,10 @@ class _ForumSearchState extends State<ForumSearch> {
 }
 
 class _SearchPanel extends StatelessWidget {
-  const _SearchPanel({required this.search});
+  const _SearchPanel({required this.search, required this.onOpen});
 
   final ShellSearchController search;
+  final ValueChanged<SearchResult> onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -291,28 +326,15 @@ class _SearchPanel extends StatelessWidget {
       SearchSessionPhase.waiting || SearchSessionPhase.loading =>
         const _PanelMessage(text: 'Searching…', loading: true),
       SearchSessionPhase.empty => const _PanelMessage(
-        text: 'No matching posts.',
+        text: 'No results found.',
       ),
       SearchSessionPhase.refused || SearchSessionPhase.failed => _PanelMessage(
         text: search.message ?? "Couldn't search this forum.",
         error: true,
       ),
-      SearchSessionPhase.results => SizedBox(
-        height: math.min(search.hits.length * 94.0 + 8, 420),
-        child: ListView.separated(
-          primary: false,
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          itemCount: search.hits.length,
-          separatorBuilder: (context, _) =>
-              Divider(height: 1, color: theme.shell.divider),
-          itemBuilder: (context, index) => _SearchHitRow(
-            hit: search.hits[index],
-            selected: search.selectedIndex == index,
-            onFocus: () => search.select(index),
-            onTap: () =>
-                ShellScope.read(context).openSearchResult(search.hits[index]),
-          ),
-        ),
+      SearchSessionPhase.results => _SearchResultSections(
+        search: search,
+        onOpen: onOpen,
       ),
       SearchSessionPhase.idle => const SizedBox.shrink(),
     };
@@ -336,6 +358,294 @@ class _SearchPanel extends StatelessWidget {
     );
   }
 }
+
+class _SearchResultSections extends StatelessWidget {
+  const _SearchResultSections({required this.search, required this.onOpen});
+
+  final ShellSearchController search;
+  final ValueChanged<SearchResult> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final estimatedHeight = search.sections.fold<double>(8, (height, section) {
+      final rowHeight = section.kind == SearchResultKind.topic ? 94.0 : 54.0;
+      return height + section.results.length * rowHeight + 1;
+    });
+    final actionHeight = search.mode == SearchMode.facets ? 56.0 : 0.0;
+    var resultIndex = 0;
+
+    return SizedBox(
+      height: math.min(estimatedHeight + actionHeight, 420),
+      child: ListView(
+        primary: false,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        children: [
+          if (search.mode == SearchMode.facets) ...[
+            _SearchTopicsAction(
+              query: search.query.trim(),
+              onTap: search.showTopics,
+            ),
+            const Divider(height: 1),
+          ],
+          for (
+            var sectionIndex = 0;
+            sectionIndex < search.sections.length;
+            sectionIndex++
+          ) ...[
+            if (sectionIndex > 0) const Divider(height: 1),
+            for (final result in search.sections[sectionIndex].results)
+              Builder(
+                builder: (context) {
+                  final index = resultIndex++;
+                  return _SearchResultRow(
+                    result: result,
+                    selected: search.selectedIndex == index,
+                    onFocus: () => search.select(index),
+                    onTap: () => onOpen(result),
+                  );
+                },
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchTopicsAction extends StatelessWidget {
+  const _SearchTopicsAction({required this.query, required this.onTap});
+
+  final String query;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      label: 'Search $query in topics and posts',
+      child: InkWell(
+        key: const ValueKey('forum-search-topics-action'),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              const SizedBox.square(
+                dimension: 30,
+                child: Center(child: DIcon(DIcons.magnifyingGlass, size: 17)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: query,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const TextSpan(text: ' in topics and posts'),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Press Enter',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchResultRow extends StatelessWidget {
+  const _SearchResultRow({
+    required this.result,
+    required this.selected,
+    required this.onFocus,
+    required this.onTap,
+  });
+
+  final SearchResult result;
+  final bool selected;
+  final VoidCallback onFocus;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => switch (result) {
+    final SearchPostHit hit => _SearchHitRow(
+      hit: hit,
+      selected: selected,
+      onFocus: onFocus,
+      onTap: onTap,
+    ),
+    final SearchUserHit user => _CompactSearchResultRow(
+      result: result,
+      title: user.name ?? user.username,
+      subtitle: user.name == null ? null : '@${user.username}',
+      selected: selected,
+      onFocus: onFocus,
+      onTap: onTap,
+      leading: _SearchAvatar(user: user),
+    ),
+    final SearchCategoryHit category => _CompactSearchResultRow(
+      result: result,
+      title: category.name,
+      selected: selected,
+      onFocus: onFocus,
+      onTap: onTap,
+      leading: _CategorySwatch(color: Color(category.colorValue)),
+    ),
+    final SearchTagHit tag => _CompactSearchResultRow(
+      result: result,
+      title: tag.name,
+      selected: selected,
+      onFocus: onFocus,
+      onTap: onTap,
+      leading: const DIcon(DIcons.tag, size: 17),
+    ),
+    final SearchGroupHit group => _CompactSearchResultRow(
+      result: result,
+      title: group.fullName ?? group.name,
+      subtitle: group.fullName == null ? null : group.name,
+      selected: selected,
+      onFocus: onFocus,
+      onTap: onTap,
+      leading: const DIcon(DIcons.users, size: 17),
+    ),
+  };
+}
+
+class _CompactSearchResultRow extends StatelessWidget {
+  const _CompactSearchResultRow({
+    required this.result,
+    required this.title,
+    required this.selected,
+    required this.onFocus,
+    required this.onTap,
+    required this.leading,
+    this.subtitle,
+  });
+
+  final SearchResult result;
+  final String title;
+  final String? subtitle;
+  final bool selected;
+  final VoidCallback onFocus;
+  final VoidCallback onTap;
+  final Widget leading;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      label: [title, ?subtitle].join(', '),
+      child: InkWell(
+        key: ValueKey('search-${result.kind.name}-${result.id}'),
+        autofocus: selected,
+        onFocusChange: (focused) {
+          if (focused) onFocus();
+        },
+        onTap: onTap,
+        child: ColoredBox(
+          color: selected ? theme.shell.hover : Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                SizedBox.square(dimension: 30, child: Center(child: leading)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (subtitle case final value?)
+                        Text(
+                          value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchAvatar extends StatelessWidget {
+  const _SearchAvatar({required this.user});
+
+  final SearchUserHit user;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ClipOval(
+      child: AvatarImage(
+        url: user.avatarUrl,
+        size: 30,
+        fallback: CircleAvatar(
+          radius: 15,
+          backgroundColor: theme.colorScheme.surfaceContainerHigh,
+          child: Text(user.username.characters.first.toUpperCase()),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategorySwatch extends StatelessWidget {
+  const _CategorySwatch({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Container(
+      width: 14,
+      height: 14,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    ),
+  );
+}
+
+String _resultTitle(SearchResult result) => switch (result) {
+  final SearchPostHit hit => hit.topicTitle,
+  final SearchCategoryHit category => category.name,
+  final SearchTagHit tag => tag.name,
+  final SearchUserHit user => user.name ?? user.username,
+  final SearchGroupHit group => group.fullName ?? group.name,
+};
 
 class _PanelMessage extends StatelessWidget {
   const _PanelMessage({

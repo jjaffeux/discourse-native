@@ -299,8 +299,21 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(api.searchesRequested.single.term, 'matching');
+      expect(api.searchesRequested.single.typeFilter, 'exclude_topics');
       expect(controller.currentContent, routeBefore);
       expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(find.text('Search topic'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('forum-search-topics-action')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('forum-search-topics-action')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.searchesRequested.last.typeFilter, isNull);
       expect(find.text('Search topic'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('search-hit-70')));
@@ -310,6 +323,95 @@ void main() {
       expect(api.topicPostNumbersOpened, [3]);
       expect(controller.currentContent?.topicId, 7);
       expect(controller.search.query, isEmpty);
+    });
+
+    testWidgets('shows core facets first and topics after Enter', (
+      tester,
+    ) async {
+      const topic = SearchPostHit(
+        postId: 70,
+        topicId: 7,
+        postNumber: 3,
+        topicTitle: 'Search topic',
+        topicSlug: 'search-topic',
+        username: 'sam',
+        excerpt: SearchExcerpt([SearchExcerptSegment('A result')]),
+      );
+      final api = FakeDiscourseApi(
+        searchResults: const {
+          '@sam test': SearchResults(
+            hits: [topic],
+            sections: [
+              SearchResultSection(
+                kind: SearchResultKind.topic,
+                results: [topic],
+              ),
+              SearchResultSection(
+                kind: SearchResultKind.category,
+                results: [
+                  SearchCategoryHit(
+                    categoryId: 3,
+                    name: 'Development',
+                    slug: 'dev',
+                  ),
+                ],
+              ),
+              SearchResultSection(
+                kind: SearchResultKind.tag,
+                results: [SearchTagHit(tagId: 4, name: 'flaky-test')],
+              ),
+              SearchResultSection(
+                kind: SearchResultKind.user,
+                results: [
+                  SearchUserHit(
+                    userId: 5,
+                    username: 'sam',
+                    name: 'Sam Example',
+                  ),
+                ],
+              ),
+              SearchResultSection(
+                kind: SearchResultKind.group,
+                results: [
+                  SearchGroupHit(
+                    groupId: 6,
+                    name: 'automation-test',
+                    fullName: 'Automation Test',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        },
+      );
+      await pumpShell(tester, laptop, api: api);
+
+      await tester.enterText(find.byKey(ForumSearch.inputKey), '@sam test');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      expect(api.searchesRequested.single.typeFilter, 'exclude_topics');
+      expect(find.byKey(const ValueKey('search-hit-70')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('forum-search-topics-action')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('search-category-3')), findsOneWidget);
+      expect(find.byKey(const ValueKey('search-tag-4')), findsOneWidget);
+      expect(find.byKey(const ValueKey('search-user-5')), findsOneWidget);
+      expect(find.byKey(const ValueKey('search-group-6')), findsOneWidget);
+      expect(find.text('flaky-test'), findsOneWidget);
+      expect(find.text('Automation Test'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('forum-search-topics-action')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.searchesRequested.last.typeFilter, isNull);
+      expect(find.byKey(const ValueKey('search-hit-70')), findsOneWidget);
+      expect(find.byKey(const ValueKey('search-tag-4')), findsNothing);
+      expect(find.byKey(const ValueKey('search-group-6')), findsNothing);
     });
 
     testWidgets('supports the focus shortcut, arrows, enter, and escape', (
@@ -353,6 +455,8 @@ void main() {
 
       await tester.enterText(find.byKey(ForumSearch.inputKey), 'matches');
       await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);

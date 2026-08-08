@@ -18,7 +18,14 @@ enum SearchSessionPhase {
   failed,
 }
 
-typedef _SearchRequest = ({String siteUrl, String term, int revision});
+enum SearchMode { facets, topics }
+
+typedef _SearchRequest = ({
+  String siteUrl,
+  String term,
+  SearchMode mode,
+  int revision,
+});
 
 /// One transient search interaction, independent from shell navigation.
 ///
@@ -49,8 +56,11 @@ class ShellSearchController extends ChangeNotifier {
   int _minimumLength = 3;
   String _query = '';
   bool _panelOpen = false;
+  SearchMode _mode = SearchMode.facets;
   SearchSessionPhase _phase = SearchSessionPhase.idle;
   List<SearchPostHit> _hits = const [];
+  List<SearchResultSection> _sections = const [];
+  List<SearchResult> _results = const [];
   String? _message;
   int _selectedIndex = -1;
   int _revision = 0;
@@ -65,14 +75,17 @@ class ShellSearchController extends ChangeNotifier {
   String? get siteUrl => _siteUrl;
   String get query => _query;
   bool get panelOpen => _panelOpen;
+  SearchMode get mode => _mode;
   SearchSessionPhase get phase => _phase;
   List<SearchPostHit> get hits => _hits;
+  List<SearchResultSection> get sections => _sections;
+  List<SearchResult> get results => _results;
   String? get message => _message;
   int get selectedIndex => _selectedIndex;
   int get minimumLength => _minimumLength;
-  SearchPostHit? get selectedHit =>
-      _selectedIndex >= 0 && _selectedIndex < _hits.length
-      ? _hits[_selectedIndex]
+  SearchResult? get selectedResult =>
+      _selectedIndex >= 0 && _selectedIndex < _results.length
+      ? _results[_selectedIndex]
       : null;
   bool ownsPanel(Object field) => identical(_activeField, field);
 
@@ -89,7 +102,7 @@ class ShellSearchController extends ChangeNotifier {
     if (_minimumLength == boundedMinimum) return;
     _minimumLength = boundedMinimum;
     if (_query.trim().isNotEmpty) {
-      _schedule(_query);
+      _schedule(_query, immediate: _mode == SearchMode.topics);
     } else {
       _notify();
     }
@@ -99,14 +112,16 @@ class ShellSearchController extends ChangeNotifier {
     if (_query == value) return;
     _query = value;
     _panelOpen = value.trim().isNotEmpty;
-    _schedule(value);
+    _schedule(value, immediate: _mode == SearchMode.topics);
   }
 
-  void _schedule(String value) {
+  void _schedule(String value, {bool immediate = false}) {
     _debounce?.cancel();
     _queued = null;
     _revision++;
     _hits = const [];
+    _sections = const [];
+    _results = const [];
     _selectedIndex = -1;
     _message = null;
 
@@ -126,9 +141,27 @@ class ShellSearchController extends ChangeNotifier {
     }
 
     _phase = SearchSessionPhase.waiting;
-    final request = (siteUrl: siteUrl, term: value, revision: _revision);
-    _debounce = Timer(debounceDuration, () => _enqueue(request));
+    final request = (
+      siteUrl: siteUrl,
+      term: value,
+      mode: _mode,
+      revision: _revision,
+    );
+    _debounce = Timer(immediate ? Duration.zero : debounceDuration, () {
+      _enqueue(request);
+    });
     _notify();
+  }
+
+  /// Switches from core's debounced facet suggestions to its topic search.
+  ///
+  /// The web search does this when the first assistant row or Enter is used:
+  /// it removes `exclude_topics`, searches immediately, then only renders the
+  /// topic facet from the broader response.
+  void showTopics() {
+    if (_mode == SearchMode.topics || _query.trim().isEmpty) return;
+    _mode = SearchMode.topics;
+    _schedule(_query, immediate: true);
   }
 
   bool _isValid(String term) =>
@@ -156,23 +189,36 @@ class ShellSearchController extends ChangeNotifier {
       final results = await api.searchPosts(
         siteUrl: request.siteUrl,
         term: request.term,
+        typeFilter: request.mode == SearchMode.facets ? 'exclude_topics' : null,
         apiKey: apiKey,
         clientId: clientId,
       );
       if (!lease.isCurrent || !_isCurrent(request)) return;
 
       _hits = results.hits;
-      _selectedIndex = _hits.isEmpty ? -1 : 0;
+      _sections = List.unmodifiable(
+        results.effectiveSections.where(
+          (section) => request.mode == SearchMode.facets
+              ? section.kind != SearchResultKind.topic
+              : section.kind == SearchResultKind.topic,
+        ),
+      );
+      _results = List.unmodifiable([
+        for (final section in _sections) ...section.results,
+      ]);
+      _selectedIndex = _results.isEmpty ? -1 : 0;
       _message = results.error;
       _phase = results.error != null
           ? SearchSessionPhase.refused
-          : (_hits.isEmpty
+          : (_results.isEmpty && request.mode == SearchMode.topics
                 ? SearchSessionPhase.empty
                 : SearchSessionPhase.results);
       _notify();
     } catch (_) {
       if (!lease.isCurrent || !_isCurrent(request)) return;
       _hits = const [];
+      _sections = const [];
+      _results = const [];
       _selectedIndex = -1;
       _message = "Couldn't search ${Uri.parse(request.siteUrl).host}.";
       _phase = SearchSessionPhase.failed;
@@ -192,7 +238,8 @@ class ShellSearchController extends ChangeNotifier {
       !_disposed &&
       request.revision == _revision &&
       request.siteUrl == _siteUrl &&
-      request.term == _query;
+      request.term == _query &&
+      request.mode == _mode;
 
   void openPanel() {
     if (_query.trim().isEmpty || _panelOpen) return;
@@ -212,22 +259,27 @@ class ShellSearchController extends ChangeNotifier {
     _revision++;
     _query = '';
     _panelOpen = false;
+    _mode = SearchMode.facets;
     _phase = SearchSessionPhase.idle;
     _hits = const [];
+    _sections = const [];
+    _results = const [];
     _message = null;
     _selectedIndex = -1;
     if (notify) _notify();
   }
 
   void moveSelection(int delta) {
-    if (_hits.isEmpty || delta == 0) return;
+    if (_results.isEmpty || delta == 0) return;
     final current = _selectedIndex < 0 ? 0 : _selectedIndex;
-    _selectedIndex = (current + delta).clamp(0, _hits.length - 1);
+    _selectedIndex = (current + delta).clamp(0, _results.length - 1);
     _notify();
   }
 
   void select(int index) {
-    if (index < 0 || index >= _hits.length || _selectedIndex == index) return;
+    if (index < 0 || index >= _results.length || _selectedIndex == index) {
+      return;
+    }
     _selectedIndex = index;
     _notify();
   }
