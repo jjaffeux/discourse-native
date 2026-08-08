@@ -11,6 +11,7 @@ import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
 import 'composer_controller.dart';
 import 'composer_panel.dart';
+import 'draft_list.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -67,17 +68,22 @@ class _MainContentBody extends StatelessWidget {
               canCreateTopic: state.canCreateTopic && pluginContent == null,
             ),
             Expanded(
-              child: switch ((route.isTopic, pluginContent, state.feed)) {
-                // A topic route wins over the list it was opened from.
-                (true, _, _) => const TopicView(),
-                // A route an optional feature claims is that feature's,
-                // whichever list happens to still be cached behind it.
-                (false, final content?, _) => content,
-                // Destinations backed by a topic list show the real thing;
-                // the rest keep the placeholder until they have a screen.
-                (false, null, final feed?) => TopicListView(feed: feed),
-                (false, null, null) => _ContentPlaceholder(route: route),
-              },
+              child:
+                  !route.isTopic &&
+                      route.id == 'drafts' &&
+                      state.siteUrl != null
+                  ? DraftListView(siteUrl: state.siteUrl!)
+                  : switch ((route.isTopic, pluginContent, state.feed)) {
+                      // A topic route wins over its originating list.
+                      (true, _, _) => const TopicView(),
+                      // A route an optional feature claims is that feature's,
+                      // whichever list happens to still be cached behind it.
+                      (false, final content?, _) => content,
+                      // Destinations backed by a topic list show the real
+                      // thing; the rest retain the placeholder.
+                      (false, null, final feed?) => TopicListView(feed: feed),
+                      (false, null, null) => _ContentPlaceholder(route: route),
+                    },
             ),
             // Takes room from the stream rather than covering it, so the topic
             // stays readable while a reply is being written.

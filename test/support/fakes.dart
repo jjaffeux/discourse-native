@@ -27,6 +27,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
@@ -398,6 +399,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.composerCapabilities = const TopicComposerCapabilities(),
     this.topicTagSearches = const {},
     this.serverDrafts = const {},
+    this.userDraftList = const [],
     this.nextPages = const {},
     this.gate,
     this.topics = const {},
@@ -485,6 +487,10 @@ class FakeDiscourseApi implements DiscourseApi {
   final TopicComposerCapabilities composerCapabilities;
   final Map<String, TopicTagSearch> topicTagSearches;
   final Map<String, ComposerDraft> serverDrafts;
+  final List<UserDraft> userDraftList;
+  final List<({String siteUrl, int offset, int limit})> userDraftRequests = [];
+  final List<({String siteUrl, String draftKey, int sequence})>
+  userDraftsDeleted = [];
 
   /// `more_topics_url` to report for a given path, driving pagination.
   final Map<String, String> nextPages;
@@ -1484,6 +1490,33 @@ class FakeDiscourseApi implements DiscourseApi {
     required String draftKey,
     String? clientId,
   }) async => (draft: serverDrafts[draftKey], sequence: 0);
+
+  @override
+  Future<List<UserDraft>> userDrafts({
+    required String siteUrl,
+    required String apiKey,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  }) async {
+    userDraftRequests.add((siteUrl: siteUrl, offset: offset, limit: limit));
+    return userDraftList.skip(offset).take(limit).toList(growable: false);
+  }
+
+  @override
+  Future<void> deleteUserDraft({
+    required String siteUrl,
+    required String apiKey,
+    required String draftKey,
+    required int sequence,
+    String? clientId,
+  }) async {
+    userDraftsDeleted.add((
+      siteUrl: siteUrl,
+      draftKey: draftKey,
+      sequence: sequence,
+    ));
+  }
 
   @override
   void close() => closeCalls += 1;

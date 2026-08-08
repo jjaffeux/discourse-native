@@ -99,6 +99,7 @@ void main() {
           id: 3,
           name: 'Sam Saffron',
           avatarUrl: 'https://meta.discourse.org/avatar.png',
+          draftCount: 3,
         ),
         config: SiteConfig(
           emojiSet: 'apple_classic',

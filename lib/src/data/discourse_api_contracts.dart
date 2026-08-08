@@ -2,6 +2,7 @@ import '../diagnostics/diagnostic_error_cause.dart';
 import '../models/bookmark.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
+import '../models/user_draft.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
 import '../plugins/poll/poll.dart';
@@ -70,6 +71,25 @@ abstract interface class AccountActivityApi {
     required String siteUrl,
     required String apiKey,
     required int id,
+    String? clientId,
+  });
+}
+
+/// The authenticated list behind the Drafts destination.
+abstract interface class DraftsApi {
+  Future<List<UserDraft>> userDrafts({
+    required String siteUrl,
+    required String apiKey,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  });
+
+  Future<void> deleteUserDraft({
+    required String siteUrl,
+    required String apiKey,
+    required String draftKey,
+    required int sequence,
     String? clientId,
   });
 }

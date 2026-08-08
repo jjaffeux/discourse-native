@@ -179,6 +179,7 @@ class DiscourseInstance {
           label: 'Messages',
           icon: DIcons.inbox,
         ),
+        SidebarDestination(id: 'drafts', label: 'Drafts', icon: DIcons.pencil),
       ],
     ),
   ];
