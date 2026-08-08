@@ -1,10 +1,9 @@
 import 'package:discourse_native/src/data/secure_store.dart';
-import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
-/// The keychain behaves differently per platform and only fails on a real
-/// device, so it gets its own integration test.
+/// Private storage behaves differently per platform and only reaches Keychain
+/// or the Linux filesystem on a real device, so it gets an integration test.
 ///
 /// macOS in particular refuses the data protection keychain without the
 /// `keychain-access-groups` entitlement, which needs a signing certificate —
@@ -15,7 +14,7 @@ import 'package:integration_test/integration_test.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  test('api keys round-trip through the keychain', () async {
+  test('api keys round-trip through private storage', () async {
     final store = SecureStore();
     const site = 'https://keychain-test.invalid';
 
@@ -45,18 +44,5 @@ void main() {
     final first = await store.readOrCreateClientId();
     expect(first, isNotEmpty);
     expect(await store.readOrCreateClientId(), first);
-  });
-
-  test('the RSA key pair survives a round-trip', () async {
-    final store = SecureStore();
-    final generated = AuthKeyPair.generate();
-
-    await store.writeKeyPair(generated);
-    final read = await store.readKeyPair();
-
-    expect(read, isNotNull);
-    expect(read!.publicPem, generated.publicPem);
-    // Parsing proves the PEM came back intact, not just string-equal.
-    expect(read.privateKey.modulus, generated.privateKey.modulus);
   });
 }

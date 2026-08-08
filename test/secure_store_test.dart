@@ -1,131 +1,18 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/private_storage.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
-import 'package:discourse_native/src/data/user_api_key.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('key pair', () {
-    test('reads a complete pair', () async {
-      final storage = _FakeStorage({
-        'rsa_key_pair_v2': '{"public":"public","private":"private"}',
-      });
-
-      final pair = await SecureStore(storage: storage).readKeyPair();
-
-      expect(pair, isNotNull);
-      expect(pair!.publicPem, 'public');
-      expect(pair.privatePem, 'private');
-      expect(storage.events, [
-        'read:rsa_key_pair_v2',
-        'read:rsa_public_key',
-        'read:rsa_private_key',
-      ]);
-    });
-
-    test('migrates legacy entries into the atomic record', () async {
-      final storage = _FakeStorage({
-        'rsa_public_key': 'legacy-public',
-        'rsa_private_key': 'legacy-private',
-      });
-
-      final pair = await SecureStore(storage: storage).readKeyPair();
-
-      expect(pair, isNotNull);
-      expect(pair!.publicPem, 'legacy-public');
-      expect(pair.privatePem, 'legacy-private');
-      expect(storage.values.keys, ['rsa_key_pair_v2']);
-      expect(storage.events, [
-        'read:rsa_key_pair_v2',
-        'read:rsa_public_key',
-        'read:rsa_private_key',
-        'write:rsa_key_pair_v2',
-        'delete:rsa_public_key',
-        'delete:rsa_private_key',
-      ]);
-    });
-
-    test('keeps a complete legacy pair when migration fails', () async {
-      final storage = _FakeStorage({
-        'rsa_public_key': 'legacy-public',
-        'rsa_private_key': 'legacy-private',
-      })..writeErrors['rsa_key_pair_v2'] = StateError('keychain unavailable');
-
-      final pair = await SecureStore(storage: storage).readKeyPair();
-
-      expect(pair?.publicPem, 'legacy-public');
-      expect(pair?.privatePem, 'legacy-private');
-      expect(
-        storage.values.keys,
-        containsAll(['rsa_public_key', 'rsa_private_key']),
-      );
-    });
-
-    test('independently retries legacy cleanup after migration', () async {
-      final storage = _FakeStorage({
-        'rsa_public_key': 'legacy-public',
-        'rsa_private_key': 'legacy-private',
-      })..deleteErrors['rsa_public_key'] = StateError('keychain unavailable');
-      final store = SecureStore(storage: storage);
-
-      final migrated = await store.readKeyPair();
-
-      expect(migrated?.publicPem, 'legacy-public');
-      expect(storage.values.keys, {'rsa_public_key', 'rsa_key_pair_v2'});
-      expect(storage.events, contains('delete:rsa_private_key'));
-
-      storage.deleteErrors.clear();
-      final restored = await store.readKeyPair();
-
-      expect(restored?.privatePem, 'legacy-private');
-      expect(storage.values.keys, ['rsa_key_pair_v2']);
-    });
-
-    test('treats a partial legacy pair as missing', () async {
-      final storage = _FakeStorage({'rsa_public_key': 'orphaned-public'});
-
-      expect(await SecureStore(storage: storage).readKeyPair(), isNull);
-    });
-
-    test('writes both halves as one atomic keychain value', () async {
-      final storage = _FakeStorage();
-      final store = SecureStore(storage: storage);
-
-      await store.writeKeyPair(
-        const AuthKeyPair(publicPem: 'public', privatePem: 'private'),
-      );
-
-      expect(storage.values['rsa_key_pair_v2'], contains('"public":"public"'));
-      expect(
-        storage.values['rsa_key_pair_v2'],
-        contains('"private":"private"'),
-      );
-      expect(storage.events, ['write:rsa_key_pair_v2']);
-    });
-
-    test('propagates an atomic write failure', () async {
-      final error = StateError('keychain unavailable');
-      final storage = _FakeStorage()..writeErrors['rsa_key_pair_v2'] = error;
-      final store = SecureStore(storage: storage);
-
-      await expectLater(
-        store.writeKeyPair(
-          const AuthKeyPair(publicPem: 'public', privatePem: 'private'),
-        ),
-        throwsA(same(error)),
-      );
-      expect(storage.values, isEmpty);
-      expect(storage.events, ['write:rsa_key_pair_v2']);
-    });
-  });
-
   group('client id', () {
     test('reuses the persisted id without generating a replacement', () async {
       var generations = 0;
-      final storage = _FakeStorage({'client_id': 'persisted'});
+      final storage = _FakeStorage();
+      final clientIds = _FakeClientIds('persisted');
       final store = SecureStore(
         storage: storage,
+        clientIds: clientIds,
         tokenGenerator: () {
           generations += 1;
           return 'replacement';
@@ -135,31 +22,51 @@ void main() {
       expect(await store.readOrCreateClientId(), 'persisted');
       expect(await store.readOrCreateClientId(), 'persisted');
       expect(generations, 0);
-      expect(storage.events, ['read:client_id']);
+      expect(clientIds.events, ['read']);
+      expect(storage.events, isEmpty);
     });
 
-    test('replaces an empty id and persists it before returning', () async {
-      final storage = _FakeStorage({'client_id': ''});
+    test('migrates the old private-storage id to preferences', () async {
+      final storage = _FakeStorage({'client_id': 'legacy-id'});
+      final clientIds = _FakeClientIds();
       final store = SecureStore(
         storage: storage,
+        clientIds: clientIds,
+        tokenGenerator: () => throw StateError('must not generate'),
+      );
+
+      expect(await store.readOrCreateClientId(), 'legacy-id');
+      expect(clientIds.value, 'legacy-id');
+      expect(storage.values, isEmpty);
+      expect(storage.events, ['read:client_id', 'delete:client_id']);
+    });
+
+    test('creates a missing id in preferences', () async {
+      final storage = _FakeStorage();
+      final clientIds = _FakeClientIds();
+      final store = SecureStore(
+        storage: storage,
+        clientIds: clientIds,
         tokenGenerator: () => 'generated-id',
       );
 
       expect(await store.readOrCreateClientId(), 'generated-id');
-      expect(storage.values['client_id'], 'generated-id');
-      expect(storage.events, ['read:client_id', 'write:client_id']);
+      expect(clientIds.value, 'generated-id');
+      expect(storage.events, ['read:client_id']);
+      expect(clientIds.events, ['read', 'write']);
     });
 
     test('coalesces simultaneous creation requests', () async {
       final readGate = Completer<void>();
       final readStarted = Completer<void>();
-      final storage = _FakeStorage()
-        ..gatedReadKey = 'client_id'
+      final storage = _FakeStorage();
+      final clientIds = _FakeClientIds()
         ..readGate = readGate
         ..readStarted = readStarted;
       var generations = 0;
       final store = SecureStore(
         storage: storage,
+        clientIds: clientIds,
         tokenGenerator: () {
           generations += 1;
           return 'generated-id';
@@ -176,32 +83,25 @@ void main() {
         'generated-id',
       ]);
       expect(generations, 1);
-      expect(
-        storage.events.where((event) => event == 'read:client_id'),
-        hasLength(1),
-      );
-      expect(
-        storage.events.where((event) => event == 'write:client_id'),
-        hasLength(1),
-      );
+      expect(clientIds.events.where((event) => event == 'read'), hasLength(1));
+      expect(clientIds.events.where((event) => event == 'write'), hasLength(1));
     });
 
     test('retries after a failed creation', () async {
-      final error = StateError('keychain unavailable');
-      final storage = _FakeStorage()..writeErrors['client_id'] = error;
+      final error = StateError('preferences unavailable');
+      final storage = _FakeStorage();
+      final clientIds = _FakeClientIds()..writeError = error;
       final store = SecureStore(
         storage: storage,
+        clientIds: clientIds,
         tokenGenerator: () => 'generated-id',
       );
 
       await expectLater(store.readOrCreateClientId(), throwsA(same(error)));
-      storage.writeErrors.clear();
+      clientIds.writeError = null;
 
       expect(await store.readOrCreateClientId(), 'generated-id');
-      expect(
-        storage.events.where((event) => event == 'read:client_id'),
-        hasLength(2),
-      );
+      expect(clientIds.events.where((event) => event == 'read'), hasLength(2));
     });
   });
 
@@ -378,7 +278,7 @@ void main() {
   });
 }
 
-final class _FakeStorage extends FlutterSecureStorage {
+final class _FakeStorage implements PrivateStorage {
   _FakeStorage([Map<String, String>? values]) : values = {...?values};
 
   final Map<String, String> values;
@@ -396,15 +296,7 @@ final class _FakeStorage extends FlutterSecureStorage {
   Completer<void>? writeStarted;
 
   @override
-  Future<String?> read({
-    required String key,
-    AppleOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WebOptions? webOptions,
-    AppleOptions? mOptions,
-    WindowsOptions? wOptions,
-  }) async {
+  Future<String?> read(String key) async {
     events.add('read:$key');
     final snapshot = snapshotGatedRead && key == gatedReadKey
         ? (present: values.containsKey(key), value: values[key])
@@ -423,16 +315,10 @@ final class _FakeStorage extends FlutterSecureStorage {
   }
 
   @override
-  Future<void> write({
-    required String key,
-    required String? value,
-    AppleOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WebOptions? webOptions,
-    AppleOptions? mOptions,
-    WindowsOptions? wOptions,
-  }) async {
+  Future<Map<String, String>> readAll() async => Map.of(values);
+
+  @override
+  Future<void> write(String key, String value) async {
     events.add('write:$key');
     if (key == gatedWriteKey) {
       if (writeStarted case final started? when !started.isCompleted) {
@@ -441,25 +327,40 @@ final class _FakeStorage extends FlutterSecureStorage {
       await writeGate?.future;
     }
     if (writeErrors[key] case final error?) throw error;
-    if (value == null) {
-      values.remove(key);
-    } else {
-      values[key] = value;
-    }
+    values[key] = value;
   }
 
   @override
-  Future<void> delete({
-    required String key,
-    AppleOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WebOptions? webOptions,
-    AppleOptions? mOptions,
-    WindowsOptions? wOptions,
-  }) async {
+  Future<void> delete(String key) async {
     events.add('delete:$key');
     if (deleteErrors[key] case final error?) throw error;
     values.remove(key);
+  }
+}
+
+final class _FakeClientIds implements ClientIdPersistence {
+  _FakeClientIds([this.value]);
+
+  String? value;
+  Object? writeError;
+  Completer<void>? readGate;
+  Completer<void>? readStarted;
+  final List<String> events = [];
+
+  @override
+  Future<String?> read() async {
+    events.add('read');
+    if (readStarted case final started? when !started.isCompleted) {
+      started.complete();
+    }
+    await readGate?.future;
+    return value;
+  }
+
+  @override
+  Future<void> write(String value) async {
+    events.add('write');
+    if (writeError case final error?) throw error;
+    this.value = value;
   }
 }

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:discourse_native/src/data/authenticator.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
@@ -20,7 +18,7 @@ void main() {
       'runs the handshake before persisting validated credentials',
       () async {
         final events = <String>[];
-        final store = _FakeSecureStore(events: events, keyPair: _pair);
+        final store = _FakeSecureStore(events: events);
         final protocol = _FakeProtocol(events: events);
         late String launchedUrl;
         late String launchedScheme;
@@ -29,8 +27,10 @@ void main() {
           protocol: protocol,
           applicationName: 'Test Client',
           nonceGenerator: () => 'fixed-nonce',
-          keyPairGenerator: () =>
-              throw StateError('an existing key pair must be reused'),
+          keyPairGenerator: () async {
+            events.add('generate-key-pair');
+            return _pair;
+          },
           launcher: (url, callbackScheme) async {
             events.add('launch');
             launchedUrl = url;
@@ -52,8 +52,8 @@ void main() {
         expect(launchedUrl, 'https://authorize.invalid');
         expect(launchedScheme, UserApiKeyProtocol.redirectScheme);
         expect(events, [
-          'read-key-pair',
           'read-client-id',
+          'generate-key-pair',
           'auth-url',
           'launch',
           'callback-payload',
@@ -63,62 +63,37 @@ void main() {
       },
     );
 
-    test('coalesces key generation across simultaneous connections', () async {
-      final generation = Completer<AuthKeyPair>();
-      final generationStarted = Completer<void>();
+    test('uses a fresh transient key pair for each connection', () async {
       final store = _FakeSecureStore();
       var generationCount = 0;
       final authenticator = Authenticator(
         store: store,
         protocol: _FakeProtocol(),
         nonceGenerator: () => 'nonce',
-        keyPairGenerator: () {
+        keyPairGenerator: () async {
           generationCount += 1;
-          generationStarted.complete();
-          return generation.future;
+          return _pair;
         },
         launcher: (_, _) async => 'discourse://auth_redirect?payload=reply',
       );
 
-      final first = authenticator.connect('https://one.example');
-      await generationStarted.future;
-      final second = authenticator.connect('https://two.example');
-      generation.complete(_pair);
+      await authenticator.connect('https://one.example');
+      await authenticator.connect('https://two.example');
 
-      await Future.wait([first, second]);
-
-      expect(generationCount, 1);
-      expect(store.keyPairWrites, 1);
-      expect(store.keyPair, _pair);
+      expect(generationCount, 2);
       expect(store.apiKeys.keys, {
         'https://one.example',
         'https://two.example',
       });
     });
 
-    test('does not open the browser when the keychain cannot read', () async {
-      var launches = 0;
-      final error = StateError('keychain unavailable');
-      final authenticator = Authenticator(
-        store: _FakeSecureStore(readKeyPairError: error),
-        protocol: _FakeProtocol(),
-        launcher: (_, _) async {
-          launches += 1;
-          return 'unused';
-        },
-      );
-
-      await expectLater(authenticator.connect(_site), throwsA(same(error)));
-      expect(launches, 0);
-    });
-
     test(
       'does not open the browser when the client id cannot be read',
       () async {
         var launches = 0;
-        final error = StateError('keychain unavailable');
+        final error = StateError('preferences unavailable');
         final authenticator = Authenticator(
-          store: _FakeSecureStore(keyPair: _pair, clientIdError: error),
+          store: _FakeSecureStore(clientIdError: error),
           protocol: _FakeProtocol(),
           launcher: (_, _) async {
             launches += 1;
@@ -132,7 +107,7 @@ void main() {
     );
 
     test('reports browser cancellation without persisting a key', () async {
-      final store = _FakeSecureStore(keyPair: _pair);
+      final store = _FakeSecureStore();
       final authenticator = Authenticator(
         store: store,
         protocol: _FakeProtocol(),
@@ -154,7 +129,7 @@ void main() {
     });
 
     test('distinguishes platform launch failures from cancellation', () async {
-      final store = _FakeSecureStore(keyPair: _pair);
+      final store = _FakeSecureStore();
       final authenticator = Authenticator(
         store: store,
         protocol: _FakeProtocol(),
@@ -187,7 +162,7 @@ void main() {
         'browser callback rejected',
       );
       final authenticator = Authenticator(
-        store: _FakeSecureStore(keyPair: _pair),
+        store: _FakeSecureStore(),
         protocol: _FakeProtocol(),
         launcher: (_, _) async => throw error,
       );
@@ -196,7 +171,7 @@ void main() {
     });
 
     test('does not persist credentials when reply validation fails', () async {
-      final store = _FakeSecureStore(keyPair: _pair);
+      final store = _FakeSecureStore();
       final protocolError = const UserApiAuthException(
         UserApiAuthFailure.badReply,
         'invalid payload',
@@ -217,11 +192,7 @@ void main() {
     test('surfaces persistence failure after successful validation', () async {
       final events = <String>[];
       final error = StateError('keychain write failed');
-      final store = _FakeSecureStore(
-        events: events,
-        keyPair: _pair,
-        writeApiKeyError: error,
-      );
+      final store = _FakeSecureStore(events: events, writeApiKeyError: error);
       final authenticator = Authenticator(
         store: store,
         protocol: _FakeProtocol(events: events),
@@ -307,8 +278,6 @@ final class _FakeProtocol extends UserApiKeyProtocol {
 final class _FakeSecureStore implements SecureStore {
   _FakeSecureStore({
     this.events,
-    this.keyPair,
-    this.readKeyPairError,
     this.clientIdError,
     this.readApiKeyError,
     this.writeApiKeyError,
@@ -316,29 +285,12 @@ final class _FakeSecureStore implements SecureStore {
   });
 
   final List<String>? events;
-  final Object? readKeyPairError;
   final Object? clientIdError;
   final Object? readApiKeyError;
   final Object? writeApiKeyError;
   final Object? deleteApiKeyError;
 
-  AuthKeyPair? keyPair;
-  int keyPairWrites = 0;
   final Map<String, String> apiKeys = {};
-
-  @override
-  Future<AuthKeyPair?> readKeyPair() async {
-    events?.add('read-key-pair');
-    if (readKeyPairError != null) throw readKeyPairError!;
-    return keyPair;
-  }
-
-  @override
-  Future<void> writeKeyPair(AuthKeyPair pair) async {
-    events?.add('write-key-pair');
-    keyPairWrites += 1;
-    keyPair = pair;
-  }
 
   @override
   Future<String> readOrCreateClientId() async {

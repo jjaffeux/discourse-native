@@ -37,12 +37,13 @@ class Authenticator implements ApiCredentialReader {
   final AuthKeyPairGenerator _generateKeyPair;
   final String Function() _generateNonce;
 
-  Future<AuthKeyPair>? _keyPairRequest;
-
   /// Sends the user to [siteUrl] to authorize, then stores the key it returns.
   Future<UserApiCredentials> connect(String siteUrl) async {
-    final pair = await _ensureKeyPair();
     final clientId = await store.readOrCreateClientId();
+    // The private half is needed only to decrypt this callback. Keeping it
+    // transient avoids persisting another secret and prevents one pair from
+    // becoming a permanent identity shared by every connected site.
+    final pair = await _generateKeyPair();
     final nonce = _generateNonce();
 
     final url = protocol.authUrl(
@@ -99,30 +100,6 @@ class Authenticator implements ApiCredentialReader {
   Future<String> clientId() => store.readOrCreateClientId();
 
   Future<void> disconnect(String siteUrl) => store.deleteApiKey(siteUrl);
-
-  /// The key pair is per-install, not per-site: generated once, reused for
-  /// every site the user connects.
-  Future<AuthKeyPair> _ensureKeyPair() async {
-    final pending = _keyPairRequest;
-    if (pending != null) return pending;
-
-    final request = _readOrCreateKeyPair();
-    _keyPairRequest = request;
-    try {
-      return await request;
-    } finally {
-      if (identical(_keyPairRequest, request)) _keyPairRequest = null;
-    }
-  }
-
-  Future<AuthKeyPair> _readOrCreateKeyPair() async {
-    final existing = await store.readKeyPair();
-    if (existing != null) return existing;
-
-    final pair = await _generateKeyPair();
-    await store.writeKeyPair(pair);
-    return pair;
-  }
 }
 
 Future<AuthKeyPair> _generateAuthKeyPair() async {

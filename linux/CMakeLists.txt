@@ -7,11 +7,8 @@ project(runner LANGUAGES CXX)
 set(BINARY_NAME "discourse_native")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
-# Must match the bundle identifier in macos/Runner/Configs/AppInfo.xcconfig.
-#
-# Not cosmetic: flutter_secure_storage_linux compiles this into the libsecret
-# schema name it stores under, so changing it after a release orphans every
-# user's API key and RSA key pair, silently and with no way back.
+# Must match the bundle identifier in macos/Runner/Configs/AppInfo.xcconfig and
+# the Linux desktop file.
 set(APPLICATION_ID "org.discourse.native")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent

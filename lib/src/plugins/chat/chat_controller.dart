@@ -635,7 +635,7 @@ class ChatController extends FrameSafeNotifier {
     final window = stream(siteUrl, channelId);
     final caughtUp = window.atPresent && window.newestId == messageId;
 
-    // Before the keychain, not after: the await below is a gap two scroll
+    // Before credential storage, not after: the await below is a gap two scroll
     // ticks can both arrive in, and the guard above is only a guard once the
     // answer it reads has been written.
     store.update<ChatChannel>(
