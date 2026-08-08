@@ -71,7 +71,13 @@ void main() {
     await _pumpPanel(tester, shell, composer);
 
     expect(find.byType(ComposerImagePreview), findsOneWidget);
-    await tester.tap(find.byType(ComposerImagePreview), warnIfMissed: false);
+    final previewRect = tester.getRect(find.byType(ComposerImagePreview));
+    final editorRect = tester.getRect(find.byType(EditableText));
+    expect(previewRect.top, greaterThanOrEqualTo(editorRect.top));
+    Future<void> tapPreview() => tester.tapAt(
+      tester.getTopLeft(find.byType(ComposerImagePreview)) + const Offset(8, 8),
+    );
+    await tapPreview();
     await tester.pump();
 
     expect(find.byTooltip('Decrease image size'), findsOneWidget);
@@ -83,7 +89,7 @@ void main() {
     await tester.pump();
     expect(composer.text.text, '![old|640x480, 75%](upload://photo)');
 
-    await tester.tap(find.byType(ComposerImagePreview), warnIfMissed: false);
+    await tapPreview();
     await tester.pump();
     await tester.enterText(
       find.byWidgetPredicate(
@@ -104,7 +110,7 @@ void main() {
     await tester.pump();
     expect(composer.text.text, r'![new \[alt\]|640x480, 75%](upload://photo)');
 
-    await tester.tap(find.byType(ComposerImagePreview), warnIfMissed: false);
+    await tapPreview();
     await tester.pump();
     tester
         .widget<IconButton>(

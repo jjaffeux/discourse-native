@@ -456,7 +456,9 @@ class MarkdownEditingController extends TextEditingController {
         style: _hidden,
       ),
       WidgetSpan(
-        alignment: PlaceholderAlignment.middle,
+        // Images are blocks. Centering a tall placeholder on the text baseline
+        // puts most of it above the editable and over the composer toolbar.
+        alignment: PlaceholderAlignment.top,
         style: base,
         child: KeyedSubtree(
           key: _imageKeys.putIfAbsent(
