@@ -6,6 +6,8 @@ import 'package:desktop_updater/desktop_updater.dart' as du;
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../diagnostics/diagnostics_controller.dart';
+import '../diagnostics/diagnostics_redactor.dart';
 import 'app_release.dart';
 import 'updater.dart';
 
@@ -117,8 +119,8 @@ class DesktopUpdaterAdapter implements Updater {
       return session;
     } on UpdateException {
       rethrow;
-    } catch (error) {
-      throw _translate(error);
+    } catch (error, stackTrace) {
+      throw _translate(error, stackTrace: stackTrace);
     } finally {
       if (identical(_pending, pending)) _pending = null;
     }
@@ -159,8 +161,8 @@ class DesktopUpdaterAdapter implements Updater {
       );
     } on UpdateException {
       rethrow;
-    } catch (e) {
-      throw _translate(e);
+    } catch (e, stackTrace) {
+      throw _translate(e, stackTrace: stackTrace);
     }
 
     return switch (result) {
@@ -182,7 +184,8 @@ class DesktopUpdaterAdapter implements Updater {
           UpdateFailure.install,
           'ManualUpdateCheckBlockedBySupportPolicy',
         ),
-      du.ManualUpdateCheckFailed(:final error) => throw _translate(error),
+      du.ManualUpdateCheckFailed(:final error, :final stackTrace) =>
+        throw _translate(error, stackTrace: stackTrace),
     };
   }
 
@@ -210,8 +213,10 @@ class DesktopUpdaterAdapter implements Updater {
         case du.UpdateReadyToInstall():
           if (!done.isCompleted) done.complete();
         case du.UpdateFailed(:final error):
-          terminalError = _translate(error);
-          if (!done.isCompleted) done.complete();
+          if (!done.isCompleted) {
+            terminalError = _translate(error, stackTrace: StackTrace.current);
+            done.complete();
+          }
         default:
           break;
       }
@@ -228,8 +233,8 @@ class DesktopUpdaterAdapter implements Updater {
       if (terminalError case final error?) throw error;
     } on UpdateException {
       rethrow;
-    } catch (e) {
-      throw _translate(e);
+    } catch (e, stackTrace) {
+      throw _translate(e, stackTrace: stackTrace);
     } finally {
       controller.removeListener(observe);
     }
@@ -246,8 +251,8 @@ class DesktopUpdaterAdapter implements Updater {
       await _untilCancelled(session, session.controller.restartApp());
     } on UpdateException {
       rethrow;
-    } catch (e) {
-      throw _translate(e);
+    } catch (e, stackTrace) {
+      throw _translate(e, stackTrace: stackTrace);
     }
   }
 
@@ -270,8 +275,8 @@ class DesktopUpdaterAdapter implements Updater {
       inner?.cancel();
     } on UpdateException {
       rethrow;
-    } catch (error) {
-      throw _translate(error);
+    } catch (error, stackTrace) {
+      throw _translate(error, stackTrace: stackTrace);
     }
   }
 
@@ -314,8 +319,9 @@ class DesktopUpdaterAdapter implements Updater {
   /// from the text. Crude, and the reason it is worth doing anyway is that
   /// telling a user to retry a signature failure is the one piece of advice
   /// that must never be given.
-  static UpdateException _translate(Object error) {
-    final text = error.toString().toLowerCase();
+  static UpdateException _translate(Object error, {StackTrace? stackTrace}) {
+    final detail = _safeTranslationDetail(error);
+    final text = detail.toLowerCase();
 
     if (text.contains('signature') ||
         text.contains('sha256') ||
@@ -323,22 +329,52 @@ class DesktopUpdaterAdapter implements Updater {
         text.contains('digest') ||
         text.contains('untrusted') ||
         text.contains('verif')) {
-      return UpdateException(UpdateFailure.untrusted, '$error');
+      return UpdateException.caused(
+        UpdateFailure.untrusted,
+        detail,
+        error,
+        stackTrace,
+      );
     }
-    if (text.contains('format') ||
+    if (error is FormatException ||
+        text.contains('format') ||
         text.contains('schema') ||
         text.contains('parse') ||
         text.contains('malformed')) {
-      return UpdateException(UpdateFailure.malformed, '$error');
+      return UpdateException.caused(
+        UpdateFailure.malformed,
+        detail,
+        error,
+        stackTrace,
+      );
     }
     if (error is SocketException ||
         error is HttpException ||
         error is TimeoutException ||
         text.contains('socket') ||
         text.contains('http')) {
-      return UpdateException(UpdateFailure.unreachable, '$error');
+      return UpdateException.caused(
+        UpdateFailure.unreachable,
+        detail,
+        error,
+        stackTrace,
+      );
     }
-    return UpdateException(UpdateFailure.install, '$error');
+    return UpdateException.caused(
+      UpdateFailure.install,
+      detail,
+      error,
+      stackTrace,
+    );
+  }
+
+  static String _safeTranslationDetail(Object error) {
+    final detail = switch (error) {
+      FormatException(:final message, :final offset) =>
+        '$message${offset == null ? '' : ' at $offset'}',
+      _ => DiagnosticsRedactor.safeString(error),
+    };
+    return DiagnosticsRedactor.scrub(detail);
   }
 }
 
@@ -423,10 +459,17 @@ final class FileUpdateRecoveryStore implements du.UpdateRecoveryStore {
   Future<du.UpdateInstallRecoveryMarker?> readPendingInstall({
     required String channel,
   }) async {
-    if (!await file.exists()) return null;
+    final String encoded;
+    try {
+      if (!await file.exists()) return null;
+      encoded = await file.readAsString();
+    } catch (error, stackTrace) {
+      _reportUpdaterRecoveryError(error, stackTrace, 'updater.recovery.read');
+      return null;
+    }
 
     try {
-      final decoded = jsonDecode(await file.readAsString());
+      final decoded = jsonDecode(encoded);
       if (decoded is! Map<String, dynamic>) return null;
       final marker = _fromJson(decoded);
       // A marker left by another channel is not ours to recover.
@@ -513,4 +556,20 @@ final class FileUpdateRecoveryStore implements du.UpdateRecoveryStore {
         diagnosticsText: json['diagnosticsText'] as String?,
         transactionId: json['transactionId'] as String?,
       );
+}
+
+void _reportUpdaterRecoveryError(
+  Object error,
+  StackTrace stackTrace,
+  String operation,
+) {
+  DiagnosticsSink.current.reportError(
+    error,
+    stackTrace,
+    operation: operation,
+    source: 'updater',
+    severity: DiagnosticSeverity.warning,
+    handled: true,
+    degraded: true,
+  );
 }

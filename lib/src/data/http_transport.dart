@@ -103,12 +103,15 @@ Future<http.Response> sendBoundedHttpRequest(
   assert(timeout > Duration.zero);
   assert(maxBodyBytes > 0);
 
+  final timeoutAbort = Completer<void>();
+  final sentRequest = _withAbortTrigger(request, timeoutAbort.future);
   final elapsed = Stopwatch()..start();
-  final response = client.send(request);
+  final response = client.send(sentRequest);
   late http.StreamedResponse streamed;
   try {
     streamed = await response.timeout(timeout);
   } on TimeoutException {
+    timeoutAbort.complete();
     response
         .then<void>((lateResponse) => _cancel(lateResponse.stream))
         .ignore();
@@ -124,24 +127,58 @@ Future<http.Response> sendBoundedHttpRequest(
   try {
     remaining = _remaining(timeout, elapsed);
   } on TimeoutException {
+    timeoutAbort.complete();
     _cancel(streamed.stream);
     rethrow;
   }
-  final bytes = await _readBoundedBody(
-    streamed.stream,
-    request.url,
-    maxBodyBytes,
-    remaining,
-  );
+  final Uint8List bytes;
+  try {
+    bytes = await _readBoundedBody(
+      streamed.stream,
+      request.url,
+      maxBodyBytes,
+      remaining,
+    );
+  } on TimeoutException {
+    timeoutAbort.complete();
+    rethrow;
+  }
   return http.Response.bytes(
     bytes,
     streamed.statusCode,
-    request: streamed.request,
+    // The abortable transport request is an implementation detail. Preserve
+    // the caller's request identity in the buffered response, as this helper
+    // did before deadline cancellation was added.
+    request: request,
     headers: streamed.headers,
     isRedirect: streamed.isRedirect,
     persistentConnection: streamed.persistentConnection,
     reasonPhrase: streamed.reasonPhrase,
   );
+}
+
+http.BaseRequest _withAbortTrigger(
+  http.BaseRequest request,
+  Future<void> timeoutAbort,
+) {
+  if (request is! http.Request) return request;
+  final existingAbort = switch (request) {
+    http.Abortable(:final abortTrigger?) => abortTrigger,
+    _ => null,
+  };
+  final abortTrigger = existingAbort == null
+      ? timeoutAbort
+      : Future.any<void>([existingAbort, timeoutAbort]);
+  return http.AbortableRequest(
+      request.method,
+      request.url,
+      abortTrigger: abortTrigger,
+    )
+    ..bodyBytes = request.bodyBytes
+    ..headers.addAll(request.headers)
+    ..followRedirects = request.followRedirects
+    ..maxRedirects = request.maxRedirects
+    ..persistentConnection = request.persistentConnection;
 }
 
 Future<Uint8List> _readBoundedBody(

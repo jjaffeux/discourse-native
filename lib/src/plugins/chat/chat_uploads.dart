@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../foundation/diagnostic_errors.dart';
 import '../../shell/image_decode.dart';
 import '../../shell/lightbox.dart';
 import '../../shell/open_link.dart';
@@ -93,8 +94,10 @@ class _Image extends StatelessWidget {
       fit: BoxFit.cover,
       width: double.infinity,
       cacheWidth: imagePhysicalPixels(context, width),
-      errorBuilder: (context, error, stackTrace) =>
-          UnavailableImage(color: theme.shell.placeholder),
+      errorBuilder: (context, error, stackTrace) {
+        reportImageError(error, stackTrace, operation: 'chat.image');
+        return UnavailableImage(color: theme.shell.placeholder);
+      },
     );
 
     if (ratio != null) {

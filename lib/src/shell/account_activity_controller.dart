@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
+import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/bookmark_feed.dart';
 import '../models/discourse_instance.dart';
@@ -26,6 +27,17 @@ final class AccountActivityController extends FrameSafeNotifier {
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
   final TotalsLoaded? onTotalsLoaded;
+
+  void _report(Object error, StackTrace stackTrace, String operation) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: operation,
+      source: 'account',
+      handled: true,
+      degraded: true,
+    );
+  }
 
   final _totalsChanges = _ActivityAspect();
   final _notificationChanges = _ActivityAspect();
@@ -87,7 +99,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         onTotalsLoaded?.call(instance, resolved);
       });
       return accepted ? applied : null;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_totalsRequests[instance.url], request)) {
+        return null;
+      }
+      _report(error, stackTrace, 'account.refreshTotals');
       return null;
     } finally {
       _commit(lease, () {
@@ -135,7 +153,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         _notifications[instance.url] = NotificationFeed.of(notifications);
         _notifyNotifications();
       });
-    } on SiteLookupException catch (error) {
+    } on SiteLookupException catch (error, stackTrace) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_notificationRequests[instance.url], request)) {
+        return;
+      }
+      _report(error, stackTrace, 'account.loadNotifications');
       _commit(lease, () {
         if (!identical(_notificationRequests[instance.url], request)) return;
         fail(
@@ -145,7 +169,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         );
         _notifyNotifications();
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_notificationRequests[instance.url], request)) {
+        return;
+      }
+      _report(error, stackTrace, 'account.loadNotifications');
       _commit(lease, () {
         if (!identical(_notificationRequests[instance.url], request)) return;
         fail("Couldn't load notifications from ${instance.host}.");
@@ -200,7 +230,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         _bookmarks[instance.url] = BookmarkFeed.of(bookmarks);
         _notifyBookmarks();
       });
-    } on SiteLookupException catch (error) {
+    } on SiteLookupException catch (error, stackTrace) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_bookmarkRequests[instance.url], request)) {
+        return;
+      }
+      _report(error, stackTrace, 'account.loadBookmarks');
       _commit(lease, () {
         if (!identical(_bookmarkRequests[instance.url], request)) return;
         fail(
@@ -210,7 +246,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         );
         _notifyBookmarks();
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_bookmarkRequests[instance.url], request)) {
+        return;
+      }
+      _report(error, stackTrace, 'account.loadBookmarks');
       _commit(lease, () {
         if (!identical(_bookmarkRequests[instance.url], request)) return;
         fail("Couldn't load bookmarks from ${instance.host}.");
@@ -275,7 +317,14 @@ final class AccountActivityController extends FrameSafeNotifier {
         apiKey: apiKey,
         id: notification.id,
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      final key = (instance.url, notification.id);
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !_notificationReadRequests.containsKey(key)) {
+        return;
+      }
+      _report(error, stackTrace, 'account.markNotificationRead');
       return;
     }
 

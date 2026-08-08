@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../diagnostics/diagnostic_error_cause.dart';
 import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
@@ -55,12 +56,14 @@ enum WriteFailure {
   unreachable,
 }
 
-class WriteException implements Exception {
+class WriteException implements Exception, DiagnosticErrorCause {
   const WriteException(
     this.failure, {
     this.errors = const [],
     this.statusCode,
     this.retryAfter,
+    this.cause,
+    this.causeStackTrace,
   });
 
   final WriteFailure failure;
@@ -73,6 +76,14 @@ class WriteException implements Exception {
 
   /// How long to wait before trying again, on a [WriteFailure.rateLimited].
   final Duration? retryAfter;
+  final Object? cause;
+  final StackTrace? causeStackTrace;
+
+  @override
+  Object get diagnosticCause => cause ?? this;
+
+  @override
+  StackTrace? get diagnosticCauseStackTrace => causeStackTrace;
 
   String get message {
     if (errors.isNotEmpty) return errors.join('\n');
@@ -91,7 +102,9 @@ class WriteException implements Exception {
   }
 
   @override
-  String toString() => 'WriteException($failure, $statusCode, $errors)';
+  String toString() =>
+      'WriteException($failure, statusCode: $statusCode, '
+      'retryAfter: $retryAfter)';
 }
 
 /// Talks to a Discourse site.
@@ -147,8 +160,13 @@ class DiscourseApi
     final url = Uri.parse(trimmed);
     try {
       return requireSafeHttpUrl(url);
-    } on UnsafeHttpTransportException {
-      throw SiteLookupException(SiteLookupFailure.unreachable, url.toString());
+    } on UnsafeHttpTransportException catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        url.toString(),
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
     }
   }
 
@@ -160,8 +178,13 @@ class DiscourseApi
       head = await _head(probe);
     } on SiteLookupException {
       rethrow;
-    } catch (_) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, term);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        term,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
     }
 
     // A Discourse always has this route; a 404 means we are talking to
@@ -199,8 +222,13 @@ class DiscourseApi
       info = jsonDecode(response.body) as Map<String, dynamic>;
     } on SiteLookupException {
       rethrow;
-    } catch (_) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, term);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        term,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
     }
 
     final title = jsonText(info['title']);
@@ -552,11 +580,16 @@ class DiscourseApi
       return SiteConfig.fromSettings(
         jsonDecode(response.body) as Map<String, dynamic>,
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
       // A payload this cannot read is an answer it cannot use: report it the
       // way every other failure here is reported, rather than letting a decode
       // error escape the contract callers swallow by.
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
     }
   }
 
@@ -594,8 +627,13 @@ class DiscourseApi
         },
         _ => const <String, String>{},
       };
-    } catch (_) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
     }
   }
 
@@ -636,8 +674,13 @@ class DiscourseApi
         ],
         _ => const <FoundUser>[],
       };
-    } catch (_) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
     }
   }
 
@@ -687,8 +730,13 @@ class DiscourseApi
         ],
         _ => const <FoundHashtag>[],
       };
-    } catch (_) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
     }
   }
 
@@ -732,8 +780,13 @@ class DiscourseApi
             for (final item in entry)
               if (item is Map<String, dynamic>) ?FoundHashtag.fromJson(item),
       ];
-    } catch (_) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
     }
   }
 
@@ -777,8 +830,13 @@ class DiscourseApi
           if (name is String) name,
         ...jsonObject(body['groups']).keys,
       };
-    } catch (_) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
     }
   }
 
@@ -815,8 +873,13 @@ class DiscourseApi
                 if (_absoluteIcon(url, siteUrl) case final resolved?)
                   SiteEmoji(name: name, url: resolved),
       ];
-    } catch (_) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
     }
   }
 
@@ -1256,8 +1319,12 @@ class DiscourseApi
             if (entry.value != null) entry.key: entry.value,
         });
       response = await _send(request);
-    } catch (_) {
-      throw const WriteException(WriteFailure.unreachable);
+    } catch (error, stackTrace) {
+      throw WriteException(
+        WriteFailure.unreachable,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
     }
 
     final decoded = _decode(response.body);
@@ -1330,8 +1397,13 @@ class DiscourseApi
           apiKey == null ? const {} : authHeaders(apiKey, clientId: clientId),
         );
       response = await _send(request);
-    } catch (_) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
     }
 
     if (response.statusCode == 403 || response.statusCode == 401) {
@@ -1543,10 +1615,12 @@ class DiscourseApi
         timeout: timeout,
         maxBodyBytes: _maxResponseBytes,
       );
-    } on UnsafeHttpTransportException catch (error) {
+    } on UnsafeHttpTransportException catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
         error.url.toString(),
+        cause: error,
+        causeStackTrace: stackTrace,
       );
     }
   }

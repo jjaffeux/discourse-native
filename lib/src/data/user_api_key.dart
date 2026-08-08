@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:basic_utils/basic_utils.dart' show CryptoUtils;
 import 'package:pointycastle/export.dart';
 
+import '../diagnostics/diagnostic_error_cause.dart';
+
 /// What a site hands back once the user authorizes the app.
 class UserApiCredentials {
   const UserApiCredentials({
@@ -35,11 +37,28 @@ enum UserApiAuthFailure {
   badReply,
 }
 
-class UserApiAuthException implements Exception {
-  const UserApiAuthException(this.failure, [this.detail]);
+class UserApiAuthException implements Exception, DiagnosticErrorCause {
+  const UserApiAuthException(this.failure, [this.detail])
+    : cause = null,
+      causeStackTrace = null;
+
+  const UserApiAuthException.caused(
+    this.failure,
+    this.detail,
+    this.cause,
+    this.causeStackTrace,
+  );
 
   final UserApiAuthFailure failure;
   final String? detail;
+  final Object? cause;
+  final StackTrace? causeStackTrace;
+
+  @override
+  Object get diagnosticCause => cause ?? this;
+
+  @override
+  StackTrace? get diagnosticCauseStackTrace => causeStackTrace;
 
   String get message => switch (failure) {
     UserApiAuthFailure.cancelled => 'Connection cancelled.',
@@ -50,7 +69,7 @@ class UserApiAuthException implements Exception {
   };
 
   @override
-  String toString() => 'UserApiAuthException($failure, $detail)';
+  String toString() => 'UserApiAuthException($failure)';
 }
 
 /// Builds and interprets Discourse's user API key handshake.
@@ -98,7 +117,10 @@ class UserApiKeyProtocol {
     try {
       callback = Uri.parse(callbackUrl);
     } on FormatException catch (error) {
-      throw UserApiAuthException(UserApiAuthFailure.badReply, '$error');
+      throw UserApiAuthException(
+        UserApiAuthFailure.badReply,
+        _safeAuthFailureDetail(error),
+      );
     }
 
     if (callback.scheme != redirectScheme || callback.host != redirectHost) {
@@ -130,8 +152,14 @@ class UserApiKeyProtocol {
       final privateKey = CryptoUtils.rsaPrivateKeyFromPem(privateKeyPem);
       final plain = _decryptPkcs1(cipherText, privateKey);
       decoded = jsonDecode(utf8.decode(plain)) as Map<String, dynamic>;
-    } catch (e) {
-      throw UserApiAuthException(UserApiAuthFailure.badReply, '$e');
+    } catch (error) {
+      // The exception may retain the decrypted JSON as FormatException.source,
+      // including the API key. Keep only classification and a source-free
+      // parser message at this trust boundary.
+      throw UserApiAuthException(
+        UserApiAuthFailure.badReply,
+        _safeAuthFailureDetail(error),
+      );
     }
 
     // Guards against a reply being replayed at us from somewhere else.
@@ -176,6 +204,12 @@ class UserApiKeyProtocol {
     return Uint8List.fromList(out);
   }
 }
+
+String _safeAuthFailureDetail(Object error) => switch (error) {
+  FormatException(:final message, :final offset) =>
+    'FormatException: $message${offset == null ? '' : ' at $offset'}',
+  _ => error.runtimeType.toString(),
+};
 
 /// An RSA key pair in the PEM forms we need: the public one goes to the site,
 /// the private one stays in memory for the duration of the handshake.

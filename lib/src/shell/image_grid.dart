@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../foundation/diagnostic_errors.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -409,8 +410,10 @@ class ImageGridTile extends StatelessWidget {
           fit: fit,
           width: double.infinity,
           height: double.infinity,
-          errorBuilder: (context, error, stackTrace) =>
-              UnavailableImage(color: Theme.of(context).shell.placeholder),
+          errorBuilder: (context, error, stackTrace) {
+            reportImageError(error, stackTrace, operation: 'imageGrid.image');
+            return UnavailableImage(color: Theme.of(context).shell.placeholder);
+          },
         ),
       );
     }

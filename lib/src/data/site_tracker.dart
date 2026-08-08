@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:http/http.dart' as http;
 import 'package:message_bus_client/message_bus_client.dart';
 
+import '../diagnostics/diagnostics_controller.dart';
 import '../models/incoming_topics.dart';
 import '../models/notification_totals.dart';
 import 'discourse_api.dart';
@@ -37,6 +40,13 @@ abstract interface class SiteMessageBusSession {
   void pollNow();
 
   Future<void> close();
+}
+
+/// Optional error stream implemented by the production message-bus adapter.
+/// Kept separate so small test fakes and alternate transports need not grow an
+/// error controller merely to satisfy [SiteMessageBusSession].
+abstract interface class SiteMessageBusErrorSource {
+  Stream<Object> get errors;
 }
 
 /// A cancellable channel registration from [SiteMessageBusSession].
@@ -93,6 +103,7 @@ class SiteTracker {
     _http = transport;
     _bus = bus;
     try {
+      _listenForErrors();
       _subscribe();
       start();
     } catch (_) {
@@ -121,12 +132,78 @@ class SiteTracker {
   final bool _signedIn;
   late final SafeHttpClient _http;
   late final SiteMessageBusSession _bus;
+  StreamSubscription<Object>? _errorSubscription;
 
   bool _polling = false;
   bool _disposed = false;
   Future<void>? _disposeFuture;
 
   final IncomingTopics incoming = IncomingTopics();
+
+  void _listenForErrors() {
+    final bus = _bus;
+    if (bus is! SiteMessageBusErrorSource) return;
+    _errorSubscription = (bus as SiteMessageBusErrorSource).errors.listen(
+      _onMessageBusError,
+    );
+  }
+
+  void _onMessageBusError(Object error) {
+    if (_disposed) return;
+    final (
+      Object safeError,
+      StackTrace stackTrace,
+      String operation,
+    ) = switch (error) {
+      MessageBusHttpException(:final statusCode, :final retryAfter) => (
+        StateError(
+          'Message bus HTTP $statusCode'
+          '${retryAfter == null ? '' : ' (retry after $retryAfter)'}',
+        ),
+        StackTrace.current,
+        'messageBus.poll',
+      ),
+      MessageBusTransportException(:final cause, :final stackTrace) => (
+        cause,
+        stackTrace ?? StackTrace.current,
+        'messageBus.poll',
+      ),
+      MessageBusTimeoutException(:final timeout) => (
+        TimeoutException('Message bus poll timed out', timeout),
+        StackTrace.current,
+        'messageBus.poll',
+      ),
+      MessageBusProtocolException(:final message) => (
+        FormatException(message),
+        StackTrace.current,
+        'messageBus.poll',
+      ),
+      MessageBusCallbackException(
+        :final channel,
+        :final cause,
+        :final stackTrace,
+      ) =>
+        (
+          // Preserve the original exception type so the central privacy
+          // boundary can strip fields such as FormatException.source. Never
+          // interpolate a callback exception into a wrapper string: it may
+          // retain the message-bus payload it was parsing.
+          cause,
+          stackTrace ?? StackTrace.current,
+          'messageBus.callback $channel',
+        ),
+      _ => (error, StackTrace.current, 'messageBus.poll'),
+    };
+    DiagnosticsSink.current.reportError(
+      safeError,
+      stackTrace,
+      operation: operation,
+      source: 'message_bus',
+      severity: DiagnosticSeverity.warning,
+      handled: true,
+      degraded: true,
+    );
+  }
 
   void _subscribe() {
     // Everything starts at [MessageBusPosition.newMessages], core's
@@ -206,7 +283,18 @@ class SiteTracker {
     for (final subscription in subscriptions) {
       try {
         subscription.cancel();
-      } catch (_) {
+      } catch (error, stackTrace) {
+        if (!_disposed) {
+          DiagnosticsSink.current.reportError(
+            error,
+            stackTrace,
+            operation: 'messageBus.unsubscribeTopic',
+            source: 'message_bus',
+            severity: DiagnosticSeverity.warning,
+            handled: true,
+            degraded: true,
+          );
+        }
         // The bus close is the final cleanup boundary. One broken channel
         // handle must not retain every later subscription or prevent close.
       }
@@ -267,8 +355,52 @@ class SiteTracker {
   }
 
   Future<void> _close() async {
+    // Start closing the bus before the first asynchronous suspension. This is
+    // important when construction fails part-way through subscribing: a real
+    // message-bus client may already have scheduled its next poll, and test
+    // sessions likewise promise that [close] is invoked synchronously.
+    Future<void>? cancellingErrors;
     try {
-      await _bus.close();
+      cancellingErrors = _errorSubscription?.cancel();
+    } catch (_) {
+      // The bus close below remains the authoritative cleanup boundary.
+    }
+
+    final Future<void> closingBus;
+    try {
+      closingBus = _bus.close();
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'messageBus.close',
+        source: 'message_bus',
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+        degraded: true,
+      );
+      _http.close();
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+
+    try {
+      try {
+        await cancellingErrors;
+      } catch (_) {
+        // The bus close below remains the authoritative cleanup boundary.
+      }
+      await closingBus;
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'messageBus.close',
+        source: 'message_bus',
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+        degraded: true,
+      );
+      rethrow;
     } finally {
       _http.close();
     }
@@ -309,12 +441,16 @@ SiteMessageBusSession _createMessageBus({
   ),
 );
 
-final class _MessageBusSession implements SiteMessageBusSession {
+final class _MessageBusSession
+    implements SiteMessageBusSession, SiteMessageBusErrorSource {
   _MessageBusSession(this._client) {
     _client.stop();
   }
 
   final MessageBusClient _client;
+
+  @override
+  Stream<Object> get errors => _client.errors;
 
   @override
   SiteMessageBusSubscription subscribe(

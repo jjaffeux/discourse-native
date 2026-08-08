@@ -13,6 +13,7 @@ import '../data/store.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_api_key.dart';
+import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/bookmark_feed.dart';
 import '../models/composer_draft.dart';
@@ -119,6 +120,24 @@ class ShellController extends FrameSafeNotifier {
   final DraftStore drafts;
   final SiteLifecycle lifecycle;
 
+  void _reportOperationalError(
+    Object error,
+    StackTrace stackTrace,
+    String operation, {
+    bool degraded = true,
+    DiagnosticSeverity severity = DiagnosticSeverity.error,
+  }) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: operation,
+      source: 'shell',
+      severity: severity,
+      handled: true,
+      degraded: degraded,
+    );
+  }
+
   Future<_WriteCredential> _credentialForWrite(String siteUrl) async {
     try {
       final apiKey = await authenticator.apiKeyFor(siteUrl);
@@ -128,7 +147,12 @@ class ShellController extends FrameSafeNotifier {
               failure: const WriteException(WriteFailure.forbidden),
             )
           : (apiKey: apiKey, failure: null);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'authentication.readWriteCredential',
+      );
       return (
         apiKey: null,
         failure: const WriteException(WriteFailure.unreachable),
@@ -293,7 +317,13 @@ class ShellController extends FrameSafeNotifier {
     final List<DiscourseInstance> stored;
     try {
       stored = await instanceStore.load();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'instances.load',
+        degraded: false,
+      );
       if (!isDisposed) {
         _loadStatus = InstanceLoadStatus.failed;
         _notify();
@@ -711,7 +741,13 @@ class ShellController extends FrameSafeNotifier {
         _notify();
         unawaited(_ensureCategories(instance, apiKey));
       });
-    } on SiteLookupException catch (e) {
+    } on SiteLookupException catch (e, stackTrace) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_feedRevisions[key], revision)) {
+        return;
+      }
+      _reportOperationalError(e, stackTrace, 'topics.loadFeed');
       lease.commit(() {
         if (!identical(_feedRevisions[key], revision)) return;
         tracker?.incoming.restore(destinationId, announced);
@@ -722,7 +758,13 @@ class ShellController extends FrameSafeNotifier {
         );
         _notify();
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_feedRevisions[key], revision)) {
+        return;
+      }
+      _reportOperationalError(error, stackTrace, 'topics.loadFeed');
       lease.commit(() {
         if (!identical(_feedRevisions[key], revision)) return;
         tracker?.incoming.restore(destinationId, announced);
@@ -834,7 +876,14 @@ class ShellController extends FrameSafeNotifier {
         _feedRows[key] = 0;
         _notify();
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent || !requestIsCurrent()) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'topics.loadIncoming',
+        severity: DiagnosticSeverity.warning,
+      );
       lease.commit(() {
         if (!requestIsCurrent()) return;
         _feeds[key] = (_feeds[key] ?? feed).copyWith(loadingIncoming: false);
@@ -975,7 +1024,19 @@ class ShellController extends FrameSafeNotifier {
         store.putAll(siteUrl, current);
         _notify();
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      final stillRelevant = wanted.any((id) {
+        final key = _postKey(siteUrl, id);
+        return requestOwns(id) && !_postRefreshPending.contains(key);
+      });
+      if (!isDisposed && lease.isCurrent && stillRelevant) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'post.refreshFromMessageBus',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
       // Somebody else's reaction not arriving is not worth saying anything
       // about; the next read of the topic settles it.
     } finally {
@@ -1019,7 +1080,9 @@ class ShellController extends FrameSafeNotifier {
           ? await authenticator.apiKeyFor(siteUrl)
           : null;
       clientId = await authenticator.clientId();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(error, stackTrace, 'messageBus.readCredentials');
       lease.commit(() => _trackersStarting.remove(siteUrl));
       return;
     }
@@ -1055,7 +1118,8 @@ class ShellController extends FrameSafeNotifier {
             ),
           ),
         );
-      } catch (_) {
+      } catch (error, stackTrace) {
+        _reportOperationalError(error, stackTrace, 'messageBus.start');
         return;
       }
       _trackers[siteUrl] = tracker;
@@ -1121,7 +1185,15 @@ class ShellController extends FrameSafeNotifier {
     final DiscourseUser user;
     try {
       user = await api.currentUser(siteUrl: siteUrl, apiKey: apiKey);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return null;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'messageBus.resolveAccount',
+        severity: DiagnosticSeverity.warning,
+      );
+      // The connection is still worth opening for `/latest`.
       return null;
     }
 
@@ -1307,7 +1379,17 @@ class ShellController extends FrameSafeNotifier {
     return true;
   }
 
-  Future<void> loadTopic(int topicId, String slug, {bool force = false}) async {
+  Future<void> loadTopic(int topicId, String slug, {bool force = false}) =>
+      DiagnosticsSink.runOperation(
+        'topic.load',
+        () => _loadTopic(topicId, slug, force: force),
+      );
+
+  Future<void> _loadTopic(
+    int topicId,
+    String slug, {
+    required bool force,
+  }) async {
     final instance = currentInstance;
     if (instance == null) return;
 
@@ -1348,7 +1430,9 @@ class ShellController extends FrameSafeNotifier {
           _retitle(topicId, fetched.detail.title);
         }
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(error, stackTrace, 'topic.load', degraded: false);
       // Left absent; the view shows its own failure state.
     } finally {
       lease.commit(() {
@@ -1427,7 +1511,14 @@ class ShellController extends FrameSafeNotifier {
         apiKey: await authenticator.apiKeyFor(instance.url),
       );
       lease.commit(() => store.putAll(instance.url, posts));
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'topic.loadMorePosts',
+        severity: DiagnosticSeverity.warning,
+      );
       // Keep what is already shown.
     } finally {
       lease.commit(() {
@@ -1635,7 +1726,9 @@ class ShellController extends FrameSafeNotifier {
           composer.loadedBody(raw);
         }
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(error, stackTrace, 'post.loadEditBody');
       lease.commit(composer.bodyLoadFailed);
     }
   }
@@ -1776,7 +1869,10 @@ class ShellController extends FrameSafeNotifier {
     } on WriteException catch (e) {
       revert();
       return e.message;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(error, stackTrace, 'post.toggleLike');
+      }
       revert();
       return const WriteException(WriteFailure.unreachable).message;
     }
@@ -2016,7 +2112,10 @@ class ShellController extends FrameSafeNotifier {
       }
       revert();
       return e.message;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(error, stackTrace, 'post.toggleReaction');
+      }
       revert();
       return const WriteException(WriteFailure.unreachable).message;
     }
@@ -2108,13 +2207,31 @@ class ShellController extends FrameSafeNotifier {
         apiKey: await authenticator.apiKeyFor(targetSite),
       );
       lease.commit(() => store.put(targetSite, fetched));
-    } on SiteLookupException catch (e) {
+    } on SiteLookupException catch (e, stackTrace) {
+      if (isDisposed || !lease.isCurrent || !_likersLoading.contains(key)) {
+        return;
+      }
+      _reportOperationalError(
+        e,
+        stackTrace,
+        'post.loadLikers',
+        severity: DiagnosticSeverity.warning,
+      );
       lease.commit(() {
         _likersErrors[key] = e.failure == SiteLookupFailure.notDiscourse
             ? "Couldn't see who liked this."
             : "Couldn't reach ${instance.host}.";
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent || !_likersLoading.contains(key)) {
+        return;
+      }
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'post.loadLikers',
+        severity: DiagnosticSeverity.warning,
+      );
       lease.commit(() {
         _likersErrors[key] = "Couldn't load who liked this.";
       });
@@ -2155,7 +2272,10 @@ class ShellController extends FrameSafeNotifier {
         await write(siteUrl, apiKey);
       } on WriteException catch (e) {
         return e.message;
-      } catch (_) {
+      } catch (error, stackTrace) {
+        if (lease.isCurrent) {
+          _reportOperationalError(error, stackTrace, 'post.mutate');
+        }
         return const WriteException(WriteFailure.unreachable).message;
       }
 
@@ -2186,7 +2306,15 @@ class ShellController extends FrameSafeNotifier {
         ids: [postId],
         apiKey: apiKey,
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'post.refreshAfterWrite',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
       // The write landed; the stream is repaired the next time it is read.
       return;
     }
@@ -2430,7 +2558,10 @@ class ShellController extends FrameSafeNotifier {
         lease.commit(() => composer.failed(e));
       }
       return;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(error, stackTrace, 'composer.submit');
+      }
       await _reconcile(
         target,
         raw,
@@ -2498,7 +2629,10 @@ class ShellController extends FrameSafeNotifier {
     } on WriteException catch (e) {
       lease.commit(() => composer.failed(e));
       return;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(error, stackTrace, 'composer.edit');
+      }
       lease.commit(
         () => composer.failed(const WriteException(WriteFailure.unreachable)),
       );
@@ -2616,7 +2750,15 @@ class ShellController extends FrameSafeNotifier {
           break;
         }
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (session.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'composer.reconcile',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
       // Still unknown, and saying "it failed" would invite the second post
       // this whole path exists to prevent.
       session.commit(() {
@@ -2724,7 +2866,14 @@ class ShellController extends FrameSafeNotifier {
         apiKey: await authenticator.apiKeyFor(siteUrl),
       );
       lease.commit(() => _absorb(siteUrl, topic));
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'topic.refetchAfterWrite',
+        severity: DiagnosticSeverity.warning,
+      );
       // The post is already on screen; the stream is repaired next time.
     } finally {
       lease.commit(() {
@@ -2793,13 +2942,31 @@ class ShellController extends FrameSafeNotifier {
         apiKey: await authenticator.apiKeyFor(targetSite),
       );
       lease.commit(() => store.put(targetSite, card));
-    } on SiteLookupException catch (e) {
+    } on SiteLookupException catch (e, stackTrace) {
+      if (isDisposed || !lease.isCurrent || !_userCardsLoading.contains(key)) {
+        return;
+      }
+      _reportOperationalError(
+        e,
+        stackTrace,
+        'userCard.load',
+        severity: DiagnosticSeverity.warning,
+      );
       lease.commit(() {
         _userCardErrors[key] = e.failure == SiteLookupFailure.notDiscourse
             ? "Couldn't see that profile."
             : "Couldn't reach ${instance.host}.";
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent || !_userCardsLoading.contains(key)) {
+        return;
+      }
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'userCard.load',
+        severity: DiagnosticSeverity.warning,
+      );
       lease.commit(() {
         _userCardErrors[key] = "Couldn't load @$username.";
       });
@@ -2864,7 +3031,14 @@ class ShellController extends FrameSafeNotifier {
           clearNextPage: next.nextPagePath == null || fresh.isEmpty,
         );
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent || !requestIsCurrent()) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'topics.loadMore',
+        severity: DiagnosticSeverity.warning,
+      );
       lease.commit(() {
         if (!requestIsCurrent()) return;
         final held = _feeds[key];
@@ -2931,7 +3105,15 @@ class ShellController extends FrameSafeNotifier {
         apiKey: await authenticator.apiKeyFor(siteUrl),
         clientId: await authenticator.clientId(),
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'hashtags.search',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
       return const [];
     }
 
@@ -2995,8 +3177,16 @@ class ShellController extends FrameSafeNotifier {
         }
         _composer?.text.artworkArrived();
       });
-    } catch (_) {
-      // Nothing to report: the ref stays text, and asking again is free.
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent && ask.any(inFlight.contains)) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'hashtags.resolve',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      // The ref stays text and remains eligible for a later retry.
     } finally {
       if (!isDisposed) lease.commit(() => inFlight.removeAll(ask));
     }
@@ -3033,7 +3223,15 @@ class ShellController extends FrameSafeNotifier {
         }
         _composer?.text.artworkArrived();
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent && ask.any(inFlight.contains)) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'mentions.resolve',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
       // As above.
     } finally {
       if (!isDisposed) lease.commit(() => inFlight.removeAll(ask));
@@ -3060,7 +3258,15 @@ class ShellController extends FrameSafeNotifier {
         apiKey: await authenticator.apiKeyFor(siteUrl),
         clientId: await authenticator.clientId(),
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'users.search',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
       return const [];
     }
 
@@ -3152,7 +3358,14 @@ class ShellController extends FrameSafeNotifier {
       final apiKey = await authenticator.apiKeyFor(instance.url);
       if (!lease.isCurrent) return;
       await _ensureCategories(instance, apiKey, lease: lease);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'categories.readCredentials',
+        severity: DiagnosticSeverity.warning,
+      );
       // Categories are optional decoration and can retry on the next read.
     }
   }
@@ -3174,7 +3387,14 @@ class ShellController extends FrameSafeNotifier {
         store.putAll(instance.url, categories);
         _notify();
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !session.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'categories.load',
+        severity: DiagnosticSeverity.warning,
+      );
       session.commit(() => _categorised.remove(instance.url));
     }
   }
@@ -3243,7 +3463,16 @@ class ShellController extends FrameSafeNotifier {
       if (previousKey != null && previousKey != connectedCredentials.key) {
         try {
           await api.revokeApiKey(siteUrl: instance.url, apiKey: previousKey);
-        } catch (_) {}
+        } catch (error, stackTrace) {
+          if (lease.isCurrent) {
+            _reportOperationalError(
+              error,
+              stackTrace,
+              'authentication.revokePreviousKey',
+              severity: DiagnosticSeverity.warning,
+            );
+          }
+        }
       }
       if (!lease.isCurrent) return;
 
@@ -3281,7 +3510,7 @@ class ShellController extends FrameSafeNotifier {
 
       await instanceStore.save(List.of(_instances));
       if (lease.isCurrent) unawaited(_refreshOne(connected!));
-    } on UserApiAuthException catch (e) {
+    } on UserApiAuthException catch (e, stackTrace) {
       if (credentials != null && lease.isCurrent) {
         lease = await _rollbackConnection(instance, credentials, lease);
       }
@@ -3295,22 +3524,27 @@ class ShellController extends FrameSafeNotifier {
         UserApiAuthFailure.launchFailed ||
         UserApiAuthFailure.badReply => e.message,
       };
+      if (e.failure != UserApiAuthFailure.cancelled) {
+        _reportOperationalError(e, stackTrace, 'authentication.connect');
+      }
       if (message == null) {
         _connectErrors.remove(instance.url);
       } else {
         _connectErrors[instance.url] = message;
       }
-    } on SiteLookupException catch (e) {
+    } on SiteLookupException catch (e, stackTrace) {
       if (credentials != null && lease.isCurrent) {
         lease = await _rollbackConnection(instance, credentials, lease);
       }
       if (!lease.isCurrent) return;
+      _reportOperationalError(e, stackTrace, 'authentication.loadAccount');
       _connectErrors[instance.url] = e.message;
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (credentials != null && lease.isCurrent) {
         lease = await _rollbackConnection(instance, credentials, lease);
       }
       if (!lease.isCurrent) return;
+      _reportOperationalError(e, stackTrace, 'authentication.connect');
       _connectErrors[instance.url] = 'Could not connect to ${instance.host}.';
     } finally {
       if (_connectingSiteUrl == instance.url) _connectingSiteUrl = null;
@@ -3389,12 +3623,26 @@ class ShellController extends FrameSafeNotifier {
   Future<bool> _discardCredentials(String siteUrl, String apiKey) async {
     try {
       await api.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'authentication.revokeKey',
+        severity: DiagnosticSeverity.warning,
+      );
+    }
     try {
       await authenticator.disconnect(siteUrl);
       return true;
-    } catch (_) {}
-    return false;
+    } catch (error, stackTrace) {
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'authentication.deleteCredential',
+        severity: DiagnosticSeverity.warning,
+      );
+      return false;
+    }
   }
 
   /// Forgets the key and who we were, leaving the site in the rail.
@@ -3461,21 +3709,45 @@ class ShellController extends FrameSafeNotifier {
     String? apiKey;
     try {
       apiKey = await authenticator.apiKeyFor(instance.url);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'authentication.readCredentialForDisconnect',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
       // The local account boundary has already been cleared.
     }
     if (!lease.isCurrent) return lease;
     if (apiKey != null) {
       try {
         await api.revokeApiKey(siteUrl: instance.url, apiKey: apiKey);
-      } catch (_) {
+      } catch (error, stackTrace) {
+        if (lease.isCurrent) {
+          _reportOperationalError(
+            error,
+            stackTrace,
+            'authentication.revokeKey',
+            severity: DiagnosticSeverity.warning,
+          );
+        }
         // Forget locally even when the site cannot be reached.
       }
     }
     if (!lease.isCurrent) return lease;
     try {
       await authenticator.disconnect(instance.url);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'authentication.deleteCredential',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
       // Connecting again overwrites a key local storage could not remove.
     }
     if (!lease.isCurrent) return lease;

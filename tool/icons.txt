@@ -21,6 +21,7 @@ globe
 
 # --- Shell chrome
 gear
+bug
 ellipsis
 chevron-right
 chevron-left
@@ -37,6 +38,11 @@ circle-minus
 circle-info
 triangle-exclamation
 exclamation
+magnifying-glass
+filter
+copy
+play
+snowflake
 
 # --- Topics and posts
 comment

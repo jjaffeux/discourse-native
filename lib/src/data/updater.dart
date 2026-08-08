@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../diagnostics/diagnostic_error_cause.dart';
+
 /// Which stream of builds an install follows.
 enum UpdateChannel {
   stable,
@@ -74,14 +76,31 @@ enum UpdateFailure {
   install,
 }
 
-class UpdateException implements Exception {
-  const UpdateException(this.failure, [this.detail]);
+class UpdateException implements Exception, DiagnosticErrorCause {
+  const UpdateException(this.failure, [this.detail])
+    : cause = null,
+      causeStackTrace = null;
+
+  const UpdateException.caused(
+    this.failure,
+    this.detail,
+    this.cause,
+    this.causeStackTrace,
+  );
 
   final UpdateFailure failure;
 
   /// What the implementation said. For logs and [toString]; never shown on its
   /// own, because [message] is what a reader gets.
   final String? detail;
+  final Object? cause;
+  final StackTrace? causeStackTrace;
+
+  @override
+  Object get diagnosticCause => cause ?? this;
+
+  @override
+  StackTrace? get diagnosticCauseStackTrace => causeStackTrace;
 
   String get message => switch (failure) {
     UpdateFailure.unreachable => "Couldn't reach the update server.",
@@ -95,7 +114,7 @@ class UpdateException implements Exception {
   };
 
   @override
-  String toString() => 'UpdateException($failure, $detail)';
+  String toString() => 'UpdateException($failure)';
 }
 
 /// Replacing the running application with a newer build of it.

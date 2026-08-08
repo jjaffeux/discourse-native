@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
+import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/site_appearance.dart';
 import '../models/site_config.dart';
@@ -75,6 +76,19 @@ final class SitePresentationController extends FrameSafeNotifier {
   final int maxAttempts;
 
   final _appearances = _RetryingSiteCache<SiteAppearance>();
+
+  void _report(Object error, StackTrace stackTrace, String operation) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: operation,
+      source: 'presentation',
+      severity: DiagnosticSeverity.warning,
+      handled: true,
+      degraded: true,
+    );
+  }
+
   final _configs = _RetryingSiteCache<SiteConfig>();
   final _customEmojis = _RetryingSiteCache<Map<String, String>>();
   final _emojis = _RetryingSiteCache<List<SiteEmoji>>();
@@ -162,11 +176,15 @@ final class SitePresentationController extends FrameSafeNotifier {
 
       try {
         await onConfigLoaded(siteUrl, config);
-      } catch (_) {
+      } catch (error, stackTrace) {
+        if (isDisposed || !lease.isCurrent) return;
+        _report(error, stackTrace, 'siteConfig.persist');
         // The fetched value remains useful for this session. Persistence can
         // be retried when some later instance-store change writes the rail.
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _report(error, stackTrace, 'siteConfig.load');
       // Every field has a safe default, so a failed optional request is quiet.
     } finally {
       if (!isDisposed) lease.commit(() => _configs.finish(siteUrl));
@@ -196,7 +214,9 @@ final class SitePresentationController extends FrameSafeNotifier {
           _notifyPresentationChanged(siteUrl);
         }
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _report(error, stackTrace, 'emoji.loadCustom');
       // Core and set emoji still have deterministic URLs without this map.
     } finally {
       if (!isDisposed) lease.commit(() => _customEmojis.finish(siteUrl));
@@ -220,7 +240,9 @@ final class SitePresentationController extends FrameSafeNotifier {
         _emojis.complete(siteUrl, List.unmodifiable(emojis));
         onEmojiIndexChanged();
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _report(error, stackTrace, 'emoji.loadIndex');
       // Shortcodes remain valid text when autocomplete metadata is absent.
     } finally {
       if (!isDisposed) lease.commit(() => _emojis.finish(siteUrl));

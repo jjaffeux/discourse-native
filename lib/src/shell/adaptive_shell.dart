@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../diagnostics/diagnostics_controller.dart';
+import '../diagnostics/diagnostics_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'diagnostics_panel.dart';
 import 'empty_state.dart';
 import 'instance_rail.dart';
 import 'instance_sidebar.dart';
@@ -46,23 +49,122 @@ class AdaptiveShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final diagnostics = DiagnosticsScope.maybeRead(context);
+    if (diagnostics == null) return _buildScaffold(null, false);
+
+    // Only panel visibility rebuilds this frame. HTTP traffic is listened to
+    // by DiagnosticsPanel itself, below the shell chrome, so it cannot rebuild
+    // the rail, sidebar, topic list, or chat stream.
+    return ValueListenableBuilder<bool>(
+      valueListenable: diagnostics.panelListenable,
+      builder: (context, open, _) => _buildScaffold(diagnostics, open),
+    );
+  }
+
+  Widget _buildScaffold(
+    DiagnosticsController? diagnostics,
+    bool diagnosticsOpen,
+  ) {
     return Scaffold(
-      body: Column(
-        children: [
-          // Spans every column, above the rail as well as the panel.
-          const ShellTitleBar(),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final layout = ShellLayout.forWidth(constraints.maxWidth);
-                return layout.isCompact
-                    ? const _CompactShell()
-                    : _WideShell(layout: layout);
-              },
-            ),
-          ),
-        ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = ShellLayout.forWidth(constraints.maxWidth);
+          final shell = layout.isCompact
+              ? const _CompactShell()
+              : _WideShell(layout: layout);
+
+          Widget framedShell(Widget body) => Column(
+            children: [
+              // Spans every shell column. On compact and medium layouts this
+              // frame sits under the app-wide diagnostics modal layer.
+              const ShellTitleBar(),
+              Expanded(child: body),
+            ],
+          );
+
+          if (diagnostics == null) return framedShell(shell);
+          final panel = DiagnosticsPanel(
+            controller: diagnostics,
+            onClose: diagnostics.closePanel,
+          );
+
+          if (layout == ShellLayout.expanded) {
+            final docked = framedShell(
+              Row(
+                children: [
+                  Expanded(child: shell),
+                  if (diagnosticsOpen)
+                    SizedBox(
+                      key: const ValueKey('diagnostics-docked-slot'),
+                      width: diagnosticsPanelWidth,
+                      child: panel,
+                    ),
+                ],
+              ),
+            );
+            return _withDiagnosticsBackHandling(
+              layout: layout,
+              open: diagnosticsOpen,
+              diagnostics: diagnostics,
+              child: docked,
+            );
+          }
+
+          final panelWidth = constraints.maxWidth < 600
+              ? constraints.maxWidth
+              : diagnosticsPanelWidth;
+          final overlay = Stack(
+            children: [
+              Positioned.fill(child: framedShell(shell)),
+              if (diagnosticsOpen)
+                Positioned.fill(
+                  child: ModalBarrier(
+                    key: const ValueKey('diagnostics-modal-barrier'),
+                    dismissible: true,
+                    onDismiss: diagnostics.closePanel,
+                    color: Colors.black.withValues(alpha: 0.32),
+                  ),
+                ),
+              if (diagnosticsOpen)
+                Positioned.fill(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(
+                      key: const ValueKey('diagnostics-overlay-slot'),
+                      width: panelWidth,
+                      child: panel,
+                    ),
+                  ),
+                ),
+            ],
+          );
+          return _withDiagnosticsBackHandling(
+            layout: layout,
+            open: diagnosticsOpen,
+            diagnostics: diagnostics,
+            child: overlay,
+          );
+        },
       ),
+    );
+  }
+
+  Widget _withDiagnosticsBackHandling({
+    required ShellLayout layout,
+    required bool open,
+    required DiagnosticsController diagnostics,
+    required Widget child,
+  }) {
+    // Compact already owns a PopScope for its sidebar/content hierarchy. It
+    // gives diagnostics first refusal itself so one Back event cannot both
+    // close the panel and navigate the underlying shell.
+    if (!open || layout.isCompact) return child;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && diagnostics.isPanelOpen) diagnostics.closePanel();
+      },
+      child: child,
     );
   }
 }
@@ -77,6 +179,11 @@ class _CompactShell extends StatelessWidget {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        final diagnostics = DiagnosticsScope.maybeRead(context);
+        if (diagnostics?.isPanelOpen ?? false) {
+          diagnostics!.closePanel();
+          return;
+        }
         ShellScope.read(context).handleBack();
       },
       child: Row(

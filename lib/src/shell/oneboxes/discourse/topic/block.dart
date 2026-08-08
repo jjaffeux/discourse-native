@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../../../foundation/diagnostic_errors.dart';
 import '../../../../theme/d_icon.dart';
 import '../../../../theme/d_icons.dart';
 import '../../../image_decode.dart';
@@ -131,7 +132,14 @@ class _Thumbnail extends StatelessWidget {
             resolveSiteUrl(thumbnail.src, siteUrl),
             fit: BoxFit.cover,
             cacheWidth: imagePhysicalPixels(context, 88),
-            errorBuilder: (context, error, stackTrace) => const SizedBox(),
+            errorBuilder: (context, error, stackTrace) {
+              reportImageError(
+                error,
+                stackTrace,
+                operation: 'onebox.topicThumbnail',
+              );
+              return const SizedBox();
+            },
           ),
         ),
       ),

@@ -2,6 +2,7 @@ import '../../data/api_credentials.dart';
 import '../../data/discourse_api_contracts.dart';
 import '../../data/site_lifecycle.dart';
 import '../../data/store.dart';
+import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
 import 'post_reactors.dart';
 
@@ -76,8 +77,16 @@ class ReactionsController extends FrameSafeNotifier {
         store.put(siteUrl, fetched);
         _errors.remove(key);
       });
-    } catch (_) {
-      if (isDisposed) return;
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'reactions.loadUsers',
+        source: 'reactions',
+        handled: true,
+        degraded: true,
+      );
       lease.commit(() {
         if (reactors(siteUrl, postId, filter: filter) == null) {
           _errors[key] = 'Could not find out who reacted.';

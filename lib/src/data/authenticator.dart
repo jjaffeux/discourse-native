@@ -62,21 +62,32 @@ class Authenticator implements ApiCredentialReader {
       );
     } on UserApiAuthException {
       rethrow;
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       // Every implementation agrees on this code when the user dismisses the
       // browser: the ASWebAuthenticationSession bridges on iOS and macOS, the
       // auth tab on Android, and both the webview and the loopback server on
       // Linux and Windows. Anything else means the session never got as far as
       // showing a page, which the user cannot fix by trying again — so it has
       // to be said out loud rather than folded into a silent cancellation.
-      throw UserApiAuthException(
-        e.code == 'CANCELED'
-            ? UserApiAuthFailure.cancelled
-            : UserApiAuthFailure.launchFailed,
+      final failure = e.code == 'CANCELED'
+          ? UserApiAuthFailure.cancelled
+          : UserApiAuthFailure.launchFailed;
+      if (failure == UserApiAuthFailure.cancelled) {
+        throw UserApiAuthException(failure, '${e.code}: ${e.message}');
+      }
+      throw UserApiAuthException.caused(
+        failure,
         '${e.code}: ${e.message}',
+        e,
+        stackTrace,
       );
-    } catch (e) {
-      throw UserApiAuthException(UserApiAuthFailure.launchFailed, '$e');
+    } catch (e, stackTrace) {
+      throw UserApiAuthException.caused(
+        UserApiAuthFailure.launchFailed,
+        '$e',
+        e,
+        stackTrace,
+      );
     }
 
     final credentials = protocol.decodePayload(

@@ -4,6 +4,7 @@ import '../../data/api_credentials.dart';
 import '../../data/discourse_api_contracts.dart';
 import '../../data/site_lifecycle.dart';
 import '../../data/store.dart';
+import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
@@ -172,6 +173,24 @@ class ChatController extends FrameSafeNotifier {
   final Store store;
   final SiteLifecycle lifecycle;
 
+  void _report(
+    Object error,
+    StackTrace stackTrace,
+    String operation, {
+    DiagnosticSeverity severity = DiagnosticSeverity.error,
+    bool degraded = true,
+  }) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: operation,
+      source: 'chat',
+      severity: severity,
+      handled: true,
+      degraded: degraded,
+    );
+  }
+
   /// How many messages to ask for. The site caps it at 50 and Discourse's own
   /// client sends exactly that.
   static const int pageSize = 50;
@@ -308,8 +327,9 @@ class ChatController extends FrameSafeNotifier {
         _errors.remove(key);
         _attempts.remove(key);
       });
-    } catch (_) {
-      if (isDisposed) return;
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _report(error, stackTrace, 'chat.loadChannels');
       lease.commit(() {
         _errors[key] = 'Could not load this site’s chat channels.';
       });
@@ -349,7 +369,10 @@ class ChatController extends FrameSafeNotifier {
   /// around one message into a window around another would leave a hole in the
   /// middle that nothing could ever fill.
   Future<void> openChannel(String siteUrl, int channelId) =>
-      _fetchWindow(siteUrl, channelId, fromLastRead: true);
+      DiagnosticsSink.runOperation(
+        'chat.loadWindow',
+        () => _fetchWindow(siteUrl, channelId, fromLastRead: true),
+      );
 
   /// Puts the newest page on screen, wherever the reader was.
   ///
@@ -359,7 +382,10 @@ class ChatController extends FrameSafeNotifier {
   /// fetch — which is the view's half of it, so this simply does nothing.
   Future<void> showLatest(String siteUrl, int channelId) {
     if (stream(siteUrl, channelId).atPresent) return Future.value();
-    return _fetchWindow(siteUrl, channelId, fromLastRead: false);
+    return DiagnosticsSink.runOperation(
+      'chat.loadLatest',
+      () => _fetchWindow(siteUrl, channelId, fromLastRead: false),
+    );
   }
 
   Future<void> _fetchWindow(
@@ -416,8 +442,13 @@ class ChatController extends FrameSafeNotifier {
           ),
         );
       });
-    } catch (_) {
-      if (isDisposed) return;
+    } catch (error, stackTrace) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_streamGenerations[key], generation)) {
+        return;
+      }
+      _report(error, stackTrace, 'chat.loadWindow', degraded: false);
       lease.commit(() {
         if (!identical(_streamGenerations[key], generation)) return;
         final current = _streams[key] ?? const ChatStreamState();
@@ -500,7 +531,19 @@ class ChatController extends FrameSafeNotifier {
           ),
         );
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_streamGenerations[key], generation) ||
+          !identical(_pageRequests[guard], request)) {
+        return;
+      }
+      _report(
+        error,
+        stackTrace,
+        'chat.loadOlder',
+        severity: DiagnosticSeverity.warning,
+      );
       // History that would not load is not worth an error state: what is on
       // screen is still true, and scrolling up again asks again.
     } finally {
@@ -579,7 +622,19 @@ class ChatController extends FrameSafeNotifier {
           ),
         );
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_streamGenerations[key], generation) ||
+          !identical(_pageRequests[guard], request)) {
+        return;
+      }
+      _report(
+        error,
+        stackTrace,
+        'chat.loadNewer',
+        severity: DiagnosticSeverity.warning,
+      );
       // Same as [loadOlder]: what is on screen is still true, and scrolling
       // down again asks again.
     } finally {
@@ -714,7 +769,17 @@ class ChatController extends FrameSafeNotifier {
           messageId: receipt.messageId,
           clientId: clientId,
         );
-      } catch (_) {
+      } catch (error, stackTrace) {
+        if (!isDisposed &&
+            receipt.lease.isCurrent &&
+            identical(_readReceiptRuns[key], run)) {
+          _report(
+            error,
+            stackTrace,
+            'chat.markRead',
+            severity: DiagnosticSeverity.warning,
+          );
+        }
         // There is nobody to tell, and nothing to put back. A newer queued
         // position must still be attempted after this one fails.
       }

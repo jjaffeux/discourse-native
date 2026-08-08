@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:message_bus_client/message_bus_client.dart';
 
 void main() {
   test('rejects remote HTTP before starting a poll', () {
@@ -103,6 +105,41 @@ void main() {
     addTearDown(tracker.dispose);
 
     expect(bus.channels, {'/latest'});
+  });
+
+  test('callback diagnostics never retain a message-bus payload', () async {
+    const secretPayload = '{"api_key":"message-bus-payload-secret"}';
+    final diagnostics = await DiagnosticsController.create(
+      persistence: MemoryDiagnosticsPersistence(),
+      sessionId: 'message-bus-privacy',
+    );
+    final binding = DiagnosticsSink.install(diagnostics);
+    addTearDown(() async {
+      binding.close();
+      await diagnostics.close();
+    });
+    final bus = _FakeMessageBusSession();
+    final tracker = _tracker(bus);
+    addTearDown(tracker.dispose);
+
+    bus.emitError(
+      MessageBusCallbackException(
+        '/latest',
+        const FormatException('invalid callback payload', secretPayload, 1),
+        StackTrace.current,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final event = diagnostics.events.whereType<ErrorDiagnosticEvent>().single;
+    expect(event.operation, 'messageBus.callback /latest');
+    expect(event.message, contains('invalid callback payload'));
+    expect(event.toString(), isNot(contains(secretPayload)));
+    expect(diagnostics.buildJsonReport(), isNot(contains(secretPayload)));
+    expect(
+      diagnostics.buildJsonReport(),
+      isNot(contains('message-bus-payload-secret')),
+    );
   });
 
   test('start stop and pollNow avoid redundant bus work', () async {
@@ -222,6 +259,37 @@ void main() {
     expect(bus.activeSubscriptionCount('/topic/12'), 0);
   });
 
+  test(
+    'reports a failed topic unsubscribe while the tracker is active',
+    () async {
+      final diagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'message-bus-unsubscribe',
+      );
+      final binding = DiagnosticsSink.install(diagnostics);
+      addTearDown(() async {
+        binding.close();
+        await diagnostics.close();
+      });
+      final bus = _FakeMessageBusSession()
+        ..failingCancellationChannel = '/topic/12';
+      final tracker = _tracker(bus);
+      addTearDown(tracker.dispose);
+      tracker.watchTopic(12, ['/topic/12'], (_, _) {});
+
+      tracker.unwatchTopic();
+
+      final event = diagnostics.events.whereType<ErrorDiagnosticEvent>().single;
+      expect(event.operation, 'messageBus.unsubscribeTopic');
+      expect(event.source, 'message_bus');
+      expect(event.errorType, 'StateError');
+      expect(event.message, contains('subscription cancellation failed'));
+      expect(event.severity, DiagnosticSeverity.warning);
+      expect(event.handled, isTrue);
+      expect(event.degraded, isTrue);
+    },
+  );
+
   test('a constructor subscription failure closes its partial session', () {
     final bus = _FakeMessageBusSession()..failingChannel = '/new';
     var incomingCalls = 0;
@@ -327,9 +395,11 @@ SiteTracker _tracker(
   messageBus: bus,
 );
 
-final class _FakeMessageBusSession implements SiteMessageBusSession {
+final class _FakeMessageBusSession
+    implements SiteMessageBusSession, SiteMessageBusErrorSource {
   final Map<String, List<_FakeMessageBusSubscription>> _subscriptions = {};
   final Map<String, List<void Function(Object?)>> _retainedCallbacks = {};
+  final StreamController<Object> _errors = StreamController<Object>.broadcast();
 
   String? failingChannel;
   String? failingCancellationChannel;
@@ -341,6 +411,11 @@ final class _FakeMessageBusSession implements SiteMessageBusSession {
   int closeCalls = 0;
 
   Set<String> get channels => _subscriptions.keys.toSet();
+
+  @override
+  Stream<Object> get errors => _errors.stream;
+
+  void emitError(Object error) => _errors.add(error);
 
   int activeSubscriptionCount(String channel) =>
       _subscriptions[channel]
@@ -399,6 +474,7 @@ final class _FakeMessageBusSession implements SiteMessageBusSession {
   @override
   Future<void> close() async {
     closeCalls += 1;
+    await _errors.close();
   }
 }
 
