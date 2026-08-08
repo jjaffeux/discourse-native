@@ -319,7 +319,7 @@ class _SectionState extends State<_Section> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 8, 2),
+          padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
           child: Row(
             children: [
               Expanded(
@@ -333,7 +333,7 @@ class _SectionState extends State<_Section> {
                       borderRadius: BorderRadius.circular(4),
                       onTap: _toggle,
                       child: SizedBox(
-                        height: 32,
+                        height: 24,
                         child: Row(
                           children: [
                             Expanded(

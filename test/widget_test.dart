@@ -535,6 +535,19 @@ void main() {
 
     expect(find.text('PROJECTS'), findsOneWidget);
     expect(sidebarDestination('Roadmap'), findsOneWidget);
+    final filterTile = find
+        .ancestor(
+          of: sidebarDestination('Filter'),
+          matching: find.byType(InkWell),
+        )
+        .first;
+    final projectsHeader = find
+        .ancestor(of: find.text('PROJECTS'), matching: find.byType(InkWell))
+        .first;
+    expect(
+      tester.getRect(projectsHeader).top - tester.getRect(filterTile).bottom,
+      lessThanOrEqualTo(2),
+    );
 
     await tester.tap(sidebarDestination('Roadmap'));
     await tester.pumpAndSettle();
