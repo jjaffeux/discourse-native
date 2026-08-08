@@ -42,7 +42,10 @@ SiteAppearanceStylesheets? discoverSiteAppearanceStylesheets(
   required Uri documentUrl,
 }) {
   final document = html.parse(source);
-  final links = document.querySelectorAll('head link[href]');
+  final links = document.querySelectorAll(
+    'head link[href], '
+    'discourse-assets > discourse-assets-stylesheets > link[href]',
+  );
   final baseCandidates = _stylesheets(links, 'light-scheme', documentUrl);
   final alternateCandidates = _stylesheets(links, 'dark-scheme', documentUrl);
   if (baseCandidates.length != 1 || alternateCandidates.length > 1) {

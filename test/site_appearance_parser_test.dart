@@ -55,6 +55,35 @@ void main() {
       expect(result?.mode, SiteAppearanceMode.followSystem);
     });
 
+    test('finds current Discourse asset-container links outside head', () {
+      final result = discoverSiteAppearanceStylesheets('''<html>
+        <head><title>Forum</title></head>
+        <body>
+          <link rel="stylesheet" class="light-scheme" href="ignored.css">
+          <discourse-assets>
+            <discourse-assets-stylesheets>
+              <link rel="stylesheet" class="light-scheme"
+                    media="(prefers-color-scheme: light)"
+                    href="/stylesheets/light.css">
+              <link rel="stylesheet" class="dark-scheme"
+                    media="(prefers-color-scheme: dark)"
+                    href="/stylesheets/dark.css">
+            </discourse-assets-stylesheets>
+          </discourse-assets>
+        </body>
+      </html>''', documentUrl: documentUrl);
+
+      expect(
+        result?.base,
+        Uri.parse('https://forum.example/stylesheets/light.css'),
+      );
+      expect(
+        result?.alternate,
+        Uri.parse('https://forum.example/stylesheets/dark.css'),
+      );
+      expect(result?.mode, SiteAppearanceMode.followSystem);
+    });
+
     test('recognizes legacy automatic media', () {
       final result = discoverSiteAppearanceStylesheets(
         _html(baseMedia: 'all', alternateMedia: '(prefers-color-scheme: dark)'),
