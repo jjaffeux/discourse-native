@@ -330,6 +330,7 @@ class _SectionState extends State<_Section> {
             collapsed: _collapsed,
             onToggle: section.collapsible ? _toggle : null,
           ),
+        if (!section.showHeader) const SizedBox(height: 8),
         if (!section.collapsible || !_collapsed)
           for (final destination in section.destinations) ...[
             _DestinationTile(
