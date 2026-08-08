@@ -25,11 +25,12 @@ typedef _SectionListSnapshot = ({
 
 /// Everything the avatar in the top right leads to.
 ///
-/// The sections are Discourse's own user menu tabs. Three of them are backed by
-/// the site: the notifications, the bookmarks, and the account. The rest carry
-/// stand-in rows so the shape of the menu can be built and navigated before the
-/// invite and preference screens exist. Every one of those stand-ins is drawn
-/// in [ShellColors.placeholder], so what is orange is what is still to do.
+/// The sections are Discourse's own user menu tabs. Notifications and bookmarks
+/// are backed by the site, messages leaves the menu for the full inbox, and the
+/// account has its own actions. The rest carry stand-in rows so the shape of the
+/// menu can be built and navigated before their screens exist. Every one of
+/// those stand-ins is drawn in [ShellColors.placeholder], so what is orange is
+/// what is still to do.
 @immutable
 class UserMenuSection {
   const UserMenuSection({
@@ -45,6 +46,9 @@ class UserMenuSection {
 
   /// The bookmarks section.
   static const String bookmarksId = 'bookmarks';
+
+  /// The messages section, which opens the full private-message topic list.
+  static const String messagesId = 'messages';
 
   /// The account section. Always last, and separated from the rest.
   static const String profileId = 'profile';
@@ -63,11 +67,13 @@ class UserMenuSection {
 
   bool get isNotifications => id == notificationsId;
   bool get isBookmarks => id == bookmarksId;
+  bool get isMessages => id == messagesId;
   bool get isProfile => id == profileId;
 
   /// True for the tabs that lead nowhere yet, which is what the placeholder
   /// color marks.
-  bool get isPlaceholder => !isNotifications && !isBookmarks && !isProfile;
+  bool get isPlaceholder =>
+      !isNotifications && !isBookmarks && !isMessages && !isProfile;
 }
 
 /// One line inside a section. Purely presentational: nothing here is wired to
@@ -126,17 +132,10 @@ List<UserMenuSection> userMenuSections(NotificationTotals? totals) {
       ],
     ),
     UserMenuSection(
-      id: 'messages',
+      id: UserMenuSection.messagesId,
       icon: DIcons.envelope,
       label: 'Messages',
       badge: totals?.unreadPersonalMessages ?? 0,
-      rows: const [
-        UserMenuRow(DIcons.envelope, 'loic sent you Daily Log'),
-        UserMenuRow(
-          DIcons.envelope,
-          'joshua.m sent you Enterprise Automation Workflows',
-        ),
-      ],
     ),
     const UserMenuSection(
       id: UserMenuSection.bookmarksId,
@@ -273,7 +272,17 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
                       child: _TabRail(
                         sections: sections,
                         selectedId: section.id,
-                        onSelect: (id) => setState(() => _sectionId = id),
+                        onSelect: (id) {
+                          final selected = sections.firstWhere(
+                            (candidate) => candidate.id == id,
+                          );
+                          if (selected.isMessages) {
+                            widget.onDismiss();
+                            _openMessages(controller);
+                            return;
+                          }
+                          setState(() => _sectionId = id);
+                        },
                       ),
                     ),
                   ],
@@ -618,6 +627,13 @@ class _SectionList extends StatelessWidget {
     String siteUrl,
     String host,
   ) async {
+    if (section.isMessages) {
+      final controller = ShellScope.read(context);
+      Navigator.of(context).pop();
+      _openMessages(controller);
+      return;
+    }
+
     final action = await showShellSheet<UserMenuAction>(
       context: context,
       title: section.label,
@@ -753,6 +769,24 @@ class _SectionTile extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Opens the same inbox as the instance sidebar's Messages destination.
+///
+/// Keeping one destination means both entry points share loading, pagination,
+/// scroll restoration, unread state, and the content back stack.
+void _openMessages(ShellController controller) {
+  final instance = controller.currentInstance;
+  if (instance == null) return;
+
+  for (final section in instance.sections) {
+    for (final destination in section.destinations) {
+      if (destination.id == UserMenuSection.messagesId) {
+        controller.selectDestination(destination);
+        return;
+      }
+    }
   }
 }
 

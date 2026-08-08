@@ -1865,6 +1865,71 @@ void main() {
       }
     });
 
+    testWidgets('the pointer messages tab opens the full inbox', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final api = FakeDiscourseApi(
+          feeds: {
+            '/latest.json': const [],
+            '/topics/private-messages/joffreyj.json': const [
+              Topic(id: 9, title: 'A private message', slug: 'a-pm'),
+            ],
+          },
+        );
+        await pumpShell(
+          tester,
+          desktop,
+          instances: connected,
+          api: api,
+          authenticator: signedIn(),
+          key: const ValueKey('pointer-messages'),
+        );
+        await openMenu(tester);
+
+        await tester.tap(find.byTooltip('Messages'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(UserMenuPanel), findsNothing);
+        expect(find.text('A private message'), findsOneWidget);
+        expect(
+          api.feedPaths,
+          contains('/topics/private-messages/joffreyj.json'),
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
+    testWidgets('the touch messages row opens the full inbox', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': const [],
+          '/topics/private-messages/joffreyj.json': const [
+            Topic(id: 9, title: 'A private message', slug: 'a-pm'),
+          ],
+        },
+      );
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openMenu(tester);
+
+      // The instance sidebar is still mounted under the modal sheet.
+      await tester.tap(find.text('Messages').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Joffrey'), findsNothing);
+      expect(find.byType(MainContent), findsOneWidget);
+      expect(find.text('A private message'), findsOneWidget);
+    });
+
     testWidgets('the account section is last and holds the disconnect', (
       tester,
     ) async {
