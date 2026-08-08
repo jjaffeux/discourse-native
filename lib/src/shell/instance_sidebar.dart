@@ -328,38 +328,20 @@ class _SectionState extends State<_Section> {
           child: Row(
             children: [
               Expanded(
-                child: Tooltip(
-                  message:
-                      '${_collapsed ? 'Expand' : 'Collapse'} ${section.title}',
-                  child: Semantics(
-                    button: true,
-                    expanded: !_collapsed,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(4),
-                      onTap: _toggle,
-                      child: SizedBox(
-                        height: 24,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                section.title.toUpperCase(),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.6,
-                                ),
-                              ),
-                            ),
-                            DIcon(
-                              _collapsed
-                                  ? DIcons.chevronRight
-                                  : DIcons.chevronDown,
-                              size: 11,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 4),
-                          ],
+                child: InkWell(
+                  excludeFromSemantics: true,
+                  borderRadius: BorderRadius.circular(4),
+                  onTap: _toggle,
+                  child: SizedBox(
+                    height: 24,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        section.title.toUpperCase(),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
                         ),
                       ),
                     ),
@@ -373,6 +355,28 @@ class _SectionState extends State<_Section> {
                   onPressed: action,
                   icon: DIcon(section.actionIcon ?? DIcons.plus, size: 15),
                 ),
+              Tooltip(
+                message:
+                    '${_collapsed ? 'Expand' : 'Collapse'} ${section.title}',
+                child: Semantics(
+                  button: true,
+                  expanded: !_collapsed,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(4),
+                    onTap: _toggle,
+                    child: SizedBox.square(
+                      dimension: 24,
+                      child: Center(
+                        child: DIcon(
+                          _collapsed ? DIcons.chevronRight : DIcons.chevronDown,
+                          size: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
