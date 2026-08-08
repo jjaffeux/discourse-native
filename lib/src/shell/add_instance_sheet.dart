@@ -2,16 +2,64 @@ import 'package:flutter/material.dart';
 
 import '../data/discourse_api.dart';
 import '../diagnostics/diagnostics_controller.dart';
+import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 
 Future<void> showAddInstanceSheet(BuildContext context) {
-  return showShellSheet<void>(
+  const title = 'Add a site';
+  const form = _AddInstanceForm();
+  final isTouch = switch (Theme.of(context).platform) {
+    TargetPlatform.iOS || TargetPlatform.android => true,
+    _ => false,
+  };
+
+  if (isTouch) {
+    return showShellSheet<void>(
+      context: context,
+      title: title,
+      builder: (context) => form,
+    );
+  }
+
+  return showDialog<void>(
     context: context,
-    title: 'Add a site',
-    builder: (context) => const _AddInstanceForm(),
+    builder: (dialogContext) => Dialog(
+      backgroundColor: Theme.of(dialogContext).shell.floating,
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: 480,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(dialogContext).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    icon: const DIcon(DIcons.xmark),
+                    tooltip: 'Close',
+                  ),
+                ],
+              ),
+            ),
+            Divider(color: Theme.of(dialogContext).shell.divider, height: 1),
+            const Padding(padding: EdgeInsets.all(20), child: form),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
@@ -128,7 +176,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
             prefixIcon: const DIcon(DIcons.globe, size: 20),
             border: const OutlineInputBorder(),
             errorText: _error,
-            // Keeps the sheet from resizing as the message appears.
+            // Keeps the surface from resizing as the message appears.
             errorMaxLines: 3,
           ),
         ),
