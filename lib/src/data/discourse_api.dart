@@ -16,6 +16,7 @@ import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/post_likers.dart';
+import '../models/search_results.dart';
 import '../models/site_appearance.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
@@ -482,6 +483,27 @@ class DiscourseApi
     );
 
     return TopicList.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+      siteUrl,
+    );
+  }
+
+  /// The small, ranked result set Discourse serves under its header search.
+  Future<SearchResults> searchPosts({
+    required String siteUrl,
+    required String term,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse(
+        '$siteUrl/search/query.json',
+      ).replace(queryParameters: {'term': term, 'type_filter': 'topic'}),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return SearchResults.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
       siteUrl,
     );

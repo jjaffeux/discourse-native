@@ -29,6 +29,7 @@ import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/post_likers.dart';
+import '../models/search_results.dart';
 import '../models/sidebar.dart';
 import '../models/site_appearance.dart';
 import '../models/site_config.dart';
@@ -52,6 +53,7 @@ import 'composer_controller.dart';
 import 'composer_pills.dart';
 import 'composer_triggers.dart';
 import 'draft_list_controller.dart';
+import 'shell_search_controller.dart';
 import 'site_presentation_controller.dart';
 import 'site_url.dart';
 import 'update_controller.dart';
@@ -197,6 +199,14 @@ class ShellController extends FrameSafeNotifier {
 
   /// The connected account's server-side drafts for the full-page destination.
   late final DraftListController draftList = DraftListController(
+    api: api,
+    credentials: authenticator,
+    lifecycle: lifecycle,
+  );
+
+  /// The one global, transient search interaction. Its notifier is consumed by
+  /// the field and result panel alone, so typing never redraws the shell.
+  late final ShellSearchController search = ShellSearchController(
     api: api,
     credentials: authenticator,
     lifecycle: lifecycle,
@@ -1444,6 +1454,16 @@ class ShellController extends FrameSafeNotifier {
     topic.title,
     postNumber: topic.lastUnreadPostNumber,
   );
+
+  void openSearchResult(SearchPostHit hit) {
+    search.clear();
+    _openTopic(
+      hit.topicId,
+      hit.topicSlug,
+      hit.topicTitle,
+      postNumber: hit.postNumber,
+    );
+  }
 
   void _openTopic(int topicId, String slug, String title, {int? postNumber}) {
     // A fast double tap on a row pushes the same topic twice — the fetch is
@@ -4312,6 +4332,9 @@ class ShellController extends FrameSafeNotifier {
       : null;
 
   Future<void> _persistSiteConfig(String siteUrl, SiteConfig config) async {
+    if (currentInstance?.url == siteUrl) {
+      search.selectSite(siteUrl, minimumLength: config.minSearchTermLength);
+    }
     final held = _instanceAt(siteUrl);
     if (held == null || held.config == config) return;
     _replaceInstance(held, held.copyWith(config: config));
@@ -4734,6 +4757,7 @@ class ShellController extends FrameSafeNotifier {
 
   void _forgetSiteState(String siteUrl) {
     lifecycle.invalidate(siteUrl);
+    if (currentInstance?.url == siteUrl) search.clear();
     _draftSaveRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _draftSequences.removeWhere((key, _) => key.startsWith('$siteUrl#'));
 
@@ -4802,8 +4826,14 @@ class ShellController extends FrameSafeNotifier {
 
     if (instance == null) {
       _destinationId = null;
+      search.selectSite(null);
       return;
     }
+
+    search.selectSite(
+      instance.url,
+      minimumLength: instance.config.minSearchTermLength,
+    );
 
     final destination = instance.defaultDestination;
     _destinationId = destination.id;
@@ -4998,6 +5028,7 @@ class ShellController extends FrameSafeNotifier {
     reactions.dispose();
     chat.dispose();
     resenha.dispose();
+    search.dispose();
     final presentation = _sitePresentation;
     if (presentation != null) {
       presentation.removeListener(_notify);

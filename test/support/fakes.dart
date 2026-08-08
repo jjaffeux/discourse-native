@@ -22,6 +22,7 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
@@ -418,6 +419,9 @@ class FakeDiscourseApi implements DiscourseApi {
     this.siteAppearances = const {},
     this.appearanceGate,
     this.siteConfigs = const {},
+    this.searchResults = const {},
+    this.searchGate,
+    this.searchFailure,
     this.customEmojisBySite = const {},
     this.userSearches = const {},
     this.userSearchGate,
@@ -583,6 +587,10 @@ class FakeDiscourseApi implements DiscourseApi {
   /// settings are gets a site drawn as plain core, which is what every test
   /// that is not about an optional feature wants to see.
   final Map<String, SiteConfig> siteConfigs;
+  final Map<String, SearchResults> searchResults;
+  final Completer<void>? searchGate;
+  final SiteLookupFailure? searchFailure;
+  final List<({String siteUrl, String term})> searchesRequested = [];
 
   /// Site urls passed to [siteConfig], in order.
   final List<String> siteConfigsRequested = [];
@@ -950,6 +958,21 @@ class FakeDiscourseApi implements DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return config;
+  }
+
+  @override
+  Future<SearchResults> searchPosts({
+    required String siteUrl,
+    required String term,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    searchesRequested.add((siteUrl: siteUrl, term: term));
+    await searchGate?.future;
+    if (searchFailure case final failure?) {
+      throw SiteLookupException(failure, siteUrl);
+    }
+    return searchResults[term] ?? const SearchResults();
   }
 
   @override

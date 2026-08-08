@@ -18,6 +18,7 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -36,6 +37,7 @@ import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/empty_state.dart';
+import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -222,6 +224,151 @@ Future<TestGesture> hoverPost(
 }
 
 void main() {
+  group('forum search', () {
+    testWidgets('uses the macOS title strip and current non-macOS headers', (
+      tester,
+    ) async {
+      await pumpShell(tester, laptop);
+
+      expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
+      final linuxLikeField = tester.getRect(find.byKey(ForumSearch.inputKey));
+      expect(
+        tester
+            .getRect(find.byType(MainContent))
+            .contains(linuxLikeField.center),
+        isTrue,
+      );
+
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await pumpShell(
+          tester,
+          desktop,
+          key: const ValueKey('mac-search-placement'),
+        );
+        final titleBar = tester.getRect(find.byType(ShellTitleBar));
+        final macField = tester.getRect(find.byKey(ForumSearch.inputKey));
+        expect(titleBar.contains(macField.center), isTrue);
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
+    testWidgets('keeps compact sidebar identity above its search field', (
+      tester,
+    ) async {
+      await pumpShell(tester, phone);
+
+      final title = tester.getRect(find.text('Discourse Meta'));
+      final field = tester.getRect(find.byKey(ForumSearch.inputKey));
+      expect(field.top, greaterThanOrEqualTo(title.bottom));
+      expect(find.byType(InstanceSidebar), findsOneWidget);
+    });
+
+    testWidgets('searches live without navigating and opens the matched post', (
+      tester,
+    ) async {
+      const hit = SearchPostHit(
+        postId: 70,
+        topicId: 7,
+        postNumber: 3,
+        topicTitle: 'Search topic',
+        topicSlug: 'search-topic',
+        username: 'sam',
+        excerpt: SearchExcerpt([
+          SearchExcerptSegment('A '),
+          SearchExcerptSegment('matching', highlighted: true),
+          SearchExcerptSegment(' result'),
+        ]),
+      );
+      final api = FakeDiscourseApi(
+        searchResults: const {
+          'matching': SearchResults(hits: [hit]),
+        },
+        topics: {7: topicPayload(id: 7, title: 'Search topic')},
+      );
+      await pumpShell(tester, laptop, api: api);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      final routeBefore = controller.currentContent;
+
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'matching');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      expect(api.searchesRequested.single.term, 'matching');
+      expect(controller.currentContent, routeBefore);
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(find.text('Search topic'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('search-hit-70')));
+      await tester.pumpAndSettle();
+
+      expect(api.topicsOpened, [7]);
+      expect(api.topicPostNumbersOpened, [3]);
+      expect(controller.currentContent?.topicId, 7);
+      expect(controller.search.query, isEmpty);
+    });
+
+    testWidgets('supports the focus shortcut, arrows, enter, and escape', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        searchResults: {
+          'matches': SearchResults(
+            hits: [
+              for (var id = 1; id <= 2; id++)
+                SearchPostHit(
+                  postId: id,
+                  topicId: id,
+                  postNumber: id + 1,
+                  topicTitle: 'Result $id',
+                  topicSlug: 'result-$id',
+                  username: 'sam',
+                  excerpt: const SearchExcerpt([SearchExcerptSegment('match')]),
+                ),
+            ],
+          ),
+        },
+        topics: {2: topicPayload(id: 2, title: 'Result 2')},
+      );
+      await pumpShell(tester, laptop, api: api);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(
+        tester
+            .widget<EditableText>(find.byKey(ForumSearch.inputKey))
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'matches');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(api.topicsOpened, [2]);
+
+      controller.search.setQuery('matches');
+      controller.search.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(controller.search.panelOpen, isFalse);
+      expect(controller.search.query, 'matches');
+    });
+  });
+
   group('compact', () {
     testWidgets('shows the rail and the sidebar, but no main content', (
       tester,
@@ -1293,6 +1440,8 @@ void main() {
 
       // Back in front, it is asked immediately rather than waiting out a
       // backoff that started while the connection was dead.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
       expect(tracker().pollNowCalls, 1);

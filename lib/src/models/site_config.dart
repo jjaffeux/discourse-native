@@ -25,6 +25,7 @@ class SiteConfig {
     this.desaturatedReactionPanel = false,
     this.pollMaximumOptions = defaultPollMaximumOptions,
     this.pollDefaultPublic = true,
+    this.minSearchTermLength = defaultMinSearchTermLength,
     this.resenha = const ResenhaClientConfig(),
   });
 
@@ -35,6 +36,7 @@ class SiteConfig {
   /// `emoji_set`'s own default, server side.
   static const String defaultEmojiSet = 'twitter';
   static const int defaultPollMaximumOptions = 20;
+  static const int defaultMinSearchTermLength = 3;
 
   /// Reads `GET /site/settings.json`, which is `SiteSetting.client_settings_json`
   /// — every setting marked `client: true`, core's and every plugin's alike.
@@ -66,6 +68,9 @@ class SiteConfig {
         _ => defaultPollMaximumOptions,
       },
       pollDefaultPublic: json['poll_default_public'] != false,
+      minSearchTermLength:
+          jsonIntOrNull(json['min_search_term_length'])?.clamp(1, 100) ??
+          defaultMinSearchTermLength,
       resenha: ResenhaClientConfig.fromSettings(json),
     );
   }
@@ -86,6 +91,9 @@ class SiteConfig {
     pollMaximumOptions:
         jsonIntOrNull(json['pollMaximumOptions']) ?? defaultPollMaximumOptions,
     pollDefaultPublic: json['pollDefaultPublic'] != false,
+    minSearchTermLength:
+        jsonIntOrNull(json['minSearchTermLength'])?.clamp(1, 100) ??
+        defaultMinSearchTermLength,
     resenha: jsonObject(json['resenha']).isEmpty
         ? const ResenhaClientConfig()
         : ResenhaClientConfig.fromJson(jsonObject(json['resenha'])),
@@ -100,6 +108,7 @@ class SiteConfig {
     'desaturatedReactionPanel': desaturatedReactionPanel,
     'pollMaximumOptions': pollMaximumOptions,
     'pollDefaultPublic': pollDefaultPublic,
+    'minSearchTermLength': minSearchTermLength,
     'resenha': resenha.toJson(),
   };
 
@@ -137,6 +146,7 @@ class SiteConfig {
   /// claim that Poll is enabled on a site.
   final int pollMaximumOptions;
   final bool pollDefaultPublic;
+  final int minSearchTermLength;
   final ResenhaClientConfig resenha;
 
   /// Where the artwork for one emoji lives on this site.
@@ -205,6 +215,7 @@ class SiteConfig {
       other.desaturatedReactionPanel == desaturatedReactionPanel &&
       other.pollMaximumOptions == pollMaximumOptions &&
       other.pollDefaultPublic == pollDefaultPublic &&
+      other.minSearchTermLength == minSearchTermLength &&
       other.resenha == resenha &&
       listEquals(other.offeredReactions, offeredReactions);
 
@@ -217,6 +228,7 @@ class SiteConfig {
     desaturatedReactionPanel,
     pollMaximumOptions,
     pollDefaultPublic,
+    minSearchTermLength,
     resenha,
     Object.hashAll(offeredReactions),
   );

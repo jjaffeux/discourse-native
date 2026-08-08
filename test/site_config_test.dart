@@ -12,6 +12,7 @@ Map<String, dynamic> settings({
   String? enabledReactions,
   bool? allowAnyEmoji,
   bool? desaturated,
+  int? minSearchTermLength,
 }) => {
   'emoji_set': ?emojiSet,
   'external_emoji_url': externalEmojiUrl,
@@ -20,6 +21,7 @@ Map<String, dynamic> settings({
   'discourse_reactions_enabled_reactions': ?enabledReactions,
   'discourse_reactions_allow_any_emoji': ?allowAnyEmoji,
   'discourse_reactions_desaturated_reaction_panel': ?desaturated,
+  'min_search_term_length': ?minSearchTermLength,
 };
 
 void main() {
@@ -40,6 +42,22 @@ void main() {
       expect(unknown.emojiSet, 'twitter');
       expect(unknown.mainReaction, isNull);
       expect(unknown.offeredReactions, isEmpty);
+      expect(unknown.minSearchTermLength, 3);
+    });
+
+    test('reads and bounds the minimum search length', () {
+      expect(
+        SiteConfig.fromSettings(
+          settings(minSearchTermLength: 1),
+        ).minSearchTermLength,
+        1,
+      );
+      expect(
+        SiteConfig.fromSettings(
+          settings(minSearchTermLength: -4),
+        ).minSearchTermLength,
+        1,
+      );
     });
 
     test('treats an empty external emoji url as no external emoji url', () {
@@ -164,6 +182,7 @@ void main() {
         enabledReactions: '+1|clap',
         allowAnyEmoji: true,
         desaturated: true,
+        minSearchTermLength: 5,
       ),
     );
 

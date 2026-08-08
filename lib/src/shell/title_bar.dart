@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'forum_search.dart';
 import 'user_menu_button.dart';
 
 /// The strip across the very top of the window, spanning every column.
@@ -40,8 +41,17 @@ class ShellTitleBar extends StatelessWidget {
         color: surface,
         child: Row(
           children: [
-            // The traffic lights own the left end.
-            const Spacer(),
+            // The traffic lights own the left end. Keeping their width in the
+            // row also leaves draggable window background around the field.
+            const SizedBox(width: 88),
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: const ForumSearch(dense: true),
+                ),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: UserMenuButton(size: 26, ringColor: surface),
