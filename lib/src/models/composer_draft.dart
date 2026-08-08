@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'json.dart';
+import 'topic_tag.dart';
 
 /// A reply in progress, in the shape Discourse stores drafts in.
 ///
@@ -15,6 +16,10 @@ import 'json.dart';
 class ComposerDraft {
   const ComposerDraft({
     required this.reply,
+    this.action = replyAction,
+    this.title,
+    this.categoryId,
+    this.tags = const [],
     this.replyToPostNumber,
     this.replyToUsername,
     this.typingTime = Duration.zero,
@@ -23,9 +28,17 @@ class ComposerDraft {
 
   /// What the web composer calls replying to an existing topic.
   static const String replyAction = 'reply';
+  static const String createTopicAction = 'createTopic';
+  static const String newTopicDraftKey = 'new_topic';
 
   factory ComposerDraft.fromJson(Map<String, dynamic> json) => ComposerDraft(
     reply: jsonString(json['reply']),
+    action: jsonText(json['action']) ?? replyAction,
+    title: jsonText(json['title']),
+    categoryId: jsonIntOrNull(json['categoryId']),
+    tags: List.unmodifiable(
+      jsonArray(json['tags']).map(TopicTag.parse).whereType<TopicTag>(),
+    ),
     replyToPostNumber: jsonIntOrNull(json['reply_to_post_number']),
     replyToUsername: switch (json['reply_to_user']) {
       final Map<String, dynamic> user => jsonText(user['username']),
@@ -47,13 +60,19 @@ class ComposerDraft {
       final draft = ComposerDraft.fromJson(
         jsonDecode(data) as Map<String, dynamic>,
       );
-      return draft.reply.trim().isEmpty ? null : draft;
+      return draft.reply.trim().isEmpty && (draft.title?.trim().isEmpty ?? true)
+          ? null
+          : draft;
     } catch (_) {
       return null;
     }
   }
 
   final String reply;
+  final String action;
+  final String? title;
+  final int? categoryId;
+  final List<TopicTag> tags;
   final int? replyToPostNumber;
   final String? replyToUsername;
 
@@ -65,7 +84,10 @@ class ComposerDraft {
 
   Map<String, dynamic> toJson() => {
     'reply': reply,
-    'action': replyAction,
+    'action': action,
+    'title': ?title,
+    'categoryId': ?categoryId,
+    'tags': [for (final tag in tags) tag.toJson()],
     'archetypeId': 'regular',
     'reply_to_post_number': replyToPostNumber,
     'reply_to_user': replyToUsername == null
@@ -82,6 +104,10 @@ class ComposerDraft {
       identical(this, other) ||
       other is ComposerDraft &&
           other.reply == reply &&
+          other.action == action &&
+          other.title == title &&
+          other.categoryId == categoryId &&
+          listEquals(other.tags, tags) &&
           other.replyToPostNumber == replyToPostNumber &&
           other.replyToUsername == replyToUsername &&
           other.typingTime == typingTime &&
@@ -90,6 +116,10 @@ class ComposerDraft {
   @override
   int get hashCode => Object.hash(
     reply,
+    action,
+    title,
+    categoryId,
+    Object.hashAll(tags),
     replyToPostNumber,
     replyToUsername,
     typingTime,

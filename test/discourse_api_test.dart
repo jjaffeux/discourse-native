@@ -798,6 +798,7 @@ void _feedGroups() {
                   },
                 ],
                 'topic_list': {
+                  'can_create_topic': true,
                   'more_topics_url': '/latest?page=1',
                   'topics': [
                     {
@@ -848,6 +849,7 @@ void _feedGroups() {
           TopicTag(id: 12, name: 'ux', slug: 'user-experience'),
         ]);
         expect(list.moreTopicsUrl, '/latest?page=1');
+        expect(list.canCreateTopic, isTrue);
 
         // Site-relative templates are absolutised, absolute ones left alone, and
         // a poster with no matching user is dropped rather than crashing.
@@ -904,6 +906,8 @@ void _feedGroups() {
                         'name': 'Ideas',
                         'color': 'AB9364',
                         'slug': 'ideas',
+                        'permission': 1,
+                        'minimum_required_tags': 2,
                       },
                     ],
                   },
@@ -919,6 +923,74 @@ void _feedGroups() {
 
       expect(categories.map((c) => c.id), [1, 2]);
       expect(categories.first.colorValue, 0xFF0088CC);
+      expect(categories.last.canCreateTopic, isTrue);
+      expect(categories.last.minimumRequiredTags, 2);
+    });
+  });
+
+  group('topic composer metadata', () {
+    test('reads fresh tag capabilities from site.json', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'can_tag_topics': true,
+              'can_create_tag': true,
+              'tags_filter_regexp': r'[a-z-]+',
+              'uncategorized_category_id': 1,
+              'max_tag_length': 20,
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final capabilities = await api.topicComposerCapabilities(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+      );
+
+      expect(capabilities.canTagTopics, isTrue);
+      expect(capabilities.canCreateTag, isTrue);
+      expect(capabilities.maxTagLength, 20);
+    });
+
+    test('searches tags in category and preserves disabled reasons', () async {
+      late Uri sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request.url;
+          return http.Response(
+            jsonEncode({
+              'results': [
+                {
+                  'id': 7,
+                  'name': 'restricted',
+                  'disabled': true,
+                  'title': 'Not allowed in this category',
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final result = await api.searchTopicTags(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+        term: 'res',
+        categoryId: 4,
+        selectedTagIds: const [2, 3],
+      );
+
+      expect(sent.path, '/tags/filter/search.json');
+      expect(sent.queryParameters['categoryId'], '4');
+      expect(sent.queryParametersAll['selected_tag_ids[]'], ['2', '3']);
+      expect(
+        result.results.single.disabledReason,
+        'Not allowed in this category',
+      );
     });
   });
 
@@ -2446,6 +2518,56 @@ void _writeGroups() {
     });
   });
 
+  group('createTopic', () {
+    test(
+      'sends current tag objects and reads the canonical topic identity',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: accepting(
+            onRequest: (request) => sent = request,
+            envelope: {
+              'action': 'create_post',
+              'post': {
+                'id': 51,
+                'post_number': 1,
+                'username': 'joffreyj',
+                'cooked': '<p>Body</p>',
+                'topic_id': 88,
+                'topic_slug': 'hello-world',
+                'topic_title': 'Hello world',
+              },
+            },
+          ),
+        );
+
+        final creation = await api.createTopic(
+          siteUrl: 'https://example.com',
+          apiKey: 'k',
+          title: 'Hello world',
+          raw: 'Body',
+          categoryId: 4,
+          tags: const [
+            TopicTag(id: 7, name: 'existing'),
+            TopicTag(name: 'new-tag'),
+          ],
+          typingDuration: const Duration(seconds: 2),
+          composerOpenDuration: const Duration(seconds: 8),
+        );
+
+        final body = jsonDecode(sent.body) as Map<String, dynamic>;
+        expect(body.containsKey('topic_id'), isFalse);
+        expect(body['draft_key'], 'new_topic');
+        expect(body['tags'], [
+          {'id': 7, 'name': 'existing'},
+          {'name': 'new-tag'},
+        ]);
+        expect(creation.topicId, 88);
+        expect(creation.topicSlug, 'hello-world');
+      },
+    );
+  });
+
   group('updatePost', () {
     test('nests raw under post, and reads the rewritten post back', () async {
       late http.Request sent;
@@ -2501,6 +2623,64 @@ void _writeGroups() {
         ),
         throwsA(isA<WriteException>()),
       );
+    });
+  });
+
+  group('topic metadata writes', () {
+    test('updates taxonomy with object tags and conflict baselines', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await api.updateTopic(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+        topicId: 88,
+        title: 'Changed',
+        originalTitle: 'Original',
+        categoryId: 5,
+        tags: const [TopicTag(id: 7, name: 'feature')],
+        originalTags: const [TopicTag(id: 6, name: 'old')],
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/t/88.json');
+      final body = jsonDecode(sent.body) as Map<String, dynamic>;
+      expect(body['category_id'], 5);
+      expect(body['tags'], [
+        {'id': 7, 'name': 'feature'},
+      ]);
+      expect(body['original_tags'], [
+        {'id': 6, 'name': 'old'},
+      ]);
+    });
+
+    test('uses the dedicated tags-only endpoint', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await api.updateTopicTags(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+        topicId: 88,
+        tags: const [TopicTag(name: 'mobile')],
+      );
+
+      expect(sent.url.path, '/t/88/tags.json');
+      expect(jsonDecode(sent.body), {
+        'tags': [
+          {'name': 'mobile'},
+        ],
+      });
     });
   });
 

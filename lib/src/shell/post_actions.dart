@@ -180,6 +180,15 @@ class _PostActionsState extends State<PostActions> {
           tooltip: 'Edit this post',
           onInvoke: () => controller.openEdit(post),
         ),
+      if (post.postNumber == 1 &&
+          controller.currentTopic?.canEdit != true &&
+          controller.currentTopic?.canEditTags == true)
+        PostAction(
+          icon: DIcons.tag,
+          label: 'Edit tags',
+          tooltip: 'Edit topic tags',
+          onInvoke: controller.openTagsEdit,
+        ),
       if (post.canRecover)
         PostAction(
           icon: DIcons.arrowRotateLeft,

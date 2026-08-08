@@ -19,6 +19,7 @@ class TopicFeed {
     this.error,
     this.loaded = false,
     this.nextPagePath,
+    this.canCreateTopic = false,
   });
 
   const TopicFeed.loading() : this(loading: true);
@@ -30,6 +31,7 @@ class TopicFeed {
         topicIds: [for (final topic in list.topics) topic.id],
         loaded: true,
         nextPagePath: list.nextPagePath,
+        canCreateTopic: list.canCreateTopic,
       );
 
   TopicFeed copyWith({
@@ -39,6 +41,7 @@ class TopicFeed {
     bool? loadingIncoming,
     String? nextPagePath,
     bool clearNextPage = false,
+    bool? canCreateTopic,
   }) {
     return TopicFeed(
       topicIds: topicIds ?? this.topicIds,
@@ -48,6 +51,7 @@ class TopicFeed {
       error: error,
       loaded: loaded,
       nextPagePath: clearNextPage ? null : (nextPagePath ?? this.nextPagePath),
+      canCreateTopic: canCreateTopic ?? this.canCreateTopic,
     );
   }
 
@@ -72,6 +76,7 @@ class TopicFeed {
   /// True once a request has finished, so an empty list can be told apart from
   /// one that has not been fetched.
   final bool loaded;
+  final bool canCreateTopic;
 
   bool get isEmpty => loaded && error == null && topicIds.isEmpty;
 }

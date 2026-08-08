@@ -695,6 +695,60 @@ void main() {
       expect(find.text('Replace with deeper view'), findsNothing);
     });
 
+    testWidgets('an authorized public list offers the topic composer', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': latest},
+        creatableFeedPaths: const {'/latest.json'},
+        categoryList: const [
+          TopicCategory(id: 5, name: 'Support', color: '0088CC', permission: 1),
+        ],
+        composerCapabilities: const TopicComposerCapabilities(
+          canTagTopics: true,
+        ),
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(tester, desktop, api: api, authenticator: authenticator);
+
+      expect(find.byTooltip('New topic'), findsOneWidget);
+      await tester.tap(find.byTooltip('New topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Create a new topic'), findsOneWidget);
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(find.text('Create topic'), findsOneWidget);
+      expect(find.text('Category'), findsOneWidget);
+      expect(find.text('Tags'), findsOneWidget);
+
+      final fields = find.descendant(
+        of: find.byType(ComposerPanel),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(fields.at(0), 'A native topic');
+      await tester.enterText(fields.at(1), 'Created from the docked composer.');
+      await tester.pump();
+      final composer = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      ).visibleComposer!;
+      expect(composer.title.text, 'A native topic');
+      expect(composer.raw, 'Created from the docked composer.');
+      expect(composer.canSubmit, isTrue);
+      await tester.tap(find.text('Create topic'));
+      await tester.pumpAndSettle();
+
+      expect(api.topicsCreated.single['title'], 'A native topic');
+      expect(api.topicsCreated.single['categoryId'], isNull);
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(find.text('A native topic'), findsOneWidget);
+      expect(
+        api.feedPaths.where((path) => path == '/latest.json').length,
+        greaterThanOrEqualTo(2),
+      );
+    });
+
     /// Messages is the only destination the sidebar offers besides Topics, and
     /// the inbox is named after the signed-in user, so reaching it means
     /// connecting first.
@@ -717,6 +771,29 @@ void main() {
       expect(api.feedPaths, contains(inbox));
       expect(find.text('A private message'), findsOneWidget);
     });
+
+    testWidgets(
+      'messages never offers New Topic even if its feed says it can',
+      (tester) async {
+        final api = FakeDiscourseApi(
+          feeds: {
+            '/latest.json': latest,
+            inbox: [
+              const Topic(id: 9, title: 'A private message', slug: 'a-pm'),
+            ],
+          },
+          creatableFeedPaths: const {'/latest.json', inbox},
+        );
+
+        await pumpShell(tester, desktop, api: api);
+        await tester.tap(userMenu);
+        await tester.pumpAndSettle();
+        await tester.tap(sidebarDestination('Messages'));
+        await tester.pumpAndSettle();
+
+        expect(find.byTooltip('New topic'), findsNothing);
+      },
+    );
 
     testWidgets('a list is not refetched when revisited', (tester) async {
       final api = FakeDiscourseApi(

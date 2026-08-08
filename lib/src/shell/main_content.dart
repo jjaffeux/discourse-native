@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/content_route.dart';
@@ -61,6 +63,7 @@ class _MainContentBody extends StatelessWidget {
               siteUrl: state.siteUrl,
               canPop: state.canPop,
               canReply: state.canReply,
+              canCreateTopic: state.canCreateTopic,
             ),
             Expanded(
               child: switch ((
@@ -111,6 +114,7 @@ class _ContentHeader extends StatelessWidget {
     required this.siteUrl,
     required this.canPop,
     required this.canReply,
+    required this.canCreateTopic,
   });
 
   final ShellLayout layout;
@@ -118,6 +122,7 @@ class _ContentHeader extends StatelessWidget {
   final String? siteUrl;
   final bool canPop;
   final bool canReply;
+  final bool canCreateTopic;
 
   @override
   Widget build(BuildContext context) {
@@ -205,6 +210,12 @@ class _ContentHeader extends StatelessWidget {
               onPressed: () => controller.openReply(),
               icon: const DIcon(DIcons.reply, size: 20),
               tooltip: 'Reply to this topic',
+            ),
+          if (!route.isTopic && canCreateTopic)
+            IconButton(
+              onPressed: () => unawaited(controller.openNewTopic()),
+              icon: const DIcon(DIcons.plus, size: 20),
+              tooltip: 'New topic',
             ),
           // Only where there is no title bar above to hold it: this is the
           // furthest right the shell goes once the strip is gone.
@@ -307,6 +318,7 @@ class _MainContentSnapshot {
     required this.composer,
     required this.canPop,
     required this.canReply,
+    required this.canCreateTopic,
   });
 
   factory _MainContentSnapshot.from(ShellController controller) =>
@@ -317,6 +329,7 @@ class _MainContentSnapshot {
         composer: controller.visibleComposer,
         canPop: controller.canPopContent,
         canReply: controller.canReplyHere,
+        canCreateTopic: controller.canCreateTopicHere,
       );
 
   final String? siteUrl;
@@ -325,6 +338,7 @@ class _MainContentSnapshot {
   final ComposerController? composer;
   final bool canPop;
   final bool canReply;
+  final bool canCreateTopic;
 
   @override
   bool operator ==(Object other) =>
@@ -334,7 +348,8 @@ class _MainContentSnapshot {
       identical(feed, other.feed) &&
       identical(composer, other.composer) &&
       canPop == other.canPop &&
-      canReply == other.canReply;
+      canReply == other.canReply &&
+      canCreateTopic == other.canCreateTopic;
 
   @override
   int get hashCode => Object.hash(
@@ -344,5 +359,6 @@ class _MainContentSnapshot {
     identityHashCode(composer),
     canPop,
     canReply,
+    canCreateTopic,
   );
 }

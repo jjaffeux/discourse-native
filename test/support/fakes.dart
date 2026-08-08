@@ -355,7 +355,11 @@ class FakeDiscourseApi implements DiscourseApi {
     this.bookmarkList,
     this.reminderList = const [],
     this.feeds = const {},
+    this.creatableFeedPaths = const {},
     this.categoryList = const [],
+    this.composerCapabilities = const TopicComposerCapabilities(),
+    this.topicTagSearches = const {},
+    this.serverDrafts = const {},
     this.nextPages = const {},
     this.gate,
     this.topics = const {},
@@ -430,9 +434,13 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Returned by [topicList], keyed by path; a missing path fails.
   final Map<String, List<Topic>> feeds;
+  final Set<String> creatableFeedPaths;
 
   /// Returned by [categories].
   final List<TopicCategory> categoryList;
+  final TopicComposerCapabilities composerCapabilities;
+  final Map<String, TopicTagSearch> topicTagSearches;
+  final Map<String, ComposerDraft> serverDrafts;
 
   /// `more_topics_url` to report for a given path, driving pagination.
   final Map<String, String> nextPages;
@@ -474,9 +482,12 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Every [createPost] call, in order, as the arguments it was given.
   final List<Map<String, Object?>> created = [];
+  final List<Map<String, Object?>> topicsCreated = [];
 
   /// Every [updatePost] call, in order.
   final List<Map<String, Object?>> updated = [];
+  final List<Map<String, Object?>> topicsUpdated = [];
+  final List<Map<String, Object?>> topicTagsUpdated = [];
 
   /// Post ids passed to [deletePost] and [recoverPost], in order.
   final List<int> deleted = [];
@@ -782,7 +793,11 @@ class FakeDiscourseApi implements DiscourseApi {
     if (topics == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
-    return TopicList(topics: topics, moreTopicsUrl: nextPages[path]);
+    return TopicList(
+      topics: topics,
+      moreTopicsUrl: nextPages[path],
+      canCreateTopic: creatableFeedPaths.contains(path),
+    );
   }
 
   @override
@@ -836,6 +851,24 @@ class FakeDiscourseApi implements DiscourseApi {
     String? apiKey,
     String? clientId,
   }) async => categoryList;
+
+  @override
+  Future<TopicComposerCapabilities> topicComposerCapabilities({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async => composerCapabilities;
+
+  @override
+  Future<TopicTagSearch> searchTopicTags({
+    required String siteUrl,
+    required String apiKey,
+    required String term,
+    int? categoryId,
+    Iterable<int> selectedTagIds = const [],
+    int limit = 20,
+    String? clientId,
+  }) async => topicTagSearches[term] ?? const TopicTagSearch();
 
   @override
   Future<SiteConfig> siteConfig({
@@ -975,15 +1008,97 @@ class FakeDiscourseApi implements DiscourseApi {
   }
 
   @override
+  Future<PostCreation> createTopic({
+    required String siteUrl,
+    required String apiKey,
+    required String title,
+    required String raw,
+    required Duration typingDuration,
+    required Duration composerOpenDuration,
+    int? categoryId,
+    Iterable<TopicTag> tags = const [],
+    String draftKey = ComposerDraft.newTopicDraftKey,
+    String? clientId,
+  }) async {
+    topicsCreated.add({
+      'siteUrl': siteUrl,
+      'title': title,
+      'raw': raw,
+      'categoryId': categoryId,
+      'tags': tags.toList(),
+      'draftKey': draftKey,
+    });
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+    return creation ??
+        PostCreation(
+          outcome: PostOutcome.created,
+          post: Post(
+            id: 9001,
+            postNumber: 1,
+            username: 'joffreyj',
+            cooked: '<p>$raw</p>',
+          ),
+          topicId: 901,
+          topicSlug: 'created-topic',
+          topicTitle: title,
+          draftSequence: 1,
+        );
+  }
+
+  @override
+  Future<void> updateTopic({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required String title,
+    required String originalTitle,
+    required Iterable<TopicTag> tags,
+    required Iterable<TopicTag> originalTags,
+    int? categoryId,
+    String? clientId,
+  }) async {
+    topicsUpdated.add({
+      'topicId': topicId,
+      'title': title,
+      'originalTitle': originalTitle,
+      'categoryId': categoryId,
+      'tags': tags.toList(),
+      'originalTags': originalTags.toList(),
+    });
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> updateTopicTags({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required Iterable<TopicTag> tags,
+    String? clientId,
+  }) async {
+    topicTagsUpdated.add({'topicId': topicId, 'tags': tags.toList()});
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
   Future<Post> updatePost({
     required String siteUrl,
     required String apiKey,
     required int postId,
     required String raw,
+    String? originalText,
     String? editReason,
     String? clientId,
   }) async {
-    updated.add({'siteUrl': siteUrl, 'postId': postId, 'raw': raw});
+    updated.add({
+      'siteUrl': siteUrl,
+      'postId': postId,
+      'raw': raw,
+      'originalText': originalText,
+    });
 
     final failure = writeFailure;
     if (failure != null) throw failure;
@@ -1221,6 +1336,14 @@ class FakeDiscourseApi implements DiscourseApi {
     if (draftFailure != null) throw draftFailure!;
     return sequence + 1;
   }
+
+  @override
+  Future<({ComposerDraft? draft, int sequence})> draft({
+    required String siteUrl,
+    required String apiKey,
+    required String draftKey,
+    String? clientId,
+  }) async => (draft: serverDrafts[draftKey], sequence: 0);
 
   @override
   void close() => closeCalls += 1;

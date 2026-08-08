@@ -629,6 +629,8 @@ class ShellController extends FrameSafeNotifier {
   /// Sites whose category list has been fetched. The categories themselves are
   /// in the store; this only remembers not to ask again.
   final Set<String> _categorised = {};
+  final Map<String, List<TopicCategory>> _categoriesBySite = {};
+  final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
 
   static String _feedKey(String siteUrl, String destinationId) =>
       '$siteUrl|$destinationId';
@@ -653,6 +655,17 @@ class ShellController extends FrameSafeNotifier {
     if (instance == null || feedId == null) return null;
     return _feeds[_feedKey(instance.url, feedId)];
   }
+
+  bool get canCreateTopicHere =>
+      currentContent?.isTopic == false &&
+      currentFeedId != 'messages' &&
+      (currentFeed?.canCreateTopic ?? false);
+
+  List<TopicCategory> topicComposerCategories(String siteUrl) =>
+      _categoriesBySite[siteUrl] ?? const [];
+
+  TopicComposerCapabilities topicComposerCapabilities(String siteUrl) =>
+      _topicComposerCapabilities[siteUrl] ?? const TopicComposerCapabilities();
 
   /// Category badge for a topic, once categories have been fetched.
   TopicCategory? categoryFor(int? categoryId, {String? siteUrl}) {
@@ -1460,6 +1473,26 @@ class ShellController extends FrameSafeNotifier {
     }
   }
 
+  void _updateTopicRouteMetadata(
+    String siteUrl,
+    int topicId,
+    String title,
+    int? categoryId,
+  ) {
+    final category = categoryFor(categoryId, siteUrl: siteUrl);
+    for (var i = 0; i < _contentStack.length; i++) {
+      final route = _contentStack[i];
+      if (route.topicId != topicId) continue;
+      _contentStack[i] = ContentRoute.topic(
+        topicId: topicId,
+        slug: route.slug ?? '',
+        title: title,
+        subtitle: route.subtitle,
+        color: category == null ? null : Color(category.colorValue),
+      );
+    }
+  }
+
   /// Files a topic payload: the posts under their own ids, the topic under
   /// its own, and the list row corrected to match.
   ///
@@ -1546,11 +1579,186 @@ class ShellController extends FrameSafeNotifier {
     final instance = currentInstance;
     if (composer == null || instance == null) return null;
     if (composer.target.siteUrl != instance.url) return null;
+    if (composer.target.isNewTopic) {
+      return currentContent?.isTopic == false &&
+              currentFeedId == composer.target.originFeedId
+          ? composer
+          : null;
+    }
     return currentContent?.topicId == composer.target.topicId ? composer : null;
   }
 
   /// Whether a reply affordance should be offered for the topic on screen.
   bool get canReplyHere => currentTopic?.canCreatePost ?? false;
+
+  /// Opens a new-topic composer while leaving the originating list in place.
+  Future<void> openNewTopic() async {
+    final instance = currentInstance;
+    final route = currentContent;
+    final feedId = currentFeedId;
+    if (instance == null ||
+        route == null ||
+        feedId == null ||
+        !canCreateTopicHere) {
+      return;
+    }
+
+    final lease = lifecycle.capture(instance.url);
+    final credential = await _credentialForWrite(instance.url);
+    if (!lease.isCurrent || currentFeedId != feedId) return;
+    if (credential.failure != null) return;
+    final apiKey = credential.apiKey!;
+
+    TopicComposerCapabilities capabilities;
+    List<TopicCategory> categories;
+    try {
+      final results = await Future.wait<Object>([
+        api.topicComposerCapabilities(siteUrl: instance.url, apiKey: apiKey),
+        api.categories(siteUrl: instance.url, apiKey: apiKey),
+      ]);
+      capabilities = results[0] as TopicComposerCapabilities;
+      categories = results[1] as List<TopicCategory>;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'composer.topicCapabilities',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      return;
+    }
+    if (!lease.isCurrent || currentFeedId != feedId) return;
+
+    int? categoryId;
+    var tags = const <TopicTag>[];
+    final path = route.feedPath;
+    final link = path == null
+        ? null
+        : ListLink.parse(path.replaceFirst(RegExp(r'\.json$'), ''));
+    if (link?.kind == ListKind.category) {
+      final category = categories
+          .where((item) => item.id == link?.id)
+          .firstOrNull;
+      if (category?.canCreateTopic == true) categoryId = category!.id;
+    } else if (link?.kind == ListKind.tag && capabilities.canTagTopics) {
+      try {
+        final result = await api.searchTopicTags(
+          siteUrl: instance.url,
+          apiKey: apiKey,
+          term: link!.slug,
+          categoryId: categoryId,
+        );
+        final exact = result.results.where(
+          (tag) =>
+              tag.id == link.id ||
+              tag.name.toLowerCase() == link.slug.toLowerCase() ||
+              tag.slug?.toLowerCase() == link.slug.toLowerCase(),
+        );
+        if (exact.isNotEmpty && !exact.first.disabled) tags = [exact.first];
+      } catch (_) {
+        // Context prefill is optional; the composer remains usable without it.
+      }
+    }
+    if (!lease.isCurrent || currentFeedId != feedId) return;
+
+    _categoriesBySite[instance.url] = List.unmodifiable(categories);
+    _topicComposerCapabilities[instance.url] = capabilities;
+    store.putAll(instance.url, categories);
+    _replaceComposer();
+    final target = ComposerTarget(
+      siteUrl: instance.url,
+      topicId: 0,
+      slug: '',
+      topicTitle: 'New topic',
+      mode: ComposerMode.newTopic,
+      originFeedId: feedId,
+      initialCategoryId: categoryId,
+      initialTags: tags,
+    );
+    final composer = ComposerController(
+      target,
+      onSaveDraft: _saveDraft,
+      search: _composerSearch(target),
+      resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
+      pills: _composerPills(target),
+      pollMaximumOptions: siteConfigFor(target.siteUrl).pollMaximumOptions,
+      minimumRequiredTags:
+          categories
+              .where((category) => category.id == categoryId)
+              .firstOrNull
+              ?.minimumRequiredTags ??
+          0,
+    )..draftSequence = _draftSequence(target);
+    _composer = composer;
+    _notify();
+    unawaited(_restoreDraft(composer));
+  }
+
+  Future<TopicTagSearch> searchComposerTags(
+    ComposerController composer,
+    String term,
+  ) async {
+    final target = composer.target;
+    final credential = await _credentialForWrite(target.siteUrl);
+    if (credential.failure != null) {
+      throw credential.failure!;
+    }
+    return api.searchTopicTags(
+      siteUrl: target.siteUrl,
+      apiKey: credential.apiKey!,
+      term: term,
+      categoryId: composer.categoryId,
+      selectedTagIds: composer.tags.map((tag) => tag.id).whereType<int>(),
+    );
+  }
+
+  Future<void> changeComposerCategory(
+    ComposerController composer,
+    int? categoryId,
+  ) async {
+    final minimumRequiredTags = topicComposerCategories(composer.target.siteUrl)
+        .where((category) => category.id == categoryId)
+        .firstOrNull
+        ?.minimumRequiredTags;
+    composer.setCategory(
+      categoryId,
+      minimumRequiredTags: minimumRequiredTags ?? 0,
+    );
+    if (composer.tags.isEmpty) return;
+    final kept = <TopicTag>[];
+    for (final selected in composer.tags) {
+      try {
+        final result = await searchComposerTags(composer, selected.name);
+        if (!identical(_composer, composer) ||
+            composer.categoryId != categoryId) {
+          return;
+        }
+        final match = result.results
+            .where(
+              (tag) =>
+                  tag.id == selected.id ||
+                  tag.name.toLowerCase() == selected.name.toLowerCase(),
+            )
+            .firstOrNull;
+        if (!result.isForbidden && match != null && !match.disabled) {
+          kept.add(match);
+        }
+      } catch (_) {
+        return;
+      }
+    }
+    if (!identical(_composer, composer) || composer.categoryId != categoryId) {
+      return;
+    }
+    if (kept.length != composer.tags.length) {
+      composer.setTags(kept);
+      composer.showNotice(
+        'Some tags were removed because they are not allowed in that category.',
+      );
+    }
+  }
 
   /// Opens the composer against the topic on screen.
   ///
@@ -1613,8 +1821,11 @@ class ShellController extends FrameSafeNotifier {
     final route = currentContent;
     final topicId = route?.topicId;
     if (instance == null || topicId == null || !post.canEdit) return;
+    unawaited(_ensureTopicComposerCapabilities(instance.url));
 
     _replaceComposer();
+    final detail = currentTopic;
+    final editsTopic = post.postNumber == 1 && detail?.canEdit == true;
     final target = ComposerTarget(
       siteUrl: instance.url,
       topicId: topicId,
@@ -1622,6 +1833,9 @@ class ShellController extends FrameSafeNotifier {
       topicTitle: route?.title ?? '',
       editingPostId: post.id,
       editingPostNumber: post.postNumber,
+      mode: editsTopic ? ComposerMode.topicEdit : ComposerMode.postEdit,
+      initialCategoryId: editsTopic ? detail?.categoryId : null,
+      initialTags: editsTopic ? detail?.tags ?? const [] : const [],
     );
     // No `onSaveDraft`: Discourse files a topic's drafts under one key, so
     // saving here would overwrite an unfinished reply with the text of a post
@@ -1633,11 +1847,78 @@ class ShellController extends FrameSafeNotifier {
       resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
       pills: _composerPills(target),
       pollMaximumOptions: siteConfigFor(target.siteUrl).pollMaximumOptions,
+      minimumRequiredTags: editsTopic
+          ? categoryFor(
+                  detail?.categoryId,
+                  siteUrl: instance.url,
+                )?.minimumRequiredTags ??
+                0
+          : 0,
     );
     _composer = composer;
     _notify();
 
     unawaited(_loadEditBody(composer, post));
+  }
+
+  void openTagsEdit() {
+    final instance = currentInstance;
+    final route = currentContent;
+    final detail = currentTopic;
+    if (instance == null ||
+        route?.topicId == null ||
+        detail?.canEditTags != true) {
+      return;
+    }
+    unawaited(_ensureTopicComposerCapabilities(instance.url));
+    _replaceComposer();
+    final target = ComposerTarget(
+      siteUrl: instance.url,
+      topicId: route!.topicId!,
+      slug: route.slug ?? '',
+      topicTitle: detail!.title,
+      editingPostId: detail.stream.firstOrNull,
+      editingPostNumber: 1,
+      mode: ComposerMode.tagsEdit,
+      initialCategoryId: detail.categoryId,
+      initialTags: detail.tags,
+    );
+    _composer = ComposerController(
+      target,
+      minimumRequiredTags:
+          categoryFor(
+            detail.categoryId,
+            siteUrl: instance.url,
+          )?.minimumRequiredTags ??
+          0,
+    );
+    _notify();
+  }
+
+  Future<void> _ensureTopicComposerCapabilities(String siteUrl) async {
+    if (_topicComposerCapabilities.containsKey(siteUrl)) return;
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent || credential.failure != null) return;
+      final capabilities = await api.topicComposerCapabilities(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+      );
+      lease.commit(() {
+        _topicComposerCapabilities[siteUrl] = capabilities;
+        _notify();
+      });
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'composer.topicCapabilities',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+    }
   }
 
   /// How a composer for [target] finds people and emoji.
@@ -2380,7 +2661,11 @@ class ShellController extends FrameSafeNotifier {
 
   int _draftSequence(ComposerTarget target) =>
       _draftSequences[_draftKey(target.siteUrl, target.draftKey)] ??
-      store.read<TopicDetail>(target.siteUrl, target.topicId)?.draftSequence ??
+      (target.isNewTopic
+          ? null
+          : store
+                .read<TopicDetail>(target.siteUrl, target.topicId)
+                ?.draftSequence) ??
       0;
 
   /// Writes the local copy first, then sends it.
@@ -2449,11 +2734,14 @@ class ShellController extends FrameSafeNotifier {
             return;
           }
 
-          store.update<TopicDetail>(
-            target.siteUrl,
-            target.topicId,
-            (detail) => detail.withDraft(save.draft, sequence ?? save.sequence),
-          );
+          if (!target.isNewTopic) {
+            store.update<TopicDetail>(
+              target.siteUrl,
+              target.topicId,
+              (detail) =>
+                  detail.withDraft(save.draft, sequence ?? save.sequence),
+            );
+          }
           clearLocal = true;
         });
         if (clearLocal) {
@@ -2490,13 +2778,46 @@ class ShellController extends FrameSafeNotifier {
     final local = ComposerDraft.decode(
       await drafts.read(target.siteUrl, target.draftKey),
     );
+    ComposerDraft? remote;
+    var remoteSequence = 0;
+    if (local == null && target.isNewTopic) {
+      try {
+        final credential = await _credentialForWrite(target.siteUrl);
+        if (credential.failure == null) {
+          final found = await api.draft(
+            siteUrl: target.siteUrl,
+            apiKey: credential.apiKey!,
+            draftKey: target.draftKey,
+          );
+          remote = found.draft;
+          remoteSequence = found.sequence;
+        }
+      } catch (_) {
+        // A draft restore is best effort; opening the composer must still work.
+      }
+    }
     lease.commit(() {
       final draft =
           local ??
-          store.read<TopicDetail>(target.siteUrl, target.topicId)?.draft;
+          remote ??
+          (target.isNewTopic
+              ? null
+              : store.read<TopicDetail>(target.siteUrl, target.topicId)?.draft);
       if (draft == null) return;
 
       composer.restore(draft);
+      composer.setMinimumRequiredTags(
+        topicComposerCategories(target.siteUrl)
+                .where((category) => category.id == composer.categoryId)
+                .firstOrNull
+                ?.minimumRequiredTags ??
+            0,
+      );
+      if (target.isNewTopic && remoteSequence > 0) {
+        composer.draftSequence = remoteSequence;
+        _draftSequences[_draftKey(target.siteUrl, target.draftKey)] =
+            remoteSequence;
+      }
       if (draft.replyToPostNumber != null &&
           target.replyToPostNumber == null &&
           identical(_composer, composer)) {
@@ -2539,21 +2860,37 @@ class ShellController extends FrameSafeNotifier {
     final apiKey = credential.apiKey!;
     final PostCreation creation;
     try {
-      creation = await api.createPost(
-        siteUrl: target.siteUrl,
-        apiKey: apiKey,
-        topicId: target.topicId,
-        raw: raw,
-        replyToPostNumber: target.replyToPostNumber,
-        typingDuration: composer.typingDuration,
-        composerOpenDuration: composer.openDuration,
-        draftKey: target.draftKey,
-      );
+      creation = target.isNewTopic
+          ? await api.createTopic(
+              siteUrl: target.siteUrl,
+              apiKey: apiKey,
+              title: composer.title.text.trim(),
+              raw: raw,
+              categoryId: composer.categoryId,
+              tags: composer.tags,
+              typingDuration: composer.typingDuration,
+              composerOpenDuration: composer.openDuration,
+              draftKey: target.draftKey,
+            )
+          : await api.createPost(
+              siteUrl: target.siteUrl,
+              apiKey: apiKey,
+              topicId: target.topicId,
+              raw: raw,
+              replyToPostNumber: target.replyToPostNumber,
+              typingDuration: composer.typingDuration,
+              composerOpenDuration: composer.openDuration,
+              draftKey: target.draftKey,
+            );
     } on WriteException catch (e) {
       // A refusal is certain — the site answered and said no. Not reaching it
       // is not: the post may well have been created and only the answer lost.
       if (e.failure == WriteFailure.unreachable) {
-        await _reconcile(target, raw, composer, e, lease: lease);
+        if (target.isNewTopic) {
+          await _reconcileNewTopic(target, composer, e, lease: lease);
+        } else {
+          await _reconcile(target, raw, composer, e, lease: lease);
+        }
       } else {
         lease.commit(() => composer.failed(e));
       }
@@ -2562,17 +2899,32 @@ class ShellController extends FrameSafeNotifier {
       if (lease.isCurrent) {
         _reportOperationalError(error, stackTrace, 'composer.submit');
       }
-      await _reconcile(
-        target,
-        raw,
-        composer,
-        const WriteException(WriteFailure.unreachable),
-        lease: lease,
-      );
+      if (target.isNewTopic) {
+        await _reconcileNewTopic(
+          target,
+          composer,
+          const WriteException(WriteFailure.unreachable),
+          lease: lease,
+        );
+      } else {
+        await _reconcile(
+          target,
+          raw,
+          composer,
+          const WriteException(WriteFailure.unreachable),
+          lease: lease,
+        );
+      }
       return;
     }
 
-    lease.commit(() => _applyCreation(target, creation, composer, lease));
+    if (target.isNewTopic) {
+      lease.commit(
+        () => _applyTopicCreation(target, creation, composer, lease),
+      );
+    } else {
+      lease.commit(() => _applyCreation(target, creation, composer, lease));
+    }
   }
 
   /// Sends an edit.
@@ -2586,6 +2938,9 @@ class ShellController extends FrameSafeNotifier {
     ComposerTarget target,
     String raw,
   ) async {
+    if (target.isTagsEdit) {
+      return _submitTagsEdit(composer, target);
+    }
     final key = _postKey(target.siteUrl, target.editingPostId!);
     if (!_beginPostWrite(key)) {
       composer.failed(
@@ -2618,6 +2973,66 @@ class ShellController extends FrameSafeNotifier {
     }
     final apiKey = credential.apiKey!;
 
+    if (target.editsTopicMetadata && composer.metadataChanged) {
+      try {
+        await api.updateTopic(
+          siteUrl: target.siteUrl,
+          apiKey: apiKey,
+          topicId: target.topicId,
+          title: composer.title.text.trim(),
+          originalTitle: composer.originalTitle,
+          categoryId: composer.categoryId,
+          tags: composer.tags,
+          originalTags: composer.originalTags,
+        );
+      } on WriteException catch (e) {
+        lease.commit(() => composer.failed(e));
+        return;
+      } catch (error, stackTrace) {
+        if (lease.isCurrent) {
+          _reportOperationalError(error, stackTrace, 'composer.editTopic');
+        }
+        lease.commit(
+          () => composer.failed(const WriteException(WriteFailure.unreachable)),
+        );
+        return;
+      }
+      lease.commit(() {
+        final title = composer.title.text.trim();
+        store.update<TopicDetail>(
+          target.siteUrl,
+          target.topicId,
+          (detail) => detail.copyWith(
+            title: title,
+            categoryId: composer.categoryId,
+            clearCategory: composer.categoryId == null,
+            tags: composer.tags,
+          ),
+        );
+        store.update<Topic>(
+          target.siteUrl,
+          target.topicId,
+          (topic) => topic.copyWith(
+            title: title,
+            categoryId: composer.categoryId,
+            clearCategory: composer.categoryId == null,
+            tags: composer.tags,
+          ),
+        );
+        _updateTopicRouteMetadata(
+          target.siteUrl,
+          target.topicId,
+          title,
+          composer.categoryId,
+        );
+        composer.metadataSettled();
+      });
+      if (raw == composer.originalRaw) {
+        lease.commit(() => _closeSubmittedComposer(composer));
+        return;
+      }
+    }
+
     final Post updated;
     try {
       updated = await api.updatePost(
@@ -2625,6 +3040,7 @@ class ShellController extends FrameSafeNotifier {
         apiKey: apiKey,
         postId: target.editingPostId!,
         raw: raw,
+        originalText: composer.originalRaw,
       );
     } on WriteException catch (e) {
       lease.commit(() => composer.failed(e));
@@ -2664,28 +3080,184 @@ class ShellController extends FrameSafeNotifier {
                   ),
       );
 
-      if (identical(_composer, composer)) {
-        composer.dispose();
-        _composer = null;
-      }
-      _notify();
+      _closeSubmittedComposer(composer);
     });
+  }
+
+  Future<void> _submitTagsEdit(
+    ComposerController composer,
+    ComposerTarget target,
+  ) async {
+    final lease = lifecycle.capture(target.siteUrl);
+    composer.beginSubmit();
+    final credential = await _credentialForWrite(target.siteUrl);
+    if (!lease.isCurrent) return;
+    if (credential.failure case final failure?) {
+      lease.commit(() => composer.failed(failure));
+      return;
+    }
+    try {
+      await api.updateTopicTags(
+        siteUrl: target.siteUrl,
+        apiKey: credential.apiKey!,
+        topicId: target.topicId,
+        tags: composer.tags,
+      );
+    } on WriteException catch (error) {
+      lease.commit(() => composer.failed(error));
+      return;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(error, stackTrace, 'composer.editTopicTags');
+      }
+      lease.commit(
+        () => composer.failed(const WriteException(WriteFailure.unreachable)),
+      );
+      return;
+    }
+    lease.commit(() {
+      store.update<TopicDetail>(
+        target.siteUrl,
+        target.topicId,
+        (detail) => detail.copyWith(tags: composer.tags),
+      );
+      store.update<Topic>(
+        target.siteUrl,
+        target.topicId,
+        (topic) => topic.copyWith(tags: composer.tags),
+      );
+      _closeSubmittedComposer(composer);
+    });
+  }
+
+  void _closeSubmittedComposer(ComposerController composer) {
+    if (identical(_composer, composer)) {
+      composer.dispose();
+      _composer = null;
+    }
+    _notify();
   }
 
   /// Runs the check again after one could not be completed.
   Future<void> recheckComposer() async {
     final composer = _composer;
     if (composer == null || !composer.canRecheck) return;
-    await _reconcile(
-      composer.target,
-      composer.raw,
-      composer,
-      const WriteException(WriteFailure.unreachable),
-    );
+    if (composer.target.isNewTopic) {
+      await _reconcileNewTopic(
+        composer.target,
+        composer,
+        const WriteException(WriteFailure.unreachable),
+      );
+    } else {
+      await _reconcile(
+        composer.target,
+        composer.raw,
+        composer,
+        const WriteException(WriteFailure.unreachable),
+      );
+    }
   }
 
   /// How far back to look for a post that may or may not have been made.
   static const int _reconcileWindow = 5;
+
+  Future<void> _reconcileNewTopic(
+    ComposerTarget target,
+    ComposerController composer,
+    WriteException failure, {
+    SiteLease? lease,
+  }) async {
+    final session = lease ?? lifecycle.capture(target.siteUrl);
+    if (!session.commit(composer.checking)) return;
+    final credential = await _credentialForWrite(target.siteUrl);
+    if (!session.isCurrent || credential.failure != null) {
+      session.commit(composer.unresolved);
+      return;
+    }
+    final apiKey = credential.apiKey!;
+
+    try {
+      final retained = await api.draft(
+        siteUrl: target.siteUrl,
+        apiKey: apiKey,
+        draftKey: target.draftKey,
+      );
+      if (!session.isCurrent) return;
+      final draft = retained.draft;
+      if (draft != null &&
+          draft.title?.trim() == composer.title.text.trim() &&
+          draft.reply.trim() == composer.raw) {
+        session.commit(() => composer.checkedNotPosted(failure));
+        return;
+      }
+
+      final username = _instanceAt(target.siteUrl)?.user?.username;
+      if (username == null) {
+        session.commit(composer.unresolved);
+        return;
+      }
+      final recent = await api.topicList(
+        siteUrl: target.siteUrl,
+        path: '/topics/created-by/${Uri.encodeComponent(username)}.json',
+        apiKey: apiKey,
+      );
+      final matches = <TopicPayload>[];
+      for (final row
+          in recent.topics
+              .where((topic) => topic.title == composer.title.text.trim())
+              .take(_reconcileWindow)) {
+        final payload = await api.topic(
+          siteUrl: target.siteUrl,
+          slug: row.slug,
+          id: row.id,
+          apiKey: apiKey,
+        );
+        final firstId = payload.detail.stream.firstOrNull;
+        if (firstId == null) continue;
+        final posts = await api.posts(
+          siteUrl: target.siteUrl,
+          topicId: row.id,
+          ids: [firstId],
+          includeRaw: true,
+          apiKey: apiKey,
+        );
+        if (posts.firstOrNull?.raw?.trim() == composer.raw) {
+          matches.add(payload);
+        }
+      }
+      if (!session.isCurrent) return;
+      if (matches.length == 1) {
+        final payload = matches.single;
+        session.commit(() {
+          _absorb(target.siteUrl, payload);
+          _finishCreatedTopic(
+            target,
+            composer,
+            session,
+            payload.detail.id,
+            recent.topics
+                    .where((topic) => topic.id == payload.detail.id)
+                    .firstOrNull
+                    ?.slug ??
+                '',
+            payload.detail.title,
+          );
+        });
+      } else {
+        session.commit(composer.unresolved);
+      }
+    } catch (error, stackTrace) {
+      if (session.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'composer.reconcileTopic',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      session.commit(composer.unresolved);
+    }
+  }
 
   /// After a failure that might have posted anyway, look before sending again.
   ///
@@ -2849,6 +3421,69 @@ class ShellController extends FrameSafeNotifier {
     // The appended post is what the author sees immediately; this repairs the
     // stream and the count, and picks up whatever landed while they typed.
     unawaited(_refetchTopic(target.siteUrl, target.topicId, target.slug));
+  }
+
+  void _applyTopicCreation(
+    ComposerTarget target,
+    PostCreation creation,
+    ComposerController composer,
+    SiteLease lease,
+  ) {
+    composer.draftSettled();
+    unawaited(
+      drafts.clear(
+        target.siteUrl,
+        target.draftKey,
+        ifCurrent: () => lease.commit(() {}),
+      ),
+    );
+    if (creation.draftSequence case final sequence?) {
+      _draftSequences[_draftKey(target.siteUrl, target.draftKey)] = sequence;
+      composer.draftSequence = sequence;
+    }
+    if (creation.isEnqueued) {
+      composer.enqueued(creation.message);
+      _notify();
+      return;
+    }
+    final topicId = creation.topicId;
+    if (topicId == null) {
+      composer.failed(const WriteException(WriteFailure.unreachable));
+      return;
+    }
+    if (creation.post case final post?) store.put(target.siteUrl, post);
+    _finishCreatedTopic(
+      target,
+      composer,
+      lease,
+      topicId,
+      creation.topicSlug ?? '',
+      creation.topicTitle ?? composer.title.text.trim(),
+    );
+  }
+
+  void _finishCreatedTopic(
+    ComposerTarget target,
+    ComposerController composer,
+    SiteLease lease,
+    int topicId,
+    String slug,
+    String title,
+  ) {
+    composer.draftSettled();
+    unawaited(
+      drafts.clear(
+        target.siteUrl,
+        target.draftKey,
+        ifCurrent: () => lease.commit(() {}),
+      ),
+    );
+    _closeSubmittedComposer(composer);
+    final origin = target.originFeedId;
+    if (currentInstance?.url == target.siteUrl) {
+      _openTopic(topicId, slug, title);
+      if (origin != null) unawaited(loadFeed(origin, force: true));
+    }
   }
 
   /// Re-reads a topic on a named site, rather than on whatever is current.
@@ -3385,6 +4020,7 @@ class ShellController extends FrameSafeNotifier {
       );
       session.commit(() {
         store.putAll(instance.url, categories);
+        _categoriesBySite[instance.url] = List.unmodifiable(categories);
         _notify();
       });
     } catch (error, stackTrace) {
@@ -3790,6 +4426,8 @@ class ShellController extends FrameSafeNotifier {
     _postsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
 
     _categorised.remove(siteUrl);
+    _categoriesBySite.remove(siteUrl);
+    _topicComposerCapabilities.remove(siteUrl);
     _sitePresentation?.forget(siteUrl);
     _hashtags.remove(siteUrl);
     _hashtagsInFlight.remove(siteUrl);
