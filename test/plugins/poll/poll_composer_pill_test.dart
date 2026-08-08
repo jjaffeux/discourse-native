@@ -5,6 +5,7 @@ import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -76,6 +77,39 @@ void main() {
       findsOneWidget,
     );
     expect(tester.getSize(find.byType(RichText).first).height, lessThan(40));
+  });
+
+  testWidgets('the inline pill reports its own hover', (tester) async {
+    final hovering = <bool>[];
+    final controller = MarkdownEditingController(text: source);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: NotificationListener<PollComposerPillHoverNotification>(
+            onNotification: (notification) {
+              hovering.add(notification.hovering);
+              expect(notification.block.source, block.source);
+              return true;
+            },
+            child: Center(
+              child: TextField(controller: controller, maxLines: null),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(find.byType(PollComposerPill)));
+    await tester.pump();
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
+
+    expect(hovering, [isTrue, isFalse]);
   });
 
   testWidgets(
