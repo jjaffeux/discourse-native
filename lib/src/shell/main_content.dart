@@ -18,6 +18,7 @@ import 'composer_controller.dart';
 import 'composer_panel.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
+import 'forum_tabs_bar.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -56,6 +57,7 @@ class _MainContentBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final forumTabsEnabled = ShellScope.read(context).forumTabsEnabled;
 
     final route = state.route;
     if (route == null) return ColoredBox(color: theme.shell.content);
@@ -73,6 +75,7 @@ class _MainContentBody extends StatelessWidget {
         left: false,
         child: Column(
           children: [
+            if (forumTabsEnabled) const CurrentForumTabsBar(),
             _ContentHeader(
               layout: layout,
               route: route,

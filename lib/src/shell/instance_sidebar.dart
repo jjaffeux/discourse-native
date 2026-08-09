@@ -3,11 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/sidebar_section_store.dart';
-import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
-import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_header_button.dart';
-import '../plugins/chat/chat_plugin.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -17,7 +14,6 @@ import 'emoji.dart';
 import 'forum_search.dart';
 import 'instance_actions.dart';
 import 'open_link.dart';
-import 'open_tabs_section.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
@@ -67,23 +63,6 @@ final class _SidebarSnapshot {
     identityHashCode(presentationToken),
     Object.hashAll(sections.map(identityHashCode)),
   );
-}
-
-@immutable
-final class _OpenTabsSnapshot {
-  const _OpenTabsSnapshot({required this.tabs, required this.activeTabId});
-
-  final List<ForumTab> tabs;
-  final String? activeTabId;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _OpenTabsSnapshot &&
-      identical(tabs, other.tabs) &&
-      activeTabId == other.activeTabId;
-
-  @override
-  int get hashCode => Object.hash(identityHashCode(tabs), activeTabId);
 }
 
 /// Navigation within the selected instance. On compact layouts this fills the
@@ -145,8 +124,6 @@ class InstanceSidebar extends StatelessWidget {
               Expanded(
                 child: CustomScrollView(
                   slivers: [
-                    if (controller.forumTabsEnabled)
-                      const SliverToBoxAdapter(child: _CurrentForumOpenTabs()),
                     ListenableBuilder(
                       listenable: Listenable.merge([
                         controller.accountActivity.totalsListenable,
@@ -211,68 +188,6 @@ class InstanceSidebar extends StatelessWidget {
             ],
           ),
         ),
-      );
-    },
-  );
-}
-
-class _CurrentForumOpenTabs extends StatelessWidget {
-  const _CurrentForumOpenTabs();
-
-  @override
-  Widget build(BuildContext context) => ShellSelector<_OpenTabsSnapshot>(
-    select: (controller) => _OpenTabsSnapshot(
-      tabs: controller.tabsForCurrentForum,
-      activeTabId: controller.activeTabId,
-    ),
-    builder: (context, tabs, _) {
-      final controller = ShellScope.read(context);
-      return ListenableBuilder(
-        listenable: controller.chat,
-        builder: (context, _) {
-          final siteUrl = controller.currentInstance?.url;
-
-          OpenTabItem itemFor(ForumTab tab) {
-            final route = tab.currentContent;
-            final channelId = ChatChannel.channelIdIn(route.id);
-            if (siteUrl != null && channelId != null) {
-              final channel = controller.chat.channel(siteUrl, channelId);
-              if (channel != null) {
-                final destination = ChatPlugin.destination(channel);
-                final emoji = destination.emoji;
-                return OpenTabItem(
-                  id: tab.id,
-                  title: destination.label,
-                  icon: destination.icon,
-                  color: destination.color,
-                  parentColor: destination.parentColor,
-                  iconColor: destination.iconColor,
-                  avatarUrl: destination.avatarUrl,
-                  emojiUrl: emoji == null
-                      ? null
-                      : controller.emojiUrlFor(siteUrl, emoji),
-                  emojiName: emoji,
-                  badge: destination.badge ?? SidebarBadge.none,
-                );
-              }
-            }
-
-            return OpenTabItem(
-              id: tab.id,
-              title: route.title,
-              icon: route.icon,
-              color: route.color,
-            );
-          }
-
-          return OpenTabsSection(
-            items: [for (final tab in tabs.tabs) itemFor(tab)],
-            selectedId: tabs.activeTabId,
-            onAdd: controller.createTab,
-            onSelect: controller.selectTab,
-            onClose: controller.closeTab,
-          );
-        },
       );
     },
   );
