@@ -1223,6 +1223,27 @@ void main() {
       expect(find.text('Create topic'), findsOneWidget);
       expect(find.text('Category'), findsOneWidget);
       expect(find.text('Tags'), findsOneWidget);
+      final categoryRequestCount = api.categoryRequests.length;
+      final capabilityRequestCount = api.topicComposerCapabilityRequests.length;
+
+      await tester.tap(find.byTooltip('Close composer'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ComposerPanel), findsNothing);
+
+      await tester.tap(find.byTooltip('New topic'));
+      expect(
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).visibleComposer,
+        isNotNull,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(api.categoryRequests, hasLength(categoryRequestCount));
+      expect(
+        api.topicComposerCapabilityRequests,
+        hasLength(capabilityRequestCount),
+      );
 
       final fields = find.descendant(
         of: find.byType(ComposerPanel),

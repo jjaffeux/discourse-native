@@ -502,6 +502,8 @@ class FakeDiscourseApi implements DiscourseApi {
   /// Returned by [categories].
   final List<TopicCategory> categoryList;
   final TopicComposerCapabilities composerCapabilities;
+  final List<String> categoryRequests = [];
+  final List<String> topicComposerCapabilityRequests = [];
   final Map<String, TopicTagSearch> topicTagSearches;
   final Map<String, ComposerDraft> serverDrafts;
   final List<UserDraft> userDraftList;
@@ -954,14 +956,20 @@ class FakeDiscourseApi implements DiscourseApi {
     required String siteUrl,
     String? apiKey,
     String? clientId,
-  }) async => categoryList;
+  }) async {
+    categoryRequests.add(siteUrl);
+    return categoryList;
+  }
 
   @override
   Future<TopicComposerCapabilities> topicComposerCapabilities({
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async => composerCapabilities;
+  }) async {
+    topicComposerCapabilityRequests.add(siteUrl);
+    return composerCapabilities;
+  }
 
   @override
   Future<TopicTagSearch> searchTopicTags({
