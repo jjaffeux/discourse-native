@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/data/composer_geometry_store.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -5,10 +6,13 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets('floats at the bottom and stays in bounds while moving', (
     tester,
   ) async {
@@ -131,6 +135,39 @@ void main() {
     expect(panel.left, 16);
     expect(panel.right, 324);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('restores the last completed move and resize', (tester) async {
+    final firstComposer = ComposerController(_replyTarget);
+    final shell = await _shell();
+    addTearDown(firstComposer.dispose);
+    addTearDown(shell.dispose);
+    await _pumpFloatingPanel(tester, shell, firstComposer);
+
+    await tester.drag(
+      find.byKey(const ValueKey('composer-drag-handle')),
+      const Offset(-48, -72),
+    );
+    await tester.pump();
+    await tester.drag(
+      find.byKey(const ValueKey('composer-resize-top')),
+      const Offset(0, -80),
+    );
+    await tester.pump();
+    final preferred = tester.getRect(find.byType(ComposerPanel));
+    final stored = await const ComposerGeometryStore().read();
+    expect(stored, isNotNull);
+    expect(stored!.width, closeTo(preferred.width, 1));
+    expect(stored.height, closeTo(preferred.height, 1));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    final reopenedComposer = ComposerController(_replyTarget);
+    addTearDown(reopenedComposer.dispose);
+    await _pumpFloatingPanel(tester, shell, reopenedComposer);
+    await tester.pumpAndSettle();
+
+    final restored = tester.getRect(find.byType(ComposerPanel));
+    expect(restored, preferred);
   });
 }
 
