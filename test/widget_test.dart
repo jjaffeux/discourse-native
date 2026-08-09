@@ -804,6 +804,62 @@ void main() {
     expect(find.text('Discourse Meta'), findsNothing);
   });
 
+  testWidgets('rail marker grows from idle dot through hover to active pill', (
+    tester,
+  ) async {
+    await pumpShell(tester, desktop);
+
+    Finder item(DiscourseInstance instance) =>
+        find.byKey(ValueKey(instance.url));
+    Finder indicator(DiscourseInstance instance) =>
+        find.byKey(ValueKey('instance-rail-marker-${instance.url}'));
+    AnimatedContainer marker(DiscourseInstance instance) =>
+        tester.widget(indicator(instance));
+    double targetHeight(DiscourseInstance instance) =>
+        marker(instance).constraints!.minHeight;
+
+    final selected = twoSites.first;
+    final inactive = twoSites.last;
+    expect(targetHeight(selected), 40);
+    expect(targetHeight(inactive), 8);
+    expect(marker(inactive).duration, const Duration(milliseconds: 180));
+    expect(marker(inactive).curve, Curves.easeOutCubic);
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+    await gesture.moveTo(tester.getCenter(item(inactive)));
+    await tester.pump();
+
+    expect(targetHeight(inactive), 20);
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(
+      tester.getSize(indicator(inactive)).height,
+      allOf(greaterThan(8), lessThan(20)),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator(inactive)).height, 20);
+
+    await gesture.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator(inactive)).height, 8);
+
+    await gesture.moveTo(tester.getCenter(item(inactive)));
+    await tester.pumpAndSettle();
+    await tester.tap(item(inactive));
+    await tester.pump();
+
+    expect(targetHeight(selected), 8);
+    expect(targetHeight(inactive), 40);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator(selected)).height, 8);
+    expect(tester.getSize(indicator(inactive)).height, 40);
+
+    await gesture.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator(inactive)).height, 40);
+  });
+
   testWidgets('shows custom sidebar sections and opens their links', (
     tester,
   ) async {
