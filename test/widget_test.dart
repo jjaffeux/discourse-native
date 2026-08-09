@@ -946,6 +946,65 @@ void main() {
     expect(api.feedPaths, contains('/c/roadmap/4.json'));
   });
 
+  testWidgets('keeps the sidebar scroll boundary stable near its end', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    addTearDown(() => SharedPreferences.setMockInitialValues({}));
+
+    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Discourse Meta',
+    ).copyWith(user: me);
+    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
+    final destinations = [
+      for (var index = 0; index < 24; index++)
+        SidebarDestination(
+          id: 'long-scroll-$index',
+          label: 'Long destination $index',
+          icon: DIcons.link,
+        ),
+    ];
+    final api = FakeDiscourseApi(
+      user: me,
+      customSidebarSectionsBySite: {
+        site.url: [
+          SidebarSection(
+            id: 'long-scroll-boundary',
+            title: 'Long section',
+            destinations: destinations,
+          ),
+        ],
+      },
+    );
+
+    await pumpShell(
+      tester,
+      const Size(1000, 400),
+      instances: [site],
+      api: api,
+      authenticator: auth,
+    );
+
+    final scrollable = find.descendant(
+      of: find.byType(InstanceSidebar),
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    final initialMax = position.maxScrollExtent;
+    expect(initialMax, greaterThan(position.viewportDimension));
+
+    // A macOS trackpad can reach this estimated boundary before Flutter has
+    // laid out the much shorter plugin column. Discovering its real height
+    // must not move the boundary — that correction is the visible snap-back.
+    position.jumpTo(initialMax);
+    await tester.pumpAndSettle();
+
+    expect(position.maxScrollExtent, closeTo(initialMax, 0.001));
+    expect(position.pixels, closeTo(initialMax, 0.001));
+  });
+
   testWidgets('shows preferred categories and opens their native lists', (
     tester,
   ) async {
