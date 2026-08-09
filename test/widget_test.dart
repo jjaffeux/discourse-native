@@ -440,8 +440,16 @@ void main() {
       await tester.enterText(find.byKey(ForumSearch.inputKey), '@sam test');
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pumpAndSettle();
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      final searchInput = tester
+          .widget<EditableText>(find.byKey(ForumSearch.inputKey))
+          .focusNode;
 
       expect(api.searchesRequested.single.typeFilter, 'exclude_topics');
+      expect(searchInput.hasFocus, isTrue);
+      expect(controller.search.topicsActionSelected, isTrue);
       expect(find.byKey(const ValueKey('search-hit-70')), findsNothing);
       expect(
         find.byKey(const ValueKey('forum-search-topics-action')),
@@ -454,9 +462,14 @@ void main() {
       expect(find.text('flaky-test'), findsOneWidget);
       expect(find.text('Automation Test'), findsOneWidget);
 
-      await tester.tap(
-        find.byKey(const ValueKey('forum-search-topics-action')),
-      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(controller.search.selectedResult, isA<SearchCategoryHit>());
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(controller.search.topicsActionSelected, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
 
       expect(api.searchesRequested.last.typeFilter, isNull);
@@ -491,6 +504,9 @@ void main() {
       final controller = ShellScope.read(
         tester.element(find.byType(MainContent)),
       );
+      final searchInput = tester
+          .widget<EditableText>(find.byKey(ForumSearch.inputKey))
+          .focusNode;
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
@@ -509,6 +525,19 @@ void main() {
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
+      expect(searchInput.hasFocus, isTrue);
+      expect(controller.search.selectedIndex, 0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(controller.search.selectedIndex, 1);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(controller.search.selectedIndex, 0);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(controller.search.selectedIndex, 0);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
@@ -517,15 +546,57 @@ void main() {
       controller.search.setQuery('matches');
       controller.search.requestFocus();
       await tester.pump();
-      final searchInput = tester
-          .widget<EditableText>(find.byKey(ForumSearch.inputKey))
-          .focusNode;
       expect(searchInput.hasFocus, isTrue);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
       expect(controller.search.panelOpen, isFalse);
       expect(controller.search.query, 'matches');
       expect(searchInput.hasFocus, isFalse);
+    });
+
+    testWidgets('keeps the arrow-key selection visible', (tester) async {
+      final api = FakeDiscourseApi(
+        searchResults: {
+          'many matches': SearchResults(
+            hits: [
+              for (var id = 1; id <= 8; id++)
+                SearchPostHit(
+                  postId: id,
+                  topicId: id,
+                  postNumber: 1,
+                  topicTitle: 'Result $id',
+                  topicSlug: 'result-$id',
+                  username: 'sam',
+                  excerpt: const SearchExcerpt([SearchExcerptSegment('match')]),
+                ),
+            ],
+          ),
+        },
+      );
+      await pumpShell(tester, laptop, api: api);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'many matches');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      for (var index = 1; index < 8; index++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+      }
+      await tester.pump();
+
+      expect(controller.search.selectedIndex, 7);
+      final panel = tester.getRect(find.byKey(ForumSearch.panelKey));
+      final selected = tester.getRect(
+        find.byKey(const ValueKey('search-hit-8')),
+      );
+      expect(selected.top, greaterThanOrEqualTo(panel.top));
+      expect(selected.bottom, lessThanOrEqualTo(panel.bottom));
     });
 
     testWidgets('closes and unfocuses when tapping outside the search input', (

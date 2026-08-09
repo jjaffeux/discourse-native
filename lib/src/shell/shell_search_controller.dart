@@ -83,6 +83,8 @@ class ShellSearchController extends ChangeNotifier {
   String? get message => _message;
   int get selectedIndex => _selectedIndex;
   int get minimumLength => _minimumLength;
+  bool get topicsActionSelected =>
+      _mode == SearchMode.facets && _selectedIndex == -1;
   SearchResult? get selectedResult =>
       _selectedIndex >= 0 && _selectedIndex < _results.length
       ? _results[_selectedIndex]
@@ -206,7 +208,11 @@ class ShellSearchController extends ChangeNotifier {
       _results = List.unmodifiable([
         for (final section in _sections) ...section.results,
       ]);
-      _selectedIndex = _results.isEmpty ? -1 : 0;
+      // The topic-search action is the first keyboard target in facet mode.
+      // Topic mode has no action row, so its first result starts selected.
+      _selectedIndex = _results.isEmpty || request.mode == SearchMode.facets
+          ? -1
+          : 0;
       _message = results.error;
       _phase = results.error != null
           ? SearchSessionPhase.refused
@@ -269,10 +275,20 @@ class ShellSearchController extends ChangeNotifier {
     if (notify) _notify();
   }
 
-  void moveSelection(int delta) {
-    if (_results.isEmpty || delta == 0) return;
-    final current = _selectedIndex < 0 ? 0 : _selectedIndex;
-    _selectedIndex = (current + delta).clamp(0, _results.length - 1);
+  bool moveSelection(int delta) {
+    if (_results.isEmpty || delta == 0) return false;
+
+    final firstIndex = _mode == SearchMode.facets ? -1 : 0;
+    final targetCount = _results.length + (_mode == SearchMode.facets ? 1 : 0);
+    final currentPosition = _selectedIndex - firstIndex;
+    _selectedIndex = firstIndex + (currentPosition + delta) % targetCount;
+    _notify();
+    return true;
+  }
+
+  void selectTopicsAction() {
+    if (_mode != SearchMode.facets || _selectedIndex == -1) return;
+    _selectedIndex = -1;
     _notify();
   }
 

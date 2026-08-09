@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 
 import '../models/search_results.dart';
@@ -109,25 +110,31 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
     final search = _search;
     if (search == null) return KeyEventResult.ignored;
 
-    if (event.logicalKey == LogicalKeyboardKey.escape) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape) {
       search.closePanel();
       _focus.unfocus();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      search.moveSelection(1);
-      return KeyEventResult.handled;
+      return search.panelOpen && search.moveSelection(1)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      search.moveSelection(-1);
-      return KeyEventResult.handled;
+      return search.panelOpen && search.moveSelection(-1)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
     }
-    if (event.logicalKey == LogicalKeyboardKey.enter ||
-        event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+    if (event is KeyDownEvent &&
+        (event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
       if (_focus.hasFocus) {
         _submitFromField();
       } else {
@@ -146,10 +153,10 @@ class _ForumSearchState extends State<ForumSearch> {
   void _submitFromField() {
     final search = _search;
     if (search == null) return;
-    if (search.mode == SearchMode.facets) {
+    if (search.selectedResult case final result?) {
+      _openResult(result);
+    } else if (search.mode == SearchMode.facets) {
       search.showTopics();
-    } else {
-      _openSelected();
     }
   }
 
@@ -209,6 +216,8 @@ class _ForumSearchState extends State<ForumSearch> {
             ),
           ],
           builder: (context, menu, child) => Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
             onKeyEvent: _handleKey,
             child: Semantics(
               textField: true,
@@ -381,12 +390,23 @@ class _SearchResultSections extends StatelessWidget {
       height: math.min(estimatedHeight + actionHeight, 420),
       child: ListView(
         primary: false,
+        // Keyboard selection can advance faster than lazy layout. Keeping this
+        // small, server-bounded result set alive gives every target a context
+        // that can be revealed as soon as its index becomes selected.
+        scrollCacheExtent: ScrollCacheExtent.pixels(
+          estimatedHeight + actionHeight,
+        ),
         padding: const EdgeInsets.symmetric(vertical: 4),
         children: [
           if (search.mode == SearchMode.facets) ...[
-            _SearchTopicsAction(
-              query: search.query.trim(),
-              onTap: search.showTopics,
+            _RevealWhenSelected(
+              selected: search.topicsActionSelected,
+              child: _SearchTopicsAction(
+                query: search.query.trim(),
+                selected: search.topicsActionSelected,
+                onFocus: search.selectTopicsAction,
+                onTap: search.showTopics,
+              ),
             ),
             const Divider(height: 1),
           ],
@@ -400,12 +420,16 @@ class _SearchResultSections extends StatelessWidget {
               Builder(
                 builder: (context) {
                   final index = resultIndex++;
-                  return _SearchResultRow(
-                    result: result,
-                    siteUrl: search.siteUrl!,
-                    selected: search.selectedIndex == index,
-                    onFocus: () => search.select(index),
-                    onTap: () => onOpen(result),
+                  final selected = search.selectedIndex == index;
+                  return _RevealWhenSelected(
+                    selected: selected,
+                    child: _SearchResultRow(
+                      result: result,
+                      siteUrl: search.siteUrl!,
+                      selected: selected,
+                      onFocus: () => search.select(index),
+                      onTap: () => onOpen(result),
+                    ),
                   );
                 },
               ),
@@ -416,10 +440,59 @@ class _SearchResultSections extends StatelessWidget {
   }
 }
 
+class _RevealWhenSelected extends StatefulWidget {
+  const _RevealWhenSelected({required this.selected, required this.child});
+
+  final bool selected;
+  final Widget child;
+
+  @override
+  State<_RevealWhenSelected> createState() => _RevealWhenSelectedState();
+}
+
+class _RevealWhenSelectedState extends State<_RevealWhenSelected> {
+  @override
+  void didUpdateWidget(_RevealWhenSelected oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selected && !oldWidget.selected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
+    }
+  }
+
+  void _reveal() {
+    if (!mounted || !widget.selected) return;
+
+    // The first call handles a row below the viewport. Once it has jumped, the
+    // second is a no-op; for a row above the viewport their roles are reversed.
+    unawaited(
+      Scrollable.ensureVisible(
+        context,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      ),
+    );
+    unawaited(
+      Scrollable.ensureVisible(
+        context,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 class _SearchTopicsAction extends StatelessWidget {
-  const _SearchTopicsAction({required this.query, required this.onTap});
+  const _SearchTopicsAction({
+    required this.query,
+    required this.selected,
+    required this.onFocus,
+    required this.onTap,
+  });
 
   final String query;
+  final bool selected;
+  final VoidCallback onFocus;
   final VoidCallback onTap;
 
   @override
@@ -427,43 +500,50 @@ class _SearchTopicsAction extends StatelessWidget {
     final theme = Theme.of(context);
     return Semantics(
       button: true,
+      selected: selected,
       label: 'Search $query in topics and posts',
       child: InkWell(
         key: const ValueKey('forum-search-topics-action'),
+        onFocusChange: (focused) {
+          if (focused) onFocus();
+        },
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              const SizedBox.square(
-                dimension: 30,
-                child: Center(child: DIcon(DIcons.magnifyingGlass, size: 17)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: query,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const TextSpan(text: ' in topics and posts'),
-                    ],
+        child: ColoredBox(
+          color: selected ? theme.shell.hover : Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                const SizedBox.square(
+                  dimension: 30,
+                  child: Center(child: DIcon(DIcons.magnifyingGlass, size: 17)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: query,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const TextSpan(text: ' in topics and posts'),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Press Enter',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                const SizedBox(width: 8),
+                Text(
+                  'Press Enter',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -556,10 +636,10 @@ class _CompactSearchResultRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Semantics(
       button: true,
+      selected: selected,
       label: [title, ?subtitle].join(', '),
       child: InkWell(
         key: ValueKey('search-${result.kind.name}-${result.id}'),
-        autofocus: selected,
         onFocusChange: (focused) {
           if (focused) onFocus();
         },
@@ -730,10 +810,10 @@ class _SearchHitRow extends StatelessWidget {
 
     return Semantics(
       button: true,
+      selected: selected,
       label: '${hit.topicTitle}, post by ${hit.displayName}',
       child: InkWell(
         key: ValueKey('search-hit-${hit.postId}'),
-        autofocus: selected,
         onFocusChange: (focused) {
           if (focused) onFocus();
         },
