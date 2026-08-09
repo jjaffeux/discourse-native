@@ -10,7 +10,7 @@ import 'emoji.dart';
 /// too many.
 ///
 /// Public, and in a file of its own, because an optional site feature can
-/// contribute one. See `SitePlugin.postMenu`.
+/// contribute one. See `PostMenuPlugin.postMenu`.
 @immutable
 class PostAction {
   const PostAction({

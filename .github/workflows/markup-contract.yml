@@ -1,0 +1,33 @@
+name: markup contract
+
+# This check depends on discourse/discourse's live main branch. Keep it out of
+# ordinary PR CI so upstream changes and transient network failures cannot make
+# an otherwise unrelated pull request red.
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: Check Discourse markup snapshots
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+
+      - name: Check for upstream markup drift
+        run: dart run tool/markup_contract.dart

@@ -9,6 +9,8 @@ import '../models/discourse_instance.dart';
 import '../models/draft_feed.dart';
 import '../models/user_draft.dart';
 
+typedef _DraftDeletionKey = ({String siteUrl, String draftKey});
+
 /// Draft-list state is independent from shell navigation, just like account
 /// notifications and bookmarks: paging or deleting a row must not rebuild the
 /// rail, topic stream, and composer along with it.
@@ -27,14 +29,14 @@ final class DraftListController extends FrameSafeNotifier {
 
   final Map<String, DraftFeed> _feeds = {};
   final Map<String, Object> _requests = {};
-  final Set<(String, String)> _deleting = {};
+  final Map<_DraftDeletionKey, Object> _deletions = {};
 
   DraftFeed feedFor(String? siteUrl) => siteUrl == null
       ? const DraftFeed()
       : _feeds[siteUrl] ?? const DraftFeed();
 
   bool deleting(String siteUrl, String draftKey) =>
-      _deleting.contains((siteUrl, draftKey));
+      _deletions.containsKey((siteUrl: siteUrl, draftKey: draftKey));
 
   Future<void> load(DiscourseInstance instance, {bool refresh = false}) async {
     if (isDisposed || !instance.isConnected) return;
@@ -51,6 +53,7 @@ final class DraftListController extends FrameSafeNotifier {
 
     try {
       final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_isCurrentLoad(lease, siteUrl, request)) return;
       if (apiKey == null) {
         _commit(lease, siteUrl, request, () {
           _feeds[siteUrl] = held.withError(
@@ -83,7 +86,7 @@ final class DraftListController extends FrameSafeNotifier {
         );
       });
     } finally {
-      if (lease.isCurrent && identical(_requests[siteUrl], request)) {
+      if (!isDisposed && identical(_requests[siteUrl], request)) {
         _requests.remove(siteUrl);
       }
     }
@@ -91,14 +94,16 @@ final class DraftListController extends FrameSafeNotifier {
 
   Future<bool> delete(DiscourseInstance instance, UserDraft draft) async {
     if (isDisposed || !instance.isConnected) return false;
-    final identity = (instance.url, draft.key);
-    if (_deleting.contains(identity)) return false;
+    final identity = (siteUrl: instance.url, draftKey: draft.key);
+    if (_deletions.containsKey(identity)) return false;
+    final request = Object();
     final lease = lifecycle.capture(instance.url);
-    _deleting.add(identity);
+    _deletions[identity] = request;
     notifySafely();
 
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);
+      if (!_isCurrentDeletion(lease, identity, request)) return false;
       if (apiKey == null) return false;
       await api.deleteUserDraft(
         siteUrl: instance.url,
@@ -106,11 +111,11 @@ final class DraftListController extends FrameSafeNotifier {
         draftKey: draft.key,
         sequence: draft.sequence,
       );
-      if (!lease.isCurrent || isDisposed) return false;
+      if (!_isCurrentDeletion(lease, identity, request)) return false;
       _feeds[instance.url] = feedFor(instance.url).without(draft.key);
       return true;
     } catch (error, stackTrace) {
-      if (lease.isCurrent && !isDisposed) {
+      if (_isCurrentDeletion(lease, identity, request)) {
         _report(error, stackTrace, 'drafts.delete');
         _feeds[instance.url] = feedFor(
           instance.url,
@@ -118,19 +123,33 @@ final class DraftListController extends FrameSafeNotifier {
       }
       return false;
     } finally {
-      if (lease.isCurrent && !isDisposed) {
-        _deleting.remove(identity);
+      if (!isDisposed && identical(_deletions[identity], request)) {
+        _deletions.remove(identity);
         notifySafely();
       }
     }
   }
 
   void forget(String siteUrl) {
-    final changed = _feeds.remove(siteUrl) != null;
-    _requests.remove(siteUrl);
-    _deleting.removeWhere((identity) => identity.$1 == siteUrl);
+    var changed = _feeds.remove(siteUrl) != null;
+    changed = _requests.remove(siteUrl) != null || changed;
+    final deletionsBefore = _deletions.length;
+    _deletions.removeWhere((identity, _) => identity.siteUrl == siteUrl);
+    changed = _deletions.length != deletionsBefore || changed;
     if (changed) notifySafely();
   }
+
+  bool _isCurrentLoad(SiteLease lease, String siteUrl, Object request) =>
+      !isDisposed && lease.isCurrent && identical(_requests[siteUrl], request);
+
+  bool _isCurrentDeletion(
+    SiteLease lease,
+    _DraftDeletionKey identity,
+    Object request,
+  ) =>
+      !isDisposed &&
+      lease.isCurrent &&
+      identical(_deletions[identity], request);
 
   void _commit(
     SiteLease lease,
@@ -160,7 +179,7 @@ final class DraftListController extends FrameSafeNotifier {
   @override
   void dispose() {
     _requests.clear();
-    _deleting.clear();
+    _deletions.clear();
     super.dispose();
   }
 }

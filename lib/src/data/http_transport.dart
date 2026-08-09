@@ -24,9 +24,10 @@ final class HttpResponseTooLargeException implements Exception {
   String toString() => 'HttpResponseTooLargeException($url, $maxBytes bytes)';
 }
 
-/// Accepts encrypted HTTP URLs and plaintext URLs for loopback development.
+/// Accepts credential-free encrypted HTTP URLs and plaintext URLs for loopback
+/// development.
 Uri requireSafeHttpUrl(Uri url) {
-  if (!url.hasAuthority || url.host.isEmpty) {
+  if (!url.hasAuthority || url.host.isEmpty || url.userInfo.isNotEmpty) {
     throw UnsafeHttpTransportException(url);
   }
   if (url.scheme == 'https') return url;

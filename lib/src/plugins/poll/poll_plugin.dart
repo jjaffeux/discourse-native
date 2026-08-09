@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../../models/content_route.dart';
 import '../../models/post.dart';
-import '../../models/sidebar.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/external_link.dart';
 import '../../shell/shell_controller.dart';
@@ -19,7 +17,13 @@ import 'poll_composer_parser.dart';
 import 'poll_composer_sheet.dart';
 
 /// Discourse's bundled Poll plugin as an optional, payload-gated feature.
-class PollPlugin implements SitePlugin<Polls> {
+class PollPlugin
+    implements
+        SitePlugin,
+        PostRecordPlugin<Polls>,
+        PostBodyPlugin,
+        ComposerToolbarPlugin,
+        TopicLivePlugin {
   const PollPlugin();
 
   @override
@@ -46,16 +50,6 @@ class PollPlugin implements SitePlugin<Polls> {
   }
 
   @override
-  Widget? postFooter(String siteUrl, Post post) => null;
-
-  @override
-  PostMenuContribution postMenu(
-    BuildContext context,
-    String siteUrl,
-    Post post,
-  ) => PostMenuContribution.none;
-
-  @override
   List<ComposerToolbarContribution> composerToolbar(
     BuildContext context,
     ComposerController composer,
@@ -78,15 +72,6 @@ class PollPlugin implements SitePlugin<Polls> {
   /// Poll definitions are serialized on edit, and absence means removal.
   @override
   Polls? mergeAfterPostEdit(Polls? held, Polls? incoming) => incoming;
-
-  @override
-  List<SidebarSection> sidebarSections(BuildContext context) => const [];
-
-  @override
-  Listenable? sidebarListenable(BuildContext context) => null;
-
-  @override
-  Widget? content(BuildContext context, ContentRoute route) => null;
 
   @override
   List<String> topicChannels(int topicId) => ['/polls/$topicId'];

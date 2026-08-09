@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/data/authenticator.dart';
+import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:flutter/services.dart';
@@ -103,6 +104,30 @@ void main() {
 
         await expectLater(authenticator.connect(_site), throwsA(same(error)));
         expect(launches, 0);
+      },
+    );
+
+    test(
+      'does not open the browser for a site URL containing credentials',
+      () async {
+        var launches = 0;
+        final store = _FakeSecureStore();
+        final authenticator = Authenticator(
+          store: store,
+          keyPairGenerator: () async => _pair,
+          nonceGenerator: () => 'nonce',
+          launcher: (_, _) async {
+            launches += 1;
+            return 'unused';
+          },
+        );
+
+        await expectLater(
+          authenticator.connect('https://reader:password@forum.example'),
+          throwsA(isA<UnsafeHttpTransportException>()),
+        );
+        expect(launches, 0);
+        expect(store.apiKeys, isEmpty);
       },
     );
 

@@ -1,234 +1,439 @@
 # Release runbook
 
-How builds get to users, and what to do when one of them is bad.
+How Linux builds get to users, how to prove a publish is sound, and what to do
+when one is not. The app itself does not update Linux installations: dpkg owns
+the files under `/usr`, and users receive updates through `apt upgrade`.
 
-**Status: not yet exercised.** `.github/workflows/release.yml` has never had a
-green run. Everything below the setup section is written from the design, not
-from having done it. Rehearse it once against canary — deliberately — before
-trusting it in an incident.
+## Distribution model
 
-## Shape
+The release workflow builds one amd64 `.deb` and publishes it in two places:
 
-| | |
-|---|---|
-| Artifacts | GitHub Releases. No bandwidth cap, no repo bloat. |
-| Manifests | GitHub Pages, `gh-pages` branch. KB-scale and versioned in git, so a bad publish is one `git revert`. |
-| Stable | An annotated tag `v1.3.0`, cross-checked against `pubspec.yaml`. |
-| Canary | Every push to `main`, versioned `1.3.0-canary.<commits>`. |
+- a signed apt repository on the `gh-pages` branch, which is the normal install
+  and update path;
+- a GitHub Release asset, for direct download.
 
-```
+Stable and canary are separate, self-contained apt repositories. They share one
+repository-signing key, but never share a package pool or metadata:
+
+```text
 gh-pages/
-  index.html                                   download page + runtime deps
-  stable/app-archive.json                      index of every stable release
-  stable/releases/1.3.0/linux/release.json     signed descriptor
-  canary/app-archive.json
-  canary/releases/1.3.0-canary.412/linux/release.json
+  .nojekyll
+  index.html
+  key.asc
+  apt/
+    stable/
+      dists/stable/{InRelease,Release,Release.gpg}
+      dists/stable/main/binary-amd64/{Packages,Packages.gz}
+      pool/main/d/discourse-native/*.deb
+    canary/
+      dists/canary/{InRelease,Release,Release.gpg}
+      dists/canary/main/binary-amd64/{Packages,Packages.gz}
+      pool/main/d/discourse-native/*.deb
 ```
 
-`app-archive.json` is an **index of every release**, not just the latest, which
-is why CI merges into it with `app_archive upsert` rather than writing it fresh.
+`InRelease` and `Release.gpg` authenticate the repository metadata. `Packages`
+contains the hash and repository-relative path of every `.deb` apt may offer.
+The `.deb` therefore has to live on GitHub Pages beside the metadata; a GitHub
+Release URL cannot be substituted into `Filename:`.
 
-`pubspec.yaml` holds the *next unreleased* version. A human bumps it in a normal
-PR; CI derives everything else, so no bot commit ever races a branch.
+The workflow keeps the newest three `.deb` files in each current pool. Old
+files remain in `gh-pages` git history, and every direct-download Release
+remains until somebody explicitly removes it. This is why canary is on demand,
+not a build of every push to `main`.
 
-## The apt signing key
+## Channels and versions
 
-What apt checks before it will install anything. Fingerprint
-`F904 D947 00FC B60E A7AF  7F8A F76E E5A2 17CD FCD0`, published at
-`/key.asc` and pinned by users with `signed-by=`.
+`pubspec.yaml` holds the next stable version. The workflow reads only its
+`major.minor.patch` part; the `+build` suffix is ignored. Its build number is
+the full git commit count at the source revision.
 
-CI holds it as `APT_GPG_PRIVATE_KEY` (base64 of an armoured secret-key export)
-and `APT_GPG_PASSPHRASE`. The passphrase lives in 1Password as
-`op://Employee/discourse-native apt/password`.
+| Channel | Trigger | App/GitHub version | Debian version | GitHub Release |
+|---|---|---|---|---|
+| stable | push `v<major>.<minor>.<patch>` | `1.0.0` | `1.0.0` | normal release |
+| canary | manual workflow dispatch | `1.0.0-canary.26` | `1.0.0~canary26` | prerelease |
 
-**Back it up.** GitHub secrets are write-only, so the copy there cannot be read
-back, and the only other copy is `~/.gnupg` on one laptop. Losing it does not
-break installed copies, but nothing new can be published under the same
-repository — every user would have to swap the key by hand, which in practice
-means most of them never update again.
+The tilde in the Debian canary version is deliberate: dpkg orders
+`1.0.0~canary26` before `1.0.0`, so a canary installation can move onto the
+same-base stable release with an ordinary upgrade. A semver hyphen in the
+Debian version would sort the other way and strand canary users.
+
+The Pages filename contains that tilde. GitHub Releases normalizes it to a dot,
+so the same canary bytes appear there as
+`discourse-native_1.0.0.canary26_amd64.deb`. Stable filenames need no
+normalization.
+
+Manual dispatch has no channel input and always publishes canary. Stable is
+selected only for a matching tag-push event; even a manual run whose `--ref`
+names a tag remains canary. This trigger boundary is deliberate: a branch named
+like `v1.0.0` can never publish stable.
+
+## Signing key and Actions secrets
+
+Apt clients pin the public key at
+`https://jjaffeux.github.io/discourse-native/key.asc` with `signed-by=`. Its
+fingerprint is:
+
+```text
+F904 D947 00FC B60E A7AF  7F8A F76E E5A2 17CD FCD0
+```
+
+The workflow uses exactly two user-managed Actions secrets:
+
+| Secret | Contents |
+|---|---|
+| `APT_GPG_PRIVATE_KEY` | base64 of an ASCII-armored secret-key export |
+| `APT_GPG_PASSPHRASE` | passphrase for that secret key |
+
+It base64-decodes and imports the key into an ephemeral `GNUPGHOME`, writes the
+passphrase to a mode-0600 file, signs both forms of the Release metadata, and
+exports the public half to `key.asc`. The automatic `GITHUB_TOKEN`, granted
+`contents: write` by the workflow, pushes `gh-pages` and creates the GitHub
+Release; it is not a stored secret.
+
+There are no per-channel signing secrets. In particular, the old `DU_*`
+desktop-updater keys are not used by this workflow. It also declares no GitHub
+Environment, so the apt secrets must be repository or organization Actions
+secrets available to the job; an Environment-only secret is not visible. At
+the workflow level there is no separate stable key or approval gate. Protect
+who can push matching tags, change the workflow, access release secrets, and
+write `gh-pages` in repository settings.
+
+### Backup
+
+GitHub secrets are write-only. Keep the armored private key, its passphrase,
+and the GPG revocation certificate with a second custodian. The passphrase is
+currently stored as `op://Employee/discourse-native apt/password`; a 1Password
+document beside it is a suitable home for the key export and revocation
+certificate.
+
+To make a fresh export from the workstation that owns the key:
 
 ```sh
 export APT_GPG_PASSPHRASE="$(op read 'op://Employee/discourse-native apt/password')"
-gpg --batch --pinentry-mode loopback --passphrase "$APT_GPG_PASSPHRASE" \
-    --export-secret-keys --armor F904D94700FCB60EA7AF7F8AF76EE5A217CDFCD0 \
+umask 077
+printf '%s\n' "$APT_GPG_PASSPHRASE" |
+  gpg --batch --pinentry-mode loopback --passphrase-fd 0 \
+    --export-secret-keys --armor \
+    F904D94700FCB60EA7AF7F8AF76EE5A217CDFCD0 \
     > apt-signing-key.asc
+base64 < apt-signing-key.asc | tr -d '\n'
 ```
 
-Store that next to its passphrase — a 1Password document item in the same vault
-is the obvious place — and keep the revocation certificate gpg wrote to
-`~/.gnupg/openpgp-revocs.d/` with it. `*.asc` is not gitignored; do not leave it
-in the repo.
+The final command prints the value for `APT_GPG_PRIVATE_KEY`. Do not paste that
+value into logs. `*.asc` is not gitignored here, so do not leave the export in
+the repository. Also retain the matching file from
+`~/.gnupg/openpgp-revocs.d/`.
 
-## The release signing keys — currently unused
+Losing the private key does not break already-installed packages, but it makes
+new metadata impossible to sign. Replacing `key.asc` on Pages alone does not
+rotate trust: existing users pinned a local copy and do not fetch it again.
+Key rotation therefore needs a planned client-key migration while the old key
+is still controlled; it is not just a secret replacement.
 
-`desktop_updater.keys.{stable,canary}.json` and the `DU_*` secrets are for the
-in-app updater, which nothing wires up now that Linux is packaged. They are kept
-because the seam is still in the tree for whichever platform gets an in-app
-updater first. Nothing in the release workflow touches them.
+## Publish a canary
 
-## One-time setup
+Canary is the rehearsal path for stable. Merge the intended revision to
+`main`, then dispatch one build deliberately:
 
-**Done:** steps 1 and 2. Both key profiles exist and their public halves are
-pinned in the app.
-
-```bash
-# stable
-dart run desktop_updater:release keygen \
-  --base-url https://jjaffeux.github.io/discourse-native/stable \
-  --key-profile desktop_updater.keys.stable.json
-# canary
-dart run desktop_updater:release keygen \
-  --base-url https://jjaffeux.github.io/discourse-native/canary \
-  --key-profile desktop_updater.keys.canary.json
+```sh
+git switch main
+git pull --ff-only
+gh workflow run release.yml --ref main
 ```
 
-Keygen binds a profile to that channel's archive URL, which is why there are
-two: the canary release job physically cannot sign a stable descriptor.
+The command prints the run URL when GitHub returns one. Record its run ID and
+follow it to completion:
 
-**Do not over-read that.** Verification in the app is *not* channel-bound — it
-looks the key id up in `AppRelease.trustedReleaseKeys` and checks the
-signature, with no test that the key belongs to the channel being installed.
-Both keys are trusted by every build. So a stolen canary private key plus write
-access to the stable feed still produces something the app accepts. Two keys
-limit what a compromised release job can do; they are not cryptographic
-isolation between channels, and the thing actually protecting stable is who can
-push to `gh-pages` and who can read `DU_KEY_STABLE`.
-
-The `desktop_updater.keys.*.json` files hold **public material only** and are
-committed. The private halves live in a 0600 file under
-`~/Library/Application Support/desktop_updater/release-keys` (on Linux,
-`$XDG_DATA_HOME/desktop_updater/release-keys`) and never leave it.
-
-Their public halves are copied verbatim into `AppRelease.trustedReleaseKeys`,
-both channels in one map, because the channel is chosen at runtime and a build
-has to verify whichever one the user switches to.
-
-**Still to do:**
-
-3. **Back both private keys up — today.** There is no recovery. A lost key
-   orphans every install and every user has to re-download by hand.
-
-   ```bash
-   export DU_PASSPHRASE="$(op read 'op://Employee/discourse-native desktop/password')"
-
-   dart run desktop_updater:release keys export \
-     --key-profile desktop_updater.keys.stable.json \
-     --base-url https://jjaffeux.github.io/discourse-native/stable \
-     --output release-key-stable.dukey \
-     --passphrase-env DU_PASSPHRASE
-
-   dart run desktop_updater:release keys export \
-     --key-profile desktop_updater.keys.canary.json \
-     --base-url https://jjaffeux.github.io/discourse-native/canary \
-     --output release-key-canary.dukey \
-     --passphrase-env DU_PASSPHRASE
-   ```
-
-   **Every key command needs both flags**, and neither is guessable from the
-   other:
-
-   - `--base-url` because the command loads the publish config before it looks
-     at anything else, and derives the feed URL from it. There is no
-     `desktop_updater.yaml` here for it to fall back to.
-   - `--key-profile` because the default is `desktop_updater.keys.json`, which
-     does not exist — there are two profiles, one per channel.
-
-   The two have to agree: the profile's own `feedUrl` is the channel's archive,
-   so pairing the stable profile with the canary base URL is a mistake the tool
-   will catch.
-
-   The passphrase is read from the named variable and is never accepted as an
-   argument, so it cannot land in a shell history or a process listing. Put the
-   bundles somewhere with a second custodian — a 1Password document item beside
-   the passphrase is a reasonable home.
-
-4. **Put the bundles in CI**, base64 of the `.dukey` file:
-
-   | Secret | Value |
-   |---|---|
-   | `DU_KEY_STABLE` | `base64 -w0 release-key-stable.dukey` |
-   | `DU_PASSPHRASE_STABLE` | the passphrase |
-   | `DU_KEY_CANARY` | `base64 -w0 release-key-canary.dukey` |
-   | `DU_PASSPHRASE_CANARY` | the passphrase |
-
-   The workflow restores them with `keys import --passphrase-env`.
-
-5. **Put the stable secrets behind a GitHub Environment with required
-   reviewers.** Anyone who can push a workflow file to `main` can otherwise
-   read them, and that key is what lets you install arbitrary code on every
-   user's machine. Highest-value control here. Canary can stay repo-level.
-
-6. **Rehearse a yank** against canary with a deliberately broken build.
-
-### Rotation
-
-`keys rotate` mints a pending key while the current one keeps signing; `keys
-activate` switches over. The gap between them is the whole point: ship a
-release whose `trustedReleaseKeys` carries **both** before activating, or every
-client that missed it is stranded permanently. For a desktop app with no forced
-updates, think months — so start the rotation you might need long before you
-need it.
-
-## Yanking a bad release
-
-GitHub Pages sits behind Fastly with `cache-control: max-age=600`. That cuts
-both ways: a bad index propagates in ten minutes, and so does its removal.
-
-The thing to internalise before you need it:
-
-> Removing the index entry stops **new** discovery. Only a **higher version**
-> reaches anyone who already updated.
-
-### 1. Stop the bleeding
-
-```bash
-git clone --branch gh-pages git@github.com:jjaffeux/discourse-native.git
-cd discourse-native
-git log --oneline -5 -- stable/app-archive.json
-git revert --no-edit <sha-of-the-bad-publish>
-git push
+```sh
+gh run list --workflow release.yml --event workflow_dispatch --limit 5
+gh run watch <run-id> --exit-status
+gh run view <run-id> --log-failed
 ```
 
-A revert rather than checking out an old blob, because it is itself a
-reviewable, attributable commit in the same history. Pages rebuilds in about
-thirty seconds; Fastly expires within ten minutes.
+Do not dispatch the same source commit again after any publication. The canary
+version is derived from that commit's history count, so a rerun reuses the same
+Debian version, Git tag, and asset identity. A transient failure is safe to
+retry only after confirming that neither Pages nor Releases changed; otherwise
+fix the problem in a new commit and dispatch that revision instead.
 
-### 2. Decide about the artifact, deliberately
+Exercise the canary on a supported Ubuntu 22.04+ or Debian 12+ amd64 machine
+before releasing the same code as stable. In addition to startup and the
+changed behavior, test an `apt upgrade` from the previous canary and, when a
+same-base stable exists, the transition back to stable after switching the apt
+source line.
 
-Do **not** reflexively delete the release.
+## Publish stable
 
-- **Will not launch, or corrupts data** — delete the zip asset. Clients
-  mid-download get a 404 and fail closed, which is what you want.
-- **Merely buggy** — leave it. Mark the release a draft so people stop finding
-  it, but let in-flight downloads finish: a half-downloaded update that starts
-  404ing is a worse experience than the bug.
-- **Compromised signing key** — delete everything and generate a new key. The
-  index revert does not help you here, because the attacker's `release.json`
-  carries a valid signature. Every existing install has to be replaced by hand.
+Land the version bump in an ordinary reviewed PR and let that exact revision
+spend time on canary. From an up-to-date `main`, verify the pubspec base version
+and create the tag:
 
-### 3. Roll forward — this is the step people skip
-
-It is the only one that reaches users who already updated.
-
-```bash
-git revert --no-edit <the-bad-code-commit>
-# bump pubspec to 1.3.1
-git commit && git tag v1.3.1 && git push --tags
+```sh
+git switch main
+git pull --ff-only
+VERSION=1.0.0
+test "$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' pubspec.yaml | head -1)" = "$VERSION"
+git tag -a "v$VERSION" -m "Discourse $VERSION"
+git push origin "v$VERSION"
 ```
 
-Ship the previous good code under a **higher** version. Never re-publish the
-same version against a different artifact hash — that ambiguity is exactly what
-the signing scheme exists to prevent, and clients already on the bad build will
-refuse a downgrade anyway.
+The workflow accepts a matching lightweight tag too, but an annotated tag
+leaves the release intent in git. Stable selection also requires the `push`
+event to carry a tag ref; a manual run cannot select it. Any mismatch between
+`v$VERSION` and the pubspec base version fails before packaging. Never move or
+reuse a published tag; fix forward under a higher version.
+
+Find and watch the tag-triggered run (its event is `push`, not
+`workflow_dispatch`):
+
+```sh
+gh run list --workflow release.yml --event push --limit 5
+gh run watch <run-id> --exit-status
+gh run view <run-id> --log-failed
+```
+
+Do not announce the release until both the apt repository and the GitHub
+Release checks below pass.
+
+## What the workflow validates and publishes
+
+Before publication, the job:
+
+1. builds against Ubuntu 22.04/glibc 2.35, runs `flutter analyze` and
+   `flutter test`, and checks that the bundle uses WebKitGTK 4.1;
+2. lays the app under `/usr/lib/discourse-native`, adds the
+   `/usr/bin/discourse-native` symlink plus desktop and icon files, and builds
+   an amd64 `.deb`;
+3. checks package metadata, executable and symlink modes, and asks apt to
+   resolve the declared dependencies without installing them;
+4. copies the `.deb` into the selected Pages pool, prunes that pool to three,
+   regenerates `Packages`, `Packages.gz`, `Release`, `InRelease`, and
+   `Release.gpg`, then commits and pushes `gh-pages`;
+5. creates the GitHub Release and uploads the same `.deb` as a direct-download
+   asset.
+
+Publication is serialized per channel. Stable and canary may run concurrently
+because they touch different repository trees; a push conflict is rebased and
+retried up to three times.
+
+The order in steps 4 and 5 matters during recovery: apt publication completes
+before the GitHub Release asset is uploaded. A run can therefore finish red
+while the package is already live to apt clients.
+
+## Verify a publication
+
+First inspect the workflow result and its source revision. Then verify the
+published repository independently on a supported Linux machine. Set
+`CHANNEL` and the exact **Debian** version that was just released:
+
+```sh
+CHANNEL=canary
+VERSION='1.0.0~canary26'
+BASE=https://jjaffeux.github.io/discourse-native
+EXPECTED_FINGERPRINT=F904D94700FCB60EA7AF7F8AF76EE5A217CDFCD0
+VERIFY_DIR="$(mktemp -d)"
+
+curl -fsSLo "$VERIFY_DIR/key.asc" "$BASE/key.asc"
+ACTUAL_FINGERPRINT="$(gpg --batch --show-keys --with-colons "$VERIFY_DIR/key.asc" |
+  awk -F: '$1 == "fpr" { print $10; exit }')"
+test "$ACTUAL_FINGERPRINT" = "$EXPECTED_FINGERPRINT"
+
+curl -fsSLo "$VERIFY_DIR/InRelease" \
+  "$BASE/apt/$CHANNEL/dists/$CHANNEL/InRelease"
+gpg --batch --yes --dearmor --output "$VERIFY_DIR/key.gpg" \
+  "$VERIFY_DIR/key.asc"
+gpgv --keyring "$VERIFY_DIR/key.gpg" "$VERIFY_DIR/InRelease"
+
+curl -fsSLo "$VERIFY_DIR/Packages.gz" \
+  "$BASE/apt/$CHANNEL/dists/$CHANNEL/main/binary-amd64/Packages.gz"
+gzip -dc "$VERIFY_DIR/Packages.gz" > "$VERIFY_DIR/Packages"
+PACKAGE_PATH="$(awk -v version="$VERSION" '
+  $1 == "Version:" { wanted = ($2 == version) }
+  wanted && $1 == "Filename:" { print $2; exit }
+' "$VERIFY_DIR/Packages")"
+EXPECTED_SHA256="$(awk -v version="$VERSION" '
+  $1 == "Version:" { wanted = ($2 == version) }
+  wanted && $1 == "SHA256:" { print $2; exit }
+' "$VERIFY_DIR/Packages")"
+test -n "$PACKAGE_PATH" && test -n "$EXPECTED_SHA256"
+
+curl -fsSLo "$VERIFY_DIR/discourse-native.deb" \
+  "$BASE/apt/$CHANNEL/$PACKAGE_PATH"
+printf '%s  %s\n' "$EXPECTED_SHA256" "$VERIFY_DIR/discourse-native.deb" |
+  sha256sum --check -
+test "$(dpkg-deb --field "$VERIFY_DIR/discourse-native.deb" Version)" = "$VERSION"
+dpkg-deb --info "$VERIFY_DIR/discourse-native.deb"
+```
+
+This checks the pinned fingerprint, the metadata signature, the advertised
+package hash, and the embedded Debian version. It intentionally does not trust
+the key merely because it came from the same server as the metadata.
+
+Finally exercise apt's view and the direct-download Release:
+
+```sh
+sudo apt update
+apt-cache policy discourse-native
+sudo apt-get install --simulate discourse-native
+gh release view "v<app-version>"
+```
+
+`apt-cache policy` must show the expected candidate from the selected channel.
+The GitHub Release must point at the intended source revision and contain the
+same package bytes. For canary, remember that its displayed asset filename uses
+`.canary26` where the Debian/Pages filename uses `~canary26`. The install and
+source-list commands users follow are maintained in the README.
+
+## Failed and partial publishes
+
+Locate the last completed step before retrying anything:
+
+- A failure before **Publish to the apt repository** leaves no public package.
+- A failure inside that step may have pushed `gh-pages`; inspect the remote
+  channel and run the verification above.
+- A failure in **Publish the .deb on Releases** means apt is already live, even
+  though the run is red.
+
+If apt is sound but only the GitHub Release asset is missing, recover the exact
+`.deb` from the Pages pool and upload that file. Do not rebuild different bytes
+under the same version:
+
+```sh
+CHANNEL=canary
+APP_VERSION=1.0.0-canary.26
+DEB_VERSION='1.0.0~canary26'
+TAG="v$APP_VERSION"
+PAGES_ASSET="discourse-native_${DEB_VERSION}_amd64.deb"
+RELEASE_ASSET='discourse-native_1.0.0.canary26_amd64.deb'
+curl -fsSLo "$RELEASE_ASSET" \
+  "https://jjaffeux.github.io/discourse-native/apt/$CHANNEL/pool/main/d/discourse-native/$PAGES_ASSET"
+gh release upload "$TAG" "$RELEASE_ASSET" --clobber
+```
+
+If the Release itself was not created, create it at the source SHA recorded in
+the `gh-pages` publish commit. Verify the package hash before uploading it:
+
+```sh
+SOURCE_SHA=<source-sha-from-the-gh-pages-commit>
+gh release create "$TAG" "$RELEASE_ASSET" --target "$SOURCE_SHA" \
+  --title "Discourse $APP_VERSION" --generate-notes --prerelease
+```
+
+Omit `--prerelease` for stable. A stable tag already exists and must still
+point at `SOURCE_SHA`.
+
+## Yank or roll back a bad package
+
+Removing a release from GitHub does not affect apt: apt downloads its separate
+copy from Pages. Stop new discovery at the apt repository first.
+
+### 1. Restore the channel to a known-good signed state
+
+Clone `gh-pages`, find the last good commit for the affected channel, and
+restore only that channel's tree. Reusing its already-signed metadata avoids
+needing the private key on the incident machine and preserves changes made to
+the other channel.
+
+```sh
+git clone --branch gh-pages --single-branch \
+  git@github.com:jjaffeux/discourse-native.git discourse-native-pages
+cd discourse-native-pages
+CHANNEL=canary
+git log --oneline -- "apt/$CHANNEL"
+GOOD=<last-good-gh-pages-commit>
+git restore --source="$GOOD" -- "apt/$CHANNEL"
+git add -A -- "apt/$CHANNEL"
+git diff --cached --stat
+git commit -m "$CHANNEL: roll back bad package"
+git push origin gh-pages
+```
+
+Verify the restored `InRelease` before pushing when possible, then repeat the
+remote verification after the push. GitHub Pages currently serves these files
+with `cache-control: max-age=600`, so allow up to ten minutes for an edge cache
+to expire. Clients also need to run `apt update` before their local package list
+reflects the rollback.
+
+Restoring the tree removes the bad `.deb` as well as its metadata entry. That
+means clients holding stale Packages metadata fail closed with a 404 once the
+file disappears, instead of completing a new bad installation. Git history
+still retains the artifact for forensics.
+
+### 2. Hide the direct-download release
+
+Draft the GitHub Release so it is no longer advertised:
+
+```sh
+gh release edit "v<app-version>" --draft
+```
+
+For a package that will not launch, corrupts data, or is compromised, also
+delete its direct-download asset after recording its hash and preserving an
+incident copy:
+
+```sh
+gh release delete-asset "v<app-version>" \
+  "<asset-name-shown-by-gh-release-view>" --yes
+```
+
+Deleting the GitHub asset does not remove the git tag. Do not move the tag or
+publish a different artifact under the same version.
+
+### 3. Roll forward under a higher version
+
+Repository rollback only protects users who have not installed the bad build.
+Already-updated clients require a higher version:
+
+- for stable, revert or fix the code, bump `pubspec.yaml` to a higher patch
+  version, and publish a new matching stable tag;
+- for canary, land the fix as a new commit and dispatch a new canary so its git
+  history count, and therefore its Debian version, increases.
+
+Never rerun the bad source revision or reuse its version. Apt and intermediary
+caches assume one immutable artifact per package name and version.
+
+If an affected user must downgrade before the fixed release exists, first
+confirm that the restored repository advertises the known-good version, then
+make the downgrade explicit:
+
+```sh
+apt-cache policy discourse-native
+sudo apt install --allow-downgrades discourse-native=<known-good-debian-version>
+```
+
+Treat this as incident guidance, not the normal recovery path; application data
+written by a newer build may not be backward compatible.
+
+## Key compromise and repository recovery
+
+If the signing key may be compromised, remove the Actions secrets and revoke
+the attacker's repository access immediately, preserve the suspect metadata
+and artifacts, and restore each affected channel to a known-good signed state.
+The index rollback alone is not sufficient while an attacker still has both a
+trusted key and Pages write access.
+
+Generate a replacement key only after access is contained. Existing users must
+replace their pinned `/usr/share/keyrings/discourse-native.asc`; publishing a
+new `key.asc` does not update that local file. Communicate the new fingerprint
+over an independently trusted channel. If the old key remains trustworthy,
+plan a transition before switching signatures rather than discovering this
+during an incident.
+
+If `gh-pages` is damaged but the key is safe, the channel-restore procedure
+above is the fastest recovery because every historical publish is a complete,
+signed repository snapshot. Direct-download `.deb` files can also be recovered
+from GitHub Releases. Prefer a new, higher release after restoration; rebuilding
+an old version risks assigning different bytes to an identity clients have
+already cached.
 
 ## Known limits
 
-- **The 600s TTL is not tunable.** Pages sets it and you cannot send
-  `no-cache`. If ten minutes is ever unacceptable, put Cloudflare in front of
-  the Pages origin and purge on deploy — worth doing before the first stable
-  release rather than during an incident.
-- **Measure the real propagation once**, with a throwaway canary version, and
-  replace the theoretical ten minutes here with what you actually observed.
-- **Canary is the pressure valve.** Every stable release should have spent time
-  on canary. This runbook is the thing you hope never to run; canary is what
-  keeps it that way.
+- GitHub Pages' observed 600-second cache TTL is not controlled by the
+  workflow. If ten minutes is unacceptable, put a purgeable CDN in front of
+  Pages before the first urgent incident, not during it.
+- Pruning the current pool does not shrink `gh-pages` history. If the branch
+  becomes large, rebuilding it as an orphan is a separate, planned maintenance
+  operation; preserve the current signed repositories before rewriting it.
+- Canary storage is still permanent in GitHub history and Releases. Publish it
+  when there is something worth exercising, and require a successful canary
+  before stable.

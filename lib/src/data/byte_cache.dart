@@ -34,11 +34,15 @@ abstract class ByteCache<T extends Object> {
     this.maxCachedBytes = 32 * 1024 * 1024,
     this.retryAfter = const Duration(minutes: 2),
     this.timeout = const Duration(seconds: 10),
+    this.maxRedirects = 5,
   }) : assert(maxConcurrent > 0),
        assert(maxEntries > 0),
        assert(maxResponseBytes > 0),
        assert(maxCachedBytes > 0),
-       _client = client ?? http.Client();
+       assert(maxRedirects >= 0),
+       _client = client == null
+           ? SafeHttpClient.create()
+           : SafeHttpClient.borrowed(client);
 
   final http.Client _client;
   final int maxConcurrent;
@@ -71,6 +75,9 @@ abstract class ByteCache<T extends Object> {
   final Duration retryAfter;
 
   final Duration timeout;
+
+  /// Maximum number of validated redirects followed for one image.
+  final int maxRedirects;
 
   final Map<String, _CacheEntry<T>> _cache = {};
   final Map<String, DateTime> _transientFailures = {};
@@ -249,57 +256,88 @@ abstract class ByteCache<T extends Object> {
     String url,
   ) async {
     final elapsed = Stopwatch()..start();
+    var current = requireSafeHttpUrl(Uri.parse(url));
+    var redirects = 0;
+
+    while (true) {
+      final sent = await _send(current, elapsed);
+      final streamed = sent.response;
+      final location = streamed.headers['location'];
+      if (_isRedirect(streamed.statusCode) && location != null) {
+        _cancel(streamed.stream);
+        if (redirects >= maxRedirects) {
+          throw http.ClientException('Too many image redirects', current);
+        }
+        current = resolveSafeHttpRedirect(current, location);
+        redirects++;
+        continue;
+      }
+
+      final contentLength = streamed.contentLength;
+      if (contentLength != null && contentLength > maxResponseBytes) {
+        _cancel(streamed.stream);
+        return (response: _response(streamed, Uint8List(0)), oversized: true);
+      }
+
+      if (streamed.statusCode != 200) {
+        _cancel(streamed.stream);
+        return (response: _response(streamed, Uint8List(0)), oversized: false);
+      }
+
+      final Duration remaining;
+      try {
+        remaining = _remaining(elapsed);
+      } on TimeoutException {
+        _abort(sent.timeoutAbort);
+        _cancel(streamed.stream);
+        rethrow;
+      }
+      final Uint8List? bytes;
+      try {
+        bytes = await _readAtMost(streamed.stream, remaining);
+      } on TimeoutException {
+        _abort(sent.timeoutAbort);
+        rethrow;
+      }
+      return (
+        response: _response(streamed, bytes ?? Uint8List(0)),
+        oversized: bytes == null,
+      );
+    }
+  }
+
+  Future<({http.StreamedResponse response, Completer<void> timeoutAbort})>
+  _send(Uri url, Stopwatch elapsed) async {
     final timeoutAbort = Completer<void>();
     final request =
-        http.AbortableRequest(
-            'GET',
-            Uri.parse(url),
-            abortTrigger: timeoutAbort.future,
-          )
+        http.AbortableRequest('GET', url, abortTrigger: timeoutAbort.future)
           // Sites are friendlier to a request that identifies itself.
-          ..headers['User-Agent'] = DiscourseApi.userAgent;
+          ..headers['User-Agent'] = DiscourseApi.userAgent
+          ..followRedirects = false;
     final response = _client.send(request);
-    late http.StreamedResponse streamed;
     try {
-      streamed = await response.timeout(timeout);
+      return (
+        response: await response.timeout(_remaining(elapsed)),
+        timeoutAbort: timeoutAbort,
+      );
     } on TimeoutException {
-      timeoutAbort.complete();
+      _abort(timeoutAbort);
       response
           .then<void>((lateResponse) => _cancel(lateResponse.stream))
           .ignore();
       rethrow;
     }
+  }
 
-    final contentLength = streamed.contentLength;
-    if (contentLength != null && contentLength > maxResponseBytes) {
-      _cancel(streamed.stream);
-      return (response: _response(streamed, Uint8List(0)), oversized: true);
-    }
+  static bool _isRedirect(int statusCode) =>
+      statusCode == 301 ||
+      statusCode == 302 ||
+      statusCode == 303 ||
+      statusCode == 307 ||
+      statusCode == 308;
 
-    if (streamed.statusCode != 200) {
-      _cancel(streamed.stream);
-      return (response: _response(streamed, Uint8List(0)), oversized: false);
-    }
-
-    final Duration remaining;
-    try {
-      remaining = _remaining(elapsed);
-    } on TimeoutException {
-      timeoutAbort.complete();
-      _cancel(streamed.stream);
-      rethrow;
-    }
-    final Uint8List? bytes;
-    try {
-      bytes = await _readAtMost(streamed.stream, remaining);
-    } on TimeoutException {
-      timeoutAbort.complete();
-      rethrow;
-    }
-    return (
-      response: _response(streamed, bytes ?? Uint8List(0)),
-      oversized: bytes == null,
-    );
+  static void _abort(Completer<void> abort) {
+    if (!abort.isCompleted) abort.complete();
   }
 
   Future<Uint8List?> _readAtMost(Stream<List<int>> stream, Duration remaining) {

@@ -6,6 +6,8 @@ import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
 import 'post_reactors.dart';
 
+typedef _ReactionRequestKey = ({String siteUrl, int postId, String? filter});
+
 /// Who reacted to what, and whether we are still finding out.
 ///
 /// Its own notifier rather than more state on `ShellController`, the way
@@ -32,11 +34,11 @@ class ReactionsController extends FrameSafeNotifier {
   /// Kept outside the [Store] for the reason the likers' equivalents are: they
   /// are facts about a request, not about a post, and a record that has never
   /// been fetched has nowhere to hold them.
-  final Set<String> _loading = {};
-  final Map<String, String> _errors = {};
+  final Map<_ReactionRequestKey, Object> _requests = {};
+  final Map<_ReactionRequestKey, String> _errors = {};
 
-  static String _key(String siteUrl, int postId, String? filter) =>
-      '$siteUrl~${PostReactors.key(postId, filter)}';
+  static _ReactionRequestKey _key(String siteUrl, int postId, String? filter) =>
+      (siteUrl: siteUrl, postId: postId, filter: filter);
 
   /// Who reacted, as far as it has been fetched. Null before the first answer.
   PostReactors? reactors(String siteUrl, int postId, {String? filter}) =>
@@ -56,29 +58,37 @@ class ReactionsController extends FrameSafeNotifier {
     String? filter,
   }) async {
     final key = _key(siteUrl, postId, filter);
-    if (!_loading.add(key)) return;
+    if (_requests.containsKey(key)) return;
+    final request = Object();
     final lease = lifecycle.capture(siteUrl);
+    _requests[key] = request;
     notifySafely();
 
     try {
       // Inside the guard, not before it: an unsigned macOS build's keychain can
       // throw rather than answer, and reading it outside would leave this key
-      // stranded in `_loading` for the life of the app. The same reason
+      // stranded in `_requests` for the life of the app. The same reason
       // `loadLikers` reads it here.
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_canSend(lease, key, request)) return;
+
+      final clientId = await credentials.clientId();
+      if (!_canSend(lease, key, request)) return;
+
       final fetched = await api.postReactors(
         siteUrl: siteUrl,
         postId: postId,
         reaction: filter,
-        apiKey: await credentials.apiKeyFor(siteUrl),
-        clientId: await credentials.clientId(),
+        apiKey: apiKey,
+        clientId: clientId,
       );
-      if (isDisposed) return;
+      if (!_canSend(lease, key, request)) return;
       lease.commit(() {
         store.put(siteUrl, fetched);
         _errors.remove(key);
       });
     } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
+      if (!_canSend(lease, key, request)) return;
       DiagnosticsSink.current.reportError(
         error,
         stackTrace,
@@ -93,11 +103,9 @@ class ReactionsController extends FrameSafeNotifier {
         }
       });
     } finally {
-      if (!isDisposed) {
-        lease.commit(() {
-          _loading.remove(key);
-          notifySafely();
-        });
+      if (_isCurrentRequest(key, request)) {
+        _requests.remove(key);
+        notifySafely();
       }
     }
   }
@@ -107,12 +115,25 @@ class ReactionsController extends FrameSafeNotifier {
   /// The lists themselves are the [Store]'s to forget; these are only the
   /// questions in flight. The shell invalidates the shared lifecycle first.
   void forget(String siteUrl) {
-    final loadingBefore = _loading.length;
+    final requestsBefore = _requests.length;
     final errorsBefore = _errors.length;
-    _loading.removeWhere((key) => key.startsWith('$siteUrl~'));
-    _errors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    if (_loading.length != loadingBefore || _errors.length != errorsBefore) {
+    _requests.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _errors.removeWhere((key, _) => key.siteUrl == siteUrl);
+    if (_requests.length != requestsBefore || _errors.length != errorsBefore) {
       notifySafely();
     }
+  }
+
+  bool _canSend(SiteLease lease, _ReactionRequestKey key, Object request) =>
+      lease.isCurrent && _isCurrentRequest(key, request);
+
+  bool _isCurrentRequest(_ReactionRequestKey key, Object request) =>
+      !isDisposed && identical(_requests[key], request);
+
+  @override
+  void dispose() {
+    _requests.clear();
+    _errors.clear();
+    super.dispose();
   }
 }

@@ -21,10 +21,7 @@ class PostFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    for (final plugin in sitePlugins) {
-      final footer = plugin.postFooter(siteUrl, post);
-      if (footer != null) return footer;
-    }
-    return PostLikes(siteUrl: siteUrl, post: post);
+    return pluginRegistry.postFooter(siteUrl, post) ??
+        PostLikes(siteUrl: siteUrl, post: post);
   }
 }

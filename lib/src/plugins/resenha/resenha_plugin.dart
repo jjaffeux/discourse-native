@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:html/dom.dart' as dom;
 
 import '../../models/content_route.dart';
-import '../../models/post.dart';
 import '../../models/sidebar.dart';
-import '../../shell/composer_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
 import '../site_plugin.dart';
 import 'resenha_models.dart';
 import 'resenha_room_view.dart';
 
-final class ResenhaPlugin implements SitePlugin<ResenhaRoom> {
+final class ResenhaPlugin implements SitePlugin, SidebarPlugin, ContentPlugin {
   const ResenhaPlugin();
 
   static String routeId(int roomId) => 'resenha-room-$roomId';
@@ -25,36 +22,6 @@ final class ResenhaPlugin implements SitePlugin<ResenhaRoom> {
 
   @override
   String get name => 'resenha';
-
-  @override
-  Type get record => ResenhaRoom;
-
-  @override
-  ResenhaRoom? readPost(Map<String, dynamic> json, String siteUrl) => null;
-
-  @override
-  Widget? postBodyElement(String siteUrl, Post post, dom.Element element) =>
-      null;
-
-  @override
-  Widget? postFooter(String siteUrl, Post post) => null;
-
-  @override
-  PostMenuContribution postMenu(
-    BuildContext context,
-    String siteUrl,
-    Post post,
-  ) => PostMenuContribution.none;
-
-  @override
-  List<ComposerToolbarContribution> composerToolbar(
-    BuildContext context,
-    ComposerController composer,
-  ) => const [];
-
-  @override
-  ResenhaRoom? mergeAfterPostEdit(ResenhaRoom? held, ResenhaRoom? incoming) =>
-      incoming;
 
   @override
   List<SidebarSection> sidebarSections(BuildContext context) {
@@ -149,10 +116,4 @@ final class ResenhaPlugin implements SitePlugin<ResenhaRoom> {
     if (roomId == null) return null;
     return ResenhaRoomView(roomId: roomId);
   }
-
-  @override
-  List<String> topicChannels(int topicId) => const [];
-
-  @override
-  List<int> stalePosts(String channel, Object? data) => const [];
 }

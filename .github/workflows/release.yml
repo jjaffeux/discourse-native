@@ -11,13 +11,9 @@ name: release
 on:
   push:
     tags: ['v[0-9]+.[0-9]+.[0-9]+']
+  # A manual run is always canary. Stable has no dispatch input: it can only be
+  # selected by a matching tag push.
   workflow_dispatch:
-    inputs:
-      channel:
-        description: Channel to publish
-        type: choice
-        options: [canary, stable]
-        default: canary
 
 permissions:
   contents: write
@@ -25,13 +21,12 @@ permissions:
 # Two channels never write the same index file, but two canaries can. Serialise
 # per channel so the gh-pages merge cannot lose an entry.
 concurrency:
-  # Two runs on the same channel would race the same apt suite. inputs.channel
-  # is what a dispatch picks; a tag is always stable.
-  group: release-${{ github.ref_type == 'tag' && 'stable' || inputs.channel || 'canary' }}
+  # Two runs on the same channel would race the same apt suite. Only a tag push
+  # is stable; every manual dispatch is canary, even when run at a tag ref.
+  group: release-${{ github.event_name == 'push' && github.ref_type == 'tag' && 'stable' || 'canary' }}
   cancel-in-progress: false
 
 env:
-  FLUTTER_VERSION: 3.44.8
   APP_NAME: Discourse
   # The Debian package name, and so the command users type. Distinct from
   # PACKAGE_ID, which is the GTK application id, and from BINARY_NAME, which is
@@ -109,7 +104,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version-file: .fvmrc
           channel: stable
           cache: true
           # The SDK cache is fine; the pub one is not. Its post step evaluates
@@ -124,10 +119,14 @@ jobs:
         id: v
         run: |
           set -euo pipefail
-          if [ "${{ github.ref_type }}" = tag ]; then
+          if [ "${{ github.event_name }}" = push ] && \
+             [ "${{ github.ref_type }}" = tag ]; then
             CHANNEL=stable
+          elif [ "${{ github.event_name }}" = workflow_dispatch ]; then
+            CHANNEL=canary
           else
-            CHANNEL="${{ inputs.channel || 'canary' }}"
+            echo "::error::unsupported release trigger: event=${{ github.event_name }} ref_type=${{ github.ref_type }}"
+            exit 1
           fi
 
           BASE=$(grep -m1 '^version:' pubspec.yaml \

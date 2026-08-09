@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:html/dom.dart' as dom;
 
 import '../../models/content_route.dart';
-import '../../models/post.dart';
 import '../../models/sidebar.dart';
-import '../../shell/composer_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
 import '../site_plugin.dart';
@@ -15,8 +12,8 @@ import 'chat_channel_view.dart';
 ///
 /// The plugin gives a site channels and direct messages to read alongside its
 /// topics. It is the first optional feature here that owns *navigation* and a
-/// *screen* rather than decorating a record, which is why [SitePlugin] grew
-/// [sidebarSections] and [content] for it.
+/// *screen* rather than decorating a record, so it implements [SidebarPlugin]
+/// and [ContentPlugin] without pretending to have a post-record capability.
 ///
 /// ## It cannot use the enablement rule the rest of this interface turns on
 ///
@@ -40,56 +37,11 @@ import 'chat_channel_view.dart';
 /// that appears and then vanishes is worse than one that arrives late, and a
 /// section with a spinner in it says something false about how many channels
 /// there are.
-class ChatPlugin implements SitePlugin<ChatChannel> {
+class ChatPlugin implements SitePlugin, SidebarPlugin, ContentPlugin {
   const ChatPlugin();
 
   @override
   String get name => 'chat';
-
-  /// Named so the interface has an answer. Chat decorates no post, so nothing
-  /// is ever filed under this and nothing looks it up — see [readPost].
-  @override
-  Type get record => ChatChannel;
-
-  /// Always null. Chat is the first feature here that does not ride a payload
-  /// this app was going to read anyway, which is the same fact that stops it
-  /// using the enablement signal the rest of this interface turns on.
-  @override
-  ChatChannel? readPost(Map<String, dynamic> json, String siteUrl) => null;
-
-  @override
-  Widget? postBodyElement(String siteUrl, Post post, dom.Element element) =>
-      null;
-
-  @override
-  List<ComposerToolbarContribution> composerToolbar(
-    BuildContext context,
-    ComposerController composer,
-  ) => const [];
-
-  @override
-  ChatChannel? mergeAfterPostEdit(ChatChannel? held, ChatChannel? incoming) =>
-      incoming;
-
-  @override
-  Widget? postFooter(String siteUrl, Post post) => null;
-
-  @override
-  PostMenuContribution postMenu(
-    BuildContext context,
-    String siteUrl,
-    Post post,
-  ) => PostMenuContribution.none;
-
-  /// Nothing yet. Reading a channel live rides `/chat/:id` and the per-user
-  /// tracking channel, neither of which is a topic — and `SiteTracker` watches
-  /// exactly one topic at a time, so those want a subscription concept of their
-  /// own rather than this hook.
-  @override
-  List<String> topicChannels(int topicId) => const [];
-
-  @override
-  List<int> stalePosts(String channel, Object? data) => const [];
 
   @override
   List<SidebarSection> sidebarSections(BuildContext context) {

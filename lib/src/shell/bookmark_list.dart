@@ -1,11 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../models/bookmark.dart';
 import '../models/notification.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'account_activity_loader.dart';
 import 'external_link.dart';
 import 'notification_list.dart';
 import 'shell_controller.dart';
@@ -38,29 +37,24 @@ class BookmarkSection extends StatelessWidget {
   final VoidCallback onOpened;
 
   @override
-  Widget build(BuildContext context) =>
-      ShellSelector<({ShellController controller, bool loaded})>(
-        select: (controller) =>
-            (controller: controller, loaded: controller.loaded),
-        builder: (context, shell, _) => _BookmarkSectionView(
-          controller: shell.controller,
-          controllerLoaded: shell.loaded,
-          siteUrl: siteUrl,
-          onOpened: onOpened,
-        ),
-      );
+  Widget build(BuildContext context) => AccountActivityLoader.bookmarks(
+    siteUrl: siteUrl,
+    builder: (context, controller) => _BookmarkSectionView(
+      controller: controller,
+      siteUrl: siteUrl,
+      onOpened: onOpened,
+    ),
+  );
 }
 
 class _BookmarkSectionView extends StatefulWidget {
   const _BookmarkSectionView({
     required this.controller,
-    required this.controllerLoaded,
     required this.siteUrl,
     required this.onOpened,
   });
 
   final ShellController controller;
-  final bool controllerLoaded;
   final String siteUrl;
   final VoidCallback onOpened;
 
@@ -69,56 +63,6 @@ class _BookmarkSectionView extends StatefulWidget {
 }
 
 class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
-  (ShellController, String)? _requestIdentity;
-  (ShellController, String)? _loadedRequestIdentity;
-  bool _requestInFlight = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _request();
-  }
-
-  @override
-  void didUpdateWidget(_BookmarkSectionView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.controller, widget.controller) ||
-        oldWidget.siteUrl != widget.siteUrl ||
-        (!oldWidget.controllerLoaded && widget.controllerLoaded)) {
-      _request();
-    }
-  }
-
-  void _request() {
-    final controller = widget.controller;
-    final siteUrl = widget.siteUrl;
-    final identity = (controller, siteUrl);
-    if (_loadedRequestIdentity == identity && controller.loaded) return;
-    if (_requestIdentity == identity && _requestInFlight) return;
-    _requestIdentity = identity;
-    _requestInFlight = true;
-    unawaited(_load(controller, siteUrl, identity));
-  }
-
-  Future<void> _load(
-    ShellController controller,
-    String siteUrl,
-    (ShellController, String) identity,
-  ) async {
-    try {
-      await controller.load();
-      if (!mounted || _requestIdentity != identity || !controller.loaded) {
-        return;
-      }
-      _loadedRequestIdentity = identity;
-      await controller.loadBookmarks(siteUrl);
-    } catch (_) {
-      return;
-    } finally {
-      if (_requestIdentity == identity) _requestInFlight = false;
-    }
-  }
-
   /// Follows a bookmark to whatever it was put on.
   ///
   /// A topic on a site in the rail is something this app has a view for, so it

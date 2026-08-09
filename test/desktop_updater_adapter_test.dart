@@ -450,7 +450,27 @@ void main() {
       expect(restored?.diagnosticsText, marker.diagnosticsText);
       expect(restored?.transactionId, marker.transactionId);
       expect(await File('${file.path}.pending').exists(), isFalse);
+      if (!Platform.isWindows) {
+        expect((await directory.stat()).mode & 0x1ff, 0x1c0); // 0700
+        expect((await file.stat()).mode & 0x1ff, 0x180); // 0600
+      }
     });
+
+    test(
+      'repairs permissions on a legacy recovery marker before reading',
+      () async {
+        await store.writePendingInstall(recoveryMarker(channel: 'stable'));
+        await _setMode(directory.path, '0755');
+        await _setMode(file.path, '0644');
+
+        final restored = await store.readPendingInstall(channel: 'stable');
+
+        expect(restored?.channel, 'stable');
+        expect((await directory.stat()).mode & 0x1ff, 0x1c0); // 0700
+        expect((await file.stat()).mode & 0x1ff, 0x180); // 0600
+      },
+      skip: Platform.isWindows,
+    );
 
     test('does not read or clear a marker owned by another channel', () async {
       await store.writePendingInstall(recoveryMarker(channel: 'canary'));
@@ -552,6 +572,15 @@ du.UpdateInstallRecoveryMarker recoveryMarker({required String channel}) =>
       diagnosticsText: 'ready',
       transactionId: '123e4567-e89b-42d3-a456-426614174000',
     );
+
+Future<void> _setMode(String path, String mode) async {
+  final result = await Process.run('chmod', [mode, path]);
+  expect(
+    result.exitCode,
+    0,
+    reason: 'chmod $mode $path failed: ${result.stderr}',
+  );
+}
 
 final class FakeDesktopUpdateSession implements DesktopUpdateSession {
   FakeDesktopUpdateSession({

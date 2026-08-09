@@ -1577,15 +1577,17 @@ class _Toolbar extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               color: theme.colorScheme.onSurfaceVariant,
             ),
-          for (final plugin in sitePlugins)
-            for (final action in plugin.composerToolbar(context, composer))
-              IconButton(
-                onPressed: action.onInvoke,
-                icon: DIcon(action.icon, size: 18),
-                tooltip: action.label,
-                visualDensity: VisualDensity.compact,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+          for (final action in pluginRegistry.composerToolbar(
+            context,
+            composer,
+          ))
+            IconButton(
+              onPressed: action.onInvoke,
+              icon: DIcon(action.icon, size: 18),
+              tooltip: action.label,
+              visualDensity: VisualDensity.compact,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
         ],
       ),
     );

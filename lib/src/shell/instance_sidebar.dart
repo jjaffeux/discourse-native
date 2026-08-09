@@ -19,13 +19,47 @@ import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'user_menu_button.dart';
 
-typedef _SidebarSnapshot = ({
-  String? siteUrl,
-  String? name,
-  String? destinationId,
-  int draftCount,
-  List<SidebarSection> sections,
-});
+@immutable
+final class _SidebarSnapshot {
+  const _SidebarSnapshot({
+    required this.siteUrl,
+    required this.name,
+    required this.destinationId,
+    required this.draftCount,
+    required this.sections,
+  });
+
+  final String? siteUrl;
+  final String? name;
+  final String? destinationId;
+  final int draftCount;
+  final List<SidebarSection> sections;
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! _SidebarSnapshot ||
+        siteUrl != other.siteUrl ||
+        name != other.name ||
+        destinationId != other.destinationId ||
+        draftCount != other.draftCount ||
+        sections.length != other.sections.length) {
+      return false;
+    }
+    for (var index = 0; index < sections.length; index++) {
+      if (!identical(sections[index], other.sections[index])) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    siteUrl,
+    name,
+    destinationId,
+    draftCount,
+    Object.hashAll(sections.map(identityHashCode)),
+  );
+}
 
 /// Navigation within the selected instance. On compact layouts this fills the
 /// whole area next to the rail; on wider ones it sits between the rail and the
@@ -47,7 +81,7 @@ class InstanceSidebar extends StatelessWidget {
   Widget build(BuildContext context) => ShellSelector<_SidebarSnapshot>(
     select: (controller) {
       final instance = controller.currentInstance;
-      return (
+      return _SidebarSnapshot(
         siteUrl: instance?.url,
         name: instance?.title,
         destinationId: controller.destinationId,
@@ -116,28 +150,26 @@ class InstanceSidebar extends StatelessWidget {
                       ),
                     ),
                     ListenableBuilder(
-                      listenable: Listenable.merge([
-                        for (final plugin in sitePlugins)
-                          plugin.sidebarListenable(context),
-                      ]),
+                      listenable: Listenable.merge(
+                        pluginRegistry.sidebarListenables(context),
+                      ),
                       builder: (context, _) => Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           // Optional features contribute below the routes every
                           // site has, in the order `sitePlugins` lists them.
-                          for (final plugin in sitePlugins)
-                            for (final section in plugin.sidebarSections(
-                              context,
-                            ))
-                              _Section(
-                                key: ValueKey((sidebar.siteUrl, section.id)),
-                                siteUrl: sidebar.siteUrl!,
-                                section: section,
-                                store: sectionStore,
-                                selectedId: sidebar.destinationId,
-                                badgeFor: controller.sidebarBadgeFor,
-                                onSelect: controller.selectDestination,
-                              ),
+                          for (final section in pluginRegistry.sidebarSections(
+                            context,
+                          ))
+                            _Section(
+                              key: ValueKey((sidebar.siteUrl, section.id)),
+                              siteUrl: sidebar.siteUrl!,
+                              section: section,
+                              store: sectionStore,
+                              selectedId: sidebar.destinationId,
+                              badgeFor: controller.sidebarBadgeFor,
+                              onSelect: controller.selectDestination,
+                            ),
                         ],
                       ),
                     ),

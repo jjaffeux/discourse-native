@@ -53,7 +53,7 @@ class SidebarBadge {
 /// are live state, read from `ShellController.sidebarBadgeFor`, because those
 /// sections are a `const` getter on an immutable model and cannot carry a
 /// moving number. [badge] is for entries built fresh from live state, which
-/// already have the answer in hand; see `SitePlugin.sidebarSections`.
+/// already have the answer in hand; see `SidebarPlugin.sidebarSections`.
 @immutable
 class SidebarDestination {
   const SidebarDestination({

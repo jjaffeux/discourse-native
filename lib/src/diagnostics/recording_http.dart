@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'diagnostics_redactor.dart';
+
 /// The lifecycle states emitted for one HTTP transaction.
 enum HttpDiagnosticPhase {
   started,
@@ -853,28 +855,14 @@ final class _HttpTransaction {
   }
 }
 
-const Set<String> _safeResponseHeaderNames = <String>{
-  HttpHeaders.contentTypeHeader,
-  HttpHeaders.contentLengthHeader,
-  'retry-after',
-  'x-ratelimit-limit',
-  'x-ratelimit-remaining',
-  'x-ratelimit-reset',
-  'x-rate-limit-limit',
-  'x-rate-limit-remaining',
-  'x-rate-limit-reset',
-  'x-request-id',
-  'request-id',
-  'x-correlation-id',
-  'cf-ray',
-};
-
 Map<String, String> _safeResponseHeaders(HttpHeaders headers) {
   final values = <String, String>{};
   headers.forEach((name, headerValues) {
     final normalized = name.toLowerCase();
-    if (!_safeResponseHeaderNames.contains(normalized)) return;
-    values[normalized] = redactHttpDiagnosticText(headerValues.join(', '));
+    if (!DiagnosticsRedactor.allowedResponseHeaders.contains(normalized)) {
+      return;
+    }
+    values[normalized] = DiagnosticsRedactor.scrub(headerValues.join(', '));
   });
   return Map<String, String>.unmodifiable(values);
 }
@@ -882,25 +870,8 @@ Map<String, String> _safeResponseHeaders(HttpHeaders headers) {
 /// Removes URI credentials, fragments, and every query value while retaining
 /// query names (including duplicates) for useful request identification.
 Uri sanitizeHttpDiagnosticUri(Uri uri) {
-  String? safeQuery;
-  if (uri.hasQuery && uri.query.isNotEmpty) {
-    final names = <String>[];
-    for (final component in uri.query.split('&')) {
-      final separator = component.indexOf('=');
-      final rawName = separator == -1
-          ? component
-          : component.substring(0, separator);
-      try {
-        names.add(Uri.encodeQueryComponent(Uri.decodeQueryComponent(rawName)));
-      } on Object {
-        names.add('invalid-query-name');
-      }
-    }
-    safeQuery = names.join('&');
-  }
-
   try {
-    return uri.replace(userInfo: '', query: safeQuery, fragment: '');
+    return Uri.parse(DiagnosticsRedactor.uri(uri));
   } on Object {
     return Uri(path: uri.path);
   }
@@ -908,47 +879,8 @@ Uri sanitizeHttpDiagnosticUri(Uri uri) {
 
 /// Redacts URL query values, common credential-shaped values, and the user's
 /// home directory from diagnostic error text and stack traces.
-String redactHttpDiagnosticText(String value) {
-  var result = value.replaceAllMapped(
-    RegExp(
-      r'[A-Za-z][A-Za-z0-9+.-]{0,31}://[^\s<>"\x27]+',
-      caseSensitive: false,
-    ),
-    (match) {
-      final parsed = Uri.tryParse(match.group(0)!);
-      return parsed == null
-          ? '<redacted-url>'
-          : sanitizeHttpDiagnosticUri(parsed).toString();
-    },
-  );
-  result = result.replaceAll(
-    RegExp(r'(Bearer|Basic)\s+[^\s,;]+', caseSensitive: false),
-    '<authorization> <redacted>',
-  );
-  result = result.replaceAllMapped(
-    RegExp(
-      r'(authorization|proxy-authorization|cookie|set-cookie)\s*:\s*[^\r\n]+',
-      caseSensitive: false,
-    ),
-    (match) => '${match.group(1)}=<redacted>',
-  );
-  result = result.replaceAllMapped(
-    RegExp(
-      r'(api[_-]?key|access[_-]?token|refresh[_-]?token|password)\s*[:=]\s*[^\s,;]+',
-      caseSensitive: false,
-    ),
-    (match) => '${match.group(1)}=<redacted>',
-  );
-  final home = Platform.environment['HOME'];
-  if (home != null && home.isNotEmpty) {
-    result = result.replaceAll(home, '<home>');
-  }
-  const maximumLength = 32768;
-  if (result.length > maximumLength) {
-    return '${result.substring(0, maximumLength)}\n<truncated>';
-  }
-  return result;
-}
+String redactHttpDiagnosticText(String value) =>
+    DiagnosticsRedactor.scrub(value);
 
 Uri _diagnosticUriFromParts(String host, int port, String path) {
   try {

@@ -72,6 +72,65 @@ void main() {
     expect(reloaded.events.map((event) => event.id), ['first']);
   });
 
+  test('streams past an oversized corrupt line and compacts it away', () async {
+    await file.parent.create(recursive: true);
+    final sink = file.openWrite();
+    final chunk = List<int>.filled(256 * 1024, 0x78);
+    var corruptBytes = 0;
+    while (corruptBytes <= diagnosticsRetentionBytes) {
+      sink.add(chunk);
+      corruptBytes += chunk.length;
+    }
+    sink
+      ..writeln()
+      ..add([0xff, 0x0a])
+      ..writeln(
+        jsonEncode({
+          'version': FileDiagnosticsPersistence.formatVersion,
+          'record': 'event',
+          'event': _error('after-corruption', 1, now).toJson(),
+        }),
+      );
+    await sink.close();
+
+    final reloaded = await FileDiagnosticsPersistence(file).load(nowUtc: now);
+
+    expect(reloaded.events.map((event) => event.id), ['after-corruption']);
+    expect(await file.length(), lessThan(diagnosticsRetentionBytes));
+    expect(await file.readAsString(), isNot(contains('xxxxxxxx')));
+  });
+
+  test(
+    'streamed recovery incrementally keeps the newest bounded event set',
+    () async {
+      await file.parent.create(recursive: true);
+      final sink = file.openWrite();
+      for (
+        var sequence = 1;
+        sequence <= diagnosticsRetentionCount * 2;
+        sequence += 1
+      ) {
+        sink.writeln(
+          jsonEncode({
+            'version': FileDiagnosticsPersistence.formatVersion,
+            'record': 'event',
+            'event': _error('event-$sequence', sequence, now).toJson(),
+          }),
+        );
+      }
+      await sink.close();
+
+      final reloaded = await FileDiagnosticsPersistence(file).load(nowUtc: now);
+
+      expect(reloaded.events, hasLength(diagnosticsRetentionCount));
+      expect(reloaded.events.first.id, 'event-5001');
+      expect(reloaded.events.last.id, 'event-10000');
+      final compacted = await file.readAsString();
+      expect(compacted, isNot(contains('"id":"event-1"')));
+      expect(compacted, contains('"id":"event-10000"'));
+    },
+  );
+
   test('atomic compaction physically removes expired records', () async {
     final persistence = FileDiagnosticsPersistence(file);
     final stale = _error(
@@ -95,6 +154,30 @@ void main() {
       isTrue,
     );
   });
+
+  test(
+    'repairs legacy permissions and keeps compacted history owner-only',
+    () async {
+      final persistence = FileDiagnosticsPersistence(file);
+      await persistence.appendEvents([
+        _error('private-history', 1, now),
+      ], nowUtc: now);
+
+      await _setMode(file.parent.path, '0755');
+      await _setMode(file.path, '0644');
+
+      await FileDiagnosticsPersistence(file).load(nowUtc: now);
+
+      expect((await file.parent.stat()).mode & 0x1ff, 0x1c0); // 0700
+      expect((await file.stat()).mode & 0x1ff, 0x180); // 0600
+
+      await persistence.compact(nowUtc: now);
+
+      expect((await file.parent.stat()).mode & 0x1ff, 0x1c0); // 0700
+      expect((await file.stat()).mode & 0x1ff, 0x180); // 0600
+    },
+    skip: Platform.isWindows,
+  );
 
   test('memory compaction releases expired event objects', () async {
     final persistence = MemoryDiagnosticsPersistence();
@@ -288,3 +371,12 @@ HttpDiagnosticEvent _request({
   uri: 'https://example.com/t/42.json',
   state: state,
 );
+
+Future<void> _setMode(String path, String mode) async {
+  final result = await Process.run('chmod', [mode, path]);
+  expect(
+    result.exitCode,
+    0,
+    reason: 'chmod $mode $path failed: ${result.stderr}',
+  );
+}

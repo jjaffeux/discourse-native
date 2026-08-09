@@ -348,7 +348,7 @@ final class DiagnosticsController
 
   void openPanel() {
     _setPanelState(panelState.copyWith(isOpen: true));
-    markSeen();
+    if (!panelState.frozen) markSeen();
   }
 
   void closePanel() => _setPanelState(panelState.copyWith(isOpen: false));
@@ -359,6 +359,7 @@ final class DiagnosticsController
     if (frozen == panelState.frozen) return;
     _frozenEvents = frozen ? List.unmodifiable(events) : null;
     _setPanelState(panelState.copyWith(frozen: frozen));
+    if (!frozen && isPanelOpen) markSeen();
   }
 
   void setKindFilter(DiagnosticsKindFilter filter) =>
@@ -685,7 +686,7 @@ final class DiagnosticsController
     if (eventGeneration != _generation || _closed) return;
     _putEvent(event);
     _publishEvents(_clock());
-    if (isPanelOpen && event.isError) {
+    if (_isShowingLiveEvents && event.isError) {
       markSeen();
     } else {
       _updateUnseenCount();
@@ -764,6 +765,8 @@ final class DiagnosticsController
         .where((event) => event.isError && event.sequence > _lastSeenSequence)
         .length;
   }
+
+  bool get _isShowingLiveEvents => isPanelOpen && !panelState.frozen;
 
   void _setPanelState(DiagnosticsPanelState state) {
     _panelStateNotifier.value = state;
@@ -936,7 +939,7 @@ final class DiagnosticsController
     );
     _putEvent(warning);
     _publishEvents(now);
-    if (isPanelOpen) {
+    if (_isShowingLiveEvents) {
       markSeen();
     } else {
       _updateUnseenCount();

@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:ffi/ffi.dart';
 import 'package:flutter/services.dart';
+
+import '../foundation/private_file_permissions.dart';
 
 /// Persistence for data which must not be mixed into the app's public
 /// preferences.
@@ -143,15 +143,14 @@ final class LinuxFileStorage implements PrivateStorage {
 
   Future<File> _file() async {
     final directory = await _directory();
-    await directory.create(recursive: true);
-    _chmod(directory.path, 0x1c0); // 0700
+    await ensurePrivateDirectory(directory);
     return File('${directory.path}/$_fileName');
   }
 
   Future<Map<String, String>> _readValues() async {
     final file = await _file();
     if (!await file.exists()) return {};
-    _chmod(file.path, 0x180); // 0600
+    restrictPrivateFile(file);
 
     final Object? decoded;
     try {
@@ -187,32 +186,15 @@ final class LinuxFileStorage implements PrivateStorage {
     final temporary = File('${file.path}.$pid.$suffix.tmp');
 
     try {
+      await ensurePrivateFile(temporary);
       await temporary.writeAsString(
         jsonEncode({'version': _formatVersion, 'values': values}),
         flush: true,
       );
-      _chmod(temporary.path, 0x180); // 0600
       await temporary.rename(file.path);
-      _chmod(file.path, 0x180);
+      restrictPrivateFile(file);
     } finally {
       if (await temporary.exists()) await temporary.delete();
     }
-  }
-}
-
-typedef _ChmodNative = Int32 Function(Pointer<Utf8>, Uint32);
-typedef _ChmodDart = int Function(Pointer<Utf8>, int);
-
-final _ChmodDart _nativeChmod = DynamicLibrary.process()
-    .lookupFunction<_ChmodNative, _ChmodDart>('chmod');
-
-void _chmod(String path, int mode) {
-  final nativePath = path.toNativeUtf8();
-  try {
-    if (_nativeChmod(nativePath, mode) != 0) {
-      throw FileSystemException('Could not set private permissions', path);
-    }
-  } finally {
-    malloc.free(nativePath);
   }
 }

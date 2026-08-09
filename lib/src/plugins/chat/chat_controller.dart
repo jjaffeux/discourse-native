@@ -233,6 +233,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, String> _errors = {};
   final Map<String, int> _attempts = {};
   final Map<String, Future<void>> _channelRequests = {};
+  final Map<String, Object> _channelRuns = {};
 
   /// Channel ids in the order the sidebar draws them. The channels themselves
   /// are in the [Store]; these two lists are the orderings, which no record
@@ -258,6 +259,18 @@ class ChatController extends FrameSafeNotifier {
   static String _streamKey(String siteUrl, int id) => '$siteUrl~$id';
   static String _olderKey(String siteUrl, int id) => '$siteUrl~$id~past';
   static String _newerKey(String siteUrl, int id) => '$siteUrl~$id~future';
+
+  /// Whether an asynchronous operation still belongs to this controller, site
+  /// session, and request generation.
+  ///
+  /// Credential storage is asynchronous on every platform and can be visibly
+  /// slow on macOS. A site can be disconnected, the controller disposed, or a
+  /// stream replaced during either await. Response guards are too late for
+  /// those cases: they prevent stale state commits but still send an old
+  /// account request. Chat operations prove ownership with this predicate
+  /// after each credential await and immediately before delegation.
+  bool _requestIsCurrent(SiteLease lease, bool Function() ownsRequest) =>
+      !isDisposed && lease.isCurrent && ownsRequest();
 
   // --- reads -------------------------------------------------------------
 
@@ -397,33 +410,44 @@ class ChatController extends FrameSafeNotifier {
     final active = _channelRequests[key];
     if (active != null) return active;
 
+    final run = Object();
+    _channelRuns[key] = run;
     late final Future<void> request;
-    request = _loadChannels(siteUrl, key).whenComplete(() {
+    request = _loadChannels(siteUrl, key, run).whenComplete(() {
       if (identical(_channelRequests[key], request)) {
         final removed = _channelRequests.remove(key);
         assert(identical(removed, request));
+      }
+      if (identical(_channelRuns[key], run)) {
+        _channelRuns.remove(key);
       }
     });
     _channelRequests[key] = request;
     return request;
   }
 
-  Future<void> _loadChannels(String siteUrl, String key) async {
+  Future<void> _loadChannels(String siteUrl, String key, Object run) async {
     if (!_loading.add(key)) return;
 
     final lease = lifecycle.capture(siteUrl);
+    bool ownsRequest() => identical(_channelRuns[key], run);
     _attempts[key] = (_attempts[key] ?? 0) + 1;
 
     try {
       // Inside the guard, not before it: an unsigned macOS build's keychain can
       // throw rather than answer, and reading it outside would leave this key
       // stranded in `_loading` for the life of the app.
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      final clientId = await credentials.clientId();
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+
       final channels = await api.chatChannels(
         siteUrl: siteUrl,
-        apiKey: await credentials.apiKeyFor(siteUrl),
-        clientId: await credentials.clientId(),
+        apiKey: apiKey,
+        clientId: clientId,
       );
-      if (isDisposed) return;
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
         store.putAll(siteUrl, channels.public);
         store.putAll(siteUrl, channels.direct);
@@ -433,13 +457,13 @@ class ChatController extends FrameSafeNotifier {
         _attempts.remove(key);
       });
     } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
       _report(error, stackTrace, 'chat.loadChannels');
       lease.commit(() {
         _errors[key] = 'Could not load this site’s chat channels.';
       });
     } finally {
-      if (!isDisposed) {
+      if (_requestIsCurrent(lease, ownsRequest)) {
         lease.commit(() {
           _loading.remove(key);
           notifySafely();
@@ -506,6 +530,7 @@ class ChatController extends FrameSafeNotifier {
     final lease = lifecycle.capture(siteUrl);
     final generation = Object();
     _streamGenerations[key] = generation;
+    bool ownsRequest() => identical(_streamGenerations[key], generation);
     _pageRequests.remove(_olderKey(siteUrl, channelId));
     _pageRequests.remove(_newerKey(siteUrl, channelId));
     final held = stream(siteUrl, channelId);
@@ -522,15 +547,20 @@ class ChatController extends FrameSafeNotifier {
     );
 
     try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      final clientId = await credentials.clientId();
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+
       final page = await api.chatMessages(
         siteUrl: siteUrl,
         channelId: channelId,
         fromLastRead: fromLastRead,
         pageSize: pageSize,
-        apiKey: await credentials.apiKeyFor(siteUrl),
-        clientId: await credentials.clientId(),
+        apiKey: apiKey,
+        clientId: clientId,
       );
-      if (isDisposed) return;
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
         if (!identical(_streamGenerations[key], generation)) return;
         store.putAll(siteUrl, page.messages);
@@ -550,9 +580,7 @@ class ChatController extends FrameSafeNotifier {
         );
       });
     } catch (error, stackTrace) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(_streamGenerations[key], generation)) {
+      if (!_requestIsCurrent(lease, ownsRequest)) {
         return;
       }
       _report(error, stackTrace, 'chat.loadWindow', degraded: false);
@@ -570,7 +598,7 @@ class ChatController extends FrameSafeNotifier {
         );
       });
     } finally {
-      if (!isDisposed) {
+      if (_requestIsCurrent(lease, ownsRequest)) {
         lease.commit(() {
           if (!identical(_streamGenerations[key], generation)) return;
           final current = _streams[key];
@@ -602,18 +630,26 @@ class ChatController extends FrameSafeNotifier {
     final generation = _streamGenerations.putIfAbsent(key, Object.new);
     final request = Object();
     _pageRequests[guard] = request;
+    bool ownsRequest() =>
+        identical(_streamGenerations[key], generation) &&
+        identical(_pageRequests[guard], request);
     _setStream(key, held.copyWith(loadingOlder: true));
 
     try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      final clientId = await credentials.clientId();
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+
       final page = await api.chatMessages(
         siteUrl: siteUrl,
         channelId: channelId,
         before: before,
         pageSize: pageSize,
-        apiKey: await credentials.apiKeyFor(siteUrl),
-        clientId: await credentials.clientId(),
+        apiKey: apiKey,
+        clientId: clientId,
       );
-      if (isDisposed) return;
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
         if (!identical(_streamGenerations[key], generation) ||
             !identical(_pageRequests[guard], request)) {
@@ -639,10 +675,7 @@ class ChatController extends FrameSafeNotifier {
         );
       });
     } catch (error, stackTrace) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(_streamGenerations[key], generation) ||
-          !identical(_pageRequests[guard], request)) {
+      if (!_requestIsCurrent(lease, ownsRequest)) {
         return;
       }
       _report(
@@ -654,7 +687,7 @@ class ChatController extends FrameSafeNotifier {
       // History that would not load is not worth an error state: what is on
       // screen is still true, and scrolling up again asks again.
     } finally {
-      if (!isDisposed) {
+      if (_requestIsCurrent(lease, ownsRequest)) {
         lease.commit(() {
           if (!identical(_streamGenerations[key], generation) ||
               !identical(_pageRequests[guard], request)) {
@@ -693,18 +726,26 @@ class ChatController extends FrameSafeNotifier {
     final generation = _streamGenerations.putIfAbsent(key, Object.new);
     final request = Object();
     _pageRequests[guard] = request;
+    bool ownsRequest() =>
+        identical(_streamGenerations[key], generation) &&
+        identical(_pageRequests[guard], request);
     _setStream(key, held.copyWith(loadingNewer: true));
 
     try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      final clientId = await credentials.clientId();
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+
       final page = await api.chatMessages(
         siteUrl: siteUrl,
         channelId: channelId,
         after: after,
         pageSize: pageSize,
-        apiKey: await credentials.apiKeyFor(siteUrl),
-        clientId: await credentials.clientId(),
+        apiKey: apiKey,
+        clientId: clientId,
       );
-      if (isDisposed) return;
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
         if (!identical(_streamGenerations[key], generation) ||
             !identical(_pageRequests[guard], request)) {
@@ -730,10 +771,7 @@ class ChatController extends FrameSafeNotifier {
         );
       });
     } catch (error, stackTrace) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(_streamGenerations[key], generation) ||
-          !identical(_pageRequests[guard], request)) {
+      if (!_requestIsCurrent(lease, ownsRequest)) {
         return;
       }
       _report(
@@ -745,7 +783,7 @@ class ChatController extends FrameSafeNotifier {
       // Same as [loadOlder]: what is on screen is still true, and scrolling
       // down again asks again.
     } finally {
-      if (!isDisposed) {
+      if (_requestIsCurrent(lease, ownsRequest)) {
         lease.commit(() {
           if (!identical(_streamGenerations[key], generation) ||
               !identical(_pageRequests[guard], request)) {
@@ -859,16 +897,17 @@ class ChatController extends FrameSafeNotifier {
         }
         return;
       }
+      bool ownsRequest() => identical(_readReceiptRuns[key], run);
       try {
         final apiKey = await credentials.apiKeyFor(receipt.siteUrl);
-        if (isDisposed || !receipt.lease.isCurrent) continue;
+        if (!_requestIsCurrent(receipt.lease, ownsRequest)) continue;
         // A channel on screen belongs to a connected site, so this is the
         // unsigned-macOS-keychain case rather than a reader without a key. The
         // guess stands; nothing else can be done with it.
         if (apiKey == null) continue;
 
         final clientId = await credentials.clientId();
-        if (isDisposed || !receipt.lease.isCurrent) continue;
+        if (!_requestIsCurrent(receipt.lease, ownsRequest)) continue;
         await api.markChatChannelRead(
           siteUrl: receipt.siteUrl,
           apiKey: apiKey,
@@ -877,9 +916,7 @@ class ChatController extends FrameSafeNotifier {
           clientId: clientId,
         );
       } catch (error, stackTrace) {
-        if (!isDisposed &&
-            receipt.lease.isCurrent &&
-            identical(_readReceiptRuns[key], run)) {
+        if (_requestIsCurrent(receipt.lease, ownsRequest)) {
           _report(
             error,
             stackTrace,
@@ -902,6 +939,7 @@ class ChatController extends FrameSafeNotifier {
   void forget(String siteUrl) {
     _loading.removeWhere((key) => key.startsWith('$siteUrl~'));
     _channelRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _channelRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _errors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _attempts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _streams.removeWhere((key, _) => key.startsWith('$siteUrl~'));

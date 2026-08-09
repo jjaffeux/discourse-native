@@ -7,7 +7,7 @@ planned; see [Adding a platform](#adding-a-platform).
 
 ## Requirements
 
-- Flutter 3.44+ (`brew install --cask flutter`)
+- Flutter 3.44.8 (the exact SDK used by CI and releases is pinned in `.fvmrc`)
 - Xcode 26+ with the command line tools, for the iOS and macOS builds
 - For the Linux build, on Debian or Ubuntu:
 
@@ -440,10 +440,10 @@ a disabled plugin's attributes are simply *absent* from every payload. That
 absence is the enablement signal, and it is a better one than any setting: it is
 scoped by the same guardian that decided the rest of the payload, it can never
 be stale relative to what is on screen, and it costs no request. So
-`SitePlugin.readPost` answering null means "this site did not mention this", and
-everything keys off that — including which route a write goes down, which is why
-the rule is worth stating rather than assuming. A gate that is wrong for one
-frame produces a wrong *write*, not merely a missing button.
+`PostRecordPlugin.readPost` answering null means "this site did not mention
+this", and everything keys off that — including which route a write goes down,
+which is why the rule is worth stating rather than assuming. A gate that is
+wrong for one frame produces a wrong *write*, not merely a missing button.
 
 The other half is [`SiteConfig`](lib/src/models/site_config.dart), from
 `GET /site/settings.json` — the only public payload carrying a plugin's own
@@ -464,13 +464,15 @@ bounds the retries instead. Signing out drops it: on a `login_required` site the
 settings were only readable as that account.
 
 Adding the next one is a module under `lib/src/plugins/<name>/` owning its
-models, its state and its widgets, an entry in the `const sitePlugins` list, and
-its endpoints on `DiscourseApi` beside everything else's. That last part is the
-one deliberate exception to the module owning its own code:
+models, its state and its widgets, the narrow capability interfaces it actually
+contributes, an entry in the `const sitePlugins` list, and its endpoints on
+`DiscourseApi` beside everything else's. `PluginRegistry` owns ordered
+fallthrough and additive dispatch, so a feature that only owns navigation does
+not also carry no-op post, composer, and live-topic hooks. The API is the one
+deliberate exception to the module owning its own code:
 `FakeDiscourseApi implements DiscourseApi` is what turns a new call into a
 compile error until the fake grows a knob for it, and that is worth more than
-the tidier boundary. The interface grows with what a plugin actually needs
-rather than ahead of it.
+the tidier boundary.
 
 ### Reactions
 
@@ -535,9 +537,9 @@ write of this reader's own is skipped; its own answer is already on the way.
 
 `chat` gives a site channels and direct messages to read alongside its topics.
 It is the first optional feature here that owns *navigation* and a *screen*
-rather than decorating a record, which is why
-[`SitePlugin`](lib/src/plugins/site_plugin.dart) grew two hooks for it and why
-that was worth doing rather than special-casing.
+rather than decorating a record, so it contributes the sidebar and content
+capabilities to [`PluginRegistry`](lib/src/plugins/site_plugin.dart) without
+special-casing chat in the shell.
 
 Today it reads and nothing else: channels and direct messages in the sidebar, a
 channel you can open and scroll backwards through. No composing, replying,
@@ -947,8 +949,8 @@ reads as code rather than as confetti, and so an unanticipated language still
 lands somewhere sensible.
 
 Since this depends on markup no one versions or announces,
-`tool/markup_contract.dart` diffs the upstream templates and SCSS against
-`tool/onebox_snapshot/`:
+`tool/markup_contract.dart` diffs the upstream templates, SCSS and JavaScript
+against the snapshots under `tool/`:
 
 ```sh
 dart run tool/markup_contract.dart             # fails if upstream moved
@@ -958,12 +960,13 @@ dart run tool/markup_contract.dart --update    # accept, then read the diff
 It is a drift detector, not a source of styling — the SCSS is snapshotted
 because it is where the class names the parser matches on are given meaning.
 
-It carries a second contract for the same reason, over the mention and hashtag
-markup in `tool/hashtag_snapshot/`. Each names what to re-read when it drifts,
-because "check whether the onebox parsers still handle it" is wrong advice for a
-hashtag. A path that has *moved* fails harder than one that changed — upstream
-put the JS under `frontend/` at some point, and a check that quietly reported no
-drift because it could not find the file would be worse than no check.
+The three snapshots cover oneboxes, mention and hashtag markup, and the poll
+skeleton and web-client handoff. Each names what to re-read when it drifts,
+because "check whether the onebox parsers still handle it" is wrong advice for
+a hashtag or a poll. A path that has *moved* fails harder than one that changed
+— upstream put the JS under `frontend/` at some point, and a check that quietly
+reported no drift because it could not find the file would be worse than no
+check.
 
 ### Avatars
 
@@ -1044,6 +1047,10 @@ flutter analyze
 flutter test
 ```
 
+CI also builds a debug Linux bundle after those checks and verifies that its
+executable has no unresolved shared libraries. That keeps the native WebRTC,
+LiveKit and desktop plugin graph compiling between release builds.
+
 Two suites need more than that:
 
 ```sh
@@ -1054,8 +1061,13 @@ flutter test integration_test -d <device> # real app, real network, real storage
 And one check that is about upstream rather than about this code:
 
 ```sh
-dart run tool/markup_contract.dart        # see Oneboxes, and Mentions
+dart run tool/markup_contract.dart        # see Oneboxes, Mentions, and Polls
 ```
+
+GitHub runs that network-dependent drift check weekly and on manual dispatch
+via `.github/workflows/markup-contract.yml`. It deliberately does not run for
+pull requests: an upstream move or a transient fetch failure should report in
+that workflow without making an unrelated PR flaky.
 
 The live tests are skipped by default (see `dart_test.yaml`) so an offline or CI
 run stays green. The integration test is the only one that covers real HTTP,

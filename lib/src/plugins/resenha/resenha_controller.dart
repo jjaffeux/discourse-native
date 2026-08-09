@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/api_credentials.dart';
 import '../../data/discourse_api.dart';
@@ -14,6 +13,7 @@ import 'resenha_api.dart';
 import 'resenha_callkit.dart';
 import 'resenha_media.dart';
 import 'resenha_models.dart';
+import 'resenha_preferences.dart';
 
 enum ResenhaCallStatus { joining, connected, reconnecting, leaving, failed }
 
@@ -117,8 +117,11 @@ final class ResenhaController extends ChangeNotifier {
     required this.onCallSiteChanged,
     this.mediaFactory = const NativeResenhaMediaFactory(),
     ResenhaSystemCall? systemCall,
+    ResenhaPreferences? preferences,
     this.heartbeatInterval = const Duration(seconds: 10),
-  }) : systemCall = systemCall ?? NativeResenhaSystemCall() {
+  }) : systemCall = systemCall ?? NativeResenhaSystemCall(),
+       _preferences =
+           preferences ?? const SharedPreferencesResenhaPreferences() {
     _systemActions = this.systemCall.actions.listen(_onSystemAction);
     unawaited(_restoreDevicePreferences());
   }
@@ -131,6 +134,7 @@ final class ResenhaController extends ChangeNotifier {
   final VoidCallback onCallSiteChanged;
   final ResenhaMediaFactory mediaFactory;
   final ResenhaSystemCall systemCall;
+  final ResenhaPreferences _preferences;
   final Duration heartbeatInterval;
   late final StreamSubscription<ResenhaSystemCallAction> _systemActions;
 
@@ -143,13 +147,20 @@ final class ResenhaController extends ChangeNotifier {
   final Map<String, String> _errors = {};
   final Map<String, ResenhaChatSnapshot> _chats = {};
   final Map<String, SiteMessageBusSubscription> _chatSubscriptions = {};
+  final Map<String, Object> _siteSessions = {};
+  final Map<String, Object> _directoryRequests = {};
+  final Map<String, Object> _chatRequests = {};
   Future<void> _joinTail = Future<void>.value();
   Future<void>? _pendingJoin;
   String? _pendingJoinKey;
+  Object? _pendingJoinSession;
   Future<void>? _stateSync;
   Timer? _stateRetry;
   bool _stateSyncPending = false;
   Object? _joinRevision;
+  Future<void>? _leaveOperation;
+  ResenhaMediaSession? _leavingMedia;
+  final Expando<Future<void>> _mediaDisposals = Expando<Future<void>>();
   Timer? _heartbeat;
   ResenhaIdleState _idleState = ResenhaIdleState.active;
   ResenhaCallSnapshot? _call;
@@ -158,11 +169,6 @@ final class ResenhaController extends ChangeNotifier {
   String? _audioOutputDeviceId;
   String? _cameraDeviceId;
   bool _pushToTalkEnabled = false;
-
-  static const _audioInputKey = 'resenha.device.audio-input';
-  static const _audioOutputKey = 'resenha.device.audio-output';
-  static const _cameraKey = 'resenha.device.camera';
-  static const _pushToTalkKey = 'resenha.device.push-to-talk';
 
   ResenhaCallSnapshot? get call => _call;
   String? get activeSiteUrl => _call?.siteUrl;
@@ -194,20 +200,25 @@ final class ResenhaController extends ChangeNotifier {
     for (final room in directory?.rooms ?? const <ResenhaRoom>[]) {
       if (room.slug == slug) return room;
     }
+    final siteSession = _siteSession(siteUrl);
+    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
     final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null) return null;
+    if (apiKey == null || !isCurrent()) return null;
     try {
+      final clientId = await credentials.clientId();
+      if (!isCurrent()) return null;
       final room = await api.room(
         siteUrl: siteUrl,
         slug: slug,
         apiKey: apiKey,
-        clientId: await credentials.clientId(),
+        clientId: clientId,
       );
+      if (!isCurrent()) return null;
       (_linkedRooms[siteUrl] ??= {})[room.id] = room;
       notifyListeners();
       return room;
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'resenha.room');
+      if (isCurrent()) _report(error, stackTrace, 'resenha.room');
       return null;
     }
   }
@@ -219,8 +230,14 @@ final class ResenhaController extends ChangeNotifier {
       attachTracker(siteUrl);
       return;
     }
+    final siteSession = _siteSession(siteUrl);
+    final request = Object();
+    _directoryRequests[siteUrl] = request;
+    bool isCurrent() =>
+        _isCurrentSiteSession(siteUrl, siteSession) &&
+        identical(_directoryRequests[siteUrl], request);
     final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (_disposed) return;
+    if (!isCurrent()) return;
     if (apiKey == null) {
       forget(siteUrl);
       return;
@@ -229,15 +246,18 @@ final class ResenhaController extends ChangeNotifier {
     _errors.remove(siteUrl);
     notifyListeners();
     try {
+      final clientId = await credentials.clientId();
+      if (!isCurrent()) return;
       final directory = await api.rooms(
         siteUrl: siteUrl,
         apiKey: apiKey,
-        clientId: await credentials.clientId(),
+        clientId: clientId,
       );
-      if (_disposed) return;
+      if (!isCurrent()) return;
       _directories[siteUrl] = directory;
       _replaceSubscriptions(siteUrl, directory);
     } on SiteLookupException catch (error, stackTrace) {
+      if (!isCurrent()) return;
       // Plugin absence and account refusal both mean no section. Network and
       // parse failures stay available for an explicit retry without claiming
       // that the plugin exists.
@@ -248,13 +268,28 @@ final class ResenhaController extends ChangeNotifier {
         _directories.remove(siteUrl);
       }
     } catch (error, stackTrace) {
+      if (!isCurrent()) return;
       _errors[siteUrl] = "Couldn't load voice rooms.";
       _report(error, stackTrace, 'resenha.directory');
     } finally {
-      _loadingSites.remove(siteUrl);
-      if (!_disposed) notifyListeners();
+      if (isCurrent()) {
+        _directoryRequests.remove(siteUrl);
+        _loadingSites.remove(siteUrl);
+        notifyListeners();
+      }
     }
   }
+
+  Object _siteSession(String siteUrl) =>
+      _siteSessions.putIfAbsent(siteUrl, Object.new);
+
+  bool _isCurrentSiteSession(String siteUrl, Object session) =>
+      !_disposed && identical(_siteSessions[siteUrl], session);
+
+  bool _isCurrentCall(ResenhaCallSnapshot call, Object siteSession) =>
+      _isCurrentSiteSession(call.siteUrl, siteSession) &&
+      identical(_call?.media, call.media) &&
+      _call?.status != ResenhaCallStatus.leaving;
 
   void attachTracker(String siteUrl) {
     final directory = _directories[siteUrl];
@@ -310,7 +345,7 @@ final class ResenhaController extends ChangeNotifier {
         rooms.removeWhere((room) => room.id == incoming.id);
         if (_call case final call?
             when call.siteUrl == siteUrl && call.room.id == incoming.id) {
-          unawaited(leave(notifyServer: false));
+          _observe(() => leave(notifyServer: false), 'resenha.roomDestroyed');
         }
       default:
         return;
@@ -339,7 +374,10 @@ final class ResenhaController extends ChangeNotifier {
           signal is Map<String, dynamic> &&
           call?.siteUrl == siteUrl &&
           call?.room.id == roomId) {
-        unawaited(call!.media.handleSignal(senderId.toInt(), signal));
+        _observe(
+          () => call!.media.handleSignal(senderId.toInt(), signal),
+          'resenha.media.signal',
+        );
       }
       return;
     }
@@ -348,7 +386,7 @@ final class ResenhaController extends ChangeNotifier {
     if (event is ResenhaKickedEvent) {
       final call = _call;
       if (call?.siteUrl == siteUrl && call?.room.id == roomId) {
-        unawaited(leave(notifyServer: false));
+        _observe(() => leave(notifyServer: false), 'resenha.kicked');
       }
       return;
     }
@@ -405,20 +443,31 @@ final class ResenhaController extends ChangeNotifier {
       if (call.status != ResenhaCallStatus.leaving &&
           userId != null &&
           !participants.any((participant) => participant.id == userId)) {
-        unawaited(_leave(notifyServer: false, clearImmediately: true));
+        _observe(
+          () => _leave(notifyServer: false, clearImmediately: true),
+          'resenha.rosterRemoval',
+        );
         return;
       }
       var canPublishAudio = true;
       if (userId != null) {
         canPublishAudio = _canPublishAudio(call.room, participants, userId);
-        unawaited(call.media.setAudioPublishingAllowed(canPublishAudio));
-        if (!canPublishAudio) unawaited(call.media.setMuted(true));
+        _observe(
+          () => call.media.setAudioPublishingAllowed(canPublishAudio),
+          'resenha.media.audioPublishing',
+        );
+        if (!canPublishAudio) {
+          _observe(() => call.media.setMuted(true), 'resenha.media.rosterMute');
+        }
       }
       _call = call.copyWith(
         room: call.room.withParticipants(participants),
         muted: canPublishAudio ? null : true,
       );
-      unawaited(call.media.syncParticipants(participants));
+      _observe(
+        () => call.media.syncParticipants(participants),
+        'resenha.media.participants',
+      );
     }
     notifyListeners();
   }
@@ -443,12 +492,22 @@ final class ResenhaController extends ChangeNotifier {
     required String siteName,
     required ResenhaRoom room,
   }) {
+    final siteSession = _siteSession(siteUrl);
     final key = '$siteUrl#${room.id}';
     final pending = _pendingJoin;
-    if (_pendingJoinKey == key && pending != null) return pending;
+    if (_pendingJoinKey == key &&
+        identical(_pendingJoinSession, siteSession) &&
+        pending != null) {
+      return pending;
+    }
 
     final operation = _joinTail.then(
-      (_) => _join(siteUrl: siteUrl, siteName: siteName, room: room),
+      (_) => _join(
+        siteUrl: siteUrl,
+        siteName: siteName,
+        room: room,
+        siteSession: siteSession,
+      ),
     );
     // Room taps can arrive while the preceding transport is still connecting.
     // Keep each leave/join transition atomic so a later tap cannot dispose the
@@ -462,10 +521,12 @@ final class ResenhaController extends ChangeNotifier {
       if (identical(_pendingJoin, tracked)) {
         _pendingJoin = null;
         _pendingJoinKey = null;
+        _pendingJoinSession = null;
       }
     });
     _pendingJoin = tracked;
     _pendingJoinKey = key;
+    _pendingJoinSession = siteSession;
     return tracked;
   }
 
@@ -473,22 +534,30 @@ final class ResenhaController extends ChangeNotifier {
     required String siteUrl,
     required String siteName,
     required ResenhaRoom room,
+    required Object siteSession,
   }) async {
-    if (!supportedPlatform) return;
+    bool siteIsCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
+    if (!supportedPlatform || !siteIsCurrent()) return;
+    final pendingLeave = _leaveOperation;
+    if (pendingLeave != null) await pendingLeave;
+    if (!siteIsCurrent()) return;
     final held = _call;
     if (held?.siteUrl == siteUrl && held?.room.id == room.id) {
       await leave();
       return;
     }
     if (held != null) await leave();
+    if (!siteIsCurrent()) return;
     final revision = Object();
     _joinRevision = revision;
+    bool isCurrent() => siteIsCurrent() && identical(_joinRevision, revision);
     final apiKey = await credentials.apiKeyFor(siteUrl);
     final userId = userIdFor(siteUrl);
-    if (apiKey == null || userId == null || _disposed) return;
+    if (apiKey == null || userId == null || !isCurrent()) return;
     ResenhaMediaSession? media;
     try {
       final clientId = await credentials.clientId();
+      if (!isCurrent()) return;
       late ResenhaJoinResponse response;
       try {
         response = await api.join(
@@ -507,7 +576,7 @@ final class ResenhaController extends ChangeNotifier {
           (error.retryAfter ?? const Duration(seconds: 1)) +
               const Duration(milliseconds: 150),
         );
-        if (_disposed || !identical(_joinRevision, revision)) return;
+        if (!isCurrent()) return;
         response = await api.join(
           siteUrl: siteUrl,
           roomId: room.id,
@@ -515,29 +584,52 @@ final class ResenhaController extends ChangeNotifier {
           clientId: clientId,
         );
       }
-      if (_disposed || !identical(_joinRevision, revision)) return;
+      if (!isCurrent()) return;
+      ResenhaMediaSession? callbackMedia;
+      bool mediaIsCurrent() =>
+          isCurrent() &&
+          callbackMedia != null &&
+          identical(_call?.media, callbackMedia);
       media = mediaFactory.create(
         join: response,
         localUserId: userId,
-        sendSignal: (recipientId, event) => api.signal(
-          siteUrl: siteUrl,
-          roomId: room.id,
-          apiKey: apiKey,
-          payload: {'recipient_id': recipientId, ...event},
-        ),
-        refreshLiveKitCredentials: () async => api.livekitToken(
-          siteUrl: siteUrl,
-          roomId: room.id,
-          apiKey: apiKey,
-          clientId: await credentials.clientId(),
-        ),
+        sendSignal: (recipientId, event) async {
+          if (!mediaIsCurrent()) return;
+          await api.signal(
+            siteUrl: siteUrl,
+            roomId: room.id,
+            apiKey: apiKey,
+            payload: {'recipient_id': recipientId, ...event},
+          );
+        },
+        refreshLiveKitCredentials: () async {
+          final fallback = response.livekit;
+          if (fallback == null) {
+            throw StateError('LiveKit credentials are unavailable.');
+          }
+          if (!mediaIsCurrent()) return fallback;
+          final refreshClientId = await credentials.clientId();
+          if (!mediaIsCurrent()) return fallback;
+          final refreshed = await api.livekitToken(
+            siteUrl: siteUrl,
+            roomId: room.id,
+            apiKey: apiKey,
+            clientId: refreshClientId,
+          );
+          return mediaIsCurrent() ? refreshed : fallback;
+        },
       );
+      callbackMedia = media;
       final initiallyMuted = !_canPublishAudio(
         response.room,
         response.room.participants,
         userId,
       );
       await media.setMuted(initiallyMuted);
+      if (!isCurrent()) {
+        await _disposeMedia(media, 'resenha.media.disposeAfterCancelledJoin');
+        return;
+      }
       media.addListener(_mediaChanged);
       _call = ResenhaCallSnapshot(
         siteUrl: siteUrl,
@@ -551,16 +643,16 @@ final class ResenhaController extends ChangeNotifier {
       attachTracker(siteUrl);
       notifyListeners();
       await systemCall.start(roomName: room.name, siteName: siteName);
+      if (!isCurrent()) return;
       await media.connect();
+      if (!isCurrent()) return;
       if (_audioInputDeviceId case final deviceId?) {
         await media.selectAudioInput(deviceId);
+        if (!isCurrent()) return;
       }
       if (_audioOutputDeviceId case final deviceId?) {
         await media.selectAudioOutput(deviceId);
-      }
-      if (_disposed || !identical(_joinRevision, revision)) {
-        await media.dispose();
-        return;
+        if (!isCurrent()) return;
       }
       _call = _call?.copyWith(
         status: ResenhaCallStatus.connected,
@@ -573,15 +665,21 @@ final class ResenhaController extends ChangeNotifier {
           apiKey: apiKey,
           muted: true,
         );
+        if (!isCurrent()) return;
         await systemCall.setMuted(true);
+        if (!isCurrent()) return;
       }
       await systemCall.connected();
+      if (!isCurrent()) return;
       _startHeartbeat();
       notifyListeners();
     } catch (error, stackTrace) {
-      await media?.dispose();
-      await systemCall.failed();
-      if (!_disposed && identical(_joinRevision, revision)) {
+      if (media case final activeMedia?) {
+        await _disposeMedia(activeMedia, 'resenha.media.disposeAfterJoin');
+      }
+      if (!isCurrent()) return;
+      await _runHandled(systemCall.failed, 'resenha.systemCall.failed');
+      if (isCurrent()) {
         _call = null;
         _errors[siteUrl] = error is WriteException
             ? error.message
@@ -589,7 +687,7 @@ final class ResenhaController extends ChangeNotifier {
         onCallSiteChanged();
         notifyListeners();
       }
-      _report(error, stackTrace, 'resenha.join');
+      if (isCurrent()) _report(error, stackTrace, 'resenha.join');
     }
   }
 
@@ -601,12 +699,17 @@ final class ResenhaController extends ChangeNotifier {
   Future<void> _beat() async {
     final call = _call;
     if (call == null || call.status != ResenhaCallStatus.connected) return;
-    final apiKey = await credentials.apiKeyFor(call.siteUrl);
-    if (apiKey == null) {
-      await leave(notifyServer: false);
-      return;
-    }
+    final siteSession = _siteSession(call.siteUrl);
+    bool isCurrent() =>
+        _isCurrentCall(call, siteSession) &&
+        _call?.status == ResenhaCallStatus.connected;
     try {
+      final apiKey = await credentials.apiKeyFor(call.siteUrl);
+      if (!isCurrent()) return;
+      if (apiKey == null) {
+        await leave(notifyServer: false);
+        return;
+      }
       await api.heartbeat(
         siteUrl: call.siteUrl,
         roomId: call.room.id,
@@ -614,7 +717,7 @@ final class ResenhaController extends ChangeNotifier {
         idle: _idleState,
       );
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'resenha.heartbeat');
+      if (isCurrent()) _report(error, stackTrace, 'resenha.heartbeat');
     }
   }
 
@@ -657,21 +760,36 @@ final class ResenhaController extends ChangeNotifier {
 
   Future<void> selectAudioInput(String deviceId) async {
     _audioInputDeviceId = deviceId;
-    await _persistString(_audioInputKey, deviceId);
+    await _persistPreference(
+      () => _preferences.writeDevice(
+        ResenhaDevicePreference.audioInput,
+        deviceId,
+      ),
+      'resenha.preferences.audioInput',
+    );
     await _call?.media.selectAudioInput(deviceId);
     notifyListeners();
   }
 
   Future<void> selectAudioOutput(String deviceId) async {
     _audioOutputDeviceId = deviceId;
-    await _persistString(_audioOutputKey, deviceId);
+    await _persistPreference(
+      () => _preferences.writeDevice(
+        ResenhaDevicePreference.audioOutput,
+        deviceId,
+      ),
+      'resenha.preferences.audioOutput',
+    );
     await _call?.media.selectAudioOutput(deviceId);
     notifyListeners();
   }
 
   Future<void> selectCamera(String deviceId) async {
     _cameraDeviceId = deviceId;
-    await _persistString(_cameraKey, deviceId);
+    await _persistPreference(
+      () => _preferences.writeDevice(ResenhaDevicePreference.camera, deviceId),
+      'resenha.preferences.camera',
+    );
     final call = _call;
     if (call?.cameraEnabled == true) {
       await call?.media.setCameraEnabled(false);
@@ -682,8 +800,10 @@ final class ResenhaController extends ChangeNotifier {
 
   Future<void> setPushToTalkEnabled(bool enabled) async {
     _pushToTalkEnabled = enabled;
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setBool(_pushToTalkKey, enabled);
+    await _persistPreference(
+      () => _preferences.writePushToTalk(enabled),
+      'resenha.preferences.pushToTalk',
+    );
     if (enabled) await setMuted(true);
     notifyListeners();
   }
@@ -693,10 +813,19 @@ final class ResenhaController extends ChangeNotifier {
     int roomId,
     int userId,
   ) async {
-    final preferences = await SharedPreferences.getInstance();
-    return (preferences.getDouble(_volumeKey(siteUrl, roomId, userId)) ?? 1)
-        .clamp(0, 1)
-        .toDouble();
+    try {
+      return ((await _preferences.readParticipantVolume(
+                siteUrl,
+                roomId,
+                userId,
+              )) ??
+              1)
+          .clamp(0, 1)
+          .toDouble();
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'resenha.preferences.readVolume');
+      return 1;
+    }
   }
 
   Future<void> setParticipantVolume(
@@ -707,35 +836,43 @@ final class ResenhaController extends ChangeNotifier {
   ) async {
     final normalized = volume.clamp(0, 1).toDouble();
     await _call?.media.setParticipantVolume(userId, normalized);
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setDouble(
-      _volumeKey(siteUrl, roomId, userId),
-      normalized,
+    await _persistPreference(
+      () => _preferences.writeParticipantVolume(
+        siteUrl,
+        roomId,
+        userId,
+        normalized,
+      ),
+      'resenha.preferences.writeVolume',
     );
   }
 
   Future<void> _restoreDevicePreferences() async {
     try {
-      final preferences = await SharedPreferences.getInstance();
+      final preferences = await _preferences.readDevices();
       if (_disposed) return;
-      _audioInputDeviceId = preferences.getString(_audioInputKey);
-      _audioOutputDeviceId = preferences.getString(_audioOutputKey);
-      _cameraDeviceId = preferences.getString(_cameraKey);
-      _pushToTalkEnabled = preferences.getBool(_pushToTalkKey) ?? false;
+      _audioInputDeviceId = preferences.audioInputDeviceId;
+      _audioOutputDeviceId = preferences.audioOutputDeviceId;
+      _cameraDeviceId = preferences.cameraDeviceId;
+      _pushToTalkEnabled = preferences.pushToTalkEnabled;
       notifyListeners();
-    } catch (_) {
+    } catch (error, stackTrace) {
       // Tests and early startup may not have a preferences channel yet. Device
       // defaults remain usable and the next explicit selection persists.
+      _report(error, stackTrace, 'resenha.preferences.restore');
     }
   }
 
-  Future<void> _persistString(String key, String value) async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(key, value);
+  Future<void> _persistPreference(
+    Future<void> Function() write,
+    String operation,
+  ) async {
+    try {
+      await write();
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, operation);
+    }
   }
-
-  static String _volumeKey(String siteUrl, int roomId, int userId) =>
-      'resenha.volume.${Uri.encodeComponent(siteUrl)}.$roomId.$userId';
 
   Future<void> setScreenSharing(bool enabled) => _updateMediaState(
     media: (call) => call.media.setScreenShareEnabled(enabled),
@@ -797,9 +934,11 @@ final class ResenhaController extends ChangeNotifier {
       _stateSyncPending = false;
       final call = _call;
       if (call == null || call.status == ResenhaCallStatus.leaving) return;
-      final apiKey = await credentials.apiKeyFor(call.siteUrl);
-      if (apiKey == null || !identical(_call?.media, call.media)) return;
+      final siteSession = _siteSession(call.siteUrl);
+      bool isCurrent() => _isCurrentCall(call, siteSession);
       try {
+        final apiKey = await credentials.apiKeyFor(call.siteUrl);
+        if (apiKey == null || !isCurrent()) return;
         await api.state(
           siteUrl: call.siteUrl,
           roomId: call.room.id,
@@ -810,11 +949,11 @@ final class ResenhaController extends ChangeNotifier {
           screen: call.screenSharing,
         );
       } on WriteException catch (error, stackTrace) {
+        if (!isCurrent()) return;
         if (error.failure != WriteFailure.rateLimited) {
           _report(error, stackTrace, 'resenha.state');
           return;
         }
-        if (!identical(_call?.media, call.media)) return;
         _stateSyncPending = true;
         _stateRetry = Timer(
           (error.retryAfter ?? const Duration(seconds: 1)) +
@@ -825,7 +964,7 @@ final class ResenhaController extends ChangeNotifier {
           },
         );
       } catch (error, stackTrace) {
-        _report(error, stackTrace, 'resenha.state');
+        if (isCurrent()) _report(error, stackTrace, 'resenha.state');
         return;
       }
     }
@@ -837,9 +976,23 @@ final class ResenhaController extends ChangeNotifier {
   Future<void> _leave({
     required bool notifyServer,
     bool clearImmediately = false,
-  }) async {
+  }) {
+    final active = _leaveOperation;
     final call = _call;
-    if (call == null) return;
+    if (call == null) return active ?? Future<void>.value();
+    if (active != null && identical(_leavingMedia, call.media)) {
+      if (clearImmediately && identical(_call?.media, call.media)) {
+        _call = null;
+        onCallSiteChanged();
+        if (!_disposed) notifyListeners();
+      }
+      return active;
+    }
+
+    final completion = Completer<void>();
+    final operation = completion.future;
+    _leavingMedia = call.media;
+    _leaveOperation = operation;
     _joinRevision = Object();
     _heartbeat?.cancel();
     _heartbeat = null;
@@ -850,7 +1003,24 @@ final class ResenhaController extends ChangeNotifier {
         ? null
         : call.copyWith(status: ResenhaCallStatus.leaving);
     if (clearImmediately) onCallSiteChanged();
-    notifyListeners();
+    if (!_disposed) notifyListeners();
+    unawaited(
+      _finishLeave(
+        call,
+        notifyServer: notifyServer,
+        operation: operation,
+        completion: completion,
+      ),
+    );
+    return operation;
+  }
+
+  Future<void> _finishLeave(
+    ResenhaCallSnapshot call, {
+    required bool notifyServer,
+    required Future<void> operation,
+    required Completer<void> completion,
+  }) async {
     if (notifyServer) {
       try {
         final apiKey = await credentials.apiKeyFor(call.siteUrl);
@@ -865,14 +1035,25 @@ final class ResenhaController extends ChangeNotifier {
         _report(error, stackTrace, 'resenha.leave');
       }
     }
-    call.media.removeListener(_mediaChanged);
-    await call.media.dispose();
-    await systemCall.end();
+
+    try {
+      call.media.removeListener(_mediaChanged);
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'resenha.media.removeListener');
+    }
+    await _disposeMedia(call.media, 'resenha.media.dispose');
+    await _runHandled(systemCall.end, 'resenha.systemCall.end');
+
+    if (identical(_leaveOperation, operation)) {
+      _leaveOperation = null;
+      _leavingMedia = null;
+    }
     if (identical(_call?.media, call.media)) {
       _call = null;
       onCallSiteChanged();
     }
     if (!_disposed) notifyListeners();
+    completion.complete();
   }
 
   Future<ResenhaRoom?> saveRoom({
@@ -880,8 +1061,10 @@ final class ResenhaController extends ChangeNotifier {
     required ResenhaRoomDraft draft,
     int? roomId,
   }) async {
+    final siteSession = _siteSession(siteUrl);
+    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
     final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null) return null;
+    if (apiKey == null || !isCurrent()) return null;
     try {
       final room = roomId == null
           ? await api.createRoom(siteUrl: siteUrl, apiKey: apiKey, draft: draft)
@@ -891,9 +1074,11 @@ final class ResenhaController extends ChangeNotifier {
               apiKey: apiKey,
               draft: draft,
             );
+      if (!isCurrent()) return null;
       await ensureLoaded(siteUrl, force: true);
-      return room;
+      return isCurrent() ? room : null;
     } catch (error, stackTrace) {
+      if (!isCurrent()) return null;
       _errors[siteUrl] = error is WriteException
           ? error.message
           : "Couldn't save the voice room.";
@@ -904,12 +1089,16 @@ final class ResenhaController extends ChangeNotifier {
   }
 
   Future<void> deleteRoom(String siteUrl, int roomId) async {
+    final siteSession = _siteSession(siteUrl);
+    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
     final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null) return;
+    if (apiKey == null || !isCurrent()) return;
     try {
       await api.deleteRoom(siteUrl: siteUrl, roomId: roomId, apiKey: apiKey);
+      if (!isCurrent()) return;
       await ensureLoaded(siteUrl, force: true);
     } catch (error, stackTrace) {
+      if (!isCurrent()) return;
       _errors[siteUrl] = error is WriteException
           ? error.message
           : "Couldn't delete the voice room.";
@@ -925,8 +1114,14 @@ final class ResenhaController extends ChangeNotifier {
   }) async {
     final key = '$siteUrl#$roomId';
     if (!force && (_chats[key]?.loading ?? false)) return;
+    final siteSession = _siteSession(siteUrl);
+    final request = Object();
+    _chatRequests[key] = request;
+    bool isCurrent() =>
+        _isCurrentSiteSession(siteUrl, siteSession) &&
+        identical(_chatRequests[key], request);
     final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null) return;
+    if (apiKey == null || !isCurrent()) return;
     _chats[key] =
         (_chats[key] ??
                 const ResenhaChatSnapshot(session: ResenhaChatSession()))
@@ -938,6 +1133,7 @@ final class ResenhaController extends ChangeNotifier {
         roomId: roomId,
         apiKey: apiKey,
       );
+      if (!isCurrent()) return;
       final channelId = session.channelId;
       final threadId = session.threadId;
       var messages = const <ChatMessage>[];
@@ -949,6 +1145,7 @@ final class ResenhaController extends ChangeNotifier {
           threadId: threadId,
           apiKey: apiKey,
         );
+        if (!isCurrent()) return;
         messages = page.messages;
         canLoadMorePast = page.canLoadMorePast;
         _subscribeChat(siteUrl, roomId, channelId, threadId);
@@ -970,13 +1167,14 @@ final class ResenhaController extends ChangeNotifier {
         canLoadMorePast: canLoadMorePast,
       );
     } catch (error, stackTrace) {
+      if (!isCurrent()) return;
       _chats[key] =
           (_chats[key] ??
                   const ResenhaChatSnapshot(session: ResenhaChatSession()))
               .copyWith(loading: false, error: "Couldn't load room chat.");
       _report(error, stackTrace, 'resenha.chat.load');
     }
-    notifyListeners();
+    if (isCurrent()) notifyListeners();
   }
 
   Future<void> loadOlderChat(String siteUrl, int roomId) async {
@@ -992,8 +1190,14 @@ final class ResenhaController extends ChangeNotifier {
         threadId == null) {
       return;
     }
+    final siteSession = _siteSession(siteUrl);
+    final request = Object();
+    _chatRequests[key] = request;
+    bool isCurrent() =>
+        _isCurrentSiteSession(siteUrl, siteSession) &&
+        identical(_chatRequests[key], request);
     final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null) return;
+    if (apiKey == null || !isCurrent()) return;
     _chats[key] = state.copyWith(loading: true, clearError: true);
     notifyListeners();
     try {
@@ -1004,6 +1208,7 @@ final class ResenhaController extends ChangeNotifier {
         before: state.messages.first.id,
         apiKey: apiKey,
       );
+      if (!isCurrent()) return;
       final byId = {
         for (final message in [...page.messages, ...state.messages])
           message.id: message,
@@ -1016,13 +1221,14 @@ final class ResenhaController extends ChangeNotifier {
         canLoadMorePast: page.canLoadMorePast,
       );
     } catch (error, stackTrace) {
+      if (!isCurrent()) return;
       _chats[key] = state.copyWith(
         loading: false,
         error: "Couldn't load older messages.",
       );
       _report(error, stackTrace, 'resenha.chat.page');
     }
-    notifyListeners();
+    if (isCurrent()) notifyListeners();
   }
 
   void _subscribeChat(String siteUrl, int roomId, int channelId, int threadId) {
@@ -1048,8 +1254,10 @@ final class ResenhaController extends ChangeNotifier {
     final text = message.trim();
     if (text.isEmpty) return;
     final key = '$siteUrl#$roomId';
+    final siteSession = _siteSession(siteUrl);
+    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
     final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null) return;
+    if (apiKey == null || !isCurrent()) return;
     var state =
         _chats[key] ?? const ResenhaChatSnapshot(session: ResenhaChatSession());
     _chats[key] = state.copyWith(sending: true, clearError: true);
@@ -1063,6 +1271,7 @@ final class ResenhaController extends ChangeNotifier {
           apiKey: apiKey,
           ensure: true,
         );
+        if (!isCurrent()) return;
       }
       if (session.threadId == null) {
         session = await api.firstChatMessage(
@@ -1071,6 +1280,7 @@ final class ResenhaController extends ChangeNotifier {
           apiKey: apiKey,
           message: text,
         );
+        if (!isCurrent()) return;
       } else if (session.channelId case final channelId?) {
         await chatApi.sendChatMessage(
           siteUrl: siteUrl,
@@ -1079,10 +1289,13 @@ final class ResenhaController extends ChangeNotifier {
           threadId: session.threadId,
           message: text,
         );
+        if (!isCurrent()) return;
       }
+      state = _chats[key] ?? state;
       _chats[key] = state.copyWith(session: session, sending: false);
       await openChat(siteUrl, roomId, force: true);
     } catch (error, stackTrace) {
+      if (!isCurrent()) return;
       state = _chats[key] ?? state;
       _chats[key] = state.copyWith(sending: false, error: 'Message not sent.');
       _report(error, stackTrace, 'resenha.chat.send');
@@ -1093,8 +1306,9 @@ final class ResenhaController extends ChangeNotifier {
   Future<void> requestToSpeak({int? userId, bool raised = true}) async {
     final call = _call;
     if (call == null) return;
+    final siteSession = _siteSession(call.siteUrl);
     final apiKey = await credentials.apiKeyFor(call.siteUrl);
-    if (apiKey == null) return;
+    if (apiKey == null || !_isCurrentCall(call, siteSession)) return;
     await api.requestToSpeak(
       siteUrl: call.siteUrl,
       roomId: call.room.id,
@@ -1107,8 +1321,9 @@ final class ResenhaController extends ChangeNotifier {
   Future<void> kick(int userId) async {
     final call = _call;
     if (call == null) return;
+    final siteSession = _siteSession(call.siteUrl);
     final apiKey = await credentials.apiKeyFor(call.siteUrl);
-    if (apiKey == null) return;
+    if (apiKey == null || !_isCurrentCall(call, siteSession)) return;
     await api.kick(
       siteUrl: call.siteUrl,
       roomId: call.room.id,
@@ -1121,14 +1336,18 @@ final class ResenhaController extends ChangeNotifier {
     final call = _call;
     final text = message.trim();
     if (call == null || text.isEmpty) return false;
+    final siteSession = _siteSession(call.siteUrl);
+    bool isCurrent() => _isCurrentCall(call, siteSession);
     final apiKey = await credentials.apiKeyFor(call.siteUrl);
-    if (apiKey == null) return false;
+    if (apiKey == null || !isCurrent()) return false;
+    final clientId = await credentials.clientId();
+    if (!isCurrent()) return false;
     final flagTypeId = await api.notifyModeratorsFlagType(
       siteUrl: call.siteUrl,
       apiKey: apiKey,
-      clientId: await credentials.clientId(),
+      clientId: clientId,
     );
-    if (flagTypeId == null) return false;
+    if (flagTypeId == null || !isCurrent()) return false;
     await api.flag(
       siteUrl: call.siteUrl,
       roomId: call.room.id,
@@ -1143,8 +1362,9 @@ final class ResenhaController extends ChangeNotifier {
   Future<void> setRecording(bool active) async {
     final call = _call;
     if (call == null) return;
+    final siteSession = _siteSession(call.siteUrl);
     final apiKey = await credentials.apiKeyFor(call.siteUrl);
-    if (apiKey == null) return;
+    if (apiKey == null || !_isCurrentCall(call, siteSession)) return;
     await api.setRecording(
       siteUrl: call.siteUrl,
       roomId: call.room.id,
@@ -1157,9 +1377,17 @@ final class ResenhaController extends ChangeNotifier {
     String siteUrl,
     int roomId,
   ) async {
+    final siteSession = _siteSession(siteUrl);
     final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null) return const [];
-    return api.memberships(siteUrl: siteUrl, roomId: roomId, apiKey: apiKey);
+    if (apiKey == null || !_isCurrentSiteSession(siteUrl, siteSession)) {
+      return const [];
+    }
+    final memberships = await api.memberships(
+      siteUrl: siteUrl,
+      roomId: roomId,
+      apiKey: apiKey,
+    );
+    return _isCurrentSiteSession(siteUrl, siteSession) ? memberships : const [];
   }
 
   Future<void> addMember(
@@ -1168,8 +1396,9 @@ final class ResenhaController extends ChangeNotifier {
     String username,
     ResenhaRole role,
   ) async {
+    final siteSession = _siteSession(siteUrl);
     final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null) return;
+    if (apiKey == null || !_isCurrentSiteSession(siteUrl, siteSession)) return;
     await api.addMembership(
       siteUrl: siteUrl,
       roomId: roomId,
@@ -1185,8 +1414,9 @@ final class ResenhaController extends ChangeNotifier {
     int membershipId,
     ResenhaRole role,
   ) async {
+    final siteSession = _siteSession(siteUrl);
     final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null) return;
+    if (apiKey == null || !_isCurrentSiteSession(siteUrl, siteSession)) return;
     await api.updateMembership(
       siteUrl: siteUrl,
       roomId: roomId,
@@ -1201,8 +1431,9 @@ final class ResenhaController extends ChangeNotifier {
     int roomId,
     int membershipId,
   ) async {
+    final siteSession = _siteSession(siteUrl);
     final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null) return;
+    if (apiKey == null || !_isCurrentSiteSession(siteUrl, siteSession)) return;
     await api.removeMembership(
       siteUrl: siteUrl,
       roomId: roomId,
@@ -1237,16 +1468,27 @@ final class ResenhaController extends ChangeNotifier {
   void _onSystemAction(ResenhaSystemCallAction action) {
     switch (action) {
       case ResenhaSystemCallAction.mute:
-        unawaited(_setMuted(true, syncSystem: false));
+        _observe(
+          () => _setMuted(true, syncSystem: false),
+          'resenha.systemAction.mute',
+        );
       case ResenhaSystemCallAction.unmute:
-        unawaited(_setMuted(false, syncSystem: false));
+        _observe(
+          () => _setMuted(false, syncSystem: false),
+          'resenha.systemAction.unmute',
+        );
       case ResenhaSystemCallAction.end:
-        unawaited(leave());
+        _observe(leave, 'resenha.systemAction.end');
     }
   }
 
   void forget(String siteUrl) {
-    if (_call?.siteUrl == siteUrl) unawaited(leave());
+    if (_call?.siteUrl == siteUrl) {
+      _observe(leave, 'resenha.accountRemoval');
+    }
+    _siteSessions.remove(siteUrl);
+    _directoryRequests.remove(siteUrl);
+    _chatRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _directories.remove(siteUrl);
     _linkedRooms.remove(siteUrl);
     _chats.removeWhere((key, _) => key.startsWith('$siteUrl#'));
@@ -1279,6 +1521,36 @@ final class ResenhaController extends ChangeNotifier {
     );
   }
 
+  void _observe(Future<void> Function() action, String operation) {
+    unawaited(_runHandled(action, operation));
+  }
+
+  Future<void> _runHandled(
+    Future<void> Function() action,
+    String operation,
+  ) async {
+    try {
+      await action();
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, operation);
+    }
+  }
+
+  Future<void> _disposeMedia(ResenhaMediaSession media, String operation) {
+    final active = _mediaDisposals[media];
+    if (active != null) return active;
+
+    final completion = Completer<void>();
+    final result = completion.future;
+    _mediaDisposals[media] = result;
+    unawaited(
+      _runHandled(media.dispose, operation).then((_) {
+        if (!completion.isCompleted) completion.complete();
+      }),
+    );
+    return result;
+  }
+
   @override
   void dispose() {
     if (_disposed) return;
@@ -1296,13 +1568,20 @@ final class ResenhaController extends ChangeNotifier {
     for (final subscription in _chatSubscriptions.values) {
       subscription.cancel();
     }
-    unawaited(_systemActions.cancel());
+    _observe(() => _systemActions.cancel(), 'resenha.systemActions.dispose');
     final call = _call;
-    if (call != null) {
+    if (call != null && !identical(_leavingMedia, call.media)) {
       call.media.removeListener(_mediaChanged);
-      unawaited(call.media.dispose());
+      _observe(
+        () => _disposeMedia(call.media, 'resenha.media.dispose'),
+        'resenha.media.dispose',
+      );
     }
-    unawaited(systemCall.dispose());
+    final pendingLeave = _leaveOperation;
+    _observe(() async {
+      if (pendingLeave != null) await pendingLeave;
+      await systemCall.dispose();
+    }, 'resenha.systemCall.dispose');
     super.dispose();
   }
 }

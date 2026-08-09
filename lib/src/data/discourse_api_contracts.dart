@@ -2,6 +2,7 @@ import '../diagnostics/diagnostic_error_cause.dart';
 import '../models/bookmark.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
+import '../models/topic.dart';
 import '../models/user_draft.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
@@ -44,6 +45,83 @@ class SiteLookupException implements Exception, DiagnosticErrorCause {
     if (statusCode != null) ', statusCode: $statusCode',
     ')',
   ].join();
+}
+
+/// Why a write did not go through.
+///
+/// Reads collapse into "couldn't reach it" because there is nothing the reader
+/// can do either way. A write is the opposite: the user typed something, it was
+/// refused, and the reason decides what they do next — fix the text, wait,
+/// reconnect, or reload.
+enum WriteFailure {
+  /// The site refused the content. [WriteException.errors] says why, in words
+  /// Discourse already wrote for a reader.
+  validation,
+
+  /// Too fast. [WriteException.retryAfter] says how long to wait, when the
+  /// site said.
+  rateLimited,
+
+  /// Not allowed here — or the key is gone. The two are indistinguishable from
+  /// the status alone, since Discourse answers 403 to both.
+  forbidden,
+
+  /// Someone changed it first. Only edits can hit this.
+  conflict,
+
+  /// Nothing answered, or what answered made no sense.
+  unreachable,
+}
+
+class WriteException implements Exception, DiagnosticErrorCause {
+  const WriteException(
+    this.failure, {
+    this.errors = const [],
+    this.statusCode,
+    this.retryAfter,
+    this.cause,
+    this.causeStackTrace,
+  });
+
+  final WriteFailure failure;
+
+  /// Discourse's own messages. Already written for a reader, so they are shown
+  /// as they arrive rather than translated into something of ours.
+  final List<String> errors;
+
+  final int? statusCode;
+
+  /// How long to wait before trying again, on a [WriteFailure.rateLimited].
+  final Duration? retryAfter;
+  final Object? cause;
+  final StackTrace? causeStackTrace;
+
+  @override
+  Object get diagnosticCause => cause ?? this;
+
+  @override
+  StackTrace? get diagnosticCauseStackTrace => causeStackTrace;
+
+  String get message {
+    if (errors.isNotEmpty) return errors.join('\n');
+    return switch (failure) {
+      WriteFailure.validation => "That wasn't accepted.",
+      WriteFailure.rateLimited => switch (retryAfter) {
+        final wait? => 'Too fast — try again in ${wait.inSeconds}s.',
+        null => 'Too fast — try again in a moment.',
+      },
+      WriteFailure.forbidden =>
+        "You can't post that here — or the connection to this site has "
+            'expired.',
+      WriteFailure.conflict => 'Someone else changed that first.',
+      WriteFailure.unreachable => "Couldn't reach the site.",
+    };
+  }
+
+  @override
+  String toString() =>
+      'WriteException($failure, statusCode: $statusCode, '
+      'retryAfter: $retryAfter)';
 }
 
 abstract interface class AccountActivityApi {
@@ -90,6 +168,28 @@ abstract interface class DraftsApi {
     required String apiKey,
     required String draftKey,
     required int sequence,
+    String? clientId,
+  });
+}
+
+/// Topic-list pages consumed by the shell's feed state machine.
+abstract interface class TopicFeedsApi {
+  Future<TopicList> topicList({
+    required String siteUrl,
+    required String path,
+    String? apiKey,
+    String? clientId,
+  });
+}
+
+/// Read receipts emitted from native topic viewport observations.
+abstract interface class TopicReadsApi {
+  Future<void> recordTopicRead({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required int postNumber,
+    int milliseconds = 500,
     String? clientId,
   });
 }

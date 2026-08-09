@@ -47,14 +47,18 @@ import 'resenha/resenha_plugin.dart';
 /// is what turns a new call into a compile error until the fake grows a knob
 /// for it, and that is worth more than the tidier boundary.
 ///
-/// This interface grows with what a plugin actually needs rather than ahead of
-/// it. Hooks are added when the second implementation wants one, not in
-/// anticipation of it.
-abstract interface class SitePlugin<T extends Object> {
+/// A feature implements only the capability interfaces it actually contributes
+/// to. [PluginRegistry] owns dispatch and ordering, so consumers do not need to
+/// know which feature implements which capability and features do not carry a
+/// collection of unrelated no-op methods.
+abstract interface class SitePlugin {
   /// The plugin's own name, `discourse-reactions`. For documentation and debug
   /// output; nothing dispatches on it.
   String get name;
+}
 
+/// A feature record embedded in a post payload.
+abstract interface class PostRecordPlugin<T extends Object> {
   /// The type [readPost] answers with, and the key [PluginData.get] finds it
   /// under.
   ///
@@ -71,6 +75,16 @@ abstract interface class SitePlugin<T extends Object> {
   /// value — a default would claim the feature is present everywhere.
   T? readPost(Map<String, dynamic> json, String siteUrl);
 
+  /// Chooses this plugin's record after a normal post edit response.
+  ///
+  /// Edit serializers do not all carry reader state. Reactions keeps the held
+  /// record; Poll deliberately takes the incoming value, including null when
+  /// its block was removed.
+  T? mergeAfterPostEdit(T? held, T? incoming);
+}
+
+/// Replaces a top-level element inside a post's cooked body.
+abstract interface class PostBodyPlugin {
   /// A top-level element inside a post body this feature can replace.
   ///
   /// The owning post is deliberately available here: cooked plugin markup is
@@ -78,7 +92,10 @@ abstract interface class SitePlugin<T extends Object> {
   /// authoritative. Recursive CookedHtml instances (quotes/oneboxes) receive
   /// no post and therefore never invoke this hook.
   Widget? postBodyElement(String siteUrl, Post post, dom.Element element);
+}
 
+/// Claims the footer under a post.
+abstract interface class PostFooterPlugin {
   /// What to draw under a post in place of the core footer, or null to leave it
   /// alone.
   ///
@@ -86,7 +103,10 @@ abstract interface class SitePlugin<T extends Object> {
   /// chain and `open_link.dart`'s dispatch: the first plugin with something to
   /// say wins, and the core answer is what is left when none of them do.
   Widget? postFooter(String siteUrl, Post post);
+}
 
+/// Contributes actions to a post menu.
+abstract interface class PostMenuPlugin {
   /// What this feature adds to, or takes out of, the post action menu.
   ///
   /// Takes a [BuildContext] rather than the controller so that this interface
@@ -97,36 +117,35 @@ abstract interface class SitePlugin<T extends Object> {
     String siteUrl,
     Post post,
   );
+}
 
+/// Contributes formatting actions to the composer.
+abstract interface class ComposerToolbarPlugin {
   /// Formatting actions this feature contributes to an open composer.
   List<ComposerToolbarContribution> composerToolbar(
     BuildContext context,
     ComposerController composer,
   );
+}
 
-  /// Chooses this plugin's record after a normal post edit response.
-  ///
-  /// Edit serializers do not all carry reader state. Reactions keeps the held
-  /// record; Poll deliberately takes the incoming value, including null when
-  /// its block was removed.
-  T? mergeAfterPostEdit(T? held, T? incoming);
-
+/// Contributes navigation sections to the instance sidebar.
+abstract interface class SidebarPlugin {
   /// Sections this feature adds to the instance sidebar, after core's own.
   ///
   /// Empty for a feature with no navigation of its own, which is every feature
   /// that only decorates a record.
   ///
-  /// Additive rather than an ordered fallthrough — the shape [postMenu] has,
-  /// and for the same reason: two features both having somewhere to navigate to
-  /// is ordinary, two features both owning one spot is not. The order is the
-  /// order of [sitePlugins].
+  /// Additive rather than an ordered fallthrough — the shape
+  /// [PostMenuPlugin.postMenu] has, and for the same reason: two features both
+  /// having somewhere to navigate to is ordinary, two features both owning one
+  /// spot is not. The order is the order of [sitePlugins].
   ///
-  /// Models rather than a widget, unlike [postFooter], because the sidebar is a
-  /// list of peers rather than a canvas. A row a plugin drew itself would drift
-  /// from core's the first time either changed, and `selectedId` and
-  /// `selectDestination` would decay from *the* path into a convention that
-  /// happens to be followed. A post's footer is a free-form decoration on one
-  /// record; this is not.
+  /// Models rather than a widget, unlike [PostFooterPlugin.postFooter], because
+  /// the sidebar is a list of peers rather than a canvas. A row a plugin drew
+  /// itself would drift from core's the first time either changed, and
+  /// `selectedId` and `selectDestination` would decay from *the* path into a
+  /// convention that happens to be followed. A post's footer is a free-form
+  /// decoration on one record; this is not.
   ///
   /// The state behind these can arrive asynchronously. [sidebarListenable]
   /// identifies the feature-owned state the sidebar should rebuild for.
@@ -134,17 +153,21 @@ abstract interface class SitePlugin<T extends Object> {
 
   /// State that can change [sidebarSections], or null for a static contribution.
   Listenable? sidebarListenable(BuildContext context);
+}
 
+/// Claims a content route.
+abstract interface class ContentPlugin {
   /// The screen this feature draws for [route], or null for a route it does not
   /// own.
   ///
-  /// The other half of [sidebarSections]: an entry the sidebar offers needs
-  /// somewhere to lead, and the shell's own answer has only two branches — a
-  /// topic, and a list of them.
+  /// The other half of [SidebarPlugin.sidebarSections]: an entry the sidebar
+  /// offers needs somewhere to lead, and the shell's own answer has only two
+  /// branches — a topic, and a list of them.
   ///
-  /// An ordered fallthrough like [postFooter], asked *before* core, so that a
-  /// route belonging to a feature this build does not have falls through to the
-  /// placeholder rather than to something unrelated that happens to be cached.
+  /// An ordered fallthrough like [PostFooterPlugin.postFooter], asked *before*
+  /// core, so that a route belonging to a feature this build does not have
+  /// falls through to the placeholder rather than to something unrelated that
+  /// happens to be cached.
   ///
   /// Matched on [ContentRoute.id], which `ContentRoute.fromDestination` copies
   /// straight from the [SidebarDestination] this plugin minted — so a feature
@@ -153,7 +176,10 @@ abstract interface class SitePlugin<T extends Object> {
   /// reactions is written into [Post]: core does not learn a plugin's
   /// vocabulary, it hands the plugin back what it was given.
   Widget? content(BuildContext context, ContentRoute route);
+}
 
+/// Adds topic-scoped message-bus subscriptions and invalidation hints.
+abstract interface class TopicLivePlugin {
   /// The message_bus channels worth listening to while [topicId] is the topic
   /// on screen. Empty for a feature with nothing live about it.
   List<String> topicChannels(int topicId);
@@ -210,12 +236,124 @@ class ComposerToolbarContribution {
 /// implementation is reachable from go-to-definition, the order is written
 /// down, and nothing can be added from somewhere surprising. These are modules
 /// in this repo, not third-party bundles — there is nothing to discover.
-const List<SitePlugin<Object>> sitePlugins = <SitePlugin<Object>>[
+const List<SitePlugin> sitePlugins = <SitePlugin>[
   ReactionsPlugin(),
   PollPlugin(),
   ChatPlugin(),
   ResenhaPlugin(),
 ];
+
+/// The single dispatch boundary for app-owned optional features.
+///
+/// It preserves [sitePlugins] order for both fallthrough and additive hooks.
+/// Capability checks live here instead of being repeated across shell widgets,
+/// which keeps each feature's surface narrow and makes the dispatch policy
+/// independently testable.
+const PluginRegistry pluginRegistry = PluginRegistry(sitePlugins);
+
+@immutable
+final class PluginRegistry {
+  const PluginRegistry(this.plugins);
+
+  final List<SitePlugin> plugins;
+
+  PluginData readPost(Map<String, dynamic> json, String siteUrl) {
+    Map<Type, Object>? values;
+    for (final plugin in plugins.whereType<PostRecordPlugin<Object>>()) {
+      final value = plugin.readPost(json, siteUrl);
+      if (value == null) continue;
+      (values ??= <Type, Object>{})[plugin.record] = value;
+    }
+    return values == null ? PluginData.none : PluginData._(values);
+  }
+
+  PluginData mergeAfterPostEdit({
+    required PluginData held,
+    required PluginData incoming,
+  }) {
+    var merged = incoming;
+    for (final plugin in plugins.whereType<PostRecordPlugin<Object>>()) {
+      final value = plugin.mergeAfterPostEdit(
+        held._values[plugin.record],
+        merged._values[plugin.record],
+      );
+      merged = merged._withValueFor(plugin.record, value);
+    }
+    return merged;
+  }
+
+  Widget? postBodyElement(String siteUrl, Post post, dom.Element element) {
+    for (final plugin in plugins.whereType<PostBodyPlugin>()) {
+      final widget = plugin.postBodyElement(siteUrl, post, element);
+      if (widget != null) return widget;
+    }
+    return null;
+  }
+
+  Widget? postFooter(String siteUrl, Post post) {
+    for (final plugin in plugins.whereType<PostFooterPlugin>()) {
+      final footer = plugin.postFooter(siteUrl, post);
+      if (footer != null) return footer;
+    }
+    return null;
+  }
+
+  PostMenuContribution postMenu(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+  ) {
+    final entries = <PostAction>[];
+    var replacesLike = false;
+    for (final plugin in plugins.whereType<PostMenuPlugin>()) {
+      final contribution = plugin.postMenu(context, siteUrl, post);
+      entries.addAll(contribution.entries);
+      replacesLike |= contribution.replacesLike;
+    }
+    if (entries.isEmpty && !replacesLike) return PostMenuContribution.none;
+    return PostMenuContribution(entries: entries, replacesLike: replacesLike);
+  }
+
+  List<ComposerToolbarContribution> composerToolbar(
+    BuildContext context,
+    ComposerController composer,
+  ) => [
+    for (final plugin in plugins.whereType<ComposerToolbarPlugin>())
+      ...plugin.composerToolbar(context, composer),
+  ];
+
+  List<SidebarSection> sidebarSections(BuildContext context) => [
+    for (final plugin in plugins.whereType<SidebarPlugin>())
+      ...plugin.sidebarSections(context),
+  ];
+
+  List<Listenable> sidebarListenables(BuildContext context) {
+    final listenables = <Listenable>[];
+    for (final plugin in plugins.whereType<SidebarPlugin>()) {
+      final listenable = plugin.sidebarListenable(context);
+      if (listenable != null) listenables.add(listenable);
+    }
+    return listenables;
+  }
+
+  Widget? content(BuildContext context, ContentRoute route) {
+    for (final plugin in plugins.whereType<ContentPlugin>()) {
+      final content = plugin.content(context, route);
+      if (content != null) return content;
+    }
+    return null;
+  }
+
+  List<String> topicChannels(int topicId) => [
+    for (final plugin in plugins.whereType<TopicLivePlugin>())
+      ...plugin.topicChannels(topicId),
+  ];
+
+  Set<int> stalePosts(String channel, Object? data) => {
+    for (final plugin in plugins.whereType<TopicLivePlugin>())
+      ...plugin.stalePosts(channel, data),
+  };
+}
 
 /// What plugins had to say about one record.
 ///
@@ -243,15 +381,8 @@ class PluginData {
   ///
   /// Returns [none] when none of them claimed anything, so the common case —
   /// a site running plain core — allocates nothing per post.
-  static PluginData forPost(Map<String, dynamic> json, String siteUrl) {
-    Map<Type, Object>? values;
-    for (final plugin in sitePlugins) {
-      final value = plugin.readPost(json, siteUrl);
-      if (value == null) continue;
-      (values ??= <Type, Object>{})[plugin.record] = value;
-    }
-    return values == null ? none : PluginData._(values);
-  }
+  static PluginData forPost(Map<String, dynamic> json, String siteUrl) =>
+      pluginRegistry.readPost(json, siteUrl);
 
   /// The same data with one plugin's answer replaced, or dropped when [value]
   /// is null.
@@ -274,17 +405,7 @@ class PluginData {
   static PluginData afterPostEdit({
     required PluginData held,
     required PluginData incoming,
-  }) {
-    var merged = incoming;
-    for (final plugin in sitePlugins) {
-      final value = plugin.mergeAfterPostEdit(
-        held._values[plugin.record],
-        merged._values[plugin.record],
-      );
-      merged = merged._withValueFor(plugin.record, value);
-    }
-    return merged;
-  }
+  }) => pluginRegistry.mergeAfterPostEdit(held: held, incoming: incoming);
 
   PluginData _withValueFor(Type type, Object? value) {
     final next = Map<Type, Object>.of(_values);

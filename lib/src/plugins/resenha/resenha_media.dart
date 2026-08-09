@@ -5,13 +5,14 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 
 import 'resenha_models.dart';
+import 'resenha_reconnect.dart';
+
+export 'resenha_reconnect.dart' show ResenhaMediaConnectionState;
 
 typedef ResenhaSignalSender =
     Future<void> Function(int recipientId, Map<String, Object?> event);
 typedef ResenhaLiveKitCredentialRefresher =
     Future<ResenhaLiveKitCredentials> Function();
-
-enum ResenhaMediaConnectionState { connected, reconnecting, failed }
 
 abstract interface class ResenhaMediaSession implements Listenable {
   ResenhaTransport get transport;
@@ -602,7 +603,12 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
     required this.localUserId,
     required this.audioPublishingAllowed,
     required this.refreshCredentials,
-  }) : _room = lk.Room(roomOptions: _roomOptions(join.room));
+  }) : _room = lk.Room(roomOptions: _roomOptions(join.room)) {
+    _reconnect = ResenhaReconnectCoordinator(
+      attempt: _reconnectOnce,
+      onStateChanged: (_) => changed(),
+    );
+  }
 
   final ResenhaJoinResponse join;
   final int localUserId;
@@ -630,15 +636,14 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   bool audioPublishingAllowed;
   bool _muted = false;
   bool _closing = false;
-  Future<void>? _reconnectFuture;
-  ResenhaMediaConnectionState _connectionState =
-      ResenhaMediaConnectionState.connected;
+  late final ResenhaReconnectCoordinator _reconnect;
+  final Set<Future<void>> _roomConnections = {};
 
   @override
   ResenhaTransport get transport => ResenhaTransport.livekit;
 
   @override
-  ResenhaMediaConnectionState get connectionState => _connectionState;
+  ResenhaMediaConnectionState get connectionState => _reconnect.connectionState;
 
   lk.Participant? _participant(int id) => _room.remoteParticipants['$id'];
 
@@ -681,46 +686,53 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
       ..on<lk.RoomEvent>((event) {
         changed();
         if (event is lk.RoomDisconnectedEvent && !_closing) {
-          _reconnectFuture ??= _reconnect().whenComplete(
-            () => _reconnectFuture = null,
-          );
+          _startReconnect();
         }
       });
-    await _room.connect(credentials.url, credentials.token);
+    await _connectRoom(credentials);
+    if (_closing || disposed) return;
     if (audioPublishingAllowed) {
       await _room.localParticipant?.setMicrophoneEnabled(true);
     }
     changed();
   }
 
-  Future<void> _reconnect() async {
-    _connectionState = ResenhaMediaConnectionState.reconnecting;
-    changed();
-    for (final delay in const [
-      Duration.zero,
-      Duration(seconds: 1),
-      Duration(seconds: 2),
-      Duration(seconds: 4),
-    ]) {
-      if (_closing || disposed) return;
-      if (delay != Duration.zero) await Future<void>.delayed(delay);
-      try {
-        final credentials = await refreshCredentials();
-        if (_closing || disposed) return;
-        await _room.connect(credentials.url, credentials.token);
-        if (audioPublishingAllowed && !_muted) {
-          await _room.localParticipant?.setMicrophoneEnabled(true);
-        }
-        _connectionState = ResenhaMediaConnectionState.connected;
-        changed();
-        return;
-      } catch (_) {
-        // The next rung always re-mints a token. The pinned transport is never
-        // changed to Mesh during this ladder.
-      }
+  void _startReconnect() {
+    final observed = _reconnect.reconnect().then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stackTrace) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'Resenha media',
+            context: ErrorDescription('while reconnecting a LiveKit room'),
+          ),
+        );
+      },
+    );
+    unawaited(observed);
+  }
+
+  Future<void> _reconnectOnce() async {
+    final credentials = await refreshCredentials();
+    if (_closing || disposed || _reconnect.cancelled) return;
+    await _connectRoom(credentials);
+    if (_closing || disposed || _reconnect.cancelled) return;
+    if (audioPublishingAllowed && !_muted) {
+      await _room.localParticipant?.setMicrophoneEnabled(true);
     }
-    _connectionState = ResenhaMediaConnectionState.failed;
-    changed();
+  }
+
+  Future<void> _connectRoom(ResenhaLiveKitCredentials credentials) async {
+    if (_closing || disposed) return;
+    final connection = _room.connect(credentials.url, credentials.token);
+    _roomConnections.add(connection);
+    try {
+      await connection;
+    } finally {
+      _roomConnections.remove(connection);
+    }
   }
 
   @override
@@ -822,8 +834,17 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   @override
   Future<void> dispose() async {
     _closing = true;
+    _reconnect.cancel();
+    final pendingConnections = _roomConnections.toList();
     await _listener?.dispose();
     await _room.disconnect();
+    for (final connection in pendingConnections) {
+      try {
+        await connection;
+      } catch (_) {
+        // Disconnecting an in-flight connection is an expected teardown path.
+      }
+    }
     await _room.dispose();
     await super.dispose();
   }

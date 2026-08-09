@@ -73,11 +73,7 @@ class CookedHtml extends StatelessWidget {
     Post? post,
   ) {
     if (siteUrl == null || post == null) return null;
-    for (final plugin in sitePlugins) {
-      final widget = plugin.postBodyElement(siteUrl, post, element);
-      if (widget != null) return widget;
-    }
-    return null;
+    return pluginRegistry.postBodyElement(siteUrl, post, element);
   }
 
   /// Discourse leaves links undecorated and lets colour carry them, but

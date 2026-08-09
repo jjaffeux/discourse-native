@@ -5,6 +5,7 @@ import 'package:basic_utils/basic_utils.dart' show CryptoUtils;
 import 'package:pointycastle/export.dart';
 
 import '../diagnostics/diagnostic_error_cause.dart';
+import 'http_transport.dart';
 
 /// What a site hands back once the user authorizes the app.
 class UserApiCredentials {
@@ -97,7 +98,8 @@ class UserApiKeyProtocol {
     required String clientId,
     required String applicationName,
   }) {
-    return Uri.parse(siteUrl).replace(
+    final site = requireSafeHttpUrl(Uri.parse(siteUrl));
+    return site.replace(
       path: '/user-api-key/new',
       fragment: '',
       queryParameters: {
