@@ -459,6 +459,28 @@ class _RailItemState extends State<_RailItem> {
               child: Tooltip(
                 message: widget.instance.title,
                 waitDuration: const Duration(milliseconds: 500),
+                constraints: const BoxConstraints(minHeight: 36, maxWidth: 240),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: const ShapeDecoration(
+                  color: Color(0xFF3C3D43),
+                  shape: _RailTooltipBorder(),
+                  shadows: [
+                    BoxShadow(
+                      color: Color(0x47000000),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                textStyle: theme.textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
+                positionDelegate: _positionRailTooltip,
                 // Hovering still shows it — that path ignores the trigger mode
                 // — but holding the item is how the actions are reached on a
                 // touch screen, and the tooltip must not answer that too.
@@ -495,6 +517,104 @@ class _RailItemState extends State<_RailItem> {
       ),
     );
   }
+}
+
+Offset _positionRailTooltip(TooltipPositionContext context) {
+  const horizontalGap = 6.0;
+  const viewportMargin = 8.0;
+  return Offset(
+    _fitRailTooltip(
+      wanted: context.target.dx + context.targetSize.width / 2 + horizontalGap,
+      extent: context.overlaySize.width,
+      childExtent: context.tooltipSize.width,
+      margin: viewportMargin,
+    ),
+    _fitRailTooltip(
+      wanted: context.target.dy - context.tooltipSize.height / 2,
+      extent: context.overlaySize.height,
+      childExtent: context.tooltipSize.height,
+      margin: viewportMargin,
+    ),
+  );
+}
+
+double _fitRailTooltip({
+  required double wanted,
+  required double extent,
+  required double childExtent,
+  required double margin,
+}) {
+  if (!extent.isFinite || !childExtent.isFinite) return wanted;
+  final slack = extent - childExtent;
+  if (slack <= margin * 2) return slack / 2;
+  return wanted.clamp(margin, slack - margin);
+}
+
+/// Rounded rail callout with a pointer aimed at the forum icon.
+class _RailTooltipBorder extends ShapeBorder {
+  const _RailTooltipBorder({
+    this.pointerWidth = 7,
+    this.pointerHeight = 14,
+    this.radius = 7,
+  });
+
+  final double pointerWidth;
+  final double pointerHeight;
+  final double radius;
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.only(left: pointerWidth);
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) {
+    final body = Rect.fromLTRB(
+      rect.left + pointerWidth,
+      rect.top,
+      rect.right,
+      rect.bottom,
+    );
+    final corner = radius.clamp(0, body.shortestSide / 2);
+    final pointerHalfHeight = pointerHeight.clamp(0, body.height) / 2;
+
+    return Path()
+      ..moveTo(body.left + corner, body.top)
+      ..lineTo(body.right - corner, body.top)
+      ..quadraticBezierTo(body.right, body.top, body.right, body.top + corner)
+      ..lineTo(body.right, body.bottom - corner)
+      ..quadraticBezierTo(
+        body.right,
+        body.bottom,
+        body.right - corner,
+        body.bottom,
+      )
+      ..lineTo(body.left + corner, body.bottom)
+      ..quadraticBezierTo(
+        body.left,
+        body.bottom,
+        body.left,
+        body.bottom - corner,
+      )
+      ..lineTo(body.left, body.center.dy + pointerHalfHeight)
+      ..lineTo(rect.left, body.center.dy)
+      ..lineTo(body.left, body.center.dy - pointerHalfHeight)
+      ..lineTo(body.left, body.top + corner)
+      ..quadraticBezierTo(body.left, body.top, body.left + corner, body.top)
+      ..close();
+  }
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
+      getOuterPath(rect, textDirection: textDirection);
+
+  @override
+  ShapeBorder scale(double t) => _RailTooltipBorder(
+    pointerWidth: pointerWidth * t,
+    pointerHeight: pointerHeight * t,
+    radius: radius * t,
+  );
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {}
 }
 
 /// The site's own icon, falling back to a monogram while it loads or if the

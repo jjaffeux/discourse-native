@@ -1105,13 +1105,20 @@ void main() {
     expect(find.text('Remove Discourse Meta?'), findsOneWidget);
   });
 
-  testWidgets('hovering a forum shows its name in a tooltip', (tester) async {
+  testWidgets('hovering a forum shows its name in a rail callout', (
+    tester,
+  ) async {
     await pumpShell(tester, desktop);
 
     final forum = find.byKey(
       const ValueKey<String>('https://team.discourse.org'),
     );
+    final tooltipFinder = find.descendant(
+      of: forum,
+      matching: find.byType(Tooltip),
+    );
     expect(forum, findsOneWidget);
+    expect(tooltipFinder, findsOneWidget);
     expect(find.text('Discourse Team'), findsNothing);
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -1123,6 +1130,50 @@ void main() {
 
     expect(find.text('Discourse Team'), findsOneWidget);
     expect(find.text('team.discourse.org'), findsNothing);
+
+    final tooltip = tester.widget<Tooltip>(tooltipFinder);
+    expect(tooltip.message, 'Discourse Team');
+    expect(tooltip.richMessage, isNull);
+    final decoration = tooltip.decoration! as ShapeDecoration;
+    final callout = find
+        .ancestor(
+          of: find.text('Discourse Team'),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Container && widget.decoration == decoration,
+          ),
+        )
+        .first;
+    final targetRect = tester.getRect(tooltipFinder);
+    final calloutRect = tester.getRect(callout);
+    final insets = decoration.shape.dimensions.resolve(TextDirection.ltr);
+    final calloutPath = decoration.shape.getOuterPath(
+      Offset.zero & calloutRect.size,
+    );
+
+    expect(calloutRect.center.dy, closeTo(targetRect.center.dy, 0.5));
+    expect(calloutRect.left + insets.left, greaterThan(targetRect.right));
+    expect(insets, const EdgeInsets.only(left: 7));
+    expect(calloutPath.contains(Offset(1, calloutRect.height / 2)), isTrue);
+    expect(calloutPath.contains(const Offset(1, 1)), isFalse);
+    expect(calloutPath.contains(Offset(insets.left + 0.5, 0.5)), isFalse);
+    expect(decoration.color, const Color(0xFF3C3D43));
+    expect(decoration.shadows, const [
+      BoxShadow(
+        color: Color(0x47000000),
+        blurRadius: 8,
+        offset: Offset(0, 2),
+      ),
+    ]);
+    expect(
+      tooltip.constraints,
+      const BoxConstraints(minHeight: 36, maxWidth: 240),
+    );
+    expect(
+      tooltip.padding,
+      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    );
+    expect(tooltip.textStyle!.color, Colors.white);
+    expect(tooltip.textStyle!.fontWeight, FontWeight.w700);
   });
 
   group('adding a site', () {
@@ -1256,11 +1307,16 @@ void main() {
     ) async {
       await pumpShell(tester, phone);
 
+      expect(
+        tester.widget<Tooltip>(meta).triggerMode,
+        TooltipTriggerMode.manual,
+      );
       await tester.longPress(meta);
       await tester.pumpAndSettle();
 
       // The tooltip's own long-press trigger would otherwise fire under the
       // menu, naming the site twice.
+      expect(find.text('More Options'), findsOneWidget);
       expect(find.text('Discourse Meta'), findsOneWidget);
     });
 
