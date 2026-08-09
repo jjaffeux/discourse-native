@@ -395,6 +395,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.user,
     this.totals,
     this.notificationList,
+    this.replyNotificationList,
     this.bookmarkList,
     this.reminderList = const [],
     this.feeds = const {},
@@ -479,6 +480,9 @@ class FakeDiscourseApi implements DiscourseApi {
   /// Returned by [notifications]; null means the call fails.
   final List<DiscourseNotification>? notificationList;
 
+  /// Returned by filtered [notifications] calls; null means the call fails.
+  final List<DiscourseNotification>? replyNotificationList;
+
   /// Returned by [bookmarks]; null means the call fails.
   final List<Bookmark>? bookmarkList;
 
@@ -488,6 +492,10 @@ class FakeDiscourseApi implements DiscourseApi {
   final List<String> revoked = [];
   int totalsCalls = 0;
   int notificationCalls = 0;
+  int replyNotificationCalls = 0;
+
+  /// The type filters passed to [notifications], one immutable list per call.
+  final List<List<NotificationKind>> notificationFilters = [];
 
   /// Usernames passed to [bookmarks], in order.
   final List<String> bookmarksRequested = [];
@@ -829,10 +837,17 @@ class FakeDiscourseApi implements DiscourseApi {
     required String siteUrl,
     required String apiKey,
     int limit = 30,
+    List<NotificationKind> filterByTypes = const [],
     String? clientId,
   }) async {
-    notificationCalls++;
-    final result = notificationList;
+    notificationFilters.add(List.unmodifiable(filterByTypes));
+    final filtered = filterByTypes.isNotEmpty;
+    if (filtered) {
+      replyNotificationCalls++;
+    } else {
+      notificationCalls++;
+    }
+    final result = filtered ? replyNotificationList : notificationList;
     if (result == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }

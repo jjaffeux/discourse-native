@@ -156,7 +156,9 @@ class NotificationDescription {
       count == 1 ? '1 $noun' : '$count ${noun}s';
 }
 
-/// The notifications tab's contents: the site's own list.
+enum _NotificationFeedKind { all, replies }
+
+/// The notifications tab's contents: the site's own unfiltered list.
 ///
 /// Draws itself as a column rather than a list of its own, so that it scrolls
 /// inside whichever of the menu's two forms is showing it — a popover with a
@@ -182,8 +184,38 @@ class NotificationSection extends StatelessWidget {
       controller: controller,
       siteUrl: siteUrl,
       onOpened: onOpened,
+      kind: _NotificationFeedKind.all,
     ),
   );
+}
+
+/// The Replies tab's server-filtered notification list.
+///
+/// This is deliberately a request of its own rather than a filtered copy of
+/// [NotificationSection]: Discourse gives each menu tab its own thirty-row
+/// budget, and `silent=true` keeps this narrower fetch from moving the global
+/// notification-seen marker.
+class RepliesSection extends StatelessWidget {
+  const RepliesSection({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+  });
+
+  final String siteUrl;
+  final VoidCallback onOpened;
+
+  @override
+  Widget build(BuildContext context) =>
+      AccountActivityLoader.replyNotifications(
+        siteUrl: siteUrl,
+        builder: (context, controller) => _NotificationSectionView(
+          controller: controller,
+          siteUrl: siteUrl,
+          onOpened: onOpened,
+          kind: _NotificationFeedKind.replies,
+        ),
+      );
 }
 
 class _NotificationSectionView extends StatefulWidget {
@@ -191,11 +223,13 @@ class _NotificationSectionView extends StatefulWidget {
     required this.controller,
     required this.siteUrl,
     required this.onOpened,
+    required this.kind,
   });
 
   final ShellController controller;
   final String siteUrl;
   final VoidCallback onOpened;
+  final _NotificationFeedKind kind;
 
   @override
   State<_NotificationSectionView> createState() =>
@@ -227,27 +261,43 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
+    final (listenable, retry) = switch (widget.kind) {
+      _NotificationFeedKind.all => (
+        controller.accountActivity.notificationsListenable,
+        () => controller.loadNotifications(widget.siteUrl),
+      ),
+      _NotificationFeedKind.replies => (
+        controller.accountActivity.replyNotificationsListenable,
+        () => controller.loadReplyNotifications(widget.siteUrl),
+      ),
+    };
     return ListenableBuilder(
-      listenable: controller.accountActivity.notificationsListenable,
+      listenable: listenable,
       builder: (context, _) {
-        final feed = controller.notificationsFor(widget.siteUrl);
+        final currentFeed = switch (widget.kind) {
+          _NotificationFeedKind.all => controller.notificationsFor(
+            widget.siteUrl,
+          ),
+          _NotificationFeedKind.replies => controller.replyNotificationsFor(
+            widget.siteUrl,
+          ),
+        };
 
-        if (feed.error case final error?) {
-          return UserMenuMessage(
-            text: error,
-            onRetry: () => controller.loadNotifications(widget.siteUrl),
-          );
+        if (currentFeed.error case final error?) {
+          return UserMenuMessage(text: error, onRetry: retry);
         }
         // Not loaded and not loading is the moment before the fetch this widget
         // asked for has started, which is a wait like any other.
-        if (!feed.loaded) return const UserMenuMessage(text: null);
-        if (feed.isEmpty) return const UserMenuMessage(text: 'Nothing new.');
+        if (!currentFeed.loaded) return const UserMenuMessage(text: null);
+        if (currentFeed.isEmpty) {
+          return const UserMenuMessage(text: 'Nothing new.');
+        }
 
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final notification in feed.notifications)
+            for (final notification in currentFeed.notifications)
               NotificationRow(
                 notification: notification,
                 onTap: () => _open(notification),

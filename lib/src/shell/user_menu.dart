@@ -29,12 +29,12 @@ typedef _SectionListSnapshot = ({
 
 /// Everything the avatar in the top right leads to.
 ///
-/// The sections are Discourse's own user menu tabs. Notifications and bookmarks
-/// are backed by the site, messages leaves the menu for the full inbox, and the
-/// account has its own actions. The rest carry stand-in rows so the shape of the
-/// menu can be built and navigated before their screens exist. Every one of
-/// those stand-ins is drawn in [ShellColors.placeholder], so what is orange is
-/// what is still to do.
+/// The sections are Discourse's own user menu tabs. Notifications, Replies and
+/// Bookmarks are backed by the site, Messages leaves the menu for the full
+/// inbox, and the account has its own actions. The rest carry stand-in rows so
+/// the shape of the menu can be built and navigated before their screens exist.
+/// Every one of those stand-ins is drawn in [ShellColors.placeholder], so what
+/// is orange is what is still to do.
 @immutable
 class UserMenuSection {
   const UserMenuSection({
@@ -47,6 +47,9 @@ class UserMenuSection {
 
   /// The notifications section. First, and where the menu opens.
   static const String notificationsId = 'all';
+
+  /// The server-filtered reply notifications section.
+  static const String repliesId = 'replies';
 
   /// The bookmarks section.
   static const String bookmarksId = 'bookmarks';
@@ -70,6 +73,7 @@ class UserMenuSection {
   final int badge;
 
   bool get isNotifications => id == notificationsId;
+  bool get isReplies => id == repliesId;
   bool get isBookmarks => id == bookmarksId;
   bool get isMessages => id == messagesId;
   bool get isProfile => id == profileId;
@@ -77,7 +81,11 @@ class UserMenuSection {
   /// True for the tabs that lead nowhere yet, which is what the placeholder
   /// color marks.
   bool get isPlaceholder =>
-      !isNotifications && !isBookmarks && !isMessages && !isProfile;
+      !isNotifications &&
+      !isReplies &&
+      !isBookmarks &&
+      !isMessages &&
+      !isProfile;
 }
 
 /// One line inside a section. Purely presentational: nothing here is wired to
@@ -115,16 +123,9 @@ List<UserMenuSection> userMenuSections(NotificationTotals? totals) {
       badge: totals?.unreadNotifications ?? 0,
     ),
     const UserMenuSection(
-      id: 'replies',
+      id: UserMenuSection.repliesId,
       icon: DIcons.reply,
       label: 'Replies',
-      rows: [
-        UserMenuRow(
-          DIcons.reply,
-          'joshua.m replied to Enterprise Automation Workflows',
-        ),
-        UserMenuRow(DIcons.reply, 'martin replied to Outreach chat 2026'),
-      ],
     ),
     const UserMenuSection(
       id: 'likes',
@@ -435,6 +436,8 @@ class _SectionBody extends StatelessWidget {
     List<Widget> rows() => [
       if (section.isNotifications && siteUrl != null)
         NotificationSection(siteUrl: siteUrl, onOpened: onDismiss)
+      else if (section.isReplies && siteUrl != null)
+        RepliesSection(siteUrl: siteUrl, onOpened: onDismiss)
       else if (section.isBookmarks && siteUrl != null)
         BookmarkSection(siteUrl: siteUrl, onOpened: onDismiss)
       else

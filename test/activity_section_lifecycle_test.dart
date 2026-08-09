@@ -137,20 +137,24 @@ void main() {
 
 enum _Activity {
   notifications,
+  replies,
   bookmarks;
 
   String get label => switch (this) {
     notifications => 'notifications',
+    replies => 'replies',
     bookmarks => 'bookmarks',
   };
 
   Widget section(String siteUrl) => switch (this) {
     notifications => NotificationSection(siteUrl: siteUrl, onOpened: _ignore),
+    replies => RepliesSection(siteUrl: siteUrl, onOpened: _ignore),
     bookmarks => BookmarkSection(siteUrl: siteUrl, onOpened: _ignore),
   };
 
   List<String> requests(_RecordingActivityApi api) => switch (this) {
     notifications => api.notificationSites,
+    replies => api.replySites,
     bookmarks => api.bookmarkSites,
   };
 }
@@ -159,11 +163,13 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
   _RecordingActivityApi()
     : super(
         notificationList: const [],
+        replyNotificationList: const [],
         bookmarkList: const [],
         user: const DiscourseUser(username: 'reader'),
       );
 
   final List<String> notificationSites = [];
+  final List<String> replySites = [];
   final List<String> bookmarkSites = [];
 
   @override
@@ -171,13 +177,15 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
     required String siteUrl,
     required String apiKey,
     int limit = 30,
+    List<NotificationKind> filterByTypes = const [],
     String? clientId,
   }) {
-    notificationSites.add(siteUrl);
+    (filterByTypes.isEmpty ? notificationSites : replySites).add(siteUrl);
     return super.notifications(
       siteUrl: siteUrl,
       apiKey: apiKey,
       limit: limit,
+      filterByTypes: filterByTypes,
       clientId: clientId,
     );
   }
