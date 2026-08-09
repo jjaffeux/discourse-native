@@ -72,36 +72,49 @@ class _MainContentBody extends StatelessWidget {
               canCreateTopic: state.canCreateTopic && pluginContent == null,
             ),
             Expanded(
-              child:
-                  !route.isTopic &&
-                      route.id == 'drafts' &&
-                      state.siteUrl != null
-                  ? DraftListView(siteUrl: state.siteUrl!)
-                  : !route.isTopic &&
-                        route.id == 'filter' &&
-                        state.siteUrl != null &&
-                        state.feed != null
-                  ? TopicFilterPage(
-                      siteUrl: state.siteUrl!,
-                      feed: state.feed!,
-                      categories: state.filterCategories,
-                    )
-                  : switch ((route.isTopic, pluginContent, state.feed)) {
-                      // A topic route wins over its originating list.
-                      (true, _, _) => const TopicView(),
-                      // A route an optional feature claims is that feature's,
-                      // whichever list happens to still be cached behind it.
-                      (false, final content?, _) => content,
-                      // Destinations backed by a topic list show the real
-                      // thing; the rest retain the placeholder.
-                      (false, null, final feed?) => TopicListView(feed: feed),
-                      (false, null, null) => _ContentPlaceholder(route: route),
-                    },
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child:
+                        !route.isTopic &&
+                            route.id == 'drafts' &&
+                            state.siteUrl != null
+                        ? DraftListView(siteUrl: state.siteUrl!)
+                        : !route.isTopic &&
+                              route.id == 'filter' &&
+                              state.siteUrl != null &&
+                              state.feed != null
+                        ? TopicFilterPage(
+                            siteUrl: state.siteUrl!,
+                            feed: state.feed!,
+                            categories: state.filterCategories,
+                          )
+                        : switch ((route.isTopic, pluginContent, state.feed)) {
+                            // A topic route wins over its originating list.
+                            (true, _, _) => const TopicView(),
+                            // A route an optional feature claims is that feature's,
+                            // whichever list happens to still be cached behind it.
+                            (false, final content?, _) => content,
+                            // Destinations backed by a topic list show the real
+                            // thing; the rest retain the placeholder.
+                            (false, null, final feed?) => TopicListView(
+                              feed: feed,
+                            ),
+                            (false, null, null) => _ContentPlaceholder(
+                              route: route,
+                            ),
+                          },
+                  ),
+                  if (state.composer case final composer?)
+                    Positioned.fill(
+                      child: FloatingComposerPanel(
+                        key: ObjectKey(composer),
+                        composer: composer,
+                      ),
+                    ),
+                ],
+              ),
             ),
-            // Takes room from the stream rather than covering it, so the topic
-            // stays readable while a reply is being written.
-            if (state.composer case final composer?)
-              ComposerPanel(composer: composer),
           ],
         ),
       ),
