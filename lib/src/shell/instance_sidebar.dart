@@ -419,7 +419,8 @@ class _SectionHeader extends StatelessWidget {
           ),
           if (section.onAction case final action?)
             IconButton(
-              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+              padding: EdgeInsets.zero,
               tooltip: section.actionLabel,
               onPressed: action,
               icon: DIcon(section.actionIcon ?? DIcons.plus, size: 15),
