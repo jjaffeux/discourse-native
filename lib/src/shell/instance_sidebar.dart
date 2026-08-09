@@ -27,6 +27,7 @@ final class _SidebarSnapshot {
     required this.destinationId,
     required this.draftCount,
     required this.sections,
+    required this.presentationToken,
   });
 
   final String? siteUrl;
@@ -34,6 +35,7 @@ final class _SidebarSnapshot {
   final String? destinationId;
   final int draftCount;
   final List<SidebarSection> sections;
+  final Object? presentationToken;
 
   @override
   bool operator ==(Object other) {
@@ -42,6 +44,7 @@ final class _SidebarSnapshot {
         name != other.name ||
         destinationId != other.destinationId ||
         draftCount != other.draftCount ||
+        !identical(presentationToken, other.presentationToken) ||
         sections.length != other.sections.length) {
       return false;
     }
@@ -57,6 +60,7 @@ final class _SidebarSnapshot {
     name,
     destinationId,
     draftCount,
+    identityHashCode(presentationToken),
     Object.hashAll(sections.map(identityHashCode)),
   );
 }
@@ -81,16 +85,23 @@ class InstanceSidebar extends StatelessWidget {
   Widget build(BuildContext context) => ShellSelector<_SidebarSnapshot>(
     select: (controller) {
       final instance = controller.currentInstance;
+      final categorySection = instance == null
+          ? null
+          : controller.categorySidebarSectionFor(instance.url);
       return _SidebarSnapshot(
         siteUrl: instance?.url,
         name: instance?.title,
         destinationId: controller.destinationId,
         draftCount: instance?.user?.draftCount ?? 0,
+        presentationToken: instance == null
+            ? null
+            : controller.presentationTokenFor(instance.url),
         sections: instance == null
             ? const <SidebarSection>[]
             : [
                 ...instance.sections,
                 ...controller.customSidebarSectionsFor(instance.url),
+                ?categorySection,
               ],
       );
     },
@@ -513,7 +524,7 @@ class _DestinationTileState extends State<_DestinationTile> {
   /// A face beats a picture beats a category badge beats a glyph. Emoji before
   /// colour matches Discourse's own sidebar, which draws a channel's emoji when
   /// it has one and tints its icon with the category colour when it does not.
-  Widget _prefix(BuildContext context, Color foreground) {
+  Widget _prefixArt(BuildContext context, Color foreground) {
     final theme = Theme.of(context);
 
     if (destination.avatarUrl case final url?) {
@@ -544,11 +555,19 @@ class _DestinationTileState extends State<_DestinationTile> {
     }
 
     if (destination.color case final color?) {
+      final parentColor = destination.parentColor;
       return Container(
+        key: ValueKey('sidebar-prefix-${destination.id}'),
         width: 12,
         height: 12,
         decoration: BoxDecoration(
-          color: color,
+          color: parentColor == null ? color : null,
+          gradient: parentColor == null
+              ? null
+              : LinearGradient(
+                  colors: [parentColor, color],
+                  stops: const [0.5, 0.5],
+                ),
           borderRadius: BorderRadius.circular(3),
         ),
       );
@@ -558,6 +577,24 @@ class _DestinationTileState extends State<_DestinationTile> {
       destination.icon,
       size: 18,
       color: destination.iconColor ?? foreground,
+    );
+  }
+
+  Widget _prefix(BuildContext context, Color foreground) {
+    final art = _prefixArt(context, foreground);
+    final badge = destination.prefixBadgeIcon;
+    if (badge == null) return art;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        art,
+        Positioned(
+          top: -3,
+          right: -3,
+          child: DIcon(badge, size: 9, color: foreground),
+        ),
+      ],
     );
   }
 

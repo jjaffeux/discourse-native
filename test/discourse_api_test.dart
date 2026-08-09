@@ -1194,7 +1194,7 @@ void _feedGroups() {
   });
 
   group('categories', () {
-    test('flattens subcategories so any id can be looked up', () async {
+    test('flattens every subcategory level in preorder', () async {
       final api = DiscourseApi(
         client: MockClient((request) async {
           expect(request.url.queryParameters['include_subcategories'], 'true');
@@ -1207,6 +1207,11 @@ void _feedGroups() {
                     'name': 'Feature',
                     'color': '0088CC',
                     'slug': 'feature',
+                    'style_type': 'icon',
+                    'icon': 'folder',
+                    'read_restricted': true,
+                    'topic_count': '12',
+                    'position': 3,
                     'subcategory_list': [
                       {
                         'id': 2,
@@ -1215,9 +1220,21 @@ void _feedGroups() {
                         'slug': 'ideas',
                         'permission': 1,
                         'minimum_required_tags': 2,
+                        'style_type': 'emoji',
+                        'emoji': 'bulb',
+                        'subcategory_list': [
+                          {
+                            'id': 3,
+                            'name': 'Experimental',
+                            'color': '222222',
+                            'slug': 'experimental',
+                          },
+                        ],
                       },
+                      {'id': 4, 'name': 'Archive', 'color': '333333'},
                     ],
                   },
+                  {'id': 5, 'name': 'Support', 'color': '444444'},
                 ],
               },
             }),
@@ -1228,10 +1245,245 @@ void _feedGroups() {
 
       final categories = await api.categories(siteUrl: 'https://example.com');
 
-      expect(categories.map((c) => c.id), [1, 2]);
+      expect(categories.map((c) => c.id), [1, 2, 3, 4, 5]);
       expect(categories.first.colorValue, 0xFF0088CC);
-      expect(categories.last.canCreateTopic, isTrue);
-      expect(categories.last.minimumRequiredTags, 2);
+      expect(categories.first.styleType, 'icon');
+      expect(categories.first.icon, 'folder');
+      expect(categories.first.readRestricted, isTrue);
+      expect(categories.first.topicCount, 12);
+      expect(categories.first.position, 3);
+      expect(categories[1].canCreateTopic, isTrue);
+      expect(categories[1].minimumRequiredTags, 2);
+      expect(categories[1].styleType, 'emoji');
+      expect(categories[1].emoji, 'bulb');
+      expect(categories[2].styleType, 'square');
+      expect(categories[2].icon, isNull);
+      expect(categories[2].emoji, isNull);
+      expect(categories[2].readRestricted, isFalse);
+      expect(categories[2].topicCount, 0);
+      expect(categories[2].position, isNull);
+      expect(categories[2].isUncategorized, isFalse);
+    });
+
+    test('presentation fields participate in category value identity', () {
+      TopicCategory category({
+        String styleType = 'emoji',
+        String? icon = 'folder',
+        String? emoji = 'bulb',
+        bool readRestricted = true,
+        int topicCount = 12,
+        int position = 3,
+        bool isUncategorized = false,
+      }) => TopicCategory(
+        id: 1,
+        name: 'Feature',
+        color: '0088CC',
+        styleType: styleType,
+        icon: icon,
+        emoji: emoji,
+        readRestricted: readRestricted,
+        topicCount: topicCount,
+        position: position,
+        isUncategorized: isUncategorized,
+      );
+
+      final baseline = category();
+      final equal = category();
+
+      expect(equal, baseline);
+      expect(equal.hashCode, baseline.hashCode);
+      expect([
+        category(styleType: 'square'),
+        category(icon: 'lock'),
+        category(emoji: 'sparkles'),
+        category(readRestricted: false),
+        category(topicCount: 13),
+        category(position: 4),
+        category(isUncategorized: true),
+      ], everyElement(isNot(baseline)));
+    });
+
+    test('presentation fields default safely when malformed', () {
+      final category = TopicCategory.fromJson({
+        'id': 1,
+        'name': 'Feature',
+        'style_type': false,
+        'icon': ['folder'],
+        'emoji': 7,
+        'read_restricted': 'true',
+        'topic_count': 'many',
+        'position': false,
+      });
+
+      expect(category.styleType, 'square');
+      expect(category.icon, isNull);
+      expect(category.emoji, isNull);
+      expect(category.readRestricted, isFalse);
+      expect(category.topicCount, 0);
+      expect(category.position, isNull);
+      expect(category.isUncategorized, isFalse);
+    });
+
+    test('normalizes CSS shorthand category colors', () {
+      expect(
+        const TopicCategory(id: 1, name: 'Feature', color: '888').colorValue,
+        0xFF888888,
+      );
+      expect(
+        const TopicCategory(id: 1, name: 'Feature', color: '#aBc').colorValue,
+        0xFFAABBCC,
+      );
+      expect(
+        const TopicCategory(id: 1, name: 'Feature', color: 'nope').colorValue,
+        0xFF888888,
+      );
+    });
+
+    test('supplements a connected lazy category list from site.json', () async {
+      final requested = <String>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requested.add(request.url.path);
+          expect(request.headers['User-Api-Key'], 'key');
+          expect(request.headers['User-Api-Client-Id'], 'client');
+          if (request.url.path == '/categories.json') {
+            return http.Response(
+              jsonEncode({
+                'category_list': {
+                  'categories': [
+                    {'id': 1, 'name': 'Visible', 'color': '111111'},
+                  ],
+                },
+              }),
+              200,
+            );
+          }
+          expect(request.url.path, '/site.json');
+          return http.Response(
+            jsonEncode({
+              'categories': [
+                {'id': 1, 'name': 'Visible', 'color': '111111'},
+                {'id': 8, 'name': 'Parent', 'color': '222222'},
+                {
+                  'id': 9,
+                  'name': 'Preferred off page',
+                  'color': '333333',
+                  'parent_category_id': 8,
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final categories = await api.categories(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        clientId: 'client',
+      );
+
+      expect(requested, ['/categories.json', '/site.json']);
+      expect(categories.map((category) => category.id), [1, 8, 9]);
+    });
+
+    test(
+      'dispatches both authenticated category reads before yielding',
+      () async {
+        final releaseCategories = Completer<void>();
+        final siteStarted = Completer<void>();
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            if (request.url.path == '/categories.json') {
+              await releaseCategories.future;
+              return http.Response(
+                jsonEncode({
+                  'category_list': {'categories': <Object?>[]},
+                }),
+                200,
+              );
+            }
+            siteStarted.complete();
+            return http.Response(jsonEncode({'categories': <Object?>[]}), 200);
+          }),
+        );
+
+        final loading = api.loadCategories(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          clientId: 'client',
+        );
+
+        await siteStarted.future.timeout(const Duration(seconds: 1));
+        releaseCategories.complete();
+        expect((await loading).complete, isTrue);
+      },
+    );
+
+    test('marks the Uncategorized id supplied by site.json', () async {
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          if (request.url.path == '/categories.json') {
+            return http.Response(
+              jsonEncode({
+                'category_list': {
+                  'categories': [
+                    {'id': 1, 'name': 'Support', 'color': '111111'},
+                  ],
+                },
+              }),
+              200,
+            );
+          }
+          return http.Response(
+            jsonEncode({
+              'uncategorized_category_id': 9,
+              'categories': [
+                {'id': 9, 'name': 'Uncategorized', 'color': '888888'},
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final categories = await api.categories(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+      );
+
+      expect(
+        categories.singleWhere((category) => category.id == 9).isUncategorized,
+        isTrue,
+      );
+    });
+
+    test('keeps base categories retryable when the supplement fails', () async {
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          if (request.url.path == '/site.json') {
+            return http.Response('', 503);
+          }
+          return http.Response(
+            jsonEncode({
+              'category_list': {
+                'categories': [
+                  {'id': 1, 'name': 'Support', 'color': '111111'},
+                ],
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final result = await api.loadCategories(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+      );
+
+      expect(result.complete, isFalse);
+      expect(result.categories.map((category) => category.id), [1]);
     });
   });
 
@@ -2798,6 +3050,45 @@ void _writeGroups() {
         expect(user.draftCount, 3);
       },
     );
+
+    test('reads the current account sidebar category ids safely', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'current_user': {
+                'id': 7,
+                'username': 'sam',
+                'sidebar_category_ids': [5, '8', false, 'not-an-id'],
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final user = await api.currentUser(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+      );
+
+      expect(user.sidebarCategoryIds, [5, 8]);
+      expect(() => user.sidebarCategoryIds.add(13), throwsUnsupportedError);
+    });
+
+    test('sidebar category ids survive storage and affect user identity', () {
+      const user = DiscourseUser(username: 'sam', sidebarCategoryIds: [5, 8]);
+
+      final stored = DiscourseUser.fromJson(user.toJson());
+
+      expect(stored, user);
+      expect(stored.hashCode, user.hashCode);
+      expect(stored.sidebarCategoryIds, [5, 8]);
+      expect(
+        stored,
+        isNot(const DiscourseUser(username: 'sam', sidebarCategoryIds: [5])),
+      );
+    });
 
     test('reads the current account’s chat header state', () async {
       final api = DiscourseApi(

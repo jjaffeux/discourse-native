@@ -61,9 +61,12 @@ class SidebarDestination {
     required this.label,
     required this.icon,
     this.color,
+    this.parentColor,
     this.emoji,
     this.avatarUrl,
     this.iconColor,
+    this.routeColor,
+    this.prefixBadgeIcon,
     this.badge,
     this.onTap,
     this.children = const [],
@@ -73,6 +76,7 @@ class SidebarDestination {
     this.trailingIcon,
     this.onSecondaryTap,
     this.url,
+    this.feedPath,
   });
 
   final String id;
@@ -82,6 +86,10 @@ class SidebarDestination {
   /// Set for entries Discourse renders with a category badge rather than an
   /// icon; when it is null the [icon] is drawn instead.
   final Color? color;
+
+  /// The parent category's colour, for the split swatch core draws beside a
+  /// subcategory. [color] remains the child category's own colour.
+  final Color? parentColor;
 
   /// The bare name of an emoji to draw in place of [icon] — `bug`, not
   /// `:bug:`.
@@ -104,6 +112,18 @@ class SidebarDestination {
   /// Discourse's own sidebar does with `prefixColor`.
   final Color? iconColor;
 
+  /// The colour carried into the content header when it differs from [color].
+  ///
+  /// Icon- and emoji-style categories still tint the list they open, but must
+  /// leave [color] null or the sidebar would replace their artwork with a
+  /// square swatch.
+  final Color? routeColor;
+
+  /// A small glyph overlaid on the prefix, such as core's restricted-category
+  /// lock. This is separate from [badge], which describes unread activity at
+  /// the trailing edge of the row.
+  final DIconData? prefixBadgeIcon;
+
   /// What this entry already knows about what has not been read, or null — the
   /// ordinary case — to ask `ShellController.sidebarBadgeFor` instead.
   final SidebarBadge? badge;
@@ -124,6 +144,11 @@ class SidebarDestination {
   /// A site or external link this row opens, for destinations supplied by a
   /// custom Discourse sidebar section rather than a native app route.
   final String? url;
+
+  /// The JSON topic-list route for a native destination discovered at runtime.
+  /// Static routes such as Latest are resolved by the shell, while category
+  /// destinations bring this path with them.
+  final String? feedPath;
 }
 
 /// A group of destinations, usually under a title such as "Categories" or

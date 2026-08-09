@@ -59,6 +59,7 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kSecondaryButton;
@@ -94,6 +95,7 @@ Future<void> pumpShell(
   FakeUpdater? updater,
   FakeUpdateStore? updateStore,
   Key? key,
+  Future<void> Function()? beforeSettle,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -125,6 +127,10 @@ Future<void> pumpShell(
       updateStore: updateStore ?? FakeUpdateStore(),
     ),
   );
+  if (beforeSettle != null) {
+    await tester.pump();
+    await beforeSettle();
+  }
   await tester.pumpAndSettle();
 }
 
@@ -856,6 +862,19 @@ void main() {
       tester.getRect(projectsHeader).top - tester.getRect(filterTile).bottom,
       lessThanOrEqualTo(2),
     );
+    final roadmapTile = find
+        .ancestor(
+          of: sidebarDestination('Roadmap'),
+          matching: find.byType(InkWell),
+        )
+        .first;
+    final categoriesHeader = find
+        .ancestor(of: find.text('CATEGORIES'), matching: find.byType(InkWell))
+        .first;
+    expect(
+      tester.getRect(categoriesHeader).top - tester.getRect(roadmapTile).bottom,
+      lessThanOrEqualTo(2),
+    );
 
     await tester.tap(find.byTooltip('Collapse Projects'));
     await tester.pumpAndSettle();
@@ -869,6 +888,282 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.feedPaths, contains('/c/roadmap/4.json'));
+  });
+
+  testWidgets('shows preferred categories and opens their native lists', (
+    tester,
+  ) async {
+    const storedUser = DiscourseUser(
+      id: 7,
+      username: 'joffreyj',
+      name: 'Joffrey',
+    );
+    const freshUser = DiscourseUser(
+      id: 7,
+      username: 'joffreyj',
+      name: 'Joffrey',
+      sidebarCategoryIds: [2],
+    );
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Discourse Meta',
+    ).copyWith(user: storedUser);
+    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
+    final api = FakeDiscourseApi(
+      user: freshUser,
+      feeds: const {
+        '/latest.json': [],
+        '/c/parent/child/2.json': [
+          Topic(id: 7, title: 'A category topic', slug: 'a-category-topic'),
+        ],
+      },
+      topics: {
+        7: topicPayload(
+          id: 7,
+          title: 'A category topic',
+          posts: const [
+            Post(
+              id: 70,
+              postNumber: 1,
+              username: 'sam',
+              cooked: '<p>Category topic body</p>',
+            ),
+          ],
+          stream: const [70],
+        ),
+      },
+      categoryList: const [
+        TopicCategory(id: 1, name: 'Parent', color: '112233', slug: 'parent'),
+        TopicCategory(
+          id: 2,
+          name: 'Child',
+          color: '445566',
+          slug: 'child',
+          parentCategoryId: 1,
+          readRestricted: true,
+        ),
+        TopicCategory(
+          id: 3,
+          name: 'Not selected',
+          color: '778899',
+          slug: 'not-selected',
+        ),
+      ],
+    );
+
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [site],
+      api: api,
+      authenticator: auth,
+    );
+
+    expect(find.text('CATEGORIES'), findsOneWidget);
+    expect(sidebarDestination('Child'), findsOneWidget);
+    expect(sidebarDestination('Parent'), findsNothing);
+    expect(sidebarDestination('Not selected'), findsNothing);
+    expect(sidebarDestination('All categories'), findsOneWidget);
+    final childTile = find
+        .ancestor(
+          of: sidebarDestination('Child'),
+          matching: find.byType(InkWell),
+        )
+        .first;
+    expect(
+      find.descendant(
+        of: childTile,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.lock,
+        ),
+      ),
+      findsOneWidget,
+    );
+    final categoryDecoration =
+        tester
+                .widget<Container>(
+                  find.byKey(const ValueKey('sidebar-prefix-category-2')),
+                )
+                .decoration!
+            as BoxDecoration;
+    final categorySwatch = categoryDecoration.gradient! as LinearGradient;
+    expect(categorySwatch.colors, const [Color(0xFF112233), Color(0xFF445566)]);
+
+    await tester.tap(sidebarDestination('Child'));
+    await tester.pumpAndSettle();
+
+    final controller = ShellScope.read(
+      tester.element(find.byType(MainContent)),
+    );
+    expect(controller.currentUserFor(site.url)?.sidebarCategoryIds, [2]);
+    expect(api.feedPaths.last, '/c/parent/child/2.json');
+    expect(controller.destinationId, 'category-2');
+    expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
+    expect(controller.contentStack, hasLength(1));
+
+    await tester.tap(find.text('A category topic'));
+    await tester.pumpAndSettle();
+    expect(controller.contentStack, hasLength(2));
+    expect(controller.currentContent?.topicId, 7);
+
+    expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+    await tester.pumpAndSettle();
+    expect(controller.destinationId, 'category-2');
+    expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
+    expect(find.text('A category topic'), findsOneWidget);
+  });
+
+  testWidgets('loads categories even when the default topic feed fails', (
+    tester,
+  ) async {
+    final site = instance('meta.discourse.org', title: 'Discourse Meta');
+    final api = FakeDiscourseApi(
+      categoryList: const [
+        TopicCategory(id: 1, name: 'Support', color: '888', slug: 'support'),
+      ],
+      siteConfigs: {site.url: const SiteConfig.unknown()},
+    );
+
+    await pumpShell(tester, desktop, instances: [site], api: api);
+
+    expect(api.feedPaths, contains('/latest.json'));
+    expect(api.categoryRequests, [site.url]);
+    expect(find.text('CATEGORIES'), findsOneWidget);
+    expect(sidebarDestination('Support'), findsOneWidget);
+  });
+
+  testWidgets('retries an incomplete category supplement on feed refresh', (
+    tester,
+  ) async {
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Discourse Meta',
+    ).copyWith(user: const DiscourseUser(id: 7, username: 'joffreyj'));
+    final api = FakeDiscourseApi(
+      user: site.user,
+      feeds: const {'/latest.json': []},
+      categoryList: const [
+        TopicCategory(id: 1, name: 'Support', color: '888888'),
+      ],
+      categoryLoadComplete: false,
+      siteConfigs: {site.url: const SiteConfig.unknown()},
+    );
+    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
+
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [site],
+      api: api,
+      authenticator: auth,
+    );
+    final initialRequests = api.categoryRequests.length;
+    expect(sidebarDestination('Support'), findsOneWidget);
+
+    await tester.tap(sidebarDestination('Topics'));
+    await tester.pumpAndSettle();
+
+    expect(api.categoryRequests.length, greaterThan(initialRequests));
+  });
+
+  testWidgets('uses anonymous category defaults from site settings', (
+    tester,
+  ) async {
+    final site = instance('meta.discourse.org', title: 'Discourse Meta');
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      categoryList: const [
+        TopicCategory(id: 1, name: 'Alpha', color: '111111', position: 20),
+        TopicCategory(id: 2, name: 'Zulu', color: '222222', position: 10),
+      ],
+      siteConfigs: {
+        site.url: const SiteConfig(
+          fixedCategoryPositions: true,
+          defaultNavigationMenuCategoryIds: [2],
+        ),
+      },
+    );
+
+    await pumpShell(tester, desktop, instances: [site], api: api);
+
+    expect(sidebarDestination('Zulu'), findsOneWidget);
+    expect(sidebarDestination('Alpha'), findsNothing);
+  });
+
+  testWidgets('draws a custom category emoji from its uploaded artwork', (
+    tester,
+  ) async {
+    const upload = 'https://meta.discourse.org/uploads/default/party.png';
+    final customEmojiGate = Completer<void>();
+    addTearDown(() {
+      if (!customEmojiGate.isCompleted) customEmojiGate.complete();
+    });
+    final site = instance('meta.discourse.org', title: 'Discourse Meta');
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      categoryList: const [
+        TopicCategory(
+          id: 1,
+          name: 'Celebrations',
+          color: '8844AA',
+          styleType: 'emoji',
+          emoji: 'party_blob',
+        ),
+      ],
+      customEmojisBySite: {
+        site.url: const {'party_blob': upload},
+      },
+      customEmojiGate: customEmojiGate,
+      siteConfigs: {site.url: const SiteConfig.unknown()},
+    );
+
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [site],
+      api: api,
+      beforeSettle: () async {
+        for (
+          var attempt = 0;
+          attempt < 10 && sidebarDestination('Celebrations').evaluate().isEmpty;
+          attempt++
+        ) {
+          await tester.pump();
+        }
+
+        final tile = find.ancestor(
+          of: sidebarDestination('Celebrations'),
+          matching: find.byType(InkWell),
+        );
+        expect(
+          find.descendant(
+            of: tile,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is EmojiImage &&
+                  widget.url.endsWith('/party_blob.png'),
+            ),
+          ),
+          findsOneWidget,
+        );
+        customEmojiGate.complete();
+      },
+    );
+
+    final tile = find.ancestor(
+      of: sidebarDestination('Celebrations'),
+      matching: find.byType(InkWell),
+    );
+    expect(api.customEmojisRequired, [site.url]);
+    expect(
+      find.descendant(
+        of: tile,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is EmojiImage && widget.url == upload,
+        ),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('the sidebar header shows only the forum title', (tester) async {
@@ -1640,7 +1935,13 @@ void main() {
 
       await pumpShell(tester, desktop, api: api);
 
-      expect(find.text('Feature'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(TopicListView),
+          matching: find.text('Feature'),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('topic tags render after the category in server order', (
@@ -1674,8 +1975,12 @@ void main() {
         find.bySemanticsLabel('Tags: design, accessibility'),
         findsOneWidget,
       );
+      final category = find.descendant(
+        of: find.byType(TopicListView),
+        matching: find.text('Feature'),
+      );
       expect(
-        tester.getTopRight(find.text('Feature')).dx,
+        tester.getTopRight(category).dx,
         lessThan(tester.getTopLeft(find.text('design,')).dx),
       );
     });
@@ -4767,23 +5072,22 @@ void main() {
           siteConfigs: configs,
         );
 
-    testWidgets('what a site has is asked for when a topic is opened', (
+    testWidgets('site settings load with category navigation and are reused', (
       tester,
     ) async {
-      // Not at launch: a site whose topics are never read is never asked, and
-      // nothing before a topic needs the answer.
       final api = serving(configs: {site: reactionsOn});
       final controller = controllerWith(tester, api);
       await controller.load();
-
-      expect(api.siteConfigsRequested, isEmpty);
-
-      await controller.loadTopic(7, 'a-real-topic');
       await tester.pump();
 
       expect(api.siteConfigsRequested, [site]);
       expect(controller.siteConfigFor(site).emojiSet, 'apple');
       expect(controller.siteConfigFor(site).mainReaction, 'heart');
+
+      await controller.loadTopic(7, 'a-real-topic');
+      await tester.pump();
+
+      expect(api.siteConfigsRequested, [site]);
     });
 
     testWidgets('a site is only asked once', (tester) async {

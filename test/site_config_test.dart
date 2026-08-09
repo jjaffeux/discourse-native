@@ -18,6 +18,9 @@ Map<String, dynamic> settings({
   int? maxImageWidth,
   int? maxImageHeight,
   int? minSearchTermLength,
+  bool? fixedCategoryPositions,
+  bool? allowUncategorizedTopics,
+  Object? defaultNavigationMenuCategories,
 }) => {
   'emoji_set': ?emojiSet,
   'external_emoji_url': externalEmojiUrl,
@@ -32,6 +35,9 @@ Map<String, dynamic> settings({
   'max_image_width': ?maxImageWidth,
   'max_image_height': ?maxImageHeight,
   'min_search_term_length': ?minSearchTermLength,
+  'fixed_category_positions': ?fixedCategoryPositions,
+  'allow_uncategorized_topics': ?allowUncategorizedTopics,
+  'default_navigation_menu_categories': ?defaultNavigationMenuCategories,
 };
 
 void main() {
@@ -68,6 +74,20 @@ void main() {
         ).minSearchTermLength,
         1,
       );
+    });
+
+    test('reads category navigation ordering and anonymous defaults', () {
+      final config = SiteConfig.fromSettings(
+        settings(
+          fixedCategoryPositions: true,
+          allowUncategorizedTopics: true,
+          defaultNavigationMenuCategories: '4|2|invalid|4|0',
+        ),
+      );
+
+      expect(config.fixedCategoryPositions, isTrue);
+      expect(config.allowUncategorizedTopics, isTrue);
+      expect(config.defaultNavigationMenuCategoryIds, [4, 2]);
     });
 
     test('treats an empty external emoji url as no external emoji url', () {
@@ -235,6 +255,9 @@ void main() {
         allowAnyEmoji: true,
         desaturated: true,
         minSearchTermLength: 5,
+        fixedCategoryPositions: true,
+        allowUncategorizedTopics: true,
+        defaultNavigationMenuCategories: '7|3',
       ),
     );
 

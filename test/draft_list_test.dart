@@ -203,7 +203,13 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Support'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(DraftListView),
+        matching: find.text('Support'),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byWidgetPredicate(
         (widget) =>

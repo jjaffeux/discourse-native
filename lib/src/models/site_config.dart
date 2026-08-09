@@ -31,6 +31,9 @@ class SiteConfig {
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
     this.minSearchTermLength = defaultMinSearchTermLength,
+    this.fixedCategoryPositions = false,
+    this.allowUncategorizedTopics = false,
+    this.defaultNavigationMenuCategoryIds = const [],
     this.resenha = const ResenhaClientConfig(),
   });
 
@@ -117,6 +120,11 @@ class SiteConfig {
       minSearchTermLength:
           jsonIntOrNull(json['min_search_term_length'])?.clamp(1, 100) ??
           defaultMinSearchTermLength,
+      fixedCategoryPositions: json['fixed_category_positions'] == true,
+      allowUncategorizedTopics: json['allow_uncategorized_topics'] == true,
+      defaultNavigationMenuCategoryIds: _categoryIds(
+        json['default_navigation_menu_categories'],
+      ),
       resenha: ResenhaClientConfig.fromSettings(json),
     );
   }
@@ -152,6 +160,11 @@ class SiteConfig {
     minSearchTermLength:
         jsonIntOrNull(json['minSearchTermLength'])?.clamp(1, 100) ??
         defaultMinSearchTermLength,
+    fixedCategoryPositions: json['fixedCategoryPositions'] == true,
+    allowUncategorizedTopics: json['allowUncategorizedTopics'] == true,
+    defaultNavigationMenuCategoryIds: _categoryIds(
+      json['defaultNavigationMenuCategoryIds'],
+    ),
     resenha: jsonObject(json['resenha']).isEmpty
         ? const ResenhaClientConfig()
         : ResenhaClientConfig.fromJson(jsonObject(json['resenha'])),
@@ -172,6 +185,9 @@ class SiteConfig {
     'maxImageWidth': maxImageWidth,
     'maxImageHeight': maxImageHeight,
     'minSearchTermLength': minSearchTermLength,
+    'fixedCategoryPositions': fixedCategoryPositions,
+    'allowUncategorizedTopics': allowUncategorizedTopics,
+    'defaultNavigationMenuCategoryIds': defaultNavigationMenuCategoryIds,
     'resenha': resenha.toJson(),
   };
 
@@ -215,6 +231,12 @@ class SiteConfig {
   final int maxImageWidth;
   final int maxImageHeight;
   final int minSearchTermLength;
+
+  /// How core orders category navigation, and which categories anonymous
+  /// visitors see when the site has chosen an explicit menu.
+  final bool fixedCategoryPositions;
+  final bool allowUncategorizedTopics;
+  final List<int> defaultNavigationMenuCategoryIds;
   final ResenhaClientConfig resenha;
 
   bool canUploadImage(String filename, {required bool staff}) {
@@ -304,6 +326,12 @@ class SiteConfig {
       other.maxImageWidth == maxImageWidth &&
       other.maxImageHeight == maxImageHeight &&
       other.minSearchTermLength == minSearchTermLength &&
+      other.fixedCategoryPositions == fixedCategoryPositions &&
+      other.allowUncategorizedTopics == allowUncategorizedTopics &&
+      listEquals(
+        other.defaultNavigationMenuCategoryIds,
+        defaultNavigationMenuCategoryIds,
+      ) &&
       other.resenha == resenha &&
       listEquals(other.offeredReactions, offeredReactions);
 
@@ -322,6 +350,9 @@ class SiteConfig {
     maxImageWidth,
     maxImageHeight,
     minSearchTermLength,
+    fixedCategoryPositions,
+    allowUncategorizedTopics,
+    Object.hashAll(defaultNavigationMenuCategoryIds),
     resenha,
     Object.hashAll(offeredReactions),
   );
@@ -344,6 +375,20 @@ class SiteConfig {
         final value? when value > 0 => value,
         _ => fallback,
       };
+
+  static List<int> _categoryIds(Object? raw) {
+    final values = switch (raw) {
+      final String value => value.split('|'),
+      final List<dynamic> value => value,
+      _ => const <Object?>[],
+    };
+    final seen = <int>{};
+    return List.unmodifiable([
+      for (final value in values)
+        if (jsonIntOrNull(value) case final id? when id > 0)
+          if (seen.add(id)) id,
+    ]);
+  }
 }
 
 /// Resenha's client-marked site settings. These shape native controls but do

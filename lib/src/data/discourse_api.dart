@@ -36,6 +36,17 @@ import 'site_appearance_loader.dart';
 
 export 'discourse_api_contracts.dart';
 
+/// A category-list response plus whether its authenticated site metadata also
+/// arrived. A partial list is still useful for badges/navigation, but callers
+/// should leave it retryable so lazy-loaded user choices can be filled in.
+final class CategoryLoadResult {
+  CategoryLoadResult(Iterable<TopicCategory> categories, {this.complete = true})
+    : categories = List.unmodifiable(categories);
+
+  final List<TopicCategory> categories;
+  final bool complete;
+}
+
 /// Talks to a Discourse site.
 ///
 /// The lookup mirrors DiscourseMobile's `Site.fromTerm`: probe
@@ -265,6 +276,10 @@ class DiscourseApi
       groups: List.unmodifiable([
         for (final group in jsonObjects(user['groups']))
           ?jsonText(group['name']),
+      ]),
+      sidebarCategoryIds: List.unmodifiable([
+        for (final value in jsonArray(user['sidebar_category_ids']))
+          ?jsonIntOrNull(value),
       ]),
       // Chat registers these on CurrentUserSerializer. `has_chat_enabled` is
       // emitted only when true, so an absent key in a fresh session answer is
@@ -1103,24 +1118,79 @@ class DiscourseApi
     required String siteUrl,
     String? apiKey,
     String? clientId,
+  }) async => (await loadCategories(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  )).categories;
+
+  Future<CategoryLoadResult> loadCategories({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
   }) async {
-    final body = await _getObject(
+    // Start every authenticated request before yielding. A controller lease is
+    // known-current when this method is entered; dispatching a second request
+    // only after the first response could send a key whose session was revoked
+    // while that response was in flight.
+    final categoryRequest = _getObject(
       Uri.parse('$siteUrl/categories.json?include_subcategories=true'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
+    final siteRequest = apiKey == null
+        ? null
+        : _categorySiteMetadata(
+            siteUrl: siteUrl,
+            apiKey: apiKey,
+            clientId: clientId,
+          );
 
+    final body = await categoryRequest;
     final list = jsonObject(body['category_list']);
-    final result = <TopicCategory>[];
+    final rawById = <int, Map<String, dynamic>>{};
 
-    for (final category in jsonObjects(list['categories'])) {
-      result.add(TopicCategory.fromJson(category));
-      for (final subcategory in jsonObjects(category['subcategory_list'])) {
-        result.add(TopicCategory.fromJson(subcategory));
-      }
+    for (final category in _flattenCategories(list['categories'])) {
+      rawById.putIfAbsent(jsonInt(category['id']), () => category);
     }
-    return List.unmodifiable(result);
+
+    // CategoryList is paginated on sites that lazy-load categories. Core puts
+    // a signed-in user's selected sidebar categories and their ancestors in
+    // site.json specifically so navigation never loses choices beyond page 1.
+    final siteResult = await siteRequest;
+    final site = siteResult?.body ?? const <String, dynamic>{};
+    for (final category in _flattenCategories(site['categories'])) {
+      rawById.putIfAbsent(jsonInt(category['id']), () => category);
+    }
+    final uncategorizedId = jsonIntOrNull(site['uncategorized_category_id']);
+
+    return CategoryLoadResult([
+      for (final entry in rawById.entries)
+        TopicCategory.fromJson(
+          entry.key == uncategorizedId
+              ? {...entry.value, 'is_uncategorized': true}
+              : entry.value,
+        ),
+    ], complete: siteResult?.complete ?? true);
+  }
+
+  Future<({Map<String, dynamic>? body, bool complete})> _categorySiteMetadata({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    try {
+      final body = await _getObject(
+        Uri.parse('$siteUrl/site.json'),
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
+      return (body: body, complete: true);
+    } on SiteLookupException {
+      return (body: null, complete: false);
+    }
   }
 
   /// Session-scoped permissions and validation data used by a topic composer.
@@ -2274,6 +2344,13 @@ class DiscourseApi
   }
 
   void close() => _client.close();
+}
+
+Iterable<Map<String, dynamic>> _flattenCategories(Object? categories) sync* {
+  for (final category in jsonObjects(categories)) {
+    yield category;
+    yield* _flattenCategories(category['subcategory_list']);
+  }
 }
 
 class _HeadResult {

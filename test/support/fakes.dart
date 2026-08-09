@@ -401,6 +401,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.filterOptionsByPath = const {},
     this.creatableFeedPaths = const {},
     this.categoryList = const [],
+    this.categoryLoadComplete = true,
     this.composerCapabilities = const TopicComposerCapabilities(),
     this.topicTagSearches = const {},
     this.serverDrafts = const {},
@@ -428,6 +429,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.searchGate,
     this.searchFailure,
     this.customEmojisBySite = const {},
+    this.customEmojiGate,
     this.userSearches = const {},
     this.userSearchGate,
     this.filterTagSearches = const {},
@@ -502,6 +504,7 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Returned by [categories].
   final List<TopicCategory> categoryList;
+  final bool categoryLoadComplete;
   final TopicComposerCapabilities composerCapabilities;
   final List<String> categoryRequests = [];
   final List<String> topicComposerCapabilityRequests = [];
@@ -617,6 +620,7 @@ class FakeDiscourseApi implements DiscourseApi {
   /// with no custom emoji is the neutral answer here, not a failure. Named
   /// apart from the method, which a field of the same name would collide with.
   final Map<String, Map<String, String>> customEmojisBySite;
+  final Completer<void>? customEmojiGate;
 
   /// Site urls passed to [customEmojis], in order.
   final List<String> customEmojisRequired = [];
@@ -982,6 +986,16 @@ class FakeDiscourseApi implements DiscourseApi {
   }
 
   @override
+  Future<CategoryLoadResult> loadCategories({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    categoryRequests.add(siteUrl);
+    return CategoryLoadResult(categoryList, complete: categoryLoadComplete);
+  }
+
+  @override
   Future<TopicComposerCapabilities> topicComposerCapabilities({
     required String siteUrl,
     required String apiKey,
@@ -1158,6 +1172,7 @@ class FakeDiscourseApi implements DiscourseApi {
     String? clientId,
   }) async {
     customEmojisRequired.add(siteUrl);
+    if (customEmojiGate != null) await customEmojiGate!.future;
     return customEmojisBySite[siteUrl] ?? const {};
   }
 

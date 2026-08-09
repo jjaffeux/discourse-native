@@ -37,6 +37,7 @@ class DiscourseUser {
     this.canCreatePoll,
     this.staff = false,
     this.groups = const [],
+    this.sidebarCategoryIds = const [],
     this.hasChatEnabled,
     this.chatHeaderIndicatorPreference = ChatHeaderIndicatorPreference.allNew,
     this.doNotDisturbUntil,
@@ -60,6 +61,10 @@ class DiscourseUser {
     groups: List.unmodifiable(
       jsonArray(json['groups']).map(jsonText).whereType<String>(),
     ),
+    sidebarCategoryIds: List.unmodifiable([
+      for (final value in jsonArray(json['sidebarCategoryIds']))
+        ?jsonIntOrNull(value),
+    ]),
     // Nullable only for accounts persisted before this capability was stored.
     hasChatEnabled: json['hasChatEnabled'] as bool?,
     chatHeaderIndicatorPreference: ChatHeaderIndicatorPreference.read(
@@ -89,6 +94,10 @@ class DiscourseUser {
   /// Group names from the freshly loaded current-user payload.
   final List<String> groups;
 
+  /// The categories this account chose for its sidebar. Core derives display
+  /// order from the site's category ordering rather than this list's order.
+  final List<int> sidebarCategoryIds;
+
   /// Whether the Chat plugin, its guardian and this account's own option all
   /// allow chat. Null means an older stored account has not been refreshed yet.
   final bool? hasChatEnabled;
@@ -114,6 +123,7 @@ class DiscourseUser {
     'canCreatePoll': canCreatePoll,
     'staff': staff,
     'groups': groups,
+    'sidebarCategoryIds': sidebarCategoryIds,
     'hasChatEnabled': hasChatEnabled,
     'chatHeaderIndicatorPreference': chatHeaderIndicatorPreference.wireName,
     'doNotDisturbUntil': doNotDisturbUntil?.toIso8601String(),
@@ -134,6 +144,7 @@ class DiscourseUser {
       other.canCreatePoll == canCreatePoll &&
       other.staff == staff &&
       listEquals(other.groups, groups) &&
+      listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
       other.hasChatEnabled == hasChatEnabled &&
       other.chatHeaderIndicatorPreference == chatHeaderIndicatorPreference &&
       other.doNotDisturbUntil == doNotDisturbUntil &&
@@ -149,6 +160,7 @@ class DiscourseUser {
     canCreatePoll,
     staff,
     Object.hashAll(groups),
+    Object.hashAll(sidebarCategoryIds),
     hasChatEnabled,
     chatHeaderIndicatorPreference,
     doNotDisturbUntil,

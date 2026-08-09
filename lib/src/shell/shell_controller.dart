@@ -16,6 +16,7 @@ import '../data/user_api_key.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/bookmark_feed.dart';
+import '../models/category_sidebar.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/content_route.dart';
@@ -73,6 +74,12 @@ enum InstanceLoadStatus { loading, ready, failed }
 
 typedef _WriteCredential = ({String? apiKey, WriteException? failure});
 typedef _SessionValue<T> = ({T value});
+typedef _CategorySidebarCache = ({
+  List<TopicCategory> categories,
+  DiscourseUser? user,
+  SiteConfig config,
+  SidebarSection section,
+});
 
 /// What a native poll write learned.
 ///
@@ -230,8 +237,8 @@ class ShellController extends FrameSafeNotifier {
       credentials: authenticator,
       lifecycle: lifecycle,
       store: store,
-      onFeedLoaded: (instance, apiKey) {
-        unawaited(_ensureCategories(instance, apiKey));
+      onFeedLoaded: (instance, _) {
+        unawaited(_ensureCategoriesFor(instance));
       },
     );
     controller.addListener(_notify);
@@ -305,8 +312,8 @@ class ShellController extends FrameSafeNotifier {
   SitePresentationController _createSitePresentationController() {
     final controller = SitePresentationController(
       loadAppearance: _loadSiteAppearance,
-      loadConfig: api.siteConfig,
-      loadCustomEmojis: api.customEmojis,
+      loadConfig: _loadSiteConfig,
+      loadCustomEmojis: _loadCustomEmojis,
       loadEmojis: api.emojis,
       credentials: authenticator,
       lifecycle: lifecycle,
@@ -333,6 +340,37 @@ class ShellController extends FrameSafeNotifier {
     return api.siteAppearance(
       siteUrl: siteUrl,
       username: authenticate ? instance!.user!.username : null,
+      apiKey: authenticate ? apiKey : null,
+      clientId: authenticate ? clientId : null,
+    );
+  }
+
+  Future<SiteConfig> _loadSiteConfig({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) {
+    // As with appearance, key presence is not account identity: secure storage
+    // can retain a key after a failed deletion. A signed-out instance must ask
+    // only for the site's public client settings.
+    final authenticate =
+        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
+    return api.siteConfig(
+      siteUrl: siteUrl,
+      apiKey: authenticate ? apiKey : null,
+      clientId: authenticate ? clientId : null,
+    );
+  }
+
+  Future<Map<String, String>> _loadCustomEmojis({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) {
+    final authenticate =
+        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
+    return api.customEmojis(
+      siteUrl: siteUrl,
       apiKey: authenticate ? apiKey : null,
       clientId: authenticate ? clientId : null,
     );
@@ -767,6 +805,7 @@ class ShellController extends FrameSafeNotifier {
   /// in the store; this only remembers not to ask again.
   final Set<String> _categorised = {};
   final Map<String, List<TopicCategory>> _categoriesBySite = {};
+  final Map<String, _CategorySidebarCache> _categorySidebarCache = {};
   final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
 
   /// The list currently filling the main region, if the destination has one.
@@ -797,6 +836,41 @@ class ShellController extends FrameSafeNotifier {
 
   List<TopicCategory> topicComposerCategories(String siteUrl) =>
       _categoriesBySite[siteUrl] ?? const [];
+
+  /// The built-in Categories section once this site's category list arrives.
+  ///
+  /// The cache is presentation identity as well as saved work: the sidebar
+  /// selector compares sections by identity so unrelated shell notifications
+  /// do not rebuild the whole navigation column.
+  SidebarSection? categorySidebarSectionFor(String siteUrl) {
+    if (!_categoriesBySite.containsKey(siteUrl)) return null;
+    final categories = _categoriesBySite[siteUrl]!;
+    final user = _instanceAt(siteUrl)?.user;
+    final config = siteConfigFor(siteUrl);
+    final held = _categorySidebarCache[siteUrl];
+    if (held != null &&
+        identical(held.categories, categories) &&
+        identical(held.user, user) &&
+        held.config == config) {
+      return held.section;
+    }
+
+    final section = buildCategorySidebarSection(
+      categories: categories,
+      connected: user != null,
+      preferredCategoryIds: user?.sidebarCategoryIds ?? const [],
+      defaultCategoryIds: config.defaultNavigationMenuCategoryIds,
+      fixedCategoryPositions: config.fixedCategoryPositions,
+      allowUncategorizedTopics: config.allowUncategorizedTopics,
+    );
+    _categorySidebarCache[siteUrl] = (
+      categories: categories,
+      user: user,
+      config: config,
+      section: section,
+    );
+    return section;
+  }
 
   TopicComposerCapabilities topicComposerCapabilities(String siteUrl) =>
       _topicComposerCapabilities[siteUrl] ?? const TopicComposerCapabilities();
@@ -4443,9 +4517,18 @@ class ShellController extends FrameSafeNotifier {
   Future<void> _ensureCategoriesFor(DiscourseInstance instance) async {
     final lease = lifecycle.capture(instance.url);
     try {
-      final apiKey = await authenticator.apiKeyFor(instance.url);
+      final apiKey = instance.isConnected
+          ? await authenticator.apiKeyFor(instance.url)
+          : null;
       if (!lease.isCurrent) return;
-      await _ensureCategories(instance, apiKey, lease: lease);
+      final clientId = apiKey == null ? null : await authenticator.clientId();
+      if (!lease.isCurrent) return;
+      await _ensureCategories(
+        instance,
+        apiKey,
+        clientId: clientId,
+        lease: lease,
+      );
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _reportOperationalError(
@@ -4461,19 +4544,23 @@ class ShellController extends FrameSafeNotifier {
   Future<void> _ensureCategories(
     DiscourseInstance instance,
     String? apiKey, {
+    String? clientId,
     SiteLease? lease,
   }) async {
     if (!_categorised.add(instance.url)) return;
     final session = lease ?? lifecycle.capture(instance.url);
 
     try {
-      final categories = await api.categories(
+      final result = await api.loadCategories(
         siteUrl: instance.url,
         apiKey: apiKey,
+        clientId: clientId,
       );
       session.commit(() {
+        final categories = result.categories;
         store.putAll(instance.url, categories);
-        _categoriesBySite[instance.url] = List.unmodifiable(categories);
+        _categoriesBySite[instance.url] = categories;
+        if (!result.complete) _categorised.remove(instance.url);
         _notify();
       });
     } catch (error, stackTrace) {
@@ -4889,6 +4976,7 @@ class ShellController extends FrameSafeNotifier {
 
     _categorised.remove(siteUrl);
     _categoriesBySite.remove(siteUrl);
+    _categorySidebarCache.remove(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
     _customSidebarSections.remove(siteUrl);
     _sitePresentation?.forget(siteUrl);
@@ -4936,6 +5024,12 @@ class ShellController extends FrameSafeNotifier {
     if (refreshAppearance) {
       unawaited(_presentation.ensureAppearance(instance.url));
     }
+    // Category navigation is first-class shell state. It cannot depend on the
+    // default topic feed succeeding, and its ordering/defaults live in the
+    // client settings payload.
+    unawaited(_presentation.ensureConfig(instance.url));
+    unawaited(_presentation.ensureCustomEmojis(instance.url));
+    unawaited(_ensureCategoriesFor(instance));
     if (instance.isConnected) unawaited(resenha.ensureLoaded(instance.url));
     unawaited(loadFeed(destination.id));
   }

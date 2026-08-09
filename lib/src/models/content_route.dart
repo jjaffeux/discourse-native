@@ -68,11 +68,11 @@ class ContentRoute {
       title = destination.label,
       icon = destination.icon,
       subtitle = null,
-      color = destination.color,
+      color = destination.routeColor ?? destination.color,
       topicId = null,
       slug = null,
       postNumber = null,
-      feedPath = null;
+      feedPath = destination.feedPath;
 
   final String id;
   final String title;
@@ -88,8 +88,9 @@ class ContentRoute {
   final int? postNumber;
 
   /// Where this route's topic list lives, for a route that carries its own —
-  /// see [ContentRoute.list]. Null for everything the sidebar opens, whose
-  /// feeds `ShellController` already knows the address of.
+  /// see [ContentRoute.list]. Runtime sidebar routes such as categories carry
+  /// one too; static routes leave it null because `ShellController` already
+  /// knows their address.
   final String? feedPath;
 
   bool get isTopic => topicId != null;

@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/material.dart';
@@ -238,6 +239,8 @@ final class _DisconnectAppearanceApi extends FakeDiscourseApi {
   final initialAppearanceStarted = Completer<void>();
   final signedOutAppearanceStarted = Completer<void>();
   final List<({String? apiKey, String? clientId})> appearanceRequests = [];
+  final List<({String? apiKey, String? clientId})> configRequests = [];
+  final List<({String? apiKey, String? clientId})> customEmojiRequests = [];
 
   @override
   Future<SiteAppearance?> siteAppearance({
@@ -253,6 +256,26 @@ final class _DisconnectAppearanceApi extends FakeDiscourseApi {
       signedOutAppearanceStarted.complete();
     }
     return apiKey == null ? signedOutAppearance : accountAppearance;
+  }
+
+  @override
+  Future<SiteConfig> siteConfig({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    configRequests.add((apiKey: apiKey, clientId: clientId));
+    return const SiteConfig.unknown();
+  }
+
+  @override
+  Future<Map<String, String>> customEmojis({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    customEmojiRequests.add((apiKey: apiKey, clientId: clientId));
+    return const {};
   }
 }
 
@@ -770,6 +793,12 @@ void main() {
       expect(api.appearanceRequests, [
         (apiKey: 'orphaned-account-key', clientId: 'test-client'),
       ]);
+      expect(api.configRequests, [
+        (apiKey: 'orphaned-account-key', clientId: 'test-client'),
+      ]);
+      expect(api.customEmojiRequests, [
+        (apiKey: 'orphaned-account-key', clientId: 'test-client'),
+      ]);
 
       expect(await shell.disconnectInstance(_siteUrl), isTrue);
       await api.signedOutAppearanceStarted.future;
@@ -781,6 +810,14 @@ void main() {
       expect(authenticator.keys[_siteUrl], 'orphaned-account-key');
       expect(shell.currentInstance?.user, isNull);
       expect(api.appearanceRequests, [
+        (apiKey: 'orphaned-account-key', clientId: 'test-client'),
+        (apiKey: null, clientId: null),
+      ]);
+      expect(api.configRequests, [
+        (apiKey: 'orphaned-account-key', clientId: 'test-client'),
+        (apiKey: null, clientId: null),
+      ]);
+      expect(api.customEmojiRequests, [
         (apiKey: 'orphaned-account-key', clientId: 'test-client'),
         (apiKey: null, clientId: null),
       ]);

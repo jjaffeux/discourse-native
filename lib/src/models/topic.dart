@@ -394,6 +394,13 @@ class TopicCategory with Storable<TopicCategory> {
     this.parentCategoryId,
     this.permission,
     this.minimumRequiredTags = 0,
+    this.styleType = 'square',
+    this.icon,
+    this.emoji,
+    this.readRestricted = false,
+    this.topicCount = 0,
+    this.position,
+    this.isUncategorized = false,
   });
 
   factory TopicCategory.fromJson(Map<String, dynamic> json) => TopicCategory(
@@ -406,12 +413,19 @@ class TopicCategory with Storable<TopicCategory> {
         : jsonInt(json['parent_category_id']),
     permission: jsonIntOrNull(json['permission']),
     minimumRequiredTags: jsonInt(json['minimum_required_tags']),
+    styleType: jsonText(json['style_type']) ?? 'square',
+    icon: jsonText(json['icon']),
+    emoji: jsonText(json['emoji']),
+    readRestricted: json['read_restricted'] == true,
+    topicCount: jsonInt(json['topic_count']),
+    position: jsonIntOrNull(json['position']),
+    isUncategorized: json['is_uncategorized'] == true,
   );
 
   final int id;
   final String name;
 
-  /// Six hex digits, no leading `#` — how Discourse stores it.
+  /// Three or six hex digits, usually without a leading `#`.
   final String color;
   final String slug;
 
@@ -426,9 +440,31 @@ class TopicCategory with Storable<TopicCategory> {
   final int? permission;
   final int minimumRequiredTags;
 
+  /// `square`, `icon` or `emoji`, as configured by the category owner.
+  final String styleType;
+  final String? icon;
+  final String? emoji;
+
+  /// Whether reading this category is limited to specific groups.
+  final bool readRestricted;
+  final int topicCount;
+  final int? position;
+
+  /// Identified from site.json's `uncategorized_category_id`. Category list
+  /// rows do not carry this bit themselves.
+  final bool isUncategorized;
+
   bool get canCreateTopic => permission == 1;
 
-  int get colorValue => int.tryParse('FF$color', radix: 16) ?? 0xFF888888;
+  int get colorValue {
+    var hex = color.trim();
+    if (hex.startsWith('#')) hex = hex.substring(1);
+    if (hex.length == 3) {
+      hex = [for (final digit in hex.split('')) '$digit$digit'].join();
+    }
+    if (hex.length != 6) return 0xFF888888;
+    return int.tryParse('FF$hex', radix: 16) ?? 0xFF888888;
+  }
 
   @override
   Object get storeId => id;
@@ -447,7 +483,14 @@ class TopicCategory with Storable<TopicCategory> {
           other.slug == slug &&
           other.parentCategoryId == parentCategoryId &&
           other.permission == permission &&
-          other.minimumRequiredTags == minimumRequiredTags;
+          other.minimumRequiredTags == minimumRequiredTags &&
+          other.styleType == styleType &&
+          other.icon == icon &&
+          other.emoji == emoji &&
+          other.readRestricted == readRestricted &&
+          other.topicCount == topicCount &&
+          other.position == position &&
+          other.isUncategorized == isUncategorized;
 
   @override
   int get hashCode => Object.hash(
@@ -458,6 +501,13 @@ class TopicCategory with Storable<TopicCategory> {
     parentCategoryId,
     permission,
     minimumRequiredTags,
+    styleType,
+    icon,
+    emoji,
+    readRestricted,
+    topicCount,
+    position,
+    isUncategorized,
   );
 }
 

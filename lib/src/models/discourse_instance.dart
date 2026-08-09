@@ -161,8 +161,8 @@ class DiscourseInstance {
     return words.take(2).map((w) => w[0]).join().toUpperCase();
   }
 
-  /// Routes every Discourse has. Categories and chat channels need an
-  /// authenticated request, so they are not here yet.
+  /// Routes every Discourse has before any forum response arrives. Categories
+  /// and chat channels are appended by the shell once their live data loads.
   List<SidebarSection> get sections => const [
     SidebarSection(
       id: 'community',

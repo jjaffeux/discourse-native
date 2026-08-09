@@ -611,4 +611,11 @@ final class _LoopbackTimeoutApi extends DiscourseApi {
     String? apiKey,
     String? clientId,
   }) async => const [];
+
+  @override
+  Future<CategoryLoadResult> loadCategories({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async => CategoryLoadResult(const []);
 }

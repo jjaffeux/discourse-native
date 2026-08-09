@@ -25,8 +25,9 @@ void main() {
     final statuses = <InstanceLoadStatus>[];
     Future<void>? listenerRetry;
     controller.addListener(() {
-      statuses.add(controller.loadStatus);
-      if (controller.loadStatus == InstanceLoadStatus.loading) {
+      final status = controller.loadStatus;
+      if (statuses.isEmpty || statuses.last != status) statuses.add(status);
+      if (status == InstanceLoadStatus.loading) {
         listenerRetry ??= controller.load();
       }
     });
