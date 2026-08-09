@@ -59,6 +59,7 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kSecondaryButton;
@@ -964,7 +965,9 @@ void main() {
     );
   });
 
-  testWidgets('sidebar section chevrons follow their actions', (tester) async {
+  testWidgets('sidebar section header controls align and highlight on hover', (
+    tester,
+  ) async {
     const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
     final site = instance(
       'meta.discourse.org',
@@ -1011,6 +1014,43 @@ void main() {
     expect(tester.getCenter(action).dx, lessThan(tester.getCenter(chevron).dx));
     // A larger action would make this header taller than adjacent sections.
     expect(tester.getSize(action), tester.getSize(chevron));
+
+    final title = find.text('VOICE ROOMS');
+    final theme = Theme.of(tester.element(title));
+    Color titleColor() => tester.widget<Text>(title).style!.color!;
+    Color iconColor(Finder control) {
+      final icon = find.descendant(of: control, matching: find.byType(DIcon));
+      final explicitColor = tester.widget<DIcon>(icon).color;
+      return explicitColor ?? IconTheme.of(tester.element(icon)).color!;
+    }
+
+    expect(titleColor(), theme.colorScheme.onSurfaceVariant);
+    expect(iconColor(action), theme.colorScheme.onSurfaceVariant);
+    expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+
+    await gesture.moveTo(tester.getCenter(title));
+    await tester.pumpAndSettle();
+    expect(titleColor(), theme.colorScheme.onSurface);
+    expect(iconColor(action), theme.colorScheme.onSurfaceVariant);
+
+    await gesture.moveTo(tester.getCenter(action));
+    await tester.pumpAndSettle();
+    expect(titleColor(), theme.colorScheme.onSurfaceVariant);
+    expect(iconColor(action), theme.colorScheme.onSurface);
+    expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
+
+    await gesture.moveTo(tester.getCenter(chevron));
+    await tester.pumpAndSettle();
+    expect(iconColor(action), theme.colorScheme.onSurfaceVariant);
+    expect(iconColor(chevron), theme.colorScheme.onSurface);
+
+    await gesture.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
   });
 
   testWidgets('sidebar destinations show a background when hovered', (
