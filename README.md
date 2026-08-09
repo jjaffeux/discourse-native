@@ -947,6 +947,11 @@ Lines scroll horizontally rather than wrapping, because wrapping makes
 indentation lie about structure. `<li class="selected">` — the lines the link
 pointed at, e.g. `#L78-L94` — keeps its highlight.
 
+Rendered code, inline `<code>`, `<kbd>`, and their composer previews all use the
+bundled regular and bold weights of JetBrains Mono. That is the web client's
+`--d-font-family--monospace` face; its `Consolas, Monaco, monospace` fallback
+stack and disabled ligatures are kept here too.
+
 #### Syntax highlighting
 
 Discourse highlights code in the browser, not in `cooked`, so the HTML arrives

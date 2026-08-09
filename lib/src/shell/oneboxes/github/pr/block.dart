@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../../../theme/d_icon.dart';
-import '../../../code_block.dart' show monospaceFallback;
+import '../../../code_block.dart' show monospaceTextStyle;
 import '../../../relative_time.dart';
 import '../../onebox.dart';
 import '../github.dart';
@@ -79,11 +79,9 @@ class _Branches extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = theme.textTheme.labelSmall?.copyWith(
-      fontFamilyFallback: monospaceFallback,
-      fontSize: 12,
-      color: theme.colorScheme.onSurfaceVariant,
-    );
+    final style = theme.textTheme.labelSmall
+        ?.merge(monospaceTextStyle)
+        .copyWith(fontSize: 12, color: theme.colorScheme.onSurfaceVariant);
 
     return Text.rich(
       TextSpan(

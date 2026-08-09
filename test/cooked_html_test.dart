@@ -539,7 +539,9 @@ void main() {
             ),
           )
           .style!;
-      expect(style.fontFamilyFallback, contains('monospace'));
+      expect(style.fontFamily, monospaceFontFamily);
+      expect(style.fontFamilyFallback, monospaceFallback);
+      expect(style.fontFeatures, contains(const FontFeature.disable('liga')));
       // Smaller than the prose it sits in, the way `0.875rem` is.
       expect(style.fontSize, lessThan(14));
     });

@@ -910,11 +910,11 @@ TextStyle markdownStyle(
 
   if (mask & Md.codeBlock != 0) {
     scale *= 0.9;
-    style = style.copyWith(
-      fontFamily: null,
-      fontFamilyFallback: monospaceFallback,
-      color: scopeColor(detail, theme.code) ?? theme.colorScheme.onSurface,
-    );
+    style = style
+        .merge(monospaceTextStyle)
+        .copyWith(
+          color: scopeColor(detail, theme.code) ?? theme.colorScheme.onSurface,
+        );
   }
 
   if (mask & Md.heading != 0) {
@@ -936,11 +936,9 @@ TextStyle markdownStyle(
     // against, so one standing in for a longer run would put every offset
     // after it wrong. A flat background is the honest approximation.
     scale *= 0.875;
-    style = style.copyWith(
-      fontFamily: null,
-      fontFamilyFallback: monospaceFallback,
-      backgroundColor: theme.code.inlineBackground,
-    );
+    style = style
+        .merge(monospaceTextStyle)
+        .copyWith(backgroundColor: theme.code.inlineBackground);
   }
 
   if (mask & Md.bold != 0) style = style.copyWith(fontWeight: FontWeight.w700);
@@ -990,11 +988,9 @@ TextStyle markdownStyle(
 (TextStyle, double) _tagStyle(String tag, TextStyle style, ThemeData theme) =>
     switch (tag) {
       'kbd' => (
-        style.copyWith(
-          fontFamily: null,
-          fontFamilyFallback: monospaceFallback,
-          backgroundColor: theme.code.inlineBackground,
-        ),
+        style
+            .merge(monospaceTextStyle)
+            .copyWith(backgroundColor: theme.code.inlineBackground),
         0.9,
       ),
       'mark' => (
