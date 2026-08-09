@@ -554,6 +554,63 @@ void main() {
       expect(searchInput.hasFocus, isFalse);
     });
 
+    testWidgets('shows distinct selected and hovered result states', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        searchResults: {
+          'matches': SearchResults(
+            hits: [
+              for (var id = 1; id <= 2; id++)
+                SearchPostHit(
+                  postId: id,
+                  topicId: id,
+                  postNumber: 1,
+                  topicTitle: 'Result $id',
+                  topicSlug: 'result-$id',
+                  username: 'sam',
+                  excerpt: const SearchExcerpt([SearchExcerptSegment('match')]),
+                ),
+            ],
+          ),
+        },
+      );
+      await pumpShell(tester, laptop, api: api);
+
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'matches');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      const firstKey = ValueKey('search-hit-1');
+      const secondKey = ValueKey('search-hit-2');
+      final theme = Theme.of(tester.element(find.byKey(firstKey)));
+      Color? background(Key key) {
+        final ink = tester.widget<Ink>(
+          find.descendant(of: find.byKey(key), matching: find.byType(Ink)),
+        );
+        return (ink.decoration as BoxDecoration).color;
+      }
+
+      expect(background(firstKey), theme.shell.selected);
+      expect(background(secondKey), Colors.transparent);
+      expect(
+        tester.widget<InkWell>(find.byKey(firstKey)).hoverColor,
+        theme.shell.hover,
+      );
+      expect(
+        tester.widget<InkWell>(find.byKey(secondKey)).hoverColor,
+        theme.shell.hover,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+
+      expect(background(firstKey), Colors.transparent);
+      expect(background(secondKey), theme.shell.selected);
+    });
+
     testWidgets('keeps the arrow-key selection visible', (tester) async {
       final api = FakeDiscourseApi(
         searchResults: {
