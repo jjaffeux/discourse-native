@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
+import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/composer_pills.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
@@ -170,6 +171,20 @@ void main() {
         styleAt(tester, source, 5).color,
         AppTheme.dark.colorScheme.primary,
       );
+    });
+
+    testWidgets('inline and fenced code use Discourse code face', (
+      tester,
+    ) async {
+      const source = '`inline`\n\n```ruby\nputs 1\n```';
+      await pumpField(tester, source);
+
+      for (final offset in [source.indexOf('inline'), source.indexOf('puts')]) {
+        final style = styleAt(tester, source, offset);
+        expect(style.fontFamily, monospaceFontFamily);
+        expect(style.fontFamilyFallback, monospaceFallback);
+        expect(style.fontFeatures, contains(const FontFeature.disable('liga')));
+      }
     });
 
     testWidgets('nothing but <ins> is underlined', (tester) async {
