@@ -422,7 +422,85 @@ class TopicList {
   }
 }
 
-/// Just enough of a category to draw its badge.
+/// The small topic shape embedded in a category-list response.
+///
+/// These rows deliberately do not enter the topic identity store. Discourse's
+/// category endpoint serves only enough topic data to draw and open a featured
+/// link, while the full topic-list model has substantially more state.
+@immutable
+class CategoryFeaturedTopic {
+  const CategoryFeaturedTopic({
+    required this.id,
+    required this.title,
+    required this.slug,
+    this.pinned = false,
+    this.closed = false,
+    this.archived = false,
+    this.lastReadPostNumber,
+    this.highestPostNumber = 0,
+  });
+
+  factory CategoryFeaturedTopic.fromJson(Map<String, dynamic> json) =>
+      CategoryFeaturedTopic(
+        id: jsonInt(json['id']),
+        title: jsonTitle(json['title'], json['fancy_title']),
+        slug: jsonString(json['slug']),
+        pinned: json['pinned'] == true,
+        closed: json['closed'] == true,
+        archived: json['archived'] == true,
+        lastReadPostNumber: jsonIntOrNull(json['last_read_post_number']),
+        highestPostNumber: jsonInt(json['highest_post_number']),
+      );
+
+  final int id;
+  final String title;
+  final String slug;
+  final bool pinned;
+  final bool closed;
+  final bool archived;
+  final int? lastReadPostNumber;
+  final int highestPostNumber;
+
+  /// The post number used by the web category page's featured-topic links.
+  ///
+  /// An unread topic opens one post after the last read position. A topic read
+  /// to the end stays on its final post, and an untracked topic starts at post
+  /// one. Null leaves navigation at the topic root when the partial payload
+  /// did not carry a usable highest post number.
+  int? get firstUnreadPostNumber {
+    if (highestPostNumber <= 0) return null;
+    final next = (lastReadPostNumber ?? 0) + 1;
+    if (next <= 1) return 1;
+    return next > highestPostNumber ? highestPostNumber : next;
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CategoryFeaturedTopic &&
+          other.id == id &&
+          other.title == title &&
+          other.slug == slug &&
+          other.pinned == pinned &&
+          other.closed == closed &&
+          other.archived == archived &&
+          other.lastReadPostNumber == lastReadPostNumber &&
+          other.highestPostNumber == highestPostNumber;
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    title,
+    slug,
+    pinned,
+    closed,
+    archived,
+    lastReadPostNumber,
+    highestPostNumber,
+  );
+}
+
+/// Just enough of a category to draw its badge and category-list card.
 @immutable
 class TopicCategory with Storable<TopicCategory> {
   const TopicCategory({
@@ -440,6 +518,8 @@ class TopicCategory with Storable<TopicCategory> {
     this.topicCount = 0,
     this.position,
     this.isUncategorized = false,
+    this.notificationLevel = 1,
+    this.featuredTopics = const [],
   });
 
   factory TopicCategory.fromJson(Map<String, dynamic> json) => TopicCategory(
@@ -459,6 +539,12 @@ class TopicCategory with Storable<TopicCategory> {
     topicCount: jsonInt(json['topic_count']),
     position: jsonIntOrNull(json['position']),
     isUncategorized: json['is_uncategorized'] == true,
+    notificationLevel: jsonIntOrNull(json['notification_level']) ?? 1,
+    featuredTopics: List.unmodifiable([
+      for (final topic in jsonObjects(json['topics']))
+        if (jsonIntOrNull(topic['id']) case final id? when id > 0)
+          CategoryFeaturedTopic.fromJson(topic),
+    ]),
   );
 
   final int id;
@@ -493,7 +579,14 @@ class TopicCategory with Storable<TopicCategory> {
   /// rows do not carry this bit themselves.
   final bool isUncategorized;
 
+  /// The personalized category notification level. Core uses zero for muted.
+  final int notificationLevel;
+
+  /// Featured rows supplied by `include_topics=true`, in server rank order.
+  final List<CategoryFeaturedTopic> featuredTopics;
+
   bool get canCreateTopic => permission == 1;
+  bool get isMuted => notificationLevel == 0;
 
   int get colorValue {
     var hex = color.trim();
@@ -529,7 +622,9 @@ class TopicCategory with Storable<TopicCategory> {
           other.readRestricted == readRestricted &&
           other.topicCount == topicCount &&
           other.position == position &&
-          other.isUncategorized == isUncategorized;
+          other.isUncategorized == isUncategorized &&
+          other.notificationLevel == notificationLevel &&
+          listEquals(other.featuredTopics, featuredTopics);
 
   @override
   int get hashCode => Object.hash(
@@ -547,6 +642,8 @@ class TopicCategory with Storable<TopicCategory> {
     topicCount,
     position,
     isUncategorized,
+    notificationLevel,
+    Object.hashAll(featuredTopics),
   );
 }
 

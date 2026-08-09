@@ -1280,75 +1280,198 @@ void _feedGroups() {
   });
 
   group('categories', () {
-    test('flattens every subcategory level in preorder', () async {
-      final api = DiscourseApi(
-        client: MockClient((request) async {
-          expect(request.url.queryParameters['include_subcategories'], 'true');
-          return http.Response(
-            jsonEncode({
-              'category_list': {
-                'categories': [
-                  {
-                    'id': 1,
-                    'name': 'Feature',
-                    'color': '0088CC',
-                    'slug': 'feature',
-                    'style_type': 'icon',
-                    'icon': 'folder',
-                    'read_restricted': true,
-                    'topic_count': '12',
-                    'position': 3,
-                    'subcategory_list': [
-                      {
-                        'id': 2,
-                        'name': 'Ideas',
-                        'color': 'AB9364',
-                        'slug': 'ideas',
-                        'permission': 1,
-                        'minimum_required_tags': 2,
-                        'style_type': 'emoji',
-                        'emoji': 'bulb',
-                        'subcategory_list': [
-                          {
-                            'id': 3,
-                            'name': 'Experimental',
-                            'color': '222222',
-                            'slug': 'experimental',
-                          },
-                        ],
-                      },
-                      {'id': 4, 'name': 'Archive', 'color': '333333'},
-                    ],
-                  },
-                  {'id': 5, 'name': 'Support', 'color': '444444'},
-                ],
-              },
-            }),
-            200,
-          );
-        }),
+    test(
+      'requests featured topics and flattens every category level in preorder',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            expect(
+              request.url.queryParameters['include_subcategories'],
+              'true',
+            );
+            expect(request.url.queryParameters['include_topics'], 'true');
+            expect(request.url.queryParameters.containsKey('page'), isFalse);
+            return http.Response(
+              jsonEncode({
+                'category_list': {
+                  'can_create_topic': true,
+                  'categories': [
+                    {
+                      'id': 1,
+                      'name': 'Feature',
+                      'color': '0088CC',
+                      'slug': 'feature',
+                      'style_type': 'icon',
+                      'icon': 'folder',
+                      'read_restricted': true,
+                      'topic_count': '12',
+                      'position': 3,
+                      'notification_level': 0,
+                      'topics': [
+                        {
+                          'id': 101,
+                          'title': 'Unread pinned topic',
+                          'slug': 'unread-pinned-topic',
+                          'pinned': true,
+                          'last_read_post_number': 2,
+                          'highest_post_number': 5,
+                        },
+                        {
+                          'id': 'not-an-id',
+                          'title': 'Malformed',
+                          'slug': 'malformed',
+                        },
+                        {
+                          'id': 0,
+                          'title': 'Nonpositive',
+                          'slug': 'nonpositive',
+                        },
+                        {
+                          'id': 102,
+                          'fancy_title': 'Closed &amp; archived',
+                          'slug': 'closed-archived',
+                          'closed': true,
+                          'archived': true,
+                          'last_read_post_number': 9,
+                          'highest_post_number': 9,
+                        },
+                      ],
+                      'subcategory_list': [
+                        {
+                          'id': 2,
+                          'name': 'Ideas',
+                          'color': 'AB9364',
+                          'slug': 'ideas',
+                          'permission': 1,
+                          'minimum_required_tags': 2,
+                          'style_type': 'emoji',
+                          'emoji': 'bulb',
+                          'subcategory_list': [
+                            {
+                              'id': 3,
+                              'name': 'Experimental',
+                              'color': '222222',
+                              'slug': 'experimental',
+                            },
+                          ],
+                        },
+                        {'id': 4, 'name': 'Archive', 'color': '333333'},
+                      ],
+                    },
+                    {'id': 5, 'name': 'Support', 'color': '444444'},
+                  ],
+                },
+              }),
+              200,
+            );
+          }),
+        );
+
+        final result = await api.loadCategories(siteUrl: 'https://example.com');
+        final categories = result.categories;
+
+        expect(categories.map((c) => c.id), [1, 2, 3, 4, 5]);
+        expect(result.rootCategoryIds, [1, 5]);
+        expect(result.canCreateTopic, isTrue);
+        expect(categories.first.colorValue, 0xFF0088CC);
+        expect(categories.first.styleType, 'icon');
+        expect(categories.first.icon, 'folder');
+        expect(categories.first.readRestricted, isTrue);
+        expect(categories.first.topicCount, 12);
+        expect(categories.first.position, 3);
+        expect(categories.first.notificationLevel, 0);
+        expect(categories.first.isMuted, isTrue);
+        expect(categories.first.featuredTopics.map((topic) => topic.id), [
+          101,
+          102,
+        ]);
+        final unread = categories.first.featuredTopics.first;
+        expect(unread.title, 'Unread pinned topic');
+        expect(unread.slug, 'unread-pinned-topic');
+        expect(unread.pinned, isTrue);
+        expect(unread.closed, isFalse);
+        expect(unread.archived, isFalse);
+        expect(unread.firstUnreadPostNumber, 3);
+        final read = categories.first.featuredTopics.last;
+        expect(read.title, 'Closed & archived');
+        expect(read.pinned, isFalse);
+        expect(read.closed, isTrue);
+        expect(read.archived, isTrue);
+        expect(read.firstUnreadPostNumber, 9);
+        expect(
+          () => categories.first.featuredTopics.add(unread),
+          throwsUnsupportedError,
+        );
+        expect(categories[1].canCreateTopic, isTrue);
+        expect(categories[1].minimumRequiredTags, 2);
+        expect(categories[1].styleType, 'emoji');
+        expect(categories[1].emoji, 'bulb');
+        expect(categories[2].styleType, 'square');
+        expect(categories[2].icon, isNull);
+        expect(categories[2].emoji, isNull);
+        expect(categories[2].readRestricted, isFalse);
+        expect(categories[2].topicCount, 0);
+        expect(categories[2].position, isNull);
+        expect(categories[2].isUncategorized, isFalse);
+        expect(categories[2].notificationLevel, 1);
+        expect(categories[2].isMuted, isFalse);
+        expect(categories[2].featuredTopics, isEmpty);
+      },
+    );
+
+    test('featured topics have first-unread semantics and value identity', () {
+      const baseline = CategoryFeaturedTopic(
+        id: 101,
+        title: 'A topic',
+        slug: 'a-topic',
+        pinned: true,
+        closed: true,
+        archived: true,
+        lastReadPostNumber: 4,
+        highestPostNumber: 8,
+      );
+      const equal = CategoryFeaturedTopic(
+        id: 101,
+        title: 'A topic',
+        slug: 'a-topic',
+        pinned: true,
+        closed: true,
+        archived: true,
+        lastReadPostNumber: 4,
+        highestPostNumber: 8,
       );
 
-      final categories = await api.categories(siteUrl: 'https://example.com');
-
-      expect(categories.map((c) => c.id), [1, 2, 3, 4, 5]);
-      expect(categories.first.colorValue, 0xFF0088CC);
-      expect(categories.first.styleType, 'icon');
-      expect(categories.first.icon, 'folder');
-      expect(categories.first.readRestricted, isTrue);
-      expect(categories.first.topicCount, 12);
-      expect(categories.first.position, 3);
-      expect(categories[1].canCreateTopic, isTrue);
-      expect(categories[1].minimumRequiredTags, 2);
-      expect(categories[1].styleType, 'emoji');
-      expect(categories[1].emoji, 'bulb');
-      expect(categories[2].styleType, 'square');
-      expect(categories[2].icon, isNull);
-      expect(categories[2].emoji, isNull);
-      expect(categories[2].readRestricted, isFalse);
-      expect(categories[2].topicCount, 0);
-      expect(categories[2].position, isNull);
-      expect(categories[2].isUncategorized, isFalse);
+      expect(equal, baseline);
+      expect(equal.hashCode, baseline.hashCode);
+      expect(baseline.firstUnreadPostNumber, 5);
+      expect(
+        const CategoryFeaturedTopic(
+          id: 101,
+          title: 'A topic',
+          slug: 'a-topic',
+          highestPostNumber: 8,
+        ).firstUnreadPostNumber,
+        1,
+      );
+      expect(
+        const CategoryFeaturedTopic(
+          id: 101,
+          title: 'A topic',
+          slug: 'a-topic',
+        ).firstUnreadPostNumber,
+        isNull,
+      );
+      expect(
+        const CategoryFeaturedTopic(
+          id: 101,
+          title: 'A topic',
+          slug: 'a-topic',
+          archived: false,
+          lastReadPostNumber: 4,
+          highestPostNumber: 8,
+        ),
+        isNot(baseline),
+      );
     });
 
     test('presentation fields participate in category value identity', () {
@@ -1360,6 +1483,10 @@ void _feedGroups() {
         int topicCount = 12,
         int position = 3,
         bool isUncategorized = false,
+        int notificationLevel = 0,
+        List<CategoryFeaturedTopic> featuredTopics = const [
+          CategoryFeaturedTopic(id: 101, title: 'A topic', slug: 'a-topic'),
+        ],
       }) => TopicCategory(
         id: 1,
         name: 'Feature',
@@ -1371,10 +1498,16 @@ void _feedGroups() {
         topicCount: topicCount,
         position: position,
         isUncategorized: isUncategorized,
+        notificationLevel: notificationLevel,
+        featuredTopics: featuredTopics,
       );
 
       final baseline = category();
-      final equal = category();
+      final equal = category(
+        featuredTopics: List.unmodifiable(const [
+          CategoryFeaturedTopic(id: 101, title: 'A topic', slug: 'a-topic'),
+        ]),
+      );
 
       expect(equal, baseline);
       expect(equal.hashCode, baseline.hashCode);
@@ -1386,6 +1519,16 @@ void _feedGroups() {
         category(topicCount: 13),
         category(position: 4),
         category(isUncategorized: true),
+        category(notificationLevel: 1),
+        category(
+          featuredTopics: const [
+            CategoryFeaturedTopic(
+              id: 102,
+              title: 'Another topic',
+              slug: 'another-topic',
+            ),
+          ],
+        ),
       ], everyElement(isNot(baseline)));
     });
 
@@ -1399,6 +1542,13 @@ void _feedGroups() {
         'read_restricted': 'true',
         'topic_count': 'many',
         'position': false,
+        'notification_level': false,
+        'topics': [
+          null,
+          'topic',
+          {'id': -1, 'title': 'Negative'},
+          {'id': 'oops', 'title': 'Not numeric'},
+        ],
       });
 
       expect(category.styleType, 'square');
@@ -1408,6 +1558,9 @@ void _feedGroups() {
       expect(category.topicCount, 0);
       expect(category.position, isNull);
       expect(category.isUncategorized, isFalse);
+      expect(category.notificationLevel, 1);
+      expect(category.isMuted, isFalse);
+      expect(category.featuredTopics, isEmpty);
     });
 
     test('normalizes CSS shorthand category colors', () {
@@ -1425,53 +1578,72 @@ void _feedGroups() {
       );
     });
 
-    test('supplements a connected lazy category list from site.json', () async {
-      final requested = <String>[];
-      final api = DiscourseApi(
-        client: MockClient((request) async {
-          requested.add(request.url.path);
-          expect(request.headers['User-Api-Key'], 'key');
-          expect(request.headers['User-Api-Client-Id'], 'client');
-          if (request.url.path == '/categories.json') {
+    test(
+      'supplements page one without replacing endpoint category data',
+      () async {
+        final requested = <String>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            requested.add(request.url.path);
+            expect(request.headers['User-Api-Key'], 'key');
+            expect(request.headers['User-Api-Client-Id'], 'client');
+            if (request.url.path == '/categories.json') {
+              return http.Response(
+                jsonEncode({
+                  'category_list': {
+                    'categories': [
+                      {
+                        'id': 1,
+                        'name': 'Visible from page',
+                        'color': '111111',
+                        'topics': [
+                          {
+                            'id': 11,
+                            'title': 'Featured from page',
+                            'slug': 'featured-from-page',
+                            'highest_post_number': 1,
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                }),
+                200,
+              );
+            }
+            expect(request.url.path, '/site.json');
             return http.Response(
               jsonEncode({
-                'category_list': {
-                  'categories': [
-                    {'id': 1, 'name': 'Visible', 'color': '111111'},
-                  ],
-                },
+                'categories': [
+                  {'id': 1, 'name': 'Site duplicate', 'color': 'AAAAAA'},
+                  {'id': 8, 'name': 'Parent', 'color': '222222'},
+                  {
+                    'id': 9,
+                    'name': 'Preferred off page',
+                    'color': '333333',
+                    'parent_category_id': 8,
+                  },
+                ],
               }),
               200,
             );
-          }
-          expect(request.url.path, '/site.json');
-          return http.Response(
-            jsonEncode({
-              'categories': [
-                {'id': 1, 'name': 'Visible', 'color': '111111'},
-                {'id': 8, 'name': 'Parent', 'color': '222222'},
-                {
-                  'id': 9,
-                  'name': 'Preferred off page',
-                  'color': '333333',
-                  'parent_category_id': 8,
-                },
-              ],
-            }),
-            200,
-          );
-        }),
-      );
+          }),
+        );
 
-      final categories = await api.categories(
-        siteUrl: 'https://example.com',
-        apiKey: 'key',
-        clientId: 'client',
-      );
+        final result = await api.loadCategories(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          clientId: 'client',
+        );
 
-      expect(requested, ['/categories.json', '/site.json']);
-      expect(categories.map((category) => category.id), [1, 8, 9]);
-    });
+        expect(requested, ['/categories.json', '/site.json']);
+        expect(result.categories.map((category) => category.id), [1, 8, 9]);
+        expect(result.rootCategoryIds, [1]);
+        expect(result.categories.first.name, 'Visible from page');
+        expect(result.categories.first.color, '111111');
+        expect(result.categories.first.featuredTopics.single.id, 11);
+      },
+    );
 
     test(
       'dispatches both authenticated category reads before yielding',
@@ -1505,6 +1677,51 @@ void _feedGroups() {
         expect((await loading).complete, isTrue);
       },
     );
+
+    test('requests page two without reading the site supplement', () async {
+      final requested = <Uri>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requested.add(request.url);
+          expect(request.url.path, '/categories.json');
+          return http.Response(
+            jsonEncode({
+              'category_list': {
+                'can_create_topic': false,
+                'categories': [
+                  {'id': 21, 'name': 'Later root', 'color': '111111'},
+                  {
+                    'id': 22,
+                    'name': 'Later child',
+                    'color': '222222',
+                    'parent_category_id': 21,
+                  },
+                ],
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final result = await api.loadCategories(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        clientId: 'client',
+        page: 2,
+      );
+
+      expect(requested, hasLength(1));
+      expect(requested.single.queryParameters, {
+        'include_subcategories': 'true',
+        'include_topics': 'true',
+        'page': '2',
+      });
+      expect(result.categories.map((category) => category.id), [21, 22]);
+      expect(result.rootCategoryIds, [21]);
+      expect(result.canCreateTopic, isFalse);
+      expect(result.complete, isTrue);
+    });
 
     test('marks the Uncategorized id supplied by site.json', () async {
       final api = DiscourseApi(

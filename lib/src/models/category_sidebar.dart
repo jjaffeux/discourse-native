@@ -58,12 +58,12 @@ SidebarSection buildCategorySidebarSection({
     id: 'categories',
     title: 'Categories',
     destinations: List.unmodifiable([
-      for (final category in visible) _categoryDestination(category, byId),
+      for (final category in visible)
+        buildCategoryDestination(category, categoriesById: byId),
       const SidebarDestination(
         id: 'all-categories',
         label: 'All categories',
         icon: DIcons.list,
-        url: '/categories',
       ),
     ]),
   );
@@ -140,12 +140,16 @@ int _comparePosition(TopicCategory left, TopicCategory right) {
   return positioned != 0 ? positioned : left.id.compareTo(right.id);
 }
 
-SidebarDestination _categoryDestination(
-  TopicCategory category,
-  Map<int, TopicCategory> byId,
-) {
+/// The native list destination represented by one category record.
+///
+/// Public so the full categories screen can push the same route as the
+/// sidebar without making it a selected sidebar root.
+SidebarDestination buildCategoryDestination(
+  TopicCategory category, {
+  required Map<int, TopicCategory> categoriesById,
+}) {
   final categoryColor = Color(category.colorValue);
-  final parent = byId[category.parentCategoryId];
+  final parent = categoriesById[category.parentCategoryId];
   final styleType = category.styleType;
   final icon = styleType == 'icon'
       ? DIcons.byName[category.icon] ?? DIcons.folder
@@ -163,7 +167,7 @@ SidebarDestination _categoryDestination(
     iconColor: styleType == 'icon' ? categoryColor : null,
     routeColor: categoryColor,
     prefixBadgeIcon: category.readRestricted ? DIcons.lock : null,
-    feedPath: _categoryFeedPath(category, byId),
+    feedPath: _categoryFeedPath(category, categoriesById),
   );
 }
 

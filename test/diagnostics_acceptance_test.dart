@@ -610,6 +610,7 @@ final class _LoopbackTimeoutApi extends DiscourseApi {
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    int page = 1,
   }) async => const [];
 
   @override
@@ -617,5 +618,6 @@ final class _LoopbackTimeoutApi extends DiscourseApi {
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    int page = 1,
   }) async => CategoryLoadResult(const []);
 }
