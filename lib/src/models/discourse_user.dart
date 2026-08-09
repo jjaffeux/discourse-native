@@ -44,6 +44,7 @@ class DiscourseUser {
     this.chatHeaderIndicatorPreference = ChatHeaderIndicatorPreference.allNew,
     this.doNotDisturbUntil,
     this.lastChatChannelId,
+    this.timezone,
   });
 
   factory DiscourseUser.fromJson(Map<String, dynamic> json) => DiscourseUser(
@@ -76,6 +77,7 @@ class DiscourseUser {
     ),
     doNotDisturbUntil: jsonDate(json['doNotDisturbUntil']),
     lastChatChannelId: jsonIntOrNull(json['lastChatChannelId']),
+    timezone: json['timezone'] as String?,
   );
 
   final String username;
@@ -122,6 +124,13 @@ class DiscourseUser {
   /// desktop and by the native shortcut as its first destination.
   final int? lastChatChannelId;
 
+  /// The IANA timezone selected in this account's Discourse preferences.
+  ///
+  /// Rendering normally follows the device, like the web client. This is the
+  /// source-zone default for newly authored dates and the fallback when the
+  /// operating system cannot report an IANA identifier.
+  final String? timezone;
+
   bool get isInDoNotDisturb =>
       doNotDisturbUntil?.isAfter(DateTime.now()) ?? false;
 
@@ -141,6 +150,7 @@ class DiscourseUser {
     'chatHeaderIndicatorPreference': chatHeaderIndicatorPreference.wireName,
     'doNotDisturbUntil': doNotDisturbUntil?.toIso8601String(),
     'lastChatChannelId': lastChatChannelId,
+    'timezone': timezone,
   };
 
   /// Display name if the site has one, otherwise the username.
@@ -163,7 +173,8 @@ class DiscourseUser {
       other.hasChatEnabled == hasChatEnabled &&
       other.chatHeaderIndicatorPreference == chatHeaderIndicatorPreference &&
       other.doNotDisturbUntil == doNotDisturbUntil &&
-      other.lastChatChannelId == lastChatChannelId;
+      other.lastChatChannelId == lastChatChannelId &&
+      other.timezone == timezone;
 
   @override
   int get hashCode => Object.hash(
@@ -182,5 +193,6 @@ class DiscourseUser {
     chatHeaderIndicatorPreference,
     doNotDisturbUntil,
     lastChatChannelId,
+    timezone,
   );
 }

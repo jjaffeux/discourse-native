@@ -10,6 +10,7 @@ import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import 'assign/assign_plugin.dart';
 import 'chat/chat_plugin.dart';
+import 'local_dates/local_dates_plugin.dart';
 import 'poll/poll_plugin.dart';
 import 'reactions/reactions_plugin.dart';
 import 'resenha/resenha_plugin.dart';
@@ -320,6 +321,7 @@ class ComposerToolbarContribution {
 /// in this repo, not third-party bundles — there is nothing to discover.
 const List<SitePlugin> sitePlugins = <SitePlugin>[
   ReactionsPlugin(),
+  LocalDatesPlugin(),
   PollPlugin(),
   AssignPlugin(),
   ChatPlugin(),

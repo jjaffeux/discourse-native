@@ -298,6 +298,7 @@ class DiscourseApi
       chatHeaderIndicatorPreference: ChatHeaderIndicatorPreference.read(
         jsonObject(user['user_option'])['chat_header_indicator_preference'],
       ),
+      timezone: jsonText(jsonObject(user['user_option'])['timezone']),
       doNotDisturbUntil: jsonDate(user['do_not_disturb_until']),
       lastChatChannelId: jsonIntOrNull(
         jsonObject(user['custom_fields'])['last_chat_channel_id'],

@@ -2144,6 +2144,7 @@ class ShellController extends FrameSafeNotifier {
       resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
       pills: _composerPills(target),
       pollMaximumOptions: config.pollMaximumOptions,
+      localDateAccountTimezone: currentUserFor(target.siteUrl)?.timezone,
       imageUploader: (file, {required onProgress, required abortTrigger}) =>
           _uploadComposerImage(
             target,

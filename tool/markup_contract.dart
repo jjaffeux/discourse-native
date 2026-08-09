@@ -59,6 +59,25 @@ const List<Contract> contracts = [
     readers: 'lib/src/plugins/poll/ and lib/src/shell/cooked_html.dart',
     watched: pollWatched,
   ),
+  Contract(
+    name: 'local-dates',
+    snapshot: 'tool/local_dates_snapshot',
+    readers: 'lib/src/plugins/local_dates/ and lib/src/shell/cooked_html.dart',
+    watched: localDatesWatched,
+  ),
+];
+
+/// The BBCode generator, Markdown cooker, cooked behavior transformer, and
+/// formatter whose source/dataset contracts the native codec mirrors.
+const List<String> localDatesWatched = [
+  'plugins/discourse-local-dates/assets/javascripts/lib/'
+      'local-date-markup-generator.js',
+  'plugins/discourse-local-dates/assets/javascripts/lib/discourse-markdown/'
+      'discourse-local-dates.js',
+  'plugins/discourse-local-dates/assets/javascripts/initializers/'
+      'discourse-local-dates.js',
+  'plugins/discourse-local-dates/assets/javascripts/lib/'
+      'local-date-builder.js',
 ];
 
 /// The server-cooked poll skeleton and the web client code that claims it by

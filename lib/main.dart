@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'src/app.dart';
 import 'src/data/bounded_http_overrides.dart';
 import 'src/diagnostics/diagnostics.dart';
+import 'src/plugins/local_dates/local_date_environment.dart';
 
 void main() {
   final parentZone = Zone.current;
@@ -22,6 +23,7 @@ void main() {
     runZonedGuarded<Future<void>>(
           () async {
             WidgetsFlutterBinding.ensureInitialized();
+            await LocalDateEnvironment.instance.initialize();
             BoundedHttpOverrides.install();
             final controller = await DiagnosticsController.create();
             DiagnosticsSink.install(controller);
