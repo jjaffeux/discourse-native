@@ -127,6 +127,10 @@ void main() {
         ),
         'sam mentioned you in dev',
       );
+      expect(
+        line(describe(NotificationKind.chatQuoted, title: 'Forum topic')),
+        'sam quoted your chat message',
+      );
     });
   });
 
@@ -139,6 +143,10 @@ void main() {
       expect(describe(NotificationKind.quoted).icon, DIcons.quoteRight);
       expect(describe(NotificationKind.grantedBadge).icon, DIcons.certificate);
       expect(describe(NotificationKind.linked).icon, DIcons.link);
+    });
+
+    test('uses the chat bubble for a chat mention', () {
+      expect(describe(NotificationKind.chatMention).icon, DIcons.comment);
     });
 
     test('falls back to a bell rather than to nothing', () {

@@ -2898,6 +2898,27 @@ void main() {
       ),
     ];
 
+    const chatEnabledTotals = NotificationTotals(
+      chatNotifications: 1,
+      hasChatEnabled: true,
+    );
+    const emptyChatChannels = (
+      public: <ChatChannel>[],
+      direct: <ChatChannel>[],
+    );
+    final chatMention = DiscourseNotification.fromJson(const {
+      'id': 51,
+      'notification_type': 29,
+      'read': false,
+      'created_at': '2026-08-09T08:00:00.000Z',
+      'data': {
+        'chat_message_id': 44,
+        'chat_channel_id': 9,
+        'chat_channel_title': '#dev',
+        'mentioned_by_username': 'sam',
+      },
+    });
+
     Future<void> openMenu(WidgetTester tester) async {
       await tester.tap(userMenu);
       await tester.pumpAndSettle();
@@ -2914,6 +2935,12 @@ void main() {
     Future<void> openReplies(WidgetTester tester) async {
       await openMenu(tester);
       await tester.tap(find.text('Replies'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> openChat(WidgetTester tester) async {
+      await openMenu(tester);
+      await tester.tap(find.text('Chat'));
       await tester.pumpAndSettle();
     }
 
@@ -3069,6 +3096,205 @@ void main() {
       await openReplies(tester);
 
       expect(find.text('Nothing new.'), findsOneWidget);
+    });
+
+    testWidgets('the pointer Chat tab requests and renders its own feed', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final api = FakeDiscourseApi(
+          totals: chatEnabledTotals,
+          notificationList: const [],
+          chatNotificationList: [chatMention],
+          chatChannelsBySite: const {
+            'https://meta.discourse.org': emptyChatChannels,
+          },
+        );
+        await pumpShell(
+          tester,
+          desktop,
+          instances: connected,
+          api: api,
+          authenticator: signedIn(),
+          key: const ValueKey('pointer-chat-menu'),
+        );
+        await openMenu(tester);
+
+        final chatTab = find.descendant(
+          of: find.byType(UserMenuPanel),
+          matching: find.byTooltip('Chat'),
+        );
+        expect(chatTab, findsOneWidget);
+        await tester.tap(chatTab);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.textContaining('sam mentioned you in #dev'),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byType(NotificationRow),
+            matching: find.dIcon(DIcons.comment),
+          ),
+          findsOneWidget,
+        );
+        expect(api.chatNotificationCalls, 1);
+        expect(api.notificationCalls, 1);
+        expect(api.replyNotificationCalls, 0);
+        expect(api.notificationFilters, [
+          const <NotificationKind>[],
+          userMenuChatNotificationKinds,
+        ]);
+
+        final title = find.text('Chat');
+        final placeholder = Theme.of(tester.element(title)).shell.placeholder;
+        expect(tester.widget<Text>(title).style?.color, isNot(placeholder));
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
+    testWidgets('a Chat row marks read, opens its link, and dismisses', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        totals: chatEnabledTotals,
+        chatNotificationList: [chatMention],
+        chatChannelsBySite: const {
+          'https://meta.discourse.org': emptyChatChannels,
+        },
+      );
+      final launched = watchBrowser(tester);
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openChat(tester);
+      await tester.tap(find.textContaining('sam mentioned you in #dev'));
+      await tester.pumpAndSettle();
+
+      expect(api.markedRead, [51]);
+      expect(launched, ['https://meta.discourse.org/chat/c/-/9/44']);
+      expect(find.byType(ChatNotificationsSection), findsNothing);
+      expect(find.text('@joffreyj · meta.discourse.org'), findsNothing);
+      expect(api.notificationFilters, [userMenuChatNotificationKinds]);
+    });
+
+    testWidgets('an empty Chat tab explains that there is no activity', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        totals: chatEnabledTotals,
+        chatNotificationList: const [],
+        chatChannelsBySite: const {
+          'https://meta.discourse.org': emptyChatChannels,
+        },
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openChat(tester);
+
+      expect(
+        find.text('You don’t have any chat notifications yet.'),
+        findsOneWidget,
+      );
+      expect(api.chatNotificationCalls, 1);
+    });
+
+    testWidgets('Chat can retry a failed filtered request', (tester) async {
+      final api = FakeDiscourseApi(
+        totals: chatEnabledTotals,
+        chatChannelsBySite: const {
+          'https://meta.discourse.org': emptyChatChannels,
+        },
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openChat(tester);
+
+      expect(find.textContaining("Couldn't reach"), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+
+      expect(api.chatNotificationCalls, 2);
+      expect(api.notificationCalls, 0);
+      expect(api.notificationFilters, [
+        userMenuChatNotificationKinds,
+        userMenuChatNotificationKinds,
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('Chat is hidden when the site does not make it available', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(totals: const NotificationTotals());
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openMenu(tester);
+
+      expect(find.text('Chat'), findsNothing);
+      expect(api.chatNotificationCalls, 0);
+    });
+
+    testWidgets('Chat is hidden when the current user disabled it', (
+      tester,
+    ) async {
+      const userWithoutChat = DiscourseUser(
+        username: 'joffreyj',
+        name: 'Joffrey',
+        hasChatEnabled: false,
+      );
+      final api = FakeDiscourseApi(
+        user: userWithoutChat,
+        totals: chatEnabledTotals,
+        chatNotificationList: [chatMention],
+        chatChannelsBySite: const {
+          'https://meta.discourse.org': emptyChatChannels,
+        },
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: userWithoutChat),
+        ],
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openMenu(tester);
+
+      expect(find.text('Chat'), findsNothing);
+      expect(api.chatNotificationCalls, 0);
     });
 
     testWidgets('a pointer gets a popover with a tab per section', (

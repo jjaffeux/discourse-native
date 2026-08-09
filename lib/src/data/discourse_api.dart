@@ -363,7 +363,7 @@ class DiscourseApi
   /// is the same act. Read state is a separate thing and is not touched, so the
   /// rows stay unread until they are tapped.
   ///
-  /// [filterByTypes] produces the filtered view used by tabs such as Replies.
+  /// [filterByTypes] produces the filtered views used by Replies and Chat.
   /// Filtered requests include `silent=true`, just as Discourse's web client
   /// does, so opening one category does not move the account-wide seen marker.
   @override

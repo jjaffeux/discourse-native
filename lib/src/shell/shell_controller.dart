@@ -749,6 +749,21 @@ class ShellController extends FrameSafeNotifier {
     }
   }
 
+  /// The filtered chat notifications fetched for [siteUrl].
+  NotificationFeed chatNotificationsFor(String siteUrl) =>
+      accountActivity.chatNotificationsFor(siteUrl);
+
+  /// Fetches what the user menu's Chat tab lists.
+  ///
+  /// This is separate from both the general and Replies feeds so opening any
+  /// one tab cannot replace another tab's cache or consume its row budget.
+  Future<void> loadChatNotifications(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance != null) {
+      await accountActivity.loadChatNotifications(instance);
+    }
+  }
+
   /// Marks [notification] read, which is what opening it amounts to here.
   ///
   /// Where it then leads is [DiscourseNotification.path], handled the same way
