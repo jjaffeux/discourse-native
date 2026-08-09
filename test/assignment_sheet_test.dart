@@ -2,11 +2,16 @@ import 'dart:async';
 
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/shell_sheet.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/fakes.dart';
+
+const _site = 'https://meta.discourse.org';
 const _sam = AssignmentUser(id: 7, username: 'sam', name: 'Sam Example');
 const _support = AssignmentGroup(
   id: 4,
@@ -15,6 +20,31 @@ const _support = AssignmentGroup(
 );
 
 void main() {
+  testWidgets('uses a modal on desktop', (tester) async {
+    final controller = await _openAssignmentEditor(
+      tester,
+      platform: TargetPlatform.macOS,
+    );
+    addTearDown(controller.dispose);
+
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.text('Assign topic'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+  });
+
+  testWidgets('keeps the bottom sheet on touch platforms', (tester) async {
+    final controller = await _openAssignmentEditor(tester);
+    addTearDown(controller.dispose);
+
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.text('Assign topic'), findsOneWidget);
+  });
+
   testWidgets('saves one selected assignee with note and configured status', (
     tester,
   ) async {
@@ -425,6 +455,45 @@ void main() {
     expect(calls, 1);
     expect(find.text('This assignment cannot be removed.'), findsOneWidget);
   });
+}
+
+Future<ShellController> _openAssignmentEditor(
+  WidgetTester tester, {
+  TargetPlatform platform = TargetPlatform.android,
+}) async {
+  final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
+  final controller = ShellController(
+    instanceStore: FakeInstanceStore([instance('meta.discourse.org')]),
+    api: FakeDiscourseApi(),
+    authenticator: authenticator,
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+  );
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.dark.copyWith(platform: platform),
+      home: ShellScope(
+        controller: controller,
+        child: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () => unawaited(
+                showAssignmentEditor(
+                  context: context,
+                  siteUrl: _site,
+                  target: const AssignmentTarget.topic(7),
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('Open'));
+  await tester.pumpAndSettle();
+  return controller;
 }
 
 Widget _editor({
