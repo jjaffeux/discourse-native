@@ -34,7 +34,15 @@ class TopicCreateButton extends StatefulWidget {
 class _TopicCreateButtonState extends State<TopicCreateButton> {
   final MenuController _menu = MenuController();
 
-  void _openDraftsMenu(ShellController controller, DiscourseInstance instance) {
+  void _toggleDraftsMenu(
+    ShellController controller,
+    DiscourseInstance instance,
+  ) {
+    if (_menu.isOpen) {
+      _menu.close();
+      return;
+    }
+
     _menu.open();
     unawaited(controller.draftList.load(instance, refresh: true));
   }
@@ -75,7 +83,7 @@ class _TopicCreateButtonState extends State<TopicCreateButton> {
             onPressed: widget.onPressed,
             onDraftsPressed: instance == null
                 ? null
-                : () => _openDraftsMenu(controller, instance),
+                : () => _toggleDraftsMenu(controller, instance),
           ),
         );
       },

@@ -106,6 +106,26 @@ void main() {
     expect(shell.visibleComposer?.draftSequence, 4);
   });
 
+  testWidgets('the attached drafts chevron closes an open menu', (
+    tester,
+  ) async {
+    final fixture = await _pump(tester);
+    final button = find.byKey(TopicCreateButton.draftsButtonKey);
+    final row = find.byKey(const ValueKey('recent-draft-new_topic'));
+
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+
+    expect(row, findsOneWidget);
+    expect(fixture.api.userDraftRequests, hasLength(1));
+
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+
+    expect(row, findsNothing);
+    expect(fixture.api.userDraftRequests, hasLength(1));
+  });
+
   testWidgets('the recent menu matches core draft icons and four-row limit', (
     tester,
   ) async {
