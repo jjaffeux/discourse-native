@@ -303,7 +303,11 @@ void main() {
     await tester.pump();
 
     expect(find.text('tag:bug'), findsOneWidget);
-    await tester.tap(find.text('tag:bug'));
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('tag:bug')),
+    );
+    await tester.pump();
+    await gesture.up();
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(field).controller!.text, 'tag:bug');
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
