@@ -371,15 +371,32 @@ class DiscourseApi
   /// unseen bubble on the web when the menu is opened. That is deliberate: this
   /// is the same act. Read state is a separate thing and is not touched, so the
   /// rows stay unread until they are tapped.
+  ///
+  /// [filterByTypes] produces the filtered views used by Replies and Chat.
+  /// Filtered requests include `silent=true`, just as Discourse's web client
+  /// does, so opening one category does not move the account-wide seen marker.
   @override
   Future<List<DiscourseNotification>> notifications({
     required String siteUrl,
     required String apiKey,
     int limit = 30,
+    List<NotificationKind> filterByTypes = const [],
     String? clientId,
   }) async {
+    final url = Uri.parse('$siteUrl/notifications.json').replace(
+      queryParameters: {
+        'recent': 'true',
+        'limit': '$limit',
+        if (filterByTypes.isNotEmpty) ...{
+          'filter_by_types': filterByTypes
+              .map((kind) => kind.wireName)
+              .join(','),
+          'silent': 'true',
+        },
+      },
+    );
     final body = await _getObject(
-      Uri.parse('$siteUrl/notifications.json?recent=true&limit=$limit'),
+      url,
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,

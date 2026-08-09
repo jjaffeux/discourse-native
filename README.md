@@ -93,6 +93,35 @@ Per-topic unread state does *not* need a separate call — `/latest.json` is
 personalized when authenticated and each topic carries `unread_posts` and
 `last_read_post_number`.
 
+### Replies
+
+The Replies tab is a second, server-filtered view of `/notifications.json`:
+`recent=true`, a thirty-row limit, and the five types Discourse groups there —
+`mentioned`, `group_mentioned`, `posted`, `quoted` and `replied`. It also sends
+`silent=true`; opening one filtered category must not advance the account-wide
+notification-seen marker the way opening the full Notifications tab does.
+
+Replies and Notifications keep separate per-site feeds. Filtering the already
+loaded Notifications rows in the client would filter *after* its thirty-row
+budget and could hide older replies. A row present in both feeds is still one
+notification, though: opening it marks it read in both cached lists (and in a
+bookmark reminder, when it is there too) before the write returns.
+
+### Chat notifications
+
+When Chat is available to the connected account, its user-menu tab is another
+independent, server-filtered notification feed. It asks for `chat_invitation`,
+`chat_mention`, `chat_message`, `chat_quoted` and `chat_watched_thread`, again
+with `recent=true`, a thirty-row limit and `silent=true`. The distinct per-site
+cache keeps opening Chat from replacing Notifications or Replies, while marking
+a shared notification read is reconciled across every cached feed.
+
+The tab follows the same account-level gate as the rest of Chat: the totals
+payload must expose `chat_notifications`, and an explicit
+`has_chat_enabled: false` on the current user keeps it hidden. Notification
+links preserve their exact web destination, including a particular message or
+thread, until the native Chat view can target those locations itself.
+
 ### Bookmarks
 
 The bookmarks tab reads `/u/{username}/user-menu-bookmarks.json`, which is the

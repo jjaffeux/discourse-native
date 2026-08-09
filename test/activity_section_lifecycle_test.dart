@@ -137,20 +137,28 @@ void main() {
 
 enum _Activity {
   notifications,
+  replies,
+  chat,
   bookmarks;
 
   String get label => switch (this) {
     notifications => 'notifications',
+    replies => 'replies',
+    chat => 'chat notifications',
     bookmarks => 'bookmarks',
   };
 
   Widget section(String siteUrl) => switch (this) {
     notifications => NotificationSection(siteUrl: siteUrl, onOpened: _ignore),
+    replies => RepliesSection(siteUrl: siteUrl, onOpened: _ignore),
+    chat => ChatNotificationsSection(siteUrl: siteUrl, onOpened: _ignore),
     bookmarks => BookmarkSection(siteUrl: siteUrl, onOpened: _ignore),
   };
 
   List<String> requests(_RecordingActivityApi api) => switch (this) {
     notifications => api.notificationSites,
+    replies => api.replySites,
+    chat => api.chatSites,
     bookmarks => api.bookmarkSites,
   };
 }
@@ -159,11 +167,15 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
   _RecordingActivityApi()
     : super(
         notificationList: const [],
+        replyNotificationList: const [],
+        chatNotificationList: const [],
         bookmarkList: const [],
         user: const DiscourseUser(username: 'reader'),
       );
 
   final List<String> notificationSites = [];
+  final List<String> replySites = [];
+  final List<String> chatSites = [];
   final List<String> bookmarkSites = [];
 
   @override
@@ -171,13 +183,23 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
     required String siteUrl,
     required String apiKey,
     int limit = 30,
+    List<NotificationKind> filterByTypes = const [],
     String? clientId,
   }) {
-    notificationSites.add(siteUrl);
+    if (filterByTypes.isEmpty) {
+      notificationSites.add(siteUrl);
+    } else if (_sameKinds(filterByTypes, userMenuReplyNotificationKinds)) {
+      replySites.add(siteUrl);
+    } else if (_sameKinds(filterByTypes, userMenuChatNotificationKinds)) {
+      chatSites.add(siteUrl);
+    } else {
+      throw StateError('Unexpected notification filter: $filterByTypes');
+    }
     return super.notifications(
       siteUrl: siteUrl,
       apiKey: apiKey,
       limit: limit,
+      filterByTypes: filterByTypes,
       clientId: clientId,
     );
   }
@@ -198,6 +220,12 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
     );
   }
 }
+
+bool _sameKinds(List<NotificationKind> first, List<NotificationKind> second) =>
+    first.length == second.length &&
+    Iterable<int>.generate(
+      first.length,
+    ).every((index) => first[index] == second[index]);
 
 final class _GatedInstanceStore implements InstanceStore {
   _GatedInstanceStore(this.instances);

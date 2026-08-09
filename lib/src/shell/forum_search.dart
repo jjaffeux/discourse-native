@@ -504,12 +504,13 @@ class _SearchTopicsAction extends StatelessWidget {
       label: 'Search $query in topics and posts',
       child: InkWell(
         key: const ValueKey('forum-search-topics-action'),
+        hoverColor: theme.shell.hover,
         onFocusChange: (focused) {
           if (focused) onFocus();
         },
         onTap: onTap,
-        child: ColoredBox(
-          color: selected ? theme.shell.hover : Colors.transparent,
+        child: Ink(
+          color: selected ? theme.shell.selected : Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
@@ -640,12 +641,13 @@ class _CompactSearchResultRow extends StatelessWidget {
       label: [title, ?subtitle].join(', '),
       child: InkWell(
         key: ValueKey('search-${result.kind.name}-${result.id}'),
+        hoverColor: theme.shell.hover,
         onFocusChange: (focused) {
           if (focused) onFocus();
         },
         onTap: onTap,
-        child: ColoredBox(
-          color: selected ? theme.shell.hover : Colors.transparent,
+        child: Ink(
+          color: selected ? theme.shell.selected : Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -814,12 +816,13 @@ class _SearchHitRow extends StatelessWidget {
       label: '${hit.topicTitle}, post by ${hit.displayName}',
       child: InkWell(
         key: ValueKey('search-hit-${hit.postId}'),
+        hoverColor: theme.shell.hover,
         onFocusChange: (focused) {
           if (focused) onFocus();
         },
         onTap: onTap,
-        child: ColoredBox(
-          color: selected ? theme.shell.hover : Colors.transparent,
+        child: Ink(
+          color: selected ? theme.shell.selected : Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(

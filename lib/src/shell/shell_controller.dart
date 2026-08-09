@@ -750,6 +750,37 @@ class ShellController extends FrameSafeNotifier {
     if (instance != null) await accountActivity.loadNotifications(instance);
   }
 
+  /// The filtered reply notifications fetched for [siteUrl].
+  NotificationFeed replyNotificationsFor(String siteUrl) =>
+      accountActivity.replyNotificationsFor(siteUrl);
+
+  /// Fetches what the user menu's Replies tab lists.
+  ///
+  /// Kept apart from [loadNotifications] because both endpoints have their own
+  /// thirty-row budget, cache and request lifetime even though they return the
+  /// same kind of row.
+  Future<void> loadReplyNotifications(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance != null) {
+      await accountActivity.loadReplyNotifications(instance);
+    }
+  }
+
+  /// The filtered chat notifications fetched for [siteUrl].
+  NotificationFeed chatNotificationsFor(String siteUrl) =>
+      accountActivity.chatNotificationsFor(siteUrl);
+
+  /// Fetches what the user menu's Chat tab lists.
+  ///
+  /// This is separate from both the general and Replies feeds so opening any
+  /// one tab cannot replace another tab's cache or consume its row budget.
+  Future<void> loadChatNotifications(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance != null) {
+      await accountActivity.loadChatNotifications(instance);
+    }
+  }
+
   /// Marks [notification] read, which is what opening it amounts to here.
   ///
   /// Where it then leads is [DiscourseNotification.path], handled the same way
@@ -5146,7 +5177,13 @@ class ShellController extends FrameSafeNotifier {
 
     if (draft.key == ComposerDraft.newTopicDraftKey) {
       final destination = instance.defaultDestination;
-      selectDestination(destination);
+      // Selecting the destination already on screen means "refresh" to the
+      // shell. Do not start that second, unawaited request when a header-menu
+      // draft is resumed from the default list; openNewTopic needs the
+      // creatable feed that is already in hand.
+      if (_destinationId != destination.id || _contentStack.length != 1) {
+        selectDestination(destination);
+      }
       await loadFeed(destination.id);
       if (currentInstance?.url != siteUrl || destinationId != destination.id) {
         return;

@@ -21,6 +21,7 @@ import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 import 'title_bar.dart';
+import 'topic_create_button.dart';
 import 'topic_filter_page.dart';
 import 'topic_list_view.dart';
 import 'topic_title.dart';
@@ -269,10 +270,9 @@ class _ContentHeader extends StatelessWidget {
                   tooltip: 'Reply to this topic',
                 ),
               if (!route.isTopic && canCreateTopic)
-                IconButton(
+                TopicCreateButton(
+                  showLabel: MediaQuery.sizeOf(context).width >= 640,
                   onPressed: () => unawaited(controller.openNewTopic()),
-                  icon: const DIcon(DIcons.plus, size: 20),
-                  tooltip: 'New topic',
                 ),
               // Only where there is no title bar above to hold it: this is the
               // furthest right the shell goes once the strip is gone.

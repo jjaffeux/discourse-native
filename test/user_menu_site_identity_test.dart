@@ -31,6 +31,22 @@ const _teamNotification = DiscourseNotification(
   path: '/badges/22/team-helper',
 );
 
+const _metaReply = DiscourseNotification(
+  id: 13,
+  kind: NotificationKind.replied,
+  actor: 'alice',
+  title: 'Meta reply',
+  path: '/t/meta-reply/13',
+);
+
+const _teamReply = DiscourseNotification(
+  id: 24,
+  kind: NotificationKind.quoted,
+  actor: 'bob',
+  title: 'Team reply',
+  path: '/t/team-reply/24',
+);
+
 const _metaBookmark = Bookmark(
   id: 31,
   title: 'Meta chat message',
@@ -65,16 +81,27 @@ void main() {
       expect(api.notificationSites, [_metaUrl, _teamUrl]);
       expect(find.textContaining('Team Helper'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Bookmarks'));
+      await tester.tap(find.byTooltip('Replies'));
       await tester.pumpAndSettle();
-      expect(api.bookmarkSites, [_teamUrl]);
-      expect(find.textContaining('Team chat message'), findsOneWidget);
+      expect(api.replySites, [_teamUrl]);
+      expect(find.textContaining('Team reply'), findsOneWidget);
 
       shell.selectInstance(0);
       await tester.pumpAndSettle();
 
-      expect(api.bookmarkSites, [_teamUrl, _metaUrl]);
+      expect(api.replySites, [_teamUrl, _metaUrl]);
+      expect(find.textContaining('Meta reply'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Bookmarks'));
+      await tester.pumpAndSettle();
+      expect(api.bookmarkSites, [_metaUrl]);
       expect(find.textContaining('Meta chat message'), findsOneWidget);
+
+      shell.selectInstance(1);
+      await tester.pumpAndSettle();
+
+      expect(api.bookmarkSites, [_metaUrl, _teamUrl]);
+      expect(find.textContaining('Team chat message'), findsOneWidget);
     }),
   );
 
@@ -99,6 +126,23 @@ void main() {
 
       expect(launched, ['$_metaUrl/badges/11/meta-helper']);
       expect(api.readSites, [(siteUrl: _metaUrl, id: 11)]);
+    }),
+  );
+
+  testWidgets(
+    'a nested Replies section keeps its source site',
+    (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+      final api = fixture.api;
+
+      await _openNestedSection(tester, 'Replies');
+      final section = find.byType(RepliesSection);
+      final shell = ShellScope.read(tester.element(section));
+
+      shell.selectInstance(1);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Meta reply'), findsOneWidget);
+      expect(api.replySites, [_metaUrl]);
     }),
   );
 
@@ -220,6 +264,7 @@ List<String> _watchBrowser(WidgetTester tester) {
 
 final class _SiteMenuApi extends FakeDiscourseApi {
   final List<String> notificationSites = [];
+  final List<String> replySites = [];
   final List<String> bookmarkSites = [];
   final List<({String siteUrl, int id})> readSites = [];
 
@@ -228,8 +273,13 @@ final class _SiteMenuApi extends FakeDiscourseApi {
     required String siteUrl,
     required String apiKey,
     int limit = 30,
+    List<NotificationKind> filterByTypes = const [],
     String? clientId,
   }) async {
+    if (filterByTypes.isNotEmpty) {
+      replySites.add(siteUrl);
+      return [siteUrl == _metaUrl ? _metaReply : _teamReply];
+    }
     notificationSites.add(siteUrl);
     return [siteUrl == _metaUrl ? _metaNotification : _teamNotification];
   }
