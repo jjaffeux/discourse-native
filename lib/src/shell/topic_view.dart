@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../data/topic_recommendations_panel_store.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
 import '../plugins/site_plugin.dart';
@@ -24,10 +25,20 @@ import 'user_card.dart';
 
 /// A topic and its posts.
 class TopicView extends StatefulWidget {
-  const TopicView({super.key});
+  const TopicView({
+    super.key,
+    this.showRecommendationsPanel = false,
+    this.recommendationsPanelStore = const TopicRecommendationsPanelStore(),
+  });
 
   /// Start fetching the next batch about a screen before either end.
   static const double _loadPostsThreshold = 900;
+
+  /// Whether recommendations are docked beside the posts instead of below
+  /// them. Narrow layouts leave this false so the reading column stays usable.
+  final bool showRecommendationsPanel;
+
+  final TopicRecommendationsPanelStore recommendationsPanelStore;
 
   @override
   State<TopicView> createState() => _TopicViewState();
@@ -50,6 +61,9 @@ class _TopicViewState extends State<TopicView> {
   bool _restored = false;
   bool _restoring = false;
   bool _lookScheduled = false;
+  String? _recommendationsPanelSiteUrl;
+  bool _recommendationsPanelCollapsed = false;
+  int _recommendationsPanelRestoreGeneration = 0;
   Timer? _readTimer;
   ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _seen;
 
@@ -149,9 +163,45 @@ class _TopicViewState extends State<TopicView> {
 
   @override
   void dispose() {
+    _recommendationsPanelRestoreGeneration++;
     _creditReaderNow();
     _disposeControllers();
     super.dispose();
+  }
+
+  void _syncRecommendationsPanelSite(String siteUrl) {
+    if (_recommendationsPanelSiteUrl == siteUrl) return;
+    _recommendationsPanelSiteUrl = siteUrl;
+    _recommendationsPanelCollapsed = false;
+    unawaited(_restoreRecommendationsPanel(siteUrl));
+  }
+
+  Future<void> _restoreRecommendationsPanel(String siteUrl) async {
+    final generation = ++_recommendationsPanelRestoreGeneration;
+    final collapsed = await widget.recommendationsPanelStore.read(
+      siteUrl: siteUrl,
+    );
+    if (!mounted ||
+        generation != _recommendationsPanelRestoreGeneration ||
+        _recommendationsPanelSiteUrl != siteUrl) {
+      return;
+    }
+    if (collapsed != _recommendationsPanelCollapsed) {
+      setState(() => _recommendationsPanelCollapsed = collapsed);
+    }
+  }
+
+  void _setRecommendationsPanelCollapsed(bool collapsed) {
+    final siteUrl = _recommendationsPanelSiteUrl;
+    if (siteUrl == null || collapsed == _recommendationsPanelCollapsed) return;
+    _recommendationsPanelRestoreGeneration++;
+    setState(() => _recommendationsPanelCollapsed = collapsed);
+    unawaited(
+      widget.recommendationsPanelStore.write(
+        siteUrl: siteUrl,
+        collapsed: collapsed,
+      ),
+    );
   }
 
   /// Measures the viewport after layout. This also covers short topics that
@@ -478,19 +528,22 @@ class _TopicViewState extends State<TopicView> {
     final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
     final showRecommendations =
         !snapshot.hasMore && snapshot.recommendations?.isNotEmpty == true;
+    final showRecommendationsPanel =
+        widget.showRecommendationsPanel && showRecommendations;
 
     // Which posts are on screen, and in what order. The posts themselves are
     // in the store; each tile watches its own, so an edit or a deletion redraws
     // one tile rather than walking the whole stream.
     final postIds = snapshot.postIds;
     final siteUrl = snapshot.siteUrl!;
+    _syncRecommendationsPanelSite(siteUrl);
     final topicIdentity = (siteUrl, snapshot.topicId!);
     _syncControllers(controller, topicIdentity);
     _restoreInitialPost(controller, snapshot);
     _restoreViewportAfterPrepend(controller, snapshot, hasHeader: showHeader);
     _scheduleLook();
 
-    return NotificationListener<ScrollNotification>(
+    final postStream = NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification.depth == 0) {
           // SuperSliverList publishes its new visible range during layout,
@@ -552,7 +605,7 @@ class _TopicViewState extends State<TopicView> {
             postIds.length +
             (showHeader ? 1 : 0) +
             (showFooter ? 1 : 0) +
-            (showRecommendations ? 1 : 0),
+            (showRecommendations && !showRecommendationsPanel ? 1 : 0),
         separatorBuilder: (context, _) =>
             Divider(height: 1, color: theme.shell.divider),
         itemBuilder: (context, index) {
@@ -588,6 +641,18 @@ class _TopicViewState extends State<TopicView> {
           );
         },
       ),
+    );
+
+    if (!showRecommendationsPanel) return postStream;
+    return Row(
+      children: [
+        Expanded(child: postStream),
+        _TopicRecommendationsPanel(
+          collapsed: _recommendationsPanelCollapsed,
+          recommendations: snapshot.recommendations!,
+          onCollapsedChanged: _setRecommendationsPanelCollapsed,
+        ),
+      ],
     );
   }
 }
@@ -692,6 +757,78 @@ class _TopicViewSnapshot {
 }
 
 enum _MoreTopicsTab { suggested, related }
+
+class _TopicRecommendationsPanel extends StatelessWidget {
+  const _TopicRecommendationsPanel({
+    required this.collapsed,
+    required this.recommendations,
+    required this.onCollapsedChanged,
+  });
+
+  static const double _width = 320;
+  static const double _collapsedWidth = 48;
+
+  final bool collapsed;
+  final TopicRecommendations recommendations;
+  final ValueChanged<bool> onCollapsedChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const ValueKey('topic-recommendations-panel'),
+      width: collapsed ? _collapsedWidth : _width,
+      decoration: BoxDecoration(
+        color: theme.shell.panel,
+        border: Border(left: BorderSide(color: theme.shell.divider)),
+      ),
+      child: collapsed
+          ? Align(
+              alignment: Alignment.topCenter,
+              child: IconButton(
+                onPressed: () => onCollapsedChanged(false),
+                icon: const DIcon(DIcons.chevronLeft, size: 18),
+                tooltip: 'Show more topics',
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: 48,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'More topics',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => onCollapsedChanged(true),
+                        icon: const DIcon(DIcons.chevronRight, size: 18),
+                        tooltip: 'Collapse more topics',
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: theme.shell.divider),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: _MoreTopics(
+                      key: const ValueKey('topic-recommendations-panel-list'),
+                      recommendations: recommendations,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
 
 /// Core's more-topics footer. Suggested topics are always a core feature;
 /// related topics appear when discourse-ai's semantic recommendations are on.

@@ -3003,9 +3003,11 @@ void main() {
       expect(renderedText('Second post body'), findsOneWidget);
     });
 
-    testWidgets('shows suggested and discourse-ai related tabs at the end', (
+    testWidgets('shows suggested and discourse-ai related tabs in a panel', (
       tester,
     ) async {
+      SharedPreferences.setMockInitialValues({});
+      addTearDown(() => SharedPreferences.setMockInitialValues({}));
       const recommendations = TopicRecommendations(
         suggested: [
           Topic(id: 8, title: 'A suggested topic', slug: 'a-suggested-topic'),
@@ -3030,6 +3032,12 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
+      expect(
+        find.byKey(const ValueKey('topic-recommendations-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('More topics'), findsOneWidget);
+      expect(find.byTooltip('Collapse more topics'), findsOneWidget);
       expect(find.text('Suggested'), findsOneWidget);
       expect(find.text('Related'), findsOneWidget);
       expect(find.text('A suggested topic'), findsOneWidget);
@@ -3046,6 +3054,68 @@ void main() {
 
       expect(api.topicsOpened, [7, 9]);
       expect(renderedText('Related topic body'), findsOneWidget);
+    });
+
+    testWidgets('remembers a collapsed topics panel for the forum', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      addTearDown(() => SharedPreferences.setMockInitialValues({}));
+      const recommendations = TopicRecommendations(
+        suggested: [
+          Topic(id: 8, title: 'Remembered suggestion', slug: 'remembered'),
+        ],
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(recommendations: recommendations)},
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+      expect(find.text('Remembered suggestion'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Collapse more topics'));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Show more topics'), findsOneWidget);
+      expect(find.text('Remembered suggestion'), findsNothing);
+
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        key: const ValueKey('restored-topics-panel'),
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Show more topics'), findsOneWidget);
+      expect(find.text('Remembered suggestion'), findsNothing);
+    });
+
+    testWidgets('keeps recommendations below the posts on narrow layouts', (
+      tester,
+    ) async {
+      const recommendations = TopicRecommendations(
+        suggested: [
+          Topic(id: 8, title: 'Narrow suggestion', slug: 'narrow-suggestion'),
+        ],
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(recommendations: recommendations)},
+      );
+
+      await pumpShell(tester, laptop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('topic-recommendations-panel')),
+        findsNothing,
+      );
+      expect(find.text('Narrow suggestion'), findsOneWidget);
     });
 
     testWidgets('gets more topics with the final page of a long topic', (
