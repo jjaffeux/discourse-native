@@ -7099,6 +7099,26 @@ void main() {
         expect(urgent, findsNothing);
       });
 
+      testWidgets('restores waiting activity when Do Not Disturb expires', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          direct: [dm(12, unread: 3)],
+          user: DiscourseUser(
+            id: 7,
+            username: 'joffreyj',
+            doNotDisturbUntil: DateTime.now().add(const Duration(seconds: 1)),
+          ),
+        );
+        expect(urgent, findsNothing);
+
+        await tester.pump(const Duration(seconds: 2));
+
+        expect(urgent, findsOneWidget);
+        expect(find.text('3'), findsOneWidget);
+      });
+
       testWidgets('opens the server’s last chat channel', (tester) async {
         await pumpChat(
           tester,

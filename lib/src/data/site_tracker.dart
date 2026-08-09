@@ -310,7 +310,15 @@ class SiteTracker {
     int? lastId,
   }) {
     _ensureActive();
-    return _bus.subscribe(channel, onMessage, lastId: lastId);
+    final gate = _MessageBusCallbackGate();
+    final subscription = _bus.subscribe(channel, (data) {
+      // A transport can already have copied this callback into its delivery
+      // queue when the channel is cancelled or the site is forgotten. Keep
+      // the tracker as the lifecycle boundary instead of requiring every
+      // plugin to independently defend against a retained message.
+      if (!_disposed && gate.isOpen) onMessage(data);
+    }, lastId: lastId);
+    return _LifecycleBoundMessageBusSubscription(subscription, gate);
   }
 
   void _onTopicMessage(Object? data) {
@@ -497,4 +505,27 @@ final class _MessageBusSubscription implements SiteMessageBusSubscription {
 
   @override
   void cancel() => _subscription.cancel();
+}
+
+final class _MessageBusCallbackGate {
+  bool isOpen = true;
+
+  void close() => isOpen = false;
+}
+
+final class _LifecycleBoundMessageBusSubscription
+    implements SiteMessageBusSubscription {
+  _LifecycleBoundMessageBusSubscription(this._subscription, this._gate);
+
+  final SiteMessageBusSubscription _subscription;
+  final _MessageBusCallbackGate _gate;
+  bool _cancelled = false;
+
+  @override
+  void cancel() {
+    _gate.close();
+    if (_cancelled) return;
+    _subscription.cancel();
+    _cancelled = true;
+  }
 }

@@ -129,11 +129,7 @@ class _MainContentBody extends StatelessWidget {
 /// core for the same reason it is there: the first plugin with something to say
 /// wins, and core's answer is what is left when none of them do.
 Widget? _pluginContent(BuildContext context, ContentRoute route) {
-  for (final plugin in sitePlugins) {
-    final content = plugin.content(context, route);
-    if (content != null) return content;
-  }
-  return null;
+  return pluginRegistry.content(context, route);
 }
 
 class _ContentHeader extends StatelessWidget {

@@ -369,6 +369,119 @@ void main() {
       expect(controller.notificationsFor(_siteUrl).loaded, isFalse);
     },
   );
+
+  for (final activity
+      in <
+        ({
+          String name,
+          Future<void> Function(
+            AccountActivityController controller,
+            DiscourseInstance instance,
+          )
+          begin,
+        })
+      >[
+        (
+          name: 'totals request',
+          begin: (controller, instance) async {
+            await controller.refresh(instance);
+          },
+        ),
+        (
+          name: 'notification request',
+          begin: (controller, instance) =>
+              controller.loadNotifications(instance),
+        ),
+        (
+          name: 'bookmark request',
+          begin: (controller, instance) => controller.loadBookmarks(instance),
+        ),
+        (
+          name: 'mark-read request',
+          begin: (controller, instance) async {
+            controller.readNotification(instance, _notification);
+          },
+        ),
+      ]) {
+    test(
+      'forget during credential lookup prevents stale ${activity.name}',
+      () async {
+        final api = _CountingAccountApi();
+        final credentials = _GatedCredentialReader();
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+
+        final operation = activity.begin(controller, _connectedInstance());
+        await credentials.started.future;
+        controller.forget(_siteUrl);
+        credentials.result.complete('stale-key');
+        await operation;
+        await pumpEventQueue();
+
+        expect(api.calls, isEmpty);
+      },
+    );
+  }
+}
+
+final class _GatedCredentialReader extends FakeApiCredentialReader {
+  final Completer<void> started = Completer<void>();
+  final Completer<String?> result = Completer<String?>();
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    if (!started.isCompleted) started.complete();
+    return result.future;
+  }
+}
+
+final class _CountingAccountApi extends _AccountApi {
+  final List<String> calls = [];
+
+  @override
+  Future<NotificationTotals> notificationTotals({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    calls.add('totals');
+    return const NotificationTotals();
+  }
+
+  @override
+  Future<List<DiscourseNotification>> notifications({
+    required String siteUrl,
+    required String apiKey,
+    int limit = 30,
+    String? clientId,
+  }) async {
+    calls.add('notifications');
+    return const [];
+  }
+
+  @override
+  Future<BookmarkPayload> bookmarks({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    calls.add('bookmarks');
+    return (
+      reminders: const <DiscourseNotification>[],
+      bookmarks: const <Bookmark>[],
+    );
+  }
+
+  @override
+  Future<void> markNotificationRead({
+    required String siteUrl,
+    required String apiKey,
+    required int id,
+    String? clientId,
+  }) async {
+    calls.add('mark-read');
+  }
 }
 
 final class _GatedNotificationsApi extends _AccountApi {

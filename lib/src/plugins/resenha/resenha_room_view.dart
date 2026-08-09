@@ -13,6 +13,9 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'resenha_controller.dart';
 import 'resenha_models.dart';
+import 'resenha_room_editor.dart';
+
+export 'resenha_room_editor.dart' show showResenhaRoomEditor;
 
 class ResenhaRoomView extends StatelessWidget {
   const ResenhaRoomView({super.key, required this.roomId});
@@ -33,6 +36,11 @@ class ResenhaRoomView extends StatelessWidget {
         }
         final call = shell.resenha.call;
         final inRoom = call?.siteUrl == site.url && call?.room.id == room.id;
+        final recordingEnabled =
+            inRoom &&
+            call!.room.canManage &&
+            call.media.transport == ResenhaTransport.livekit &&
+            shell.siteConfigFor(site.url).resenha.recordingEnabled;
         return Focus(
           autofocus: true,
           onKeyEvent: (_, event) {
@@ -48,11 +56,14 @@ class ResenhaRoomView extends StatelessWidget {
             }
             return KeyEventResult.handled;
           },
-          child: _RoomBody(
+          child: ResenhaRoomContent(
+            controller: shell.resenha,
             room: inRoom ? call!.room : room,
             call: inRoom ? call : null,
             siteUrl: site.url,
             siteName: site.title,
+            currentUserId: site.user?.id,
+            recordingEnabled: recordingEnabled,
           ),
         );
       },
@@ -60,22 +71,39 @@ class ResenhaRoomView extends StatelessWidget {
   }
 }
 
-class _RoomBody extends StatelessWidget {
-  const _RoomBody({
+/// The room presentation, isolated from shell navigation and site selection.
+///
+/// Keeping those app-level concerns in [ResenhaRoomView] makes the important
+/// room states and controls independently renderable in widget tests while the
+/// production view continues to use the same [ResenhaController].
+class ResenhaRoomContent extends StatelessWidget {
+  const ResenhaRoomContent({
+    super.key,
+    required this.controller,
     required this.room,
     required this.call,
     required this.siteUrl,
     required this.siteName,
+    required this.currentUserId,
+    required this.recordingEnabled,
+    this.controllerResolver,
   });
 
-  final ResenhaRoom room;
+  final ResenhaController controller;
+  final ResenhaRoom? room;
   final ResenhaCallSnapshot? call;
   final String siteUrl;
   final String siteName;
+  final int? currentUserId;
+  final bool recordingEnabled;
+  final ResenhaController Function()? controllerResolver;
 
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.read(context).resenha;
+    final room = this.room;
+    if (room == null) {
+      return const Center(child: Text('This voice room is unavailable.'));
+    }
     final active = call;
     return Column(
       children: [
@@ -112,10 +140,8 @@ class _RoomBody extends StatelessWidget {
                 itemCount: participants.length,
                 itemBuilder: (context, index) {
                   final participant = participants[index];
-                  final currentUserId = ShellScope.read(
-                    context,
-                  ).currentInstance?.user?.id;
                   return _ParticipantTile(
+                    controller: controller,
                     participant: participant,
                     siteUrl: siteUrl,
                     videoTrack: active?.media.videoTrackFor(participant.id),
@@ -131,6 +157,7 @@ class _RoomBody extends StatelessWidget {
                         participant.id != room.creatorId,
                     canAdjustLocally:
                         active != null && participant.id != currentUserId,
+                    controllerResolver: controllerResolver,
                   );
                 },
               );
@@ -151,7 +178,14 @@ class _RoomBody extends StatelessWidget {
                     icon: const DIcon(DIcons.microphoneLines, size: 18),
                     label: const Text('Join room'),
                   )
-                : _CallControls(call: active, siteUrl: siteUrl),
+                : _CallControls(
+                    controller: controller,
+                    call: active,
+                    siteUrl: siteUrl,
+                    currentUserId: currentUserId,
+                    recordingEnabled: recordingEnabled,
+                    controllerResolver: controllerResolver,
+                  ),
           ),
         ),
       ],
@@ -185,6 +219,7 @@ class _EmptyRoom extends StatelessWidget {
 
 class _ParticipantTile extends StatelessWidget {
   const _ParticipantTile({
+    required this.controller,
     required this.participant,
     required this.siteUrl,
     required this.videoTrack,
@@ -192,8 +227,10 @@ class _ParticipantTile extends StatelessWidget {
     required this.canManage,
     required this.canKick,
     required this.canAdjustLocally,
+    this.controllerResolver,
   });
 
+  final ResenhaController controller;
   final ResenhaParticipant participant;
   final String siteUrl;
   final Object? videoTrack;
@@ -201,6 +238,7 @@ class _ParticipantTile extends StatelessWidget {
   final bool canManage;
   final bool canKick;
   final bool canAdjustLocally;
+  final ResenhaController Function()? controllerResolver;
 
   @override
   Widget build(BuildContext context) {
@@ -283,7 +321,6 @@ class _ParticipantTile extends StatelessWidget {
                   child: PopupMenuButton<String>(
                     tooltip: 'Participant actions',
                     onSelected: (action) async {
-                      final controller = ShellScope.read(context).resenha;
                       if (action == 'kick') {
                         await controller.kick(participant.id);
                       }
@@ -294,10 +331,19 @@ class _ParticipantTile extends StatelessWidget {
                         );
                       }
                       if (action == 'volume' && context.mounted) {
-                        await _showParticipantVolume(context, participant.id);
+                        await _showParticipantVolume(
+                          context,
+                          controller,
+                          participant.id,
+                        );
                       }
                       if (action == 'flag' && context.mounted) {
-                        await _showParticipantFlag(context, participant);
+                        await _showParticipantFlag(
+                          context,
+                          controller,
+                          participant,
+                          controllerResolver: controllerResolver,
+                        );
                       }
                     },
                     itemBuilder: (context) => [
@@ -309,7 +355,7 @@ class _ParticipantTile extends StatelessWidget {
                         value: 'flag',
                         child: Text('Notify moderators'),
                       ),
-                      if (participant.handRaisedAt != null)
+                      if (canManage && participant.handRaisedAt != null)
                         const PopupMenuItem(
                           value: 'dismiss',
                           child: Text('Dismiss raised hand'),
@@ -336,17 +382,25 @@ class _ParticipantTile extends StatelessWidget {
 }
 
 class _CallControls extends StatelessWidget {
-  const _CallControls({required this.call, required this.siteUrl});
+  const _CallControls({
+    required this.controller,
+    required this.call,
+    required this.siteUrl,
+    required this.currentUserId,
+    required this.recordingEnabled,
+    this.controllerResolver,
+  });
+  final ResenhaController controller;
   final ResenhaCallSnapshot call;
   final String siteUrl;
+  final int? currentUserId;
+  final bool recordingEnabled;
+  final ResenhaController Function()? controllerResolver;
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.read(context);
-    final controller = shell.resenha;
     final canPublishVideo = call.room.videoAllowed;
     final canShare = (Platform.isMacOS || Platform.isLinux) && canPublishVideo;
-    final currentUserId = shell.currentInstance?.user?.id;
     final me = call.room.participants
         .where((participant) => participant.id == currentUserId)
         .firstOrNull;
@@ -396,15 +450,16 @@ class _CallControls extends StatelessWidget {
             label: 'Room chat',
             icon: DIcons.comment,
             selected: false,
-            onPressed: () => showResenhaChat(
+            onPressed: () => _showResenhaChat(
               context,
+              controller,
               siteUrl: siteUrl,
               roomId: call.room.id,
             ),
           ),
         if (call.room.canManage &&
             call.media.transport == ResenhaTransport.livekit &&
-            shell.siteConfigFor(siteUrl).resenha.recordingEnabled)
+            recordingEnabled)
           _Control(
             label: call.room.recording?.active == true
                 ? 'Stop recording'
@@ -413,14 +468,16 @@ class _CallControls extends StatelessWidget {
             selected: call.room.recording?.active == true,
             onPressed: () => _confirmRecording(
               context,
+              controller,
               active: call.room.recording?.active == true,
+              controllerResolver: controllerResolver,
             ),
           ),
         _Control(
           label: 'Media settings',
           icon: DIcons.gear,
           selected: false,
-          onPressed: () => _showMediaSettings(context),
+          onPressed: () => _showMediaSettings(context, controller),
         ),
         if (call.room.canManage)
           _Control(
@@ -431,6 +488,11 @@ class _CallControls extends StatelessWidget {
               context,
               siteUrl: siteUrl,
               room: call.room,
+              // A dialog can outlive the ShellController that opened it when
+              // the root app is replaced. Resolve at save time; the explicit
+              // controller remains the fallback for standalone widget hosts.
+              controllerResolver: () =>
+                  _resolveController(context, controller, controllerResolver),
             ),
           ),
         if (call.room.canManage)
@@ -438,8 +500,12 @@ class _CallControls extends StatelessWidget {
             label: 'Manage members',
             icon: DIcons.users,
             selected: false,
-            onPressed: () =>
-                showResenhaMembers(context, siteUrl: siteUrl, room: call.room),
+            onPressed: () => _showResenhaMembers(
+              context,
+              controller,
+              siteUrl: siteUrl,
+              room: call.room,
+            ),
           ),
         FilledButton.icon(
           style: FilledButton.styleFrom(
@@ -544,9 +610,9 @@ class _RtcTrackRendererState extends State<_RtcTrackRenderer> {
 
 Future<void> _showParticipantVolume(
   BuildContext context,
+  ResenhaController controller,
   int participantId,
 ) async {
-  final controller = ShellScope.read(context).resenha;
   final call = controller.call;
   if (call == null) return;
   var volume = await controller.participantVolume(
@@ -587,8 +653,10 @@ Future<void> _showParticipantVolume(
   );
 }
 
-Future<void> _showMediaSettings(BuildContext context) async {
-  final controller = ShellScope.read(context).resenha;
+Future<void> _showMediaSettings(
+  BuildContext context,
+  ResenhaController controller,
+) async {
   final devices = await controller.mediaDevices();
   if (!context.mounted) return;
   final inputs = devices
@@ -750,40 +818,21 @@ class _DevicePicker extends StatelessWidget {
 
 Future<void> _showParticipantFlag(
   BuildContext context,
-  ResenhaParticipant participant,
-) async {
-  final message = TextEditingController();
-  final submit = await showDialog<bool>(
+  ResenhaController controller,
+  ResenhaParticipant participant, {
+  ResenhaController Function()? controllerResolver,
+}) async {
+  final message = await showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text('Notify moderators about @${participant.username}'),
-      content: TextField(
-        controller: message,
-        autofocus: true,
-        minLines: 3,
-        maxLines: 6,
-        decoration: const InputDecoration(
-          labelText: 'What should moderators know?',
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text('Notify'),
-        ),
-      ],
-    ),
+    builder: (context) =>
+        _ParticipantFlagDialog(username: participant.username),
   );
-  final text = message.text;
-  message.dispose();
-  if (submit != true || text.trim().isEmpty || !context.mounted) return;
-  final sent = await ShellScope.read(
+  if (message == null || message.trim().isEmpty || !context.mounted) return;
+  final sent = await _resolveController(
     context,
-  ).resenha.flagParticipant(participant.id, text);
+    controller,
+    controllerResolver,
+  ).flagParticipant(participant.id, message);
   if (!sent && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Moderator notification is unavailable.')),
@@ -791,9 +840,54 @@ Future<void> _showParticipantFlag(
   }
 }
 
+class _ParticipantFlagDialog extends StatefulWidget {
+  const _ParticipantFlagDialog({required this.username});
+
+  final String username;
+
+  @override
+  State<_ParticipantFlagDialog> createState() => _ParticipantFlagDialogState();
+}
+
+class _ParticipantFlagDialogState extends State<_ParticipantFlagDialog> {
+  final TextEditingController _message = TextEditingController();
+
+  @override
+  void dispose() {
+    _message.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text('Notify moderators about @${widget.username}'),
+    content: TextField(
+      controller: _message,
+      autofocus: true,
+      minLines: 3,
+      maxLines: 6,
+      decoration: const InputDecoration(
+        labelText: 'What should moderators know?',
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.pop(context, _message.text),
+        child: const Text('Notify'),
+      ),
+    ],
+  );
+}
+
 Future<void> _confirmRecording(
-  BuildContext context, {
+  BuildContext context,
+  ResenhaController controller, {
   required bool active,
+  ResenhaController Function()? controllerResolver,
 }) async {
   final confirmed = await showDialog<bool>(
     context: context,
@@ -817,16 +911,37 @@ Future<void> _confirmRecording(
     ),
   );
   if (confirmed == true && context.mounted) {
-    await ShellScope.read(context).resenha.setRecording(!active);
+    await _resolveController(
+      context,
+      controller,
+      controllerResolver,
+    ).setRecording(!active);
   }
 }
+
+ResenhaController _resolveController(
+  BuildContext context,
+  ResenhaController fallback,
+  ResenhaController Function()? resolver,
+) => resolver?.call() ?? ShellScope.maybeRead(context)?.resenha ?? fallback;
 
 Future<void> showResenhaChat(
   BuildContext context, {
   required String siteUrl,
   required int roomId,
+}) => _showResenhaChat(
+  context,
+  ShellScope.read(context).resenha,
+  siteUrl: siteUrl,
+  roomId: roomId,
+);
+
+Future<void> _showResenhaChat(
+  BuildContext context,
+  ResenhaController controller, {
+  required String siteUrl,
+  required int roomId,
 }) async {
-  final controller = ShellScope.read(context).resenha;
   unawaited(controller.openChat(siteUrl, roomId));
   final composer = TextEditingController();
   await showModalBottomSheet<void>(
@@ -930,8 +1045,19 @@ Future<void> showResenhaMembers(
   BuildContext context, {
   required String siteUrl,
   required ResenhaRoom room,
+}) => _showResenhaMembers(
+  context,
+  ShellScope.read(context).resenha,
+  siteUrl: siteUrl,
+  room: room,
+);
+
+Future<void> _showResenhaMembers(
+  BuildContext context,
+  ResenhaController controller, {
+  required String siteUrl,
+  required ResenhaRoom room,
 }) async {
-  final controller = ShellScope.read(context).resenha;
   var memberships = await controller.memberships(siteUrl, room.id);
   if (!context.mounted) return;
   final username = TextEditingController();
@@ -1061,158 +1187,4 @@ Future<void> showResenhaMembers(
     ),
   );
   username.dispose();
-}
-
-Future<void> showResenhaRoomEditor(
-  BuildContext context, {
-  required String siteUrl,
-  ResenhaRoom? room,
-}) async {
-  final name = TextEditingController(text: room?.name);
-  final description = TextEditingController(text: room?.description);
-  final maximum = TextEditingController(
-    text: room?.maxParticipants?.toString(),
-  );
-  final chatChannel = TextEditingController(
-    text: room?.chatChannelId?.toString(),
-  );
-  final chatIdle = TextEditingController(
-    text: room?.chatIdleMinutes?.toString(),
-  );
-  final chatTitle = TextEditingController(text: room?.chatThreadTitleTemplate);
-  var isPublic = room?.isPublic ?? true;
-  var stage = room?.type == ResenhaRoomType.stage;
-  var video = room?.videoEnabled ?? true;
-  var livekit = room?.livekitEnabled ?? false;
-  var quality = room?.maxQualityProfile ?? ResenhaQualityProfile.maximum;
-  final result = await showDialog<ResenhaRoomDraft>(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: Text(room == null ? 'Create voice room' : 'Edit voice room'),
-        content: SizedBox(
-          width: 420,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: name,
-                  autofocus: true,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                ),
-                TextField(
-                  controller: description,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                  minLines: 2,
-                  maxLines: 5,
-                ),
-                SwitchListTile(
-                  value: isPublic,
-                  onChanged: (value) => setState(() => isPublic = value),
-                  title: const Text('Public room'),
-                ),
-                SwitchListTile(
-                  value: stage,
-                  onChanged: (value) => setState(() => stage = value),
-                  title: const Text('Stage room'),
-                ),
-                SwitchListTile(
-                  value: video,
-                  onChanged: (value) => setState(() => video = value),
-                  title: const Text('Allow video'),
-                ),
-                TextField(
-                  controller: maximum,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Maximum participants',
-                  ),
-                ),
-                DropdownButtonFormField<ResenhaQualityProfile>(
-                  initialValue: quality,
-                  decoration: const InputDecoration(
-                    labelText: 'Maximum media quality',
-                  ),
-                  onChanged: (value) =>
-                      setState(() => quality = value ?? quality),
-                  items: [
-                    for (final value in ResenhaQualityProfile.values)
-                      DropdownMenuItem(value: value, child: Text(value.name)),
-                  ],
-                ),
-                TextField(
-                  controller: chatChannel,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Chat channel ID (optional)',
-                  ),
-                ),
-                TextField(
-                  controller: chatIdle,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Chat idle minutes',
-                  ),
-                ),
-                TextField(
-                  controller: chatTitle,
-                  decoration: const InputDecoration(
-                    labelText: 'Chat thread title template',
-                  ),
-                ),
-                if (room?.livekitEnabled != null)
-                  SwitchListTile(
-                    value: livekit,
-                    onChanged: (value) => setState(() => livekit = value),
-                    title: const Text('Use LiveKit'),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: name.text.trim().isEmpty
-                ? null
-                : () => Navigator.pop(
-                    context,
-                    ResenhaRoomDraft(
-                      name: name.text.trim(),
-                      description: description.text.trim(),
-                      isPublic: isPublic,
-                      type: stage
-                          ? ResenhaRoomType.stage
-                          : ResenhaRoomType.open,
-                      videoEnabled: video,
-                      maxParticipants: int.tryParse(maximum.text),
-                      chatChannelId: int.tryParse(chatChannel.text),
-                      chatIdleMinutes: int.tryParse(chatIdle.text),
-                      chatThreadTitleTemplate: chatTitle.text.trim(),
-                      livekitEnabled: room?.livekitEnabled == null
-                          ? null
-                          : livekit,
-                      maxQualityProfile: quality,
-                    ),
-                  ),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    ),
-  );
-  name.dispose();
-  description.dispose();
-  maximum.dispose();
-  chatChannel.dispose();
-  chatIdle.dispose();
-  chatTitle.dispose();
-  if (result == null || !context.mounted) return;
-  await ShellScope.read(
-    context,
-  ).resenha.saveRoom(siteUrl: siteUrl, draft: result, roomId: room?.id);
 }

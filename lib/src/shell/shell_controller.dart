@@ -59,6 +59,8 @@ import 'draft_list_controller.dart';
 import 'shell_search_controller.dart';
 import 'site_presentation_controller.dart';
 import 'site_url.dart';
+import 'topic_feed_controller.dart';
+import 'topic_read_controller.dart';
 import 'update_controller.dart';
 
 /// Which pane occupies the space next to the rail when the shell is compact.
@@ -70,13 +72,7 @@ enum MobilePane { sidebar, content }
 enum InstanceLoadStatus { loading, ready, failed }
 
 typedef _WriteCredential = ({String? apiKey, WriteException? failure});
-
-typedef _TopicReadReceipt = ({
-  String siteUrl,
-  int topicId,
-  int postNumber,
-  SiteLease lease,
-});
+typedef _SessionValue<T> = ({T value});
 
 /// What a native poll write learned.
 ///
@@ -177,6 +173,24 @@ class ShellController extends FrameSafeNotifier {
     }
   }
 
+  /// Reads one asynchronous session input without letting its stale answer
+  /// reach a later network dispatch.
+  ///
+  /// A credential store can suspend on a platform channel. In that gap the
+  /// account may be forgotten and a new lifecycle generation may start for
+  /// the same URL, so checking only when the eventual response is committed is
+  /// too late: the obsolete credential has already been sent. The record
+  /// wrapper distinguishes a current nullable value (a signed-out API key)
+  /// from an invalidated read.
+  Future<_SessionValue<T>?> _readSessionValue<T>(
+    SiteLease lease,
+    Future<T> Function() read,
+  ) async {
+    final value = await read();
+    if (isDisposed || !lease.isCurrent) return null;
+    return (value: value);
+  }
+
   /// Opens a site's live connection. See [SiteTrackerFactory].
   final SiteTrackerFactory trackers;
 
@@ -205,6 +219,39 @@ class ShellController extends FrameSafeNotifier {
     api: api,
     credentials: authenticator,
     lifecycle: lifecycle,
+  );
+
+  /// Topic-list snapshots and their competing refresh/page requests.
+  late final TopicFeedController topicFeeds = _createTopicFeedController();
+
+  TopicFeedController _createTopicFeedController() {
+    final controller = TopicFeedController(
+      api: api,
+      credentials: authenticator,
+      lifecycle: lifecycle,
+      store: store,
+      onFeedLoaded: (instance, apiKey) {
+        unawaited(_ensureCategories(instance, apiKey));
+      },
+    );
+    controller.addListener(_notify);
+    return controller;
+  }
+
+  /// Optimistic topic read positions and their serialized server receipts.
+  late final TopicReadController _topicReads = TopicReadController(
+    api: api,
+    credentials: authenticator,
+    lifecycle: lifecycle,
+    store: store,
+    reportError: (error, stackTrace, operation) {
+      _reportOperationalError(
+        error,
+        stackTrace,
+        operation,
+        severity: DiagnosticSeverity.warning,
+      );
+    },
   );
 
   /// The one global, transient search interaction. Its notifier is consumed by
@@ -601,12 +648,17 @@ class ShellController extends FrameSafeNotifier {
   }
 
   Future<void> _refreshSessionUserFor(DiscourseInstance instance) async {
+    final lease = lifecycle.capture(instance.url);
     try {
-      final apiKey = await authenticator.apiKeyFor(instance.url);
-      if (apiKey != null) {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(instance.url),
+      );
+      if (credential == null || !lease.isCurrent) return;
+      if (credential.value case final apiKey?) {
         await Future.wait([
-          _sessionUser(instance.url, apiKey),
-          _refreshCustomSidebarSections(instance.url, apiKey),
+          _sessionUser(instance.url, apiKey, lease: lease),
+          _refreshCustomSidebarSections(instance.url, apiKey, lease: lease),
         ]);
       }
     } catch (_) {
@@ -622,21 +674,24 @@ class ShellController extends FrameSafeNotifier {
 
   Future<void> _refreshCustomSidebarSections(
     String siteUrl,
-    String apiKey,
-  ) async {
-    final lease = lifecycle.capture(siteUrl);
+    String apiKey, {
+    SiteLease? lease,
+  }) async {
+    final session = lease ?? lifecycle.capture(siteUrl);
     try {
+      final identity = await _readSessionValue(session, authenticator.clientId);
+      if (identity == null || !session.isCurrent) return;
       final sections = await api.customSidebarSections(
         siteUrl: siteUrl,
         apiKey: apiKey,
-        clientId: await authenticator.clientId(),
+        clientId: identity.value,
       );
-      lease.commit(() {
+      session.commit(() {
         _customSidebarSections[siteUrl] = sections;
         _notify();
       });
     } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
+      if (isDisposed || !session.isCurrent) return;
       _reportOperationalError(
         error,
         stackTrace,
@@ -708,25 +763,11 @@ class ShellController extends FrameSafeNotifier {
     if (instance != null) await accountActivity.loadBookmarks(instance);
   }
 
-  final Map<String, TopicFeed> _feeds = {};
-  final Map<String, String> _filterQueries = {};
-
-  /// Identity of the newest whole-list request for each feed.
-  ///
-  /// A site lease separates account sessions, but two refreshes in the same
-  /// session share that lease. This token gives those requests an ordering:
-  /// only the newest one may replace the feed or write its topics to the
-  /// identity store.
-  final Map<String, Object> _feedRevisions = {};
-
   /// Sites whose category list has been fetched. The categories themselves are
   /// in the store; this only remembers not to ask again.
   final Set<String> _categorised = {};
   final Map<String, List<TopicCategory>> _categoriesBySite = {};
   final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
-
-  static String _feedKey(String siteUrl, String destinationId) =>
-      '$siteUrl|$destinationId';
 
   /// The list currently filling the main region, if the destination has one.
   /// Which feed the main region is showing.
@@ -746,7 +787,7 @@ class ShellController extends FrameSafeNotifier {
     final instance = currentInstance;
     final feedId = currentFeedId;
     if (instance == null || feedId == null) return null;
-    return _feeds[_feedKey(instance.url, feedId)];
+    return topicFeeds.feedFor(instance.url, feedId);
   }
 
   bool get canCreateTopicHere =>
@@ -794,8 +835,8 @@ class ShellController extends FrameSafeNotifier {
       'latest' => '/latest.json',
       'filter' => Uri(
         path: '/filter.json',
-        queryParameters: switch (_filterQueries[instance.url]) {
-          final query? when query.isNotEmpty => {'q': query},
+        queryParameters: switch (topicFeeds.filterQueryFor(instance.url)) {
+          final query when query.isNotEmpty => {'q': query},
           _ => null,
         },
       ).toString(),
@@ -812,101 +853,23 @@ class ShellController extends FrameSafeNotifier {
 
     final path = _feedPath(destinationId, instance);
     if (path == null) return;
-
-    final key = _feedKey(instance.url, destinationId);
-    final existing = _feeds[key];
-    if (existing != null && !force && (existing.loading || existing.loaded)) {
-      return;
-    }
-    final lease = lifecycle.capture(instance.url);
-    final revision = Object();
-    _feedRevisions[key] = revision;
-
-    // A whole-list response supersedes every page based on the old snapshot.
-    // Removing its ownership token also lets the refreshed list page without
-    // waiting for an obsolete request to finish.
-    _feedPageRequests.remove(key);
-
-    // The list is about to be replaced wholesale, so the old position means
-    // nothing — a refresh should leave the user at the top.
-    _feedRows.remove(key);
-    // And whatever was announced as incoming is about to arrive in the response
-    // rather than needing a banner to fetch it. Cleared before the request, not
-    // after, so a topic created while it is in flight still counts — and put
-    // back if the request fails, since the announcement is still owed then.
-    final tracker = _trackers[instance.url];
-    final announced = tracker?.incoming.topicIds(destinationId) ?? const [];
-    tracker?.incoming.reset(destinationId);
-    _feeds[key] = TopicFeed(
-      loading: true,
-      filterOptions: existing?.filterOptions ?? const [],
+    await topicFeeds.load(
+      instance: instance,
+      destinationId: destinationId,
+      path: path,
+      incoming: _trackers[instance.url]?.incoming,
+      force: force,
     );
-    _notify();
-
-    try {
-      final apiKey = await authenticator.apiKeyFor(instance.url);
-      final list = await api.topicList(
-        siteUrl: instance.url,
-        path: path,
-        apiKey: apiKey,
-      );
-      lease.commit(() {
-        if (!identical(_feedRevisions[key], revision)) return;
-        store.putAll(instance.url, list.topics);
-        _feeds[key] = TopicFeed.of(list);
-        _notify();
-        unawaited(_ensureCategories(instance, apiKey));
-      });
-    } on SiteLookupException catch (e, stackTrace) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(_feedRevisions[key], revision)) {
-        return;
-      }
-      _reportOperationalError(e, stackTrace, 'topics.loadFeed');
-      lease.commit(() {
-        if (!identical(_feedRevisions[key], revision)) return;
-        tracker?.incoming.restore(destinationId, announced);
-        _feeds[key] = TopicFeed(
-          error: e.failure == SiteLookupFailure.notDiscourse
-              ? 'Not allowed — try reconnecting to ${instance.host}.'
-              : "Couldn't reach ${instance.host}.",
-          loaded: true,
-          filterOptions: existing?.filterOptions ?? const [],
-        );
-        _notify();
-      });
-    } catch (error, stackTrace) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(_feedRevisions[key], revision)) {
-        return;
-      }
-      _reportOperationalError(error, stackTrace, 'topics.loadFeed');
-      lease.commit(() {
-        if (!identical(_feedRevisions[key], revision)) return;
-        tracker?.incoming.restore(destinationId, announced);
-        _feeds[key] = TopicFeed(
-          error: "Couldn't load ${instance.host}.",
-          loaded: true,
-          filterOptions: existing?.filterOptions ?? const [],
-        );
-        _notify();
-      });
-    }
   }
 
-  final Map<String, int> _feedRows = {};
-
-  String filterQueryFor(String siteUrl) => _filterQueries[siteUrl] ?? '';
+  String filterQueryFor(String siteUrl) => topicFeeds.filterQueryFor(siteUrl);
 
   /// Submits the text on the Filter destination. Editing the field alone does
   /// not call this; core only refreshes its list on Enter or clear.
   Future<void> submitTopicFilter(String query) async {
     final instance = currentInstance;
     if (instance == null || _destinationId != 'filter') return;
-    _filterQueries[instance.url] = query;
-    _feedRows.remove(_feedKey(instance.url, 'filter'));
+    topicFeeds.setFilterQuery(instance.url, query);
     await loadFeed('filter', force: true);
   }
 
@@ -981,10 +944,14 @@ class ShellController extends FrameSafeNotifier {
   ) async {
     final lease = lifecycle.capture(siteUrl);
     try {
-      final found = await lookup(
-        await authenticator.apiKeyFor(siteUrl),
-        await authenticator.clientId(),
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
       );
+      if (credential == null) return const [];
+      final identity = await _readSessionValue(lease, authenticator.clientId);
+      if (identity == null || !lease.isCurrent) return const [];
+      final found = await lookup(credential.value, identity.value);
       return !isDisposed && lease.isCurrent ? found : const [];
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent) {
@@ -1014,7 +981,7 @@ class ShellController extends FrameSafeNotifier {
   int feedScrollRow(String destinationId) {
     final instance = currentInstance;
     if (instance == null) return 0;
-    return _feedRows[_feedKey(instance.url, destinationId)] ?? 0;
+    return topicFeeds.scrollRowFor(instance.url, destinationId);
   }
 
   /// Records the list position. Deliberately silent: nothing on screen depends
@@ -1022,7 +989,7 @@ class ShellController extends FrameSafeNotifier {
   void saveFeedScrollRow(String destinationId, int row) {
     final instance = currentInstance;
     if (instance == null) return;
-    _feedRows[_feedKey(instance.url, destinationId)] = row;
+    topicFeeds.saveScrollRow(instance.url, destinationId, row);
   }
 
   final Map<String, SiteTracker> _trackers = {};
@@ -1058,62 +1025,15 @@ class ShellController extends FrameSafeNotifier {
     final instance = currentInstance;
     if (instance == null) return;
 
-    final key = _feedKey(instance.url, destinationId);
-    final feed = _feeds[key];
     final tracker = _trackers[instance.url];
     final path = _feedPath(destinationId, instance);
-    if (feed == null || tracker == null || path == null) return;
-    if (feed.loadingIncoming) return;
-
-    final ids = tracker.incoming.topicIds(destinationId);
-    if (ids.isEmpty) return;
-    final lease = lifecycle.capture(instance.url);
-    final feedRevision = _feedRevisions[key];
-
-    bool requestIsCurrent() => identical(_feedRevisions[key], feedRevision);
-
-    _feeds[key] = feed.copyWith(loadingIncoming: true);
-    _notify();
-
-    try {
-      final apiKey = await authenticator.apiKeyFor(instance.url);
-      final list = await api.topicList(
-        siteUrl: instance.url,
-        path: '$path?topic_ids=${ids.join(',')}',
-        apiKey: apiKey,
-      );
-
-      lease.commit(() {
-        if (!requestIsCurrent()) return;
-        store.putAll(instance.url, list.topics);
-        final held = _feeds[key] ?? feed;
-        final arrived = [for (final topic in list.topics) topic.id];
-        final prepended = arrived.toSet();
-        _feeds[key] = held.copyWith(
-          topicIds: [
-            ...arrived,
-            ...held.topicIds.where((id) => !prepended.contains(id)),
-          ],
-          loadingIncoming: false,
-        );
-        tracker.incoming.clear(destinationId, ids);
-        _feedRows[key] = 0;
-        _notify();
-      });
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent || !requestIsCurrent()) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'topics.loadIncoming',
-        severity: DiagnosticSeverity.warning,
-      );
-      lease.commit(() {
-        if (!requestIsCurrent()) return;
-        _feeds[key] = (_feeds[key] ?? feed).copyWith(loadingIncoming: false);
-        _notify();
-      });
-    }
+    if (tracker == null || path == null) return;
+    await topicFeeds.showIncoming(
+      instance: instance,
+      destinationId: destinationId,
+      path: path,
+      incoming: tracker.incoming,
+    );
   }
 
   /// Points the one live connection at the site on screen.
@@ -1171,18 +1091,14 @@ class ShellController extends FrameSafeNotifier {
       return;
     }
 
-    final channels = [
-      for (final plugin in sitePlugins) ...plugin.topicChannels(topicId),
-    ];
+    final channels = pluginRegistry.topicChannels(topicId);
     if (channels.isEmpty) {
       tracker.unwatchTopic();
       return;
     }
 
     tracker.watchTopic(topicId, channels, (channel, data) {
-      final stale = <int>{
-        for (final plugin in sitePlugins) ...plugin.stalePosts(channel, data),
-      };
+      final stale = pluginRegistry.stalePosts(channel, data);
       unawaited(_refreshPosts(siteUrl, topicId, stale));
     });
   }
@@ -1237,11 +1153,16 @@ class ShellController extends FrameSafeNotifier {
         identical(_postRefreshRequests[_postKey(siteUrl, postId)], request);
 
     try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null || !lease.isCurrent) return;
       final posts = await api.posts(
         siteUrl: siteUrl,
         topicId: topicId,
         ids: wanted,
-        apiKey: await authenticator.apiKeyFor(siteUrl),
+        apiKey: credential.value,
       );
       lease.commit(() {
         final current = [
@@ -1377,14 +1298,18 @@ class ShellController extends FrameSafeNotifier {
     if (!lease.isCurrent) return null;
     final held = _instanceAt(siteUrl);
     if (held == null) return null;
-    final user = await _sessionUser(siteUrl, apiKey);
+    final user = await _sessionUser(siteUrl, apiKey, lease: lease);
     if (!lease.isCurrent) return null;
     // A stored id is stable enough to keep this account's private counters
     // connected after a failed refresh, but its capabilities remain unknown.
     return user?.id ?? _instanceAt(siteUrl)?.user?.id;
   }
 
-  Future<DiscourseUser?> _sessionUser(String siteUrl, String apiKey) {
+  Future<DiscourseUser?> _sessionUser(
+    String siteUrl,
+    String apiKey, {
+    SiteLease? lease,
+  }) {
     final held = _instanceAt(siteUrl);
     if (held == null) return Future.value();
     if (_sessionUsersRefreshed.contains(siteUrl)) {
@@ -1394,9 +1319,9 @@ class ShellController extends FrameSafeNotifier {
     final active = _sessionUserRequests[siteUrl];
     if (active != null) return active;
 
-    final lease = lifecycle.capture(siteUrl);
+    final session = lease ?? lifecycle.capture(siteUrl);
     late final Future<DiscourseUser?> request;
-    request = _readSessionUser(siteUrl, apiKey, lease).whenComplete(() {
+    request = _readSessionUser(siteUrl, apiKey, session).whenComplete(() {
       if (identical(_sessionUserRequests[siteUrl], request)) {
         final removed = _sessionUserRequests.remove(siteUrl);
         assert(identical(removed, request));
@@ -1484,10 +1409,6 @@ class ShellController extends FrameSafeNotifier {
   final Set<String> _topicsLoading = {};
   final Set<String> _postsLoading = {};
   final Set<String> _earlierPostsLoading = {};
-  final Map<String, int> _topicReadPositions = {};
-  final Map<String, _TopicReadReceipt> _queuedTopicReadReceipts = {};
-  final Map<String, Future<void>> _topicReadReceiptTasks = {};
-  final Map<String, Object> _topicReadReceiptRuns = {};
 
   static String _topicKey(String siteUrl, int topicId) => '$siteUrl#$topicId';
 
@@ -1796,13 +1717,17 @@ class ShellController extends FrameSafeNotifier {
     _notify();
 
     try {
-      final apiKey = await authenticator.apiKeyFor(instance.url);
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(instance.url),
+      );
+      if (credential == null || !lease.isCurrent) return;
       final fetched = await api.topic(
         siteUrl: instance.url,
         slug: slug,
         id: topicId,
         postNumber: postNumber,
-        apiKey: apiKey,
+        apiKey: credential.value,
       );
       lease.commit(() {
         _absorb(instance.url, fetched);
@@ -1890,90 +1815,7 @@ class ShellController extends FrameSafeNotifier {
     int topicId,
     int postNumber, {
     required bool caughtUp,
-  }) {
-    if (isDisposed || postNumber <= 0) return Future.value();
-
-    final key = _topicKey(siteUrl, topicId);
-    final held = store.read<Topic>(siteUrl, topicId);
-    final local = _topicReadPositions[key] ?? 0;
-    final server = held?.lastReadPostNumber ?? 0;
-    final recorded = local > server ? local : server;
-    if (recorded >= postNumber) return Future.value();
-
-    final lease = lifecycle.capture(siteUrl);
-    _topicReadPositions[key] = postNumber;
-    store.update<Topic>(
-      siteUrl,
-      topicId,
-      (row) => row.copyWith(
-        lastReadPostNumber: postNumber,
-        // A live list update may already know about a newer post than the
-        // detail stream on screen. Reaching that stream's end must not clear
-        // unread state for the newer post the reader has not received yet.
-        markRead:
-            caughtUp &&
-            (row.highestPostNumber <= 0 || postNumber >= row.highestPostNumber),
-      ),
-    );
-
-    _queuedTopicReadReceipts[key] = (
-      siteUrl: siteUrl,
-      topicId: topicId,
-      postNumber: postNumber,
-      lease: lease,
-    );
-    final running = _topicReadReceiptTasks[key];
-    if (running != null) return running;
-
-    final run = Object();
-    _topicReadReceiptRuns[key] = run;
-    final task = _drainTopicReadReceipts(key, run);
-    _topicReadReceiptTasks[key] = task;
-    return task;
-  }
-
-  /// Sends one receipt at a time and collapses any waiting positions to the
-  /// newest one. Read positions only move forwards, so intermediate writes
-  /// carry no information once a later viewport observation exists.
-  Future<void> _drainTopicReadReceipts(String key, Object run) async {
-    while (true) {
-      if (!identical(_topicReadReceiptRuns[key], run)) return;
-      final receipt = _queuedTopicReadReceipts.remove(key);
-      if (receipt == null) {
-        if (identical(_topicReadReceiptRuns[key], run)) {
-          _topicReadReceiptRuns.remove(key);
-          final _ = _topicReadReceiptTasks.remove(key);
-        }
-        return;
-      }
-
-      try {
-        final apiKey = await authenticator.apiKeyFor(receipt.siteUrl);
-        if (isDisposed || !receipt.lease.isCurrent || apiKey == null) continue;
-        final clientId = await authenticator.clientId();
-        if (isDisposed || !receipt.lease.isCurrent) continue;
-        await api.recordTopicRead(
-          siteUrl: receipt.siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          topicId: receipt.topicId,
-          postNumber: receipt.postNumber,
-        );
-      } catch (error, stackTrace) {
-        if (!isDisposed &&
-            receipt.lease.isCurrent &&
-            identical(_topicReadReceiptRuns[key], run)) {
-          _reportOperationalError(
-            error,
-            stackTrace,
-            'topic.markRead',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
-        // A newer queued position must still be attempted after this failure.
-      }
-    }
-  }
+  }) => _topicReads.mark(siteUrl, topicId, postNumber, caughtUp: caughtUp);
 
   /// Fetches the next batch of posts in the open topic.
   ///
@@ -1997,11 +1839,16 @@ class ShellController extends FrameSafeNotifier {
     _notify();
 
     try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(instance.url),
+      );
+      if (credential == null || !lease.isCurrent) return;
       final posts = await api.posts(
         siteUrl: instance.url,
         topicId: topicId,
         ids: pending.take(batchSize).toList(),
-        apiKey: await authenticator.apiKeyFor(instance.url),
+        apiKey: credential.value,
       );
       lease.commit(() => store.putAll(instance.url, posts));
     } catch (error, stackTrace) {
@@ -2040,11 +1887,16 @@ class ShellController extends FrameSafeNotifier {
     _notify();
 
     try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(instance.url),
+      );
+      if (credential == null || !lease.isCurrent) return;
       final posts = await api.posts(
         siteUrl: instance.url,
         topicId: topicId,
         ids: pending,
-        apiKey: await authenticator.apiKeyFor(instance.url),
+        apiKey: credential.value,
       );
       lease.commit(() => store.putAll(instance.url, posts));
     } catch (error, stackTrace) {
@@ -2099,6 +1951,46 @@ class ShellController extends FrameSafeNotifier {
 
   /// Whether a reply affordance should be offered for the topic on screen.
   bool get canReplyHere => currentTopic?.canCreatePost ?? false;
+
+  /// Builds a text composer with the site-owned services every writing mode
+  /// shares.
+  ///
+  /// Tags-only editing deliberately does not use this factory: it never opens
+  /// the text editor, so search, artwork, uploads, and draft persistence would
+  /// all be unused dependencies there.
+  ComposerController _buildTextComposer(
+    ComposerTarget target, {
+    bool persistsDraft = false,
+    int minimumRequiredTags = 0,
+  }) {
+    final config = siteConfigFor(target.siteUrl);
+    final composer = ComposerController(
+      target,
+      onSaveDraft: persistsDraft ? _saveDraft : null,
+      search: _composerSearch(target),
+      resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
+      pills: _composerPills(target),
+      pollMaximumOptions: config.pollMaximumOptions,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          _uploadComposerImage(
+            target,
+            file,
+            onProgress: onProgress,
+            abortTrigger: abortTrigger,
+          ),
+      resolveUploadUrls: (urls) => _resolveComposerUploadUrls(target, urls),
+      canUploadImage: (filename) => config.canUploadImage(
+        filename,
+        staff: currentUserFor(target.siteUrl)?.staff == true,
+      ),
+      simultaneousUploads: config.simultaneousUploads,
+      maxImageWidth: config.maxImageWidth,
+      maxImageHeight: config.maxImageHeight,
+      minimumRequiredTags: minimumRequiredTags,
+    );
+    if (persistsDraft) composer.draftSequence = _draftSequence(target);
+    return composer;
+  }
 
   /// Opens a new-topic composer while leaving the originating list in place.
   Future<void> openNewTopic() async {
@@ -2186,36 +2078,16 @@ class ShellController extends FrameSafeNotifier {
       initialCategoryId: categoryId,
       initialTags: tags,
     );
-    final config = siteConfigFor(target.siteUrl);
-    final composer = ComposerController(
+    final composer = _buildTextComposer(
       target,
-      onSaveDraft: _saveDraft,
-      search: _composerSearch(target),
-      resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
-      pills: _composerPills(target),
-      pollMaximumOptions: config.pollMaximumOptions,
-      imageUploader: (file, {required onProgress, required abortTrigger}) =>
-          _uploadComposerImage(
-            target,
-            file,
-            onProgress: onProgress,
-            abortTrigger: abortTrigger,
-          ),
-      resolveUploadUrls: (urls) => _resolveComposerUploadUrls(target, urls),
-      canUploadImage: (filename) => config.canUploadImage(
-        filename,
-        staff: currentUserFor(target.siteUrl)?.staff == true,
-      ),
-      simultaneousUploads: config.simultaneousUploads,
-      maxImageWidth: config.maxImageWidth,
-      maxImageHeight: config.maxImageHeight,
+      persistsDraft: true,
       minimumRequiredTags:
           categories
               .where((category) => category.id == categoryId)
               .firstOrNull
               ?.minimumRequiredTags ??
           0,
-    )..draftSequence = _draftSequence(target);
+    );
     _composer = composer;
     _notify();
     unawaited(_restoreDraft(composer));
@@ -2226,13 +2098,20 @@ class ShellController extends FrameSafeNotifier {
     String term,
   ) async {
     final target = composer.target;
-    final credential = await _credentialForWrite(target.siteUrl);
-    if (credential.failure != null) {
-      throw credential.failure!;
+    final lease = lifecycle.capture(target.siteUrl);
+    final held = await _readSessionValue(
+      lease,
+      () => _credentialForWrite(target.siteUrl),
+    );
+    if (held == null || !lease.isCurrent || !identical(_composer, composer)) {
+      return const TopicTagSearch();
+    }
+    if (held.value.failure case final failure?) {
+      throw failure;
     }
     return api.searchTopicTags(
       siteUrl: target.siteUrl,
-      apiKey: credential.apiKey!,
+      apiKey: held.value.apiKey!,
       term: term,
       categoryId: composer.categoryId,
       selectedTagIds: composer.tags.map((tag) => tag.id).whereType<int>(),
@@ -2320,30 +2199,7 @@ class ShellController extends FrameSafeNotifier {
       replyToPostNumber: replyToPostNumber,
       replyToUsername: replyToUsername,
     );
-    final config = siteConfigFor(target.siteUrl);
-    final composer = ComposerController(
-      target,
-      onSaveDraft: _saveDraft,
-      search: _composerSearch(target),
-      resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
-      pills: _composerPills(target),
-      pollMaximumOptions: config.pollMaximumOptions,
-      imageUploader: (file, {required onProgress, required abortTrigger}) =>
-          _uploadComposerImage(
-            target,
-            file,
-            onProgress: onProgress,
-            abortTrigger: abortTrigger,
-          ),
-      resolveUploadUrls: (urls) => _resolveComposerUploadUrls(target, urls),
-      canUploadImage: (filename) => config.canUploadImage(
-        filename,
-        staff: currentUserFor(target.siteUrl)?.staff == true,
-      ),
-      simultaneousUploads: config.simultaneousUploads,
-      maxImageWidth: config.maxImageWidth,
-      maxImageHeight: config.maxImageHeight,
-    )..draftSequence = _draftSequence(target);
+    final composer = _buildTextComposer(target, persistsDraft: true);
     _composer = composer;
     _notify();
 
@@ -2382,28 +2238,8 @@ class ShellController extends FrameSafeNotifier {
     // saving here would overwrite an unfinished reply with the text of a post
     // that is already published.
     // Rewriting a post wants mentions and emoji as much as writing one does.
-    final config = siteConfigFor(target.siteUrl);
-    final composer = ComposerController(
+    final composer = _buildTextComposer(
       target,
-      search: _composerSearch(target),
-      resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
-      pills: _composerPills(target),
-      pollMaximumOptions: config.pollMaximumOptions,
-      imageUploader: (file, {required onProgress, required abortTrigger}) =>
-          _uploadComposerImage(
-            target,
-            file,
-            onProgress: onProgress,
-            abortTrigger: abortTrigger,
-          ),
-      resolveUploadUrls: (urls) => _resolveComposerUploadUrls(target, urls),
-      canUploadImage: (filename) => config.canUploadImage(
-        filename,
-        staff: currentUserFor(target.siteUrl)?.staff == true,
-      ),
-      simultaneousUploads: config.simultaneousUploads,
-      maxImageWidth: config.maxImageWidth,
-      maxImageHeight: config.maxImageHeight,
       minimumRequiredTags: editsTopic
           ? categoryFor(
                   detail?.categoryId,
@@ -2549,12 +2385,21 @@ class ShellController extends FrameSafeNotifier {
     final target = composer.target;
     final lease = lifecycle.capture(target.siteUrl);
     try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(target.siteUrl),
+      );
+      if (credential == null ||
+          !lease.isCurrent ||
+          !identical(_composer, composer)) {
+        return;
+      }
       final fetched = await api.posts(
         siteUrl: target.siteUrl,
         topicId: target.topicId,
         ids: [post.id],
         includeRaw: true,
-        apiKey: await authenticator.apiKeyFor(target.siteUrl),
+        apiKey: credential.value,
       );
       final raw = fetched.firstWhere((p) => p.id == post.id).raw;
       lease.commit(() {
@@ -3034,6 +2879,11 @@ class ShellController extends FrameSafeNotifier {
 
     final lease = lifecycle.capture(targetSite);
     try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(targetSite),
+      );
+      if (credential == null || !lease.isCurrent) return;
       final fetched = await api.postLikers(
         siteUrl: targetSite,
         postId: postId,
@@ -3042,7 +2892,7 @@ class ShellController extends FrameSafeNotifier {
         // would otherwise leave the key in [_likersLoading] for the rest of
         // the session, and every later hover would find a fetch in flight
         // that is not.
-        apiKey: await authenticator.apiKeyFor(targetSite),
+        apiKey: credential.value,
       );
       lease.commit(() => store.put(targetSite, fetched));
     } on SiteLookupException catch (e, stackTrace) {
@@ -3348,14 +3198,21 @@ class ShellController extends FrameSafeNotifier {
     ComposerTarget target,
     Iterable<String> urls,
   ) async {
-    final credential = await _credentialForWrite(target.siteUrl);
-    if (credential.failure case final failure?) {
+    final lease = lifecycle.capture(target.siteUrl);
+    final held = await _readSessionValue(
+      lease,
+      () => _credentialForWrite(target.siteUrl),
+    );
+    if (held == null) return const {};
+    if (held.value.failure case final failure?) {
       throw ComposerUploadException(failure.message);
     }
+    final identity = await _readSessionValue(lease, authenticator.clientId);
+    if (identity == null || !lease.isCurrent) return const {};
     return api.lookupUploadUrls(
       siteUrl: target.siteUrl,
-      apiKey: credential.apiKey!,
-      clientId: await authenticator.clientId(),
+      apiKey: held.value.apiKey!,
+      clientId: identity.value,
       shortUrls: urls,
     );
   }
@@ -3365,21 +3222,29 @@ class ShellController extends FrameSafeNotifier {
     final target = composer.target;
     final lease = lifecycle.capture(target.siteUrl);
 
+    bool isCurrent() =>
+        !isDisposed && lease.isCurrent && identical(_composer, composer);
+
     // The local copy exists only while the site does not have the text, so if
     // there is one it is the newer of the two by construction — no timestamps
     // to compare, and no chance of restoring over something newer.
     final local = ComposerDraft.decode(
       await drafts.read(target.siteUrl, target.draftKey),
     );
+    if (!isCurrent()) return;
     ComposerDraft? remote;
     var remoteSequence = 0;
     if (local == null && target.isNewTopic) {
       try {
-        final credential = await _credentialForWrite(target.siteUrl);
-        if (credential.failure == null) {
+        final held = await _readSessionValue(
+          lease,
+          () => _credentialForWrite(target.siteUrl),
+        );
+        if (held == null || !isCurrent()) return;
+        if (held.value.failure == null) {
           final found = await api.draft(
             siteUrl: target.siteUrl,
-            apiKey: credential.apiKey!,
+            apiKey: held.value.apiKey!,
             draftKey: target.draftKey,
           );
           remote = found.draft;
@@ -3389,7 +3254,9 @@ class ShellController extends FrameSafeNotifier {
         // A draft restore is best effort; opening the composer must still work.
       }
     }
+    if (!isCurrent()) return;
     lease.commit(() {
+      if (!identical(_composer, composer)) return;
       final draft =
           local ??
           remote ??
@@ -4087,11 +3954,16 @@ class ShellController extends FrameSafeNotifier {
     _topicsLoading.add(key);
 
     try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null || !lease.isCurrent) return;
       final topic = await api.topic(
         siteUrl: siteUrl,
         slug: slug,
         id: topicId,
-        apiKey: await authenticator.apiKeyFor(siteUrl),
+        apiKey: credential.value,
       );
       lease.commit(() => _absorb(siteUrl, topic));
     } catch (error, stackTrace) {
@@ -4162,12 +4034,17 @@ class ShellController extends FrameSafeNotifier {
 
     final lease = lifecycle.capture(targetSite);
     try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(targetSite),
+      );
+      if (credential == null || !lease.isCurrent) return;
       final card = await api.userCard(
         siteUrl: targetSite,
         username: username,
         // Read inside the guard, the way `loadLikers` does: storage that
         // throws would otherwise strand the key in [_userCardsLoading].
-        apiKey: await authenticator.apiKeyFor(targetSite),
+        apiKey: credential.value,
       );
       lease.commit(() => store.put(targetSite, card));
     } on SiteLookupException catch (e, stackTrace) {
@@ -4206,79 +4083,11 @@ class ShellController extends FrameSafeNotifier {
     }
   }
 
-  /// The request that owns each feed's pagination state.
-  ///
-  /// Identity matters here: a refresh can invalidate an old page and a new
-  /// page can start before that request unwinds. The old request's `finally`
-  /// must not clear the new request's loading state.
-  final Map<String, Object> _feedPageRequests = {};
-
   /// Appends the next page, if there is one and nothing is already in flight.
   Future<void> loadMoreFeed(String destinationId) async {
     final instance = currentInstance;
     if (instance == null) return;
-
-    final key = _feedKey(instance.url, destinationId);
-    final feed = _feeds[key];
-    if (feed == null || feed.loadingMore || !feed.hasMore) return;
-    if (_feedPageRequests.containsKey(key)) return;
-    final lease = lifecycle.capture(instance.url);
-    final feedRevision = _feedRevisions[key];
-    final pageRequest = Object();
-    _feedPageRequests[key] = pageRequest;
-
-    bool requestIsCurrent() =>
-        identical(_feedRevisions[key], feedRevision) &&
-        identical(_feedPageRequests[key], pageRequest);
-
-    _feeds[key] = feed.copyWith(loadingMore: true);
-    _notify();
-
-    try {
-      final next = await api.topicList(
-        siteUrl: instance.url,
-        path: feed.nextPagePath!,
-        apiKey: await authenticator.apiKeyFor(instance.url),
-      );
-
-      lease.commit(() {
-        if (!requestIsCurrent()) return;
-        store.putAll(instance.url, next.topics);
-        final held = _feeds[key];
-        if (held == null) return;
-        final seen = held.topicIds.toSet();
-        final fresh = [
-          for (final topic in next.topics)
-            if (!seen.contains(topic.id)) topic.id,
-        ];
-
-        _feeds[key] = held.copyWith(
-          topicIds: [...held.topicIds, ...fresh],
-          loadingMore: false,
-          nextPagePath: next.nextPagePath,
-          clearNextPage: next.nextPagePath == null || fresh.isEmpty,
-        );
-      });
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent || !requestIsCurrent()) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'topics.loadMore',
-        severity: DiagnosticSeverity.warning,
-      );
-      lease.commit(() {
-        if (!requestIsCurrent()) return;
-        final held = _feeds[key];
-        if (held != null) _feeds[key] = held.copyWith(loadingMore: false);
-      });
-    } finally {
-      lease.commit(() {
-        if (!identical(_feedPageRequests[key], pageRequest)) return;
-        _feedPageRequests.remove(key);
-        _notify();
-      });
-    }
+    await topicFeeds.loadMore(instance: instance, destinationId: destinationId);
   }
 
   Future<void> ensureEmojis(String siteUrl) =>
@@ -4327,6 +4136,13 @@ class ShellController extends FrameSafeNotifier {
     final lease = lifecycle.capture(siteUrl);
     final List<FoundHashtag> found;
     try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null) return const [];
+      final identity = await _readSessionValue(lease, authenticator.clientId);
+      if (identity == null || !lease.isCurrent) return const [];
       found = await api.searchHashtags(
         siteUrl: siteUrl,
         term: term,
@@ -4334,8 +4150,8 @@ class ShellController extends FrameSafeNotifier {
           ...DiscourseApi.hashtagOrder,
           if (resenha.directory(siteUrl) != null) 'room',
         ],
-        apiKey: await authenticator.apiKeyFor(siteUrl),
-        clientId: await authenticator.clientId(),
+        apiKey: credential.value,
+        clientId: identity.value,
       );
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent) {
@@ -4393,11 +4209,18 @@ class ShellController extends FrameSafeNotifier {
 
     final lease = lifecycle.capture(siteUrl);
     try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null) return;
+      final identity = await _readSessionValue(lease, authenticator.clientId);
+      if (identity == null || !lease.isCurrent) return;
       final found = await api.lookupHashtags(
         siteUrl: siteUrl,
         refs: ask,
-        apiKey: await authenticator.apiKeyFor(siteUrl),
-        clientId: await authenticator.clientId(),
+        apiKey: credential.value,
+        clientId: identity.value,
       );
       if (isDisposed) return;
       lease.commit(() {
@@ -4441,12 +4264,19 @@ class ShellController extends FrameSafeNotifier {
 
     final lease = lifecycle.capture(siteUrl);
     try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null) return;
+      final identity = await _readSessionValue(lease, authenticator.clientId);
+      if (identity == null || !lease.isCurrent) return;
       final real = await api.checkMentions(
         siteUrl: siteUrl,
         names: ask,
         topicId: topicId,
-        apiKey: await authenticator.apiKeyFor(siteUrl),
-        clientId: await authenticator.clientId(),
+        apiKey: credential.value,
+        clientId: identity.value,
       );
       if (isDisposed) return;
       lease.commit(() {
@@ -4483,12 +4313,19 @@ class ShellController extends FrameSafeNotifier {
     final lease = lifecycle.capture(siteUrl);
     final List<FoundUser> found;
     try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null) return const [];
+      final identity = await _readSessionValue(lease, authenticator.clientId);
+      if (identity == null || !lease.isCurrent) return const [];
       found = await api.searchUsers(
         siteUrl: siteUrl,
         term: term,
         topicId: topicId,
-        apiKey: await authenticator.apiKeyFor(siteUrl),
-        clientId: await authenticator.clientId(),
+        apiKey: credential.value,
+        clientId: identity.value,
       );
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent) {
@@ -5032,12 +4869,7 @@ class ShellController extends FrameSafeNotifier {
     _topicsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _postsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _earlierPostsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _topicReadPositions.removeWhere((key, _) => key.startsWith('$siteUrl#'));
-    _queuedTopicReadReceipts.removeWhere(
-      (key, _) => key.startsWith('$siteUrl#'),
-    );
-    _topicReadReceiptTasks.removeWhere((key, _) => key.startsWith('$siteUrl#'));
-    _topicReadReceiptRuns.removeWhere((key, _) => key.startsWith('$siteUrl#'));
+    _topicReads.forget(siteUrl);
 
     _categorised.remove(siteUrl);
     _categoriesBySite.remove(siteUrl);
@@ -5053,11 +4885,7 @@ class ShellController extends FrameSafeNotifier {
     reactions.forget(siteUrl);
     chat.forget(siteUrl);
     resenha.forget(siteUrl);
-    _feeds.removeWhere((key, _) => key.startsWith('$siteUrl|'));
-    _filterQueries.remove(siteUrl);
-    _feedRevisions.removeWhere((key, _) => key.startsWith('$siteUrl|'));
-    _feedRows.removeWhere((key, _) => key.startsWith('$siteUrl|'));
-    _feedPageRequests.removeWhere((key, _) => key.startsWith('$siteUrl|'));
+    topicFeeds.forget(siteUrl);
     _trackersStarting.remove(siteUrl);
     _sessionUsersRefreshed.remove(siteUrl);
     _sessionUserRequests.remove(siteUrl)?.ignore();
@@ -5292,15 +5120,16 @@ class ShellController extends FrameSafeNotifier {
 
   @override
   void dispose() {
-    _queuedTopicReadReceipts.clear();
-    _topicReadReceiptTasks.clear();
-    _topicReadReceiptRuns.clear();
+    _topicReads.dispose();
     for (final instance in _instances) {
       lifecycle.invalidate(instance.url);
     }
     updates.dispose();
     accountActivity.dispose();
     draftList.dispose();
+    topicFeeds
+      ..removeListener(_notify)
+      ..dispose();
     reactions.dispose();
     chat.dispose();
     resenha.dispose();

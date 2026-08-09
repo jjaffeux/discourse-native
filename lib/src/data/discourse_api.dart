@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../diagnostics/diagnostic_error_cause.dart';
 import '../models/bookmark.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
@@ -31,87 +30,11 @@ import '../plugins/chat/chat_message.dart';
 import '../plugins/poll/poll.dart';
 import '../plugins/reactions/post_reactors.dart';
 import 'discourse_api_contracts.dart';
+import 'discourse_transport.dart';
 import 'http_transport.dart';
 import 'site_appearance_loader.dart';
 
 export 'discourse_api_contracts.dart';
-
-/// Why a write did not go through.
-///
-/// Reads collapse into "couldn't reach it" because there is nothing the reader
-/// can do either way. A write is the opposite: the user typed something, it was
-/// refused, and the reason decides what they do next — fix the text, wait,
-/// reconnect, or reload.
-enum WriteFailure {
-  /// The site refused the content. [WriteException.errors] says why, in words
-  /// Discourse already wrote for a reader.
-  validation,
-
-  /// Too fast. [WriteException.retryAfter] says how long to wait, when the
-  /// site said.
-  rateLimited,
-
-  /// Not allowed here — or the key is gone. The two are indistinguishable from
-  /// the status alone, since Discourse answers 403 to both.
-  forbidden,
-
-  /// Someone changed it first. Only edits can hit this.
-  conflict,
-
-  /// Nothing answered, or what answered made no sense.
-  unreachable,
-}
-
-class WriteException implements Exception, DiagnosticErrorCause {
-  const WriteException(
-    this.failure, {
-    this.errors = const [],
-    this.statusCode,
-    this.retryAfter,
-    this.cause,
-    this.causeStackTrace,
-  });
-
-  final WriteFailure failure;
-
-  /// Discourse's own messages. Already written for a reader, so they are shown
-  /// as they arrive rather than translated into something of ours.
-  final List<String> errors;
-
-  final int? statusCode;
-
-  /// How long to wait before trying again, on a [WriteFailure.rateLimited].
-  final Duration? retryAfter;
-  final Object? cause;
-  final StackTrace? causeStackTrace;
-
-  @override
-  Object get diagnosticCause => cause ?? this;
-
-  @override
-  StackTrace? get diagnosticCauseStackTrace => causeStackTrace;
-
-  String get message {
-    if (errors.isNotEmpty) return errors.join('\n');
-    return switch (failure) {
-      WriteFailure.validation => "That wasn't accepted.",
-      WriteFailure.rateLimited => switch (retryAfter) {
-        final wait? => 'Too fast — try again in ${wait.inSeconds}s.',
-        null => 'Too fast — try again in a moment.',
-      },
-      WriteFailure.forbidden =>
-        "You can't post that here — or the connection to this site has "
-            'expired.',
-      WriteFailure.conflict => 'Someone else changed that first.',
-      WriteFailure.unreachable => "Couldn't reach the site.",
-    };
-  }
-
-  @override
-  String toString() =>
-      'WriteException($failure, statusCode: $statusCode, '
-      'retryAfter: $retryAfter)';
-}
 
 /// Talks to a Discourse site.
 ///
@@ -122,6 +45,8 @@ class DiscourseApi
     implements
         AccountActivityApi,
         DraftsApi,
+        TopicFeedsApi,
+        TopicReadsApi,
         ChatApi,
         ReactionsApi,
         PollsApi,
@@ -140,7 +65,7 @@ class DiscourseApi
   static const int minimumApiVersion = 2;
   static const int _maxRedirects = 5;
 
-  final http.Client _client;
+  final SafeHttpClient _client;
   final Duration timeout;
 
   /// Largest buffered API response accepted from a site.
@@ -148,6 +73,12 @@ class DiscourseApi
   /// These routes return JSON rather than media. Keeping a generous finite
   /// bound prevents a broken endpoint from growing the process without limit.
   final int _maxResponseBytes;
+
+  late final DiscourseTransport _transport = DiscourseTransport(
+    _client,
+    timeout,
+    _maxResponseBytes,
+  );
 
   late final SiteAppearanceLoader _siteAppearanceLoader = SiteAppearanceLoader(
     client: _client,
@@ -301,14 +232,12 @@ class DiscourseApi
     required String apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/session/current.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
-
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
     final user = switch (body['current_user']) {
       final Map<String, dynamic> user => user,
       _ => null,
@@ -362,7 +291,7 @@ class DiscourseApi
     required String apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/sidebar_sections.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -370,7 +299,6 @@ class DiscourseApi
     );
 
     try {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
       final sections = <SidebarSection>[];
       var index = 0;
       for (final json in jsonObjects(body['sidebar_sections'])) {
@@ -414,16 +342,14 @@ class DiscourseApi
     required String apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/notifications/totals.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
 
-    return NotificationTotals.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-    );
+    return NotificationTotals.fromJson(body);
   }
 
   /// The notifications behind the user menu's first tab.
@@ -443,14 +369,13 @@ class DiscourseApi
     int limit = 30,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/notifications.json?recent=true&limit=$limit'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
     return List.unmodifiable([
       for (final entry in jsonObjects(body['notifications']))
         DiscourseNotification.fromJson(entry),
@@ -476,7 +401,7 @@ class DiscourseApi
     required String username,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse(
         '$siteUrl/u/${Uri.encodeComponent(username)}/user-menu-bookmarks.json',
       ),
@@ -485,7 +410,6 @@ class DiscourseApi
       clientId: clientId,
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
     return (
       reminders: List<DiscourseNotification>.unmodifiable([
         for (final entry in jsonObjects(body['notifications']))
@@ -511,6 +435,7 @@ class DiscourseApi
     String? clientId,
   }) => _write(
     Uri.parse('$siteUrl/notifications/mark-read.json'),
+    siteUrl: siteUrl,
     method: 'PUT',
     apiKey: apiKey,
     clientId: clientId,
@@ -521,23 +446,21 @@ class DiscourseApi
   ///
   /// The same envelope serves latest, new, unread, top and private messages,
   /// so they all come through here.
+  @override
   Future<TopicList> topicList({
     required String siteUrl,
     required String path,
     String? apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl$path'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
 
-    return TopicList.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-      siteUrl,
-    );
+    return TopicList.fromJson(body, siteUrl);
   }
 
   /// The small, faceted result set Discourse serves under its header search.
@@ -548,7 +471,7 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse(
         '$siteUrl/search/query.json',
       ).replace(queryParameters: {'term': term, 'type_filter': ?typeFilter}),
@@ -556,10 +479,7 @@ class DiscourseApi
       apiKey: apiKey,
       clientId: clientId,
     );
-    return SearchResults.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-      siteUrl,
-    );
+    return SearchResults.fromJson(body, siteUrl);
   }
 
   /// A topic with its first chunk of posts (20) and the full list of post ids.
@@ -578,7 +498,7 @@ class DiscourseApi
       '$id',
       if (slug.isNotEmpty && postNumber != null) '$postNumber',
     ].join('/');
-    final response = await _get(
+    final body = await _getObject(
       // A link can arrive without a slug — `/t/123` — and Discourse routes
       // that too, so there is nothing to invent here.
       // The slugless numbered shape is ambiguous with `/t/{slug}/{id}`, so it
@@ -593,10 +513,7 @@ class DiscourseApi
       clientId: clientId,
     );
 
-    return TopicDetail.parse(
-      jsonDecode(response.body) as Map<String, dynamic>,
-      siteUrl,
-    );
+    return TopicDetail.parse(body, siteUrl);
   }
 
   /// Records the farthest post a signed-in reader has actually had on screen.
@@ -606,6 +523,7 @@ class DiscourseApi
   /// `last_read_post_number` from these post numbers. A small positive timing
   /// is enough for a native viewport observation; [milliseconds] also becomes
   /// the topic time so the request has the same shape as the web client's.
+  @override
   Future<void> recordTopicRead({
     required String siteUrl,
     required String apiKey,
@@ -615,6 +533,7 @@ class DiscourseApi
     String? clientId,
   }) => _write(
     Uri.parse('$siteUrl/topics/timings.json'),
+    siteUrl: siteUrl,
     method: 'POST',
     apiKey: apiKey,
     clientId: clientId,
@@ -643,14 +562,13 @@ class DiscourseApi
       ...ids.map((id) => 'post_ids[]=$id'),
       if (includeRaw) 'include_raw=true',
     ].join('&');
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/t/$topicId/posts.json?$query'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
     final stream = jsonObject(body['post_stream']);
     return List.unmodifiable([
       for (final post in jsonObjects(stream['posts']))
@@ -668,14 +586,13 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/u/${Uri.encodeComponent(username)}/card.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
     final user = switch (body['user']) {
       final Map<String, dynamic> user => user,
       _ => null,
@@ -703,7 +620,7 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/site/settings.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -711,9 +628,7 @@ class DiscourseApi
     );
 
     try {
-      return SiteConfig.fromSettings(
-        jsonDecode(response.body) as Map<String, dynamic>,
-      );
+      return SiteConfig.fromSettings(body);
     } catch (error, stackTrace) {
       // A payload this cannot read is an answer it cannot use: report it the
       // way every other failure here is reported, rather than letting a decode
@@ -1140,14 +1055,13 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/categories.json?include_subcategories=true'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
     final list = jsonObject(body['category_list']);
     final result = <TopicCategory>[];
 
@@ -1166,15 +1080,13 @@ class DiscourseApi
     required String apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/site.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
-    return TopicComposerCapabilities.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-    );
+    return TopicComposerCapabilities.fromJson(body);
   }
 
   /// Tags available for the selected category in the topic composer.
@@ -1187,7 +1099,7 @@ class DiscourseApi
     int limit = 20,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/tags/filter/search.json').replace(
         queryParameters: <String, dynamic>{
           'q': term,
@@ -1202,9 +1114,7 @@ class DiscourseApi
       apiKey: apiKey,
       clientId: clientId,
     );
-    return TopicTagSearch.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-    );
+    return TopicTagSearch.fromJson(body);
   }
 
   /// Replies to a topic.
@@ -1233,6 +1143,7 @@ class DiscourseApi
   }) async {
     final body = await _write(
       Uri.parse('$siteUrl/posts.json'),
+      siteUrl: siteUrl,
       method: 'POST',
       apiKey: apiKey,
       clientId: clientId,
@@ -1271,6 +1182,7 @@ class DiscourseApi
   }) async {
     final body = await _write(
       Uri.parse('$siteUrl/posts.json'),
+      siteUrl: siteUrl,
       method: 'POST',
       apiKey: apiKey,
       clientId: clientId,
@@ -1302,6 +1214,7 @@ class DiscourseApi
   }) async {
     await _write(
       Uri.parse('$siteUrl/t/$topicId.json'),
+      siteUrl: siteUrl,
       method: 'PUT',
       apiKey: apiKey,
       clientId: clientId,
@@ -1324,6 +1237,7 @@ class DiscourseApi
   }) async {
     await _write(
       Uri.parse('$siteUrl/t/$topicId/tags.json'),
+      siteUrl: siteUrl,
       method: 'PUT',
       apiKey: apiKey,
       clientId: clientId,
@@ -1346,6 +1260,7 @@ class DiscourseApi
   }) async {
     final body = await _write(
       Uri.parse('$siteUrl/posts/$postId.json'),
+      siteUrl: siteUrl,
       method: 'PUT',
       apiKey: apiKey,
       clientId: clientId,
@@ -1382,6 +1297,7 @@ class DiscourseApi
     String? clientId,
   }) => _write(
     Uri.parse('$siteUrl/posts/$postId.json'),
+    siteUrl: siteUrl,
     method: 'DELETE',
     apiKey: apiKey,
     clientId: clientId,
@@ -1400,6 +1316,7 @@ class DiscourseApi
   }) async => _actedPost(
     await _write(
       Uri.parse('$siteUrl/post_actions.json'),
+      siteUrl: siteUrl,
       method: 'POST',
       apiKey: apiKey,
       clientId: clientId,
@@ -1424,6 +1341,7 @@ class DiscourseApi
         '$siteUrl/post_actions/$postId.json'
         '?post_action_type_id=${Post.likeActionId}',
       ),
+      siteUrl: siteUrl,
       method: 'DELETE',
       apiKey: apiKey,
       clientId: clientId,
@@ -1468,6 +1386,7 @@ class DiscourseApi
         '$siteUrl/discourse-reactions/posts/$postId'
         '/custom-reactions/${Uri.encodeComponent(reaction)}/toggle.json',
       ),
+      siteUrl: siteUrl,
       method: 'PUT',
       apiKey: apiKey,
       clientId: clientId,
@@ -1494,6 +1413,7 @@ class DiscourseApi
   }) async {
     final body = await _write(
       Uri.parse('$siteUrl/polls/vote.json'),
+      siteUrl: siteUrl,
       method: 'PUT',
       apiKey: apiKey,
       clientId: clientId,
@@ -1518,6 +1438,7 @@ class DiscourseApi
   }) async {
     final body = await _write(
       Uri.parse('$siteUrl/polls/vote.json'),
+      siteUrl: siteUrl,
       method: 'DELETE',
       apiKey: apiKey,
       clientId: clientId,
@@ -1594,7 +1515,7 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse(
         '$siteUrl/post_action_users.json'
         '?id=$postId&post_action_type_id=${Post.likeActionId}&limit=$limit',
@@ -1604,11 +1525,7 @@ class DiscourseApi
       clientId: clientId,
     );
 
-    return PostLikers.parse(
-      jsonDecode(response.body) as Map<String, dynamic>,
-      postId: postId,
-      siteUrl: siteUrl,
-    );
+    return PostLikers.parse(body, postId: postId, siteUrl: siteUrl);
   }
 
   /// Puts a deleted post back, where the site allows it.
@@ -1619,6 +1536,7 @@ class DiscourseApi
     String? clientId,
   }) => _write(
     Uri.parse('$siteUrl/posts/$postId/recover.json'),
+    siteUrl: siteUrl,
     method: 'PUT',
     apiKey: apiKey,
     clientId: clientId,
@@ -1643,6 +1561,7 @@ class DiscourseApi
   }) async {
     Future<Map<String, dynamic>> send({required bool force}) => _write(
       Uri.parse('$siteUrl/drafts.json'),
+      siteUrl: siteUrl,
       method: 'POST',
       apiKey: apiKey,
       clientId: clientId,
@@ -1702,7 +1621,6 @@ class DiscourseApi
             Uri.parse('$siteUrl/uploads.json'),
             abortTrigger: Future.any<void>([abortTrigger, timeoutAbort.future]),
           )
-          ..headers.addAll(authHeaders(apiKey, clientId: clientId))
           ..fields['upload_type'] = 'composer'
           ..files.add(
             http.MultipartFile(
@@ -1721,11 +1639,12 @@ class DiscourseApi
 
     final http.Response response;
     try {
-      response = await sendBoundedHttpRequest(
-        _client,
+      response = await _transport.sendAuthenticated(
         request,
-        timeout: const Duration(minutes: 5),
-        maxBodyBytes: _maxResponseBytes,
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        requestTimeout: const Duration(minutes: 5),
       );
     } catch (error) {
       throw ComposerUploadException(
@@ -1737,7 +1656,7 @@ class DiscourseApi
       timer.cancel();
     }
 
-    final decoded = _decode(response.body);
+    final decoded = DiscourseTransport.decodeObjectOrEmpty(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ComposerUploadException(
         _uploadError(decoded, file.name),
@@ -1780,11 +1699,16 @@ class DiscourseApi
   }) async {
     final requested = shortUrls.toSet();
     if (requested.isEmpty) return const {};
-    final request =
-        http.Request('POST', Uri.parse('$siteUrl/uploads/lookup-urls'))
-          ..headers.addAll(authHeaders(apiKey, clientId: clientId))
-          ..body = jsonEncode({'short_urls': requested.toList()});
-    final response = await _send(request);
+    final request = http.Request(
+      'POST',
+      Uri.parse('$siteUrl/uploads/lookup-urls'),
+    )..body = jsonEncode({'short_urls': requested.toList()});
+    final response = await _transport.sendAuthenticated(
+      request,
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ComposerUploadException(
         "Couldn't load image previews.",
@@ -1827,13 +1751,12 @@ class DiscourseApi
     required String draftKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/drafts/${Uri.encodeComponent(draftKey)}.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
     return (
       draft: switch (body['draft']) {
         final String value => ComposerDraft.decode(value),
@@ -1856,13 +1779,12 @@ class DiscourseApi
     final url = Uri.parse(
       '$siteUrl/drafts.json',
     ).replace(queryParameters: {'offset': '$offset', 'limit': '$limit'});
-    final response = await _get(
+    final body = await _getObject(
       url,
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
     return List.unmodifiable(
       jsonObjects(
         body['drafts'],
@@ -1882,6 +1804,7 @@ class DiscourseApi
     final encoded = Uri.encodeComponent(draftKey);
     await _write(
       Uri.parse('$siteUrl/drafts/$encoded.json?sequence=$sequence'),
+      siteUrl: siteUrl,
       method: 'DELETE',
       apiKey: apiKey,
       clientId: clientId,
@@ -1889,10 +1812,11 @@ class DiscourseApi
     );
   }
 
-  /// Shared write, and the only path in here that sends a body.
+  /// Shared JSON-object write path.
   ///
-  /// Unlike [_get] it keeps the status and the decoded body, because a refused
-  /// write is something the user has to read and act on.
+  /// Unlike [_get] it keeps the decoded body and maps refusals to something the
+  /// user can read and act on. Specialized upload payloads use the same
+  /// authenticated transport without pretending their response is an object.
   ///
   /// Deliberately never retries, and callers must not either. A user API key
   /// gets no idempotency from Discourse — the request memoizer is gated on
@@ -1901,86 +1825,19 @@ class DiscourseApi
   /// topic and look, not to send it again.
   Future<Map<String, dynamic>> _write(
     Uri url, {
+    required String siteUrl,
     required String method,
     required String apiKey,
     required Map<String, Object?> body,
     String? clientId,
-  }) async {
-    final http.Response response;
-    try {
-      final request = http.Request(method, url)
-        ..headers.addAll(authHeaders(apiKey, clientId: clientId))
-        // Null entries are dropped rather than sent: Rails reads a missing
-        // parameter and an explicit null differently, and every optional field
-        // here means "the server picks" when absent.
-        ..body = jsonEncode({
-          for (final entry in body.entries)
-            if (entry.value != null) entry.key: entry.value,
-        });
-      response = await _send(request);
-    } catch (error, stackTrace) {
-      throw WriteException(
-        WriteFailure.unreachable,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-
-    final decoded = _decode(response.body);
-    // Any 2xx, not 200 alone: a delete answers with no content, and which of
-    // the empty-success statuses that is depends on the route.
-    if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
-
-    final errors = [
-      for (final error in jsonArray(decoded['errors']))
-        if (error is String && error.trim().isNotEmpty) error.trim(),
-    ];
-
-    throw WriteException(
-      switch (response.statusCode) {
-        401 || 403 => WriteFailure.forbidden,
-        409 => WriteFailure.conflict,
-        429 => WriteFailure.rateLimited,
-        // A refused write is a 422 carrying messages. Anything else that
-        // brought messages is treated the same way rather than hidden behind
-        // "couldn't reach it", which would throw away the only useful part.
-        _ when errors.isNotEmpty => WriteFailure.validation,
-        _ => WriteFailure.unreachable,
-      },
-      errors: errors,
-      statusCode: response.statusCode,
-      retryAfter: _retryAfter(response, decoded),
-    );
-  }
-
-  /// Nothing about an error body is guaranteed — a proxy or a 500 answers with
-  /// HTML — so failing to decode is not itself an error.
-  static Map<String, dynamic> _decode(String body) {
-    try {
-      return jsonDecode(body) as Map<String, dynamic>;
-    } catch (_) {
-      return const {};
-    }
-  }
-
-  /// How long to wait after a 429. Discourse sends `Retry-After` and repeats it
-  /// in `extras.wait_seconds`; neither is guaranteed, so take whichever came.
-  static Duration? _retryAfter(
-    http.Response response,
-    Map<String, dynamic> body,
-  ) {
-    final header = int.tryParse(response.headers['retry-after'] ?? '');
-    if (header != null) return Duration(seconds: header);
-
-    final extras = jsonObject(body['extras']);
-    return switch (extras['wait_seconds']) {
-      final num seconds => Duration(seconds: seconds.round()),
-      final String seconds when int.tryParse(seconds) != null => Duration(
-        seconds: int.parse(seconds),
-      ),
-      _ => null,
-    };
-  }
+  }) => _transport.write(
+    url,
+    siteUrl: siteUrl,
+    method: method,
+    apiKey: apiKey,
+    body: body,
+    clientId: clientId,
+  );
 
   /// Shared GET with the error mapping every authenticated call wants.
   Future<http.Response> _get(
@@ -1988,39 +1845,22 @@ class DiscourseApi
     required String siteUrl,
     String? apiKey,
     String? clientId,
-  }) async {
-    final http.Response response;
-    try {
-      final request = http.Request('GET', url)
-        ..headers.addAll(
-          apiKey == null ? const {} : authHeaders(apiKey, clientId: clientId),
-        );
-      response = await _send(request);
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
+  }) =>
+      _transport.get(url, siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
 
-    if (response.statusCode == 403 || response.statusCode == 401) {
-      throw SiteLookupException(
-        SiteLookupFailure.notDiscourse,
-        siteUrl,
-        statusCode: response.statusCode,
-      );
-    }
-    if (response.statusCode != 200) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        statusCode: response.statusCode,
-      );
-    }
-    return response;
-  }
+  /// Shared object-shaped JSON read. List-shaped compatibility routes keep the
+  /// buffered response from [_get] and decode their deliberately wider shape.
+  Future<Map<String, dynamic>> _getObject(
+    Uri url, {
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) => _transport.getObject(
+    url,
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -2028,26 +1868,12 @@ class DiscourseApi
     required String path,
     required String apiKey,
     String? clientId,
-  }) async {
-    final response = await _get(
-      Uri.parse(siteUrl).resolve(path),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    try {
-      final decoded = jsonDecode(response.body);
-      if (decoded is Map<String, dynamic>) return decoded;
-      throw const FormatException('Expected a JSON object');
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) async => _getObject(
+    _resolvePluginPath(siteUrl, path),
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<Map<String, dynamic>> pluginWriteJson({
@@ -2057,13 +1883,29 @@ class DiscourseApi
     required String apiKey,
     required Map<String, Object?> body,
     String? clientId,
-  }) => _write(
-    Uri.parse(siteUrl).resolve(path),
+  }) async => _write(
+    _resolvePluginPath(siteUrl, path),
+    siteUrl: siteUrl,
     method: method,
     apiKey: apiKey,
     clientId: clientId,
     body: body,
   );
+
+  /// Resolves a repository-owned plugin route without letting that extension
+  /// boundary redirect a user API key to another origin.
+  static Uri _resolvePluginPath(String siteUrl, String path) {
+    final site = Uri.parse(siteUrl);
+    final target = site.resolve(path);
+    if (target.origin != site.origin) {
+      throw ArgumentError.value(
+        path,
+        'path',
+        'Plugin API paths must stay on the connected site origin.',
+      );
+    }
+    return target;
+  }
 
   /// Who reacted to a post, oldest first, likers and reactors merged.
   ///
@@ -2083,7 +1925,7 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse(
         '$siteUrl/discourse-reactions/posts/$postId/reactions-users-list.json'
         '?limit=$limit'
@@ -2095,7 +1937,7 @@ class DiscourseApi
     );
 
     return PostReactors.parse(
-      jsonDecode(response.body) as Map<String, dynamic>,
+      body,
       postId: postId,
       siteUrl: siteUrl,
       filter: reaction,
@@ -2120,17 +1962,14 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/chat/api/me/channels.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
 
-    return ChatChannel.parse(
-      jsonDecode(response.body) as Map<String, dynamic>,
-      siteUrl,
-    );
+    return ChatChannel.parse(body, siteUrl);
   }
 
   /// One page of a channel's messages, oldest first.
@@ -2171,11 +2010,14 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    assert(
-      [before != null, after != null, fromLastRead].where((on) => on).length <=
-          1,
-      'A page is asked for in one shape at a time; the site reads only the '
-      'first it recognises and the caller would not be told which.',
+    _requirePositiveId(channelId, 'channelId');
+    if (pageSize < 1 || pageSize > 50) {
+      throw RangeError.range(pageSize, 1, 50, 'pageSize');
+    }
+    _validateChatPageDirection(
+      before: before,
+      after: after,
+      fromLastRead: fromLastRead,
     );
 
     // Absent params are left out rather than sent empty, and the failure mode
@@ -2192,17 +2034,14 @@ class DiscourseApi
       if (after != null) ...['direction=future', 'target_message_id=$after'],
     ].join('&');
 
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse('$siteUrl/chat/api/channels/$channelId/messages.json?$query'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
 
-    return ChatMessage.parsePage(
-      jsonDecode(response.body) as Map<String, dynamic>,
-      siteUrl,
-    );
+    return ChatMessage.parsePage(body, siteUrl);
   }
 
   /// Credits the reader with everything in a channel up to [messageId].
@@ -2232,6 +2071,7 @@ class DiscourseApi
     Uri.parse(
       '$siteUrl/chat/api/channels/$channelId/read.json?message_id=$messageId',
     ),
+    siteUrl: siteUrl,
     method: 'PUT',
     apiKey: apiKey,
     clientId: clientId,
@@ -2248,12 +2088,14 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    assert(before == null || after == null);
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(threadId, 'threadId');
+    _validateChatPageDirection(before: before, after: after);
     final query = [
       if (before != null) ...['direction=past', 'target_message_id=$before'],
       if (after != null) ...['direction=future', 'target_message_id=$after'],
     ].join('&');
-    final response = await _get(
+    final body = await _getObject(
       Uri.parse(
         '$siteUrl/chat/api/channels/$channelId/threads/$threadId/messages'
         '${query.isEmpty ? '.json' : '.json?$query'}',
@@ -2262,10 +2104,26 @@ class DiscourseApi
       apiKey: apiKey,
       clientId: clientId,
     );
-    return ChatMessage.parsePage(
-      jsonDecode(response.body) as Map<String, dynamic>,
-      siteUrl,
-    );
+    return ChatMessage.parsePage(body, siteUrl);
+  }
+
+  static void _validateChatPageDirection({
+    int? before,
+    int? after,
+    bool fromLastRead = false,
+  }) {
+    if (before != null) _requirePositiveId(before, 'before');
+    if (after != null) _requirePositiveId(after, 'after');
+    final shapes = [before != null, after != null, fromLastRead];
+    if (shapes.where((selected) => selected).length > 1) {
+      throw ArgumentError(
+        'Only one of before, after, or fromLastRead may be selected.',
+      );
+    }
+  }
+
+  static void _requirePositiveId(int value, String name) {
+    if (value <= 0) throw RangeError.value(value, name, 'Must be positive.');
   }
 
   @override
@@ -2279,6 +2137,7 @@ class DiscourseApi
   }) async {
     final body = await _write(
       Uri.parse('$siteUrl/chat/$channelId.json'),
+      siteUrl: siteUrl,
       method: 'POST',
       apiKey: apiKey,
       clientId: clientId,
@@ -2299,6 +2158,7 @@ class DiscourseApi
     Uri.parse(
       '$siteUrl/chat/api/channels/$channelId/threads/$threadId/read.json',
     ),
+    siteUrl: siteUrl,
     method: 'PUT',
     apiKey: apiKey,
     clientId: clientId,
@@ -2315,11 +2175,20 @@ class DiscourseApi
     final request = http.Request(
       'POST',
       Uri.parse('$siteUrl/user-api-key/revoke'),
-    )..headers.addAll(authHeaders(apiKey, clientId: clientId));
-    final response = await _send(request);
+    );
+    final response = await _transport.sendAuthenticated(
+      request,
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
 
     // 404 means the site predates the revoke route; nothing to do about it.
-    if (response.statusCode >= 400 && response.statusCode != 404) {
+    // Every other non-2xx response is a failed revocation. In particular,
+    // SafeHttpClient deliberately refuses automatic redirects, so accepting a
+    // 3xx here would delete our local key while leaving the remote key live.
+    if ((response.statusCode < 200 || response.statusCode >= 300) &&
+        response.statusCode != 404) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
         siteUrl,
@@ -2328,36 +2197,16 @@ class DiscourseApi
     }
   }
 
-  Future<http.Response> _send(http.BaseRequest request) async {
-    try {
-      return await sendBoundedHttpRequest(
-        _client,
-        request,
-        timeout: timeout,
-        maxBodyBytes: _maxResponseBytes,
-      );
-    } on UnsafeHttpTransportException catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        error.url.toString(),
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  Future<http.Response> _send(http.BaseRequest request) =>
+      _transport.send(request);
 
   /// How this client names itself, everywhere it talks to a site — including
   /// the message_bus poll, which does not go through here.
-  static const String userAgent = 'DiscourseNative/1.0';
+  static const String userAgent = DiscourseTransport.userAgent;
 
   /// Headers every authenticated request carries, matching DiscourseMobile.
-  static Map<String, String> authHeaders(String apiKey, {String? clientId}) => {
-    'User-Api-Key': apiKey,
-    'User-Api-Client-Id': ?clientId,
-    'User-Agent': userAgent,
-    'Content-Type': 'application/json',
-    'Dont-Chunk': 'true',
-  };
+  static Map<String, String> authHeaders(String apiKey, {String? clientId}) =>
+      DiscourseTransport.authHeaders(apiKey, clientId: clientId);
 
   /// Avatar templates carry a `{size}` placeholder and may be site-relative.
   static String? _avatarUrl(String? template, String baseUrl) {

@@ -59,6 +59,10 @@ void main() {
         request.response
           ..statusCode = HttpStatus.created
           ..headers.set('x-request-id', 'request-123')
+          ..headers.set('rate-limit', '20')
+          ..headers.set('x-discourse-route', 'topic.show')
+          ..headers.set('cf-ray', 'not-in-the-retention-policy')
+          ..headers.set('x-correlation-id', 'also-not-retained')
           ..headers.set('x-private-header', 'response-secret')
           ..headers.set(HttpHeaders.setCookieHeader, 'session=cookie-secret')
           ..add(<int>[9, 8, 7, 6]);
@@ -103,7 +107,11 @@ void main() {
       expect(terminal.headerDuration, isNotNull);
       expect(terminal.totalDuration, isNotNull);
       expect(terminal.responseHeaders['x-request-id'], 'request-123');
+      expect(terminal.responseHeaders['rate-limit'], '20');
+      expect(terminal.responseHeaders['x-discourse-route'], 'topic.show');
       expect(terminal.responseHeaders, contains(HttpHeaders.contentTypeHeader));
+      expect(terminal.responseHeaders, isNot(contains('cf-ray')));
+      expect(terminal.responseHeaders, isNot(contains('x-correlation-id')));
       expect(terminal.responseHeaders, isNot(contains('x-private-header')));
       expect(terminal.responseHeaders, isNot(contains('set-cookie')));
       expect(terminal.uri.query, 'api_key&page');
@@ -369,60 +377,76 @@ void main() {
       expect(failure.errorMessage, contains('body failed'));
     });
 
-    test('a hostile response stack cannot replace the transport error', () async {
-      final recorder = _Recorder();
-      final original = StateError('original response failure');
-      final response = _FakeResponse(
-        Stream<List<int>>.error(original, _HostileStackTrace()),
-      );
-      final client = RecordingHttpClient(
-        _FakeHttpClient(
-          onGetUrl: (uri) async => _FakeHttpClientRequest(uri, response),
-        ),
-        recorder,
-      );
+    test(
+      'a hostile response stack cannot replace the transport error',
+      () async {
+        final recorder = _Recorder();
+        final original = StateError('original response failure');
+        final response = _FakeResponse(
+          Stream<List<int>>.error(original, _HostileStackTrace()),
+        );
+        final client = RecordingHttpClient(
+          _FakeHttpClient(
+            onGetUrl: (uri) async => _FakeHttpClientRequest(uri, response),
+          ),
+          recorder,
+        );
 
-      final request = await client.getUrl(Uri.https('example.com', '/stream'));
-      await expectLater(
-        (await request.close()).drain<void>(),
-        throwsA(same(original)),
-      );
+        final request = await client.getUrl(
+          Uri.https('example.com', '/stream'),
+        );
+        await expectLater(
+          (await request.close()).drain<void>(),
+          throwsA(same(original)),
+        );
 
-      expect(recorder.updates.last.phase, HttpDiagnosticPhase.failed);
-      expect(recorder.updates.last.errorMessage, contains('original response'));
-      expect(
-        recorder.updates.last.stackTrace,
-        contains('<error while formatting exception>'),
-      );
-    });
+        expect(recorder.updates.last.phase, HttpDiagnosticPhase.failed);
+        expect(
+          recorder.updates.last.errorMessage,
+          contains('original response'),
+        );
+        expect(
+          recorder.updates.last.stackTrace,
+          contains('<error while formatting exception>'),
+        );
+      },
+    );
 
-    test('a hostile request stack cannot disrupt addError delegation', () async {
-      final delegate = _FakeHttpClientRequest(
-        Uri.https('example.com', '/upload'),
-        _FakeResponse(const Stream<List<int>>.empty()),
-      );
-      final recorder = _Recorder();
-      final client = RecordingHttpClient(
-        _FakeHttpClient(onGetUrl: (_) async => delegate),
-        recorder,
-      );
-      final request = await client.getUrl(Uri.https('example.com', '/upload'));
-      final original = StateError('original request failure');
-      final hostileStack = _HostileStackTrace();
+    test(
+      'a hostile request stack cannot disrupt addError delegation',
+      () async {
+        final delegate = _FakeHttpClientRequest(
+          Uri.https('example.com', '/upload'),
+          _FakeResponse(const Stream<List<int>>.empty()),
+        );
+        final recorder = _Recorder();
+        final client = RecordingHttpClient(
+          _FakeHttpClient(onGetUrl: (_) async => delegate),
+          recorder,
+        );
+        final request = await client.getUrl(
+          Uri.https('example.com', '/upload'),
+        );
+        final original = StateError('original request failure');
+        final hostileStack = _HostileStackTrace();
 
-      expect(() => request.addError(original, hostileStack), returnsNormally);
+        expect(() => request.addError(original, hostileStack), returnsNormally);
 
-      expect(delegate.addedError, same(original));
-      expect(delegate.addedStackTrace, same(hostileStack));
-      expect(recorder.updates.last.phase, HttpDiagnosticPhase.failed);
-      expect(recorder.updates.last.errorMessage, contains('original request'));
-      expect(
-        recorder.updates.last.stackTrace,
-        contains('<error while formatting exception>'),
-      );
-      await request.close();
-      await delegate.close();
-    });
+        expect(delegate.addedError, same(original));
+        expect(delegate.addedStackTrace, same(hostileStack));
+        expect(recorder.updates.last.phase, HttpDiagnosticPhase.failed);
+        expect(
+          recorder.updates.last.errorMessage,
+          contains('original request'),
+        );
+        expect(
+          recorder.updates.last.stackTrace,
+          contains('<error while formatting exception>'),
+        );
+        await request.close();
+        await delegate.close();
+      },
+    );
 
     test(
       'never retains a parser exception source from a body stream',

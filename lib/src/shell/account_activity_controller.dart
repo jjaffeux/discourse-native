@@ -79,7 +79,10 @@ final class AccountActivityController extends FrameSafeNotifier {
     final before = _totals[instance.url] ?? const NotificationTotals();
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);
-      if (apiKey == null) return null;
+      if (apiKey == null ||
+          !_ownsRequest(lease, _totalsRequests[instance.url], request)) {
+        return null;
+      }
       final totals = await api.notificationTotals(
         siteUrl: instance.url,
         apiKey: apiKey,
@@ -136,6 +139,9 @@ final class AccountActivityController extends FrameSafeNotifier {
 
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);
+      if (!_ownsRequest(lease, _notificationRequests[instance.url], request)) {
+        return;
+      }
       if (apiKey == null) {
         _commit(lease, () {
           if (!identical(_notificationRequests[instance.url], request)) return;
@@ -212,6 +218,9 @@ final class AccountActivityController extends FrameSafeNotifier {
 
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);
+      if (!_ownsRequest(lease, _bookmarkRequests[instance.url], request)) {
+        return;
+      }
       if (apiKey == null) {
         _commit(lease, () {
           if (!identical(_bookmarkRequests[instance.url], request)) return;
@@ -277,7 +286,7 @@ final class AccountActivityController extends FrameSafeNotifier {
 
     final request = Object();
     _notificationReadRequests[key] = request;
-    _markNotificationRead(instance, notification).whenComplete(() {
+    _markNotificationRead(instance, notification, request).whenComplete(() {
       if (identical(_notificationReadRequests[key], request)) {
         _notificationReadRequests.remove(key);
       }
@@ -287,6 +296,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   Future<void> _markNotificationRead(
     DiscourseInstance instance,
     DiscourseNotification notification,
+    Object request,
   ) async {
     final lease = lifecycle.capture(instance.url);
     var notificationChanged = false;
@@ -311,7 +321,11 @@ final class AccountActivityController extends FrameSafeNotifier {
 
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);
-      if (apiKey == null || !lease.isCurrent) return;
+      final key = (instance.url, notification.id);
+      if (apiKey == null ||
+          !_ownsRequest(lease, _notificationReadRequests[key], request)) {
+        return;
+      }
       await api.markNotificationRead(
         siteUrl: instance.url,
         apiKey: apiKey,
@@ -319,16 +333,15 @@ final class AccountActivityController extends FrameSafeNotifier {
       );
     } catch (error, stackTrace) {
       final key = (instance.url, notification.id);
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !_notificationReadRequests.containsKey(key)) {
+      if (!_ownsRequest(lease, _notificationReadRequests[key], request)) {
         return;
       }
       _report(error, stackTrace, 'account.markNotificationRead');
       return;
     }
 
-    if (!lease.isCurrent) return;
+    final key = (instance.url, notification.id);
+    if (!_ownsRequest(lease, _notificationReadRequests[key], request)) return;
     await refresh(instance);
   }
 
@@ -379,6 +392,9 @@ final class AccountActivityController extends FrameSafeNotifier {
     if (isDisposed) return false;
     return lease.commit(mutation);
   }
+
+  bool _ownsRequest(SiteLease lease, Object? held, Object request) =>
+      !isDisposed && lease.isCurrent && identical(held, request);
 
   static NotificationTotals _mergeChangedCounts(
     NotificationTotals response,

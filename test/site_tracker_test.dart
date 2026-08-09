@@ -274,9 +274,11 @@ void main() {
       );
       expect(bus.lastIds['/resenha/rooms/index'], 144);
 
+      final retainedCallback = bus.retainedCallback('/resenha/rooms/index');
       bus.deliver('/resenha/rooms/index', 'first');
       subscription.cancel();
       bus.deliver('/resenha/rooms/index', 'late');
+      retainedCallback('already queued');
 
       expect(messages, ['first']);
       expect(bus.activeSubscriptionCount('/resenha/rooms/index'), 0);
@@ -344,6 +346,7 @@ void main() {
       var notificationCalls = 0;
       var reviewableCalls = 0;
       var topicCalls = 0;
+      var pluginCalls = 0;
       final tracker = _tracker(
         bus,
         userId: 42,
@@ -353,10 +356,15 @@ void main() {
         onReviewableCounts: (_) => reviewableCalls += 1,
       );
       tracker.watchTopic(12, ['/topic/12'], (_, _) => topicCalls += 1);
+      tracker.watchPluginChannel(
+        '/resenha/rooms/index',
+        (_) => pluginCalls += 1,
+      );
       final incomingCallback = bus.retainedCallback('/latest');
       final notificationCallback = bus.retainedCallback('/notification/42');
       final reviewableCallback = bus.retainedCallback('/reviewable_counts/42');
       final topicCallback = bus.retainedCallback('/topic/12');
+      final pluginCallback = bus.retainedCallback('/resenha/rooms/index');
       tracker.incoming.notify({'topic_id': 7, 'message_type': 'new_topic'});
       expect(tracker.incoming.count('latest'), 1);
 
@@ -366,6 +374,7 @@ void main() {
       notificationCallback({});
       reviewableCallback({});
       topicCallback({});
+      pluginCallback({});
       tracker.stop();
       tracker.pollNow();
 
@@ -378,6 +387,7 @@ void main() {
       expect(notificationCalls, 0);
       expect(reviewableCalls, 0);
       expect(topicCalls, 0);
+      expect(pluginCalls, 0);
       expect(() => tracker.start(), throwsStateError);
       expect(
         () => tracker.watchTopic(13, ['/topic/13'], (_, _) {}),

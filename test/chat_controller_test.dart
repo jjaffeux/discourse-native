@@ -86,6 +86,62 @@ final class _GatedCredentials extends FakeApiCredentialReader {
   }
 }
 
+final class _ControllableCredentials extends FakeApiCredentialReader {
+  Completer<void>? _apiKeyGate;
+  Completer<void>? _clientIdGate;
+  Completer<void>? _apiKeyStarted;
+  Completer<void>? _clientIdStarted;
+
+  int apiKeyCalls = 0;
+  int clientIdCalls = 0;
+
+  Future<void> blockApiKey() {
+    _apiKeyGate = Completer<void>();
+    _apiKeyStarted = Completer<void>();
+    return _apiKeyStarted!.future;
+  }
+
+  Future<void> blockClientId() {
+    _clientIdGate = Completer<void>();
+    _clientIdStarted = Completer<void>();
+    return _clientIdStarted!.future;
+  }
+
+  void releaseApiKey() {
+    _apiKeyGate?.complete();
+    _apiKeyGate = null;
+  }
+
+  void releaseClientId() {
+    _clientIdGate?.complete();
+    _clientIdGate = null;
+  }
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async {
+    apiKeyCalls++;
+    final gate = _apiKeyGate;
+    if (gate != null) {
+      if (!(_apiKeyStarted?.isCompleted ?? true)) _apiKeyStarted!.complete();
+      await gate.future;
+    }
+    return keys[siteUrl];
+  }
+
+  @override
+  Future<String> clientId() async {
+    clientIdCalls++;
+    final gate = _clientIdGate;
+    if (gate != null) {
+      if (!(_clientIdStarted?.isCompleted ?? true)) {
+        _clientIdStarted!.complete();
+      }
+      await gate.future;
+    }
+    return super.clientId();
+  }
+}
+
 String key(int channelId, {int? before, int? after}) =>
     FakeDiscourseApi.chatMessagesKey(channelId, before: before, after: after);
 
@@ -145,6 +201,30 @@ void main() {
         await Future.wait([first, second]);
 
         expect(subject.api.chatChannelsRequested, [site]);
+      },
+    );
+
+    test(
+      'a forgotten credential-gated load never reaches the channel API',
+      () async {
+        final api = FakeDiscourseApi();
+        final credentials = _ControllableCredentials()..keys[site] = 'key';
+        final chat = ChatController(
+          api: api,
+          credentials: credentials,
+          store: Store(),
+        );
+        addTearDown(chat.dispose);
+        final credentialsStarted = credentials.blockApiKey();
+
+        final loading = chat.loadChannels(site);
+        await credentialsStarted;
+        chat.forget(site);
+        credentials.releaseApiKey();
+        await loading;
+
+        expect(api.chatChannelsRequested, isEmpty);
+        expect(credentials.clientIdCalls, 0);
       },
     );
 
@@ -344,6 +424,28 @@ void main() {
   });
 
   group('opening a channel', () {
+    test(
+      'a disposed credential-gated window never reaches the message API',
+      () async {
+        final api = FakeDiscourseApi();
+        final credentials = _ControllableCredentials()..keys[site] = 'key';
+        final chat = ChatController(
+          api: api,
+          credentials: credentials,
+          store: Store(),
+        );
+        final clientIdStarted = credentials.blockClientId();
+
+        final opening = chat.openChannel(site, 9);
+        await clientIdStarted;
+        chat.dispose();
+        credentials.releaseClientId();
+        await opening;
+
+        expect(api.chatMessagesRequested, isEmpty);
+      },
+    );
+
     test('notifies only the stream that changed', () async {
       final subject = build(
         messages: {
@@ -522,6 +624,39 @@ void main() {
       expect(subject.chat.stream(site, 9).atPresent, isTrue);
     });
 
+    test(
+      'an invalidated lease stops a newer page before client-id and API work',
+      () async {
+        final api = FakeDiscourseApi(
+          chatMessagesByKey: {
+            key(9): page([message(5)], canLoadMoreFuture: true),
+            key(9, after: 5): page([message(6, minute: 1)]),
+          },
+        );
+        final credentials = _ControllableCredentials()..keys[site] = 'key';
+        final lifecycle = SiteLifecycle();
+        final chat = ChatController(
+          api: api,
+          credentials: credentials,
+          store: Store(),
+          lifecycle: lifecycle,
+        );
+        addTearDown(chat.dispose);
+        await chat.openChannel(site, 9);
+        final initialClientIdCalls = credentials.clientIdCalls;
+        final credentialsStarted = credentials.blockApiKey();
+
+        final loading = chat.loadNewer(site, 9);
+        await credentialsStarted;
+        lifecycle.invalidate(site);
+        credentials.releaseApiKey();
+        await loading;
+
+        expect(api.chatMessagesRequested, hasLength(1));
+        expect(credentials.clientIdCalls, initialClientIdCalls);
+      },
+    );
+
     test('does not ask at all from a window already at the present', () async {
       // Which is every window fetched at the live edge, so this is the common
       // case rather than an edge one.
@@ -645,6 +780,39 @@ void main() {
       expect(chat.stream(site, 9).messageIds, [8, 9]);
       expect(chat.stream(site, 9).loadingOlder, isFalse);
     });
+
+    test(
+      'a replacement window stops an older page after client-id lookup',
+      () async {
+        final api = FakeDiscourseApi(
+          chatMessagesByKey: {
+            key(9): page([message(5)], canLoadMorePast: true),
+            key(9, before: 5): page([message(1)]),
+          },
+        );
+        final credentials = _ControllableCredentials()..keys[site] = 'key';
+        final chat = ChatController(
+          api: api,
+          credentials: credentials,
+          store: Store(),
+        );
+        addTearDown(chat.dispose);
+        await chat.openChannel(site, 9);
+        final clientIdStarted = credentials.blockClientId();
+
+        final oldPage = chat.loadOlder(site, 9);
+        await clientIdStarted;
+        final replacement = chat.openChannel(site, 9);
+        credentials.releaseClientId();
+        await Future.wait([oldPage, replacement]);
+
+        expect(
+          api.chatMessagesRequested.where((request) => request.before == 5),
+          isEmpty,
+        );
+        expect(api.chatMessagesRequested, hasLength(2));
+      },
+    );
   });
 
   group('paging into the past', () {
@@ -929,6 +1097,31 @@ void main() {
 
       expect(api.chatReadsMarked, isEmpty);
     });
+
+    test(
+      'forgetting a credential-gated read receipt delegates no write',
+      () async {
+        final api = FakeDiscourseApi();
+        final credentials = _ControllableCredentials()..keys[site] = 'key';
+        final store = Store()..put(site, channel(9, lastRead: 1));
+        final chat = ChatController(
+          api: api,
+          credentials: credentials,
+          store: store,
+        );
+        addTearDown(chat.dispose);
+        final credentialsStarted = credentials.blockApiKey();
+
+        final marking = chat.markRead(site, 9, 3);
+        await credentialsStarted;
+        chat.forget(site);
+        credentials.releaseApiKey();
+        await marking;
+
+        expect(api.chatReadsMarked, isEmpty);
+        expect(credentials.clientIdCalls, 0);
+      },
+    );
 
     test(
       'empties the counts on reaching the newest message there is',

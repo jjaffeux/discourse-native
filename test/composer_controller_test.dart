@@ -431,6 +431,43 @@ void main() {
       expect(composer.text.text, 'body\n![photo|640x480](upload://photo)');
     });
 
+    testWidgets('only failed uploads can be retried', (tester) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.addDroppedImages([_file('photo.png')], 0);
+
+      final upload = composer.uploads.single;
+      composer.retryUpload(upload.id);
+
+      expect(calls, hasLength(1));
+      expect(composer.uploads.single.status, ComposerUploadStatus.uploading);
+    });
+
+    testWidgets('turns synchronous uploader errors into retryable rows', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _target,
+        imageUploader: (_, {required onProgress, required abortTrigger}) {
+          throw const ComposerUploadException(
+            'The upload could not be started.',
+          );
+        },
+      );
+      addTearDown(composer.dispose);
+
+      composer.addDroppedImages([_file('photo.png')], 0);
+      await tester.pump();
+
+      expect(composer.uploads.single.status, ComposerUploadStatus.failed);
+      expect(composer.uploads.single.error, 'The upload could not be started.');
+      expect(composer.canSubmit, isFalse);
+    });
+
     testWidgets(
       'a failure does not block later success or lose retry ordering',
       (tester) async {

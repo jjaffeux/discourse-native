@@ -136,23 +136,17 @@ class _PostActionsState extends State<PostActions> {
   /// payload, so it too is an answer the site gave.
   List<PostAction> _actions(BuildContext context, ShellController controller) {
     final post = widget.post;
-    final contributed = <PostAction>[];
-    var replacesLike = false;
-    for (final plugin in sitePlugins) {
-      final contribution = plugin.postMenu(context, widget.siteUrl, post);
-      contributed.addAll(contribution.entries);
-      replacesLike |= contribution.replacesLike;
-    }
+    final contribution = pluginRegistry.postMenu(context, widget.siteUrl, post);
 
     return [
       // First, and furthest from Delete: it is the one thing here people do
       // over and over while reading, and the only one they do without meaning
       // to change anything.
-      ...contributed,
+      ...contribution.entries,
       // Offered only while it would do something. A post already liked past
       // the site's undo window keeps its filled heart in the count underneath,
       // which says the same thing without a button that refuses.
-      if (!replacesLike && post.canToggleLike)
+      if (!contribution.replacesLike && post.canToggleLike)
         PostAction(
           icon: post.liked ? DIcons.heart : DIcons.farHeart,
           label: post.liked ? 'Remove like' : 'Like',

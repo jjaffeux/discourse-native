@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/diagnostics_redactor.dart';
+import '../foundation/private_file_permissions.dart';
 import 'app_release.dart';
 import 'updater.dart';
 
@@ -462,6 +463,8 @@ final class FileUpdateRecoveryStore implements du.UpdateRecoveryStore {
     final String encoded;
     try {
       if (!await file.exists()) return null;
+      await ensurePrivateDirectory(file.parent);
+      restrictPrivateFile(file);
       encoded = await file.readAsString();
     } catch (error, stackTrace) {
       _reportUpdaterRecoveryError(error, stackTrace, 'updater.recovery.read');
@@ -485,11 +488,13 @@ final class FileUpdateRecoveryStore implements du.UpdateRecoveryStore {
   Future<void> writePendingInstall(
     du.UpdateInstallRecoveryMarker marker,
   ) async {
-    await file.parent.create(recursive: true);
+    await ensurePrivateDirectory(file.parent);
     final pending = _pendingFile;
     try {
+      await ensurePrivateFile(pending);
       await pending.writeAsString(jsonEncode(_toJson(marker)), flush: true);
       await pending.rename(file.path);
+      restrictPrivateFile(file);
     } finally {
       await _deleteIfPresent(pending);
     }
@@ -507,6 +512,8 @@ final class FileUpdateRecoveryStore implements du.UpdateRecoveryStore {
     if (!await markerFile.exists()) return;
 
     try {
+      await ensurePrivateDirectory(markerFile.parent);
+      restrictPrivateFile(markerFile);
       final decoded = jsonDecode(await markerFile.readAsString());
       if (decoded is Map<String, dynamic>) {
         final marker = _fromJson(decoded);

@@ -441,6 +441,13 @@ class ComposerController extends ChangeNotifier {
     final index = _uploadIndex(id);
     final pending = _pendingUploads[id];
     if (_disposed || index < 0 || pending == null) return;
+    // A retry is a transition out of the terminal failed state. Starting one
+    // for an already active row loses its abort trigger and lets two requests
+    // race to decide which result is inserted.
+    if (_uploads[index].status != ComposerUploadStatus.failed ||
+        !pending.failed) {
+      return;
+    }
     pending.abort = Completer<void>();
     pending.result = null;
     pending.failed = false;
@@ -472,19 +479,21 @@ class ComposerController extends ChangeNotifier {
     if (uploader == null || pending == null || index < 0) return;
     final file = _uploads[index].file;
     unawaited(
-      uploader(
-        file,
-        abortTrigger: pending.abort.future,
-        onProgress: (progress) {
-          if (_disposed || !_pendingUploads.containsKey(id)) return;
-          final current = _uploadIndex(id);
-          if (current < 0) return;
-          final previous = _uploads[current].progress;
-          _uploads[current] = _uploads[current].copyWith(
-            progress: progress.clamp(previous, 1),
-          );
-          _notify();
-        },
+      Future<ComposerUploadResult>.sync(
+        () => uploader(
+          file,
+          abortTrigger: pending.abort.future,
+          onProgress: (progress) {
+            if (_disposed || !_pendingUploads.containsKey(id)) return;
+            final current = _uploadIndex(id);
+            if (current < 0) return;
+            final previous = _uploads[current].progress;
+            _uploads[current] = _uploads[current].copyWith(
+              progress: progress.clamp(previous, 1),
+            );
+            _notify();
+          },
+        ),
       ).then(
         (result) {
           if (_disposed || !_pendingUploads.containsKey(id)) return;

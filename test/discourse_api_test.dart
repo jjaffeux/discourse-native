@@ -250,6 +250,28 @@ void main() {
       expect(requestCount, 0);
     });
 
+    test('rejects site credentials before making a request', () async {
+      var requestCount = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requestCount += 1;
+          return http.Response('', 500);
+        }),
+      );
+
+      await expectLater(
+        api.lookup('https://reader:password@example.com'),
+        throwsA(
+          isA<SiteLookupException>().having(
+            (e) => e.failure,
+            'failure',
+            SiteLookupFailure.unreachable,
+          ),
+        ),
+      );
+      expect(requestCount, 0);
+    });
+
     test('follows redirects and keeps where it landed', () async {
       final api = DiscourseApi(
         client: discourseServing(
@@ -283,6 +305,36 @@ void main() {
             return http.Response('', 200, headers: {'auth-api-version': '4'});
           }
           return http.Response('{}', 200);
+        }),
+      );
+
+      await expectLater(
+        api.lookup('discourse.org'),
+        throwsA(
+          isA<SiteLookupException>().having(
+            (e) => e.failure,
+            'failure',
+            SiteLookupFailure.unreachable,
+          ),
+        ),
+      );
+      expect(requested, [Uri.parse('https://discourse.org/user-api-key/new')]);
+    });
+
+    test('rejects redirect credentials before following them', () async {
+      final requested = <Uri>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requested.add(request.url);
+          return http.Response(
+            '',
+            301,
+            headers: {
+              'location':
+                  'https://reader:password@meta.discourse.org/'
+                  'user-api-key/new',
+            },
+          );
         }),
       );
 
@@ -410,6 +462,92 @@ void main() {
       expect(requested, [
         Uri.parse('https://example.com/notifications/mark-read.json'),
       ]);
+    });
+
+    test(
+      'plugin reads reject absolute cross-origin paths before sending',
+      () async {
+        var requestCount = 0;
+        final api = DiscourseApi(
+          client: MockClient((_) async {
+            requestCount += 1;
+            return http.Response('{}', 200);
+          }),
+        );
+
+        await expectLater(
+          api.pluginGetJson(
+            siteUrl: 'https://example.com',
+            path: 'https://attacker.example/steal-key.json',
+            apiKey: 'secret',
+          ),
+          throwsArgumentError,
+        );
+        expect(requestCount, 0);
+      },
+    );
+
+    test(
+      'plugin writes reject scheme-relative cross-origin paths before sending',
+      () async {
+        var requestCount = 0;
+        final api = DiscourseApi(
+          client: MockClient((_) async {
+            requestCount += 1;
+            return http.Response('{}', 200);
+          }),
+        );
+
+        await expectLater(
+          api.pluginWriteJson(
+            siteUrl: 'https://example.com',
+            path: '//attacker.example/steal-key.json',
+            method: 'POST',
+            apiKey: 'secret',
+            body: const {},
+          ),
+          throwsArgumentError,
+        );
+        expect(requestCount, 0);
+      },
+    );
+
+    test('plugin transport keeps relative routes on the site origin', () async {
+      final requests = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response('{"ok":true}', 200);
+        }),
+      );
+
+      await api.pluginGetJson(
+        siteUrl: 'https://example.com',
+        path: '/resenha/rooms.json?limit=20',
+        apiKey: 'secret',
+      );
+      await api.pluginWriteJson(
+        siteUrl: 'https://example.com',
+        path: 'resenha/rooms/1.json',
+        method: 'PUT',
+        apiKey: 'secret',
+        body: const {'name': 'Room'},
+      );
+
+      expect(requests.map((request) => request.url), [
+        Uri.parse('https://example.com/resenha/rooms.json?limit=20'),
+        Uri.parse('https://example.com/resenha/rooms/1.json'),
+      ]);
+      expect(
+        requests,
+        everyElement(
+          isA<http.Request>().having(
+            (request) => request.headers['User-Api-Key'],
+            'User-Api-Key',
+            'secret',
+          ),
+        ),
+      );
     });
 
     test('authenticated reads reject oversized API responses', () async {
@@ -844,6 +982,36 @@ void _authGroups() {
         api.revokeApiKey(siteUrl: 'https://old.example.com', apiKey: 'k'),
         completes,
       );
+    });
+
+    test('does not mistake a redirect for a completed revocation', () async {
+      var requests = 0;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requests += 1;
+          expect(request.followRedirects, isFalse);
+          return http.Response(
+            '',
+            302,
+            headers: {'location': 'https://meta.discourse.org/login'},
+          );
+        }),
+      );
+
+      await expectLater(
+        api.revokeApiKey(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+        ),
+        throwsA(
+          isA<SiteLookupException>().having(
+            (error) => error.statusCode,
+            'statusCode',
+            302,
+          ),
+        ),
+      );
+      expect(requests, 1);
     });
   });
 }
@@ -1957,6 +2125,51 @@ void _feedGroups() {
       expect(page.messages.single.id, 40);
     });
 
+    test('rejects invalid pagination before sending a request', () async {
+      var requests = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requests += 1;
+          return http.Response('{}', 200);
+        }),
+      );
+      final invalidCalls = <Future<void> Function()>[
+        () => api.chatMessages(
+          siteUrl: 'https://example.com',
+          channelId: 9,
+          before: 1,
+          after: 2,
+        ),
+        () => api.chatMessages(
+          siteUrl: 'https://example.com',
+          channelId: 9,
+          before: 1,
+          fromLastRead: true,
+        ),
+        () => api.chatMessages(siteUrl: 'https://example.com', channelId: 0),
+        () => api.chatMessages(
+          siteUrl: 'https://example.com',
+          channelId: 9,
+          before: 0,
+        ),
+        () => api.chatMessages(
+          siteUrl: 'https://example.com',
+          channelId: 9,
+          pageSize: 0,
+        ),
+        () => api.chatMessages(
+          siteUrl: 'https://example.com',
+          channelId: 9,
+          pageSize: 51,
+        ),
+      ];
+
+      for (final call in invalidCalls) {
+        await expectLater(call(), throwsArgumentError);
+      }
+      expect(requests, 0);
+    });
+
     test('omits the target message rather than sending an empty one', () async {
       // `target_message_id=` reads as 0 server side and 404s for a message
       // that cannot exist.
@@ -2040,6 +2253,48 @@ void _feedGroups() {
       );
 
       expect(page.canLoadMorePast, isTrue);
+    });
+  });
+
+  group('chatThreadMessages', () {
+    test('rejects invalid identities and direction before transport', () async {
+      var requests = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requests += 1;
+          return http.Response('{}', 200);
+        }),
+      );
+      final invalidCalls = <Future<void> Function()>[
+        () => api.chatThreadMessages(
+          siteUrl: 'https://example.com',
+          channelId: 0,
+          threadId: 2,
+        ),
+        () => api.chatThreadMessages(
+          siteUrl: 'https://example.com',
+          channelId: 1,
+          threadId: 0,
+        ),
+        () => api.chatThreadMessages(
+          siteUrl: 'https://example.com',
+          channelId: 1,
+          threadId: 2,
+          before: 3,
+          after: 4,
+        ),
+        () => api.chatThreadMessages(
+          siteUrl: 'https://example.com',
+          channelId: 1,
+          threadId: 2,
+          after: -1,
+        ),
+      ];
+
+      for (final call in invalidCalls) {
+        await expectLater(call(), throwsArgumentError);
+      }
+      expect(requests, 0);
     });
   });
 
@@ -2767,6 +3022,60 @@ void _writeGroups() {
             (e) => e.retryAfter,
             'retryAfter',
             const Duration(seconds: 10),
+          ),
+        ),
+      );
+    });
+
+    test(
+      'ignores a negative Retry-After header and uses the valid body',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient(
+            (request) async => http.Response(
+              jsonEncode({
+                'errors': ['Slow down.'],
+                'extras': {'wait_seconds': 42},
+              }),
+              429,
+              headers: {'retry-after': '-5'},
+            ),
+          ),
+        );
+
+        await expectLater(
+          create(api),
+          throwsA(
+            isA<WriteException>().having(
+              (error) => error.retryAfter,
+              'retryAfter',
+              const Duration(seconds: 42),
+            ),
+          ),
+        );
+      },
+    );
+
+    test('caps an excessive retry delay from an untrusted response', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (request) async => http.Response(
+            jsonEncode({
+              'errors': ['Slow down.'],
+              'extras': {'wait_seconds': 999999},
+            }),
+            429,
+          ),
+        ),
+      );
+
+      await expectLater(
+        create(api),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.retryAfter,
+            'retryAfter',
+            const Duration(hours: 1),
           ),
         ),
       );

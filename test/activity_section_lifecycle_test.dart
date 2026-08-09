@@ -1,4 +1,10 @@
+import 'dart:async';
+
+import 'package:discourse_native/src/data/instance_store.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -11,71 +17,212 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.example';
 
 void main() {
-  testWidgets('notifications load again when the shell controller changes', (
-    tester,
-  ) async {
-    final firstApi = FakeDiscourseApi(notificationList: const []);
-    final secondApi = FakeDiscourseApi(notificationList: const []);
-    final first = await _controller(firstApi);
-    final second = await _controller(secondApi, load: false);
-    addTearDown(first.dispose);
-    addTearDown(second.dispose);
+  for (final activity in _Activity.values) {
+    group(activity.label, () {
+      testWidgets('loads again when the shell controller changes', (
+        tester,
+      ) async {
+        final firstApi = _RecordingActivityApi();
+        final secondApi = _RecordingActivityApi();
+        final first = await _controller(firstApi);
+        final second = await _controller(secondApi, load: false);
+        addTearDown(first.dispose);
+        addTearDown(second.dispose);
 
-    await tester.pumpWidget(
-      _section(
-        first,
-        const NotificationSection(siteUrl: _siteUrl, onOpened: _ignore),
-      ),
+        await tester.pumpWidget(_section(first, activity.section(_siteUrl)));
+        await tester.pumpAndSettle();
+        expect(activity.requests(firstApi), [_siteUrl]);
+
+        await tester.pumpWidget(_section(second, activity.section(_siteUrl)));
+        await tester.pumpAndSettle();
+
+        expect(activity.requests(firstApi), [_siteUrl]);
+        expect(activity.requests(secondApi), [_siteUrl]);
+      });
+
+      testWidgets('loads again when the section site changes', (tester) async {
+        final sites = [
+          _connected('meta.example', 'meta-reader'),
+          _connected('other.example', 'other-reader'),
+        ];
+        final api = _RecordingActivityApi();
+        final controller = await _controller(api, sites: sites);
+        addTearDown(controller.dispose);
+
+        await tester.pumpWidget(
+          _section(controller, activity.section(sites.first.url)),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.pumpWidget(
+          _section(controller, activity.section(sites.last.url)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(activity.requests(api), [sites.first.url, sites.last.url]);
+      });
+
+      testWidgets(
+        'a stale controller load cannot dispatch an activity request',
+        (tester) async {
+          final site = _connected('meta.example', 'reader');
+          final firstStore = _GatedInstanceStore([site]);
+          final firstApi = _RecordingActivityApi();
+          final secondApi = _RecordingActivityApi();
+          final first = await _controller(
+            firstApi,
+            sites: [site],
+            store: firstStore,
+            load: false,
+          );
+          final second = await _controller(
+            secondApi,
+            sites: [site],
+            load: false,
+          );
+          addTearDown(first.dispose);
+          addTearDown(second.dispose);
+
+          await tester.pumpWidget(_section(first, activity.section(site.url)));
+          await firstStore.loadStarted.future;
+          expect(activity.requests(firstApi), isEmpty);
+
+          await tester.pumpWidget(_section(second, activity.section(site.url)));
+          await tester.pumpAndSettle();
+          expect(activity.requests(secondApi), [site.url]);
+
+          firstStore.complete();
+          await tester.pumpAndSettle();
+
+          expect(activity.requests(firstApi), isEmpty);
+          expect(activity.requests(secondApi), [site.url]);
+        },
+      );
+
+      testWidgets('a stale site load cannot dispatch an activity request', (
+        tester,
+      ) async {
+        final sites = [
+          _connected('meta.example', 'meta-reader'),
+          _connected('other.example', 'other-reader'),
+        ];
+        final store = _GatedInstanceStore(sites);
+        final api = _RecordingActivityApi();
+        final controller = await _controller(
+          api,
+          sites: sites,
+          store: store,
+          load: false,
+        );
+        addTearDown(controller.dispose);
+
+        await tester.pumpWidget(
+          _section(controller, activity.section(sites.first.url)),
+        );
+        await store.loadStarted.future;
+
+        await tester.pumpWidget(
+          _section(controller, activity.section(sites.last.url)),
+        );
+        expect(activity.requests(api), isEmpty);
+
+        store.complete();
+        await tester.pumpAndSettle();
+
+        expect(activity.requests(api), [sites.last.url]);
+      });
+    });
+  }
+}
+
+enum _Activity {
+  notifications,
+  bookmarks;
+
+  String get label => switch (this) {
+    notifications => 'notifications',
+    bookmarks => 'bookmarks',
+  };
+
+  Widget section(String siteUrl) => switch (this) {
+    notifications => NotificationSection(siteUrl: siteUrl, onOpened: _ignore),
+    bookmarks => BookmarkSection(siteUrl: siteUrl, onOpened: _ignore),
+  };
+
+  List<String> requests(_RecordingActivityApi api) => switch (this) {
+    notifications => api.notificationSites,
+    bookmarks => api.bookmarkSites,
+  };
+}
+
+final class _RecordingActivityApi extends FakeDiscourseApi {
+  _RecordingActivityApi()
+    : super(
+        notificationList: const [],
+        bookmarkList: const [],
+        user: const DiscourseUser(username: 'reader'),
+      );
+
+  final List<String> notificationSites = [];
+  final List<String> bookmarkSites = [];
+
+  @override
+  Future<List<DiscourseNotification>> notifications({
+    required String siteUrl,
+    required String apiKey,
+    int limit = 30,
+    String? clientId,
+  }) {
+    notificationSites.add(siteUrl);
+    return super.notifications(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      limit: limit,
+      clientId: clientId,
     );
-    await tester.pumpAndSettle();
-    expect(firstApi.notificationCalls, 1);
+  }
 
-    await tester.pumpWidget(
-      _section(
-        second,
-        const NotificationSection(siteUrl: _siteUrl, onOpened: _ignore),
-      ),
+  @override
+  Future<BookmarkPayload> bookmarks({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) {
+    bookmarkSites.add(siteUrl);
+    return super.bookmarks(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      username: username,
+      clientId: clientId,
     );
-    await tester.pumpAndSettle();
+  }
+}
 
-    expect(firstApi.notificationCalls, 1);
-    expect(secondApi.notificationCalls, 1);
-  });
+final class _GatedInstanceStore implements InstanceStore {
+  _GatedInstanceStore(this.instances);
 
-  testWidgets('bookmarks load again when the shell controller changes', (
-    tester,
-  ) async {
-    const user = DiscourseUser(username: 'reader');
-    final firstApi = FakeDiscourseApi(bookmarkList: const [], user: user);
-    final secondApi = FakeDiscourseApi(bookmarkList: const [], user: user);
-    final first = await _controller(firstApi);
-    final second = await _controller(secondApi, load: false);
-    addTearDown(first.dispose);
-    addTearDown(second.dispose);
+  final List<DiscourseInstance> instances;
+  final Completer<void> loadStarted = Completer<void>();
+  final Completer<void> _loadGate = Completer<void>();
 
-    await tester.pumpWidget(
-      _section(
-        first,
-        const BookmarkSection(siteUrl: _siteUrl, onOpened: _ignore),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(firstApi.bookmarksRequested, ['reader']);
+  @override
+  Future<List<DiscourseInstance>> load() async {
+    if (!loadStarted.isCompleted) loadStarted.complete();
+    await _loadGate.future;
+    return instances;
+  }
 
-    await tester.pumpWidget(
-      _section(
-        second,
-        const BookmarkSection(siteUrl: _siteUrl, onOpened: _ignore),
-      ),
-    );
-    await tester.pumpAndSettle();
+  void complete() => _loadGate.complete();
 
-    expect(firstApi.bookmarksRequested, ['reader']);
-    expect(secondApi.bookmarksRequested, ['reader']);
-  });
+  @override
+  Future<void> save(List<DiscourseInstance> instances) async {}
 }
 
 void _ignore() {}
+
+DiscourseInstance _connected(String host, String username) =>
+    instance(host).copyWith(user: DiscourseUser(username: username));
 
 Widget _section(ShellController controller, Widget child) => ShellScope(
   controller: controller,
@@ -83,15 +230,18 @@ Widget _section(ShellController controller, Widget child) => ShellScope(
 );
 
 Future<ShellController> _controller(
-  FakeDiscourseApi api, {
+  _RecordingActivityApi api, {
+  List<DiscourseInstance>? sites,
+  InstanceStore? store,
   bool load = true,
 }) async {
-  final site = instance(
-    'meta.example',
-  ).copyWith(user: const DiscourseUser(username: 'reader'));
-  final authenticator = FakeAuthenticator()..keys[site.url] = 'api-key';
+  final resolvedSites = sites ?? [_connected('meta.example', 'reader')];
+  final authenticator = FakeAuthenticator();
+  for (final site in resolvedSites) {
+    authenticator.keys[site.url] = 'api-key';
+  }
   final controller = ShellController(
-    instanceStore: FakeInstanceStore([site]),
+    instanceStore: store ?? FakeInstanceStore(resolvedSites),
     api: api,
     authenticator: authenticator,
     drafts: FakeDraftStore(),

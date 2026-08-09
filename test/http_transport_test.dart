@@ -54,6 +54,20 @@ void main() {
         );
       }
     });
+
+    test('rejects credentials on otherwise safe origins', () {
+      for (final value in [
+        'https://reader@forum.example/path',
+        'https://reader:password@forum.example/path',
+        'http://reader:password@localhost:4200/path',
+      ]) {
+        expect(
+          () => requireSafeHttpUrl(Uri.parse(value)),
+          throwsA(isA<UnsafeHttpTransportException>()),
+          reason: value,
+        );
+      }
+    });
   });
 
   group('resolveSafeHttpRedirect', () {
@@ -72,6 +86,16 @@ void main() {
         () => resolveSafeHttpRedirect(
           Uri.parse('https://forum.example/path'),
           'http://localhost:4200/path',
+        ),
+        throwsA(isA<UnsafeHttpTransportException>()),
+      );
+    });
+
+    test('rejects a redirect location containing credentials', () {
+      expect(
+        () => resolveSafeHttpRedirect(
+          Uri.parse('https://forum.example/old/path'),
+          'https://reader:password@forum.example/new/path',
         ),
         throwsA(isA<UnsafeHttpTransportException>()),
       );
@@ -106,6 +130,28 @@ void main() {
 
       expect(
         () => client.send(http.Request('GET', Uri.http('forum.example', '/'))),
+        throwsA(isA<UnsafeHttpTransportException>()),
+      );
+      expect(delegated, isFalse);
+    });
+
+    test('rejects request credentials before delegation', () async {
+      var delegated = false;
+      final client = SafeHttpClient.owned(
+        _Client((request) async {
+          delegated = true;
+          return _response(request);
+        }),
+      );
+      addTearDown(client.close);
+
+      expect(
+        () => client.send(
+          http.Request(
+            'GET',
+            Uri.parse('https://reader:password@forum.example/path'),
+          ),
+        ),
         throwsA(isA<UnsafeHttpTransportException>()),
       );
       expect(delegated, isFalse);

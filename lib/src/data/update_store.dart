@@ -3,6 +3,43 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import 'updater.dart';
 
+/// Raw, non-secret update preferences.
+///
+/// Write methods preserve the boolean durability result returned by the
+/// platform preferences implementation. [UpdateStore] owns the policy for a
+/// rejected write, which keeps that failure path testable without a platform
+/// channel.
+abstract interface class UpdatePersistence {
+  Future<String?> readChannelName();
+
+  Future<bool> writeChannelName(String value);
+
+  Future<int?> readLastCheckedMillis();
+
+  Future<bool> writeLastCheckedMillis(int value);
+}
+
+final class SharedPreferencesUpdatePersistence implements UpdatePersistence {
+  static const String _channelKey = 'discourse_native.update_channel';
+  static const String _lastCheckedKey = 'discourse_native.update_last_checked';
+
+  @override
+  Future<String?> readChannelName() async =>
+      (await SharedPreferences.getInstance()).getString(_channelKey);
+
+  @override
+  Future<bool> writeChannelName(String value) async =>
+      (await SharedPreferences.getInstance()).setString(_channelKey, value);
+
+  @override
+  Future<int?> readLastCheckedMillis() async =>
+      (await SharedPreferences.getInstance()).getInt(_lastCheckedKey);
+
+  @override
+  Future<bool> writeLastCheckedMillis(int value) async =>
+      (await SharedPreferences.getInstance()).setInt(_lastCheckedKey, value);
+}
+
 /// Remembers which channel the user asked for, and when we last looked.
 ///
 /// Preferences rather than private storage: neither value is a secret, and
@@ -12,8 +49,10 @@ import 'updater.dart';
 /// channel is a reason to fall back to the built-in default, not a reason for
 /// the app to fail to start.
 class UpdateStore {
-  static const String _channelKey = 'discourse_native.update_channel';
-  static const String _lastCheckedKey = 'discourse_native.update_last_checked';
+  UpdateStore({UpdatePersistence? persistence})
+    : _persistence = persistence ?? SharedPreferencesUpdatePersistence();
+
+  final UpdatePersistence _persistence;
 
   static void _report(Object error, StackTrace stackTrace, String operation) {
     DiagnosticsSink.current.reportError(
@@ -29,10 +68,9 @@ class UpdateStore {
 
   Future<UpdateChannel?> readChannel() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       // byName rather than values.byName: a channel this build no longer has
       // must read as "no preference" instead of throwing on launch.
-      return UpdateChannel.byName(prefs.getString(_channelKey));
+      return UpdateChannel.byName(await _persistence.readChannelName());
     } catch (error, stackTrace) {
       _report(error, stackTrace, 'updates.readChannel');
       return null;
@@ -41,8 +79,9 @@ class UpdateStore {
 
   Future<void> writeChannel(UpdateChannel channel) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_channelKey, channel.name);
+      if (!await _persistence.writeChannelName(channel.name)) {
+        throw StateError('Could not persist the update channel.');
+      }
     } catch (error, stackTrace) {
       _report(error, stackTrace, 'updates.writeChannel');
       return;
@@ -51,8 +90,7 @@ class UpdateStore {
 
   Future<DateTime?> readLastChecked() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final millis = prefs.getInt(_lastCheckedKey);
+      final millis = await _persistence.readLastCheckedMillis();
       return millis == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(millis);
@@ -64,8 +102,11 @@ class UpdateStore {
 
   Future<void> writeLastChecked(DateTime at) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_lastCheckedKey, at.millisecondsSinceEpoch);
+      if (!await _persistence.writeLastCheckedMillis(
+        at.millisecondsSinceEpoch,
+      )) {
+        throw StateError('Could not persist the last update check.');
+      }
     } catch (error, stackTrace) {
       _report(error, stackTrace, 'updates.writeLastChecked');
       return;

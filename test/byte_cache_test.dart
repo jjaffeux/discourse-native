@@ -7,6 +7,88 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('rejects unsafe image URLs before reaching the transport', () async {
+    final requested = <Uri>[];
+    final cache = _TestByteCache(
+      client: MockClient((request) async {
+        requested.add(request.url);
+        return http.Response.bytes([1], 200);
+      }),
+    );
+
+    expect(await cache.load('http://images.example/avatar.png'), isNull);
+    expect(await cache.load('//images.example/avatar.png'), isNull);
+    expect(requested, isEmpty);
+
+    expect(
+      await cache.load('http://localhost:4200/avatar.png'),
+      orderedEquals([1]),
+    );
+    expect(requested, [Uri.parse('http://localhost:4200/avatar.png')]);
+  });
+
+  test('follows a bounded safe redirect explicitly', () async {
+    final requested = <Uri>[];
+    final cache = _TestByteCache(
+      client: MockClient((request) async {
+        requested.add(request.url);
+        expect(request.followRedirects, isFalse);
+        if (request.url.host == 'site.test') {
+          return http.Response(
+            '',
+            302,
+            headers: {'location': 'https://cdn.test/avatar.png'},
+          );
+        }
+        return http.Response.bytes([1, 2, 3], 200);
+      }),
+    );
+
+    expect(
+      await cache.load('https://site.test/avatar.png'),
+      orderedEquals([1, 2, 3]),
+    );
+    expect(requested, [
+      Uri.parse('https://site.test/avatar.png'),
+      Uri.parse('https://cdn.test/avatar.png'),
+    ]);
+  });
+
+  test('rejects an HTTPS redirect downgrade before following it', () async {
+    final requested = <Uri>[];
+    final cache = _TestByteCache(
+      client: MockClient((request) async {
+        requested.add(request.url);
+        return http.Response(
+          '',
+          302,
+          headers: {'location': 'http://localhost:4200/avatar.png'},
+        );
+      }),
+    );
+
+    expect(await cache.load('https://site.test/avatar.png'), isNull);
+    expect(requested, [Uri.parse('https://site.test/avatar.png')]);
+  });
+
+  test('stops after the configured number of safe redirects', () async {
+    var requests = 0;
+    final cache = _TestByteCache(
+      maxRedirects: 2,
+      client: MockClient((request) async {
+        requests++;
+        return http.Response(
+          '',
+          302,
+          headers: {'location': '/redirect-$requests.png'},
+        );
+      }),
+    );
+
+    expect(await cache.load('https://site.test/avatar.png'), isNull);
+    expect(requests, 3);
+  });
+
   test('coalesces in-flight requests and reuses the cached result', () async {
     final response = Completer<http.Response>();
     var requests = 0;
@@ -306,6 +388,7 @@ class _TestByteCache extends ByteCache<Uint8List> {
     super.maxResponseBytes = 1024,
     super.maxCachedBytes = 4096,
     super.timeout = const Duration(seconds: 10),
+    super.maxRedirects,
   });
 
   @override

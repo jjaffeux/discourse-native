@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:basic_utils/basic_utils.dart' show CryptoUtils;
+import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pointycastle/export.dart';
@@ -62,6 +63,19 @@ void main() {
       expect(url.path, '/user-api-key/new');
       expect(url.fragment, isEmpty);
       expect(url.queryParameters, isNot(contains('stale')));
+    });
+
+    test('rejects credentials embedded in the stored site URL', () {
+      expect(
+        () => protocol.authUrl(
+          siteUrl: 'https://reader:password@forum.example',
+          publicKeyPem: 'public',
+          nonce: 'nonce',
+          clientId: 'client',
+          applicationName: 'App',
+        ),
+        throwsA(isA<UnsafeHttpTransportException>()),
+      );
     });
   });
 

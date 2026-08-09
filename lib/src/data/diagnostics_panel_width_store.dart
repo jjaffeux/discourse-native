@@ -2,16 +2,51 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 
+/// Diagnostics panel width persistence.
+///
+/// The boolean write result is deliberately preserved so the store can report
+/// platform rejections while continuing with its built-in presentation
+/// fallback.
+abstract interface class DiagnosticsPanelWidthPersistence {
+  Future<double?> readWidth();
+
+  Future<bool> writeWidth(double width);
+}
+
+final class SharedPreferencesDiagnosticsPanelWidthPersistence
+    implements DiagnosticsPanelWidthPersistence {
+  const SharedPreferencesDiagnosticsPanelWidthPersistence();
+
+  @override
+  Future<double?> readWidth() async => (await SharedPreferences.getInstance())
+      .getDouble(DiagnosticsPanelWidthStore.storageKey);
+
+  @override
+  Future<bool> writeWidth(double width) async =>
+      (await SharedPreferences.getInstance()).setDouble(
+        DiagnosticsPanelWidthStore.storageKey,
+        width,
+      );
+}
+
 /// Persists the preferred diagnostics panel width between app launches.
 ///
 /// The preference is optional UI state: storage failures fall back to the
 /// built-in width and must never keep the app from opening.
 final class DiagnosticsPanelWidthStore {
+  const DiagnosticsPanelWidthStore({
+    DiagnosticsPanelWidthPersistence? persistence,
+  }) : _persistence =
+           persistence ??
+           const SharedPreferencesDiagnosticsPanelWidthPersistence();
+
   static const String storageKey = 'discourse_native.diagnostics_panel_width';
+
+  final DiagnosticsPanelWidthPersistence _persistence;
 
   Future<double?> read() async {
     try {
-      return (await SharedPreferences.getInstance()).getDouble(storageKey);
+      return await _persistence.readWidth();
     } catch (error, stackTrace) {
       _report(error, stackTrace, 'diagnosticsPanel.readWidth');
       return null;
@@ -20,10 +55,9 @@ final class DiagnosticsPanelWidthStore {
 
   Future<void> write(double width) async {
     try {
-      await (await SharedPreferences.getInstance()).setDouble(
-        storageKey,
-        width,
-      );
+      if (!await _persistence.writeWidth(width)) {
+        throw StateError('Could not persist the diagnostics panel width.');
+      }
     } catch (error, stackTrace) {
       _report(error, stackTrace, 'diagnosticsPanel.writeWidth');
     }

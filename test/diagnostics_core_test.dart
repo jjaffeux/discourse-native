@@ -336,6 +336,34 @@ void main() {
       expect(controller.visibleEvents, hasLength(2));
     });
 
+    test('errors hidden by a frozen panel remain unseen until it resumes', () {
+      controller.openPanel();
+      controller.setFrozen(true);
+
+      controller.reportError(
+        StateError('arrived while frozen'),
+        StackTrace.current,
+      );
+
+      expect(
+        controller.visibleEvents.whereType<ErrorDiagnosticEvent>(),
+        isEmpty,
+      );
+      expect(controller.unseenErrorCountListenable.value, 1);
+
+      controller
+        ..closePanel()
+        ..openPanel();
+      expect(controller.unseenErrorCountListenable.value, 1);
+
+      controller.setFrozen(false);
+      expect(
+        controller.visibleEvents.whereType<ErrorDiagnosticEvent>(),
+        hasLength(1),
+      );
+      expect(controller.unseenErrorCountListenable.value, 0);
+    });
+
     test(
       'clear prevents old in-flight HTTP updates from reappearing',
       () async {

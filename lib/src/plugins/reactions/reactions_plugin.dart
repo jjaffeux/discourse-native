@@ -1,12 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:html/dom.dart' as dom;
 
-import '../../models/content_route.dart';
 import '../../models/post.dart';
-import '../../models/sidebar.dart';
-import '../../shell/composer_controller.dart';
 import '../../shell/post_action.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
@@ -29,7 +25,13 @@ import 'reactions_row.dart';
 /// reaction, so an unliking `DELETE` there destroys the like and orphans the
 /// reaction — a desync only a scheduled server job repairs. Every write goes
 /// through the toggle route or does not happen.
-class ReactionsPlugin implements SitePlugin<Reactions> {
+class ReactionsPlugin
+    implements
+        SitePlugin,
+        PostRecordPlugin<Reactions>,
+        PostFooterPlugin,
+        PostMenuPlugin,
+        TopicLivePlugin {
   const ReactionsPlugin();
 
   @override
@@ -41,16 +43,6 @@ class ReactionsPlugin implements SitePlugin<Reactions> {
   @override
   Reactions? readPost(Map<String, dynamic> json, String siteUrl) =>
       Reactions.fromJson(json);
-
-  @override
-  Widget? postBodyElement(String siteUrl, Post post, dom.Element element) =>
-      null;
-
-  @override
-  List<ComposerToolbarContribution> composerToolbar(
-    BuildContext context,
-    ComposerController composer,
-  ) => const [];
 
   @override
   Reactions? mergeAfterPostEdit(Reactions? held, Reactions? incoming) =>
@@ -104,17 +96,6 @@ class ReactionsPlugin implements SitePlugin<Reactions> {
       _ => const [],
     };
   }
-
-  /// Reactions decorate posts and navigate nowhere, so neither of the two
-  /// screen-owning hooks has anything to say.
-  @override
-  List<SidebarSection> sidebarSections(BuildContext context) => const [];
-
-  @override
-  Listenable? sidebarListenable(BuildContext context) => null;
-
-  @override
-  Widget? content(BuildContext context, ContentRoute route) => null;
 
   @override
   PostMenuContribution postMenu(

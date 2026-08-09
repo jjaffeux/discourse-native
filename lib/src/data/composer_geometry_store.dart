@@ -4,6 +4,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 
+/// Encoded composer geometry persistence.
+///
+/// Returning `false` preserves the durability result exposed by the platform
+/// preferences implementation. [ComposerGeometryStore] owns the best-effort
+/// presentation-state policy for a rejected write.
+abstract interface class ComposerGeometryPersistence {
+  Future<String?> readGeometry();
+
+  Future<bool> writeGeometry(String encoded);
+}
+
+final class SharedPreferencesComposerGeometryPersistence
+    implements ComposerGeometryPersistence {
+  const SharedPreferencesComposerGeometryPersistence();
+
+  @override
+  Future<String?> readGeometry() async =>
+      (await SharedPreferences.getInstance()).getString(
+        ComposerGeometryStore.storageKey,
+      );
+
+  @override
+  Future<bool> writeGeometry(String encoded) async =>
+      (await SharedPreferences.getInstance()).setString(
+        ComposerGeometryStore.storageKey,
+        encoded,
+      );
+}
+
 /// The user's preferred composer window geometry.
 ///
 /// Size is stored in logical pixels. Position is a fraction of the space in
@@ -68,15 +97,17 @@ final class ComposerGeometryPreference {
 /// This is optional presentation state. Storage failures fall back to the
 /// default bottom-centred composer and must never prevent composing.
 final class ComposerGeometryStore {
-  const ComposerGeometryStore();
+  const ComposerGeometryStore({ComposerGeometryPersistence? persistence})
+    : _persistence =
+          persistence ?? const SharedPreferencesComposerGeometryPersistence();
 
   static const String storageKey = 'discourse_native.composer_geometry';
 
+  final ComposerGeometryPersistence _persistence;
+
   Future<ComposerGeometryPreference?> read() async {
     try {
-      final encoded = (await SharedPreferences.getInstance()).getString(
-        storageKey,
-      );
+      final encoded = await _persistence.readGeometry();
       if (encoded == null) return null;
       return ComposerGeometryPreference.fromJson(jsonDecode(encoded));
     } catch (error, stackTrace) {
@@ -88,10 +119,10 @@ final class ComposerGeometryStore {
   Future<void> write(ComposerGeometryPreference preference) async {
     if (!preference.isValid) return;
     try {
-      await (await SharedPreferences.getInstance()).setString(
-        storageKey,
+      final saved = await _persistence.writeGeometry(
         jsonEncode(preference.toJson()),
       );
+      if (!saved) throw StateError('Could not persist composer geometry.');
     } catch (error, stackTrace) {
       _report(error, stackTrace, 'composer.writeGeometry');
     }
