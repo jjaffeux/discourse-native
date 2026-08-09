@@ -187,9 +187,11 @@ class _TopicFilterPageState extends State<TopicFilterPage> {
                   ),
                   child: child!,
                 ),
-                child: _SuggestionList(
-                  filter: filter,
-                  categories: widget.categories,
+                child: TextFieldTapRegion(
+                  child: _SuggestionList(
+                    filter: filter,
+                    categories: widget.categories,
+                  ),
                 ),
               ),
               child: KeyedSubtree(
