@@ -2,6 +2,7 @@ import 'dart:ui' show SemanticsRole, Tristate;
 
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
+import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -20,7 +21,7 @@ void main() {
     icon: DIcons.comments,
   );
 
-  testWidgets('matches the forum strip geometry and keeps add fixed', (
+  testWidgets('matches the shared shell header geometry and keeps add fixed', (
     tester,
   ) async {
     await _pumpBar(
@@ -39,14 +40,25 @@ void main() {
     final indicator = find.byKey(const ValueKey('forum-tab-indicator-topic-1'));
     final theme = Theme.of(tester.element(bar));
 
-    expect(tester.getSize(bar).height, ForumTabsBar.height);
+    expect(ForumTabsBar.height, shellHeaderHeight);
+    expect(tester.getSize(bar).height, shellHeaderHeight);
     expect(tester.getSize(add), const Size(34, 30));
     expect(tester.getSize(selected).width, 205);
     expect(tester.getSize(ordinary).width, 205);
 
     final barDecoration = _decoration(tester, bar);
     expect(barDecoration.color, theme.shell.sidebar);
-    expect((barDecoration.border! as Border).bottom.color, theme.shell.divider);
+    final bottomDivider = (barDecoration.border! as Border).bottom;
+    expect(bottomDivider.color, theme.shell.divider);
+    expect(bottomDivider.width, 1);
+
+    final barRect = tester.getRect(bar);
+    final selectedRect = tester.getRect(selected);
+    final ordinaryRect = tester.getRect(ordinary);
+    expect(selectedRect.top, barRect.top + 4);
+    expect(selectedRect.bottom, barRect.bottom - bottomDivider.width);
+    expect(ordinaryRect.top, selectedRect.top);
+    expect(ordinaryRect.bottom, selectedRect.bottom);
 
     expect(_decoration(tester, selected).color, theme.shell.content);
     expect(_decoration(tester, ordinary).color, Colors.transparent);
@@ -64,7 +76,10 @@ void main() {
 
     final addRect = tester.getRect(add);
     expect(addRect.right, 495);
-    expect(addRect.center.dy, 22.5);
+    expect(
+      addRect.center.dy,
+      barRect.top + 4 + (shellHeaderHeight - 4 - bottomDivider.width) / 2,
+    );
   });
 
   testWidgets('delegates add, selection, and separate close actions by ID', (
