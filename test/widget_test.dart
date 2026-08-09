@@ -8127,6 +8127,7 @@ void main() {
       int unread = 0,
       int mentions = 0,
       bool muted = false,
+      bool starred = false,
       int? lastRead,
     }) => ChatChannel(
       id: id,
@@ -8140,6 +8141,7 @@ void main() {
       membership: ChatMembership(
         following: true,
         muted: muted,
+        starred: starred,
         lastReadMessageId: lastRead,
       ),
       tracking: ChatTracking(unreadCount: unread, mentionCount: mentions),
@@ -8152,6 +8154,7 @@ void main() {
       int unread = 0,
       int mentions = 0,
       int watchedThreads = 0,
+      bool starred = false,
     }) => ChatChannel(
       id: id,
       title: title,
@@ -8165,7 +8168,7 @@ void main() {
               avatarUrl: '$site/user_avatar/h/90.png',
             ),
           ],
-      membership: const ChatMembership(following: true),
+      membership: ChatMembership(following: true, starred: starred),
       tracking: ChatTracking(
         unreadCount: unread,
         mentionCount: mentions,
@@ -8485,6 +8488,41 @@ void main() {
         expect(sidebarDestination('Bugs'), findsOneWidget);
         expect(sidebarDestination('hawk'), findsOneWidget);
       });
+
+      testWidgets(
+        'lists starred public channels and DMs first without duplicating them',
+        (tester) async {
+          await pumpChat(
+            tester,
+            public: [
+              channel(9, title: 'Alpha', starred: true),
+              channel(10, title: 'Bugs'),
+            ],
+            direct: [
+              dm(12, title: 'Zoe', starred: true),
+              dm(13, title: 'Alice', starred: true),
+              dm(14, title: 'hawk'),
+            ],
+          );
+
+          final starredHeading = tester
+              .getTopLeft(find.text('STARRED CHANNELS'))
+              .dy;
+          final chatHeading = tester.getTopLeft(find.text('CHAT')).dy;
+          final dmHeading = tester.getTopLeft(find.text('DIRECT MESSAGES')).dy;
+          expect(starredHeading, lessThan(chatHeading));
+          expect(chatHeading, lessThan(dmHeading));
+
+          final alpha = tester.getTopLeft(sidebarDestination('Alpha')).dy;
+          final alice = tester.getTopLeft(sidebarDestination('Alice')).dy;
+          final zoe = tester.getTopLeft(sidebarDestination('Zoe')).dy;
+          expect(alpha, lessThan(alice));
+          expect(alice, lessThan(zoe));
+          expect(sidebarDestination('Alpha'), findsOneWidget);
+          expect(sidebarDestination('Alice'), findsOneWidget);
+          expect(sidebarDestination('Zoe'), findsOneWidget);
+        },
+      );
 
       testWidgets(
         'draws a channel emoji where an ordinary entry draws an icon',

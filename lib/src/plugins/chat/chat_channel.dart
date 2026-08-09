@@ -75,6 +75,7 @@ class ChatMembership {
   const ChatMembership({
     this.following = false,
     this.muted = false,
+    this.starred = false,
     this.lastReadMessageId,
   });
 
@@ -88,12 +89,20 @@ class ChatMembership {
     return ChatMembership(
       following: value['following'] == true,
       muted: value['muted'] == true,
+      starred: value['starred'] == true,
       lastReadMessageId: jsonIntOrNull(value['last_read_message_id']),
     );
   }
 
   final bool following;
   final bool muted;
+
+  /// Whether the reader promoted this channel into Discourse's leading
+  /// "Starred channels" sidebar section.
+  ///
+  /// Older sites omit the key, which deliberately reads as false so their
+  /// existing channel and direct-message sections are unchanged.
+  final bool starred;
 
   /// The newest message the reader has been credited with seeing, or null on a
   /// channel they have never opened.
@@ -113,6 +122,7 @@ class ChatMembership {
   ChatMembership withLastRead(int messageId) => ChatMembership(
     following: following,
     muted: muted,
+    starred: starred,
     lastReadMessageId: messageId,
   );
 
@@ -121,10 +131,11 @@ class ChatMembership {
       other is ChatMembership &&
       other.following == following &&
       other.muted == muted &&
+      other.starred == starred &&
       other.lastReadMessageId == lastReadMessageId;
 
   @override
-  int get hashCode => Object.hash(following, muted, lastReadMessageId);
+  int get hashCode => Object.hash(following, muted, starred, lastReadMessageId);
 }
 
 /// How much of a channel this account has not seen.
