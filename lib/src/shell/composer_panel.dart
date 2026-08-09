@@ -327,10 +327,6 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   height: _cornerHandleExtent,
                   onResize: (delta) =>
                       _resize(delta, bounds, bottom: true, right: true),
-                  child: const Tooltip(
-                    message: 'Drag to resize composer',
-                    child: Icon(Icons.open_in_full, size: 12),
-                  ),
                 ),
               ],
             ),

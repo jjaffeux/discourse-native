@@ -45,7 +45,7 @@ void main() {
     expect(constrained.top, 16);
   });
 
-  testWidgets('resizes upward while keeping the bottom edge anchored', (
+  testWidgets('resizes from every edge without a visible affordance', (
     tester,
   ) async {
     final composer = ComposerController(_replyTarget);
@@ -55,16 +55,43 @@ void main() {
     await _pumpFloatingPanel(tester, shell, composer);
 
     final initial = tester.getRect(find.byType(ComposerPanel));
+    expect(find.byIcon(Icons.open_in_full), findsNothing);
+
+    await tester.drag(
+      find.byKey(const ValueKey('composer-resize-left')),
+      const Offset(40, 0),
+    );
+    await tester.pump();
+    final fromLeft = tester.getRect(find.byType(ComposerPanel));
+    expect(fromLeft.left, closeTo(initial.left + 40, 1));
+    expect(fromLeft.right, closeTo(initial.right, 1));
+
+    await tester.drag(
+      find.byKey(const ValueKey('composer-resize-right')),
+      const Offset(-40, 0),
+    );
+    await tester.pump();
+    final fromRight = tester.getRect(find.byType(ComposerPanel));
+    expect(fromRight.left, closeTo(fromLeft.left, 1));
+    expect(fromRight.right, closeTo(fromLeft.right - 40, 1));
+
     await tester.drag(
       find.byKey(const ValueKey('composer-resize-top')),
       const Offset(0, -80),
     );
     await tester.pump();
+    final fromTop = tester.getRect(find.byType(ComposerPanel));
+    expect(fromTop.top, closeTo(initial.top - 80, 1));
+    expect(fromTop.bottom, closeTo(initial.bottom, 1));
 
-    final resized = tester.getRect(find.byType(ComposerPanel));
-    expect(resized.top, closeTo(initial.top - 80, 1));
-    expect(resized.height, closeTo(initial.height + 80, 1));
-    expect(resized.bottom, closeTo(initial.bottom, 1));
+    await tester.drag(
+      find.byKey(const ValueKey('composer-resize-bottom')),
+      const Offset(0, -40),
+    );
+    await tester.pump();
+    final fromBottom = tester.getRect(find.byType(ComposerPanel));
+    expect(fromBottom.top, closeTo(fromTop.top, 1));
+    expect(fromBottom.bottom, closeTo(fromTop.bottom - 40, 1));
   });
 
   testWidgets('puts topic creation and formatting actions on one bottom row', (
