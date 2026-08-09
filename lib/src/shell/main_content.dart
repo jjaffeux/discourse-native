@@ -94,7 +94,10 @@ class _MainContentBody extends StatelessWidget {
                           )
                         : switch ((route.isTopic, pluginContent, state.feed)) {
                             // A topic route wins over its originating list.
-                            (true, _, _) => const TopicView(),
+                            (true, _, _) => TopicView(
+                              showRecommendationsPanel:
+                                  layout == ShellLayout.expanded,
+                            ),
                             // A route an optional feature claims is that feature's,
                             // whichever list happens to still be cached behind it.
                             (false, final content?, _) => content,
