@@ -148,5 +148,42 @@ void main() {
       expect(sent.headers, containsPair('User-Api-Client-Id', 'client'));
       expect(jsonDecode(sent.body), {'message': 'hi'});
     });
+
+    test('writes preserve a plugin singular error response', () async {
+      final transport = DiscourseTransport(
+        SafeHttpClient.owned(
+          MockClient(
+            (_) async => http.Response(
+              jsonEncode({'error': 'You have reached the assignment limit.'}),
+              400,
+            ),
+          ),
+        ),
+        const Duration(seconds: 1),
+        1024,
+      );
+
+      await expectLater(
+        transport.write(
+          Uri.parse('https://example.com/assign/assign.json'),
+          siteUrl: 'https://example.com',
+          method: 'PUT',
+          apiKey: 'secret',
+          body: const {},
+        ),
+        throwsA(
+          isA<WriteException>()
+              .having(
+                (error) => error.failure,
+                'failure',
+                WriteFailure.validation,
+              )
+              .having((error) => error.errors, 'errors', [
+                'You have reached the assignment limit.',
+              ])
+              .having((error) => error.statusCode, 'statusCode', 400),
+        ),
+      );
+    });
   });
 }

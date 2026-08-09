@@ -6363,7 +6363,11 @@ void main() {
 
       final tracker = FakeSiteTracker.built.last;
       expect(tracker.watchedTopic, 7);
-      expect(tracker.watchedChannels, ['/topic/7/reactions', '/polls/7']);
+      expect(tracker.watchedChannels, [
+        '/topic/7/reactions',
+        '/polls/7',
+        '/staff/topic-assignment',
+      ]);
 
       tracker.deliverTopicMessage('/topic/7/reactions', {
         'post_id': 1,

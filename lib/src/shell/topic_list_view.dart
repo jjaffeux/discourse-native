@@ -5,6 +5,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
+import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -529,6 +530,11 @@ class _TopicRowBody extends StatelessWidget {
                       if (category case final category?)
                         _CategoryBadge(category: category),
                       if (topic.tags.isNotEmpty) _TopicTags(tags: topic.tags),
+                      ...pluginRegistry.topicListMetadata(
+                        context,
+                        siteUrl,
+                        topic,
+                      ),
                       _Stat(icon: DIcons.reply, value: topic.replyCount),
                       _Stat(icon: DIcons.farEye, value: topic.views),
                       if (topic.bumpedAt case final bumpedAt?)

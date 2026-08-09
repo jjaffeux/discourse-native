@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/content_route.dart';
+import '../models/post.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../plugins/chat/chat_header_button.dart';
@@ -68,6 +69,7 @@ class _MainContentBody extends StatelessWidget {
               layout: layout,
               route: route,
               siteUrl: state.siteUrl,
+              topic: state.topic,
               canPop: state.canPop,
               canReply: state.canReply,
               canCreateTopic: state.canCreateTopic && pluginContent == null,
@@ -138,6 +140,7 @@ class _ContentHeader extends StatelessWidget {
     required this.layout,
     required this.route,
     required this.siteUrl,
+    required this.topic,
     required this.canPop,
     required this.canReply,
     required this.canCreateTopic,
@@ -146,6 +149,7 @@ class _ContentHeader extends StatelessWidget {
   final ShellLayout layout;
   final ContentRoute route;
   final String? siteUrl;
+  final TopicDetail? topic;
   final bool canPop;
   final bool canReply;
   final bool canCreateTopic;
@@ -154,6 +158,14 @@ class _ContentHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
+    final topicHeader = switch ((siteUrl, topic)) {
+      (final siteUrl?, final topic?) => pluginRegistry.topicHeader(
+        context,
+        siteUrl,
+        topic,
+      ),
+      _ => const <Widget>[],
+    };
 
     // On compact the main region has replaced the sidebar, so back always has
     // somewhere to go. On wider layouts it only matters inside the stack.
@@ -250,6 +262,7 @@ class _ContentHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
               ],
+              ...topicHeader,
               if (route.isTopic && canReply)
                 IconButton(
                   onPressed: () => controller.openReply(),
@@ -365,11 +378,13 @@ class _MainContentSnapshot {
   const _MainContentSnapshot({
     required this.siteUrl,
     required this.route,
+    required this.topic,
     required this.feed,
     required this.composer,
     required this.canPop,
     required this.canReply,
     required this.canCreateTopic,
+    required this.canAssignLegacyTargets,
     required this.filterCategories,
   });
 
@@ -377,11 +392,16 @@ class _MainContentSnapshot {
       _MainContentSnapshot(
         siteUrl: controller.currentInstance?.url,
         route: controller.currentContent,
+        topic: controller.currentTopic,
         feed: controller.currentFeed,
         composer: controller.visibleComposer,
         canPop: controller.canPopContent,
         canReply: controller.canReplyHere,
         canCreateTopic: controller.canCreateTopicHere,
+        canAssignLegacyTargets: switch (controller.currentInstance?.url) {
+          final siteUrl? => controller.canAssignForTarget(siteUrl, null),
+          null => false,
+        },
         filterCategories: switch ((
           controller.currentContent?.id,
           controller.currentInstance?.url,
@@ -393,11 +413,13 @@ class _MainContentSnapshot {
 
   final String? siteUrl;
   final ContentRoute? route;
+  final TopicDetail? topic;
   final TopicFeed? feed;
   final ComposerController? composer;
   final bool canPop;
   final bool canReply;
   final bool canCreateTopic;
+  final bool canAssignLegacyTargets;
   final List<TopicCategory> filterCategories;
 
   @override
@@ -405,22 +427,26 @@ class _MainContentSnapshot {
       other is _MainContentSnapshot &&
       siteUrl == other.siteUrl &&
       identical(route, other.route) &&
+      identical(topic, other.topic) &&
       identical(feed, other.feed) &&
       identical(composer, other.composer) &&
       canPop == other.canPop &&
       canReply == other.canReply &&
       canCreateTopic == other.canCreateTopic &&
+      canAssignLegacyTargets == other.canAssignLegacyTargets &&
       identical(filterCategories, other.filterCategories);
 
   @override
   int get hashCode => Object.hash(
     siteUrl,
     identityHashCode(route),
+    identityHashCode(topic),
     identityHashCode(feed),
     identityHashCode(composer),
     canPop,
     canReply,
     canCreateTopic,
+    canAssignLegacyTargets,
     identityHashCode(filterCategories),
   );
 }
