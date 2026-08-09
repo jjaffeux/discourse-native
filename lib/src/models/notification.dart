@@ -71,6 +71,18 @@ enum NotificationKind {
   static NotificationKind fromId(int id) => _byId[id] ?? unknown;
 }
 
+/// The notification kinds Discourse groups into the user menu's Replies tab.
+///
+/// Keep the order in sync with core's `CORE_TOP_TABS`: the names are sent to
+/// `/notifications` as one `filter_by_types` value.
+const userMenuReplyNotificationKinds = <NotificationKind>[
+  NotificationKind.mentioned,
+  NotificationKind.groupMentioned,
+  NotificationKind.posted,
+  NotificationKind.quoted,
+  NotificationKind.replied,
+];
+
 /// One row of the notifications tab.
 ///
 /// Flattened out of the envelope Discourse sends: the interesting parts of a

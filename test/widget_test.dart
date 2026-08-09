@@ -2743,10 +2743,25 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    Future<void> openReplies(WidgetTester tester) async {
+      await openMenu(tester);
+      await tester.tap(find.text('Replies'));
+      await tester.pumpAndSettle();
+    }
+
     testWidgets('a thumb gets a sheet, and one sheet per section inside it', (
       tester,
     ) async {
-      await pumpShell(tester, phone, instances: connected);
+      final api = FakeDiscourseApi(
+        replyNotificationList: [notifications.first],
+      );
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
       await openMenu(tester);
 
       // Listed rather than tabbed, and no popover in sight.
@@ -2755,11 +2770,20 @@ void main() {
       expect(find.text('@joffreyj · meta.discourse.org'), findsOneWidget);
       expect(find.text('Notifications'), findsOneWidget);
       expect(find.text('Profile'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('Replies')).style?.color,
+        isNot(Theme.of(tester.element(find.text('Replies'))).shell.placeholder),
+      );
 
       await tester.tap(find.text('Replies'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('joshua.m replied to'), findsOneWidget);
+      expect(api.replyNotificationCalls, 1);
+      expect(api.notificationFilters.single, userMenuReplyNotificationKinds);
+      expect(
+        find.textContaining('sam replied to Better image handling'),
+        findsOneWidget,
+      );
       // The sheet it came from is still under this one — nested, not swapped —
       // so the way out of this one is back to it.
       expect(find.text('Notifications'), findsOneWidget);
@@ -2769,7 +2793,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Profile'), findsOneWidget);
-      expect(find.textContaining('joshua.m replied to'), findsNothing);
+      expect(find.textContaining('sam replied to'), findsNothing);
     });
 
     testWidgets('a title bar takes the avatar off the columns', (tester) async {
@@ -2801,6 +2825,82 @@ void main() {
       } finally {
         debugDefaultTargetPlatformOverride = previous;
       }
+    });
+
+    testWidgets('a reply opens its topic and is marked read', (tester) async {
+      final api = FakeDiscourseApi(
+        replyNotificationList: [notifications.first],
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'Better image handling',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                username: 'sam',
+                cooked: '<p>First post body</p>',
+              ),
+            ],
+            stream: const [1],
+          ),
+        },
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openReplies(tester);
+      await tester.tap(
+        find.textContaining('sam replied to Better image handling'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.topicsOpened, [7]);
+      expect(api.markedRead, [1]);
+      expect(find.byType(RepliesSection), findsNothing);
+      expect(renderedText('First post body'), findsOneWidget);
+    });
+
+    testWidgets('Replies can retry a failed filtered request', (tester) async {
+      final api = FakeDiscourseApi();
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openReplies(tester);
+
+      expect(find.textContaining("Couldn't reach"), findsOneWidget);
+
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+
+      expect(api.replyNotificationCalls, 2);
+      expect(api.notificationCalls, 0);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an empty Replies tab stops waiting', (tester) async {
+      final api = FakeDiscourseApi(replyNotificationList: const []);
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openReplies(tester);
+
+      expect(find.text('Nothing new.'), findsOneWidget);
     });
 
     testWidgets('a pointer gets a popover with a tab per section', (

@@ -41,25 +41,34 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   final _totalsChanges = _ActivityAspect();
   final _notificationChanges = _ActivityAspect();
+  final _replyNotificationChanges = _ActivityAspect();
   final _bookmarkChanges = _ActivityAspect();
 
   Listenable get totalsListenable => _totalsChanges;
   Listenable get notificationsListenable => _notificationChanges;
+  Listenable get replyNotificationsListenable => _replyNotificationChanges;
   Listenable get bookmarksListenable => _bookmarkChanges;
 
   final Map<String, NotificationTotals> _totals = {};
   final Map<String, NotificationFeed> _notifications = {};
+  final Map<String, NotificationFeed> _replyNotifications = {};
   final Map<String, BookmarkFeed> _bookmarks = {};
   final Map<String, Object> _totalsRequests = {};
   final Map<String, Object> _notificationRequests = {};
+  final Map<String, Object> _replyNotificationRequests = {};
   final Map<String, Object> _bookmarkRequests = {};
   final Map<(String, int), Object> _notificationReadRequests = {};
+  final Map<String, Set<int>> _locallyReadNotificationIds = {};
 
   NotificationTotals? totalsFor(String siteUrl) => _totals[siteUrl];
 
   NotificationFeed notificationsFor(String? siteUrl) => siteUrl == null
       ? const NotificationFeed()
       : _notifications[siteUrl] ?? const NotificationFeed();
+
+  NotificationFeed replyNotificationsFor(String? siteUrl) => siteUrl == null
+      ? const NotificationFeed()
+      : _replyNotifications[siteUrl] ?? const NotificationFeed();
 
   BookmarkFeed bookmarksFor(String? siteUrl) => siteUrl == null
       ? const BookmarkFeed()
@@ -119,78 +128,115 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
   }
 
-  Future<void> loadNotifications(DiscourseInstance instance) async {
+  Future<void> loadNotifications(DiscourseInstance instance) =>
+      _loadNotificationFeed(
+        instance,
+        feeds: _notifications,
+        requests: _notificationRequests,
+        fetch: (apiKey) =>
+            api.notifications(siteUrl: instance.url, apiKey: apiKey),
+        reconnectMessage: 'Reconnect to ${instance.host} to see notifications.',
+        failureMessage: "Couldn't load notifications from ${instance.host}.",
+        operation: 'account.loadNotifications',
+        notify: _notifyNotifications,
+      );
+
+  Future<void> loadReplyNotifications(DiscourseInstance instance) =>
+      _loadNotificationFeed(
+        instance,
+        feeds: _replyNotifications,
+        requests: _replyNotificationRequests,
+        fetch: (apiKey) => api.notifications(
+          siteUrl: instance.url,
+          apiKey: apiKey,
+          filterByTypes: userMenuReplyNotificationKinds,
+        ),
+        reconnectMessage: 'Reconnect to ${instance.host} to see replies.',
+        failureMessage: "Couldn't load replies from ${instance.host}.",
+        operation: 'account.loadReplyNotifications',
+        notify: _notifyReplyNotifications,
+      );
+
+  Future<void> _loadNotificationFeed(
+    DiscourseInstance instance, {
+    required Map<String, NotificationFeed> feeds,
+    required Map<String, Object> requests,
+    required Future<List<DiscourseNotification>> Function(String apiKey) fetch,
+    required String reconnectMessage,
+    required String failureMessage,
+    required String operation,
+    required VoidCallback notify,
+  }) async {
     if (isDisposed || !instance.isConnected) return;
     final lease = lifecycle.capture(instance.url);
-    if (_notificationRequests.containsKey(instance.url)) return;
+    if (requests.containsKey(instance.url)) return;
     final request = Object();
-    _notificationRequests[instance.url] = request;
-    final held = _notifications[instance.url];
+    requests[instance.url] = request;
+    final held = feeds[instance.url];
 
     if (held == null || held.error != null) {
-      _notifications[instance.url] = const NotificationFeed.loading();
-      _notifyNotifications();
+      feeds[instance.url] = const NotificationFeed.loading();
+      notify();
     }
 
     void fail(String message) {
       if (held != null && held.notifications.isNotEmpty) return;
-      _notifications[instance.url] = NotificationFeed.failed(message);
+      feeds[instance.url] = NotificationFeed.failed(message);
     }
 
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);
-      if (!_ownsRequest(lease, _notificationRequests[instance.url], request)) {
+      if (!_ownsRequest(lease, requests[instance.url], request)) {
         return;
       }
       if (apiKey == null) {
         _commit(lease, () {
-          if (!identical(_notificationRequests[instance.url], request)) return;
-          fail('Reconnect to ${instance.host} to see notifications.');
-          _notifyNotifications();
+          if (!identical(requests[instance.url], request)) return;
+          fail(reconnectMessage);
+          notify();
         });
         return;
       }
-      final notifications = await api.notifications(
-        siteUrl: instance.url,
-        apiKey: apiKey,
-      );
+      final notifications = await fetch(apiKey);
       _commit(lease, () {
-        if (!identical(_notificationRequests[instance.url], request)) return;
-        _notifications[instance.url] = NotificationFeed.of(notifications);
-        _notifyNotifications();
+        if (!identical(requests[instance.url], request)) return;
+        feeds[instance.url] = NotificationFeed.of(
+          _preservingLocalReads(instance.url, notifications),
+        );
+        notify();
       });
     } on SiteLookupException catch (error, stackTrace) {
       if (isDisposed ||
           !lease.isCurrent ||
-          !identical(_notificationRequests[instance.url], request)) {
+          !identical(requests[instance.url], request)) {
         return;
       }
-      _report(error, stackTrace, 'account.loadNotifications');
+      _report(error, stackTrace, operation);
       _commit(lease, () {
-        if (!identical(_notificationRequests[instance.url], request)) return;
+        if (!identical(requests[instance.url], request)) return;
         fail(
           error.failure == SiteLookupFailure.notDiscourse
               ? 'Not allowed — try reconnecting to ${instance.host}.'
               : "Couldn't reach ${instance.host}.",
         );
-        _notifyNotifications();
+        notify();
       });
     } catch (error, stackTrace) {
       if (isDisposed ||
           !lease.isCurrent ||
-          !identical(_notificationRequests[instance.url], request)) {
+          !identical(requests[instance.url], request)) {
         return;
       }
-      _report(error, stackTrace, 'account.loadNotifications');
+      _report(error, stackTrace, operation);
       _commit(lease, () {
-        if (!identical(_notificationRequests[instance.url], request)) return;
-        fail("Couldn't load notifications from ${instance.host}.");
-        _notifyNotifications();
+        if (!identical(requests[instance.url], request)) return;
+        fail(failureMessage);
+        notify();
       });
     } finally {
       _commit(lease, () {
-        if (identical(_notificationRequests[instance.url], request)) {
-          _notificationRequests.remove(instance.url);
+        if (identical(requests[instance.url], request)) {
+          requests.remove(instance.url);
         }
       });
     }
@@ -236,7 +282,10 @@ final class AccountActivityController extends FrameSafeNotifier {
       );
       _commit(lease, () {
         if (!identical(_bookmarkRequests[instance.url], request)) return;
-        _bookmarks[instance.url] = BookmarkFeed.of(bookmarks);
+        _bookmarks[instance.url] = BookmarkFeed.of((
+          reminders: _preservingLocalReads(instance.url, bookmarks.reminders),
+          bookmarks: bookmarks.bookmarks,
+        ));
         _notifyBookmarks();
       });
     } on SiteLookupException catch (error, stackTrace) {
@@ -299,13 +348,24 @@ final class AccountActivityController extends FrameSafeNotifier {
     Object request,
   ) async {
     final lease = lifecycle.capture(instance.url);
+    _locallyReadNotificationIds
+        .putIfAbsent(instance.url, () => <int>{})
+        .add(notification.id);
     var notificationChanged = false;
+    var replyNotificationChanged = false;
     var bookmarkChanged = false;
     if (_notifications[instance.url] case final feed?) {
       final updated = feed.withRead(notification.id);
       if (!identical(updated, feed)) {
         _notifications[instance.url] = updated;
         notificationChanged = true;
+      }
+    }
+    if (_replyNotifications[instance.url] case final feed?) {
+      final updated = feed.withRead(notification.id);
+      if (!identical(updated, feed)) {
+        _replyNotifications[instance.url] = updated;
+        replyNotificationChanged = true;
       }
     }
     if (_bookmarks[instance.url] case final feed?) {
@@ -316,14 +376,20 @@ final class AccountActivityController extends FrameSafeNotifier {
       }
     }
     if (notificationChanged) _notificationChanges.changed();
+    if (replyNotificationChanged) _replyNotificationChanges.changed();
     if (bookmarkChanged) _bookmarkChanges.changed();
-    if (notificationChanged || bookmarkChanged) notifySafely();
+    if (notificationChanged || replyNotificationChanged || bookmarkChanged) {
+      notifySafely();
+    }
 
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);
       final key = (instance.url, notification.id);
-      if (apiKey == null ||
-          !_ownsRequest(lease, _notificationReadRequests[key], request)) {
+      if (!_ownsRequest(lease, _notificationReadRequests[key], request)) {
+        return;
+      }
+      if (apiKey == null) {
+        _discardLocalRead(instance.url, notification.id);
         return;
       }
       await api.markNotificationRead(
@@ -336,6 +402,7 @@ final class AccountActivityController extends FrameSafeNotifier {
       if (!_ownsRequest(lease, _notificationReadRequests[key], request)) {
         return;
       }
+      _discardLocalRead(instance.url, notification.id);
       _report(error, stackTrace, 'account.markNotificationRead');
       return;
     }
@@ -361,14 +428,19 @@ final class AccountActivityController extends FrameSafeNotifier {
     if (isDisposed) return;
     final hadTotals = _totals.remove(siteUrl) != null;
     final hadNotifications = _notifications.remove(siteUrl) != null;
+    final hadReplyNotifications = _replyNotifications.remove(siteUrl) != null;
     final hadBookmarks = _bookmarks.remove(siteUrl) != null;
     _totalsRequests.remove(siteUrl);
     _notificationRequests.remove(siteUrl);
+    _replyNotificationRequests.remove(siteUrl);
     _bookmarkRequests.remove(siteUrl);
     _notificationReadRequests.removeWhere((key, _) => key.$1 == siteUrl);
-    final changed = hadTotals || hadNotifications || hadBookmarks;
+    _locallyReadNotificationIds.remove(siteUrl);
+    final changed =
+        hadTotals || hadNotifications || hadReplyNotifications || hadBookmarks;
     if (hadTotals) _totalsChanges.changed();
     if (hadNotifications) _notificationChanges.changed();
+    if (hadReplyNotifications) _replyNotificationChanges.changed();
     if (hadBookmarks) _bookmarkChanges.changed();
     if (changed) notifySafely();
   }
@@ -380,6 +452,11 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   void _notifyNotifications() {
     _notificationChanges.changed();
+    notifySafely();
+  }
+
+  void _notifyReplyNotifications() {
+    _replyNotificationChanges.changed();
     notifySafely();
   }
 
@@ -395,6 +472,31 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   bool _ownsRequest(SiteLease lease, Object? held, Object request) =>
       !isDisposed && lease.isCurrent && identical(held, request);
+
+  List<DiscourseNotification> _preservingLocalReads(
+    String siteUrl,
+    List<DiscourseNotification> notifications,
+  ) {
+    final readIds = _locallyReadNotificationIds[siteUrl];
+    if (readIds == null || readIds.isEmpty) return notifications;
+
+    List<DiscourseNotification>? updated;
+    for (var index = 0; index < notifications.length; index++) {
+      final notification = notifications[index];
+      if (notification.isUnread && readIds.contains(notification.id)) {
+        updated ??= List<DiscourseNotification>.of(notifications);
+        updated[index] = notification.asRead();
+      }
+    }
+    return updated ?? notifications;
+  }
+
+  void _discardLocalRead(String siteUrl, int notificationId) {
+    final readIds = _locallyReadNotificationIds[siteUrl];
+    if (readIds == null) return;
+    readIds.remove(notificationId);
+    if (readIds.isEmpty) _locallyReadNotificationIds.remove(siteUrl);
+  }
 
   static NotificationTotals _mergeChangedCounts(
     NotificationTotals response,
@@ -423,8 +525,10 @@ final class AccountActivityController extends FrameSafeNotifier {
   @override
   void dispose() {
     _notificationReadRequests.clear();
+    _locallyReadNotificationIds.clear();
     _totalsChanges.dispose();
     _notificationChanges.dispose();
+    _replyNotificationChanges.dispose();
     _bookmarkChanges.dispose();
     super.dispose();
   }

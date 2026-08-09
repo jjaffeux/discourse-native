@@ -135,6 +135,7 @@ abstract interface class AccountActivityApi {
     required String siteUrl,
     required String apiKey,
     int limit = 30,
+    List<NotificationKind> filterByTypes = const [],
     String? clientId,
   });
 

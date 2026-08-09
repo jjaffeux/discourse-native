@@ -733,6 +733,22 @@ class ShellController extends FrameSafeNotifier {
     if (instance != null) await accountActivity.loadNotifications(instance);
   }
 
+  /// The filtered reply notifications fetched for [siteUrl].
+  NotificationFeed replyNotificationsFor(String siteUrl) =>
+      accountActivity.replyNotificationsFor(siteUrl);
+
+  /// Fetches what the user menu's Replies tab lists.
+  ///
+  /// Kept apart from [loadNotifications] because both endpoints have their own
+  /// thirty-row budget, cache and request lifetime even though they return the
+  /// same kind of row.
+  Future<void> loadReplyNotifications(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance != null) {
+      await accountActivity.loadReplyNotifications(instance);
+    }
+  }
+
   /// Marks [notification] read, which is what opening it amounts to here.
   ///
   /// Where it then leads is [DiscourseNotification.path], handled the same way
