@@ -20,6 +20,7 @@ void main() {
     final api = FakeDiscourseApi();
     final authenticator = FakeAuthenticator();
     final drafts = FakeDraftStore();
+    final forumTabs = FakeForumTabStore();
     final updater = FakeUpdater();
     final updateStore = FakeUpdateStore();
     final trackers = FakeSiteTracker.reset();
@@ -31,6 +32,7 @@ void main() {
         api: api,
         authenticator: authenticator,
         drafts: drafts,
+        forumTabs: forumTabs,
         trackers: trackers,
         updater: updater,
         updateStore: updateStore,
@@ -49,6 +51,7 @@ void main() {
         api: api,
         authenticator: authenticator,
         drafts: drafts,
+        forumTabs: forumTabs,
         trackers: trackers,
         updater: updater,
         updateStore: updateStore,
@@ -98,6 +101,7 @@ void main() {
     final api = FakeDiscourseApi();
     final authenticator = FakeAuthenticator();
     final drafts = FakeDraftStore();
+    final forumTabs = FakeForumTabStore();
     final updater = FakeUpdater();
     final updateStore = FakeUpdateStore();
 
@@ -107,6 +111,7 @@ void main() {
       api: api,
       authenticator: authenticator,
       drafts: drafts,
+      forumTabs: forumTabs,
       trackers: trackers,
       updater: updater,
       updateStore: updateStore,
@@ -146,6 +151,7 @@ void main() {
     final store = FakeInstanceStore();
     final authenticator = FakeAuthenticator();
     final drafts = FakeDraftStore();
+    final forumTabs = FakeForumTabStore();
     final trackers = FakeSiteTracker.reset();
     final updater = FakeUpdater();
     final updateStore = FakeUpdateStore();
@@ -158,6 +164,7 @@ void main() {
       api: api,
       authenticator: authenticator,
       drafts: drafts,
+      forumTabs: forumTabs,
       trackers: trackers,
       updater: updater,
       updateStore: updateStore,

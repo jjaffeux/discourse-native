@@ -28,14 +28,14 @@ class TopicListView extends StatefulWidget {
 class _TopicListViewState extends State<TopicListView> {
   ScrollController? _scroll;
   ListController? _list;
-  (String?, String)? _feedIdentity;
+  (String?, String?, String)? _feedIdentity;
   Object? _loadMoreToken;
   bool _restored = false;
 
   /// Rebuilds the scroll controllers when the list underneath them changes, so
   /// each destination starts at its own remembered row rather than inheriting
   /// the previous one's.
-  void _syncControllers((String?, String) feedIdentity) {
+  void _syncControllers((String?, String?, String) feedIdentity) {
     if (_feedIdentity == feedIdentity) return;
 
     _disposeControllers();
@@ -51,7 +51,7 @@ class _TopicListViewState extends State<TopicListView> {
   void _restore(
     ShellController controller,
     String destination,
-    (String?, String) feedIdentity,
+    (String?, String?, String) feedIdentity,
   ) {
     if (_restored) return;
     _restored = true;
@@ -110,7 +110,7 @@ class _TopicListViewState extends State<TopicListView> {
   Future<void> _showIncoming(
     ShellController controller,
     String destination,
-    (String?, String) feedIdentity,
+    (String?, String?, String) feedIdentity,
   ) async {
     await controller.showIncoming(destination);
     if (!_isCurrent(controller, feedIdentity)) return;
@@ -126,7 +126,7 @@ class _TopicListViewState extends State<TopicListView> {
   void _scheduleLoadMore(
     ShellController controller,
     String destination,
-    (String?, String) feedIdentity,
+    (String?, String?, String) feedIdentity,
     TopicFeed feed,
   ) {
     if (!feed.hasMore || feed.loadingMore || _loadMoreToken != null) return;
@@ -141,15 +141,20 @@ class _TopicListViewState extends State<TopicListView> {
     });
   }
 
-  bool _isCurrent(ShellController controller, (String?, String) feedIdentity) =>
+  bool _isCurrent(
+    ShellController controller,
+    (String?, String?, String) feedIdentity,
+  ) =>
       mounted &&
       _feedIdentity == feedIdentity &&
       _currentFeedIdentity(controller) == feedIdentity;
 
-  static (String?, String) _currentFeedIdentity(ShellController controller) {
+  static (String?, String?, String) _currentFeedIdentity(
+    ShellController controller,
+  ) {
     final siteUrl = controller.currentInstance?.url;
     final destination = controller.currentFeedId ?? 'latest';
-    return (siteUrl, destination);
+    return (siteUrl, controller.activeTabId, destination);
   }
 
   @override
@@ -184,7 +189,7 @@ class _TopicListViewState extends State<TopicListView> {
   Widget _body(
     ShellController controller,
     String destination,
-    (String?, String) feedIdentity,
+    (String?, String?, String) feedIdentity,
   ) {
     final feed = widget.feed;
 
@@ -425,7 +430,7 @@ class TopicListRow extends StatelessWidget {
 }
 
 typedef _TopicListSnapshot = ({
-  (String?, String) feedIdentity,
+  (String?, String?, String) feedIdentity,
   String destination,
   int incoming,
 });

@@ -48,6 +48,7 @@ import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
+import 'package:discourse_native/src/shell/open_tabs_section.dart';
 import 'package:discourse_native/src/shell/post_footer.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -93,6 +94,7 @@ Future<void> pumpShell(
   FakeInstanceStore? store,
   FakeAuthenticator? authenticator,
   FakeDraftStore? drafts,
+  FakeForumTabStore? forumTabs,
   FakeUpdater? updater,
   FakeUpdateStore? updateStore,
   Key? key,
@@ -119,6 +121,7 @@ Future<void> pumpShell(
       api: api ?? FakeDiscourseApi(),
       authenticator: authenticator ?? FakeAuthenticator(),
       drafts: drafts ?? FakeDraftStore(),
+      forumTabs: forumTabs ?? FakeForumTabStore(),
       // Never the real one: it opens a long poll, and its backoff timer
       // outlives the tree the binding then complains about.
       trackers: FakeSiteTracker.reset(),
@@ -205,10 +208,24 @@ final Finder userMenu = find.byKey(UserMenuButton.avatarKey);
 
 /// A sidebar entry by its label. Scoped to the sidebar because the user menu
 /// names some of the same things — "Messages" is both a destination and a tab.
-Finder sidebarDestination(String label) => find.descendant(
-  of: find.byType(InstanceSidebar),
-  matching: find.text(label),
-);
+Finder sidebarDestination(String label) => find.byElementPredicate((element) {
+  final widget = element.widget;
+  if (widget is! Text || widget.data != label) return false;
+
+  var inSidebar = false;
+  var inOpenTabs = false;
+  element.visitAncestorElements((ancestor) {
+    inSidebar |= ancestor.widget is InstanceSidebar;
+    inOpenTabs |= ancestor.widget is OpenTabsSection;
+    return true;
+  });
+  return inSidebar && !inOpenTabs;
+}, description: 'sidebar destination labelled "$label"');
+
+/// Text inside the content pane, excluding the active tab that mirrors its
+/// route title in the sidebar.
+Finder contentText(String label) =>
+    find.descendant(of: find.byType(MainContent), matching: find.text(label));
 
 /// Opens the account menu and walks to the section holding the real actions.
 /// On touch that is a row leading to a nested sheet; with a pointer it is an
@@ -1820,7 +1837,7 @@ void main() {
 
       await pumpShell(tester, desktop, store: store, api: api);
 
-      await tester.tap(find.dIcon(DIcons.plus));
+      await tester.tap(find.byTooltip('Add a Discourse site'));
       await tester.pumpAndSettle();
 
       await tester.enterText(
@@ -2153,7 +2170,7 @@ void main() {
       expect(api.topicsCreated.single['title'], 'A native topic');
       expect(api.topicsCreated.single['categoryId'], isNull);
       expect(find.byType(ComposerPanel), findsNothing);
-      expect(find.text('A native topic'), findsOneWidget);
+      expect(contentText('A native topic'), findsOneWidget);
       expect(
         api.feedPaths.where((path) => path == '/latest.json').length,
         greaterThanOrEqualTo(2),
@@ -2473,7 +2490,7 @@ void main() {
       );
 
       await pumpShell(tester, phone, api: api);
-      await tester.tap(find.text('Topics'));
+      await tester.tap(sidebarDestination('Topics'));
       await tester.pumpAndSettle();
 
       expect(find.text('design,'), findsOneWidget);
@@ -2948,6 +2965,7 @@ void main() {
         store: FakeInstanceStore(twoSites),
         api: api,
         authenticator: FakeAuthenticator(),
+        forumTabs: FakeForumTabStore(),
       ),
     );
     // Let load() and the first feed request start, but not finish.
@@ -4747,7 +4765,7 @@ void main() {
       expect(api.topicsOpened, [7, 9]);
       expect(renderedText('Other topic body'), findsOneWidget);
       // The slug was only a stand-in until the topic named itself.
-      expect(find.text('The other one [solved]'), findsOneWidget);
+      expect(contentText('The other one [solved]'), findsOneWidget);
       expect(launched, isEmpty);
     });
 
@@ -5096,7 +5114,7 @@ void main() {
         instances: connectedSites(),
         authenticator: signedIn(),
       );
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
     }
 
@@ -5332,7 +5350,7 @@ void main() {
 
       await tester.tap(find.text('DM'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
@@ -8741,6 +8759,55 @@ void main() {
           findsNothing,
         );
         expect(sidebarDestination('Bugs'), findsOneWidget);
+      });
+
+      testWidgets('an open channel tab mirrors live channel presentation', (
+        tester,
+      ) async {
+        final channels = <String, ChatChannels>{
+          site: (
+            public: [channel(9, emoji: 'bug', color: '0088CC', unread: 42)],
+            direct: const [],
+          ),
+        };
+        await pumpChat(
+          tester,
+          api: FakeDiscourseApi(
+            totals: withChat,
+            user: me,
+            chatChannelsBySite: channels,
+            chatMessagesByKey: {
+              key(9): page([msg(1)]),
+            },
+          ),
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        OpenTabItem item() => tester
+            .widget<OpenTabsSection>(find.byType(OpenTabsSection))
+            .items
+            .single;
+
+        expect(item().title, 'Bugs');
+        expect(item().icon, DIcons.comment);
+        expect(item().iconColor, const Color(0xFF0088CC));
+        expect(item().emojiName, 'bug');
+        expect(item().emojiUrl, isNotNull);
+        expect(item().badge, const SidebarBadge.dot());
+
+        channels[site] = (
+          public: [channel(9, emoji: 'bug', color: '0088CC')],
+          direct: const [],
+        );
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+        await controller.chat.loadChannels(site, force: true);
+        await tester.pump();
+
+        expect(item().badge, SidebarBadge.none);
       });
 
       testWidgets('forgets a disconnected site’s channels', (tester) async {

@@ -95,6 +95,52 @@ class ContentRoute {
 
   bool get isTopic => topicId != null;
 
+  /// A durable, presentation-only snapshot of this route.
+  ///
+  /// The payload deliberately contains no fetched content or credentials. Icon
+  /// names are the stable names Discourse itself serializes, so an older tab can
+  /// still be restored after the generated SVG data changes.
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'title': title,
+    'icon': icon.name,
+    if (subtitle != null) 'subtitle': subtitle,
+    if (color != null) 'color': color!.toARGB32(),
+    if (topicId != null) 'topic_id': topicId,
+    if (slug != null) 'slug': slug,
+    if (postNumber != null) 'post_number': postNumber,
+    if (feedPath != null) 'feed_path': feedPath,
+  };
+
+  factory ContentRoute.fromJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    final title = json['title'];
+    final iconName = json['icon'];
+    if (id is! String ||
+        id.isEmpty ||
+        title is! String ||
+        iconName is! String) {
+      throw const FormatException('Invalid content route');
+    }
+
+    final colorValue = json['color'];
+    final topicId = json['topic_id'];
+    final postNumber = json['post_number'];
+    return ContentRoute(
+      id: id,
+      title: title,
+      icon: DIcons.byName[iconName] ?? DIcons.comments,
+      subtitle: json['subtitle'] is String ? json['subtitle'] as String : null,
+      color: colorValue is int ? Color(colorValue) : null,
+      topicId: topicId is int ? topicId : null,
+      slug: json['slug'] is String ? json['slug'] as String : null,
+      postNumber: postNumber is int ? postNumber : null,
+      feedPath: json['feed_path'] is String
+          ? json['feed_path'] as String
+          : null,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       other is ContentRoute && other.id == id && other.title == title;

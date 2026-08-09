@@ -60,6 +60,12 @@ class _MainContentBody extends StatelessWidget {
     final route = state.route;
     if (route == null) return ColoredBox(color: theme.shell.content);
     final pluginContent = _pluginContent(context, route);
+    final contentKey = ValueKey((
+      state.siteUrl,
+      state.activeTabId,
+      route.id,
+      route.postNumber,
+    ));
 
     return ColoredBox(
       color: theme.shell.content,
@@ -80,46 +86,53 @@ class _MainContentBody extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child:
-                        !route.isTopic &&
-                            route.id == 'drafts' &&
-                            state.siteUrl != null
-                        ? DraftListView(siteUrl: state.siteUrl!)
-                        : !route.isTopic &&
-                              route.id == 'all-categories' &&
-                              state.siteUrl != null &&
-                              state.categoryFeed != null
-                        ? CategoriesPage(
-                            siteUrl: state.siteUrl!,
-                            feed: state.categoryFeed!,
-                          )
-                        : !route.isTopic &&
-                              route.id == 'filter' &&
-                              state.siteUrl != null &&
-                              state.feed != null
-                        ? TopicFilterPage(
-                            siteUrl: state.siteUrl!,
-                            feed: state.feed!,
-                            categories: state.filterCategories,
-                          )
-                        : switch ((route.isTopic, pluginContent, state.feed)) {
-                            // A topic route wins over its originating list.
-                            (true, _, _) => TopicView(
-                              showRecommendationsPanel:
-                                  layout == ShellLayout.expanded,
-                            ),
-                            // A route an optional feature claims is that feature's,
-                            // whichever list happens to still be cached behind it.
-                            (false, final content?, _) => content,
-                            // Destinations backed by a topic list show the real
-                            // thing; the rest retain the placeholder.
-                            (false, null, final feed?) => TopicListView(
-                              feed: feed,
-                            ),
-                            (false, null, null) => _ContentPlaceholder(
-                              route: route,
-                            ),
-                          },
+                    child: KeyedSubtree(
+                      key: contentKey,
+                      child:
+                          !route.isTopic &&
+                              route.id == 'drafts' &&
+                              state.siteUrl != null
+                          ? DraftListView(siteUrl: state.siteUrl!)
+                          : !route.isTopic &&
+                                route.id == 'all-categories' &&
+                                state.siteUrl != null &&
+                                state.categoryFeed != null
+                          ? CategoriesPage(
+                              siteUrl: state.siteUrl!,
+                              feed: state.categoryFeed!,
+                            )
+                          : !route.isTopic &&
+                                route.id == 'filter' &&
+                                state.siteUrl != null &&
+                                state.feed != null
+                          ? TopicFilterPage(
+                              siteUrl: state.siteUrl!,
+                              feed: state.feed!,
+                              categories: state.filterCategories,
+                            )
+                          : switch ((
+                              route.isTopic,
+                              pluginContent,
+                              state.feed,
+                            )) {
+                              // A topic route wins over its originating list.
+                              (true, _, _) => TopicView(
+                                showRecommendationsPanel:
+                                    layout == ShellLayout.expanded,
+                              ),
+                              // A route an optional feature claims is that feature's,
+                              // whichever list happens to still be cached behind it.
+                              (false, final content?, _) => content,
+                              // Destinations backed by a topic list show the real
+                              // thing; the rest retain the placeholder.
+                              (false, null, final feed?) => TopicListView(
+                                feed: feed,
+                              ),
+                              (false, null, null) => _ContentPlaceholder(
+                                route: route,
+                              ),
+                            },
+                    ),
                   ),
                   if (state.composer case final composer?)
                     Positioned.fill(
@@ -390,6 +403,7 @@ class _ContentPlaceholder extends StatelessWidget {
 class _MainContentSnapshot {
   const _MainContentSnapshot({
     required this.siteUrl,
+    required this.activeTabId,
     required this.route,
     required this.topic,
     required this.feed,
@@ -405,6 +419,7 @@ class _MainContentSnapshot {
   factory _MainContentSnapshot.from(ShellController controller) =>
       _MainContentSnapshot(
         siteUrl: controller.currentInstance?.url,
+        activeTabId: controller.activeTabId,
         route: controller.currentContent,
         topic: controller.currentTopic,
         feed: controller.currentFeed,
@@ -435,6 +450,7 @@ class _MainContentSnapshot {
       );
 
   final String? siteUrl;
+  final String? activeTabId;
   final ContentRoute? route;
   final TopicDetail? topic;
   final TopicFeed? feed;
@@ -450,6 +466,7 @@ class _MainContentSnapshot {
   bool operator ==(Object other) =>
       other is _MainContentSnapshot &&
       siteUrl == other.siteUrl &&
+      activeTabId == other.activeTabId &&
       identical(route, other.route) &&
       identical(topic, other.topic) &&
       identical(feed, other.feed) &&
@@ -464,6 +481,7 @@ class _MainContentSnapshot {
   @override
   int get hashCode => Object.hash(
     siteUrl,
+    activeTabId,
     identityHashCode(route),
     identityHashCode(topic),
     identityHashCode(feed),

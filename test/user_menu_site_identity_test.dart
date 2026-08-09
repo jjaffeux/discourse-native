@@ -232,6 +232,7 @@ Future<_MenuFixture> _pumpMenu(WidgetTester tester) async {
       api: api,
       authenticator: auth,
       drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
