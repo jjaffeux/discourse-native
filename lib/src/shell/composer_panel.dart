@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart';
 
+import '../data/composer_geometry_store.dart';
 import '../models/composer_upload.dart';
 import '../models/topic.dart';
 import '../plugins/poll/poll_composer_parser.dart';
@@ -41,11 +42,13 @@ class ComposerPanel extends StatelessWidget {
     required this.composer,
     this.height,
     this.onMove,
+    this.onMoveEnd,
   });
 
   final ComposerController composer;
   final double? height;
   final ValueChanged<Offset>? onMove;
+  final VoidCallback? onMoveEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +114,7 @@ class ComposerPanel extends StatelessWidget {
                   target: target,
                   onClose: controller.closeComposer,
                   onMove: onMove,
+                  onMoveEnd: onMoveEnd,
                 ),
                 if (target.isNewTopic || target.editsTopicMetadata)
                   Padding(
@@ -203,14 +207,18 @@ class ComposerPanel extends StatelessWidget {
 /// A movable, resizable composer window constrained to its reading pane.
 ///
 /// Position and size intentionally live here rather than in the shell
-/// controller: they are presentation state for one open composer and disappear
-/// with it. The [ObjectKey] at the call site gives a newly opened composer a
-/// fresh default position without adding another persistence concern to draft
-/// state.
+/// controller because they are presentation state, not draft state. The local
+/// state keeps gestures immediate while [ComposerGeometryStore] restores the
+/// user's last completed move or resize for each newly opened composer.
 class FloatingComposerPanel extends StatefulWidget {
-  const FloatingComposerPanel({super.key, required this.composer});
+  const FloatingComposerPanel({
+    super.key,
+    required this.composer,
+    this.geometryStore = const ComposerGeometryStore(),
+  });
 
   final ComposerController composer;
+  final ComposerGeometryStore geometryStore;
 
   @override
   State<FloatingComposerPanel> createState() => _FloatingComposerPanelState();
@@ -227,6 +235,15 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
 
   Size? _size;
   Offset? _position;
+  ComposerGeometryPreference? _restoredPreference;
+  bool _geometryChanged = false;
+  Future<void> _pendingGeometryWrite = Future.value();
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restoreGeometry());
+  }
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -250,6 +267,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                     composer: widget.composer,
                     height: geometry.size.height,
                     onMove: (delta) => _move(delta, bounds),
+                    onMoveEnd: () => _persistGeometry(bounds),
                   ),
                 ),
                 _resizeHandle(
@@ -260,6 +278,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   right: _cornerHandleExtent,
                   height: _edgeHandleExtent,
                   onResize: (delta) => _resize(delta, bounds, top: true),
+                  onResizeEnd: () => _persistGeometry(bounds),
                 ),
                 _resizeHandle(
                   key: const ValueKey('composer-resize-bottom'),
@@ -269,6 +288,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   right: _cornerHandleExtent,
                   height: _edgeHandleExtent,
                   onResize: (delta) => _resize(delta, bounds, bottom: true),
+                  onResizeEnd: () => _persistGeometry(bounds),
                 ),
                 _resizeHandle(
                   key: const ValueKey('composer-resize-left'),
@@ -278,6 +298,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   left: 0,
                   width: _edgeHandleExtent,
                   onResize: (delta) => _resize(delta, bounds, left: true),
+                  onResizeEnd: () => _persistGeometry(bounds),
                 ),
                 _resizeHandle(
                   key: const ValueKey('composer-resize-right'),
@@ -287,6 +308,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   right: 0,
                   width: _edgeHandleExtent,
                   onResize: (delta) => _resize(delta, bounds, right: true),
+                  onResizeEnd: () => _persistGeometry(bounds),
                 ),
                 _resizeHandle(
                   key: const ValueKey('composer-resize-top-left'),
@@ -297,6 +319,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   height: _cornerHandleExtent,
                   onResize: (delta) =>
                       _resize(delta, bounds, top: true, left: true),
+                  onResizeEnd: () => _persistGeometry(bounds),
                 ),
                 _resizeHandle(
                   key: const ValueKey('composer-resize-top-right'),
@@ -307,6 +330,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   height: _cornerHandleExtent,
                   onResize: (delta) =>
                       _resize(delta, bounds, top: true, right: true),
+                  onResizeEnd: () => _persistGeometry(bounds),
                 ),
                 _resizeHandle(
                   key: const ValueKey('composer-resize-bottom-left'),
@@ -317,6 +341,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   height: _cornerHandleExtent,
                   onResize: (delta) =>
                       _resize(delta, bounds, bottom: true, left: true),
+                  onResizeEnd: () => _persistGeometry(bounds),
                 ),
                 _resizeHandle(
                   key: const ValueKey('composer-resize-bottom-right'),
@@ -327,6 +352,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
                   height: _cornerHandleExtent,
                   onResize: (delta) =>
                       _resize(delta, bounds, bottom: true, right: true),
+                  onResizeEnd: () => _persistGeometry(bounds),
                 ),
               ],
             ),
@@ -340,6 +366,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
     required Key key,
     required MouseCursor cursor,
     required ValueChanged<Offset> onResize,
+    required VoidCallback onResizeEnd,
     double? top,
     double? right,
     double? bottom,
@@ -360,6 +387,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
         key: key,
         behavior: HitTestBehavior.opaque,
         onPanUpdate: (details) => onResize(details.delta),
+        onPanEnd: (_) => onResizeEnd(),
         child: child,
       ),
     ),
@@ -378,18 +406,21 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
       final target when target.isTagsEdit => 190.0,
       _ => composerHeight,
     };
+    final restoredPreference = _restoredPreference;
     final size = Size(
-      (_size?.width ?? math.min(_defaultWidth, maximumWidth)).clamp(
-        minimumWidth,
-        maximumWidth,
+      (_size?.width ??
+              restoredPreference?.width ??
+              math.min(_defaultWidth, maximumWidth))
+          .clamp(minimumWidth, maximumWidth),
+      (_size?.height ?? restoredPreference?.height ?? wantedHeight).clamp(
+        minimumHeight,
+        maximumHeight,
       ),
-      (_size?.height ?? wantedHeight).clamp(minimumHeight, maximumHeight),
     );
     final defaultPosition = Offset(
       (bounds.width - size.width) / 2,
       bounds.height - size.height - verticalInset,
     );
-    final wantedPosition = _position ?? defaultPosition;
     final maximumX = math.max(
       horizontalInset,
       bounds.width - size.width - horizontalInset,
@@ -398,6 +429,17 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
       verticalInset,
       bounds.height - size.height - verticalInset,
     );
+    final restoredPosition = restoredPreference == null
+        ? null
+        : Offset(
+            horizontalInset +
+                (maximumX - horizontalInset) *
+                    restoredPreference.horizontalPosition,
+            verticalInset +
+                (maximumY - verticalInset) *
+                    restoredPreference.verticalPosition,
+          );
+    final wantedPosition = _position ?? restoredPosition ?? defaultPosition;
     return _ComposerGeometry(
       size: size,
       position: Offset(
@@ -410,6 +452,8 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   void _move(Offset delta, Size bounds) {
     final geometry = _geometryFor(bounds);
     setState(() {
+      _geometryChanged = true;
+      _restoredPreference = null;
       _size = geometry.size;
       _position = geometry.position + delta;
     });
@@ -461,9 +505,50 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
     }
 
     setState(() {
+      _geometryChanged = true;
+      _restoredPreference = null;
       _position = Offset(leftEdge, topEdge);
       _size = Size(rightEdge - leftEdge, bottomEdge - topEdge);
     });
+  }
+
+  Future<void> _restoreGeometry() async {
+    final preference = await widget.geometryStore.read();
+    if (!mounted || _geometryChanged || preference == null) return;
+    setState(() => _restoredPreference = preference);
+  }
+
+  void _persistGeometry(Size bounds) {
+    final geometry = _geometryFor(bounds);
+    final horizontalInset = math.min(_inset, bounds.width / 2);
+    final verticalInset = math.min(_inset, bounds.height / 2);
+    final horizontalRange = math.max(
+      0.0,
+      bounds.width - geometry.size.width - horizontalInset * 2,
+    );
+    final verticalRange = math.max(
+      0.0,
+      bounds.height - geometry.size.height - verticalInset * 2,
+    );
+    final preference = ComposerGeometryPreference(
+      width: geometry.size.width,
+      height: geometry.size.height,
+      horizontalPosition: horizontalRange == 0
+          ? 0.5
+          : ((geometry.position.dx - horizontalInset) / horizontalRange).clamp(
+              0.0,
+              1.0,
+            ),
+      verticalPosition: verticalRange == 0
+          ? 1
+          : ((geometry.position.dy - verticalInset) / verticalRange).clamp(
+              0.0,
+              1.0,
+            ),
+    );
+    _pendingGeometryWrite = _pendingGeometryWrite.then(
+      (_) => widget.geometryStore.write(preference),
+    );
   }
 
   double get _minimumHeight {
@@ -1383,11 +1468,17 @@ class _PollComposerMenu extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.target, required this.onClose, this.onMove});
+  const _Header({
+    required this.target,
+    required this.onClose,
+    this.onMove,
+    this.onMoveEnd,
+  });
 
   final ComposerTarget target;
   final VoidCallback onClose;
   final ValueChanged<Offset>? onMove;
+  final VoidCallback? onMoveEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -1442,6 +1533,7 @@ class _Header extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onPanUpdate: (details) => onMove!(details.delta),
+        onPanEnd: (_) => onMoveEnd?.call(),
         child: header,
       ),
     );
