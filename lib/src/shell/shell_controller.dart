@@ -41,6 +41,9 @@ import '../models/topic_filter.dart';
 import '../models/topic_link.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
+import '../plugins/assign/assign_api.dart';
+import '../plugins/assign/assignment.dart';
+import '../plugins/assign/assignment_controller.dart';
 import '../plugins/chat/chat_controller.dart';
 import '../plugins/chat/chat_plugin.dart';
 import '../plugins/poll/poll.dart';
@@ -272,6 +275,20 @@ class ShellController extends FrameSafeNotifier {
     credentials: authenticator,
     store: store,
     lifecycle: lifecycle,
+  );
+
+  /// Target-scoped Assign suggestions and writes. Its permission reader looks
+  /// at the exact topic or post serializer record, never at a site setting.
+  late final AssignmentController assignments = AssignmentController(
+    api: AssignApi(api),
+    credentials: authenticator,
+    lifecycle: lifecycle,
+    canAssign: _canAssignTarget,
+    reloadTopic: (siteUrl, topicId) => _refetchTopic(siteUrl, topicId, ''),
+    invalidateLegacyFallback: (siteUrl) {
+      _assignLegacyFallbackUnavailable.add(siteUrl);
+      _notify();
+    },
   );
 
   /// The chat channels a site has, and the messages in the one on screen.
@@ -998,6 +1015,7 @@ class ShellController extends FrameSafeNotifier {
   /// Sites whose account was read from `/session/current.json` during this
   /// process. Persisted capabilities are intentionally never put in this set.
   final Set<String> _sessionUsersRefreshed = {};
+  final Set<String> _assignLegacyFallbackUnavailable = {};
 
   /// Deduplicates the selected site's tracker startup with the all-sites
   /// session refresh kicked off during load.
@@ -1098,8 +1116,16 @@ class ShellController extends FrameSafeNotifier {
     }
 
     tracker.watchTopic(topicId, channels, (channel, data) {
+      if (pluginRegistry.staleTopic(topicId, channel, data)) {
+        final route = currentContent;
+        if (route?.topicId == topicId) {
+          unawaited(_refetchTopic(siteUrl, topicId, route?.slug ?? ''));
+        }
+      }
       final stale = pluginRegistry.stalePosts(channel, data);
-      unawaited(_refreshPosts(siteUrl, topicId, stale));
+      if (stale.isNotEmpty) {
+        unawaited(_refreshPosts(siteUrl, topicId, stale));
+      }
     });
   }
 
@@ -1358,6 +1384,7 @@ class ShellController extends FrameSafeNotifier {
       final fresh = _instanceAt(siteUrl);
       if (fresh == null) return;
       _sessionUsersRefreshed.add(siteUrl);
+      _assignLegacyFallbackUnavailable.remove(siteUrl);
       if (fresh.user != user) {
         changed = true;
         _replaceInstance(fresh, fresh.copyWith(user: user));
@@ -1407,6 +1434,10 @@ class ShellController extends FrameSafeNotifier {
   }
 
   final Set<String> _topicsLoading = {};
+  final Set<String> _topicRefreshPending = {};
+  // A failed forced reconciliation must not turn the held topic into a
+  // permanent cache hit. The next ordinary open retries it automatically.
+  final Set<String> _topicsStale = {};
   final Set<String> _postsLoading = {};
   final Set<String> _earlierPostsLoading = {};
 
@@ -1702,7 +1733,7 @@ class ShellController extends FrameSafeNotifier {
     final key = _topicKey(instance.url, topicId);
     if (_topicsLoading.contains(key)) return;
     final held = store.read<TopicDetail>(instance.url, topicId);
-    if (held != null && !force) {
+    if (held != null && !force && !_topicsStale.contains(key)) {
       final targetHeld = postNumber == null
           ? true
           : held.stream.any((id) {
@@ -1740,10 +1771,15 @@ class ShellController extends FrameSafeNotifier {
       _reportOperationalError(error, stackTrace, 'topic.load', degraded: false);
       // Left absent; the view shows its own failure state.
     } finally {
+      var replayRefresh = false;
       lease.commit(() {
         _topicsLoading.remove(key);
+        replayRefresh = _topicRefreshPending.remove(key);
         _notify();
       });
+      if (replayRefresh && lease.isCurrent) {
+        unawaited(_refetchTopic(instance.url, topicId, ''));
+      }
     }
   }
 
@@ -1795,10 +1831,13 @@ class ShellController extends FrameSafeNotifier {
   TopicDetail _absorb(String siteUrl, TopicPayload payload) {
     store.putAll(siteUrl, payload.posts);
     final detail = store.put(siteUrl, payload.detail);
+    _topicsStale.remove(_topicKey(siteUrl, detail.id));
     store.update<Topic>(
       siteUrl,
       detail.id,
-      (row) => row.copyWith(title: detail.title, postsCount: detail.postsCount),
+      (row) => row
+          .copyWith(title: detail.title, postsCount: detail.postsCount)
+          .withPlugins(detail.plugins),
     );
     return detail;
   }
@@ -3965,7 +4004,13 @@ class ShellController extends FrameSafeNotifier {
   /// Re-reads a topic on a named site, rather than on whatever is current.
   Future<void> _refetchTopic(String siteUrl, int topicId, String slug) async {
     final key = _topicKey(siteUrl, topicId);
-    if (_topicsLoading.contains(key)) return;
+    if (_topicsLoading.contains(key)) {
+      // A live echo can start a read while an Assign write is still landing.
+      // Remember the later invalidation so the pre-write snapshot cannot be
+      // the last answer stored.
+      _topicRefreshPending.add(key);
+      return;
+    }
     final lease = lifecycle.capture(siteUrl);
     _topicsLoading.add(key);
 
@@ -3984,6 +4029,7 @@ class ShellController extends FrameSafeNotifier {
       lease.commit(() => _absorb(siteUrl, topic));
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
+      lease.commit(() => _topicsStale.add(key));
       _reportOperationalError(
         error,
         stackTrace,
@@ -3992,10 +4038,15 @@ class ShellController extends FrameSafeNotifier {
       );
       // The post is already on screen; the stream is repaired next time.
     } finally {
+      var replayRefresh = false;
       lease.commit(() {
         _topicsLoading.remove(key);
+        replayRefresh = _topicRefreshPending.remove(key);
         _notify();
       });
+      if (replayRefresh && lease.isCurrent) {
+        unawaited(_refetchTopic(siteUrl, topicId, ''));
+      }
     }
   }
 
@@ -4427,6 +4478,68 @@ class ShellController extends FrameSafeNotifier {
       _sessionUsersRefreshed.contains(siteUrl)
       ? _instanceAt(siteUrl)?.user
       : null;
+
+  /// Assign added per-target capabilities after its session-wide capability.
+  /// An explicit target answer always wins; only an absent answer may use a
+  /// freshly fetched session value. Persisted capabilities are never enough
+  /// to authorize a write, and absent/disabled plugins serialize neither.
+  bool canAssignForTarget(String siteUrl, bool? targetCanAssign) =>
+      targetCanAssign ??
+      (!_assignLegacyFallbackUnavailable.contains(siteUrl) &&
+          freshCurrentUserFor(siteUrl)?.canAssign == true);
+
+  /// Candidates the backend allows for this exact topic or post.
+  Future<AssignmentSuggestions> assignmentSuggestions(
+    String siteUrl,
+    AssignmentTarget target,
+  ) => assignments.suggestions(siteUrl, target);
+
+  Future<List<AssignmentAssignee>> searchAssignmentAssignees(
+    String siteUrl,
+    AssignmentTarget target,
+    AssignmentSuggestions suggestions,
+    String term,
+  ) => assignments.search(siteUrl, target, suggestions, term);
+
+  Future<String?> assignTarget(
+    String siteUrl,
+    AssignmentTarget target,
+    AssignmentAssignee assignee, {
+    String? note,
+    String? status,
+  }) =>
+      assignments.assign(siteUrl, target, assignee, note: note, status: status);
+
+  Future<String?> unassignTarget(String siteUrl, AssignmentTarget target) =>
+      assignments.unassign(siteUrl, target);
+
+  bool assignmentWriteInFlight(String siteUrl, AssignmentTarget target) =>
+      assignments.isWriting(siteUrl, target);
+
+  bool _canAssignTarget(String siteUrl, AssignmentTarget target) {
+    switch (target.type) {
+      case AssignmentTargetType.topic:
+        if (target.id != target.topicId) return false;
+        return canAssignForTarget(
+          siteUrl,
+          store
+              .read<TopicDetail>(siteUrl, target.id)
+              ?.plugins
+              .get<Assignments>()
+              ?.canAssign,
+        );
+      case AssignmentTargetType.post:
+        final topic = store.read<TopicDetail>(siteUrl, target.topicId);
+        if (topic == null || !topic.stream.contains(target.id)) return false;
+        final post = store.read<Post>(siteUrl, target.id);
+        // Post #1 is the topic target in Assign's data model and web UI.
+        if (post == null || post.postNumber == 1) return false;
+        return canAssignForTarget(
+          siteUrl,
+          post.plugins.get<Assignments>()?.canAssign,
+        );
+    }
+  }
 
   Future<void> _persistSiteConfig(String siteUrl, SiteConfig config) async {
     if (currentInstance?.url == siteUrl) {
@@ -4883,6 +4996,8 @@ class ShellController extends FrameSafeNotifier {
     _postRefreshPending.removeWhere((key) => key.startsWith('$siteUrl~'));
     _postRefreshTopics.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _topicsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _topicRefreshPending.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _topicsStale.removeWhere((key) => key.startsWith('$siteUrl#'));
     _postsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _earlierPostsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicReads.forget(siteUrl);
@@ -4899,11 +5014,13 @@ class ShellController extends FrameSafeNotifier {
     _connectErrors.remove(siteUrl);
 
     reactions.forget(siteUrl);
+    assignments.forget(siteUrl);
     chat.forget(siteUrl);
     resenha.forget(siteUrl);
     topicFeeds.forget(siteUrl);
     _trackersStarting.remove(siteUrl);
     _sessionUsersRefreshed.remove(siteUrl);
+    _assignLegacyFallbackUnavailable.remove(siteUrl);
     _sessionUserRequests.remove(siteUrl)?.ignore();
     _disposeTracking(siteUrl);
     _notify();
@@ -5147,6 +5264,7 @@ class ShellController extends FrameSafeNotifier {
       ..removeListener(_notify)
       ..dispose();
     reactions.dispose();
+    assignments.dispose();
     chat.dispose();
     resenha.dispose();
     search.dispose();

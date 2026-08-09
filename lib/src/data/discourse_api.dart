@@ -258,6 +258,15 @@ class DiscourseApi
       canCreatePoll: user.containsKey('can_create_poll')
           ? user['can_create_poll'] == true
           : null,
+      // Assign deliberately omits these serializer fields when the plugin is
+      // absent or disabled. Preserve key presence so a fresh false is a real
+      // denial and absence never turns into permission.
+      canAssign: user.containsKey('can_assign')
+          ? user['can_assign'] == true
+          : null,
+      canAssignGlobally: user.containsKey('can_assign_globally')
+          ? user['can_assign_globally'] == true
+          : null,
       staff:
           user['staff'] == true ||
           user['admin'] == true ||

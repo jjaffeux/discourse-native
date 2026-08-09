@@ -7,6 +7,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../models/post.dart';
 import '../models/topic.dart';
+import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -574,6 +575,7 @@ class _TopicViewState extends State<TopicView> {
           return _StoredPost(
             key: ValueKey(postId),
             siteUrl: siteUrl,
+            topic: snapshot.topic!,
             postId: postId,
           );
         },
@@ -586,6 +588,7 @@ class _TopicViewState extends State<TopicView> {
 class _TopicViewSnapshot {
   const _TopicViewSnapshot({
     required this.topicId,
+    required this.topic,
     required this.siteUrl,
     required this.postIds,
     required this.loading,
@@ -595,6 +598,7 @@ class _TopicViewSnapshot {
     required this.hasEarlier,
     required this.initialPostIndex,
     required this.recommendations,
+    required this.canAssignLegacyTargets,
   });
 
   factory _TopicViewSnapshot.from(ShellController controller) {
@@ -617,6 +621,7 @@ class _TopicViewSnapshot {
 
     return _TopicViewSnapshot(
       topicId: controller.currentTopic?.id,
+      topic: controller.currentTopic,
       siteUrl: siteUrl,
       postIds: postIds,
       loading: controller.currentTopicLoading,
@@ -626,10 +631,13 @@ class _TopicViewSnapshot {
       hasEarlier: hasEarlier,
       initialPostIndex: initialPostIndex,
       recommendations: controller.currentTopic?.recommendations,
+      canAssignLegacyTargets:
+          siteUrl != null && controller.canAssignForTarget(siteUrl, null),
     );
   }
 
   final int? topicId;
+  final TopicDetail? topic;
   final String? siteUrl;
   final List<int> postIds;
   final bool loading;
@@ -639,12 +647,14 @@ class _TopicViewSnapshot {
   final bool hasEarlier;
   final int? initialPostIndex;
   final TopicRecommendations? recommendations;
+  final bool canAssignLegacyTargets;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is _TopicViewSnapshot &&
           topicId == other.topicId &&
+          identical(topic, other.topic) &&
           siteUrl == other.siteUrl &&
           listEquals(postIds, other.postIds) &&
           loading == other.loading &&
@@ -653,11 +663,13 @@ class _TopicViewSnapshot {
           hasMore == other.hasMore &&
           hasEarlier == other.hasEarlier &&
           initialPostIndex == other.initialPostIndex &&
-          recommendations == other.recommendations;
+          recommendations == other.recommendations &&
+          canAssignLegacyTargets == other.canAssignLegacyTargets;
 
   @override
   int get hashCode => Object.hash(
     topicId,
+    identityHashCode(topic),
     siteUrl,
     Object.hashAll(postIds),
     loading,
@@ -667,6 +679,7 @@ class _TopicViewSnapshot {
     hasEarlier,
     initialPostIndex,
     recommendations,
+    canAssignLegacyTargets,
   );
 }
 
@@ -851,9 +864,15 @@ class _EarlierPostsRow extends StatelessWidget {
 /// markdown for the composer all write one record, and only the tile watching
 /// that record is rebuilt.
 class _StoredPost extends StatelessWidget {
-  const _StoredPost({super.key, required this.siteUrl, required this.postId});
+  const _StoredPost({
+    super.key,
+    required this.siteUrl,
+    required this.topic,
+    required this.postId,
+  });
 
   final String siteUrl;
+  final TopicDetail topic;
   final int postId;
 
   @override
@@ -866,16 +885,21 @@ class _StoredPost extends StatelessWidget {
         if (post == null) return const SizedBox.shrink();
         return post.isSmallAction
             ? SmallActionTile(post: post, siteUrl: siteUrl)
-            : _PostTile(siteUrl: siteUrl, post: post);
+            : _PostTile(siteUrl: siteUrl, topic: topic, post: post);
       },
     );
   }
 }
 
 class _PostTile extends StatefulWidget {
-  const _PostTile({required this.siteUrl, required this.post});
+  const _PostTile({
+    required this.siteUrl,
+    required this.topic,
+    required this.post,
+  });
 
   final String siteUrl;
+  final TopicDetail topic;
   final Post post;
 
   @override
@@ -1010,6 +1034,12 @@ class _PostTileState extends State<_PostTile> {
                   textStyle: theme.textTheme.bodyMedium,
                   siteUrl: widget.siteUrl,
                   post: post,
+                ),
+                ...pluginRegistry.postDecorations(
+                  context,
+                  widget.siteUrl,
+                  widget.topic,
+                  post,
                 ),
                 PostFooter(siteUrl: widget.siteUrl, post: post),
               ],
