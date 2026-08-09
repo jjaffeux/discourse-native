@@ -2646,6 +2646,20 @@ void main() {
         Topic(id: i, title: 'Topic $i', slug: 'topic-$i'),
     ];
 
+    testWidgets('pulling past the first topic does not refetch the list', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(feeds: {'/latest.json': page(1, 30)});
+
+      await pumpShell(tester, desktop, api: api);
+      expect(api.feedPaths, ['/latest.json']);
+
+      await tester.drag(topicList, const Offset(0, 1200));
+      await tester.pumpAndSettle();
+
+      expect(api.feedPaths, ['/latest.json']);
+    });
+
     testWidgets('reaching the end appends the next page', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {
