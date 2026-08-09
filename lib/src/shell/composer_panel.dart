@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
@@ -24,19 +25,27 @@ import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 
-/// The reply composer, docked under the post stream.
+/// The contents of the floating reply composer.
 ///
-/// A panel rather than a sheet, which is the other thing the shell offers: on a
-/// desktop the whole point of replying is to keep reading the topic while you
-/// write about it, and a modal sheet takes the topic away.
+/// A panel rather than a sheet, which is the other thing the shell offers: the
+/// point of replying is to keep reading the topic while writing about it, and a
+/// modal sheet takes the topic away. [FloatingComposerPanel] supplies its
+/// normal window-like frame, positioning, and resize interactions.
 ///
 /// What is typed here is what gets posted. Discourse stores raw markdown, so
 /// the field's text *is* the payload — there is no document model in between to
 /// normalise, escape or lose anything.
 class ComposerPanel extends StatelessWidget {
-  const ComposerPanel({super.key, required this.composer});
+  const ComposerPanel({
+    super.key,
+    required this.composer,
+    this.height,
+    this.onMove,
+  });
 
   final ComposerController composer;
+  final double? height;
+  final ValueChanged<Offset>? onMove;
 
   @override
   Widget build(BuildContext context) {
@@ -51,14 +60,25 @@ class ComposerPanel extends StatelessWidget {
         final notice = composer.notice;
 
         return Container(
-          height: target.isNewTopic || target.editsTopicMetadata
-              ? topicComposerHeight
-              : target.isTagsEdit
-              ? 190
-              : composerHeight,
+          height:
+              height ??
+              (target.isNewTopic || target.editsTopicMetadata
+                  ? topicComposerHeight
+                  : target.isTagsEdit
+                  ? 190
+                  : composerHeight),
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: theme.shell.content,
-            border: Border(top: BorderSide(color: theme.shell.divider)),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: theme.shell.divider),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: CallbackShortcuts(
             bindings: {
@@ -87,7 +107,11 @@ class ComposerPanel extends StatelessWidget {
             },
             child: Column(
               children: [
-                _Header(target: target, onClose: controller.closeComposer),
+                _Header(
+                  target: target,
+                  onClose: controller.closeComposer,
+                  onMove: onMove,
+                ),
                 if (target.isNewTopic || target.editsTopicMetadata)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
@@ -105,10 +129,9 @@ class ComposerPanel extends StatelessWidget {
                     target.isTagsEdit)
                   _TopicTaxonomy(composer: composer),
                 if (!target.isTagsEdit) ...[
-                  _Toolbar(composer: composer),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
                       child: _ComposerEditor(
                         composer: composer,
                         hintText: switch (target) {
@@ -131,6 +154,7 @@ class ComposerPanel extends StatelessWidget {
                 if (composer.uploads.isNotEmpty)
                   _UploadQueue(composer: composer),
                 _Footer(
+                  composer: composer,
                   // Only ever says something when there is something to say.
                   // "Draft saved" every two seconds is noise; not being saved
                   // is worth interrupting for, because it changes what closing
@@ -174,6 +198,291 @@ class ComposerPanel extends StatelessWidget {
       },
     );
   }
+}
+
+/// A movable, resizable composer window constrained to its reading pane.
+///
+/// Position and size intentionally live here rather than in the shell
+/// controller: they are presentation state for one open composer and disappear
+/// with it. The [ObjectKey] at the call site gives a newly opened composer a
+/// fresh default position without adding another persistence concern to draft
+/// state.
+class FloatingComposerPanel extends StatefulWidget {
+  const FloatingComposerPanel({super.key, required this.composer});
+
+  final ComposerController composer;
+
+  @override
+  State<FloatingComposerPanel> createState() => _FloatingComposerPanelState();
+}
+
+class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
+  static const double _inset = 16;
+  static const double _defaultWidth = 760;
+  static const double _minimumWidth = 360;
+  static const double _minimumReplyHeight = 180;
+  static const double _minimumTopicHeight = 300;
+  static const double _edgeHandleExtent = 10;
+  static const double _cornerHandleExtent = 22;
+
+  Size? _size;
+  Offset? _position;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final bounds = Size(constraints.maxWidth, constraints.maxHeight);
+      final geometry = _geometryFor(bounds);
+
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: geometry.position.dx,
+            top: geometry.position.dy,
+            width: geometry.size.width,
+            height: geometry.size.height,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: ComposerPanel(
+                    composer: widget.composer,
+                    height: geometry.size.height,
+                    onMove: (delta) => _move(delta, bounds),
+                  ),
+                ),
+                _resizeHandle(
+                  key: const ValueKey('composer-resize-top'),
+                  cursor: SystemMouseCursors.resizeUpDown,
+                  top: 0,
+                  left: _cornerHandleExtent,
+                  right: _cornerHandleExtent,
+                  height: _edgeHandleExtent,
+                  onResize: (delta) => _resize(delta, bounds, top: true),
+                ),
+                _resizeHandle(
+                  key: const ValueKey('composer-resize-bottom'),
+                  cursor: SystemMouseCursors.resizeUpDown,
+                  bottom: 0,
+                  left: _cornerHandleExtent,
+                  right: _cornerHandleExtent,
+                  height: _edgeHandleExtent,
+                  onResize: (delta) => _resize(delta, bounds, bottom: true),
+                ),
+                _resizeHandle(
+                  key: const ValueKey('composer-resize-left'),
+                  cursor: SystemMouseCursors.resizeLeftRight,
+                  top: _cornerHandleExtent,
+                  bottom: _cornerHandleExtent,
+                  left: 0,
+                  width: _edgeHandleExtent,
+                  onResize: (delta) => _resize(delta, bounds, left: true),
+                ),
+                _resizeHandle(
+                  key: const ValueKey('composer-resize-right'),
+                  cursor: SystemMouseCursors.resizeLeftRight,
+                  top: _cornerHandleExtent,
+                  bottom: _cornerHandleExtent,
+                  right: 0,
+                  width: _edgeHandleExtent,
+                  onResize: (delta) => _resize(delta, bounds, right: true),
+                ),
+                _resizeHandle(
+                  key: const ValueKey('composer-resize-top-left'),
+                  cursor: SystemMouseCursors.resizeUpLeftDownRight,
+                  top: 0,
+                  left: 0,
+                  width: _cornerHandleExtent,
+                  height: _cornerHandleExtent,
+                  onResize: (delta) =>
+                      _resize(delta, bounds, top: true, left: true),
+                ),
+                _resizeHandle(
+                  key: const ValueKey('composer-resize-top-right'),
+                  cursor: SystemMouseCursors.resizeUpRightDownLeft,
+                  top: 0,
+                  right: 0,
+                  width: _cornerHandleExtent,
+                  height: _cornerHandleExtent,
+                  onResize: (delta) =>
+                      _resize(delta, bounds, top: true, right: true),
+                ),
+                _resizeHandle(
+                  key: const ValueKey('composer-resize-bottom-left'),
+                  cursor: SystemMouseCursors.resizeUpRightDownLeft,
+                  bottom: 0,
+                  left: 0,
+                  width: _cornerHandleExtent,
+                  height: _cornerHandleExtent,
+                  onResize: (delta) =>
+                      _resize(delta, bounds, bottom: true, left: true),
+                ),
+                _resizeHandle(
+                  key: const ValueKey('composer-resize-bottom-right'),
+                  cursor: SystemMouseCursors.resizeUpLeftDownRight,
+                  bottom: 0,
+                  right: 0,
+                  width: _cornerHandleExtent,
+                  height: _cornerHandleExtent,
+                  onResize: (delta) =>
+                      _resize(delta, bounds, bottom: true, right: true),
+                  child: const Tooltip(
+                    message: 'Drag to resize composer',
+                    child: Icon(Icons.open_in_full, size: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  Widget _resizeHandle({
+    required Key key,
+    required MouseCursor cursor,
+    required ValueChanged<Offset> onResize,
+    double? top,
+    double? right,
+    double? bottom,
+    double? left,
+    double? width,
+    double? height,
+    Widget? child,
+  }) => Positioned(
+    top: top,
+    right: right,
+    bottom: bottom,
+    left: left,
+    width: width,
+    height: height,
+    child: MouseRegion(
+      cursor: cursor,
+      child: GestureDetector(
+        key: key,
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (details) => onResize(details.delta),
+        child: child,
+      ),
+    ),
+  );
+
+  _ComposerGeometry _geometryFor(Size bounds) {
+    final horizontalInset = math.min(_inset, bounds.width / 2);
+    final verticalInset = math.min(_inset, bounds.height / 2);
+    final maximumWidth = math.max(0.0, bounds.width - horizontalInset * 2);
+    final maximumHeight = math.max(0.0, bounds.height - verticalInset * 2);
+    final minimumWidth = math.min(_minimumWidth, maximumWidth);
+    final minimumHeight = math.min(_minimumHeight, maximumHeight);
+    final wantedHeight = switch (widget.composer.target) {
+      final target when target.isNewTopic || target.editsTopicMetadata =>
+        topicComposerHeight,
+      final target when target.isTagsEdit => 190.0,
+      _ => composerHeight,
+    };
+    final size = Size(
+      (_size?.width ?? math.min(_defaultWidth, maximumWidth)).clamp(
+        minimumWidth,
+        maximumWidth,
+      ),
+      (_size?.height ?? wantedHeight).clamp(minimumHeight, maximumHeight),
+    );
+    final defaultPosition = Offset(
+      (bounds.width - size.width) / 2,
+      bounds.height - size.height - verticalInset,
+    );
+    final wantedPosition = _position ?? defaultPosition;
+    final maximumX = math.max(
+      horizontalInset,
+      bounds.width - size.width - horizontalInset,
+    );
+    final maximumY = math.max(
+      verticalInset,
+      bounds.height - size.height - verticalInset,
+    );
+    return _ComposerGeometry(
+      size: size,
+      position: Offset(
+        wantedPosition.dx.clamp(horizontalInset, maximumX),
+        wantedPosition.dy.clamp(verticalInset, maximumY),
+      ),
+    );
+  }
+
+  void _move(Offset delta, Size bounds) {
+    final geometry = _geometryFor(bounds);
+    setState(() {
+      _size = geometry.size;
+      _position = geometry.position + delta;
+    });
+  }
+
+  void _resize(
+    Offset delta,
+    Size bounds, {
+    bool top = false,
+    bool right = false,
+    bool bottom = false,
+    bool left = false,
+  }) {
+    final geometry = _geometryFor(bounds);
+    var leftEdge = geometry.position.dx;
+    var topEdge = geometry.position.dy;
+    var rightEdge = leftEdge + geometry.size.width;
+    var bottomEdge = topEdge + geometry.size.height;
+    final maximumRight = bounds.width - math.min(_inset, bounds.width / 2);
+    final maximumBottom = bounds.height - math.min(_inset, bounds.height / 2);
+    final minimumLeft = math.min(_inset, bounds.width / 2);
+    final minimumTop = math.min(_inset, bounds.height / 2);
+    final minimumWidth = math.min(_minimumWidth, maximumRight - minimumLeft);
+    final minimumHeight = math.min(_minimumHeight, maximumBottom - minimumTop);
+
+    if (left) {
+      leftEdge = (leftEdge + delta.dx).clamp(
+        minimumLeft,
+        rightEdge - minimumWidth,
+      );
+    }
+    if (right) {
+      rightEdge = (rightEdge + delta.dx).clamp(
+        leftEdge + minimumWidth,
+        maximumRight,
+      );
+    }
+    if (top) {
+      topEdge = (topEdge + delta.dy).clamp(
+        minimumTop,
+        bottomEdge - minimumHeight,
+      );
+    }
+    if (bottom) {
+      bottomEdge = (bottomEdge + delta.dy).clamp(
+        topEdge + minimumHeight,
+        maximumBottom,
+      );
+    }
+
+    setState(() {
+      _position = Offset(leftEdge, topEdge);
+      _size = Size(rightEdge - leftEdge, bottomEdge - topEdge);
+    });
+  }
+
+  double get _minimumHeight {
+    final target = widget.composer.target;
+    return target.isNewTopic || target.editsTopicMetadata
+        ? _minimumTopicHeight
+        : _minimumReplyHeight;
+  }
+}
+
+class _ComposerGeometry {
+  const _ComposerGeometry({required this.size, required this.position});
+
+  final Size size;
+  final Offset position;
 }
 
 class _TopicTaxonomy extends StatelessWidget {
@@ -1078,18 +1387,20 @@ class _PollComposerMenu extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.target, required this.onClose});
+  const _Header({required this.target, required this.onClose, this.onMove});
 
   final ComposerTarget target;
   final VoidCallback onClose;
+  final ValueChanged<Offset>? onMove;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final replyTo = target.replyToUsername;
 
-    return SizedBox(
-      height: shellHeaderHeight,
+    final header = SizedBox(
+      key: const ValueKey('composer-drag-handle'),
+      height: 44,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
         child: Row(
@@ -1127,6 +1438,15 @@ class _Header extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+    if (onMove == null) return header;
+    return MouseRegion(
+      cursor: SystemMouseCursors.move,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (details) => onMove!(details.delta),
+        child: header,
       ),
     );
   }
@@ -1300,6 +1620,7 @@ class _UploadQueue extends StatelessWidget {
 
 class _Footer extends StatelessWidget {
   const _Footer({
+    required this.composer,
     required this.message,
     required this.isError,
     required this.busy,
@@ -1307,6 +1628,7 @@ class _Footer extends StatelessWidget {
     required this.onSubmit,
   });
 
+  final ComposerController composer;
   final String? message;
   final bool isError;
   final bool busy;
@@ -1318,9 +1640,10 @@ class _Footer extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(8, 0, 14, 10),
       child: Row(
         children: [
+          if (!composer.target.isTagsEdit) _Toolbar(composer: composer),
           Expanded(
             child: message == null
                 ? const SizedBox.shrink()
@@ -1333,7 +1656,7 @@ class _Footer extends StatelessWidget {
                     ),
                   ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           FilledButton(
             // Disabled while anything is in flight, because there is no way to
             // take a second post back.

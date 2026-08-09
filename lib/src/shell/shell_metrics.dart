@@ -5,10 +5,9 @@
 /// them is exactly this tall.
 const double shellHeaderHeight = 52;
 
-/// How much room the docked composer takes from the post stream.
+/// The initial heights of the floating reply and topic composers.
 ///
-/// Fixed for now. It wants to be draggable, and it wants to grow with the
-/// text scale rather than showing one line at twice the size.
+/// The window can be resized from these defaults while it is open.
 const double composerHeight = 220;
 const double topicComposerHeight = 380;
 

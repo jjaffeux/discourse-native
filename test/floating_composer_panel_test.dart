@@ -1,0 +1,154 @@
+import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'support/fakes.dart';
+
+void main() {
+  testWidgets('floats at the bottom and stays in bounds while moving', (
+    tester,
+  ) async {
+    final composer = ComposerController(_replyTarget);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pumpFloatingPanel(tester, shell, composer);
+
+    final initial = tester.getRect(find.byType(ComposerPanel));
+    expect(initial.width, 760);
+    expect(initial.height, 220);
+    expect(initial.center.dx, 450);
+    expect(initial.bottom, 634);
+
+    await tester.drag(
+      find.byKey(const ValueKey('composer-drag-handle')),
+      const Offset(-48, -72),
+    );
+    await tester.pump();
+
+    final moved = tester.getRect(find.byType(ComposerPanel));
+    expect(moved.left, closeTo(initial.left - 48, 1));
+    expect(moved.top, closeTo(initial.top - 72, 1));
+
+    await tester.drag(
+      find.byKey(const ValueKey('composer-drag-handle')),
+      const Offset(-1000, -1000),
+    );
+    await tester.pump();
+
+    final constrained = tester.getRect(find.byType(ComposerPanel));
+    expect(constrained.left, 16);
+    expect(constrained.top, 16);
+  });
+
+  testWidgets('resizes upward while keeping the bottom edge anchored', (
+    tester,
+  ) async {
+    final composer = ComposerController(_replyTarget);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pumpFloatingPanel(tester, shell, composer);
+
+    final initial = tester.getRect(find.byType(ComposerPanel));
+    await tester.drag(
+      find.byKey(const ValueKey('composer-resize-top')),
+      const Offset(0, -80),
+    );
+    await tester.pump();
+
+    final resized = tester.getRect(find.byType(ComposerPanel));
+    expect(resized.top, closeTo(initial.top - 80, 1));
+    expect(resized.height, closeTo(initial.height + 80, 1));
+    expect(resized.bottom, closeTo(initial.bottom, 1));
+  });
+
+  testWidgets('puts topic creation and formatting actions on one bottom row', (
+    tester,
+  ) async {
+    final composer = ComposerController(_newTopicTarget);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pumpFloatingPanel(tester, shell, composer);
+
+    final bold = tester.getCenter(find.byTooltip('Bold  ⌘B'));
+    final create = tester.getCenter(
+      find.widgetWithText(FilledButton, 'Create topic'),
+    );
+    final panel = tester.getRect(find.byType(ComposerPanel));
+
+    expect(bold.dy, closeTo(create.dy, 1));
+    expect(create.dy, greaterThan(panel.bottom - 52));
+  });
+
+  testWidgets('uses the available width in a narrow content pane', (
+    tester,
+  ) async {
+    final composer = ComposerController(_replyTarget);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pumpFloatingPanel(
+      tester,
+      shell,
+      composer,
+      size: const Size(340, 600),
+    );
+
+    final panel = tester.getRect(find.byType(ComposerPanel));
+    expect(panel.left, 16);
+    expect(panel.right, 324);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+Future<ShellController> _shell() async {
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore(),
+    api: FakeDiscourseApi(),
+    authenticator: FakeAuthenticator(),
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+  );
+  await shell.load();
+  return shell;
+}
+
+Future<void> _pumpFloatingPanel(
+  WidgetTester tester,
+  ShellController shell,
+  ComposerController composer, {
+  Size size = const Size(900, 650),
+}) async {
+  await tester.binding.setSurfaceSize(size);
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.dark,
+      home: ShellScope(
+        controller: shell,
+        child: Scaffold(body: FloatingComposerPanel(composer: composer)),
+      ),
+    ),
+  );
+}
+
+const _replyTarget = ComposerTarget(
+  siteUrl: 'https://meta.discourse.org',
+  topicId: 7,
+  slug: 'a-topic',
+  topicTitle: 'A topic',
+);
+
+const _newTopicTarget = ComposerTarget(
+  siteUrl: 'https://meta.discourse.org',
+  topicId: 0,
+  slug: '',
+  topicTitle: '',
+  mode: ComposerMode.newTopic,
+);
