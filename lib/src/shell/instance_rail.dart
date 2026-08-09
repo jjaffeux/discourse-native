@@ -456,35 +456,9 @@ class _RailItemState extends State<_RailItem> {
           Center(
             child: InstanceActions(
               instance: widget.instance,
-              child: Tooltip(
-                message: widget.instance.title,
-                waitDuration: const Duration(milliseconds: 500),
-                constraints: const BoxConstraints(minHeight: 36, maxWidth: 240),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: const ShapeDecoration(
-                  color: Color(0xFF3C3D43),
-                  shape: _RailTooltipBorder(),
-                  shadows: [
-                    BoxShadow(
-                      color: Color(0x47000000),
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                textStyle: theme.textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                ),
-                positionDelegate: _positionRailTooltip,
-                // Hovering still shows it — that path ignores the trigger mode
-                // — but holding the item is how the actions are reached on a
-                // touch screen, and the tooltip must not answer that too.
-                triggerMode: TooltipTriggerMode.manual,
+              child: _RailTooltip(
+                instance: widget.instance,
+                accent: accent,
                 child: InkWell(
                   onTap: widget.onTap,
                   onHover: _handleHover,
@@ -510,6 +484,198 @@ class _RailItemState extends State<_RailItem> {
                     ],
                   ),
                 ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The hover label for a forum in the rail.
+///
+/// The callout is small enough to scan while moving down the rail, but carries
+/// the site's own mark so similarly named forums remain easy to distinguish.
+/// Its transform grows from the pointer, keeping the label visually attached
+/// to the icon throughout the entrance animation.
+class _RailTooltip extends StatelessWidget {
+  const _RailTooltip({
+    required this.instance,
+    required this.accent,
+    required this.child,
+  });
+
+  static const hoverDelay = Duration(milliseconds: 280);
+  static const dismissDelay = Duration(milliseconds: 80);
+  static const animationStyle = AnimationStyle(
+    duration: Duration(milliseconds: 120),
+    reverseDuration: Duration(milliseconds: 80),
+    curve: Curves.linear,
+  );
+
+  final DiscourseInstance instance;
+  final Color accent;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+
+    return RawTooltip(
+      key: ValueKey(
+        'instance-rail-tooltip-${instance.url}-${disableAnimations ? 'still' : 'motion'}',
+      ),
+      semanticsTooltip: instance.title,
+      hoverDelay: hoverDelay,
+      dismissDelay: dismissDelay,
+      triggerMode: TooltipTriggerMode.manual,
+      enableFeedback: false,
+      animationStyle: disableAnimations
+          ? AnimationStyle.noAnimation
+          : animationStyle,
+      positionDelegate: _positionRailTooltip,
+      ignorePointer: true,
+      tooltipBuilder: (context, animation) {
+        final callout = ExcludeSemantics(
+          child: RepaintBoundary(
+            child: _RailTooltipCallout(instance: instance, accent: accent),
+          ),
+        );
+
+        return _RailTooltipTransition(animation: animation, child: callout);
+      },
+      child: child,
+    );
+  }
+}
+
+class _RailTooltipTransition extends StatefulWidget {
+  const _RailTooltipTransition({required this.animation, required this.child});
+
+  final Animation<double> animation;
+  final Widget child;
+
+  @override
+  State<_RailTooltipTransition> createState() => _RailTooltipTransitionState();
+}
+
+class _RailTooltipTransitionState extends State<_RailTooltipTransition> {
+  late CurvedAnimation _eased;
+
+  @override
+  void initState() {
+    super.initState();
+    _eased = _createAnimation();
+  }
+
+  @override
+  void didUpdateWidget(_RailTooltipTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.animation == widget.animation) return;
+    _eased.dispose();
+    _eased = _createAnimation();
+  }
+
+  CurvedAnimation _createAnimation() => CurvedAnimation(
+    parent: widget.animation,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+
+  @override
+  void dispose() {
+    _eased.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _eased,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.96, end: 1).animate(_eased),
+        alignment: Alignment.centerLeft,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _RailTooltipCallout extends StatelessWidget {
+  const _RailTooltipCallout({required this.instance, required this.accent});
+
+  static const surface = Color(0xFF3C3D43);
+  static const decoration = ShapeDecoration(
+    color: surface,
+    shape: _RailTooltipBorder(),
+    shadows: [
+      BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 3)),
+      BoxShadow(color: Color(0x24000000), blurRadius: 2, offset: Offset(0, 1)),
+    ],
+  );
+
+  final DiscourseInstance instance;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final iconBackground = Color.alphaBlend(accent, surface);
+    final iconForeground = contrastSafeForeground(
+      background: iconBackground,
+      backdrop: surface,
+      preferred: const [Colors.white, Colors.black],
+    );
+
+    return Container(
+      key: ValueKey('instance-rail-callout-${instance.url}'),
+      constraints: const BoxConstraints(minHeight: 36, maxWidth: 240),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: decoration,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ExcludeSemantics(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: AvatarImage(
+                key: ValueKey('instance-rail-callout-icon-${instance.url}'),
+                url: instance.iconUrl,
+                size: 18,
+                fit: BoxFit.contain,
+                fallback: ColoredBox(
+                  color: iconBackground,
+                  child: SizedBox.square(
+                    dimension: 18,
+                    child: Center(
+                      child: Text(
+                        instance.monogram,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: iconForeground,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              instance.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: const Color(0xFFF3F3F4),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.15,
+                height: 1.25,
               ),
             ),
           ),
@@ -551,8 +717,9 @@ double _fitRailTooltip({
 }
 
 /// Rounded rail callout with a pointer aimed at the forum icon.
-class _RailTooltipBorder extends ShapeBorder {
+class _RailTooltipBorder extends OutlinedBorder {
   const _RailTooltipBorder({
+    super.side = const BorderSide(color: Color(0xFF47484E)),
     this.pointerWidth = 7,
     this.pointerHeight = 14,
     this.radius = 7,
@@ -563,10 +730,14 @@ class _RailTooltipBorder extends ShapeBorder {
   final double radius;
 
   @override
-  EdgeInsetsGeometry get dimensions => EdgeInsets.only(left: pointerWidth);
+  EdgeInsetsGeometry get dimensions {
+    final inset = side.strokeInset.clamp(0.0, double.infinity);
+    return EdgeInsets.fromLTRB(pointerWidth + inset, inset, inset, inset);
+  }
 
-  @override
-  Path getOuterPath(Rect rect, {TextDirection? textDirection}) {
+  Path _path(Rect rect) {
+    if (rect.isEmpty) return Path();
+
     final body = Rect.fromLTRB(
       rect.left + pointerWidth,
       rect.top,
@@ -603,18 +774,54 @@ class _RailTooltipBorder extends ShapeBorder {
   }
 
   @override
-  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
-      getOuterPath(rect, textDirection: textDirection);
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => _path(rect);
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) {
+    return _path(rect.deflate(side.strokeInset));
+  }
+
+  @override
+  _RailTooltipBorder copyWith({
+    BorderSide? side,
+    double? pointerWidth,
+    double? pointerHeight,
+    double? radius,
+  }) {
+    return _RailTooltipBorder(
+      side: side ?? this.side,
+      pointerWidth: pointerWidth ?? this.pointerWidth,
+      pointerHeight: pointerHeight ?? this.pointerHeight,
+      radius: radius ?? this.radius,
+    );
+  }
 
   @override
   ShapeBorder scale(double t) => _RailTooltipBorder(
+    side: side.scale(t),
     pointerWidth: pointerWidth * t,
     pointerHeight: pointerHeight * t,
     radius: radius * t,
   );
 
   @override
-  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {}
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
+    if (side.style == BorderStyle.none) return;
+    final strokeOffset = (side.strokeOutset - side.strokeInset) / 2;
+    canvas.drawPath(_path(rect.inflate(strokeOffset)), side.toPaint());
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _RailTooltipBorder &&
+        other.side == side &&
+        other.pointerWidth == pointerWidth &&
+        other.pointerHeight == pointerHeight &&
+        other.radius == radius;
+  }
+
+  @override
+  int get hashCode => Object.hash(side, pointerWidth, pointerHeight, radius);
 }
 
 /// The site's own icon, falling back to a monogram while it loads or if the
