@@ -24,6 +24,7 @@ globe
 gear
 bug
 ellipsis
+far-pen-to-square
 chevron-right
 chevron-left
 chevron-down

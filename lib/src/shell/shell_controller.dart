@@ -5029,7 +5029,13 @@ class ShellController extends FrameSafeNotifier {
 
     if (draft.key == ComposerDraft.newTopicDraftKey) {
       final destination = instance.defaultDestination;
-      selectDestination(destination);
+      // Selecting the destination already on screen means "refresh" to the
+      // shell. Do not start that second, unawaited request when a header-menu
+      // draft is resumed from the default list; openNewTopic needs the
+      // creatable feed that is already in hand.
+      if (_destinationId != destination.id || _contentStack.length != 1) {
+        selectDestination(destination);
+      }
       await loadFeed(destination.id);
       if (currentInstance?.url != siteUrl || destinationId != destination.id) {
         return;
