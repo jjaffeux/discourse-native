@@ -236,6 +236,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   Size? _size;
   Offset? _position;
   ComposerGeometryPreference? _restoredPreference;
+  bool _geometryLoaded = false;
   bool _geometryChanged = false;
   Future<void> _pendingGeometryWrite = Future.value();
 
@@ -248,6 +249,8 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      if (!_geometryLoaded) return const SizedBox.shrink();
+
       final bounds = Size(constraints.maxWidth, constraints.maxHeight);
       final geometry = _geometryFor(bounds);
 
@@ -514,8 +517,11 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
 
   Future<void> _restoreGeometry() async {
     final preference = await widget.geometryStore.read();
-    if (!mounted || _geometryChanged || preference == null) return;
-    setState(() => _restoredPreference = preference);
+    if (!mounted) return;
+    setState(() {
+      if (!_geometryChanged) _restoredPreference = preference;
+      _geometryLoaded = true;
+    });
   }
 
   void _persistGeometry(Size bounds) {

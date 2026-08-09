@@ -59,6 +59,7 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kSecondaryButton;
@@ -804,6 +805,62 @@ void main() {
     expect(find.text('Discourse Meta'), findsNothing);
   });
 
+  testWidgets('rail marker grows from idle dot through hover to active pill', (
+    tester,
+  ) async {
+    await pumpShell(tester, desktop);
+
+    Finder item(DiscourseInstance instance) =>
+        find.byKey(ValueKey(instance.url));
+    Finder indicator(DiscourseInstance instance) =>
+        find.byKey(ValueKey('instance-rail-marker-${instance.url}'));
+    AnimatedContainer marker(DiscourseInstance instance) =>
+        tester.widget(indicator(instance));
+    double targetHeight(DiscourseInstance instance) =>
+        marker(instance).constraints!.minHeight;
+
+    final selected = twoSites.first;
+    final inactive = twoSites.last;
+    expect(targetHeight(selected), 40);
+    expect(targetHeight(inactive), 8);
+    expect(marker(inactive).duration, const Duration(milliseconds: 180));
+    expect(marker(inactive).curve, Curves.easeOutCubic);
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+    await gesture.moveTo(tester.getCenter(item(inactive)));
+    await tester.pump();
+
+    expect(targetHeight(inactive), 20);
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(
+      tester.getSize(indicator(inactive)).height,
+      allOf(greaterThan(8), lessThan(20)),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator(inactive)).height, 20);
+
+    await gesture.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator(inactive)).height, 8);
+
+    await gesture.moveTo(tester.getCenter(item(inactive)));
+    await tester.pumpAndSettle();
+    await tester.tap(item(inactive));
+    await tester.pump();
+
+    expect(targetHeight(selected), 8);
+    expect(targetHeight(inactive), 40);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator(selected)).height, 8);
+    expect(tester.getSize(indicator(inactive)).height, 40);
+
+    await gesture.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator(inactive)).height, 40);
+  });
+
   testWidgets('shows custom sidebar sections and opens their links', (
     tester,
   ) async {
@@ -908,7 +965,9 @@ void main() {
     );
   });
 
-  testWidgets('sidebar section chevrons follow their actions', (tester) async {
+  testWidgets('sidebar section header controls align and highlight on hover', (
+    tester,
+  ) async {
     const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
     final site = instance(
       'meta.discourse.org',
@@ -955,6 +1014,43 @@ void main() {
     expect(tester.getCenter(action).dx, lessThan(tester.getCenter(chevron).dx));
     // A larger action would make this header taller than adjacent sections.
     expect(tester.getSize(action), tester.getSize(chevron));
+
+    final title = find.text('VOICE ROOMS');
+    final theme = Theme.of(tester.element(title));
+    Color titleColor() => tester.widget<Text>(title).style!.color!;
+    Color iconColor(Finder control) {
+      final icon = find.descendant(of: control, matching: find.byType(DIcon));
+      final explicitColor = tester.widget<DIcon>(icon).color;
+      return explicitColor ?? IconTheme.of(tester.element(icon)).color!;
+    }
+
+    expect(titleColor(), theme.colorScheme.onSurfaceVariant);
+    expect(iconColor(action), theme.colorScheme.onSurfaceVariant);
+    expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+
+    await gesture.moveTo(tester.getCenter(title));
+    await tester.pumpAndSettle();
+    expect(titleColor(), theme.colorScheme.onSurface);
+    expect(iconColor(action), theme.colorScheme.onSurfaceVariant);
+
+    await gesture.moveTo(tester.getCenter(action));
+    await tester.pumpAndSettle();
+    expect(titleColor(), theme.colorScheme.onSurfaceVariant);
+    expect(iconColor(action), theme.colorScheme.onSurface);
+    expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
+
+    await gesture.moveTo(tester.getCenter(chevron));
+    await tester.pumpAndSettle();
+    expect(iconColor(action), theme.colorScheme.onSurfaceVariant);
+    expect(iconColor(chevron), theme.colorScheme.onSurface);
+
+    await gesture.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
   });
 
   testWidgets('sidebar destinations show a background when hovered', (
@@ -1007,6 +1103,73 @@ void main() {
     await tester.tap(remove);
     await tester.pumpAndSettle();
     expect(find.text('Remove Discourse Meta?'), findsOneWidget);
+  });
+
+  testWidgets('hovering a forum shows its name in a rail callout', (
+    tester,
+  ) async {
+    await pumpShell(tester, desktop);
+
+    final forum = find.byKey(
+      const ValueKey<String>('https://team.discourse.org'),
+    );
+    final tooltipFinder = find.descendant(
+      of: forum,
+      matching: find.byType(Tooltip),
+    );
+    expect(forum, findsOneWidget);
+    expect(tooltipFinder, findsOneWidget);
+    expect(find.text('Discourse Team'), findsNothing);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(forum));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Discourse Team'), findsOneWidget);
+    expect(find.text('team.discourse.org'), findsNothing);
+
+    final tooltip = tester.widget<Tooltip>(tooltipFinder);
+    expect(tooltip.message, 'Discourse Team');
+    expect(tooltip.richMessage, isNull);
+    final decoration = tooltip.decoration! as ShapeDecoration;
+    final callout = find
+        .ancestor(
+          of: find.text('Discourse Team'),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Container && widget.decoration == decoration,
+          ),
+        )
+        .first;
+    final targetRect = tester.getRect(tooltipFinder);
+    final calloutRect = tester.getRect(callout);
+    final insets = decoration.shape.dimensions.resolve(TextDirection.ltr);
+    final calloutPath = decoration.shape.getOuterPath(
+      Offset.zero & calloutRect.size,
+    );
+
+    expect(calloutRect.center.dy, closeTo(targetRect.center.dy, 0.5));
+    expect(calloutRect.left + insets.left, greaterThan(targetRect.right));
+    expect(insets, const EdgeInsets.only(left: 7));
+    expect(calloutPath.contains(Offset(1, calloutRect.height / 2)), isTrue);
+    expect(calloutPath.contains(const Offset(1, 1)), isFalse);
+    expect(calloutPath.contains(Offset(insets.left + 0.5, 0.5)), isFalse);
+    expect(decoration.color, const Color(0xFF3C3D43));
+    expect(decoration.shadows, const [
+      BoxShadow(color: Color(0x47000000), blurRadius: 8, offset: Offset(0, 2)),
+    ]);
+    expect(
+      tooltip.constraints,
+      const BoxConstraints(minHeight: 36, maxWidth: 240),
+    );
+    expect(
+      tooltip.padding,
+      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    );
+    expect(tooltip.textStyle!.color, Colors.white);
+    expect(tooltip.textStyle!.fontWeight, FontWeight.w700);
   });
 
   group('adding a site', () {
@@ -1091,12 +1254,12 @@ void main() {
   });
 
   group('removing a site', () {
-    /// The rail draws no text of its own, so a site is identified by the
-    /// tooltip naming it.
-    Finder railItem(String title, String host) =>
-        find.byTooltip('$title\n$host');
+    Finder railItem(String host) => find.descendant(
+      of: find.byKey(ValueKey<String>('https://$host')),
+      matching: find.byType(Tooltip),
+    );
 
-    final meta = railItem('Discourse Meta', 'meta.discourse.org');
+    final meta = railItem('meta.discourse.org');
 
     testWidgets('a long press leads to the removal through a sheet', (
       tester,
@@ -1140,12 +1303,17 @@ void main() {
     ) async {
       await pumpShell(tester, phone);
 
+      expect(
+        tester.widget<Tooltip>(meta).triggerMode,
+        TooltipTriggerMode.manual,
+      );
       await tester.longPress(meta);
       await tester.pumpAndSettle();
 
       // The tooltip's own long-press trigger would otherwise fire under the
       // menu, naming the site twice.
-      expect(find.text('Discourse Meta\nmeta.discourse.org'), findsNothing);
+      expect(find.text('More Options'), findsOneWidget);
+      expect(find.text('Discourse Meta'), findsOneWidget);
     });
 
     testWidgets('removing asks first, and answering no keeps the site', (
@@ -1195,7 +1363,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(meta, findsNothing);
-      expect(railItem('Discourse Team', 'team.discourse.org'), findsOneWidget);
+      expect(railItem('team.discourse.org'), findsOneWidget);
       // The site that was being read went away, so the one left takes over.
       expect(find.text('Discourse Team'), findsOneWidget);
       expect(auth.disconnected, ['https://meta.discourse.org']);
@@ -1283,7 +1451,7 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      await tester.longPress(railItem('Discourse Team', 'team.discourse.org'));
+      await tester.longPress(railItem('team.discourse.org'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('More Options'));
       await tester.pumpAndSettle();
@@ -7629,7 +7797,9 @@ void main() {
         await pumpChat(tester, size: phone, public: [channel(9)]);
         expect(sidebarDestination('Bugs'), findsOneWidget);
 
-        await tester.longPress(find.byTooltip('Meta\nmeta.discourse.org'));
+        await tester.longPress(
+          find.byKey(const ValueKey<String>('https://meta.discourse.org')),
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.text('More Options'));
         await tester.pumpAndSettle();

@@ -10,13 +10,17 @@ import 'package:discourse_native/src/shell/draft_list.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
+import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
-import 'package:flutter/material.dart' show Row, Size;
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/material.dart' show Row, Size, ValueKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 
@@ -33,6 +37,134 @@ const _draft = UserDraft(
 );
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('the wide New topic button has core text and icon', (
+    tester,
+  ) async {
+    await _pump(tester);
+
+    expect(find.text('New topic'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(TopicCreateButton.buttonKey),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.farPenToSquare,
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('the New topic text is hidden only below the small breakpoint', (
+    tester,
+  ) async {
+    await _pump(tester, size: const Size(390, 844));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(InstanceSidebar),
+        matching: find.text('Topics'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
+    expect(find.text('New topic'), findsNothing);
+    expect(find.byTooltip('New topic'), findsOneWidget);
+  });
+
+  testWidgets('the attached menu loads and resumes a recent draft', (
+    tester,
+  ) async {
+    final fixture = await _pump(tester);
+
+    expect(fixture.api.userDraftRequests, isEmpty);
+    await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
+    await tester.pumpAndSettle();
+
+    expect(fixture.api.userDraftRequests, [
+      (siteUrl: _siteUrl, offset: 0, limit: 30),
+    ]);
+    final row = find.byKey(const ValueKey('recent-draft-new_topic'));
+    expect(row, findsOneWidget);
+    expect(
+      find.descendant(
+        of: row,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.layerGroup,
+        ),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ComposerPanel), findsOneWidget);
+    final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
+    expect(shell.visibleComposer?.title.text, 'Native :sparkles: drafts page');
+    expect(shell.visibleComposer?.draftSequence, 4);
+  });
+
+  testWidgets('the recent menu matches core draft icons and four-row limit', (
+    tester,
+  ) async {
+    final drafts = [
+      _draft,
+      const UserDraft(
+        key: 'new_private_message_1',
+        sequence: 5,
+        data: ComposerDraft(reply: 'Private draft', title: 'A message'),
+      ),
+      for (var index = 1; index <= 4; index++)
+        UserDraft(
+          key: 'topic_$index',
+          sequence: index,
+          data: ComposerDraft(reply: 'Reply $index'),
+          topicId: index,
+          title: 'Reply draft $index',
+          slug: 'reply-draft-$index',
+        ),
+    ];
+    await _pump(tester, draftCount: drafts.length, userDrafts: drafts);
+
+    await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
+    await tester.pumpAndSettle();
+
+    final privateRow = find.byKey(
+      const ValueKey('recent-draft-new_private_message_1'),
+    );
+    final replyRow = find.byKey(const ValueKey('recent-draft-topic_1'));
+    expect(privateRow, findsOneWidget);
+    expect(replyRow, findsOneWidget);
+    expect(
+      find.descendant(
+        of: privateRow,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.envelope,
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: replyRow,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.reply,
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('recent-draft-topic_3')), findsNothing);
+    expect(find.text('+2 other drafts'), findsOneWidget);
+    expect(find.text('view all drafts'), findsOneWidget);
+
+    await tester.tap(find.text('view all drafts'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DraftListView), findsOneWidget);
+  });
+
   testWidgets('the sidebar shows the draft count as plain trailing text', (
     tester,
   ) async {
@@ -185,21 +317,26 @@ void main() {
 
 typedef _Fixture = ({FakeDiscourseApi api});
 
-Future<_Fixture> _pump(WidgetTester tester) async {
+Future<_Fixture> _pump(
+  WidgetTester tester, {
+  Size size = const Size(1440, 900),
+  int draftCount = 1,
+  List<UserDraft> userDrafts = const [_draft],
+}) async {
   EmojiCache.instance = EmojiCache(
     client: MockClient((_) async => http.Response('', 404)),
   );
   addTearDown(EmojiCache.instance.clear);
-  tester.view.physicalSize = const Size(1440, 900);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final site = instance('meta.discourse.org').copyWith(
-    user: const DiscourseUser(id: 7, username: 'reader', draftCount: 1),
+    user: DiscourseUser(id: 7, username: 'reader', draftCount: draftCount),
   );
   final api = FakeDiscourseApi(
     user: site.user,
     totals: const NotificationTotals(),
-    userDraftList: const [_draft],
+    userDraftList: userDrafts,
     categoryList: const [
       TopicCategory(id: 5, name: 'Support', color: '0088CC'),
     ],
