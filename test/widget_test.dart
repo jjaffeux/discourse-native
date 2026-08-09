@@ -1115,34 +1115,85 @@ void main() {
     );
     final tooltipFinder = find.descendant(
       of: forum,
-      matching: find.byType(Tooltip),
+      matching: find.byType(RawTooltip),
+    );
+    final callout = find.byKey(
+      const ValueKey<String>(
+        'instance-rail-callout-https://team.discourse.org',
+      ),
     );
     expect(forum, findsOneWidget);
     expect(tooltipFinder, findsOneWidget);
-    expect(find.text('Discourse Team'), findsNothing);
+    expect(callout, findsNothing);
+
+    final tooltip = tester.widget<RawTooltip>(tooltipFinder);
+    expect(tooltip.semanticsTooltip, 'Discourse Team');
+    expect(tooltip.triggerMode, TooltipTriggerMode.manual);
+    expect(tooltip.ignorePointer, isTrue);
+    expect(tooltip.hoverDelay, const Duration(milliseconds: 280));
+    expect(tooltip.dismissDelay, const Duration(milliseconds: 80));
+    expect(tooltip.animationStyle.duration, const Duration(milliseconds: 120));
+    expect(
+      tooltip.animationStyle.reverseDuration,
+      const Duration(milliseconds: 80),
+    );
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
     addTearDown(mouse.removePointer);
     await mouse.moveTo(tester.getCenter(forum));
-    await tester.pump(const Duration(milliseconds: 500));
+
+    await tester.pump(tooltip.hoverDelay - const Duration(milliseconds: 1));
+    expect(callout, findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(callout, findsOneWidget);
+
+    final fade = tester.widget<FadeTransition>(
+      find.ancestor(of: callout, matching: find.byType(FadeTransition)).first,
+    );
+    final scale = tester.widget<ScaleTransition>(
+      find.ancestor(of: callout, matching: find.byType(ScaleTransition)).first,
+    );
+    expect(fade.opacity.value, closeTo(0, 0.001));
+    expect(scale.scale.value, closeTo(0.96, 0.001));
+    expect(scale.alignment, Alignment.centerLeft);
+
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(fade.opacity.value, allOf(greaterThan(0), lessThan(1)));
+    expect(scale.scale.value, allOf(greaterThan(0.96), lessThan(1)));
+
     await tester.pumpAndSettle();
+    expect(fade.opacity.value, 1);
+    expect(scale.scale.value, 1);
 
-    expect(find.text('Discourse Team'), findsOneWidget);
-    expect(find.text('team.discourse.org'), findsNothing);
+    expect(
+      find.descendant(of: callout, matching: find.text('Discourse Team')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: callout,
+        matching: find.textContaining('team.discourse.org'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.ancestor(of: callout, matching: find.byType(ExcludeSemantics)),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'instance-rail-callout-icon-https://team.discourse.org',
+        ),
+      ),
+      findsOneWidget,
+    );
 
-    final tooltip = tester.widget<Tooltip>(tooltipFinder);
-    expect(tooltip.message, 'Discourse Team');
-    expect(tooltip.richMessage, isNull);
-    final decoration = tooltip.decoration! as ShapeDecoration;
-    final callout = find
-        .ancestor(
-          of: find.text('Discourse Team'),
-          matching: find.byWidgetPredicate(
-            (widget) => widget is Container && widget.decoration == decoration,
-          ),
-        )
-        .first;
+    final calloutWidget = tester.widget<Container>(callout);
+    final decoration = calloutWidget.decoration! as ShapeDecoration;
     final targetRect = tester.getRect(tooltipFinder);
     final calloutRect = tester.getRect(callout);
     final insets = decoration.shape.dimensions.resolve(TextDirection.ltr);
@@ -1151,25 +1202,92 @@ void main() {
     );
 
     expect(calloutRect.center.dy, closeTo(targetRect.center.dy, 0.5));
+    expect(calloutRect.left, greaterThan(targetRect.right));
     expect(calloutRect.left + insets.left, greaterThan(targetRect.right));
-    expect(insets, const EdgeInsets.only(left: 7));
+    expect(insets, const EdgeInsets.fromLTRB(8, 1, 1, 1));
     expect(calloutPath.contains(Offset(1, calloutRect.height / 2)), isTrue);
     expect(calloutPath.contains(const Offset(1, 1)), isFalse);
     expect(calloutPath.contains(Offset(insets.left + 0.5, 0.5)), isFalse);
     expect(decoration.color, const Color(0xFF3C3D43));
+    expect(decoration.shape, isA<OutlinedBorder>());
+    expect(
+      (decoration.shape as OutlinedBorder).side,
+      const BorderSide(color: Color(0xFF47484E)),
+    );
     expect(decoration.shadows, const [
-      BoxShadow(color: Color(0x47000000), blurRadius: 8, offset: Offset(0, 2)),
+      BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 3)),
+      BoxShadow(color: Color(0x24000000), blurRadius: 2, offset: Offset(0, 1)),
     ]);
     expect(
-      tooltip.constraints,
+      calloutWidget.constraints,
       const BoxConstraints(minHeight: 36, maxWidth: 240),
     );
     expect(
-      tooltip.padding,
-      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      calloutWidget.padding,
+      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     );
-    expect(tooltip.textStyle!.color, Colors.white);
-    expect(tooltip.textStyle!.fontWeight, FontWeight.w700);
+    final label = tester.widget<Text>(
+      find.descendant(of: callout, matching: find.text('Discourse Team')),
+    );
+    expect(label.style!.color, const Color(0xFFF3F3F4));
+    expect(label.style!.fontSize, 16);
+    expect(label.style!.fontWeight, FontWeight.w600);
+
+    await mouse.moveTo(Offset.zero);
+    await tester.pump(tooltip.dismissDelay - const Duration(milliseconds: 1));
+    expect(callout, findsOneWidget);
+    expect(fade.opacity.value, 1);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(callout, findsOneWidget);
+    expect(fade.opacity.value, allOf(greaterThan(0), lessThan(1)));
+    expect(scale.scale.value, allOf(greaterThan(0.96), lessThan(1)));
+
+    await tester.pumpAndSettle();
+    expect(callout, findsNothing);
+  });
+
+  testWidgets('forum callouts respect reduced motion', (tester) async {
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(
+      tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+    );
+    await pumpShell(tester, desktop);
+
+    final forum = find.byKey(
+      const ValueKey<String>('https://team.discourse.org'),
+    );
+    final tooltipFinder = find.descendant(
+      of: forum,
+      matching: find.byType(RawTooltip),
+    );
+    final callout = find.byKey(
+      const ValueKey<String>(
+        'instance-rail-callout-https://team.discourse.org',
+      ),
+    );
+    final tooltip = tester.widget<RawTooltip>(tooltipFinder);
+    expect(tooltip.animationStyle.duration, Duration.zero);
+    expect(tooltip.animationStyle.reverseDuration, Duration.zero);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(forum));
+    await tester.pump(tooltip.hoverDelay);
+    await tester.pump();
+
+    expect(callout, findsOneWidget);
+    final fade = tester.widget<FadeTransition>(
+      find.ancestor(of: callout, matching: find.byType(FadeTransition)).first,
+    );
+    final scale = tester.widget<ScaleTransition>(
+      find.ancestor(of: callout, matching: find.byType(ScaleTransition)).first,
+    );
+    expect(fade.opacity.value, 1);
+    expect(scale.scale.value, 1);
   });
 
   group('adding a site', () {
@@ -1254,10 +1372,8 @@ void main() {
   });
 
   group('removing a site', () {
-    Finder railItem(String host) => find.descendant(
-      of: find.byKey(ValueKey<String>('https://$host')),
-      matching: find.byType(Tooltip),
-    );
+    Finder railItem(String host) =>
+        find.byKey(ValueKey<String>('https://$host'));
 
     final meta = railItem('meta.discourse.org');
 
@@ -1303,8 +1419,12 @@ void main() {
     ) async {
       await pumpShell(tester, phone);
 
+      final metaTooltip = find.descendant(
+        of: meta,
+        matching: find.byType(RawTooltip),
+      );
       expect(
-        tester.widget<Tooltip>(meta).triggerMode,
+        tester.widget<RawTooltip>(metaTooltip).triggerMode,
         TooltipTriggerMode.manual,
       );
       await tester.longPress(meta);
@@ -1313,7 +1433,14 @@ void main() {
       // The tooltip's own long-press trigger would otherwise fire under the
       // menu, naming the site twice.
       expect(find.text('More Options'), findsOneWidget);
-      expect(find.text('Discourse Meta'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey<String>(
+            'instance-rail-callout-https://meta.discourse.org',
+          ),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('removing asks first, and answering no keeps the site', (

@@ -381,7 +381,7 @@ ThemeData _activeTheme(WidgetTester tester) =>
 
 Finder _railItem({required String host}) => find.descendant(
   of: find.byKey(ValueKey<String>('https://$host')),
-  matching: find.byType(Tooltip),
+  matching: find.byType(RawTooltip),
 );
 
 Color _railAvatarBackground(
