@@ -995,14 +995,83 @@ void main() {
     final initialMax = position.maxScrollExtent;
     expect(initialMax, greaterThan(position.viewportDimension));
 
-    // A macOS trackpad can reach this estimated boundary before Flutter has
-    // laid out the much shorter plugin column. Discovering its real height
-    // must not move the boundary — that correction is the visible snap-back.
+    // The old two-child list let a macOS trackpad reach this estimated
+    // boundary before the shorter plugin column was laid out. Lazy rows must
+    // keep the replacement's exact boundary while materializing the end.
     position.jumpTo(initialMax);
     await tester.pumpAndSettle();
 
     expect(position.maxScrollExtent, closeTo(initialMax, 0.001));
     expect(position.pixels, closeTo(initialMax, 0.001));
+  });
+
+  testWidgets('builds only sidebar destinations near the viewport', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    addTearDown(() => SharedPreferences.setMockInitialValues({}));
+
+    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Discourse Meta',
+    ).copyWith(user: me);
+    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
+    final destinations = [
+      for (var index = 0; index < 200; index++)
+        SidebarDestination(
+          id: 'lazy-row-$index',
+          label: 'Lazy destination $index',
+          icon: DIcons.link,
+        ),
+    ];
+    final api = FakeDiscourseApi(
+      user: me,
+      customSidebarSectionsBySite: {
+        site.url: [
+          SidebarSection(
+            id: 'lazy-destinations',
+            title: 'Lazy destinations',
+            destinations: destinations,
+            collapsible: false,
+          ),
+        ],
+      },
+    );
+
+    await pumpShell(
+      tester,
+      const Size(1000, 400),
+      instances: [site],
+      api: api,
+      authenticator: auth,
+    );
+
+    final sidebar = find.byType(InstanceSidebar);
+    Finder row(int index) => find.descendant(
+      of: sidebar,
+      matching: find.byKey(ValueKey('lazy-row-$index')),
+    );
+    final mountedRows = find.descendant(
+      of: sidebar,
+      matching: find.byWidgetPredicate((widget) {
+        final key = widget.key;
+        return key is ValueKey<String> && key.value.startsWith('lazy-row-');
+      }),
+    );
+
+    expect(row(199), findsNothing);
+    expect(mountedRows.evaluate().length, lessThan(destinations.length ~/ 2));
+
+    final scrollable = find.descendant(
+      of: sidebar,
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(row(199), 500, scrollable: scrollable);
+    await tester.pumpAndSettle();
+
+    expect(row(199), findsOneWidget);
+    expect(mountedRows.evaluate().length, lessThan(destinations.length ~/ 2));
   });
 
   testWidgets('shows preferred categories and opens their native lists', (
