@@ -1009,6 +1009,26 @@ void main() {
     expect(find.text('Remove Discourse Meta?'), findsOneWidget);
   });
 
+  testWidgets('hovering a forum shows its name in a tooltip', (tester) async {
+    await pumpShell(tester, desktop);
+
+    final forum = find.byKey(
+      const ValueKey<String>('https://team.discourse.org'),
+    );
+    expect(forum, findsOneWidget);
+    expect(find.text('Discourse Team'), findsNothing);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(forum));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Discourse Team'), findsOneWidget);
+    expect(find.text('team.discourse.org'), findsNothing);
+  });
+
   group('adding a site', () {
     testWidgets('shows the empty state with nothing connected', (tester) async {
       await pumpShell(tester, desktop, instances: const []);
@@ -1091,12 +1111,12 @@ void main() {
   });
 
   group('removing a site', () {
-    /// The rail draws no text of its own, so a site is identified by the
-    /// tooltip naming it.
-    Finder railItem(String title, String host) =>
-        find.byTooltip('$title\n$host');
+    Finder railItem(String host) => find.descendant(
+      of: find.byKey(ValueKey<String>('https://$host')),
+      matching: find.byType(Tooltip),
+    );
 
-    final meta = railItem('Discourse Meta', 'meta.discourse.org');
+    final meta = railItem('meta.discourse.org');
 
     testWidgets('a long press leads to the removal through a sheet', (
       tester,
@@ -1145,7 +1165,7 @@ void main() {
 
       // The tooltip's own long-press trigger would otherwise fire under the
       // menu, naming the site twice.
-      expect(find.text('Discourse Meta\nmeta.discourse.org'), findsNothing);
+      expect(find.text('Discourse Meta'), findsOneWidget);
     });
 
     testWidgets('removing asks first, and answering no keeps the site', (
@@ -1195,7 +1215,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(meta, findsNothing);
-      expect(railItem('Discourse Team', 'team.discourse.org'), findsOneWidget);
+      expect(railItem('team.discourse.org'), findsOneWidget);
       // The site that was being read went away, so the one left takes over.
       expect(find.text('Discourse Team'), findsOneWidget);
       expect(auth.disconnected, ['https://meta.discourse.org']);
@@ -1283,7 +1303,7 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      await tester.longPress(railItem('Discourse Team', 'team.discourse.org'));
+      await tester.longPress(railItem('team.discourse.org'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('More Options'));
       await tester.pumpAndSettle();
@@ -7529,7 +7549,9 @@ void main() {
         await pumpChat(tester, size: phone, public: [channel(9)]);
         expect(sidebarDestination('Bugs'), findsOneWidget);
 
-        await tester.longPress(find.byTooltip('Meta\nmeta.discourse.org'));
+        await tester.longPress(
+          find.byKey(const ValueKey<String>('https://meta.discourse.org')),
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.text('More Options'));
         await tester.pumpAndSettle();

@@ -442,7 +442,7 @@ class _RailItem extends StatelessWidget {
             child: InstanceActions(
               instance: instance,
               child: Tooltip(
-                message: '${instance.title}\n${instance.host}',
+                message: instance.title,
                 waitDuration: const Duration(milliseconds: 500),
                 // Hovering still shows it — that path ignores the trigger mode
                 // — but holding the item is how the actions are reached on a

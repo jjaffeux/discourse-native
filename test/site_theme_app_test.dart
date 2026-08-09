@@ -335,7 +335,7 @@ void main() {
 
     await _pumpApp(tester, store: store, api: FakeDiscourseApi());
 
-    final item = _railItem(title: 'A', host: 'a.example');
+    final item = _railItem(host: 'a.example');
     final logo = find.descendant(of: item, matching: find.byType(AvatarImage));
     expect(tester.widget<AvatarImage>(logo).fit, BoxFit.contain);
     final clip = tester.widget<ClipRRect>(
@@ -379,8 +379,10 @@ ShellController _controller(WidgetTester tester) =>
 ThemeData _activeTheme(WidgetTester tester) =>
     Theme.of(tester.element(find.byType(AdaptiveShell)));
 
-Finder _railItem({required String title, required String host}) =>
-    find.byTooltip('$title\n$host');
+Finder _railItem({required String host}) => find.descendant(
+  of: find.byKey(ValueKey<String>('https://$host')),
+  matching: find.byType(Tooltip),
+);
 
 Color _railAvatarBackground(
   WidgetTester tester, {
@@ -388,7 +390,7 @@ Color _railAvatarBackground(
   required String host,
 }) {
   final container = find.descendant(
-    of: _railItem(title: title, host: host),
+    of: _railItem(host: host),
     matching: find.byType(AnimatedContainer),
   );
   expect(container, findsOneWidget);
@@ -402,7 +404,7 @@ void _expectReadableRailMonogram(
   required String title,
   required String host,
 }) {
-  final item = _railItem(title: title, host: host);
+  final item = _railItem(host: host);
   final monogram = find.descendant(of: item, matching: find.text(title));
   expect(monogram, findsOneWidget);
   final foreground = tester.widget<Text>(monogram).style!.color!;
