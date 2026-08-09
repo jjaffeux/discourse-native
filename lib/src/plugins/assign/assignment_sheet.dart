@@ -42,31 +42,82 @@ Future<void> showAssignmentEditor({
   final targetName = target.type == AssignmentTargetType.topic
       ? 'topic'
       : 'post';
+  final title = existing == null
+      ? 'Assign $targetName'
+      : 'Edit $targetName assignment';
+  Widget editor(BuildContext presentationContext) => AssignmentEditor(
+    existing: existing,
+    statusesEnabled: config.assignStatusesEnabled,
+    statuses: config.assignStatuses,
+    loadSuggestions: () => controller.assignmentSuggestions(siteUrl, target),
+    searchAssignees: (suggestions, term) => controller
+        .searchAssignmentAssignees(siteUrl, target, suggestions, term),
+    save: (assignee, {note, status}) => controller.assignTarget(
+      siteUrl,
+      target,
+      assignee,
+      note: note,
+      status: status,
+    ),
+    remove: existing == null
+        ? null
+        : () => controller.unassignTarget(siteUrl, target),
+    onComplete: () => Navigator.of(presentationContext).pop(),
+  );
+  final isTouch = switch (Theme.of(context).platform) {
+    TargetPlatform.iOS || TargetPlatform.android => true,
+    _ => false,
+  };
 
-  return showShellSheet<void>(
+  if (isTouch) {
+    return showShellSheet<void>(
+      context: context,
+      title: title,
+      nested: nested,
+      builder: editor,
+    );
+  }
+
+  return showDialog<void>(
     context: context,
-    title: existing == null
-        ? 'Assign $targetName'
-        : 'Edit $targetName assignment',
-    nested: nested,
-    builder: (sheetContext) => AssignmentEditor(
-      existing: existing,
-      statusesEnabled: config.assignStatusesEnabled,
-      statuses: config.assignStatuses,
-      loadSuggestions: () => controller.assignmentSuggestions(siteUrl, target),
-      searchAssignees: (suggestions, term) => controller
-          .searchAssignmentAssignees(siteUrl, target, suggestions, term),
-      save: (assignee, {note, status}) => controller.assignTarget(
-        siteUrl,
-        target,
-        assignee,
-        note: note,
-        status: status,
+    builder: (dialogContext) => Dialog(
+      backgroundColor: Theme.of(dialogContext).shell.floating,
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 720),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(dialogContext).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    icon: const DIcon(DIcons.xmark),
+                    tooltip: 'Close',
+                  ),
+                ],
+              ),
+            ),
+            Divider(color: Theme.of(dialogContext).shell.divider, height: 1),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: editor(dialogContext),
+              ),
+            ),
+          ],
+        ),
       ),
-      remove: existing == null
-          ? null
-          : () => controller.unassignTarget(siteUrl, target),
-      onComplete: () => Navigator.of(sheetContext).pop(),
     ),
   );
 }
