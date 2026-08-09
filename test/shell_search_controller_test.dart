@@ -49,6 +49,16 @@ void main() {
       SearchResultKind.tag,
       SearchResultKind.group,
     ]);
+    expect(search.topicsActionSelected, isTrue);
+
+    expect(search.moveSelection(1), isTrue);
+    expect(search.selectedResult, _facetTag);
+    search.moveSelection(-1);
+    expect(search.topicsActionSelected, isTrue);
+    search.moveSelection(-1);
+    expect(search.selectedResult, _facetGroup);
+    search.moveSelection(1);
+    expect(search.topicsActionSelected, isTrue);
 
     search.showTopics();
     await tester.pump(const Duration(milliseconds: 1));
@@ -154,18 +164,15 @@ const _facetTopic = SearchPostHit(
   excerpt: SearchExcerpt([SearchExcerptSegment('test')]),
 );
 
+const _facetTag = SearchTagHit(tagId: 2, name: 'flaky-test');
+const _facetGroup = SearchGroupHit(groupId: 3, name: 'automation-test');
+
 const _facetedResults = SearchResults(
   hits: [_facetTopic],
   sections: [
     SearchResultSection(kind: SearchResultKind.topic, results: [_facetTopic]),
-    SearchResultSection(
-      kind: SearchResultKind.tag,
-      results: [SearchTagHit(tagId: 2, name: 'flaky-test')],
-    ),
-    SearchResultSection(
-      kind: SearchResultKind.group,
-      results: [SearchGroupHit(groupId: 3, name: 'automation-test')],
-    ),
+    SearchResultSection(kind: SearchResultKind.tag, results: [_facetTag]),
+    SearchResultSection(kind: SearchResultKind.group, results: [_facetGroup]),
   ],
 );
 
