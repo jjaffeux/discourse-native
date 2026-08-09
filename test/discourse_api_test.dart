@@ -2330,43 +2330,45 @@ void _feedGroups() {
 
   group('chatChannels', () {
     /// The two-bucket envelope `Chat::ChannelIndexSerializer` writes.
-    MockClient serving(void Function(http.Request) record) =>
-        MockClient((request) async {
-          record(request);
-          return http.Response(
-            jsonEncode({
-              'public_channels': [
-                {
-                  'id': 9,
-                  'title': 'Bugs',
-                  'slug': 'bugs',
-                  'chatable_type': 'Category',
-                  'chatable': {'name': 'Bug', 'color': '0088CC'},
-                },
-              ],
-              'direct_message_channels': [
-                {
-                  'id': 12,
-                  'title': 'hawk',
-                  'chatable_type': 'DirectMessage',
-                  'chatable': {
-                    'group': false,
-                    'users': [
-                      {'id': 2, 'username': 'hawk'},
-                    ],
-                  },
-                },
-              ],
-              'tracking': {
-                'channel_tracking': {
-                  '9': {'unread_count': 3, 'mention_count': 1},
-                },
+    MockClient serving(void Function(http.Request) record) => MockClient((
+      request,
+    ) async {
+      record(request);
+      return http.Response(
+        jsonEncode({
+          'public_channels': [
+            {
+              'id': 9,
+              'title': 'Bugs',
+              'slug': 'bugs',
+              'chatable_type': 'Category',
+              'chatable': {'name': 'Bug', 'color': '0088CC'},
+              'current_user_membership': {'following': true, 'starred': true},
+            },
+          ],
+          'direct_message_channels': [
+            {
+              'id': 12,
+              'title': 'hawk',
+              'chatable_type': 'DirectMessage',
+              'chatable': {
+                'group': false,
+                'users': [
+                  {'id': 2, 'username': 'hawk'},
+                ],
               },
-              'meta': {'message_bus_last_ids': <String, dynamic>{}},
-            }),
-            200,
-          );
-        });
+            },
+          ],
+          'tracking': {
+            'channel_tracking': {
+              '9': {'unread_count': 3, 'mention_count': 1},
+            },
+          },
+          'meta': {'message_bus_last_ids': <String, dynamic>{}},
+        }),
+        200,
+      );
+    });
 
     test(
       'asks the route that answers with only the channels a reader follows',
@@ -2391,6 +2393,7 @@ void _feedGroups() {
       expect(channels.public.single.title, 'Bugs');
       expect(channels.direct.single.isDirectMessage, isTrue);
       expect(channels.public.single.tracking.unreadCount, 3);
+      expect(channels.public.single.membership.starred, isTrue);
     });
 
     test(

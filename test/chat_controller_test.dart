@@ -37,6 +37,7 @@ ChatChannel channel(
   int id, {
   String title = 'Bugs',
   bool following = true,
+  bool starred = false,
   int? lastRead,
   int unread = 0,
   int mentions = 0,
@@ -44,7 +45,11 @@ ChatChannel channel(
   id: id,
   title: title,
   kind: ChatChannelKind.category,
-  membership: ChatMembership(following: following, lastReadMessageId: lastRead),
+  membership: ChatMembership(
+    following: following,
+    starred: starred,
+    lastReadMessageId: lastRead,
+  ),
   tracking: ChatTracking(unreadCount: unread, mentionCount: mentions),
 );
 
@@ -168,6 +173,47 @@ void main() {
         expect(subject.chat.publicChannels(site).map((c) => c.id), [9, 4]);
         expect(subject.chat.directChannels(site).map((c) => c.id), [12]);
         expect(subject.store.read<ChatChannel>(site, 9)!.title, 'Bugs');
+      },
+    );
+
+    test(
+      'groups starred channels without dropping them from aggregate reads',
+      () async {
+        final subject = build(
+          channels: {
+            site: (
+              public: [
+                channel(9, title: 'Alpha', starred: true),
+                channel(4, title: 'Beta'),
+              ],
+              direct: [
+                channel(12, title: 'Zoe', starred: true),
+                channel(13, title: 'Alice', starred: true),
+                channel(14, title: 'Sam'),
+              ],
+            ),
+          },
+        );
+
+        await subject.chat.loadChannels(site);
+
+        expect(subject.chat.starredChannels(site).map((c) => c.id), [
+          9,
+          13,
+          12,
+        ]);
+        expect(subject.chat.unstarredPublicChannels(site).map((c) => c.id), [
+          4,
+        ]);
+        expect(subject.chat.unstarredDirectChannels(site).map((c) => c.id), [
+          14,
+        ]);
+        expect(subject.chat.publicChannels(site).map((c) => c.id), [9, 4]);
+        expect(subject.chat.directChannels(site).map((c) => c.id), [
+          12,
+          13,
+          14,
+        ]);
       },
     );
 

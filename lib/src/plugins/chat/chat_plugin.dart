@@ -49,12 +49,19 @@ class ChatPlugin implements SitePlugin, SidebarPlugin, ContentPlugin {
     final siteUrl = controller.currentInstance?.url;
     if (siteUrl == null) return const [];
 
-    final public = controller.chat.publicChannels(siteUrl);
-    final direct = controller.chat.directChannels(siteUrl);
+    final starred = controller.chat.starredChannels(siteUrl);
+    final public = controller.chat.unstarredPublicChannels(siteUrl);
+    final direct = controller.chat.unstarredDirectChannels(siteUrl);
 
     // Nothing before the answer, and nothing after an answer with no channels
     // in it. A heading with no rows under it says something that is not true.
     return [
+      if (starred.isNotEmpty)
+        SidebarSection(
+          id: 'chat-starred-channels',
+          title: 'Starred channels',
+          destinations: [for (final channel in starred) destination(channel)],
+        ),
       if (public.isNotEmpty)
         SidebarSection(
           id: 'chat',

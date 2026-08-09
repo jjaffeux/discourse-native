@@ -14,6 +14,7 @@ Map<String, dynamic> categoryChannel({
   String? color = '0088CC',
   bool readRestricted = false,
   bool muted = false,
+  bool starred = false,
   int? lastReadMessageId,
   bool threading = false,
 }) => {
@@ -34,6 +35,7 @@ Map<String, dynamic> categoryChannel({
   'current_user_membership': {
     'following': true,
     'muted': muted,
+    'starred': starred,
     'last_read_message_id': ?lastReadMessageId,
   },
 };
@@ -45,6 +47,7 @@ Map<String, dynamic> directChannel({
   bool group = false,
   List<Map<String, dynamic>>? users,
   String? lastMessageAt,
+  bool? starred,
 }) => {
   'id': id,
   'title': title,
@@ -64,7 +67,11 @@ Map<String, dynamic> directChannel({
         ],
   },
   'last_message': {'id': 40, 'created_at': ?lastMessageAt},
-  'current_user_membership': {'following': true, 'muted': false},
+  'current_user_membership': {
+    'following': true,
+    'muted': false,
+    'starred': ?starred,
+  },
 };
 
 Map<String, dynamic> payload({
@@ -184,6 +191,41 @@ void main() {
       final channel = channelFrom(categoryChannel(lastReadMessageId: 42));
 
       expect(channel.membership.lastReadMessageId, 42);
+    });
+
+    test('reads the reader’s starred channel preference', () {
+      expect(
+        channelFrom(categoryChannel(starred: true)).membership.starred,
+        isTrue,
+      );
+      // Older Discourse versions do not serialize this key.
+      expect(channelFrom(directChannel()).membership.starred, isFalse);
+    });
+
+    test('treats a non-boolean starred value as not starred', () {
+      final json = directChannel();
+      json['current_user_membership'] = <String, dynamic>{
+        'following': true,
+        'muted': false,
+        'starred': 1,
+      };
+      expect(channelFrom(json).membership.starred, isFalse);
+    });
+
+    test('includes the starred preference in channel identity', () {
+      expect(
+        channelFrom(categoryChannel(starred: true)),
+        isNot(channelFrom(categoryChannel())),
+      );
+    });
+
+    test('keeps a channel starred when its last-read position moves', () {
+      final channel = channelFrom(categoryChannel(starred: true));
+
+      expect(
+        channel.withLastRead(42, caughtUp: true).membership.starred,
+        isTrue,
+      );
     });
 
     test('reads a channel with no membership row as following nothing', () {
