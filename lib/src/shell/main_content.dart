@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../models/category_feed.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
@@ -12,6 +13,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
+import 'categories_page.dart';
 import 'composer_controller.dart';
 import 'composer_panel.dart';
 import 'draft_list.dart';
@@ -83,6 +85,14 @@ class _MainContentBody extends StatelessWidget {
                             route.id == 'drafts' &&
                             state.siteUrl != null
                         ? DraftListView(siteUrl: state.siteUrl!)
+                        : !route.isTopic &&
+                              route.id == 'all-categories' &&
+                              state.siteUrl != null &&
+                              state.categoryFeed != null
+                        ? CategoriesPage(
+                            siteUrl: state.siteUrl!,
+                            feed: state.categoryFeed!,
+                          )
                         : !route.isTopic &&
                               route.id == 'filter' &&
                               state.siteUrl != null &&
@@ -389,6 +399,7 @@ class _MainContentSnapshot {
     required this.canCreateTopic,
     required this.canAssignLegacyTargets,
     required this.filterCategories,
+    required this.categoryFeed,
   });
 
   factory _MainContentSnapshot.from(ShellController controller) =>
@@ -412,6 +423,15 @@ class _MainContentSnapshot {
           ('filter', final siteUrl?) => controller.filterCategoriesFor(siteUrl),
           _ => const [],
         },
+        categoryFeed: switch ((
+          controller.currentContent?.id,
+          controller.currentInstance?.url,
+        )) {
+          ('all-categories', final siteUrl?) => controller.categoryFeedFor(
+            siteUrl,
+          ),
+          _ => null,
+        },
       );
 
   final String? siteUrl;
@@ -424,6 +444,7 @@ class _MainContentSnapshot {
   final bool canCreateTopic;
   final bool canAssignLegacyTargets;
   final List<TopicCategory> filterCategories;
+  final CategoryFeed? categoryFeed;
 
   @override
   bool operator ==(Object other) =>
@@ -437,7 +458,8 @@ class _MainContentSnapshot {
       canReply == other.canReply &&
       canCreateTopic == other.canCreateTopic &&
       canAssignLegacyTargets == other.canAssignLegacyTargets &&
-      identical(filterCategories, other.filterCategories);
+      identical(filterCategories, other.filterCategories) &&
+      identical(categoryFeed, other.categoryFeed);
 
   @override
   int get hashCode => Object.hash(
@@ -451,5 +473,6 @@ class _MainContentSnapshot {
     canCreateTopic,
     canAssignLegacyTargets,
     identityHashCode(filterCategories),
+    identityHashCode(categoryFeed),
   );
 }

@@ -805,11 +805,11 @@ otherwise:
   cannot be enumerated — so it asks `/hashtags.json`. Two keys, two sources; the
   asymmetry is the design, not an oversight.
 
-The honest limitation: `/categories.json` paginates to twenty parents on a large
-or lazy-loading site, so some hashtags draw a neutral square with the right name
-and a working tap. That is what Discourse itself shows before its own colours
-arrive, and the topic-row badge has had the same gap for as long as it has
-existed.
+The initial `/categories.json` read paginates to twenty parents on a large or
+lazy-loading site, so some hashtags can draw a neutral square with the right
+name and a working tap. Opening **All categories** loads the remaining pages as
+the grid scrolls and fills those identities in. Before then, the neutral square
+is what Discourse itself shows while its own category data is still absent.
 
 Not everything gets a pill, and that is deliberate. An unresolved mention cooks
 as `<span class="mention">` and an unresolved hashtag as
@@ -1022,9 +1022,11 @@ Avatars go through [`AvatarLoader`](lib/src/data/avatar_loader.dart) rather than
 Anything undecodable falls back to a placeholder rather than throwing.
 
 Categories are fetched once per site from
-`/categories.json?include_subcategories=true` and flattened, because topic rows
-look categories up by id and subcategories arrive nested. It is ~185 KB against
-~300 KB for `/site.json`.
+`/categories.json?include_subcategories=true&include_topics=true` and flattened,
+because topic rows look categories up by id and subcategories arrive nested.
+The embedded featured-topic summaries power the native **All categories** card
+grid without a second first-page request; later category pages are fetched only
+as that grid scrolls.
 
 ### Disconnecting revokes
 

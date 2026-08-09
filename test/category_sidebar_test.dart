@@ -73,7 +73,7 @@ void main() {
       'All categories',
     ]);
     expect(section.destinations.last.icon, DIcons.list);
-    expect(section.destinations.last.url, '/categories');
+    expect(section.destinations.last.url, isNull);
   });
 
   test('connected fallback chooses by activity then displays by hierarchy', () {

@@ -56,6 +56,7 @@ phone-slash
 expand
 
 # --- Topics and posts
+far-file-lines
 comment
 comments
 reply

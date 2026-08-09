@@ -16,6 +16,7 @@ import '../data/user_api_key.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/bookmark_feed.dart';
+import '../models/category_feed.dart';
 import '../models/category_sidebar.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
@@ -873,6 +874,7 @@ class ShellController extends FrameSafeNotifier {
   /// in the store; this only remembers not to ask again.
   final Set<String> _categorised = {};
   final Map<String, List<TopicCategory>> _categoriesBySite = {};
+  final Map<String, CategoryFeed> _categoryFeeds = {};
   final Map<String, _CategorySidebarCache> _categorySidebarCache = {};
   final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
 
@@ -897,10 +899,19 @@ class ShellController extends FrameSafeNotifier {
     return topicFeeds.feedFor(instance.url, feedId);
   }
 
-  bool get canCreateTopicHere =>
-      currentContent?.isTopic == false &&
-      currentFeedId != 'messages' &&
-      (currentFeed?.canCreateTopic ?? false);
+  bool get canCreateTopicHere {
+    if (currentContent?.isTopic != false || currentFeedId == 'messages') {
+      return false;
+    }
+    final instance = currentInstance;
+    if (currentContent?.id == 'all-categories' && instance != null) {
+      return categoryFeedFor(instance.url).canCreateTopic;
+    }
+    return currentFeed?.canCreateTopic ?? false;
+  }
+
+  CategoryFeed categoryFeedFor(String siteUrl) =>
+      _categoryFeeds[siteUrl] ?? const CategoryFeed();
 
   List<TopicCategory> topicComposerCategories(String siteUrl) =>
       _categoriesBySite[siteUrl] ?? const [];
@@ -956,6 +967,9 @@ class ShellController extends FrameSafeNotifier {
   /// a topic anywhere redraws that row and nothing else.
   Ref<Topic> topicRef(String siteUrl, int topicId) =>
       store.ref<Topic>(siteUrl, topicId);
+
+  Ref<TopicCategory> categoryRef(String siteUrl, int categoryId) =>
+      store.ref<TopicCategory>(siteUrl, categoryId);
 
   Ref<Post> postRef(String siteUrl, int postId) =>
       store.ref<Post>(siteUrl, postId);
@@ -1691,6 +1705,35 @@ class ShellController extends FrameSafeNotifier {
     topic.title,
     postNumber: topic.lastUnreadPostNumber,
   );
+
+  /// Opens a featured topic from the categories page.
+  ///
+  /// Category-list topics use a deliberately smaller serializer than an
+  /// ordinary [Topic]. Keeping this entry point separate prevents absent list
+  /// fields from being mistaken for real zeroes in the identity store.
+  void openFeaturedTopic(CategoryFeaturedTopic topic) => _openTopic(
+    topic.id,
+    topic.slug,
+    topic.title,
+    postNumber: topic.firstUnreadPostNumber,
+  );
+
+  /// Pushes one category's native topic list over the full categories page.
+  void openCategory(TopicCategory category) {
+    final instance = currentInstance;
+    if (instance == null) return;
+    final categories = _categoriesBySite[instance.url] ?? const [];
+    final byId = <int, TopicCategory>{
+      for (final item in categories) item.id: item,
+      category.id: category,
+    };
+    final route = ContentRoute.fromDestination(
+      buildCategoryDestination(category, categoriesById: byId),
+    );
+    if (currentContent?.id == route.id) return;
+    pushContent(route);
+    unawaited(loadFeed(route.id));
+  }
 
   void openSearchResult(SearchPostHit hit) {
     search.clear();
@@ -4679,6 +4722,11 @@ class ShellController extends FrameSafeNotifier {
 
   /// Categories are fetched once per site; the topic rows need them to draw
   /// their badges, and they change rarely.
+  Future<void> loadCategories(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance != null) await _ensureCategoriesFor(instance);
+  }
+
   Future<void> _ensureCategoriesFor(DiscourseInstance instance) async {
     final lease = lifecycle.capture(instance.url);
     try {
@@ -4702,7 +4750,13 @@ class ShellController extends FrameSafeNotifier {
         'categories.readCredentials',
         severity: DiagnosticSeverity.warning,
       );
-      // Categories are optional decoration and can retry on the next read.
+      lease.commit(() {
+        final held = categoryFeedFor(instance.url);
+        _categoryFeeds[instance.url] = held.withError(
+          "Couldn't load categories from ${instance.host}.",
+        );
+        _notify();
+      });
     }
   }
 
@@ -4714,6 +4768,9 @@ class ShellController extends FrameSafeNotifier {
   }) async {
     if (!_categorised.add(instance.url)) return;
     final session = lease ?? lifecycle.capture(instance.url);
+    final existingFeed = categoryFeedFor(instance.url);
+    _categoryFeeds[instance.url] = existingFeed.refreshing();
+    _notify();
 
     try {
       final result = await api.loadCategories(
@@ -4722,9 +4779,21 @@ class ShellController extends FrameSafeNotifier {
         clientId: clientId,
       );
       session.commit(() {
-        final categories = result.categories;
-        store.putAll(instance.url, categories);
-        _categoriesBySite[instance.url] = categories;
+        _mergeCategories(instance.url, result.categories);
+
+        final held = categoryFeedFor(instance.url);
+        final roots = <int>{...result.rootCategoryIds, ...held.categoryIds};
+        final nextPage = existingFeed.loaded && existingFeed.error == null
+            ? held.nextPage
+            : result.rootCategoryIds.isNotEmpty
+            ? 2
+            : null;
+        _categoryFeeds[instance.url] = CategoryFeed(
+          categoryIds: List.unmodifiable(roots),
+          loaded: true,
+          nextPage: nextPage,
+          canCreateTopic: result.canCreateTopic,
+        );
         if (!result.complete) _categorised.remove(instance.url);
         _notify();
       });
@@ -4736,7 +4805,101 @@ class ShellController extends FrameSafeNotifier {
         'categories.load',
         severity: DiagnosticSeverity.warning,
       );
-      session.commit(() => _categorised.remove(instance.url));
+      session.commit(() {
+        _categorised.remove(instance.url);
+        final held = categoryFeedFor(instance.url);
+        _categoryFeeds[instance.url] = held.withError(
+          "Couldn't load categories from ${instance.host}.",
+        );
+        _notify();
+      });
+    }
+  }
+
+  void _mergeCategories(String siteUrl, Iterable<TopicCategory> incoming) {
+    final stored = store.putAll(siteUrl, incoming);
+    final byId = <int, TopicCategory>{
+      for (final category
+          in _categoriesBySite[siteUrl] ?? const <TopicCategory>[])
+        category.id: category,
+      for (final category in stored) category.id: category,
+    };
+    _categoriesBySite[siteUrl] = List.unmodifiable(byId.values);
+    _categorySidebarCache.remove(siteUrl);
+  }
+
+  final Map<String, Object> _categoryPageRequests = {};
+
+  /// Appends the next server page to the full categories destination.
+  Future<void> loadMoreCategories(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    final feed = categoryFeedFor(siteUrl);
+    final page = feed.nextPage;
+    if (instance == null || page == null || feed.loadingMore) return;
+    if (_categoryPageRequests.containsKey(siteUrl)) return;
+
+    final lease = lifecycle.capture(siteUrl);
+    final request = Object();
+    _categoryPageRequests[siteUrl] = request;
+    _categoryFeeds[siteUrl] = feed.loadingNextPage();
+    _notify();
+
+    bool requestIsCurrent() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_categoryPageRequests[siteUrl], request);
+
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null || !requestIsCurrent()) return;
+      final identity = credential.value == null
+          ? null
+          : await _readSessionValue(lease, authenticator.clientId);
+      if (credential.value != null &&
+          (identity == null || !requestIsCurrent())) {
+        return;
+      }
+
+      final result = await api.loadCategories(
+        siteUrl: siteUrl,
+        apiKey: credential.value,
+        clientId: identity?.value,
+        page: page,
+      );
+      if (!requestIsCurrent()) return;
+
+      lease.commit(() {
+        if (!identical(_categoryPageRequests[siteUrl], request)) return;
+        _categoryPageRequests.remove(siteUrl);
+        _mergeCategories(siteUrl, result.categories);
+        final held = categoryFeedFor(siteUrl);
+        _categoryFeeds[siteUrl] = held.withPage(
+          result.rootCategoryIds,
+          hasMore: result.rootCategoryIds.isNotEmpty,
+        );
+        _notify();
+      });
+    } catch (error, stackTrace) {
+      if (!requestIsCurrent()) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'categories.loadMore',
+        severity: DiagnosticSeverity.warning,
+      );
+      lease.commit(() {
+        if (!identical(_categoryPageRequests[siteUrl], request)) return;
+        _categoryPageRequests.remove(siteUrl);
+        final held = categoryFeedFor(siteUrl);
+        _categoryFeeds[siteUrl] = held.withError(
+          "Couldn't load more categories from ${instance.host}.",
+          page: true,
+        );
+        _notify();
+      });
     }
   }
 
@@ -5143,6 +5306,8 @@ class ShellController extends FrameSafeNotifier {
 
     _categorised.remove(siteUrl);
     _categoriesBySite.remove(siteUrl);
+    _categoryFeeds.remove(siteUrl);
+    _categoryPageRequests.remove(siteUrl);
     _categorySidebarCache.remove(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
     _customSidebarSections.remove(siteUrl);

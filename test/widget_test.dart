@@ -35,6 +35,7 @@ import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
+import 'package:discourse_native/src/shell/categories_page.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
@@ -1214,6 +1215,47 @@ void main() {
     expect(api.categoryRequests, [site.url]);
     expect(find.text('CATEGORIES'), findsOneWidget);
     expect(sidebarDestination('Support'), findsOneWidget);
+  });
+
+  testWidgets('opens All categories as a native root-only page', (
+    tester,
+  ) async {
+    final site = instance('meta.discourse.org', title: 'Discourse Meta');
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      categoryList: const [
+        TopicCategory(id: 1, name: 'Support', color: '0088CC', slug: 'support'),
+        TopicCategory(
+          id: 2,
+          name: 'Support child',
+          color: '22AA66',
+          slug: 'child',
+          parentCategoryId: 1,
+        ),
+        TopicCategory(
+          id: 3,
+          name: 'Announcements',
+          color: 'FF8800',
+          slug: 'announcements',
+        ),
+      ],
+    );
+    final launched = watchBrowser(tester);
+
+    await pumpShell(tester, desktop, instances: [site], api: api);
+    await tester.tap(sidebarDestination('All categories'));
+    await tester.pumpAndSettle();
+
+    final controller = ShellScope.read(
+      tester.element(find.byType(MainContent)),
+    );
+    expect(controller.destinationId, 'all-categories');
+    expect(controller.currentContent?.id, 'all-categories');
+    expect(find.byType(CategoriesPage), findsOneWidget);
+    expect(find.byKey(const ValueKey('category-card-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('category-card-2')), findsNothing);
+    expect(find.byKey(const ValueKey('category-card-3')), findsOneWidget);
+    expect(launched, isEmpty);
   });
 
   testWidgets('retries an incomplete category supplement on feed refresh', (

@@ -403,7 +403,9 @@ class FakeDiscourseApi implements DiscourseApi {
     this.filterOptionsByPath = const {},
     this.creatableFeedPaths = const {},
     this.categoryList = const [],
+    this.categoryPages = const {},
     this.categoryLoadComplete = true,
+    this.categoryCanCreateTopic = false,
     this.composerCapabilities = const TopicComposerCapabilities(),
     this.topicTagSearches = const {},
     this.serverDrafts = const {},
@@ -517,9 +519,12 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Returned by [categories].
   final List<TopicCategory> categoryList;
+  final Map<int, List<TopicCategory>> categoryPages;
   final bool categoryLoadComplete;
+  final bool categoryCanCreateTopic;
   final TopicComposerCapabilities composerCapabilities;
   final List<String> categoryRequests = [];
+  final List<int> categoryPagesRequested = [];
   final List<String> topicComposerCapabilityRequests = [];
   final Map<String, TopicTagSearch> topicTagSearches;
   final Map<String, ComposerDraft> serverDrafts;
@@ -1020,9 +1025,11 @@ class FakeDiscourseApi implements DiscourseApi {
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    int page = 1,
   }) async {
     categoryRequests.add(siteUrl);
-    return categoryList;
+    categoryPagesRequested.add(page);
+    return categoryPages[page] ?? (page == 1 ? categoryList : const []);
   }
 
   @override
@@ -1030,9 +1037,17 @@ class FakeDiscourseApi implements DiscourseApi {
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    int page = 1,
   }) async {
     categoryRequests.add(siteUrl);
-    return CategoryLoadResult(categoryList, complete: categoryLoadComplete);
+    categoryPagesRequested.add(page);
+    final categories =
+        categoryPages[page] ?? (page == 1 ? categoryList : const []);
+    return CategoryLoadResult(
+      categories,
+      complete: categoryLoadComplete,
+      canCreateTopic: categoryCanCreateTopic,
+    );
   }
 
   @override
