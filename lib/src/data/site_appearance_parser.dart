@@ -4,8 +4,53 @@ import 'dart:ui';
 import 'package:csslib/parser.dart' as css;
 import 'package:csslib/visitor.dart';
 import 'package:flutter/foundation.dart';
+import 'package:html/parser.dart' as html;
 
 import '../models/site_appearance.dart';
+
+/// Finds the selected parent theme's common stylesheet in a Discourse page.
+///
+/// Color-definition stylesheets are only the beginning of the browser's
+/// cascade. A theme can override semantic custom properties such as
+/// `--d-hover` in its `common_theme` asset, and those later values are the ones
+/// the site actually paints. Theme-component assets are deliberately excluded:
+/// they can add component-specific presentation, but the parent theme owns the
+/// site-wide palette mirrored by the native shell.
+List<Uri> discoverSiteThemeStylesheets(
+  String source, {
+  required Uri documentUrl,
+  required int themeId,
+}) {
+  final document = html.parse(source);
+  final found = <Uri>{};
+  for (final link in document.querySelectorAll(
+    'link[href][data-target][data-theme-id]',
+  )) {
+    if (link.attributes['data-target'] != 'common_theme' ||
+        int.tryParse(link.attributes['data-theme-id'] ?? '') != themeId ||
+        !_isStylesheetLink(link.attributes['rel'])) {
+      continue;
+    }
+    final href = link.attributes['href']?.trim();
+    if (href == null ||
+        href.isEmpty ||
+        RegExp(r'%(?![0-9a-f]{2})', caseSensitive: false).hasMatch(href)) {
+      continue;
+    }
+    try {
+      found.add(documentUrl.resolve(href));
+    } on FormatException {
+      // A malformed injected link must not hide a later valid core link.
+    }
+  }
+  return List.unmodifiable(found);
+}
+
+bool _isStylesheetLink(String? relation) =>
+    relation
+        ?.split(RegExp(r'\s+'))
+        .any((value) => value.toLowerCase() == 'stylesheet') ??
+    false;
 
 /// The theme and color-scheme IDs needed to ask Discourse for its compiled
 /// color stylesheets.
@@ -181,74 +226,31 @@ final class _SchemeChoice {
   final int? themeId;
 }
 
-const Set<String> _appearanceVariables = {
-  '--scheme-type',
-  '--primary',
-  '--secondary',
-  '--tertiary',
-  '--quaternary',
-  '--header_background',
-  '--header_primary',
-  '--metadata-color',
-  '--content-border-color',
-  '--highlight',
-  '--danger',
-  '--success',
-  '--love',
-  '--d-selected',
-  '--d-selected-text-color',
-  '--d-hover',
-  '--primary-very-low',
-  '--primary-low',
-  '--primary-low-mid',
-  '--primary-medium',
-  '--primary-high',
-  '--primary-very-high',
-  '--secondary-very-high',
-  '--tertiary-low',
-  '--quaternary-low',
-  '--highlight-low',
-  '--danger-low',
-  '--mention-background-color',
-  '--hljs-bg',
-  '--inline-code-bg',
-  '--hljs-keyword',
-  '--hljs-string',
-  '--hljs-comment',
-  '--hljs-number',
-  '--hljs-title',
-  '--hljs-name',
-  '--hljs-meta',
-  '--hljs-attribute',
-  '--hljs-attr',
-};
-
 /// Parses one generated Discourse color-definition stylesheet.
 ///
 /// Only declarations on top-level, globally-applicable `:root` rules are
 /// considered. Later declarations win as they do in CSS, including the theme
 /// color definitions that Discourse appends after its core rule.
-ResolvedSitePalette? parseSiteAppearanceStylesheet(String source) {
-  final StyleSheet sheet;
-  try {
-    sheet = css.parse(source, errors: []);
-  } catch (_) {
-    return null;
-  }
+ResolvedSitePalette? parseSiteAppearanceStylesheet(String source) =>
+    parseSiteAppearanceStylesheets([source]);
 
+/// Parses the color definition followed by any later theme stylesheets.
+///
+/// Every custom property is retained, rather than only the final palette
+/// names, because themes commonly introduce an alias before assigning it to a
+/// core semantic variable.
+ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
   final variables = <String, List<_CascadedValue>>{};
-  for (final node in sheet.topLevels) {
-    if (node is! RuleSet || !_hasGlobalRoot(node)) continue;
-    for (final node in node.declarationGroup.declarations) {
-      if (node is! Declaration ||
-          !_appearanceVariables.contains(node.property)) {
-        continue;
+  for (final source in sources) {
+    for (final rule in _globalRootRules(source)) {
+      for (final node in rule.declarationGroup.declarations) {
+        if (node is! Declaration || !node.property.startsWith('--')) continue;
+        final value = _declarationValue(node);
+        if (value == null) continue;
+        (variables[node.property] ??= []).add(
+          _CascadedValue(value, important: node.important),
+        );
       }
-      final value = _declarationValue(node);
-      if (value == null) continue;
-      (variables[node.property] ??= []).add(
-        _CascadedValue(value, important: node.important),
-      );
     }
   }
 
@@ -343,6 +345,107 @@ ResolvedSitePalette? parseSiteAppearanceStylesheet(String source) {
   ]);
 
   return ResolvedSitePalette.fromJson(json);
+}
+
+/// Parses top-level rules independently so one modern construct csslib does
+/// not understand cannot make it stop before a later `:root` palette override.
+/// Nested conditional roots remain excluded, matching the browser-independent
+/// contract of this parser.
+Iterable<RuleSet> _globalRootRules(String source) sync* {
+  for (final block in _topLevelBlocks(source)) {
+    final StyleSheet sheet;
+    try {
+      sheet = css.parse(block, errors: []);
+    } catch (_) {
+      continue;
+    }
+    for (final node in sheet.topLevels) {
+      if (node is RuleSet && _hasGlobalRoot(node)) yield node;
+    }
+  }
+}
+
+/// Splits a stylesheet at its top-level brace blocks while respecting strings
+/// and comments. At-rules are yielded as whole blocks and subsequently ignored
+/// rather than exposing any nested `:root` declarations as global.
+Iterable<String> _topLevelBlocks(String source) sync* {
+  var start = 0;
+  var index = 0;
+  while (index < source.length) {
+    if (source.startsWith('/*', index)) {
+      final close = source.indexOf('*/', index + 2);
+      if (close < 0) return;
+      index = close + 2;
+      continue;
+    }
+    final character = source[index];
+    if (character == '"' || character == "'") {
+      index = _afterQuoted(source, index, character);
+      continue;
+    }
+    if (character == '\\') {
+      index += 2;
+      continue;
+    }
+    if (character == ';') {
+      start = index + 1;
+      index++;
+      continue;
+    }
+    if (character != '{') {
+      index++;
+      continue;
+    }
+
+    final close = _matchingBrace(source, index);
+    if (close == null) return;
+    yield source.substring(start, close + 1);
+    start = close + 1;
+    index = close + 1;
+  }
+}
+
+int _afterQuoted(String source, int open, String quote) {
+  var index = open + 1;
+  while (index < source.length) {
+    if (source[index] == '\\') {
+      index += 2;
+    } else if (source[index] == quote) {
+      return index + 1;
+    } else {
+      index++;
+    }
+  }
+  return source.length;
+}
+
+int? _matchingBrace(String source, int open) {
+  var depth = 1;
+  var index = open + 1;
+  while (index < source.length) {
+    if (source.startsWith('/*', index)) {
+      final close = source.indexOf('*/', index + 2);
+      if (close < 0) return null;
+      index = close + 2;
+      continue;
+    }
+    final character = source[index];
+    if (character == '"' || character == "'") {
+      index = _afterQuoted(source, index, character);
+      continue;
+    }
+    if (character == '\\') {
+      index += 2;
+      continue;
+    }
+    if (character == '{') {
+      depth++;
+    } else if (character == '}' && --depth == 0) {
+      return index;
+    }
+    index++;
+  }
+  return null;
 }
 
 String? _declarationValue(Declaration declaration) {
@@ -581,6 +684,19 @@ Color? _parseColor(String source) {
 
   final hex = RegExp(r'^#([0-9a-f]+)$').firstMatch(value)?.group(1);
   if (hex != null) return _hexColor(hex);
+
+  // PostCSS leaves modern relative colors intact when the target browser can
+  // evaluate them. This common form preserves the source color's channels and
+  // replaces only its alpha, so it has an exact native representation too.
+  final relativeOklch = RegExp(
+    r'^oklch\(\s*from\s+(.+)\s+l\s+c\s+h\s*/\s*([^()]+)\s*\)$',
+  ).firstMatch(value);
+  if (relativeOklch != null) {
+    final base = _parseColor(relativeOklch.group(1)!);
+    final alpha = _alphaComponent(relativeOklch.group(2));
+    if (base == null || alpha == null) return null;
+    return Color((base.toARGB32() & 0x00FFFFFF) | (alpha << 24));
+  }
 
   final function = RegExp(r'^(rgba?|hsla?)\((.*)\)$').firstMatch(value);
   if (function == null) return null;

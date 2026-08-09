@@ -45,13 +45,15 @@ final class SiteAppearanceLoadException implements Exception {
 }
 
 /// Resolves the active Discourse theme through JSON APIs, then reads its
-/// compiled color stylesheets without exposing a user API key to a CDN.
+/// compiled color and common-theme stylesheets without exposing a user API
+/// key to a CDN.
 ///
 /// Forum JSON requests can be authenticated and remain same-origin whenever
 /// they carry credentials. The compiled stylesheet assets start separate,
 /// credential-free request chains and may use a safe CDN. A discovered
 /// appearance is returned only after every required stylesheet has arrived and
-/// parsed successfully.
+/// parsed successfully. The theme stylesheet matters because it follows the
+/// color definition in the browser cascade and may replace semantic colors.
 final class SiteAppearanceLoader {
   SiteAppearanceLoader({
     required http.Client client,
@@ -166,7 +168,26 @@ final class SiteAppearanceLoader {
       stylesheetUrls[schemeIds.elementAt(index)] = url;
     }
 
-    final uniqueUrls = stylesheetUrls.values.toSet();
+    // The resolver returns only color definitions. Read the forum document as
+    // well to discover the selected parent theme's later common stylesheet.
+    // This request may carry credentials, but every discovered CSS request
+    // starts a separate credential-free chain below.
+    final document = await _loadText(
+      apiBase,
+      accept: 'text/html',
+      headers: forumHeaders,
+      redirectOrigin: apiKey == null ? null : apiBase.origin,
+    );
+    final themeStylesheetUrls = discoverSiteThemeStylesheets(
+      document.source,
+      documentUrl: document.url,
+      themeId: selection.themeId,
+    );
+    for (final url in themeStylesheetUrls) {
+      _requireSafeStylesheetUrl(document.url, url);
+    }
+
+    final uniqueUrls = {...stylesheetUrls.values, ...themeStylesheetUrls};
     final loaded = await Future.wait([
       for (final url in uniqueUrls)
         _loadText(
@@ -182,7 +203,10 @@ final class SiteAppearanceLoader {
 
     ResolvedSitePalette parse(int schemeId) {
       final url = stylesheetUrls[schemeId]!;
-      return _parseStylesheet(sources[url]!, url);
+      return _parseStylesheets([
+        sources[url]!,
+        for (final url in themeStylesheetUrls) sources[url]!,
+      ], url);
     }
 
     final ResolvedSitePalette base;
@@ -229,8 +253,8 @@ final class SiteAppearanceLoader {
     }
   }
 
-  ResolvedSitePalette _parseStylesheet(String source, Uri url) {
-    final palette = parseSiteAppearanceStylesheet(source);
+  ResolvedSitePalette _parseStylesheets(Iterable<String> sources, Uri url) {
+    final palette = parseSiteAppearanceStylesheets(sources);
     if (palette != null) return palette;
     throw SiteAppearanceLoadException(
       SiteAppearanceLoadFailure.malformed,

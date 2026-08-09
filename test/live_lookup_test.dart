@@ -30,6 +30,7 @@ void main() {
   });
 
   liveAuthUrl();
+  liveAppearance();
   liveFeeds();
   livePaging();
   liveAvatars();
@@ -39,6 +40,32 @@ void main() {
     await expectLater(
       DiscourseApi().lookup('example.com'),
       throwsA(isA<SiteLookupException>()),
+    );
+  });
+}
+
+/// Guards the full appearance cascade against a real theme whose color scheme
+/// alone is misleading: Meta's dark scheme advertises light selection colors,
+/// then repairs them in its parent theme stylesheet.
+void liveAppearance() {
+  test('cascades meta parent theme colors over its scheme', () async {
+    final api = DiscourseApi();
+    addTearDown(api.close);
+
+    final appearance = await api.siteAppearance(
+      siteUrl: 'https://meta.discourse.org',
+    );
+    final dark = appearance?.alternate;
+
+    expect(dark, isNotNull);
+    expect(dark?.hover, dark?.selected);
+    expect(dark?.selected.a, closeTo(0.15, 0.005));
+    expect(dark?.selected.withValues(alpha: 1), dark?.tertiary);
+    // ignore: avoid_print
+    print(
+      'META DARK: selected='
+      '${dark?.selected.toARGB32().toRadixString(16)}, '
+      'surface=${dark?.secondary.toARGB32().toRadixString(16)}',
     );
   });
 }
