@@ -304,7 +304,7 @@ void main() {
     },
   );
 
-  test('a newer totals request owns the result', () async {
+  test('overlapping totals refreshes collapse into one replay', () async {
     final first = Completer<NotificationTotals>();
     final second = Completer<NotificationTotals>();
     final api = _GatedTotalsApi([first, second]);
@@ -315,11 +315,17 @@ void main() {
     final older = controller.refresh(_connectedInstance());
     await api.firstStarted.future;
     final newer = controller.refresh(_connectedInstance());
-    await api.secondStarted.future;
-    second.complete(const NotificationTotals(unreadNotifications: 2));
-    await newer;
+    final newest = controller.refresh(_connectedInstance());
+    await Future<void>.delayed(Duration.zero);
+
+    expect(api._calls, 1);
+    expect(api.secondStarted.isCompleted, isFalse);
     first.complete(const NotificationTotals(unreadNotifications: 1));
     await older;
+    await api.secondStarted.future;
+    expect(api._calls, 2);
+    second.complete(const NotificationTotals(unreadNotifications: 2));
+    await Future.wait([newer, newest]);
 
     expect(controller.totalsFor(_siteUrl)?.unreadNotifications, 2);
   });

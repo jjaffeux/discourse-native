@@ -159,28 +159,39 @@ void main() {
       },
     );
 
-    test('a late lookup cannot replace suggestions for newer input', () async {
-      final old = Completer<List<TopicFilterLookupValue>>();
-      final current = Completer<List<TopicFilterLookupValue>>();
-      final controller = TopicFilterController(
-        initialQuery: 'tag:a',
-        submitQuery: (_) async {},
-        engine: engine(
-          tags: (term) => term == 'a' ? old.future : current.future,
-        ),
-      );
-      addTearDown(controller.dispose);
+    test(
+      'a newer lookup waits for the active request and owns the result',
+      () async {
+        final old = Completer<List<TopicFilterLookupValue>>();
+        final current = Completer<List<TopicFilterLookupValue>>();
+        final terms = <String>[];
+        final controller = TopicFilterController(
+          initialQuery: 'tag:a',
+          submitQuery: (_) async {},
+          engine: engine(
+            tags: (term) {
+              terms.add(term);
+              return term == 'a' ? old.future : current.future;
+            },
+          ),
+        );
+        addTearDown(controller.dispose);
 
-      final oldRequest = controller.refreshSuggestions();
-      controller.text.text = 'tag:b';
-      final currentRequest = controller.refreshSuggestions();
-      current.complete(const [TopicFilterLookupValue(name: 'beta')]);
-      await currentRequest;
-      old.complete(const [TopicFilterLookupValue(name: 'alpha')]);
-      await oldRequest;
+        final oldRequest = controller.refreshSuggestions();
+        controller.text.text = 'tag:b';
+        final currentRequest = controller.refreshSuggestions();
+        await Future<void>.delayed(Duration.zero);
 
-      expect(controller.suggestions.single.name, 'tag:beta');
-    });
+        expect(terms, ['a']);
+        old.complete(const [TopicFilterLookupValue(name: 'alpha')]);
+        await oldRequest;
+        expect(terms, ['a', 'b']);
+        current.complete(const [TopicFilterLookupValue(name: 'beta')]);
+        await currentRequest;
+
+        expect(controller.suggestions.single.name, 'tag:beta');
+      },
+    );
 
     test(
       'a failed lookup closes suggestions without failing the field',

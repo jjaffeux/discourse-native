@@ -114,6 +114,8 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   String? _error;
   Timer? _searchTimer;
   int _searchEpoch = 0;
+  bool _searchRunning = false;
+  ({int epoch, String term})? _queuedSearch;
   bool _loadingSuggestions = true;
   bool _searching = false;
   bool _saving = false;
@@ -138,6 +140,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   @override
   void dispose() {
     _searchTimer?.cancel();
+    _queuedSearch = null;
     _searchController.dispose();
     _noteController.dispose();
     super.dispose();
@@ -182,6 +185,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
     if (term.isEmpty) {
       _searchTimer?.cancel();
       ++_searchEpoch;
+      _queuedSearch = null;
       setState(() {
         _searching = false;
         _error = null;
@@ -203,10 +207,23 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       _error = null;
     });
     if (immediate || widget.searchDebounce == Duration.zero) {
-      unawaited(_runSearch(epoch, term));
+      _enqueueSearch(epoch, term);
       return;
     }
-    _searchTimer = Timer(widget.searchDebounce, () => _runSearch(epoch, term));
+    _searchTimer = Timer(
+      widget.searchDebounce,
+      () => _enqueueSearch(epoch, term),
+    );
+  }
+
+  void _enqueueSearch(int epoch, String term) {
+    if (!mounted || epoch != _searchEpoch) return;
+    if (_searchRunning) {
+      _queuedSearch = (epoch: epoch, term: term);
+      return;
+    }
+    _searchRunning = true;
+    unawaited(_runSearch(epoch, term));
   }
 
   Future<void> _runSearch(int epoch, String term) async {
@@ -226,6 +243,13 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
         _searching = false;
         _error = _errorText(error);
       });
+    } finally {
+      _searchRunning = false;
+      final queued = _queuedSearch;
+      _queuedSearch = null;
+      if (queued != null && mounted && queued.epoch == _searchEpoch) {
+        _enqueueSearch(queued.epoch, queued.term);
+      }
     }
   }
 

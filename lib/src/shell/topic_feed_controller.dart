@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
@@ -12,6 +14,12 @@ typedef TopicFeedLoaded =
     void Function(DiscourseInstance instance, String? apiKey);
 
 typedef _FeedKey = (String siteUrl, String destinationId);
+typedef _FeedLoad = ({
+  DiscourseInstance instance,
+  String destinationId,
+  String path,
+  IncomingTopics? incoming,
+});
 
 /// Owns topic-list state independently from shell navigation.
 ///
@@ -39,6 +47,9 @@ final class TopicFeedController extends FrameSafeNotifier {
   final Map<_FeedKey, Object> _revisions = {};
   final Map<_FeedKey, Object> _pageRequests = {};
   final Map<_FeedKey, int> _rows = {};
+  final Map<_FeedKey, Future<void>> _loadRequests = {};
+  final Map<_FeedKey, _FeedLoad> _pendingLoads = {};
+  final Map<_FeedKey, Completer<void>> _pendingLoadWaiters = {};
 
   TopicFeed? feedFor(String siteUrl, String destinationId) =>
       _feeds[(siteUrl, destinationId)];
@@ -63,13 +74,45 @@ final class TopicFeedController extends FrameSafeNotifier {
     required String path,
     required IncomingTopics? incoming,
     bool force = false,
-  }) async {
-    if (isDisposed) return;
+  }) {
+    if (isDisposed) return Future.value();
     final key = (instance.url, destinationId);
+    final load = (
+      instance: instance,
+      destinationId: destinationId,
+      path: path,
+      incoming: incoming,
+    );
+    final active = _loadRequests[key];
+    if (active != null) {
+      if (!force) return active;
+      // A refresh means "give me data newer than the request already in
+      // flight", not "send another request alongside it". Keep only the
+      // newest path and let every repeated refresh await the same replay.
+      _pendingLoads[key] = load;
+      return _pendingLoadWaiters.putIfAbsent(key, Completer<void>.new).future;
+    }
+
     final existing = _feeds[key];
     if (existing != null && !force && (existing.loading || existing.loaded)) {
-      return;
+      return Future.value();
     }
+
+    return _startLoad(key, load);
+  }
+
+  Future<void> _startLoad(_FeedKey key, _FeedLoad load) {
+    late final Future<void> request;
+    request = _performLoad(key, load).whenComplete(() {
+      _finishLoad(key, request);
+    });
+    _loadRequests[key] = request;
+    return request;
+  }
+
+  Future<void> _performLoad(_FeedKey key, _FeedLoad load) async {
+    final (:instance, :destinationId, :path, :incoming) = load;
+    final existing = _feeds[key];
 
     final lease = lifecycle.capture(instance.url);
     final revision = Object();
@@ -132,6 +175,31 @@ final class TopicFeedController extends FrameSafeNotifier {
         notifySafely();
       });
     }
+  }
+
+  void _finishLoad(_FeedKey key, Future<void> request) {
+    if (!identical(_loadRequests[key], request)) return;
+    final removed = _loadRequests.remove(key);
+    assert(identical(removed, request));
+
+    final pending = _pendingLoads.remove(key);
+    final waiter = _pendingLoadWaiters.remove(key);
+    if (pending == null || waiter == null || isDisposed) {
+      if (waiter != null && !waiter.isCompleted) waiter.complete();
+      return;
+    }
+
+    final replay = _startLoad(key, pending);
+    unawaited(
+      replay.then<void>(
+        (_) {
+          if (!waiter.isCompleted) waiter.complete();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (!waiter.isCompleted) waiter.completeError(error, stackTrace);
+        },
+      ),
+    );
   }
 
   Future<void> showIncoming({
@@ -279,6 +347,13 @@ final class TopicFeedController extends FrameSafeNotifier {
     _revisions.removeWhere((key, _) => key.$1 == siteUrl);
     _pageRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _rows.removeWhere((key, _) => key.$1 == siteUrl);
+    _loadRequests.removeWhere((key, _) => key.$1 == siteUrl);
+    _pendingLoads.removeWhere((key, _) => key.$1 == siteUrl);
+    for (final entry in _pendingLoadWaiters.entries.toList()) {
+      if (entry.key.$1 != siteUrl) continue;
+      _pendingLoadWaiters.remove(entry.key);
+      if (!entry.value.isCompleted) entry.value.complete();
+    }
     if (_feeds.length != before) notifySafely();
   }
 
@@ -306,6 +381,12 @@ final class TopicFeedController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    for (final waiter in _pendingLoadWaiters.values) {
+      if (!waiter.isCompleted) waiter.complete();
+    }
+    _pendingLoadWaiters.clear();
+    _pendingLoads.clear();
+    _loadRequests.clear();
     _revisions.clear();
     _pageRequests.clear();
     super.dispose();

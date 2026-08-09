@@ -1,14 +1,179 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
+import 'package:discourse_native/src/data/site_appearance_loader.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
   group('Discourse API transport contract', () {
+    test('identical reads share one in-flight request', () async {
+      final gate = Completer<void>();
+      var calls = 0;
+      final transport = DiscourseTransport(
+        SafeHttpClient.owned(
+          MockClient((_) async {
+            calls++;
+            await gate.future;
+            return http.Response('{}', 200);
+          }),
+        ),
+        const Duration(seconds: 1),
+        1024,
+      );
+      addTearDown(transport.close);
+
+      final first = transport.get(
+        Uri.parse('https://example.com/site.json'),
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+        clientId: 'client',
+      );
+      final second = transport.get(
+        Uri.parse('https://example.com/site.json'),
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+        clientId: 'client',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(calls, 1);
+      gate.complete();
+      await Future.wait([first, second]);
+      expect(calls, 1);
+    });
+
+    test('appearance and API reads share site metadata in flight', () async {
+      final gate = Completer<void>();
+      var calls = 0;
+      final client = MockClient((request) async {
+        calls++;
+        await gate.future;
+        return http.Response('{}', 200);
+      });
+      final transport = DiscourseTransport(
+        SafeHttpClient.borrowed(client),
+        const Duration(seconds: 1),
+        1024,
+      );
+      addTearDown(transport.close);
+      final appearance = SiteAppearanceLoader(
+        client: client,
+        coordinator: transport.coordinator,
+      ).load(siteUrl: 'https://example.com');
+      final metadata = transport.get(
+        Uri.parse('https://example.com/site.json'),
+        siteUrl: 'https://example.com',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(calls, 1);
+      gate.complete();
+      expect(await appearance, isNull);
+      await metadata;
+      expect(calls, 1);
+    });
+
+    test('bounds concurrent requests to one origin', () async {
+      final gates = <Completer<void>>[];
+      var active = 0;
+      var maximumActive = 0;
+      var calls = 0;
+      final transport = DiscourseTransport(
+        SafeHttpClient.owned(
+          MockClient((_) async {
+            calls++;
+            active++;
+            maximumActive = active > maximumActive ? active : maximumActive;
+            final gate = Completer<void>();
+            gates.add(gate);
+            await gate.future;
+            active--;
+            return http.Response('{}', 200);
+          }),
+        ),
+        const Duration(seconds: 1),
+        1024,
+        maxConcurrentPerOrigin: 2,
+      );
+      addTearDown(transport.close);
+
+      final reads = [
+        for (var index = 0; index < 5; index++)
+          transport.get(
+            Uri.parse('https://example.com/read-$index.json'),
+            siteUrl: 'https://example.com',
+          ),
+      ];
+      await Future<void>.delayed(Duration.zero);
+      expect(calls, 2);
+
+      gates[0].complete();
+      gates[1].complete();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(calls, 4);
+
+      gates[2].complete();
+      gates[3].complete();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(calls, 5);
+      gates[4].complete();
+      await Future.wait(reads);
+      expect(maximumActive, 2);
+    });
+
+    test('a 429 pauses later work for the same origin', () async {
+      var calls = 0;
+      final transport = DiscourseTransport(
+        SafeHttpClient.owned(
+          MockClient((_) async {
+            calls++;
+            return calls == 1
+                ? http.Response('{}', 429)
+                : http.Response('{}', 200);
+          }),
+        ),
+        const Duration(seconds: 1),
+        1024,
+        defaultRateLimitCooldown: const Duration(milliseconds: 60),
+      );
+      addTearDown(transport.close);
+
+      await expectLater(
+        transport.get(
+          Uri.parse('https://example.com/limited.json'),
+          siteUrl: 'https://example.com',
+        ),
+        throwsA(
+          isA<SiteLookupException>().having(
+            (error) => error.statusCode,
+            'statusCode',
+            429,
+          ),
+        ),
+      );
+
+      final stopwatch = Stopwatch()..start();
+      final later = transport.get(
+        Uri.parse('https://example.com/later.json'),
+        siteUrl: 'https://example.com',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(calls, 1);
+      await later;
+      expect(
+        stopwatch.elapsed,
+        greaterThanOrEqualTo(const Duration(milliseconds: 35)),
+      );
+      expect(calls, 2);
+    });
+
     test('cross-origin credentials are rejected before delegation', () async {
       var delegated = 0;
       final transport = DiscourseTransport(

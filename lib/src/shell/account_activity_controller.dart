@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
@@ -57,6 +59,9 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, NotificationFeed> _chatNotifications = {};
   final Map<String, BookmarkFeed> _bookmarks = {};
   final Map<String, Object> _totalsRequests = {};
+  final Map<String, Future<NotificationTotals?>> _totalsTasks = {};
+  final Map<String, DiscourseInstance> _pendingTotals = {};
+  final Map<String, Completer<NotificationTotals?>> _pendingTotalsWaiters = {};
   final Map<String, Object> _notificationRequests = {};
   final Map<String, Object> _replyNotificationRequests = {};
   final Map<String, Object> _chatNotificationRequests = {};
@@ -89,6 +94,28 @@ final class AccountActivityController extends FrameSafeNotifier {
   }
 
   Future<NotificationTotals?> refresh(DiscourseInstance instance) async {
+    final active = _totalsTasks[instance.url];
+    if (active != null) {
+      _pendingTotals[instance.url] = instance;
+      return _pendingTotalsWaiters
+          .putIfAbsent(instance.url, Completer<NotificationTotals?>.new)
+          .future;
+    }
+    return _startTotalsRefresh(instance);
+  }
+
+  Future<NotificationTotals?> _startTotalsRefresh(DiscourseInstance instance) {
+    late final Future<NotificationTotals?> task;
+    task = _performTotalsRefresh(instance).whenComplete(() {
+      _finishTotalsRefresh(instance.url, task);
+    });
+    _totalsTasks[instance.url] = task;
+    return task;
+  }
+
+  Future<NotificationTotals?> _performTotalsRefresh(
+    DiscourseInstance instance,
+  ) async {
     if (isDisposed) return null;
     final lease = lifecycle.capture(instance.url);
     final request = Object();
@@ -134,6 +161,31 @@ final class AccountActivityController extends FrameSafeNotifier {
         }
       });
     }
+  }
+
+  void _finishTotalsRefresh(String siteUrl, Future<NotificationTotals?> task) {
+    if (!identical(_totalsTasks[siteUrl], task)) return;
+    final removed = _totalsTasks.remove(siteUrl);
+    assert(identical(removed, task));
+
+    final pending = _pendingTotals.remove(siteUrl);
+    final waiter = _pendingTotalsWaiters.remove(siteUrl);
+    if (pending == null || waiter == null || isDisposed) {
+      if (waiter != null && !waiter.isCompleted) waiter.complete(null);
+      return;
+    }
+
+    final replay = _startTotalsRefresh(pending);
+    unawaited(
+      replay.then<void>(
+        (totals) {
+          if (!waiter.isCompleted) waiter.complete(totals);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (!waiter.isCompleted) waiter.completeError(error, stackTrace);
+        },
+      ),
+    );
   }
 
   Future<void> loadNotifications(DiscourseInstance instance) =>
@@ -470,6 +522,10 @@ final class AccountActivityController extends FrameSafeNotifier {
     final hadChatNotifications = _chatNotifications.remove(siteUrl) != null;
     final hadBookmarks = _bookmarks.remove(siteUrl) != null;
     _totalsRequests.remove(siteUrl);
+    final abandonedTotals = _totalsTasks.remove(siteUrl);
+    abandonedTotals?.ignore();
+    _pendingTotals.remove(siteUrl);
+    _pendingTotalsWaiters.remove(siteUrl)?.complete(null);
     _notificationRequests.remove(siteUrl);
     _replyNotificationRequests.remove(siteUrl);
     _chatNotificationRequests.remove(siteUrl);
@@ -574,6 +630,12 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    for (final waiter in _pendingTotalsWaiters.values) {
+      if (!waiter.isCompleted) waiter.complete(null);
+    }
+    _pendingTotalsWaiters.clear();
+    _pendingTotals.clear();
+    _totalsTasks.clear();
     _notificationReadRequests.clear();
     _locallyReadNotificationIds.clear();
     _totalsChanges.dispose();
