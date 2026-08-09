@@ -232,6 +232,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   static const double _minimumTopicHeight = 300;
   static const double _edgeHandleExtent = 10;
   static const double _cornerHandleExtent = 22;
+  static const Duration _geometryRestoreDeadline = Duration(milliseconds: 100);
 
   Size? _size;
   Offset? _position;
@@ -516,7 +517,13 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   }
 
   Future<void> _restoreGeometry() async {
-    final preference = await widget.geometryStore.read();
+    // Restored geometry is optional presentation state. A platform preferences
+    // channel that never answers must not leave a successfully opened composer
+    // permanently represented by an empty overlay.
+    final preference = await widget.geometryStore.read().timeout(
+      _geometryRestoreDeadline,
+      onTimeout: () => null,
+    );
     if (!mounted) return;
     setState(() {
       if (!_geometryChanged) _restoredPreference = preference;

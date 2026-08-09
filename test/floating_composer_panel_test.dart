@@ -202,6 +202,28 @@ void main() {
     final restored = tester.getRect(find.byType(ComposerPanel));
     expect(restored, const Rect.fromLTWH(16, 145, 640, 360));
   });
+
+  testWidgets('shows the default panel when geometry storage never answers', (
+    tester,
+  ) async {
+    final persistence = _DelayedComposerGeometryPersistence();
+    final composer = ComposerController(_newTopicTarget);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pumpFloatingPanel(
+      tester,
+      shell,
+      composer,
+      geometryStore: ComposerGeometryStore(persistence: persistence),
+    );
+
+    expect(find.byType(ComposerPanel), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(ComposerPanel), findsOneWidget);
+  });
 }
 
 Future<ShellController> _shell() async {
