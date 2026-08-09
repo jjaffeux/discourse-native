@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -241,6 +243,203 @@ void main() {
     final range = list.listController!.visibleRange!;
     expect((range.$1 + 1) ~/ 2, lessThanOrEqualTo(11));
     expect(range.$2 ~/ 2, greaterThanOrEqualTo(11));
+  });
+
+  testWidgets('a prepend between initial jumps still reveals the named post', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final posts = {
+      for (var number = 1; number <= 100; number++)
+        number: Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: List.filled(8, '<p>Long post $number</p>').join(),
+        ),
+    };
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      postsById: posts,
+    );
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (var id = 1; id <= 100; id++) id],
+          postsCount: 100,
+        ),
+      )
+      ..putAll(site.url, [for (var id = 61; id <= 100; id++) posts[id]!]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One', postNumber: 80),
+    );
+
+    // pumpWidget runs the first estimated jump and queues the corrected one.
+    await tester.pumpWidget(_topicView(controller));
+    await controller.loadEarlierPosts();
+    await tester.pump();
+    await tester.pump();
+
+    expect(api.postFetches, [
+      [for (var id = 41; id <= 60; id++) id],
+    ]);
+    final viewport = tester.getRect(find.byType(SuperListView));
+    final target = find.byKey(const ValueKey(80));
+    expect(target, findsOneWidget);
+    expect(tester.getTopLeft(target).dy, closeTo(viewport.top, 1));
+  });
+
+  testWidgets(
+    'scrolling near the top loads earlier posts without moving the viewport',
+    (tester) async {
+      final site = instance('meta.example');
+      final posts = {
+        for (var number = 1; number <= 100; number++)
+          number: Post(
+            id: number,
+            postNumber: number,
+            username: 'sam',
+            cooked: List.filled(
+              number <= 60 ? number % 5 + 1 : 8,
+              '<p>Long post $number</p>',
+            ).join(),
+          ),
+      };
+      final postGate = Completer<void>();
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': []},
+        postsById: posts,
+        postGate: postGate,
+      );
+      final controller = _controller(site, api);
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.store
+        ..put(
+          site.url,
+          TopicDetail(
+            id: 1,
+            title: 'One',
+            stream: [for (var id = 1; id <= 100; id++) id],
+            postsCount: 100,
+          ),
+        )
+        ..putAll(site.url, [for (var id = 61; id <= 100; id++) posts[id]!]);
+      controller.pushContent(
+        ContentRoute.topic(
+          topicId: 1,
+          slug: 'one',
+          title: 'One',
+          postNumber: 80,
+        ),
+      );
+
+      await tester.pumpWidget(_topicView(controller));
+      await tester.pumpAndSettle();
+
+      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      final scroll = list.controller!;
+      expect(scroll.position.extentBefore, greaterThan(900));
+      expect(api.postFetches, isEmpty);
+      expect(find.text('Load earlier posts'), findsNothing);
+
+      scroll.jumpTo(800);
+      await tester.pump();
+      await tester.pump();
+
+      expect(api.postFetches, [
+        [for (var id = 41; id <= 60; id++) id],
+      ]);
+
+      // More scroll notifications while the request is in flight must not
+      // enqueue another copy of the same page.
+      scroll.jumpTo(700);
+      await tester.pump();
+      expect(api.postFetches, hasLength(1));
+
+      final viewport = tester.getRect(find.byType(SuperListView));
+      Finder? anchor;
+      for (var id = 61; id <= 100; id++) {
+        final candidate = find.byKey(ValueKey(id));
+        if (candidate.evaluate().isEmpty) continue;
+        final rect = tester.getRect(candidate);
+        if (rect.top >= viewport.top && rect.bottom <= viewport.bottom) {
+          anchor = candidate;
+          break;
+        }
+      }
+      expect(anchor, isNotNull);
+      final anchoredPost = anchor!;
+      final topBeforePrepend = tester.getTopLeft(anchoredPost).dy;
+
+      postGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(controller.currentPostIds, [
+        for (var id = 41; id <= 100; id++) id,
+      ]);
+      expect(tester.getTopLeft(anchoredPost).dy, closeTo(topBeforePrepend, 1));
+    },
+  );
+
+  testWidgets('a pull retries a failed earlier page in a short topic', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final posts = {
+      for (var number = 1; number <= 6; number++)
+        number: Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: '<p>Post $number</p>',
+        ),
+    };
+    final api = _FailingOncePostsApi(posts);
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (var id = 1; id <= 6; id++) id],
+          postsCount: 6,
+        ),
+      )
+      ..putAll(site.url, [for (var id = 4; id <= 6; id++) posts[id]!]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One', postNumber: 5),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+    expect(api.postFetches, [
+      [1, 2, 3],
+    ]);
+    expect(controller.currentPostIds, [4, 5, 6]);
+
+    final vertical = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.down,
+    );
+    await tester.drag(vertical.first, const Offset(0, 200));
+    await tester.pumpAndSettle();
+
+    expect(api.postFetches, [
+      [1, 2, 3],
+      [1, 2, 3],
+    ]);
+    expect(controller.currentPostIds, [1, 2, 3, 4, 5, 6]);
+    expect(controller.currentTopicHasEarlier, isFalse);
   });
 
   testWidgets('a queued page request cannot cross a topic switch', (
@@ -510,5 +709,29 @@ final class _PostsApi extends FakeDiscourseApi {
   }) async {
     postPageTopics.add(topicId);
     return const [];
+  }
+}
+
+final class _FailingOncePostsApi extends FakeDiscourseApi {
+  _FailingOncePostsApi(Map<int, Post> posts)
+    : super(feeds: const {'/latest.json': []}, postsById: posts);
+
+  var _failed = false;
+
+  @override
+  Future<List<Post>> posts({
+    required String siteUrl,
+    required int topicId,
+    required List<int> ids,
+    bool includeRaw = false,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    postFetches.add(List.of(ids));
+    if (!_failed) {
+      _failed = true;
+      throw StateError('transient failure');
+    }
+    return ids.map((id) => postsById[id]).whereType<Post>().toList();
   }
 }

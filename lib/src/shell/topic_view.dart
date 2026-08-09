@@ -25,8 +25,8 @@ import 'user_card.dart';
 class TopicView extends StatefulWidget {
   const TopicView({super.key});
 
-  /// Start fetching the next batch about a screen before the end.
-  static const double _loadMoreThreshold = 900;
+  /// Start fetching the next batch about a screen before either end.
+  static const double _loadPostsThreshold = 900;
 
   @override
   State<TopicView> createState() => _TopicViewState();
@@ -41,6 +41,11 @@ class _TopicViewState extends State<TopicView> {
   ShellController? _controller;
   Object? _loadMoreToken;
   (String, int, int)? _loadMoreTarget;
+  Object? _loadEarlierToken;
+  (String, int, int)? _loadEarlierTarget;
+  Object? _anchorRestoreToken;
+  List<int> _laidOutPostIds = const [];
+  bool _laidOutHasHeader = false;
   bool _restored = false;
   bool _restoring = false;
   bool _lookScheduled = false;
@@ -61,6 +66,11 @@ class _TopicViewState extends State<TopicView> {
     _topicIdentity = topicIdentity;
     _loadMoreToken = null;
     _loadMoreTarget = null;
+    _loadEarlierToken = null;
+    _loadEarlierTarget = null;
+    _anchorRestoreToken = null;
+    _laidOutPostIds = const [];
+    _laidOutHasHeader = false;
     _restored = false;
     _restoring = false;
     _lookScheduled = false;
@@ -88,17 +98,23 @@ class _TopicViewState extends State<TopicView> {
     final identity = (snapshot.siteUrl!, snapshot.topicId!);
     _restoring = true;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    void jumpToTarget() {
       if (!_isCurrent(controller, identity)) return;
-      _jumpTo(index);
+      final currentIndex = _TopicViewSnapshot.from(controller).initialPostIndex;
+      if (currentIndex != null) _jumpTo(currentIndex);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      jumpToTarget();
       // The first jump uses estimates for posts that have not been laid out.
       // Repeat once their real heights are known so the requested post lands
       // at the top rather than merely somewhere near it.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!_isCurrent(controller, identity)) return;
-        _jumpTo(index);
+        jumpToTarget();
         _restoring = false;
         _scheduleLook();
+        _scheduleLoadEarlier(controller, _TopicViewSnapshot.from(controller));
       });
     });
   }
@@ -224,6 +240,112 @@ class _TopicViewState extends State<TopicView> {
     }
   }
 
+  double _offsetBeforeChild(ListController list, int childIndex) {
+    var offset = 0.0;
+    for (var index = 0; index < childIndex; index++) {
+      offset += list.extentForIndex(index).$1;
+    }
+    return offset;
+  }
+
+  ({int postId, double viewportOffset})? _captureViewportAnchor(
+    List<int> postIds, {
+    required bool hasHeader,
+  }) {
+    final list = _list;
+    final scroll = _scroll;
+    if (list == null || scroll == null) return null;
+    if (!list.isAttached || !scroll.hasClients) return null;
+    final range = list.visibleRange;
+    if (range == null) return null;
+
+    final leading = hasHeader ? 1 : 0;
+    for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
+      if (childIndex.isOdd) continue;
+      final postIndex = childIndex ~/ 2 - leading;
+      if (postIndex < 0 || postIndex >= postIds.length) continue;
+      return (
+        postId: postIds[postIndex],
+        viewportOffset:
+            _offsetBeforeChild(list, childIndex) - scroll.position.pixels,
+      );
+    }
+    return null;
+  }
+
+  /// Keeps a visible post at the same viewport offset while earlier posts are
+  /// inserted ahead of it. The second correction runs after the target post
+  /// has been laid out with its real height rather than an estimate.
+  void _restoreViewportAfterPrepend(
+    ShellController controller,
+    _TopicViewSnapshot snapshot, {
+    required bool hasHeader,
+  }) {
+    final previousPostIds = _laidOutPostIds;
+    final previousHasHeader = _laidOutHasHeader;
+    _laidOutPostIds = List.of(snapshot.postIds);
+    _laidOutHasHeader = hasHeader;
+    // The numbered-route restoration owns the viewport until both of its
+    // jumps finish. If a refresh expands a cached window in between them, its
+    // final target jump must win over prepend anchoring.
+    if (previousPostIds.isEmpty || _restoring) return;
+
+    final previousFirstIndex = snapshot.postIds.indexOf(previousPostIds.first);
+    final prepended = previousFirstIndex > 0;
+    final headerChanged =
+        previousHasHeader != hasHeader &&
+        listEquals(previousPostIds, snapshot.postIds);
+    if (!prepended && !headerChanged) return;
+
+    final anchor = _captureViewportAnchor(
+      previousPostIds,
+      hasHeader: previousHasHeader,
+    );
+    if (anchor == null) return;
+
+    final identity = (snapshot.siteUrl!, snapshot.topicId!);
+    final token = Object();
+    _anchorRestoreToken = token;
+    _restoring = true;
+
+    void restore() {
+      if (!identical(_anchorRestoreToken, token)) return;
+      if (!_isCurrent(controller, identity)) return;
+      final list = _list;
+      final scroll = _scroll;
+      if (list == null || scroll == null) return;
+      if (!list.isAttached || !scroll.hasClients) return;
+
+      final current = _TopicViewSnapshot.from(controller);
+      final postIndex = current.postIds.indexOf(anchor.postId);
+      if (postIndex < 0) return;
+      final leading = current.hasEarlier || current.loadingEarlier ? 1 : 0;
+      final childIndex = (postIndex + leading) * 2;
+      if (childIndex >= list.numberOfItems) return;
+      final target =
+          _offsetBeforeChild(list, childIndex) - anchor.viewportOffset;
+      final position = scroll.position;
+      scroll.jumpTo(
+        target
+            .clamp(position.minScrollExtent, position.maxScrollExtent)
+            .toDouble(),
+      );
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      restore();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        restore();
+        if (!identical(_anchorRestoreToken, token)) return;
+        _anchorRestoreToken = null;
+        if (!_isCurrent(controller, identity)) return;
+        _restoring = false;
+        _scheduleLook();
+        _scheduleLoadEarlier(controller, _TopicViewSnapshot.from(controller));
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) => ShellSelector<_TopicViewSnapshot>(
     select: _TopicViewSnapshot.from,
@@ -259,6 +381,54 @@ class _TopicViewState extends State<TopicView> {
       if (_TopicViewSnapshot.from(controller) != snapshot) return;
       unawaited(controller.loadMorePosts());
     });
+  }
+
+  void _scheduleLoadEarlier(
+    ShellController controller,
+    _TopicViewSnapshot snapshot,
+  ) {
+    final siteUrl = snapshot.siteUrl;
+    final topicId = snapshot.topicId;
+    final scroll = _scroll;
+    if (siteUrl == null ||
+        topicId == null ||
+        snapshot.postIds.isEmpty ||
+        !snapshot.hasEarlier ||
+        snapshot.loadingEarlier ||
+        _restoring ||
+        scroll == null ||
+        !scroll.hasClients ||
+        scroll.position.extentBefore >= TopicView._loadPostsThreshold) {
+      return;
+    }
+
+    final target = (siteUrl, topicId, snapshot.postIds.first);
+    if (_loadEarlierTarget == target) return;
+
+    final token = Object();
+    _loadEarlierToken = token;
+    _loadEarlierTarget = target;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!identical(_loadEarlierToken, token)) return;
+      _loadEarlierToken = null;
+      if (!mounted ||
+          _restoring ||
+          !identical(ShellScope.read(context), controller) ||
+          _TopicViewSnapshot.from(controller) != snapshot) {
+        if (_loadEarlierTarget == target) _loadEarlierTarget = null;
+        return;
+      }
+      unawaited(controller.loadEarlierPosts());
+    });
+  }
+
+  void _allowLoadEarlierRetry(_TopicViewSnapshot snapshot) {
+    if (_loadEarlierToken != null || snapshot.loadingEarlier) return;
+    final siteUrl = snapshot.siteUrl;
+    final topicId = snapshot.topicId;
+    if (siteUrl == null || topicId == null || snapshot.postIds.isEmpty) return;
+    final target = (siteUrl, topicId, snapshot.postIds.first);
+    if (_loadEarlierTarget == target) _loadEarlierTarget = null;
   }
 
   Widget _build(
@@ -312,6 +482,7 @@ class _TopicViewState extends State<TopicView> {
     final topicIdentity = (siteUrl, snapshot.topicId!);
     _syncControllers(controller, topicIdentity);
     _restoreInitialPost(controller, snapshot);
+    _restoreViewportAfterPrepend(controller, snapshot, hasHeader: showHeader);
     _scheduleLook();
 
     return NotificationListener<ScrollNotification>(
@@ -321,7 +492,21 @@ class _TopicViewState extends State<TopicView> {
           // after the scroll notification. Looking synchronously here reads
           // the previous viewport and repeatedly credits the old post.
           _scheduleLook();
-          if (notification.metrics.extentAfter < TopicView._loadMoreThreshold) {
+          // A failed page stays suppressed through the rebuild it causes, so
+          // it cannot retry in a tight loop. A fresh scroll deliberately
+          // re-arms that same page, including when the pane is too short to
+          // ever leave the threshold.
+          if (notification is ScrollStartNotification && !_restoring) {
+            _allowLoadEarlierRetry(snapshot);
+          }
+          if (notification.metrics.extentBefore <
+              TopicView._loadPostsThreshold) {
+            _scheduleLoadEarlier(controller, snapshot);
+          } else if (!snapshot.loadingEarlier) {
+            _allowLoadEarlierRetry(snapshot);
+          }
+          if (notification.metrics.extentAfter <
+              TopicView._loadPostsThreshold) {
             _scheduleLoadMore(controller, snapshot);
           }
         }
@@ -342,6 +527,17 @@ class _TopicViewState extends State<TopicView> {
         key: ValueKey((siteUrl, snapshot.topicId)),
         controller: _scroll,
         listController: _list,
+        // A short around-post window still needs to accept a pull toward the
+        // top, both to fetch and to retry an earlier page.
+        physics: const AlwaysScrollableScrollPhysics(),
+        // Keep existing post elements attached to their ids when a page is
+        // inserted before them; separated lists address the expanded index.
+        findChildIndexCallback: (key) {
+          if (key is! ValueKey<int>) return null;
+          final postIndex = postIds.indexOf(key.value);
+          if (postIndex < 0) return null;
+          return (postIndex + (showHeader ? 1 : 0)) * 2;
+        },
         // Lazy, like the topic list: a 500-post topic builds only what shows.
         itemCount:
             postIds.length +
@@ -352,10 +548,8 @@ class _TopicViewState extends State<TopicView> {
             Divider(height: 1, color: theme.shell.divider),
         itemBuilder: (context, index) {
           if (showHeader && index == 0) {
-            return _EarlierPostsRow(
-              loading: snapshot.loadingEarlier,
-              onPressed: controller.loadEarlierPosts,
-            );
+            _scheduleLoadEarlier(controller, snapshot);
+            return _EarlierPostsRow(loading: snapshot.loadingEarlier);
           }
 
           final postIndex = index - (showHeader ? 1 : 0);
@@ -634,25 +828,19 @@ class _MoreTopicsTabButton extends StatelessWidget {
 }
 
 class _EarlierPostsRow extends StatelessWidget {
-  const _EarlierPostsRow({required this.loading, required this.onPressed});
+  const _EarlierPostsRow({required this.loading});
 
   final bool loading;
-  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
+    padding: const EdgeInsets.symmetric(vertical: 24),
     child: Center(
-      child: loading
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : TextButton(
-              onPressed: onPressed,
-              child: const Text('Load earlier posts'),
-            ),
+      child: SizedBox(
+        width: 20,
+        height: 20,
+        child: loading ? const CircularProgressIndicator(strokeWidth: 2) : null,
+      ),
     ),
   );
 }
