@@ -1,12 +1,14 @@
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 
-// Regression contract for forum-scoped shell tabs.
+// Regression contract for desktop forum-scoped shell tabs and the mobile
+// single-context fallback.
 //
 // These tests intentionally name the controller API before its production
 // implementation exists. The contract assumes:
@@ -225,6 +227,81 @@ void main() {
     expect(_routeIds(controller), ['latest', 'topic-404']);
     expect(controller.feedScrollRow('latest'), 8);
     expect(controller.topicScrollPostNumber(404), 16);
+  });
+
+  test('disabled mode ignores tab lifecycle commands', () async {
+    final disabledTabs = FakeForumTabStore();
+    final disabled = ShellController(
+      instanceStore: FakeInstanceStore(forums),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      forumTabs: disabledTabs,
+      forumTabsEnabled: false,
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(disabled.dispose);
+    await disabled.load();
+
+    final tabId = disabled.activeTabId!;
+    disabled.pushContent(_topic(505, 'Kept topic'));
+    final saveCount = disabledTabs.saveCount;
+
+    disabled.createTab();
+    disabled.selectTab(tabId);
+    disabled.closeTab(tabId);
+
+    expect(disabled.tabsForCurrentForum, hasLength(1));
+    expect(disabled.activeTabId, tabId);
+    expect(_routeIds(disabled), ['latest', 'topic-505']);
+    expect(disabledTabs.saveCount, saveCount);
+  });
+
+  test('disabled mode migrates to the prior active tab', () async {
+    final latest = ContentRoute.fromDestination(
+      _destination(forums.first, 'latest'),
+    );
+    final drafts = ContentRoute.fromDestination(
+      _destination(forums.first, 'drafts'),
+    );
+    final inactive = ForumTab(
+      id: 'inactive-tab',
+      rootDestinationId: 'latest',
+      contentStack: [latest],
+    );
+    final active = ForumTab(
+      id: 'active-tab',
+      rootDestinationId: 'latest',
+      contentStack: [latest, drafts],
+      anchors: const {'latest': ForumTabAnchor(kind: 'feed', itemId: 27)},
+    );
+    final disabledTabs = FakeForumTabStore([
+      ForumWorkspace(
+        siteUrl: forums.first.url,
+        accountIdentity: 'anonymous',
+        tabs: [inactive, active],
+        activeTabId: active.id,
+      ),
+    ]);
+    final disabled = ShellController(
+      instanceStore: FakeInstanceStore(forums),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      forumTabs: disabledTabs,
+      forumTabsEnabled: false,
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(disabled.dispose);
+
+    await disabled.load();
+
+    expect(disabled.tabsForCurrentForum, [same(active)]);
+    expect(disabled.activeTabId, active.id);
+    expect(disabled.contentStack, active.contentStack);
+    expect(disabled.activeTab?.anchors, active.anchors);
+    expect(disabledTabs.saveCount, 1);
+    expect(disabledTabs.workspaces.single.tabs, [same(active)]);
   });
 }
 

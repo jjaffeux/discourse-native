@@ -1139,12 +1139,12 @@ Back unwinds the content stack first, and only then returns to the sidebar.
 
 ### Forum-scoped tabs
 
-Each forum owns an ordered workspace shown in the sidebar's **OPEN** section.
-`+` appends and activates a fresh tab rooted at **Topics**. Sidebar selections,
-deeper navigation, and Back change only the active tab's content stack;
-inactive tabs keep their route and logical list or topic scroll anchor. Closing
-the active tab selects a neighbour, while closing the last tab immediately
-creates a fresh Topics tab.
+On native macOS, Linux, and Windows, each forum owns an ordered workspace shown
+in the sidebar's **OPEN** section. `+` appends and activates a fresh tab rooted
+at **Topics**. Sidebar selections, deeper navigation, and Back change only the
+active tab's content stack; inactive tabs keep their route and logical list or
+topic scroll anchor. Closing the active tab selects a neighbour, while closing
+the last tab immediately creates a fresh Topics tab.
 
 Workspaces are isolated by forum and account. Switching forums restores that
 workspace's OPEN list and active tab, and versioned local persistence restores
@@ -1152,9 +1152,12 @@ route stacks and logical scroll anchors after launch. A composer belongs to the
 tab that opened it: switching tabs hides it without changing its origin, and
 closing its tab flushes the draft before disposal.
 
-On compact layouts, OPEN stays in the sidebar pane, without separate tab chrome
-or a tab count. Selecting a tab swaps to content; Back unwinds that tab's stack
-before returning to the sidebar.
+Forum tabs are a native-desktop capability, independent of window width. On a
+compact desktop layout, OPEN stays in the sidebar pane without separate tab
+chrome or a tab count. Selecting a tab swaps to content; Back unwinds that
+tab's stack before returning to the sidebar. iOS, Android, Fuchsia, and web do
+not show OPEN or any other forum-tab controls; each forum keeps a single
+navigation context with no add, switch, or close lifecycle.
 
 ### Removing a site
 

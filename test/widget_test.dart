@@ -8764,50 +8764,56 @@ void main() {
       testWidgets('an open channel tab mirrors live channel presentation', (
         tester,
       ) async {
-        final channels = <String, ChatChannels>{
-          site: (
-            public: [channel(9, emoji: 'bug', color: '0088CC', unread: 42)],
+        final previous = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          final channels = <String, ChatChannels>{
+            site: (
+              public: [channel(9, emoji: 'bug', color: '0088CC', unread: 42)],
+              direct: const [],
+            ),
+          };
+          await pumpChat(
+            tester,
+            api: FakeDiscourseApi(
+              totals: withChat,
+              user: me,
+              chatChannelsBySite: channels,
+              chatMessagesByKey: {
+                key(9): page([msg(1)]),
+              },
+            ),
+          );
+
+          await tester.tap(sidebarDestination('Bugs'));
+          await tester.pumpAndSettle();
+
+          OpenTabItem item() => tester
+              .widget<OpenTabsSection>(find.byType(OpenTabsSection))
+              .items
+              .single;
+
+          expect(item().title, 'Bugs');
+          expect(item().icon, DIcons.comment);
+          expect(item().iconColor, const Color(0xFF0088CC));
+          expect(item().emojiName, 'bug');
+          expect(item().emojiUrl, isNotNull);
+          expect(item().badge, const SidebarBadge.dot());
+
+          channels[site] = (
+            public: [channel(9, emoji: 'bug', color: '0088CC')],
             direct: const [],
-          ),
-        };
-        await pumpChat(
-          tester,
-          api: FakeDiscourseApi(
-            totals: withChat,
-            user: me,
-            chatChannelsBySite: channels,
-            chatMessagesByKey: {
-              key(9): page([msg(1)]),
-            },
-          ),
-        );
+          );
+          final controller = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          await controller.chat.loadChannels(site, force: true);
+          await tester.pump();
 
-        await tester.tap(sidebarDestination('Bugs'));
-        await tester.pumpAndSettle();
-
-        OpenTabItem item() => tester
-            .widget<OpenTabsSection>(find.byType(OpenTabsSection))
-            .items
-            .single;
-
-        expect(item().title, 'Bugs');
-        expect(item().icon, DIcons.comment);
-        expect(item().iconColor, const Color(0xFF0088CC));
-        expect(item().emojiName, 'bug');
-        expect(item().emojiUrl, isNotNull);
-        expect(item().badge, const SidebarBadge.dot());
-
-        channels[site] = (
-          public: [channel(9, emoji: 'bug', color: '0088CC')],
-          direct: const [],
-        );
-        final controller = ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        );
-        await controller.chat.loadChannels(site, force: true);
-        await tester.pump();
-
-        expect(item().badge, SidebarBadge.none);
+          expect(item().badge, SidebarBadge.none);
+        } finally {
+          debugDefaultTargetPlatformOverride = previous;
+        }
       });
 
       testWidgets('forgets a disconnected site’s channels', (tester) async {
