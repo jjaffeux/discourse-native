@@ -697,6 +697,8 @@ void _authGroups() {
       expect(url?.path, '/notifications.json');
       expect(url?.queryParameters['recent'], 'true');
       expect(url?.queryParameters['limit'], '30');
+      expect(url?.queryParameters, isNot(contains('filter_by_types')));
+      expect(url?.queryParameters, isNot(contains('silent')));
 
       expect(notifications.first.kind, NotificationKind.replied);
       expect(notifications.first.topicId, 77);
@@ -768,6 +770,90 @@ void _authGroups() {
       expect(notifications.single.kind, NotificationKind.unknown);
       expect(notifications.single.title, 'From some plugin');
       expect(notifications.single.path, '/t/topic/9');
+    });
+
+    test('reads Replies as a silent server-filtered list', () async {
+      Uri? url;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          url = request.url;
+          return http.Response(
+            jsonEncode({
+              'notifications': [
+                {
+                  'id': 12,
+                  'notification_type': NotificationKind.replied.id,
+                  'data': {
+                    'display_username': 'sam',
+                    'topic_title': 'Better image handling',
+                  },
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final replies = await api.notifications(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        filterByTypes: userMenuReplyNotificationKinds,
+      );
+
+      expect(url?.path, '/notifications.json');
+      expect(url?.queryParameters, {
+        'recent': 'true',
+        'limit': '30',
+        'filter_by_types': 'mentioned,group_mentioned,posted,quoted,replied',
+        'silent': 'true',
+      });
+      expect(replies.single.kind, NotificationKind.replied);
+      expect(replies.single.actor, 'sam');
+    });
+
+    test('reads Chat as a silent server-filtered list', () async {
+      Uri? url;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          url = request.url;
+          return http.Response(
+            jsonEncode({
+              'notifications': [
+                {
+                  'id': 13,
+                  'notification_type': NotificationKind.chatMention.id,
+                  'data': {
+                    'mentioned_by_username': 'sam',
+                    'chat_channel_id': 9,
+                    'chat_channel_title': 'dev',
+                    'chat_message_id': 44,
+                  },
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final chat = await api.notifications(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        filterByTypes: userMenuChatNotificationKinds,
+      );
+
+      expect(url?.path, '/notifications.json');
+      expect(url?.queryParameters, {
+        'recent': 'true',
+        'limit': '30',
+        'filter_by_types':
+            'chat_invitation,chat_mention,chat_message,chat_quoted,'
+            'chat_watched_thread',
+        'silent': 'true',
+      });
+      expect(chat.single.kind, NotificationKind.chatMention);
+      expect(chat.single.actor, 'sam');
     });
   });
 

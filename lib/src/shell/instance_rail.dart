@@ -377,7 +377,7 @@ class _UpdateButton extends StatelessWidget {
   }
 }
 
-class _RailItem extends StatelessWidget {
+class _RailItem extends StatefulWidget {
   const _RailItem({
     super.key,
     required this.instance,
@@ -394,14 +394,26 @@ class _RailItem extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_RailItem> createState() => _RailItemState();
+}
+
+class _RailItemState extends State<_RailItem> {
+  bool _hovered = false;
+
+  void _handleHover(bool hovered) {
+    if (_hovered == hovered) return;
+    setState(() => _hovered = hovered);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final palette = _activePalette(
-      appearance,
+      widget.appearance,
       MediaQuery.platformBrightnessOf(context),
     );
-    final accent = palette?.tertiary ?? instance.accentColor;
-    final avatarBackground = selected
+    final accent = palette?.tertiary ?? widget.instance.accentColor;
+    final avatarBackground = widget.selected
         ? accent
         : accent.withValues(alpha: accent.a * 0.16);
     final scaffold = opaqueColorOnCanvas(
@@ -413,24 +425,27 @@ class _RailItem extends StatelessWidget {
       background: avatarBackground,
       backdrop: railSurface,
       preferred: [
-        if (!selected) theme.shell.railForeground,
+        if (!widget.selected) theme.shell.railForeground,
         palette?.secondary,
         palette?.primary,
-        if (selected) theme.shell.railForeground,
+        if (widget.selected) theme.shell.railForeground,
       ],
     );
+    final indicatorHeight = widget.selected ? 40.0 : (_hovered ? 20.0 : 8.0);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Stack(
         alignment: Alignment.centerLeft,
         children: [
-          // Discord-style selection pill, growing out of the left edge.
+          // Discord-style marker: a dot at rest, half pill on hover and full
+          // pill for the selected site, all growing out of the left edge.
           AnimatedContainer(
+            key: ValueKey('instance-rail-marker-${widget.instance.url}'),
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             width: 4,
-            height: selected ? 32 : 0,
+            height: indicatorHeight,
             decoration: BoxDecoration(
               color: theme.shell.railForeground,
               borderRadius: const BorderRadius.horizontal(
@@ -440,16 +455,13 @@ class _RailItem extends StatelessWidget {
           ),
           Center(
             child: InstanceActions(
-              instance: instance,
-              child: Tooltip(
-                message: '${instance.title}\n${instance.host}',
-                waitDuration: const Duration(milliseconds: 500),
-                // Hovering still shows it — that path ignores the trigger mode
-                // — but holding the item is how the actions are reached on a
-                // touch screen, and the tooltip must not answer that too.
-                triggerMode: TooltipTriggerMode.manual,
+              instance: widget.instance,
+              child: _RailTooltip(
+                instance: widget.instance,
+                accent: accent,
                 child: InkWell(
-                  onTap: onTap,
+                  onTap: widget.onTap,
+                  onHover: _handleHover,
                   borderRadius: BorderRadius.circular(16),
                   child: Stack(
                     clipBehavior: Clip.none,
@@ -457,17 +469,17 @@ class _RailItem extends StatelessWidget {
                       SizedBox.square(
                         dimension: 44,
                         child: _InstanceAvatar(
-                          instance: instance,
+                          instance: widget.instance,
                           foreground: avatarForeground,
                           background: avatarBackground,
-                          selected: selected,
+                          selected: widget.selected,
                         ),
                       ),
-                      if (badgeCount > 0)
+                      if (widget.badgeCount > 0)
                         Positioned(
                           right: -2,
                           bottom: -2,
-                          child: _UnreadBadge(count: badgeCount),
+                          child: _UnreadBadge(count: widget.badgeCount),
                         ),
                     ],
                   ),
@@ -479,6 +491,337 @@ class _RailItem extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The hover label for a forum in the rail.
+///
+/// The callout is small enough to scan while moving down the rail, but carries
+/// the site's own mark so similarly named forums remain easy to distinguish.
+/// Its transform grows from the pointer, keeping the label visually attached
+/// to the icon throughout the entrance animation.
+class _RailTooltip extends StatelessWidget {
+  const _RailTooltip({
+    required this.instance,
+    required this.accent,
+    required this.child,
+  });
+
+  static const hoverDelay = Duration(milliseconds: 280);
+  static const dismissDelay = Duration(milliseconds: 80);
+  static const animationStyle = AnimationStyle(
+    duration: Duration(milliseconds: 120),
+    reverseDuration: Duration(milliseconds: 80),
+    curve: Curves.linear,
+  );
+
+  final DiscourseInstance instance;
+  final Color accent;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+
+    return RawTooltip(
+      key: ValueKey(
+        'instance-rail-tooltip-${instance.url}-${disableAnimations ? 'still' : 'motion'}',
+      ),
+      semanticsTooltip: instance.title,
+      hoverDelay: hoverDelay,
+      dismissDelay: dismissDelay,
+      triggerMode: TooltipTriggerMode.manual,
+      enableFeedback: false,
+      animationStyle: disableAnimations
+          ? AnimationStyle.noAnimation
+          : animationStyle,
+      positionDelegate: _positionRailTooltip,
+      ignorePointer: true,
+      tooltipBuilder: (context, animation) {
+        final callout = ExcludeSemantics(
+          child: RepaintBoundary(
+            child: _RailTooltipCallout(instance: instance, accent: accent),
+          ),
+        );
+
+        return _RailTooltipTransition(animation: animation, child: callout);
+      },
+      child: child,
+    );
+  }
+}
+
+class _RailTooltipTransition extends StatefulWidget {
+  const _RailTooltipTransition({required this.animation, required this.child});
+
+  final Animation<double> animation;
+  final Widget child;
+
+  @override
+  State<_RailTooltipTransition> createState() => _RailTooltipTransitionState();
+}
+
+class _RailTooltipTransitionState extends State<_RailTooltipTransition> {
+  late CurvedAnimation _eased;
+
+  @override
+  void initState() {
+    super.initState();
+    _eased = _createAnimation();
+  }
+
+  @override
+  void didUpdateWidget(_RailTooltipTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.animation == widget.animation) return;
+    _eased.dispose();
+    _eased = _createAnimation();
+  }
+
+  CurvedAnimation _createAnimation() => CurvedAnimation(
+    parent: widget.animation,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+
+  @override
+  void dispose() {
+    _eased.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _eased,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.96, end: 1).animate(_eased),
+        alignment: Alignment.centerLeft,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _RailTooltipCallout extends StatelessWidget {
+  const _RailTooltipCallout({required this.instance, required this.accent});
+
+  static const surface = Color(0xFF3C3D43);
+  static const decoration = ShapeDecoration(
+    color: surface,
+    shape: _RailTooltipBorder(),
+    shadows: [
+      BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 3)),
+      BoxShadow(color: Color(0x24000000), blurRadius: 2, offset: Offset(0, 1)),
+    ],
+  );
+
+  final DiscourseInstance instance;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final iconBackground = Color.alphaBlend(accent, surface);
+    final iconForeground = contrastSafeForeground(
+      background: iconBackground,
+      backdrop: surface,
+      preferred: const [Colors.white, Colors.black],
+    );
+
+    return Container(
+      key: ValueKey('instance-rail-callout-${instance.url}'),
+      constraints: const BoxConstraints(minHeight: 36, maxWidth: 240),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: decoration,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ExcludeSemantics(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: AvatarImage(
+                key: ValueKey('instance-rail-callout-icon-${instance.url}'),
+                url: instance.iconUrl,
+                size: 18,
+                fit: BoxFit.contain,
+                fallback: ColoredBox(
+                  color: iconBackground,
+                  child: SizedBox.square(
+                    dimension: 18,
+                    child: Center(
+                      child: Text(
+                        instance.monogram,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: iconForeground,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              instance.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: const Color(0xFFF3F3F4),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.15,
+                height: 1.25,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Offset _positionRailTooltip(TooltipPositionContext context) {
+  const horizontalGap = 6.0;
+  const viewportMargin = 8.0;
+  return Offset(
+    _fitRailTooltip(
+      wanted: context.target.dx + context.targetSize.width / 2 + horizontalGap,
+      extent: context.overlaySize.width,
+      childExtent: context.tooltipSize.width,
+      margin: viewportMargin,
+    ),
+    _fitRailTooltip(
+      wanted: context.target.dy - context.tooltipSize.height / 2,
+      extent: context.overlaySize.height,
+      childExtent: context.tooltipSize.height,
+      margin: viewportMargin,
+    ),
+  );
+}
+
+double _fitRailTooltip({
+  required double wanted,
+  required double extent,
+  required double childExtent,
+  required double margin,
+}) {
+  if (!extent.isFinite || !childExtent.isFinite) return wanted;
+  final slack = extent - childExtent;
+  if (slack <= margin * 2) return slack / 2;
+  return wanted.clamp(margin, slack - margin);
+}
+
+/// Rounded rail callout with a pointer aimed at the forum icon.
+class _RailTooltipBorder extends OutlinedBorder {
+  const _RailTooltipBorder({
+    super.side = const BorderSide(color: Color(0xFF47484E)),
+    this.pointerWidth = 7,
+    this.pointerHeight = 14,
+    this.radius = 7,
+  });
+
+  final double pointerWidth;
+  final double pointerHeight;
+  final double radius;
+
+  @override
+  EdgeInsetsGeometry get dimensions {
+    final inset = side.strokeInset.clamp(0.0, double.infinity);
+    return EdgeInsets.fromLTRB(pointerWidth + inset, inset, inset, inset);
+  }
+
+  Path _path(Rect rect) {
+    if (rect.isEmpty) return Path();
+
+    final body = Rect.fromLTRB(
+      rect.left + pointerWidth,
+      rect.top,
+      rect.right,
+      rect.bottom,
+    );
+    final corner = radius.clamp(0, body.shortestSide / 2);
+    final pointerHalfHeight = pointerHeight.clamp(0, body.height) / 2;
+
+    return Path()
+      ..moveTo(body.left + corner, body.top)
+      ..lineTo(body.right - corner, body.top)
+      ..quadraticBezierTo(body.right, body.top, body.right, body.top + corner)
+      ..lineTo(body.right, body.bottom - corner)
+      ..quadraticBezierTo(
+        body.right,
+        body.bottom,
+        body.right - corner,
+        body.bottom,
+      )
+      ..lineTo(body.left + corner, body.bottom)
+      ..quadraticBezierTo(
+        body.left,
+        body.bottom,
+        body.left,
+        body.bottom - corner,
+      )
+      ..lineTo(body.left, body.center.dy + pointerHalfHeight)
+      ..lineTo(rect.left, body.center.dy)
+      ..lineTo(body.left, body.center.dy - pointerHalfHeight)
+      ..lineTo(body.left, body.top + corner)
+      ..quadraticBezierTo(body.left, body.top, body.left + corner, body.top)
+      ..close();
+  }
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => _path(rect);
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) {
+    return _path(rect.deflate(side.strokeInset));
+  }
+
+  @override
+  _RailTooltipBorder copyWith({
+    BorderSide? side,
+    double? pointerWidth,
+    double? pointerHeight,
+    double? radius,
+  }) {
+    return _RailTooltipBorder(
+      side: side ?? this.side,
+      pointerWidth: pointerWidth ?? this.pointerWidth,
+      pointerHeight: pointerHeight ?? this.pointerHeight,
+      radius: radius ?? this.radius,
+    );
+  }
+
+  @override
+  ShapeBorder scale(double t) => _RailTooltipBorder(
+    side: side.scale(t),
+    pointerWidth: pointerWidth * t,
+    pointerHeight: pointerHeight * t,
+    radius: radius * t,
+  );
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
+    if (side.style == BorderStyle.none) return;
+    final strokeOffset = (side.strokeOutset - side.strokeInset) / 2;
+    canvas.drawPath(_path(rect.inflate(strokeOffset)), side.toPaint());
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _RailTooltipBorder &&
+        other.side == side &&
+        other.pointerWidth == pointerWidth &&
+        other.pointerHeight == pointerHeight &&
+        other.radius == radius;
+  }
+
+  @override
+  int get hashCode => Object.hash(side, pointerWidth, pointerHeight, radius);
 }
 
 /// The site's own icon, falling back to a monogram while it loads or if the

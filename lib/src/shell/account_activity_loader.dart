@@ -10,11 +10,15 @@ typedef AccountActivityBuilder =
 
 enum _AccountActivityRequest {
   notifications,
+  replyNotifications,
+  chatNotifications,
   bookmarks;
 
   Future<void> load(ShellController controller, String siteUrl) =>
       switch (this) {
         notifications => controller.loadNotifications(siteUrl),
+        replyNotifications => controller.loadReplyNotifications(siteUrl),
+        chatNotifications => controller.loadChatNotifications(siteUrl),
         bookmarks => controller.loadBookmarks(siteUrl),
       };
 }
@@ -37,6 +41,18 @@ class AccountActivityLoader extends StatelessWidget {
     required this.siteUrl,
     required this.builder,
   }) : _request = _AccountActivityRequest.bookmarks;
+
+  const AccountActivityLoader.replyNotifications({
+    super.key,
+    required this.siteUrl,
+    required this.builder,
+  }) : _request = _AccountActivityRequest.replyNotifications;
+
+  const AccountActivityLoader.chatNotifications({
+    super.key,
+    required this.siteUrl,
+    required this.builder,
+  }) : _request = _AccountActivityRequest.chatNotifications;
 
   final String siteUrl;
   final AccountActivityBuilder builder;

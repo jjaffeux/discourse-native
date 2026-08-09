@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const site = 'https://meta.discourse.org';
@@ -24,6 +25,9 @@ TopicDetail detail({
   postsCount: postsCount,
   canCreatePost: canCreatePost,
 );
+
+PluginData feature(String value) =>
+    PluginData.none.withValue(_TopicFeature(value));
 
 /// The post ids a view would draw: the stream, minus what has not arrived.
 List<int> loaded(Store store, TopicDetail topic) => [
@@ -202,6 +206,51 @@ void main() {
 
       expect(held.merge(detail(stream: [1])).recommendations, recommendations);
     });
+
+    test('takes the incoming optional-feature snapshot', () {
+      final held = detail(stream: [1]).withPlugins(feature('held'));
+      final incoming = detail(stream: [1]).withPlugins(feature('incoming'));
+
+      expect(
+        held.merge(incoming).plugins.get<_TopicFeature>()?.value,
+        'incoming',
+      );
+    });
+  });
+
+  group('topic plugin data', () {
+    test('survives ordinary copies and can be explicitly cleared', () {
+      final plugins = feature('assigned');
+      final row = Topic(
+        id: 7,
+        title: 'A topic',
+        slug: 'a-topic',
+        plugins: plugins,
+      );
+      final detailWithFeature = detail().withPlugins(plugins);
+
+      expect(row.copyWith(title: 'Renamed').plugins, plugins);
+      expect(detailWithFeature.copyWith(title: 'Renamed').plugins, plugins);
+      expect(row.withPlugins(PluginData.none).plugins, PluginData.none);
+      expect(
+        detailWithFeature.withPlugins(PluginData.none).plugins,
+        PluginData.none,
+      );
+    });
+
+    test('participates in topic and detail value semantics', () {
+      final plugins = feature('assigned');
+      final row = Topic(
+        id: 7,
+        title: 'A topic',
+        slug: 'a-topic',
+        plugins: plugins,
+      );
+      final withFeature = detail().withPlugins(plugins);
+
+      expect(row, isNot(row.withPlugins(PluginData.none)));
+      expect(withFeature, isNot(detail()));
+    });
   });
 
   group('in the store', () {
@@ -292,4 +341,10 @@ void main() {
       expect(store.read<Post>(site, 99), isNull);
     });
   });
+}
+
+class _TopicFeature {
+  const _TopicFeature(this.value);
+
+  final String value;
 }

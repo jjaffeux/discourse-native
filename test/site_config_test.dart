@@ -21,6 +21,8 @@ Map<String, dynamic> settings({
   bool? fixedCategoryPositions,
   bool? allowUncategorizedTopics,
   Object? defaultNavigationMenuCategories,
+  bool? enableAssignStatus,
+  String? assignStatuses,
 }) => {
   'emoji_set': ?emojiSet,
   'external_emoji_url': externalEmojiUrl,
@@ -38,6 +40,8 @@ Map<String, dynamic> settings({
   'fixed_category_positions': ?fixedCategoryPositions,
   'allow_uncategorized_topics': ?allowUncategorizedTopics,
   'default_navigation_menu_categories': ?defaultNavigationMenuCategories,
+  'enable_assign_status': ?enableAssignStatus,
+  'assign_statuses': ?assignStatuses,
 };
 
 void main() {
@@ -157,6 +161,23 @@ void main() {
       );
 
       expect(config.mainReaction, isNull);
+    });
+
+    test('reads optional Assign statuses without claiming capability', () {
+      final enabled = SiteConfig.fromSettings(
+        settings(
+          enableAssignStatus: true,
+          assignStatuses: 'New|In Progress|Done',
+        ),
+      );
+      final disabled = SiteConfig.fromSettings(
+        settings(enableAssignStatus: false, assignStatuses: 'New|Done'),
+      );
+
+      expect(enabled.assignStatusesEnabled, isTrue);
+      expect(enabled.assignStatuses, ['New', 'In Progress', 'Done']);
+      expect(disabled.assignStatusesEnabled, isFalse);
+      expect(disabled.assignStatuses, isEmpty);
     });
   });
 

@@ -25,6 +25,8 @@ class SiteConfig {
     this.desaturatedReactionPanel = false,
     this.pollMaximumOptions = defaultPollMaximumOptions,
     this.pollDefaultPublic = true,
+    this.assignStatusesEnabled = false,
+    this.assignStatuses = const [],
     this.authorizedExtensions = defaultAuthorizedExtensions,
     this.authorizedExtensionsForStaff = const [],
     this.simultaneousUploads = 15,
@@ -101,6 +103,10 @@ class SiteConfig {
         _ => defaultPollMaximumOptions,
       },
       pollDefaultPublic: json['poll_default_public'] != false,
+      assignStatusesEnabled: json['enable_assign_status'] == true,
+      assignStatuses: json['enable_assign_status'] == true
+          ? _pipeList(json['assign_statuses'])
+          : const [],
       authorizedExtensions: _extensionList(
         json['authorized_extensions'],
         defaultAuthorizedExtensions,
@@ -145,6 +151,10 @@ class SiteConfig {
     pollMaximumOptions:
         jsonIntOrNull(json['pollMaximumOptions']) ?? defaultPollMaximumOptions,
     pollDefaultPublic: json['pollDefaultPublic'] != false,
+    assignStatusesEnabled: json['assignStatusesEnabled'] == true,
+    assignStatuses: List.unmodifiable(
+      jsonArray(json['assignStatuses']).map(jsonText).whereType<String>(),
+    ),
     authorizedExtensions: _extensionList(
       json['authorizedExtensions'],
       defaultAuthorizedExtensions,
@@ -179,6 +189,8 @@ class SiteConfig {
     'desaturatedReactionPanel': desaturatedReactionPanel,
     'pollMaximumOptions': pollMaximumOptions,
     'pollDefaultPublic': pollDefaultPublic,
+    'assignStatusesEnabled': assignStatusesEnabled,
+    'assignStatuses': assignStatuses,
     'authorizedExtensions': authorizedExtensions,
     'authorizedExtensionsForStaff': authorizedExtensionsForStaff,
     'simultaneousUploads': simultaneousUploads,
@@ -225,6 +237,12 @@ class SiteConfig {
   /// claim that Poll is enabled on a site.
   final int pollMaximumOptions;
   final bool pollDefaultPublic;
+
+  /// Optional Assign status presentation. These settings only decide what an
+  /// already-authorized assignment sheet offers; payload records and their
+  /// per-target `can_assign` remain the feature and permission gates.
+  final bool assignStatusesEnabled;
+  final List<String> assignStatuses;
   final List<String> authorizedExtensions;
   final List<String> authorizedExtensionsForStaff;
   final int simultaneousUploads;
@@ -317,6 +335,8 @@ class SiteConfig {
       other.desaturatedReactionPanel == desaturatedReactionPanel &&
       other.pollMaximumOptions == pollMaximumOptions &&
       other.pollDefaultPublic == pollDefaultPublic &&
+      other.assignStatusesEnabled == assignStatusesEnabled &&
+      listEquals(other.assignStatuses, assignStatuses) &&
       listEquals(other.authorizedExtensions, authorizedExtensions) &&
       listEquals(
         other.authorizedExtensionsForStaff,
@@ -344,6 +364,8 @@ class SiteConfig {
     desaturatedReactionPanel,
     pollMaximumOptions,
     pollDefaultPublic,
+    assignStatusesEnabled,
+    Object.hashAll(assignStatuses),
     Object.hashAll(authorizedExtensions),
     Object.hashAll(authorizedExtensionsForStaff),
     simultaneousUploads,
@@ -367,6 +389,17 @@ class SiteConfig {
       values
           .map((value) => value.trim().toLowerCase().replaceFirst('.', ''))
           .where((value) => value.isNotEmpty),
+    );
+  }
+
+  static List<String> _pipeList(Object? raw) {
+    final values = switch (raw) {
+      final String value => value.split('|'),
+      final List<dynamic> value => value.map(jsonText).whereType<String>(),
+      _ => const <String>[],
+    };
+    return List.unmodifiable(
+      values.map((value) => value.trim()).where((value) => value.isNotEmpty),
     );
   }
 

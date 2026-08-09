@@ -810,6 +810,62 @@ void main() {
     expect(find.text('Discourse Meta'), findsNothing);
   });
 
+  testWidgets('rail marker grows from idle dot through hover to active pill', (
+    tester,
+  ) async {
+    await pumpShell(tester, desktop);
+
+    Finder item(DiscourseInstance instance) =>
+        find.byKey(ValueKey(instance.url));
+    Finder indicator(DiscourseInstance instance) =>
+        find.byKey(ValueKey('instance-rail-marker-${instance.url}'));
+    AnimatedContainer marker(DiscourseInstance instance) =>
+        tester.widget(indicator(instance));
+    double targetHeight(DiscourseInstance instance) =>
+        marker(instance).constraints!.minHeight;
+
+    final selected = twoSites.first;
+    final inactive = twoSites.last;
+    expect(targetHeight(selected), 40);
+    expect(targetHeight(inactive), 8);
+    expect(marker(inactive).duration, const Duration(milliseconds: 180));
+    expect(marker(inactive).curve, Curves.easeOutCubic);
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+    await gesture.moveTo(tester.getCenter(item(inactive)));
+    await tester.pump();
+
+    expect(targetHeight(inactive), 20);
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(
+      tester.getSize(indicator(inactive)).height,
+      allOf(greaterThan(8), lessThan(20)),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator(inactive)).height, 20);
+
+    await gesture.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator(inactive)).height, 8);
+
+    await gesture.moveTo(tester.getCenter(item(inactive)));
+    await tester.pumpAndSettle();
+    await tester.tap(item(inactive));
+    await tester.pump();
+
+    expect(targetHeight(selected), 8);
+    expect(targetHeight(inactive), 40);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator(selected)).height, 8);
+    expect(tester.getSize(indicator(inactive)).height, 40);
+
+    await gesture.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator(inactive)).height, 40);
+  });
+
   testWidgets('shows custom sidebar sections and opens their links', (
     tester,
   ) async {
@@ -1203,7 +1259,9 @@ void main() {
     );
   });
 
-  testWidgets('sidebar section chevrons follow their actions', (tester) async {
+  testWidgets('sidebar section header controls align and highlight on hover', (
+    tester,
+  ) async {
     const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
     final site = instance(
       'meta.discourse.org',
@@ -1250,6 +1308,43 @@ void main() {
     expect(tester.getCenter(action).dx, lessThan(tester.getCenter(chevron).dx));
     // A larger action would make this header taller than adjacent sections.
     expect(tester.getSize(action), tester.getSize(chevron));
+
+    final title = find.text('VOICE ROOMS');
+    final theme = Theme.of(tester.element(title));
+    Color titleColor() => tester.widget<Text>(title).style!.color!;
+    Color iconColor(Finder control) {
+      final icon = find.descendant(of: control, matching: find.byType(DIcon));
+      final explicitColor = tester.widget<DIcon>(icon).color;
+      return explicitColor ?? IconTheme.of(tester.element(icon)).color!;
+    }
+
+    expect(titleColor(), theme.colorScheme.onSurfaceVariant);
+    expect(iconColor(action), theme.colorScheme.onSurfaceVariant);
+    expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+
+    await gesture.moveTo(tester.getCenter(title));
+    await tester.pumpAndSettle();
+    expect(titleColor(), theme.colorScheme.onSurface);
+    expect(iconColor(action), theme.colorScheme.onSurfaceVariant);
+
+    await gesture.moveTo(tester.getCenter(action));
+    await tester.pumpAndSettle();
+    expect(titleColor(), theme.colorScheme.onSurfaceVariant);
+    expect(iconColor(action), theme.colorScheme.onSurface);
+    expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
+
+    await gesture.moveTo(tester.getCenter(chevron));
+    await tester.pumpAndSettle();
+    expect(iconColor(action), theme.colorScheme.onSurfaceVariant);
+    expect(iconColor(chevron), theme.colorScheme.onSurface);
+
+    await gesture.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
   });
 
   testWidgets('sidebar destinations show a background when hovered', (
@@ -1302,6 +1397,191 @@ void main() {
     await tester.tap(remove);
     await tester.pumpAndSettle();
     expect(find.text('Remove Discourse Meta?'), findsOneWidget);
+  });
+
+  testWidgets('hovering a forum shows its name in a rail callout', (
+    tester,
+  ) async {
+    await pumpShell(tester, desktop);
+
+    final forum = find.byKey(
+      const ValueKey<String>('https://team.discourse.org'),
+    );
+    final tooltipFinder = find.descendant(
+      of: forum,
+      matching: find.byType(RawTooltip),
+    );
+    final callout = find.byKey(
+      const ValueKey<String>(
+        'instance-rail-callout-https://team.discourse.org',
+      ),
+    );
+    expect(forum, findsOneWidget);
+    expect(tooltipFinder, findsOneWidget);
+    expect(callout, findsNothing);
+
+    final tooltip = tester.widget<RawTooltip>(tooltipFinder);
+    expect(tooltip.semanticsTooltip, 'Discourse Team');
+    expect(tooltip.triggerMode, TooltipTriggerMode.manual);
+    expect(tooltip.ignorePointer, isTrue);
+    expect(tooltip.hoverDelay, const Duration(milliseconds: 280));
+    expect(tooltip.dismissDelay, const Duration(milliseconds: 80));
+    expect(tooltip.animationStyle.duration, const Duration(milliseconds: 120));
+    expect(
+      tooltip.animationStyle.reverseDuration,
+      const Duration(milliseconds: 80),
+    );
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(forum));
+
+    await tester.pump(tooltip.hoverDelay - const Duration(milliseconds: 1));
+    expect(callout, findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(callout, findsOneWidget);
+
+    final fade = tester.widget<FadeTransition>(
+      find.ancestor(of: callout, matching: find.byType(FadeTransition)).first,
+    );
+    final scale = tester.widget<ScaleTransition>(
+      find.ancestor(of: callout, matching: find.byType(ScaleTransition)).first,
+    );
+    expect(fade.opacity.value, closeTo(0, 0.001));
+    expect(scale.scale.value, closeTo(0.96, 0.001));
+    expect(scale.alignment, Alignment.centerLeft);
+
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(fade.opacity.value, allOf(greaterThan(0), lessThan(1)));
+    expect(scale.scale.value, allOf(greaterThan(0.96), lessThan(1)));
+
+    await tester.pumpAndSettle();
+    expect(fade.opacity.value, 1);
+    expect(scale.scale.value, 1);
+
+    expect(
+      find.descendant(of: callout, matching: find.text('Discourse Team')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: callout,
+        matching: find.textContaining('team.discourse.org'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.ancestor(of: callout, matching: find.byType(ExcludeSemantics)),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'instance-rail-callout-icon-https://team.discourse.org',
+        ),
+      ),
+      findsOneWidget,
+    );
+
+    final calloutWidget = tester.widget<Container>(callout);
+    final decoration = calloutWidget.decoration! as ShapeDecoration;
+    final targetRect = tester.getRect(tooltipFinder);
+    final calloutRect = tester.getRect(callout);
+    final insets = decoration.shape.dimensions.resolve(TextDirection.ltr);
+    final calloutPath = decoration.shape.getOuterPath(
+      Offset.zero & calloutRect.size,
+    );
+
+    expect(calloutRect.center.dy, closeTo(targetRect.center.dy, 0.5));
+    expect(calloutRect.left, greaterThan(targetRect.right));
+    expect(calloutRect.left + insets.left, greaterThan(targetRect.right));
+    expect(insets, const EdgeInsets.fromLTRB(8, 1, 1, 1));
+    expect(calloutPath.contains(Offset(1, calloutRect.height / 2)), isTrue);
+    expect(calloutPath.contains(const Offset(1, 1)), isFalse);
+    expect(calloutPath.contains(Offset(insets.left + 0.5, 0.5)), isFalse);
+    expect(decoration.color, const Color(0xFF3C3D43));
+    expect(decoration.shape, isA<OutlinedBorder>());
+    expect(
+      (decoration.shape as OutlinedBorder).side,
+      const BorderSide(color: Color(0xFF47484E)),
+    );
+    expect(decoration.shadows, const [
+      BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 3)),
+      BoxShadow(color: Color(0x24000000), blurRadius: 2, offset: Offset(0, 1)),
+    ]);
+    expect(
+      calloutWidget.constraints,
+      const BoxConstraints(minHeight: 36, maxWidth: 240),
+    );
+    expect(
+      calloutWidget.padding,
+      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    );
+    final label = tester.widget<Text>(
+      find.descendant(of: callout, matching: find.text('Discourse Team')),
+    );
+    expect(label.style!.color, const Color(0xFFF3F3F4));
+    expect(label.style!.fontSize, 16);
+    expect(label.style!.fontWeight, FontWeight.w600);
+
+    await mouse.moveTo(Offset.zero);
+    await tester.pump(tooltip.dismissDelay - const Duration(milliseconds: 1));
+    expect(callout, findsOneWidget);
+    expect(fade.opacity.value, 1);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(callout, findsOneWidget);
+    expect(fade.opacity.value, allOf(greaterThan(0), lessThan(1)));
+    expect(scale.scale.value, allOf(greaterThan(0.96), lessThan(1)));
+
+    await tester.pumpAndSettle();
+    expect(callout, findsNothing);
+  });
+
+  testWidgets('forum callouts respect reduced motion', (tester) async {
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(
+      tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+    );
+    await pumpShell(tester, desktop);
+
+    final forum = find.byKey(
+      const ValueKey<String>('https://team.discourse.org'),
+    );
+    final tooltipFinder = find.descendant(
+      of: forum,
+      matching: find.byType(RawTooltip),
+    );
+    final callout = find.byKey(
+      const ValueKey<String>(
+        'instance-rail-callout-https://team.discourse.org',
+      ),
+    );
+    final tooltip = tester.widget<RawTooltip>(tooltipFinder);
+    expect(tooltip.animationStyle.duration, Duration.zero);
+    expect(tooltip.animationStyle.reverseDuration, Duration.zero);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(forum));
+    await tester.pump(tooltip.hoverDelay);
+    await tester.pump();
+
+    expect(callout, findsOneWidget);
+    final fade = tester.widget<FadeTransition>(
+      find.ancestor(of: callout, matching: find.byType(FadeTransition)).first,
+    );
+    final scale = tester.widget<ScaleTransition>(
+      find.ancestor(of: callout, matching: find.byType(ScaleTransition)).first,
+    );
+    expect(fade.opacity.value, 1);
+    expect(scale.scale.value, 1);
   });
 
   group('adding a site', () {
@@ -1386,12 +1666,10 @@ void main() {
   });
 
   group('removing a site', () {
-    /// The rail draws no text of its own, so a site is identified by the
-    /// tooltip naming it.
-    Finder railItem(String title, String host) =>
-        find.byTooltip('$title\n$host');
+    Finder railItem(String host) =>
+        find.byKey(ValueKey<String>('https://$host'));
 
-    final meta = railItem('Discourse Meta', 'meta.discourse.org');
+    final meta = railItem('meta.discourse.org');
 
     testWidgets('a long press leads to the removal through a sheet', (
       tester,
@@ -1435,12 +1713,28 @@ void main() {
     ) async {
       await pumpShell(tester, phone);
 
+      final metaTooltip = find.descendant(
+        of: meta,
+        matching: find.byType(RawTooltip),
+      );
+      expect(
+        tester.widget<RawTooltip>(metaTooltip).triggerMode,
+        TooltipTriggerMode.manual,
+      );
       await tester.longPress(meta);
       await tester.pumpAndSettle();
 
       // The tooltip's own long-press trigger would otherwise fire under the
       // menu, naming the site twice.
-      expect(find.text('Discourse Meta\nmeta.discourse.org'), findsNothing);
+      expect(find.text('More Options'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey<String>(
+            'instance-rail-callout-https://meta.discourse.org',
+          ),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('removing asks first, and answering no keeps the site', (
@@ -1490,7 +1784,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(meta, findsNothing);
-      expect(railItem('Discourse Team', 'team.discourse.org'), findsOneWidget);
+      expect(railItem('team.discourse.org'), findsOneWidget);
       // The site that was being read went away, so the one left takes over.
       expect(find.text('Discourse Team'), findsOneWidget);
       expect(auth.disconnected, ['https://meta.discourse.org']);
@@ -1578,7 +1872,7 @@ void main() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      await tester.longPress(railItem('Discourse Team', 'team.discourse.org'));
+      await tester.longPress(railItem('team.discourse.org'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('More Options'));
       await tester.pumpAndSettle();
@@ -3035,6 +3329,27 @@ void main() {
       ),
     ];
 
+    const chatEnabledTotals = NotificationTotals(
+      chatNotifications: 1,
+      hasChatEnabled: true,
+    );
+    const emptyChatChannels = (
+      public: <ChatChannel>[],
+      direct: <ChatChannel>[],
+    );
+    final chatMention = DiscourseNotification.fromJson(const {
+      'id': 51,
+      'notification_type': 29,
+      'read': false,
+      'created_at': '2026-08-09T08:00:00.000Z',
+      'data': {
+        'chat_message_id': 44,
+        'chat_channel_id': 9,
+        'chat_channel_title': '#dev',
+        'mentioned_by_username': 'sam',
+      },
+    });
+
     Future<void> openMenu(WidgetTester tester) async {
       await tester.tap(userMenu);
       await tester.pumpAndSettle();
@@ -3048,10 +3363,31 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    Future<void> openReplies(WidgetTester tester) async {
+      await openMenu(tester);
+      await tester.tap(find.text('Replies'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> openChat(WidgetTester tester) async {
+      await openMenu(tester);
+      await tester.tap(find.text('Chat'));
+      await tester.pumpAndSettle();
+    }
+
     testWidgets('a thumb gets a sheet, and one sheet per section inside it', (
       tester,
     ) async {
-      await pumpShell(tester, phone, instances: connected);
+      final api = FakeDiscourseApi(
+        replyNotificationList: [notifications.first],
+      );
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
       await openMenu(tester);
 
       // Listed rather than tabbed, and no popover in sight.
@@ -3060,11 +3396,20 @@ void main() {
       expect(find.text('@joffreyj · meta.discourse.org'), findsOneWidget);
       expect(find.text('Notifications'), findsOneWidget);
       expect(find.text('Profile'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('Replies')).style?.color,
+        isNot(Theme.of(tester.element(find.text('Replies'))).shell.placeholder),
+      );
 
       await tester.tap(find.text('Replies'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('joshua.m replied to'), findsOneWidget);
+      expect(api.replyNotificationCalls, 1);
+      expect(api.notificationFilters.single, userMenuReplyNotificationKinds);
+      expect(
+        find.textContaining('sam replied to Better image handling'),
+        findsOneWidget,
+      );
       // The sheet it came from is still under this one — nested, not swapped —
       // so the way out of this one is back to it.
       expect(find.text('Notifications'), findsOneWidget);
@@ -3074,7 +3419,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Profile'), findsOneWidget);
-      expect(find.textContaining('joshua.m replied to'), findsNothing);
+      expect(find.textContaining('sam replied to'), findsNothing);
     });
 
     testWidgets('a title bar takes the avatar off the columns', (tester) async {
@@ -3106,6 +3451,281 @@ void main() {
       } finally {
         debugDefaultTargetPlatformOverride = previous;
       }
+    });
+
+    testWidgets('a reply opens its topic and is marked read', (tester) async {
+      final api = FakeDiscourseApi(
+        replyNotificationList: [notifications.first],
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'Better image handling',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                username: 'sam',
+                cooked: '<p>First post body</p>',
+              ),
+            ],
+            stream: const [1],
+          ),
+        },
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openReplies(tester);
+      await tester.tap(
+        find.textContaining('sam replied to Better image handling'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.topicsOpened, [7]);
+      expect(api.markedRead, [1]);
+      expect(find.byType(RepliesSection), findsNothing);
+      expect(renderedText('First post body'), findsOneWidget);
+    });
+
+    testWidgets('Replies can retry a failed filtered request', (tester) async {
+      final api = FakeDiscourseApi();
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openReplies(tester);
+
+      expect(find.textContaining("Couldn't reach"), findsOneWidget);
+
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+
+      expect(api.replyNotificationCalls, 2);
+      expect(api.notificationCalls, 0);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an empty Replies tab stops waiting', (tester) async {
+      final api = FakeDiscourseApi(replyNotificationList: const []);
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openReplies(tester);
+
+      expect(find.text('Nothing new.'), findsOneWidget);
+    });
+
+    testWidgets('the pointer Chat tab requests and renders its own feed', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final api = FakeDiscourseApi(
+          totals: chatEnabledTotals,
+          notificationList: const [],
+          chatNotificationList: [chatMention],
+          chatChannelsBySite: const {
+            'https://meta.discourse.org': emptyChatChannels,
+          },
+        );
+        await pumpShell(
+          tester,
+          desktop,
+          instances: connected,
+          api: api,
+          authenticator: signedIn(),
+          key: const ValueKey('pointer-chat-menu'),
+        );
+        await openMenu(tester);
+
+        final chatTab = find.descendant(
+          of: find.byType(UserMenuPanel),
+          matching: find.byTooltip('Chat'),
+        );
+        expect(chatTab, findsOneWidget);
+        await tester.tap(chatTab);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.textContaining('sam mentioned you in #dev'),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byType(NotificationRow),
+            matching: find.dIcon(DIcons.comment),
+          ),
+          findsOneWidget,
+        );
+        expect(api.chatNotificationCalls, 1);
+        expect(api.notificationCalls, 1);
+        expect(api.replyNotificationCalls, 0);
+        expect(api.notificationFilters, [
+          const <NotificationKind>[],
+          userMenuChatNotificationKinds,
+        ]);
+
+        final title = find.text('Chat');
+        final placeholder = Theme.of(tester.element(title)).shell.placeholder;
+        expect(tester.widget<Text>(title).style?.color, isNot(placeholder));
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
+    testWidgets('a Chat row marks read, opens its link, and dismisses', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        totals: chatEnabledTotals,
+        chatNotificationList: [chatMention],
+        chatChannelsBySite: const {
+          'https://meta.discourse.org': emptyChatChannels,
+        },
+      );
+      final launched = watchBrowser(tester);
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openChat(tester);
+      await tester.tap(find.textContaining('sam mentioned you in #dev'));
+      await tester.pumpAndSettle();
+
+      expect(api.markedRead, [51]);
+      expect(launched, ['https://meta.discourse.org/chat/c/-/9/44']);
+      expect(find.byType(ChatNotificationsSection), findsNothing);
+      expect(find.text('@joffreyj · meta.discourse.org'), findsNothing);
+      expect(api.notificationFilters, [userMenuChatNotificationKinds]);
+    });
+
+    testWidgets('an empty Chat tab explains that there is no activity', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        totals: chatEnabledTotals,
+        chatNotificationList: const [],
+        chatChannelsBySite: const {
+          'https://meta.discourse.org': emptyChatChannels,
+        },
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openChat(tester);
+
+      expect(
+        find.text('You don’t have any chat notifications yet.'),
+        findsOneWidget,
+      );
+      expect(api.chatNotificationCalls, 1);
+    });
+
+    testWidgets('Chat can retry a failed filtered request', (tester) async {
+      final api = FakeDiscourseApi(
+        totals: chatEnabledTotals,
+        chatChannelsBySite: const {
+          'https://meta.discourse.org': emptyChatChannels,
+        },
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openChat(tester);
+
+      expect(find.textContaining("Couldn't reach"), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+
+      expect(api.chatNotificationCalls, 2);
+      expect(api.notificationCalls, 0);
+      expect(api.notificationFilters, [
+        userMenuChatNotificationKinds,
+        userMenuChatNotificationKinds,
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('Chat is hidden when the site does not make it available', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(totals: const NotificationTotals());
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openMenu(tester);
+
+      expect(find.text('Chat'), findsNothing);
+      expect(api.chatNotificationCalls, 0);
+    });
+
+    testWidgets('Chat is hidden when the current user disabled it', (
+      tester,
+    ) async {
+      const userWithoutChat = DiscourseUser(
+        username: 'joffreyj',
+        name: 'Joffrey',
+        hasChatEnabled: false,
+      );
+      final api = FakeDiscourseApi(
+        user: userWithoutChat,
+        totals: chatEnabledTotals,
+        chatNotificationList: [chatMention],
+        chatChannelsBySite: const {
+          'https://meta.discourse.org': emptyChatChannels,
+        },
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: userWithoutChat),
+        ],
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openMenu(tester);
+
+      expect(find.text('Chat'), findsNothing);
+      expect(api.chatNotificationCalls, 0);
     });
 
     testWidgets('a pointer gets a popover with a tab per section', (
@@ -6173,7 +6793,11 @@ void main() {
 
       final tracker = FakeSiteTracker.built.last;
       expect(tracker.watchedTopic, 7);
-      expect(tracker.watchedChannels, ['/topic/7/reactions', '/polls/7']);
+      expect(tracker.watchedChannels, [
+        '/topic/7/reactions',
+        '/polls/7',
+        '/staff/topic-assignment',
+      ]);
 
       tracker.deliverTopicMessage('/topic/7/reactions', {
         'post_id': 1,
@@ -7833,7 +8457,9 @@ void main() {
         await pumpChat(tester, size: phone, public: [channel(9)]);
         expect(sidebarDestination('Bugs'), findsOneWidget);
 
-        await tester.longPress(find.byTooltip('Meta\nmeta.discourse.org'));
+        await tester.longPress(
+          find.byKey(const ValueKey<String>('https://meta.discourse.org')),
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.text('More Options'));
         await tester.pumpAndSettle();

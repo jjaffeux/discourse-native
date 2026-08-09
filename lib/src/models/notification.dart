@@ -71,6 +71,31 @@ enum NotificationKind {
   static NotificationKind fromId(int id) => _byId[id] ?? unknown;
 }
 
+/// The notification kinds Discourse groups into the user menu's Replies tab.
+///
+/// Keep the order in sync with core's `CORE_TOP_TABS`: the names are sent to
+/// `/notifications` as one `filter_by_types` value.
+const userMenuReplyNotificationKinds = <NotificationKind>[
+  NotificationKind.mentioned,
+  NotificationKind.groupMentioned,
+  NotificationKind.posted,
+  NotificationKind.quoted,
+  NotificationKind.replied,
+];
+
+/// The notification kinds Discourse's Chat user-menu tab asks for.
+///
+/// This is a server-side filter rather than a subset of the general feed: each
+/// tab gets its own thirty-row budget, so busy sites cannot crowd chat activity
+/// out before the client sees it.
+const userMenuChatNotificationKinds = <NotificationKind>[
+  NotificationKind.chatInvitation,
+  NotificationKind.chatMention,
+  NotificationKind.chatMessage,
+  NotificationKind.chatQuoted,
+  NotificationKind.chatWatchedThread,
+];
+
 /// One row of the notifications tab.
 ///
 /// Flattened out of the envelope Discourse sends: the interesting parts of a
@@ -122,10 +147,12 @@ class DiscourseNotification {
         slug: slug,
         postNumber: postNumber,
       ),
-      // `display_username` is who acted, and is set for every kind that has
-      // an actor; the consolidated kinds carry `username` instead.
+      // Most kinds use `display_username`; Chat names the action in dedicated
+      // mention/invitation keys, and consolidated kinds carry `username`.
       actor: jsonText(
         data['display_username'] ??
+            data['mentioned_by_username'] ??
+            data['invited_by_username'] ??
             data['username'] ??
             data['original_username'],
       ),
@@ -202,8 +229,7 @@ class DiscourseNotification {
       NotificationKind.chatMention ||
       NotificationKind.chatMessage ||
       NotificationKind.chatInvitation ||
-      NotificationKind.chatQuoted ||
-      NotificationKind.chatWatchedThread => _chatPath(data),
+      NotificationKind.chatWatchedThread => _chatPath(kind, data),
       _ => null,
     };
   }
@@ -219,13 +245,16 @@ class DiscourseNotification {
 
   /// The channel, and the message or thread within it. The slug segment is
   /// decorative here too, and Discourse takes `-` in its place.
-  static String? _chatPath(Map<String, dynamic> data) {
+  static String? _chatPath(NotificationKind kind, Map<String, dynamic> data) {
     final channel = data['chat_channel_id'];
     if (channel == null) return null;
 
     final buffer = StringBuffer('/chat/c/-/${jsonInt(channel)}');
     if (data['chat_thread_id'] case final thread?) {
       buffer.write('/t/${jsonInt(thread)}');
+      // A mention opens the thread itself. Watched-thread notifications point
+      // at the particular reply inside it and therefore keep the message id.
+      if (kind == NotificationKind.chatMention) return buffer.toString();
     }
     if (data['chat_message_id'] case final message?) {
       buffer.write('/${jsonInt(message)}');
@@ -262,8 +291,7 @@ class DiscourseNotification {
   final DateTime? createdAt;
 
   /// Where it points, when it points at a topic. Badges, group memberships and
-  /// chat messages have no topic, and there is nowhere in this app to send
-  /// them yet.
+  /// chat messages have no topic of their own.
   final int? topicId;
   final int? postNumber;
   final String slug;

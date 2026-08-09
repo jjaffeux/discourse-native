@@ -20,6 +20,7 @@ import 'package:flutter/material.dart' show Row, Size, ValueKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 
@@ -36,6 +37,8 @@ const _draft = UserDraft(
 );
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets('the wide New topic button has core text and icon', (
     tester,
   ) async {

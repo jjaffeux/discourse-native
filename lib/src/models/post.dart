@@ -193,9 +193,11 @@ class Post with Storable<Post> {
   final PluginData plugins;
 
   /// Small actions are the "closed this topic" notices in the stream. They
-  /// have no body of their own, so they are drawn as a one-line notice
-  /// rather than as a post.
-  bool get isSmallAction => postType == smallActionPostType;
+  /// have no body of their own, so they are drawn as a one-line notice rather
+  /// than as a post. Optional features can add their own serializer types and
+  /// action codes without making those values part of this core model.
+  bool get isSmallAction =>
+      postType == smallActionPostType || pluginRegistry.isSmallAction(this);
 
   String get displayName => name ?? username;
 
@@ -396,6 +398,7 @@ class TopicDetail with Storable<TopicDetail> {
     this.draft,
     this.draftSequence = 0,
     this.recommendations,
+    this.plugins = PluginData.none,
   });
 
   /// Reads a topic payload into the topic and its posts.
@@ -433,6 +436,7 @@ class TopicDetail with Storable<TopicDetail> {
         draft: ComposerDraft.decode(json['draft']),
         draftSequence: jsonInt(json['draft_sequence']),
         recommendations: TopicRecommendations.fromJson(json, siteUrl),
+        plugins: PluginData.forTopic(json, siteUrl),
       ),
       posts: List.unmodifiable([
         for (final post in jsonObjects(postStream['posts']))
@@ -468,6 +472,9 @@ class TopicDetail with Storable<TopicDetail> {
   /// The lists Discourse places after the final post. Null means this response
   /// was not the final post window and therefore had nothing to say about them.
   final TopicRecommendations? recommendations;
+
+  /// What optional features attached to the full topic serializer.
+  final PluginData plugins;
 
   @override
   Object get storeId => id;
@@ -509,6 +516,24 @@ class TopicDetail with Storable<TopicDetail> {
   TopicDetail withRecommendations(TopicRecommendations recommendations) =>
       copyWith(recommendations: recommendations);
 
+  /// The topic with one complete optional-feature snapshot.
+  TopicDetail withPlugins(PluginData next) => TopicDetail(
+    id: id,
+    title: title,
+    stream: stream,
+    postsCount: postsCount,
+    categoryId: categoryId,
+    canCreatePost: canCreatePost,
+    canEdit: canEdit,
+    canEditTags: canEditTags,
+    tags: tags,
+    archived: archived,
+    draft: draft,
+    draftSequence: draftSequence,
+    recommendations: recommendations,
+    plugins: next,
+  );
+
   /// A refetched copy wins, except that it may not have caught up.
   ///
   /// A reply made a moment ago can be missing from the stream the site answers
@@ -547,6 +572,7 @@ class TopicDetail with Storable<TopicDetail> {
     bool? canEdit,
     bool? canEditTags,
     TopicRecommendations? recommendations,
+    PluginData? plugins,
   }) => TopicDetail(
     id: id,
     title: title ?? this.title,
@@ -561,6 +587,7 @@ class TopicDetail with Storable<TopicDetail> {
     draft: clearDraft ? null : (draft ?? this.draft),
     draftSequence: draftSequence ?? this.draftSequence,
     recommendations: recommendations ?? this.recommendations,
+    plugins: plugins ?? this.plugins,
   );
 
   @override
@@ -579,7 +606,8 @@ class TopicDetail with Storable<TopicDetail> {
           other.archived == archived &&
           other.draft == draft &&
           other.draftSequence == draftSequence &&
-          other.recommendations == recommendations;
+          other.recommendations == recommendations &&
+          other.plugins == plugins;
 
   @override
   int get hashCode => Object.hash(
@@ -596,5 +624,6 @@ class TopicDetail with Storable<TopicDetail> {
     draft,
     draftSequence,
     recommendations,
+    plugins,
   );
 }

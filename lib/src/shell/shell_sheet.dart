@@ -52,52 +52,59 @@ class _SheetBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(nested ? 4 : 20, 8, 8, 8),
-          child: Row(
-            children: [
-              if (nested)
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const DIcon(DIcons.arrowLeft),
-                  tooltip: 'Back',
-                ),
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+    return AnimatedPadding(
+      key: const ValueKey('shell-sheet-keyboard-inset'),
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(nested ? 4 : 20, 8, 8, 8),
+            child: Row(
+              children: [
+                if (nested)
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const DIcon(DIcons.arrowLeft),
+                    tooltip: 'Back',
+                  ),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-              // Dismissing a nested sheet means going back to the one under it,
-              // which the arrow already says better than a close box would.
-              if (!nested)
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const DIcon(DIcons.xmark),
-                  tooltip: 'Close',
-                ),
-            ],
-          ),
-        ),
-        Divider(color: theme.shell.divider, height: 1),
-        Flexible(
-          child: SingleChildScrollView(
-            // The sheet runs to the bottom edge, so the last row of a full one
-            // would otherwise sit under the home indicator.
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.paddingOf(context).bottom,
+                // Dismissing a nested sheet means going back to the one under it,
+                // which the arrow already says better than a close box would.
+                if (!nested)
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const DIcon(DIcons.xmark),
+                    tooltip: 'Close',
+                  ),
+              ],
             ),
-            child: Padding(padding: padding, child: builder(context)),
           ),
-        ),
-      ],
+          Divider(color: theme.shell.divider, height: 1),
+          Flexible(
+            child: SingleChildScrollView(
+              // The sheet runs to the bottom edge, so the last row of a full one
+              // would otherwise sit under the home indicator.
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom,
+              ),
+              child: Padding(padding: padding, child: builder(context)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

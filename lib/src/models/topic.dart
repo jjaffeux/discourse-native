@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
+import '../plugins/site_plugin.dart';
 import 'json.dart';
 import 'topic_filter.dart';
 import 'topic_tag.dart';
@@ -34,12 +35,14 @@ class Topic with Storable<Topic> {
     this.highestPostNumber = 0,
     this.tags = const [],
     this.posterAvatars = const [],
+    this.plugins = PluginData.none,
   });
 
   /// [siteUrl] resolves avatar templates, which are usually site-relative.
   factory Topic.fromJson(
     Map<String, dynamic> json,
     Map<int, String?> avatarsByUserId,
+    String siteUrl,
   ) {
     final resolvedPosters = <String>[];
     for (final poster in jsonObjects(json['posters'])) {
@@ -76,6 +79,7 @@ class Topic with Storable<Topic> {
         jsonArray(json['tags']).map(TopicTag.parse).whereType<TopicTag>(),
       ),
       posterAvatars: posters,
+      plugins: PluginData.forTopic(json, siteUrl),
     );
   }
 
@@ -95,7 +99,7 @@ class Topic with Storable<Topic> {
         siteUrl,
       );
     }
-    return Topic.fromJson(json, avatars);
+    return Topic.fromJson(json, avatars, siteUrl);
   }
 
   final int id;
@@ -137,6 +141,9 @@ class Topic with Storable<Topic> {
   final List<TopicTag> tags;
 
   final List<String> posterAvatars;
+
+  /// What optional features attached to this topic-list record.
+  final PluginData plugins;
 
   /// The count core prints for a flat tracked topic.
   ///
@@ -201,6 +208,7 @@ class Topic with Storable<Topic> {
     int? highestPostNumber,
     List<TopicTag>? tags,
     List<String>? posterAvatars,
+    PluginData? plugins,
     bool markRead = false,
   }) => Topic(
     id: id,
@@ -227,6 +235,35 @@ class Topic with Storable<Topic> {
     posterAvatars: posterAvatars == null
         ? this.posterAvatars
         : List.unmodifiable(posterAvatars),
+    plugins: plugins ?? this.plugins,
+  );
+
+  /// The topic with one complete optional-feature snapshot.
+  ///
+  /// Kept separate from [copyWith] so [PluginData.none] can deliberately clear
+  /// stale feature state when a serializer stops mentioning it.
+  Topic withPlugins(PluginData next) => Topic(
+    id: id,
+    title: title,
+    slug: slug,
+    categoryId: categoryId,
+    postsCount: postsCount,
+    replyCount: replyCount,
+    views: views,
+    likeCount: likeCount,
+    bumpedAt: bumpedAt,
+    pinned: pinned,
+    closed: closed,
+    unreadPosts: unreadPosts,
+    newPosts: newPosts,
+    seen: seen,
+    isNestedView: isNestedView,
+    hasNewReplies: hasNewReplies,
+    lastReadPostNumber: lastReadPostNumber,
+    highestPostNumber: highestPostNumber,
+    tags: tags,
+    posterAvatars: posterAvatars,
+    plugins: next,
   );
 
   @override
@@ -252,7 +289,8 @@ class Topic with Storable<Topic> {
           other.lastReadPostNumber == lastReadPostNumber &&
           other.highestPostNumber == highestPostNumber &&
           listEquals(other.tags, tags) &&
-          listEquals(other.posterAvatars, posterAvatars);
+          listEquals(other.posterAvatars, posterAvatars) &&
+          other.plugins == plugins;
 
   @override
   int get hashCode => Object.hashAll([
@@ -276,6 +314,7 @@ class Topic with Storable<Topic> {
     highestPostNumber,
     Object.hashAll(tags),
     Object.hashAll(posterAvatars),
+    plugins,
   ]);
 }
 
@@ -353,7 +392,7 @@ class TopicList {
     return TopicList(
       topics: List.unmodifiable([
         for (final topic in jsonObjects(list['topics']))
-          Topic.fromJson(topic, avatars),
+          Topic.fromJson(topic, avatars, siteUrl),
       ]),
       moreTopicsUrl: jsonText(list['more_topics_url']),
       canCreateTopic: list['can_create_topic'] == true,

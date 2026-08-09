@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:discourse_native/src/data/composer_geometry_store.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
@@ -169,6 +172,36 @@ void main() {
     final restored = tester.getRect(find.byType(ComposerPanel));
     expect(restored, preferred);
   });
+
+  testWidgets('waits for restored geometry before showing the panel', (
+    tester,
+  ) async {
+    final persistence = _DelayedComposerGeometryPersistence();
+    final composer = ComposerController(_newTopicTarget);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pumpFloatingPanel(
+      tester,
+      shell,
+      composer,
+      geometryStore: ComposerGeometryStore(persistence: persistence),
+    );
+
+    expect(find.byType(ComposerPanel), findsNothing);
+
+    const preference = ComposerGeometryPreference(
+      width: 640,
+      height: 360,
+      horizontalPosition: 0,
+      verticalPosition: 0.5,
+    );
+    persistence.complete(preference);
+    await tester.pumpAndSettle();
+
+    final restored = tester.getRect(find.byType(ComposerPanel));
+    expect(restored, const Rect.fromLTWH(16, 145, 640, 360));
+  });
 }
 
 Future<ShellController> _shell() async {
@@ -188,6 +221,7 @@ Future<void> _pumpFloatingPanel(
   ShellController shell,
   ComposerController composer, {
   Size size = const Size(900, 650),
+  ComposerGeometryStore geometryStore = const ComposerGeometryStore(),
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -196,10 +230,31 @@ Future<void> _pumpFloatingPanel(
       theme: AppTheme.dark,
       home: ShellScope(
         controller: shell,
-        child: Scaffold(body: FloatingComposerPanel(composer: composer)),
+        child: Scaffold(
+          body: FloatingComposerPanel(
+            composer: composer,
+            geometryStore: geometryStore,
+          ),
+        ),
       ),
     ),
   );
+  await tester.pump();
+}
+
+final class _DelayedComposerGeometryPersistence
+    implements ComposerGeometryPersistence {
+  final Completer<String?> _read = Completer<String?>();
+
+  @override
+  Future<String?> readGeometry() => _read.future;
+
+  @override
+  Future<bool> writeGeometry(String encoded) async => true;
+
+  void complete(ComposerGeometryPreference preference) {
+    _read.complete(jsonEncode(preference.toJson()));
+  }
 }
 
 const _replyTarget = ComposerTarget(

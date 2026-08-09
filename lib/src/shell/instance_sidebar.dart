@@ -397,7 +397,7 @@ class _SectionState extends State<_Section> {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
+class _SectionHeader extends StatefulWidget {
   const _SectionHeader({
     required this.section,
     required this.collapsed,
@@ -409,10 +409,50 @@ class _SectionHeader extends StatelessWidget {
   final VoidCallback? onToggle;
 
   @override
+  State<_SectionHeader> createState() => _SectionHeaderState();
+}
+
+class _SectionHeaderState extends State<_SectionHeader> {
+  bool _titleHovered = false;
+  bool _chevronHovered = false;
+
+  void _setTitleHovered(bool hovered) {
+    if (_titleHovered == hovered) return;
+    setState(() => _titleHovered = hovered);
+  }
+
+  void _setChevronHovered(bool hovered) {
+    if (_chevronHovered == hovered) return;
+    setState(() => _chevronHovered = hovered);
+  }
+
+  @override
+  void didUpdateWidget(_SectionHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.onToggle == null) {
+      _titleHovered = false;
+      _chevronHovered = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final title = _SectionTitle(section: section);
-    final toggle = onToggle;
+    final section = widget.section;
+    final toggle = widget.onToggle;
+    final title = _SectionTitle(
+      section: section,
+      color: _titleHovered
+          ? theme.colorScheme.onSurface
+          : theme.colorScheme.onSurfaceVariant,
+    );
+    final iconStyle = ButtonStyle(
+      foregroundColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.hovered)
+            ? theme.colorScheme.onSurface
+            : theme.colorScheme.onSurfaceVariant,
+      ),
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
@@ -424,6 +464,7 @@ class _SectionHeader extends StatelessWidget {
                 : InkWell(
                     excludeFromSemantics: true,
                     borderRadius: BorderRadius.circular(4),
+                    onHover: _setTitleHovered,
                     onTap: toggle,
                     child: title,
                   ),
@@ -432,26 +473,33 @@ class _SectionHeader extends StatelessWidget {
             IconButton(
               constraints: const BoxConstraints.tightFor(width: 24, height: 24),
               padding: EdgeInsets.zero,
+              style: iconStyle,
               tooltip: section.actionLabel,
               onPressed: action,
               icon: DIcon(section.actionIcon ?? DIcons.plus, size: 15),
             ),
           if (toggle != null)
             Tooltip(
-              message: '${collapsed ? 'Expand' : 'Collapse'} ${section.title}',
+              message:
+                  '${widget.collapsed ? 'Expand' : 'Collapse'} ${section.title}',
               child: Semantics(
                 button: true,
-                expanded: !collapsed,
+                expanded: !widget.collapsed,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(4),
+                  onHover: _setChevronHovered,
                   onTap: toggle,
                   child: SizedBox.square(
                     dimension: 24,
                     child: Center(
                       child: DIcon(
-                        collapsed ? DIcons.chevronRight : DIcons.chevronDown,
+                        widget.collapsed
+                            ? DIcons.chevronRight
+                            : DIcons.chevronDown,
                         size: 11,
-                        color: theme.colorScheme.onSurfaceVariant,
+                        color: _chevronHovered
+                            ? theme.colorScheme.onSurface
+                            : theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -465,9 +513,10 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.section});
+  const _SectionTitle({required this.section, required this.color});
 
   final SidebarSection section;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -480,7 +529,7 @@ class _SectionTitle extends StatelessWidget {
         child: Text(
           section.title.toUpperCase(),
           style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+            color: color,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.6,
           ),

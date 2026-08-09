@@ -1,0 +1,250 @@
+import '../../data/api_credentials.dart';
+import '../../data/discourse_api_contracts.dart';
+import '../../data/site_lifecycle.dart';
+import '../../diagnostics/diagnostics_controller.dart';
+import '../../foundation/frame_safe_notifier.dart';
+import 'assign_api.dart';
+import 'assignment.dart';
+
+typedef AssignmentPermissionReader =
+    bool Function(String siteUrl, AssignmentTarget target);
+typedef AssignmentTopicReloader =
+    Future<void> Function(String siteUrl, int topicId);
+typedef AssignmentFallbackInvalidator = void Function(String siteUrl);
+
+/// Target-scoped reads and serialized writes for Assign.
+///
+/// Permission is checked again at the command boundary by [canAssign]. Modern
+/// sites answer for the exact topic or post, so category-scoped denial wins;
+/// the shell permits a missing legacy answer to fall back only to a freshly
+/// fetched session capability. Site settings and persisted session state are
+/// never authority.
+class AssignmentController extends FrameSafeNotifier {
+  AssignmentController({
+    required this.api,
+    required this.credentials,
+    required this.lifecycle,
+    required this.canAssign,
+    required this.reloadTopic,
+    required this.invalidateLegacyFallback,
+  });
+
+  final AssignApi api;
+  final ApiCredentialReader credentials;
+  final SiteLifecycle lifecycle;
+  final AssignmentPermissionReader canAssign;
+  final AssignmentTopicReloader reloadTopic;
+  final AssignmentFallbackInvalidator invalidateLegacyFallback;
+
+  final Set<({String siteUrl, AssignmentTarget target})> _writes = {};
+
+  static const _targetUnavailable =
+      'This assignment target is no longer available.';
+  static const _writeAlreadyInProgress =
+      'An assignment update is already in progress.';
+
+  bool isWriting(String siteUrl, AssignmentTarget target) =>
+      _writes.contains((siteUrl: siteUrl, target: target));
+
+  void forget(String siteUrl) {
+    final before = _writes.length;
+    _writes.removeWhere((key) => key.siteUrl == siteUrl);
+    if (_writes.length != before) notifySafely();
+  }
+
+  Future<AssignmentSuggestions> suggestions(
+    String siteUrl,
+    AssignmentTarget target,
+  ) => _lookup(
+    siteUrl,
+    target,
+    (session) => api.suggestions(
+      siteUrl: siteUrl,
+      apiKey: session.apiKey,
+      clientId: session.clientId,
+      target: target,
+    ),
+  );
+
+  Future<List<AssignmentAssignee>> search(
+    String siteUrl,
+    AssignmentTarget target,
+    AssignmentSuggestions suggestions,
+    String term,
+  ) => _lookup(
+    siteUrl,
+    target,
+    (session) => api.searchAssignees(
+      siteUrl: siteUrl,
+      apiKey: session.apiKey,
+      clientId: session.clientId,
+      term: term.trim(),
+      suggestions: suggestions,
+    ),
+  );
+
+  Future<String?> assign(
+    String siteUrl,
+    AssignmentTarget target,
+    AssignmentAssignee assignee, {
+    String? note,
+    String? status,
+  }) => _mutate(siteUrl, target, (session) {
+    return api.assign(
+      siteUrl: siteUrl,
+      apiKey: session.apiKey,
+      clientId: session.clientId,
+      target: target,
+      assignee: assignee,
+      note: note,
+      status: status,
+    );
+  });
+
+  Future<String?> unassign(String siteUrl, AssignmentTarget target) =>
+      _mutate(siteUrl, target, (session) {
+        return api.unassign(
+          siteUrl: siteUrl,
+          apiKey: session.apiKey,
+          clientId: session.clientId,
+          target: target,
+        );
+      });
+
+  Future<String?> _mutate(
+    String siteUrl,
+    AssignmentTarget target,
+    Future<void> Function(_AssignmentSession session) write,
+  ) async {
+    if (!canAssign(siteUrl, target)) {
+      return const WriteException(WriteFailure.forbidden).message;
+    }
+
+    final key = (siteUrl: siteUrl, target: target);
+    if (!_writes.add(key)) return _writeAlreadyInProgress;
+    notifySafely();
+    final lease = lifecycle.capture(siteUrl);
+
+    try {
+      final session = await _session(siteUrl, lease: lease);
+      if (!lease.isCurrent) return null;
+      await write(session);
+      if (!lease.isCurrent) return null;
+
+      // The write response has no assignment record, and the tracking action
+      // it creates may also change the post stream. Reconcile the full topic.
+      await reloadTopic(siteUrl, target.topicId);
+      return null;
+    } on WriteException catch (error) {
+      if (lease.isCurrent && error.statusCode == 404) {
+        // A missing plugin route and a deleted target are intentionally
+        // indistinguishable. A scoped topic read settles both without
+        // disabling Assign for unrelated records.
+        invalidateLegacyFallback(siteUrl);
+        await _reconcileUnavailable(siteUrl, target.topicId);
+        return _targetUnavailable;
+      }
+      return error.message;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        DiagnosticsSink.current.reportError(
+          error,
+          stackTrace,
+          operation: 'assign.write',
+          source: 'assign',
+          handled: true,
+          degraded: true,
+        );
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      _writes.remove(key);
+      notifySafely();
+    }
+  }
+
+  void _requirePermission(String siteUrl, AssignmentTarget target) {
+    if (!canAssign(siteUrl, target)) {
+      throw const WriteException(WriteFailure.forbidden);
+    }
+  }
+
+  Future<T> _lookup<T>(
+    String siteUrl,
+    AssignmentTarget target,
+    Future<T> Function(_AssignmentSession session) read,
+  ) async {
+    _requirePermission(siteUrl, target);
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final session = await _session(siteUrl, lease: lease);
+      final result = await read(session);
+      if (!lease.isCurrent) {
+        throw const WriteException(WriteFailure.forbidden);
+      }
+      return result;
+    } on SiteLookupException catch (error, stackTrace) {
+      if (!lease.isCurrent || error.statusCode != 404) rethrow;
+      invalidateLegacyFallback(siteUrl);
+      await _reconcileUnavailable(siteUrl, target.topicId);
+      throw WriteException(
+        WriteFailure.unreachable,
+        errors: const [_targetUnavailable],
+        statusCode: 404,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _reconcileUnavailable(String siteUrl, int topicId) async {
+    try {
+      await reloadTopic(siteUrl, topicId);
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'assign.reconcileUnavailable',
+        source: 'assign',
+        handled: true,
+        degraded: true,
+      );
+    }
+  }
+
+  Future<_AssignmentSession> _session(
+    String siteUrl, {
+    SiteLease? lease,
+  }) async {
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (lease != null && !lease.isCurrent) {
+        throw const WriteException(WriteFailure.forbidden);
+      }
+      if (apiKey == null) {
+        throw const WriteException(WriteFailure.forbidden);
+      }
+      final clientId = await credentials.clientId();
+      if (lease != null && !lease.isCurrent) {
+        throw const WriteException(WriteFailure.forbidden);
+      }
+      return (apiKey: apiKey, clientId: clientId);
+    } on WriteException {
+      rethrow;
+    } catch (error, stackTrace) {
+      throw WriteException(
+        WriteFailure.unreachable,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _writes.clear();
+    super.dispose();
+  }
+}
+
+typedef _AssignmentSession = ({String apiKey, String clientId});

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
+import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -23,7 +24,13 @@ class SmallActionDescription {
 
   /// The description for [post], or null if it is not a small action.
   static SmallActionDescription? of(Post post) {
-    if (!post.isSmallAction) return null;
+    if (pluginRegistry.smallAction(post) case final contribution?) {
+      return SmallActionDescription(
+        icon: contribution.icon,
+        phrase: contribution.phrase,
+      );
+    }
+    if (post.postType != Post.smallActionPostType) return null;
     final code = post.actionCode;
     if (code == null) return null;
     return SmallActionDescription(
