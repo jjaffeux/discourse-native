@@ -82,9 +82,15 @@ void main() {
       onClose: closed.add,
     );
 
-    await tester.tap(find.byKey(const ValueKey('forum-tab-chat-2')));
+    final selectionGesture = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('forum-tab-chat-2'))),
+    );
+    // Native desktop tabs activate on pointer-down rather than waiting for the
+    // complete click gesture.
     expect(selected, [second.id]);
     expect(closed, isEmpty);
+    await selectionGesture.up();
+    expect(selected, [second.id]);
 
     await tester.tap(find.byKey(const ValueKey('forum-tab-close-topic-1')));
     expect(closed, [first.id]);
