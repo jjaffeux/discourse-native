@@ -114,6 +114,7 @@ class ShellController extends FrameSafeNotifier {
     required this.authenticator,
     required this.drafts,
     ForumTabStore? forumTabs,
+    this.forumTabsEnabled = true,
     Store? store,
     SiteLifecycle? lifecycle,
     this.trackers = SiteTracker.new,
@@ -130,6 +131,12 @@ class ShellController extends FrameSafeNotifier {
 
   final InstanceStore instanceStore;
   final ForumTabStore forumTabs;
+
+  /// Whether the platform exposes the forum tab lifecycle.
+  ///
+  /// Mobile still uses one internal navigation context so the rest of the
+  /// shell can share the same routing code, but it can never accumulate tabs.
+  final bool forumTabsEnabled;
 
   /// The identity map. Every topic, post, category and user card the app holds
   /// lives here once, and the maps in this class hold ids into it — so a list,
@@ -492,6 +499,11 @@ class ShellController extends FrameSafeNotifier {
     );
   }
 
+  ForumWorkspace _normalizeWorkspace(ForumWorkspace workspace) {
+    if (forumTabsEnabled || workspace.tabs.length == 1) return workspace;
+    return workspace.copyWith(tabs: [workspace.activeTab]);
+  }
+
   ForumWorkspace _ensureWorkspace(
     DiscourseInstance instance, {
     bool persist = true,
@@ -508,7 +520,8 @@ class ShellController extends FrameSafeNotifier {
   }
 
   void _putWorkspace(ForumWorkspace workspace, {bool persist = true}) {
-    _forumWorkspaces[workspace.siteUrl] = workspace;
+    final normalized = _normalizeWorkspace(workspace);
+    _forumWorkspaces[normalized.siteUrl] = normalized;
     if (persist) _persistWorkspaces();
   }
 
@@ -594,13 +607,18 @@ class ShellController extends FrameSafeNotifier {
       ..addAll(stored);
     _instanceIndex = 0;
     _forumWorkspaces.clear();
+    var workspacesNormalized = false;
     for (final workspace in await storedWorkspaces) {
+      final normalized = _normalizeWorkspace(workspace);
+      workspacesNormalized =
+          workspacesNormalized || !identical(normalized, workspace);
       final instance = _instanceAt(workspace.siteUrl);
       if (instance != null &&
           workspace.accountIdentity == _workspaceAccountIdentity(instance)) {
-        _forumWorkspaces[workspace.siteUrl] = workspace;
+        _forumWorkspaces[workspace.siteUrl] = normalized;
       }
     }
+    if (workspacesNormalized) _persistWorkspaces();
     final initialInstance = currentInstance;
     // A persisted palette is already good enough for the first frame. Its
     // expensive stylesheet refresh follows the selected account's small JSON
@@ -5649,6 +5667,7 @@ class ShellController extends FrameSafeNotifier {
 
   /// Adds a fresh Topics work context to the selected forum and opens it.
   void createTab() {
+    if (!forumTabsEnabled) return;
     final instance = currentInstance;
     if (instance == null) return;
     final workspace = _ensureWorkspace(instance);
@@ -5664,6 +5683,7 @@ class ShellController extends FrameSafeNotifier {
 
   /// Activates one of the tabs owned by the selected forum.
   void selectTab(String id) {
+    if (!forumTabsEnabled) return;
     final instance = currentInstance;
     final workspace = currentWorkspace;
     if (instance == null || workspace?.tabById(id) == null) return;
@@ -5682,6 +5702,7 @@ class ShellController extends FrameSafeNotifier {
   /// When the active tab closes, its right neighbour wins, falling back to the
   /// left at the end of the list. The forum always keeps one fresh Topics tab.
   void closeTab(String id) {
+    if (!forumTabsEnabled) return;
     final instance = currentInstance;
     final workspace = currentWorkspace;
     if (instance == null || workspace == null) return;

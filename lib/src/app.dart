@@ -15,6 +15,7 @@ import 'diagnostics/diagnostics.dart';
 import 'models/site_appearance.dart';
 import 'plugins/local_dates/local_date_environment.dart';
 import 'shell/adaptive_shell.dart';
+import 'shell/platform.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
 import 'theme/app_theme.dart';
@@ -71,6 +72,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     authenticator: _authenticator,
     drafts: _drafts,
     forumTabs: _forumTabs,
+    forumTabsEnabled: forumTabsEnabledForCurrentPlatform,
     trackers: _trackers,
     // Nothing updates itself. Linux ships as a .deb from an apt repository, so
     // updates arrive with `apt upgrade` the way the rest of the system does,

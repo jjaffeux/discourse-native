@@ -145,7 +145,8 @@ class InstanceSidebar extends StatelessWidget {
               Expanded(
                 child: CustomScrollView(
                   slivers: [
-                    const SliverToBoxAdapter(child: _CurrentForumOpenTabs()),
+                    if (controller.forumTabsEnabled)
+                      const SliverToBoxAdapter(child: _CurrentForumOpenTabs()),
                     ListenableBuilder(
                       listenable: Listenable.merge([
                         controller.accountActivity.totalsListenable,
