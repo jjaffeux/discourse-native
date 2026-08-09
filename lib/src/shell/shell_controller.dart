@@ -3,6 +3,8 @@ import 'dart:async';
 // has no opinion about how anything is painted.
 import 'dart:ui' show Color;
 
+import 'package:flutter/scheduler.dart';
+
 import '../data/authenticator.dart';
 import '../data/discourse_api.dart';
 import '../data/draft_store.dart';
@@ -437,6 +439,9 @@ class ShellController extends FrameSafeNotifier {
 
   final Map<String, ForumWorkspace> _forumWorkspaces = {};
   int _tabSequence = 0;
+  ({String siteUrl, String tabId})? _pendingTabSelection;
+  bool _tabSelectionSettlementScheduled = false;
+  bool _tabSelectionPersistencePending = false;
 
   ForumWorkspace? get currentWorkspace {
     final siteUrl = currentInstance?.url;
@@ -532,6 +537,7 @@ class ShellController extends FrameSafeNotifier {
   }
 
   void _persistWorkspaces() {
+    _tabSelectionPersistencePending = false;
     unawaited(forumTabs.save(_forumWorkspaces.values));
   }
 
@@ -5689,12 +5695,65 @@ class ShellController extends FrameSafeNotifier {
     if (instance == null || workspace?.tabById(id) == null) return;
 
     if (workspace!.activeTabId != id) {
-      _putWorkspace(workspace.copyWith(activeTabId: id));
-      _syncTopicChannels();
-      _hydrateActiveTab(instance);
+      // A desktop tab click is local navigation. Paint that state before
+      // serialising every workspace or starting any cache/network hydration;
+      // both otherwise share the pointer event's UI-isolate turn and can make
+      // a synchronous selection feel as though it is waiting on the server.
+      _putWorkspace(workspace.copyWith(activeTabId: id), persist: false);
+      _tabSelectionPersistencePending = true;
+      _mobilePane = MobilePane.content;
+      _notify();
+      _scheduleTabSelectionSettlement(instance.url, id);
+      return;
     }
     _mobilePane = MobilePane.content;
     _notify();
+  }
+
+  void _scheduleTabSelectionSettlement(String siteUrl, String tabId) {
+    _pendingTabSelection = (siteUrl: siteUrl, tabId: tabId);
+
+    // Controller-only consumers have nothing to paint. Preserve their
+    // synchronous hydration/persistence semantics rather than leaving a task
+    // waiting for a test or headless binding to produce a frame.
+    if (!hasListeners) {
+      _settlePendingTabSelection();
+      return;
+    }
+    if (_tabSelectionSettlementScheduled) return;
+    _tabSelectionSettlementScheduled = true;
+
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    final needsAnotherFrame =
+        phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.postFrameCallbacks;
+    unawaited(() async {
+      // endOfFrame schedules a frame when called while idle. Unlike a zero
+      // duration timer, it guarantees the selected indicator, header and
+      // cached viewport have had an opportunity to paint first.
+      await SchedulerBinding.instance.endOfFrame;
+      // A selection raised while layout/paint or another post-frame callback
+      // is running cannot notify its widgets until the following frame.
+      if (needsAnotherFrame) await SchedulerBinding.instance.endOfFrame;
+      if (!isDisposed) _settlePendingTabSelection();
+    }());
+  }
+
+  void _settlePendingTabSelection() {
+    final target = _pendingTabSelection;
+    _pendingTabSelection = null;
+    _tabSelectionSettlementScheduled = false;
+    if (_tabSelectionPersistencePending) _persistWorkspaces();
+    if (target == null ||
+        currentInstance?.url != target.siteUrl ||
+        activeTabId != target.tabId) {
+      return;
+    }
+
+    final instance = _instanceAt(target.siteUrl);
+    if (instance == null) return;
+    _syncTopicChannels();
+    _hydrateActiveTab(instance);
   }
 
   /// Closes a tab in the selected forum without affecting any other forum.
@@ -5928,6 +5987,12 @@ class ShellController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    // A window can close in the frame immediately after a selection. Keep the
+    // latest local choice durable, but never start hydration while tearing the
+    // controller down.
+    _pendingTabSelection = null;
+    _tabSelectionSettlementScheduled = false;
+    if (_tabSelectionPersistencePending) _persistWorkspaces();
     _topicReads.dispose();
     for (final instance in _instances) {
       lifecycle.invalidate(instance.url);

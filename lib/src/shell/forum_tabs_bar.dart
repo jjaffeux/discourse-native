@@ -280,6 +280,26 @@ class _ForumTab extends StatefulWidget {
 
 class _ForumTabState extends State<_ForumTab> {
   bool _hovered = false;
+  bool _selectedOnPointerDown = false;
+
+  void _handleTapDown(TapDownDetails _) {
+    _selectedOnPointerDown = true;
+    widget.onSelect();
+  }
+
+  void _handleTap() {
+    if (_selectedOnPointerDown) {
+      _selectedOnPointerDown = false;
+      return;
+    }
+    // Keyboard activation has no pointer-down gesture, so it still reaches
+    // the same selection command through InkWell's normal tap action.
+    widget.onSelect();
+  }
+
+  void _handleTapCancel() {
+    _selectedOnPointerDown = false;
+  }
 
   String get _selectionSemanticsLabel {
     final badge = widget.item.badge;
@@ -431,7 +451,12 @@ class _ForumTabState extends State<_ForumTab> {
                   Expanded(
                     child: ExcludeSemantics(
                       child: InkWell(
-                        onTap: widget.onSelect,
+                        // Desktop tabs conventionally activate on mouse-down.
+                        // Waiting for the full tap gesture makes a fast local
+                        // context switch feel needlessly remote.
+                        onTapDown: _handleTapDown,
+                        onTap: _handleTap,
+                        onTapCancel: _handleTapCancel,
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(7),
                         ),

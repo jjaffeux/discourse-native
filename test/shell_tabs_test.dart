@@ -229,6 +229,33 @@ void main() {
     expect(controller.topicScrollPostNumber(404), 16);
   });
 
+  test('disposing flushes a tab selection waiting for its paint', () async {
+    final closingTabs = FakeForumTabStore();
+    final closing = ShellController(
+      instanceStore: FakeInstanceStore(forums),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      forumTabs: closingTabs,
+      trackers: FakeSiteTracker.reset(),
+    );
+    await closing.load();
+    final firstTabId = closing.activeTabId!;
+    closing.createTab();
+    final savesBeforeSelection = closingTabs.saveCount;
+
+    // A listener makes selection use the paint-first path. No frame is pumped
+    // before disposal, matching a window closed immediately after the click.
+    closing.addListener(() {});
+    closing.selectTab(firstTabId);
+    expect(closingTabs.saveCount, savesBeforeSelection);
+
+    closing.dispose();
+
+    expect(closingTabs.saveCount, savesBeforeSelection + 1);
+    expect(closingTabs.workspaces.single.activeTabId, firstTabId);
+  });
+
   test('disabled mode ignores tab lifecycle commands', () async {
     final disabledTabs = FakeForumTabStore();
     final disabled = ShellController(

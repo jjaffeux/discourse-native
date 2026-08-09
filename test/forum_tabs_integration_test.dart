@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -115,6 +119,132 @@ void main() {
   );
 
   testWidgets(
+    'activates and renders an existing tab before its feed finishes',
+    (tester) => _withPlatform(TargetPlatform.macOS, () async {
+      const siteUrl = 'https://one.example';
+      const firstTabId = 'tab-latest';
+      const slowTabId = 'tab-slow';
+      const latestRoute = ContentRoute(
+        id: 'latest',
+        title: 'Topics',
+        icon: DIcons.layerGroup,
+      );
+      const slowRoute = ContentRoute(
+        id: 'slow-list',
+        title: 'Slow destination',
+        icon: DIcons.folder,
+        feedPath: '/slow.json',
+      );
+      final workspace = ForumWorkspace(
+        siteUrl: siteUrl,
+        accountIdentity: 'anonymous',
+        tabs: [
+          ForumTab(
+            id: firstTabId,
+            rootDestinationId: latestRoute.id,
+            contentStack: const [latestRoute],
+          ),
+          ForumTab(
+            id: slowTabId,
+            rootDestinationId: slowRoute.id,
+            contentStack: const [slowRoute],
+          ),
+        ],
+        activeTabId: firstTabId,
+      );
+      final releaseSlowFeed = Completer<void>();
+      final slowFeedStarted = Completer<void>();
+      addTearDown(() {
+        if (!releaseSlowFeed.isCompleted) releaseSlowFeed.complete();
+      });
+      final api = _PathGatedApi(
+        heldPath: slowRoute.feedPath!,
+        release: releaseSlowFeed,
+        started: slowFeedStarted,
+        feeds: const {'/latest.json': [], '/slow.json': []},
+      );
+      final tabStore = FakeForumTabStore([workspace]);
+
+      await _pumpShell(tester, api: api, forumTabs: tabStore);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      final originalViewportKey = ValueKey<(String?, String?, String, int?)>((
+        siteUrl,
+        firstTabId,
+        latestRoute.id,
+        null,
+      ));
+      final slowViewportKey = ValueKey<(String?, String?, String, int?)>((
+        siteUrl,
+        slowTabId,
+        slowRoute.id,
+        null,
+      ));
+
+      expect(controller.activeTabId, firstTabId);
+      expect(find.byKey(originalViewportKey), findsOneWidget);
+      expect(slowFeedStarted.isCompleted, isFalse);
+
+      final savesBeforeRapidSwitch = tabStore.saveCount;
+      controller.selectTab(slowTabId);
+      controller.selectTab(firstTabId);
+      expect(controller.activeTabId, firstTabId);
+      await tester.pump();
+      expect(tabStore.saveCount, savesBeforeRapidSwitch + 1);
+      expect(slowFeedStarted.isCompleted, isFalse);
+
+      final savesBeforeTap = tabStore.saveCount;
+      var paintedBeforeBackgroundWork = false;
+      tester.binding.addPostFrameCallback((_) {
+        paintedBeforeBackgroundWork = true;
+        expect(_bar(tester).selectedId, slowTabId);
+        expect(
+          find.byKey(const ValueKey('forum-tab-indicator-tab-slow')),
+          findsOneWidget,
+        );
+        expect(find.byKey(originalViewportKey), findsNothing);
+        expect(find.byKey(slowViewportKey), findsOneWidget);
+        expect(slowFeedStarted.isCompleted, isFalse);
+        expect(tabStore.saveCount, savesBeforeTap);
+      });
+
+      await tester.tap(find.byKey(const ValueKey('forum-tab-tab-slow')));
+
+      // Gesture activation mutates navigation state synchronously. Neither a
+      // frame nor the destination's response is required for this state move.
+      expect(controller.activeTabId, slowTabId);
+      expect(releaseSlowFeed.isCompleted, isFalse);
+      expect(tabStore.saveCount, savesBeforeTap);
+
+      // Paint the optimistic switch once. `pumpAndSettle` here would wait
+      // through tab reveal and hide a regression tied to async hydration.
+      await tester.pump();
+
+      expect(paintedBeforeBackgroundWork, isTrue);
+      expect(slowFeedStarted.isCompleted, isTrue);
+      expect(releaseSlowFeed.isCompleted, isFalse);
+      expect(tabStore.saveCount, savesBeforeTap + 1);
+      expect(_bar(tester).selectedId, slowTabId);
+      expect(
+        find.byKey(const ValueKey('forum-tab-indicator-tab-slow')),
+        findsOneWidget,
+      );
+      expect(find.byKey(originalViewportKey), findsNothing);
+      expect(find.byKey(slowViewportKey), findsOneWidget);
+      final slowContentText = _contentTextOutsideTabs('Slow destination');
+      expect(slowContentText, findsWidgets);
+      expect(
+        tester.getCenter(slowContentText.first).dy,
+        lessThan(tester.getTopLeft(find.byKey(slowViewportKey)).dy),
+      );
+
+      releaseSlowFeed.complete();
+      await tester.pumpAndSettle();
+    }),
+  );
+
+  testWidgets(
     'keeps tab presentation out of InstanceSidebar',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       await _pumpShell(tester);
@@ -221,11 +351,28 @@ Finder _sidebarText(String text) => find.descendant(
   matching: find.text(text),
 );
 
+Finder _contentTextOutsideTabs(String label) =>
+    find.byElementPredicate((element) {
+      final widget = element.widget;
+      if (widget is! Text || widget.data != label) return false;
+
+      var inMainContent = false;
+      var inTabBar = false;
+      element.visitAncestorElements((ancestor) {
+        inMainContent |= ancestor.widget is MainContent;
+        inTabBar |= ancestor.widget is ForumTabsBar;
+        return true;
+      });
+      return inMainContent && !inTabBar;
+    }, description: 'main content text outside forum tabs labelled "$label"');
+
 Future<void> _pumpShell(
   WidgetTester tester, {
   bool twoForums = false,
   Size size = _medium,
   Key? key,
+  FakeDiscourseApi? api,
+  FakeForumTabStore? forumTabs,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -239,10 +386,10 @@ Future<void> _pumpShell(
     DiscourseApp(
       key: key,
       store: FakeInstanceStore(instances),
-      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
       authenticator: FakeAuthenticator(),
       drafts: FakeDraftStore(),
-      forumTabs: FakeForumTabStore(),
+      forumTabs: forumTabs ?? FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
@@ -263,5 +410,37 @@ Future<void> _withPlatform(
     await body();
   } finally {
     debugDefaultTargetPlatformOverride = previous;
+  }
+}
+
+final class _PathGatedApi extends FakeDiscourseApi {
+  _PathGatedApi({
+    required this.heldPath,
+    required this.release,
+    required this.started,
+    required super.feeds,
+  });
+
+  final String heldPath;
+  final Completer<void> release;
+  final Completer<void> started;
+
+  @override
+  Future<TopicList> topicList({
+    required String siteUrl,
+    required String path,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (path == heldPath) {
+      if (!started.isCompleted) started.complete();
+      await release.future;
+    }
+    return super.topicList(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
   }
 }
