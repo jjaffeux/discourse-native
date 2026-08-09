@@ -169,10 +169,12 @@ Two things the payload makes you handle:
 The list is lazy already: `ListView.separated` with an `itemBuilder` is backed
 by a `SliverChildBuilderDelegate`, so only rows near the viewport are built.
 That is Flutter's virtualization — there is no separate widget for it. The
-sidebar is deliberately one measured `SingleChildScrollView` child: treating
-its independently updating section groups as lazy list children makes Flutter
-estimate one group's height from another, then correct the scroll boundary when
-the estimate is disproved.
+sidebar uses the same idea at destination-row granularity: its section shells
+stay mounted so offscreen sections can restore stored collapse state without
+building their rows, while each section's fixed-height
+`SliverFixedExtentList` avoids building every destination upfront. The fixed
+extent also gives Flutter the exact scroll boundary without measuring every
+destination or estimating one independently updating section from another.
 
 Pagination follows `topic_list.more_topics_url`, with one trap: Discourse
 reports it as `/latest?no_definitions=true&page=1` — **no extension**, and that

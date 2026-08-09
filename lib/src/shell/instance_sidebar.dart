@@ -122,75 +122,67 @@ class InstanceSidebar extends StatelessWidget {
               _SidebarHeader(name: sidebar.name!, showUserMenu: showUserMenu),
               if (showUserMenu) const _SidebarSearchRow(),
               Expanded(
-                // Keep the independently updating groups inside one measured
-                // child. As separate lazy-list children Flutter estimates an
-                // unseen group's height from the visible one, then corrects
-                // the active scroll when their very different sizes meet.
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      ListenableBuilder(
-                        listenable: Listenable.merge([
-                          controller.accountActivity.totalsListenable,
-                          controller.draftList,
-                        ]),
-                        builder: (context, _) => Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            for (final section in sidebar.sections)
-                              _Section(
-                                key: ValueKey((sidebar.siteUrl, section.id)),
-                                siteUrl: sidebar.siteUrl!,
-                                section: section,
-                                store: sectionStore,
-                                selectedId: sidebar.destinationId,
-                                badgeFor: controller.sidebarBadgeFor,
-                                onSelect: (destination) {
-                                  final url = destination.url;
-                                  if (url == null) {
-                                    controller.selectDestination(destination);
-                                  } else {
-                                    unawaited(
-                                      openLink(
-                                        context,
-                                        url,
-                                        title: destination.label,
-                                        siteUrl: sidebar.siteUrl,
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                          ],
-                        ),
+                child: CustomScrollView(
+                  slivers: [
+                    ListenableBuilder(
+                      listenable: Listenable.merge([
+                        controller.accountActivity.totalsListenable,
+                        controller.draftList,
+                      ]),
+                      builder: (context, _) => SliverMainAxisGroup(
+                        slivers: [
+                          for (final section in sidebar.sections)
+                            _Section(
+                              key: ValueKey((sidebar.siteUrl, section.id)),
+                              siteUrl: sidebar.siteUrl!,
+                              section: section,
+                              store: sectionStore,
+                              selectedId: sidebar.destinationId,
+                              badgeFor: controller.sidebarBadgeFor,
+                              onSelect: (destination) {
+                                final url = destination.url;
+                                if (url == null) {
+                                  controller.selectDestination(destination);
+                                } else {
+                                  unawaited(
+                                    openLink(
+                                      context,
+                                      url,
+                                      title: destination.label,
+                                      siteUrl: sidebar.siteUrl,
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                        ],
                       ),
-                      ListenableBuilder(
-                        listenable: Listenable.merge(
-                          pluginRegistry.sidebarListenables(context),
-                        ),
-                        builder: (context, _) => Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Optional features contribute below the routes every
-                            // site has, in the order `sitePlugins` lists them.
-                            for (final section
-                                in pluginRegistry.sidebarSections(context))
-                              _Section(
-                                key: ValueKey((sidebar.siteUrl, section.id)),
-                                siteUrl: sidebar.siteUrl!,
-                                section: section,
-                                store: sectionStore,
-                                selectedId: sidebar.destinationId,
-                                badgeFor: controller.sidebarBadgeFor,
-                                onSelect: controller.selectDestination,
-                              ),
-                          ],
-                        ),
+                    ),
+                    ListenableBuilder(
+                      listenable: Listenable.merge(
+                        pluginRegistry.sidebarListenables(context),
                       ),
-                    ],
-                  ),
+                      builder: (context, _) => SliverMainAxisGroup(
+                        slivers: [
+                          // Optional features contribute below the routes every
+                          // site has, in the order `sitePlugins` lists them.
+                          for (final section in pluginRegistry.sidebarSections(
+                            context,
+                          ))
+                            _Section(
+                              key: ValueKey((sidebar.siteUrl, section.id)),
+                              siteUrl: sidebar.siteUrl!,
+                              section: section,
+                              store: sectionStore,
+                              selectedId: sidebar.destinationId,
+                              badgeFor: controller.sidebarBadgeFor,
+                              onSelect: controller.selectDestination,
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                  ],
                 ),
               ),
             ],
@@ -369,35 +361,55 @@ class _SectionState extends State<_Section> {
   @override
   Widget build(BuildContext context) {
     final section = widget.section;
+    final rows = <({SidebarDestination destination, bool child})>[];
+    if (!section.collapsible || !_collapsed) {
+      for (final destination in section.destinations) {
+        rows.add((destination: destination, child: false));
+        for (final child in destination.children) {
+          rows.add((destination: child, child: true));
+        }
+      }
+    }
+    final rowIndexes = <String, int>{
+      for (var index = 0; index < rows.length; index++)
+        rows[index].destination.id: index,
+    };
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (section.showHeader)
-          _SectionHeader(
-            section: section,
-            collapsed: _collapsed,
-            onToggle: section.collapsible ? _toggle : null,
+    // Section shells remain eager so their persisted collapse state is restored
+    // before scrolling. Only the fixed-height destination rows are lazy.
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: section.showHeader
+              ? _SectionHeader(
+                  section: section,
+                  collapsed: _collapsed,
+                  onToggle: section.collapsible ? _toggle : null,
+                )
+              : const SizedBox(height: 8),
+        ),
+        if (rows.isNotEmpty)
+          SliverFixedExtentList.builder(
+            itemExtent: _DestinationTile.extent,
+            itemCount: rows.length,
+            // Separate section delegates would otherwise restart at zero.
+            addSemanticIndexes: false,
+            findChildIndexCallback: (key) =>
+                key is ValueKey<String> ? rowIndexes[key.value] : null,
+            itemBuilder: (context, index) {
+              final row = rows[index];
+              final destination = row.destination;
+              return _DestinationTile(
+                key: ValueKey(destination.id),
+                destination: destination,
+                selected: !row.child && destination.id == widget.selectedId,
+                badgeCount: row.child ? 0 : widget.badgeFor(destination.id),
+                onTap:
+                    destination.onTap ??
+                    (row.child ? () {} : () => widget.onSelect(destination)),
+              );
+            },
           ),
-        if (!section.showHeader) const SizedBox(height: 8),
-        if (!section.collapsible || !_collapsed)
-          for (final destination in section.destinations) ...[
-            _DestinationTile(
-              key: ValueKey(destination.id),
-              destination: destination,
-              selected: destination.id == widget.selectedId,
-              badgeCount: widget.badgeFor(destination.id),
-              onTap: destination.onTap ?? () => widget.onSelect(destination),
-            ),
-            for (final child in destination.children)
-              _DestinationTile(
-                key: ValueKey(child.id),
-                destination: child,
-                selected: false,
-                badgeCount: 0,
-                onTap: child.onTap ?? () {},
-              ),
-          ],
       ],
     );
   }
@@ -559,6 +571,9 @@ class _DestinationTile extends StatefulWidget {
   final int badgeCount;
   final VoidCallback onTap;
 
+  // One pixel of vertical padding around a fixed 34-pixel row.
+  static const double extent = 36;
+
   @override
   State<_DestinationTile> createState() => _DestinationTileState();
 }
@@ -678,7 +693,7 @@ class _DestinationTileState extends State<_DestinationTile> {
         onHover: destination.enabled ? _setHovered : null,
         borderRadius: BorderRadius.circular(6),
         child: Container(
-          height: 34,
+          height: _DestinationTile.extent - 2,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: _hovered
