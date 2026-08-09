@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:relative_time/relative_time.dart';
 
 import 'data/authenticator.dart';
 import 'data/discourse_api.dart';
@@ -11,6 +12,7 @@ import 'data/update_store.dart';
 import 'data/updater.dart';
 import 'diagnostics/diagnostics.dart';
 import 'models/site_appearance.dart';
+import 'plugins/local_dates/local_date_environment.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
@@ -158,6 +160,11 @@ class _DiscourseAppState extends State<DiscourseApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = _isForeground(state);
     _controller.setForeground(_foreground);
+    if (state == AppLifecycleState.resumed) {
+      unawaited(
+        LocalDateEnvironment.instance.refreshDeviceTimezone(forceNotify: true),
+      );
+    }
     if (!_foreground) unawaited(widget.diagnostics?.flush());
   }
 
@@ -223,6 +230,8 @@ class _DiscourseAppState extends State<DiscourseApp>
     theme: theme,
     darkTheme: darkTheme,
     themeMode: themeMode,
+    localizationsDelegates: RelativeTimeLocalizations.localizationsDelegates,
+    supportedLocales: RelativeTimeLocalizations.supportedLocales,
     home: const AdaptiveShell(),
   );
 }

@@ -3176,6 +3176,36 @@ void _writeGroups() {
       );
     });
 
+    test('reads and persists the current account timezone', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'current_user': {
+                'id': 7,
+                'username': 'sam',
+                'user_option': {'timezone': 'America/New_York'},
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final user = await api.currentUser(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+      );
+      final stored = DiscourseUser.fromJson(user.toJson());
+
+      expect(user.timezone, 'America/New_York');
+      expect(stored, user);
+      expect(
+        DiscourseUser.fromJson(const {'username': 'old'}).timezone,
+        isNull,
+      );
+    });
+
     test('reads the current account’s chat header state', () async {
       final api = DiscourseApi(
         client: MockClient(
