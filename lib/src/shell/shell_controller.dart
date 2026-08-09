@@ -2113,30 +2113,32 @@ class ShellController extends FrameSafeNotifier {
     }
 
     final lease = lifecycle.capture(instance.url);
-    final credential = await _credentialForWrite(instance.url);
-    if (!lease.isCurrent || currentFeedId != feedId) return;
-    if (credential.failure != null) return;
-    final apiKey = credential.apiKey!;
-
-    TopicComposerCapabilities capabilities;
-    List<TopicCategory> categories;
-    try {
-      final results = await Future.wait<Object>([
-        api.topicComposerCapabilities(siteUrl: instance.url, apiKey: apiKey),
-        api.categories(siteUrl: instance.url, apiKey: apiKey),
-      ]);
-      capabilities = results[0] as TopicComposerCapabilities;
-      categories = results[1] as List<TopicCategory>;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'composer.topicCapabilities',
-          severity: DiagnosticSeverity.warning,
-        );
+    var capabilities = _topicComposerCapabilities[instance.url];
+    var categories = _categoriesBySite[instance.url];
+    String? apiKey;
+    if (capabilities == null || categories == null) {
+      final credential = await _credentialForWrite(instance.url);
+      if (!lease.isCurrent || currentFeedId != feedId) return;
+      if (credential.failure != null) return;
+      apiKey = credential.apiKey!;
+      try {
+        final results = await Future.wait<Object>([
+          api.topicComposerCapabilities(siteUrl: instance.url, apiKey: apiKey),
+          api.categories(siteUrl: instance.url, apiKey: apiKey),
+        ]);
+        capabilities = results[0] as TopicComposerCapabilities;
+        categories = results[1] as List<TopicCategory>;
+      } catch (error, stackTrace) {
+        if (lease.isCurrent) {
+          _reportOperationalError(
+            error,
+            stackTrace,
+            'composer.topicCapabilities',
+            severity: DiagnosticSeverity.warning,
+          );
+        }
+        return;
       }
-      return;
     }
     if (!lease.isCurrent || currentFeedId != feedId) return;
 
@@ -2153,6 +2155,11 @@ class ShellController extends FrameSafeNotifier {
       if (category?.canCreateTopic == true) categoryId = category!.id;
     } else if (link?.kind == ListKind.tag && capabilities.canTagTopics) {
       try {
+        if (apiKey == null) {
+          final credential = await _credentialForWrite(instance.url);
+          apiKey = credential.apiKey;
+        }
+        if (apiKey == null) return;
         final result = await api.searchTopicTags(
           siteUrl: instance.url,
           apiKey: apiKey,
