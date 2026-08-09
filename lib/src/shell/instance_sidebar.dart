@@ -122,69 +122,75 @@ class InstanceSidebar extends StatelessWidget {
               _SidebarHeader(name: sidebar.name!, showUserMenu: showUserMenu),
               if (showUserMenu) const _SidebarSearchRow(),
               Expanded(
-                child: ListView(
+                // Keep the independently updating groups inside one measured
+                // child. As separate lazy-list children Flutter estimates an
+                // unseen group's height from the visible one, then corrects
+                // the active scroll when their very different sizes meet.
+                child: SingleChildScrollView(
                   padding: const EdgeInsets.only(bottom: 8),
-                  children: [
-                    ListenableBuilder(
-                      listenable: Listenable.merge([
-                        controller.accountActivity.totalsListenable,
-                        controller.draftList,
-                      ]),
-                      builder: (context, _) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (final section in sidebar.sections)
-                            _Section(
-                              key: ValueKey((sidebar.siteUrl, section.id)),
-                              siteUrl: sidebar.siteUrl!,
-                              section: section,
-                              store: sectionStore,
-                              selectedId: sidebar.destinationId,
-                              badgeFor: controller.sidebarBadgeFor,
-                              onSelect: (destination) {
-                                final url = destination.url;
-                                if (url == null) {
-                                  controller.selectDestination(destination);
-                                } else {
-                                  unawaited(
-                                    openLink(
-                                      context,
-                                      url,
-                                      title: destination.label,
-                                      siteUrl: sidebar.siteUrl,
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                        ],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ListenableBuilder(
+                        listenable: Listenable.merge([
+                          controller.accountActivity.totalsListenable,
+                          controller.draftList,
+                        ]),
+                        builder: (context, _) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final section in sidebar.sections)
+                              _Section(
+                                key: ValueKey((sidebar.siteUrl, section.id)),
+                                siteUrl: sidebar.siteUrl!,
+                                section: section,
+                                store: sectionStore,
+                                selectedId: sidebar.destinationId,
+                                badgeFor: controller.sidebarBadgeFor,
+                                onSelect: (destination) {
+                                  final url = destination.url;
+                                  if (url == null) {
+                                    controller.selectDestination(destination);
+                                  } else {
+                                    unawaited(
+                                      openLink(
+                                        context,
+                                        url,
+                                        title: destination.label,
+                                        siteUrl: sidebar.siteUrl,
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    ListenableBuilder(
-                      listenable: Listenable.merge(
-                        pluginRegistry.sidebarListenables(context),
+                      ListenableBuilder(
+                        listenable: Listenable.merge(
+                          pluginRegistry.sidebarListenables(context),
+                        ),
+                        builder: (context, _) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Optional features contribute below the routes every
+                            // site has, in the order `sitePlugins` lists them.
+                            for (final section
+                                in pluginRegistry.sidebarSections(context))
+                              _Section(
+                                key: ValueKey((sidebar.siteUrl, section.id)),
+                                siteUrl: sidebar.siteUrl!,
+                                section: section,
+                                store: sectionStore,
+                                selectedId: sidebar.destinationId,
+                                badgeFor: controller.sidebarBadgeFor,
+                                onSelect: controller.selectDestination,
+                              ),
+                          ],
+                        ),
                       ),
-                      builder: (context, _) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Optional features contribute below the routes every
-                          // site has, in the order `sitePlugins` lists them.
-                          for (final section in pluginRegistry.sidebarSections(
-                            context,
-                          ))
-                            _Section(
-                              key: ValueKey((sidebar.siteUrl, section.id)),
-                              siteUrl: sidebar.siteUrl!,
-                              section: section,
-                              store: sectionStore,
-                              selectedId: sidebar.destinationId,
-                              badgeFor: controller.sidebarBadgeFor,
-                              onSelect: controller.selectDestination,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
