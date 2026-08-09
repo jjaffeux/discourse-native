@@ -448,6 +448,7 @@ class _ForumTabState extends State<_ForumTab> {
           child: Stack(
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
                     child: ExcludeSemantics(

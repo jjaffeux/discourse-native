@@ -97,11 +97,14 @@ void main() {
       onClose: closed.add,
     );
 
+    final secondTabRect = tester.getRect(
+      find.byKey(const ValueKey('forum-tab-chat-2')),
+    );
     final selectionGesture = await tester.startGesture(
-      tester.getCenter(find.byKey(const ValueKey('forum-tab-chat-2'))),
+      Offset(secondTabRect.left + 20, secondTabRect.top + 1),
     );
     // Native desktop tabs activate on pointer-down rather than waiting for the
-    // complete click gesture.
+    // complete click gesture, and the full tab height is selectable.
     expect(selected, [second.id]);
     expect(closed, isEmpty);
     await selectionGesture.up();
