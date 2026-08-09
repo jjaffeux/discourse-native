@@ -109,7 +109,7 @@ void main() {
       );
     });
 
-    test('at the chat message or thread', () {
+    test('at a chat message', () {
       expect(
         parse(
           NotificationKind.chatMention,
@@ -117,16 +117,37 @@ void main() {
         ).path,
         '/chat/c/-/9/44',
       );
+    });
+
+    test('at the thread, and at its reply only when the kind requires it', () {
+      const data = {
+        'chat_channel_id': 9,
+        'chat_thread_id': 3,
+        'chat_message_id': 44,
+      };
+
+      expect(
+        parse(NotificationKind.chatMention, data: data).path,
+        '/chat/c/-/9/t/3',
+      );
+      expect(
+        parse(NotificationKind.chatWatchedThread, data: data).path,
+        '/chat/c/-/9/t/3/44',
+      );
+    });
+
+    test('a quoted chat message follows the topic post quoting it', () {
       expect(
         parse(
-          NotificationKind.chatWatchedThread,
-          data: const {
-            'chat_channel_id': 9,
-            'chat_thread_id': 3,
-            'chat_message_id': 44,
-          },
+          NotificationKind.chatQuoted,
+          topicId: 12,
+          slug: 'chat-transcript',
+          postNumber: 4,
+          // Chat metadata must not take precedence over the post containing
+          // the quote.
+          data: const {'chat_channel_id': 9, 'chat_message_id': 44},
         ).path,
-        '/chat/c/-/9/t/3/44',
+        '/t/chat-transcript/12/4',
       );
     });
 
@@ -160,6 +181,25 @@ void main() {
     test('at nothing, when the payload gave us nothing to go on', () {
       expect(parse(NotificationKind.grantedBadge).path, isNull);
       expect(parse(NotificationKind.unknown).path, isNull);
+    });
+  });
+
+  group('who acted on a notification', () {
+    test('reads the actor aliases emitted by Chat', () {
+      expect(
+        parse(
+          NotificationKind.chatMention,
+          data: const {'mentioned_by_username': 'sam'},
+        ).actor,
+        'sam',
+      );
+      expect(
+        parse(
+          NotificationKind.chatInvitation,
+          data: const {'invited_by_username': 'david'},
+        ).actor,
+        'david',
+      );
     });
   });
 }

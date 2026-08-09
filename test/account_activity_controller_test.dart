@@ -23,6 +23,12 @@ const _secondReply = DiscourseNotification(
   kind: NotificationKind.quoted,
   title: 'A quote',
 );
+const _chatNotification = DiscourseNotification(
+  id: 14,
+  kind: NotificationKind.chatMention,
+  actor: 'alex',
+  channelTitle: 'dev',
+);
 const _reminder = DiscourseNotification(
   id: 12,
   kind: NotificationKind.bookmarkReminder,
@@ -30,11 +36,33 @@ const _reminder = DiscourseNotification(
 );
 const _bookmark = Bookmark(id: 9, title: 'Saved topic');
 
+enum _NotificationFeedKind { all, replies, chat }
+
+_NotificationFeedKind _notificationFeedKind(
+  List<NotificationKind> filterByTypes,
+) {
+  if (filterByTypes.isEmpty) return _NotificationFeedKind.all;
+  if (_sameKinds(filterByTypes, userMenuReplyNotificationKinds)) {
+    return _NotificationFeedKind.replies;
+  }
+  if (_sameKinds(filterByTypes, userMenuChatNotificationKinds)) {
+    return _NotificationFeedKind.chat;
+  }
+  throw StateError('Unexpected notification filter: $filterByTypes');
+}
+
+bool _sameKinds(List<NotificationKind> first, List<NotificationKind> second) =>
+    first.length == second.length &&
+    Iterable<int>.generate(
+      first.length,
+    ).every((index) => first[index] == second[index]);
+
 class _AccountApi implements AccountActivityApi {
   _AccountApi({
     this.totals,
     this.notificationList,
     this.replyNotificationList,
+    this.chatNotificationList,
     this.bookmarkList,
     this.reminderList = const [],
   });
@@ -42,6 +70,7 @@ class _AccountApi implements AccountActivityApi {
   final NotificationTotals? totals;
   final List<DiscourseNotification>? notificationList;
   final List<DiscourseNotification>? replyNotificationList;
+  final List<DiscourseNotification>? chatNotificationList;
   final List<Bookmark>? bookmarkList;
   final List<DiscourseNotification> reminderList;
   final List<String> bookmarksRequested = [];
@@ -61,10 +90,16 @@ class _AccountApi implements AccountActivityApi {
     int limit = 30,
     List<NotificationKind> filterByTypes = const [],
     String? clientId,
-  }) async => filterByTypes.isEmpty
-      ? notificationList ?? (throw StateError('No notifications configured'))
-      : replyNotificationList ??
-            (throw StateError('No reply notifications configured'));
+  }) async => switch (_notificationFeedKind(filterByTypes)) {
+    _NotificationFeedKind.all =>
+      notificationList ?? (throw StateError('No notifications configured')),
+    _NotificationFeedKind.replies =>
+      replyNotificationList ??
+          (throw StateError('No reply notifications configured')),
+    _NotificationFeedKind.chat =>
+      chatNotificationList ??
+          (throw StateError('No chat notifications configured')),
+  };
 
   @override
   Future<BookmarkPayload> bookmarks({
@@ -135,39 +170,50 @@ void main() {
     expect(changes, 1);
   });
 
-  test('loads notification, reply, and bookmark feeds independently', () async {
-    final api = _AccountApi(
-      notificationList: const [_notification],
-      replyNotificationList: const [_secondReply],
-      bookmarkList: const [_bookmark],
-      reminderList: const [_notification],
-    );
-    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-    final controller = _controller(api, credentials);
-    addTearDown(controller.dispose);
-    final connected = _connectedInstance();
+  test(
+    'loads notification, reply, chat, and bookmark feeds independently',
+    () async {
+      final api = _AccountApi(
+        notificationList: const [_notification],
+        replyNotificationList: const [_secondReply],
+        chatNotificationList: const [_chatNotification],
+        bookmarkList: const [_bookmark],
+        reminderList: const [_notification],
+      );
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+      final connected = _connectedInstance();
 
-    await Future.wait([
-      controller.loadNotifications(connected),
-      controller.loadReplyNotifications(connected),
-      controller.loadBookmarks(connected),
-    ]);
+      await Future.wait([
+        controller.loadNotifications(connected),
+        controller.loadReplyNotifications(connected),
+        controller.loadChatNotifications(connected),
+        controller.loadBookmarks(connected),
+      ]);
 
-    expect(controller.notificationsFor(_siteUrl).notifications, const [
-      _notification,
-    ]);
-    expect(controller.replyNotificationsFor(_siteUrl).notifications, const [
-      _secondReply,
-    ]);
-    expect(controller.bookmarksFor(_siteUrl).reminders, const [_notification]);
-    expect(controller.bookmarksFor(_siteUrl).bookmarks, const [_bookmark]);
-    expect(api.bookmarksRequested, ['sam']);
-  });
+      expect(controller.notificationsFor(_siteUrl).notifications, const [
+        _notification,
+      ]);
+      expect(controller.replyNotificationsFor(_siteUrl).notifications, const [
+        _secondReply,
+      ]);
+      expect(controller.chatNotificationsFor(_siteUrl).notifications, const [
+        _chatNotification,
+      ]);
+      expect(controller.bookmarksFor(_siteUrl).reminders, const [
+        _notification,
+      ]);
+      expect(controller.bookmarksFor(_siteUrl).bookmarks, const [_bookmark]);
+      expect(api.bookmarksRequested, ['sam']);
+    },
+  );
 
   test('each activity aspect notifies only its own consumers', () async {
     final api = _AccountApi(
       notificationList: const [_notification],
       replyNotificationList: const [_notification],
+      chatNotificationList: const [_chatNotification],
       bookmarkList: const [_bookmark],
     );
     final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
@@ -176,11 +222,15 @@ void main() {
     var totalsChanges = 0;
     var notificationChanges = 0;
     var replyNotificationChanges = 0;
+    var chatNotificationChanges = 0;
     var bookmarkChanges = 0;
     controller.totalsListenable.addListener(() => totalsChanges++);
     controller.notificationsListenable.addListener(() => notificationChanges++);
     controller.replyNotificationsListenable.addListener(
       () => replyNotificationChanges++,
+    );
+    controller.chatNotificationsListenable.addListener(
+      () => chatNotificationChanges++,
     );
     controller.bookmarksListenable.addListener(() => bookmarkChanges++);
 
@@ -189,6 +239,15 @@ void main() {
     expect(totalsChanges, 0);
     expect(notificationChanges, 2);
     expect(replyNotificationChanges, 0);
+    expect(chatNotificationChanges, 0);
+    expect(bookmarkChanges, 0);
+
+    await controller.loadChatNotifications(_connectedInstance());
+
+    expect(totalsChanges, 0);
+    expect(notificationChanges, 2);
+    expect(replyNotificationChanges, 0);
+    expect(chatNotificationChanges, 2);
     expect(bookmarkChanges, 0);
   });
 
@@ -224,6 +283,26 @@ void main() {
     gate.complete();
     await Future.wait([first, second]);
   });
+
+  test(
+    'coalesces repeated chat notification loads with the exact filter',
+    () async {
+      final gate = Completer<void>();
+      final api = _GatedNotificationsApi(gate);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+
+      final first = controller.loadChatNotifications(_connectedInstance());
+      final second = controller.loadChatNotifications(_connectedInstance());
+      await Future<void>.delayed(Duration.zero);
+
+      expect(api.calls, 1);
+      expect(api.filters.single, userMenuChatNotificationKinds);
+      gate.complete();
+      await Future.wait([first, second]);
+    },
+  );
 
   test('a newer totals request owns the result', () async {
     final first = Completer<NotificationTotals>();
@@ -281,6 +360,7 @@ void main() {
         totals: totals,
         notificationList: const [_notification],
         replyNotificationList: const [_notification],
+        chatNotificationList: const [_notification],
         bookmarkList: const [_bookmark],
         reminderList: const [_notification],
       );
@@ -290,6 +370,7 @@ void main() {
       final connected = _connectedInstance();
       await controller.loadNotifications(connected);
       await controller.loadReplyNotifications(connected);
+      await controller.loadChatNotifications(connected);
       await controller.loadBookmarks(connected);
 
       controller.readNotification(connected, _notification);
@@ -300,6 +381,10 @@ void main() {
       );
       expect(
         controller.replyNotificationsFor(_siteUrl).notifications.single.read,
+        isTrue,
+      );
+      expect(
+        controller.chatNotificationsFor(_siteUrl).notifications.single.read,
         isTrue,
       );
       expect(controller.bookmarksFor(_siteUrl).reminders.single.read, isTrue);
@@ -318,23 +403,27 @@ void main() {
     await Future.wait([
       controller.loadNotifications(connected),
       controller.loadReplyNotifications(connected),
+      controller.loadChatNotifications(connected),
       controller.loadBookmarks(connected),
     ]);
 
     final refreshes = Future.wait([
       controller.loadNotifications(connected),
       controller.loadReplyNotifications(connected),
+      controller.loadChatNotifications(connected),
       controller.loadBookmarks(connected),
     ]);
     await Future.wait([
       api.notificationsRefreshStarted.future,
       api.repliesRefreshStarted.future,
+      api.chatRefreshStarted.future,
       api.bookmarksRefreshStarted.future,
     ]);
 
     controller.readNotification(connected, _notification);
     api.notificationsRefresh.complete();
     api.repliesRefresh.complete();
+    api.chatRefresh.complete();
     api.bookmarksRefresh.complete();
     await refreshes;
 
@@ -344,6 +433,10 @@ void main() {
     );
     expect(
       controller.replyNotificationsFor(_siteUrl).notifications.single.read,
+      isTrue,
+    );
+    expect(
+      controller.chatNotificationsFor(_siteUrl).notifications.single.read,
       isTrue,
     );
     expect(controller.bookmarksFor(_siteUrl).reminders.single.read, isTrue);
@@ -360,6 +453,7 @@ void main() {
       await Future.wait([
         controller.loadNotifications(connected),
         controller.loadReplyNotifications(connected),
+        controller.loadChatNotifications(connected),
         controller.loadBookmarks(connected),
       ]);
 
@@ -369,6 +463,7 @@ void main() {
       await Future.wait([
         controller.loadNotifications(connected),
         controller.loadReplyNotifications(connected),
+        controller.loadChatNotifications(connected),
         controller.loadBookmarks(connected),
       ]);
 
@@ -385,6 +480,10 @@ void main() {
         isTrue,
       );
       expect(
+        controller.chatNotificationsFor(_siteUrl).notifications.single.isUnread,
+        isTrue,
+      );
+      expect(
         controller.bookmarksFor(_siteUrl).reminders.single.isUnread,
         isTrue,
       );
@@ -395,6 +494,7 @@ void main() {
     final api = _AccountApi(
       notificationList: const [_notification],
       replyNotificationList: const [_notification],
+      chatNotificationList: const [_chatNotification],
       bookmarkList: const [_bookmark],
       reminderList: const [_reminder],
     );
@@ -404,14 +504,19 @@ void main() {
     final connected = _connectedInstance();
     await controller.loadNotifications(connected);
     await controller.loadReplyNotifications(connected);
+    await controller.loadChatNotifications(connected);
     await controller.loadBookmarks(connected);
 
     var notificationChanges = 0;
     var replyNotificationChanges = 0;
+    var chatNotificationChanges = 0;
     var bookmarkChanges = 0;
     controller.notificationsListenable.addListener(() => notificationChanges++);
     controller.replyNotificationsListenable.addListener(
       () => replyNotificationChanges++,
+    );
+    controller.chatNotificationsListenable.addListener(
+      () => chatNotificationChanges++,
     );
     controller.bookmarksListenable.addListener(() => bookmarkChanges++);
 
@@ -419,17 +524,31 @@ void main() {
 
     expect(notificationChanges, 1);
     expect(replyNotificationChanges, 1);
+    expect(chatNotificationChanges, 0);
     expect(bookmarkChanges, 0);
 
     notificationChanges = 0;
     replyNotificationChanges = 0;
+    chatNotificationChanges = 0;
     controller.readNotification(connected, _reminder);
 
     expect(notificationChanges, 0);
     expect(replyNotificationChanges, 0);
+    expect(chatNotificationChanges, 0);
     expect(bookmarkChanges, 1);
+
+    notificationChanges = 0;
+    replyNotificationChanges = 0;
+    chatNotificationChanges = 0;
+    bookmarkChanges = 0;
+    controller.readNotification(connected, _chatNotification);
+
+    expect(notificationChanges, 0);
+    expect(replyNotificationChanges, 0);
+    expect(chatNotificationChanges, 1);
+    expect(bookmarkChanges, 0);
     await Future<void>.delayed(Duration.zero);
-    expect(api.markedRead, [11, 12]);
+    expect(api.markedRead, [11, 12, 14]);
   });
 
   test(
@@ -529,6 +648,27 @@ void main() {
     },
   );
 
+  test(
+    'a filtered response from a forgotten account cannot repopulate chat',
+    () async {
+      final gate = Completer<void>();
+      final api = _GatedNotificationsApi(gate);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(api, credentials, lifecycle: lifecycle);
+      addTearDown(controller.dispose);
+
+      final loading = controller.loadChatNotifications(_connectedInstance());
+      await Future<void>.delayed(Duration.zero);
+      lifecycle.invalidate(_siteUrl);
+      controller.forget(_siteUrl);
+      gate.complete();
+      await loading;
+
+      expect(controller.chatNotificationsFor(_siteUrl).loaded, isFalse);
+    },
+  );
+
   for (final activity
       in <
         ({
@@ -555,6 +695,11 @@ void main() {
           name: 'reply notification request',
           begin: (controller, instance) =>
               controller.loadReplyNotifications(instance),
+        ),
+        (
+          name: 'chat notification request',
+          begin: (controller, instance) =>
+              controller.loadChatNotifications(instance),
         ),
         (
           name: 'bookmark request',
@@ -620,7 +765,11 @@ final class _CountingAccountApi extends _AccountApi {
     List<NotificationKind> filterByTypes = const [],
     String? clientId,
   }) async {
-    calls.add(filterByTypes.isEmpty ? 'notifications' : 'reply-notifications');
+    calls.add(switch (_notificationFeedKind(filterByTypes)) {
+      _NotificationFeedKind.all => 'notifications',
+      _NotificationFeedKind.replies => 'reply-notifications',
+      _NotificationFeedKind.chat => 'chat-notifications',
+    });
     return const [];
   }
 
@@ -680,12 +829,15 @@ final class _GatedActivityRefreshApi extends _AccountApi {
 
   final Completer<void> notificationsRefreshStarted = Completer<void>();
   final Completer<void> repliesRefreshStarted = Completer<void>();
+  final Completer<void> chatRefreshStarted = Completer<void>();
   final Completer<void> bookmarksRefreshStarted = Completer<void>();
   final Completer<void> notificationsRefresh = Completer<void>();
   final Completer<void> repliesRefresh = Completer<void>();
+  final Completer<void> chatRefresh = Completer<void>();
   final Completer<void> bookmarksRefresh = Completer<void>();
   int _notificationCalls = 0;
   int _replyCalls = 0;
+  int _chatCalls = 0;
   int _bookmarkCalls = 0;
 
   @override
@@ -696,13 +848,24 @@ final class _GatedActivityRefreshApi extends _AccountApi {
     List<NotificationKind> filterByTypes = const [],
     String? clientId,
   }) async {
-    final filtered = filterByTypes.isNotEmpty;
-    final call = filtered ? ++_replyCalls : ++_notificationCalls;
+    final kind = _notificationFeedKind(filterByTypes);
+    final call = switch (kind) {
+      _NotificationFeedKind.all => ++_notificationCalls,
+      _NotificationFeedKind.replies => ++_replyCalls,
+      _NotificationFeedKind.chat => ++_chatCalls,
+    };
     if (call == 2) {
-      final started = filtered
-          ? repliesRefreshStarted
-          : notificationsRefreshStarted;
-      final refresh = filtered ? repliesRefresh : notificationsRefresh;
+      final (started, refresh) = switch (kind) {
+        _NotificationFeedKind.all => (
+          notificationsRefreshStarted,
+          notificationsRefresh,
+        ),
+        _NotificationFeedKind.replies => (
+          repliesRefreshStarted,
+          repliesRefresh,
+        ),
+        _NotificationFeedKind.chat => (chatRefreshStarted, chatRefresh),
+      };
       started.complete();
       await refresh.future;
     }
@@ -729,6 +892,7 @@ final class _FailedReadApi extends _AccountApi {
     : super(
         notificationList: const [_notification],
         replyNotificationList: const [_notification],
+        chatNotificationList: const [_notification],
         bookmarkList: const [_bookmark],
         reminderList: const [_notification],
       );

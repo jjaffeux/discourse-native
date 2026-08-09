@@ -18,6 +18,7 @@ import 'user_menu_message.dart';
 typedef _UserMenuPanelSnapshot = ({
   String? siteUrl,
   String? host,
+  DiscourseUser? user,
   int draftCount,
 });
 typedef _SectionListSnapshot = ({
@@ -29,12 +30,12 @@ typedef _SectionListSnapshot = ({
 
 /// Everything the avatar in the top right leads to.
 ///
-/// The sections are Discourse's own user menu tabs. Notifications, Replies and
-/// Bookmarks are backed by the site, Messages leaves the menu for the full
-/// inbox, and the account has its own actions. The rest carry stand-in rows so
-/// the shape of the menu can be built and navigated before their screens exist.
-/// Every one of those stand-ins is drawn in [ShellColors.placeholder], so what
-/// is orange is what is still to do.
+/// The sections are Discourse's own user menu tabs. Notifications, Replies,
+/// Bookmarks and Chat are backed by the site, Messages leaves the menu for the
+/// full inbox, and the account has its own actions. The rest carry stand-in
+/// rows so the shape of the menu can be built and navigated before their
+/// screens exist. Every one of those stand-ins is drawn in
+/// [ShellColors.placeholder], so what is orange is what is still to do.
 @immutable
 class UserMenuSection {
   const UserMenuSection({
@@ -53,6 +54,9 @@ class UserMenuSection {
 
   /// The bookmarks section.
   static const String bookmarksId = 'bookmarks';
+
+  /// The server-filtered chat notification section.
+  static const String chatId = 'chat';
 
   /// The messages section, which opens the full private-message topic list.
   static const String messagesId = 'messages';
@@ -75,6 +79,7 @@ class UserMenuSection {
   bool get isNotifications => id == notificationsId;
   bool get isReplies => id == repliesId;
   bool get isBookmarks => id == bookmarksId;
+  bool get isChat => id == chatId;
   bool get isMessages => id == messagesId;
   bool get isProfile => id == profileId;
 
@@ -84,6 +89,7 @@ class UserMenuSection {
       !isNotifications &&
       !isReplies &&
       !isBookmarks &&
+      !isChat &&
       !isMessages &&
       !isProfile;
 }
@@ -114,7 +120,10 @@ enum UserMenuAction {
 }
 
 /// The tabs, in the order Discourse shows them, with the account last.
-List<UserMenuSection> userMenuSections(NotificationTotals? totals) {
+List<UserMenuSection> userMenuSections(
+  NotificationTotals? totals, {
+  DiscourseUser? user,
+}) {
   return [
     UserMenuSection(
       id: UserMenuSection.notificationsId,
@@ -156,13 +165,13 @@ List<UserMenuSection> userMenuSections(NotificationTotals? totals) {
       label: 'Invites',
       rows: [UserMenuRow(DIcons.paperPlane, 'No pending invites')],
     ),
-    UserMenuSection(
-      id: 'chat',
-      icon: DIcons.comment,
-      label: 'Chat',
-      badge: totals?.chatNotifications ?? 0,
-      rows: const [UserMenuRow(DIcons.comment, 'sam mentioned you in #dev')],
-    ),
+    if (totals?.hasChatEnabled == true && user?.hasChatEnabled != false)
+      UserMenuSection(
+        id: UserMenuSection.chatId,
+        icon: DIcons.comment,
+        label: 'Chat',
+        badge: totals?.chatNotifications ?? 0,
+      ),
     UserMenuSection(
       id: 'other',
       icon: DIcons.ellipsis,
@@ -225,6 +234,7 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
       return (
         siteUrl: instance?.url,
         host: instance?.host,
+        user: instance?.user,
         draftCount: instance?.user?.draftCount ?? 0,
       );
     },
@@ -240,6 +250,7 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
             siteUrl == null
                 ? null
                 : controller.accountActivity.totalsFor(siteUrl),
+            user: menu.user,
           );
           final section = sections.firstWhere(
             (candidate) => candidate.id == _sectionId,
@@ -438,6 +449,8 @@ class _SectionBody extends StatelessWidget {
         NotificationSection(siteUrl: siteUrl, onOpened: onDismiss)
       else if (section.isReplies && siteUrl != null)
         RepliesSection(siteUrl: siteUrl, onOpened: onDismiss)
+      else if (section.isChat && siteUrl != null)
+        ChatNotificationsSection(siteUrl: siteUrl, onOpened: onDismiss)
       else if (section.isBookmarks && siteUrl != null)
         BookmarkSection(siteUrl: siteUrl, onOpened: onDismiss)
       else
@@ -504,8 +517,8 @@ class _SectionHeader extends StatelessWidget {
               section.label,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
-                // Notifications and the account lead somewhere real; the rest
-                // do not.
+                // Implemented sections and the account use the normal color;
+                // stand-ins are the only orange headings.
                 color: section.isPlaceholder ? theme.shell.placeholder : null,
               ),
             ),
@@ -738,6 +751,7 @@ class _SectionList extends StatelessWidget {
         builder: (context, _) {
           final sections = userMenuSections(
             controller.accountActivity.totalsFor(currentSiteUrl),
+            user: user,
           );
           return Column(
             mainAxisSize: MainAxisSize.min,

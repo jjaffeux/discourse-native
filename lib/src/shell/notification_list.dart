@@ -62,10 +62,10 @@ class NotificationDescription {
         NotificationKind.watchingFirstPost ||
         NotificationKind.followingCreatedTopic ||
         NotificationKind.chatMessage ||
-        NotificationKind.chatInvitation => DIcons.comment,
+        NotificationKind.chatMention => DIcons.comment,
+        NotificationKind.chatInvitation => DIcons.link,
         NotificationKind.followingReplied ||
         NotificationKind.chatWatchedThread => DIcons.reply,
-        NotificationKind.chatMention => DIcons.at,
         NotificationKind.assigned => DIcons.userPlus,
         NotificationKind.newFeatures => DIcons.asterisk,
         NotificationKind.adminProblems => DIcons.triangleExclamation,
@@ -134,7 +134,7 @@ class NotificationDescription {
       NotificationKind.votesReleased => 'Your votes in $title were returned',
       NotificationKind.assigned => 'assigned $title to you',
       NotificationKind.chatMention => 'mentioned you in $channel',
-      NotificationKind.chatQuoted => 'quoted you in $channel',
+      NotificationKind.chatQuoted => 'quoted your chat message',
       NotificationKind.chatMessage => 'sent a message in $channel',
       NotificationKind.chatInvitation => 'invited you to $channel',
       NotificationKind.chatWatchedThread =>
@@ -156,7 +156,7 @@ class NotificationDescription {
       count == 1 ? '1 $noun' : '$count ${noun}s';
 }
 
-enum _NotificationFeedKind { all, replies }
+enum _NotificationFeedKind { all, replies, chat }
 
 /// The notifications tab's contents: the site's own unfiltered list.
 ///
@@ -218,6 +218,32 @@ class RepliesSection extends StatelessWidget {
       );
 }
 
+/// The Chat tab's server-filtered notification list.
+///
+/// Keeping this feed independent preserves both the general tab's cache and
+/// Chat's own thirty-row result window on active sites.
+class ChatNotificationsSection extends StatelessWidget {
+  const ChatNotificationsSection({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+  });
+
+  final String siteUrl;
+  final VoidCallback onOpened;
+
+  @override
+  Widget build(BuildContext context) => AccountActivityLoader.chatNotifications(
+    siteUrl: siteUrl,
+    builder: (context, controller) => _NotificationSectionView(
+      controller: controller,
+      siteUrl: siteUrl,
+      onOpened: onOpened,
+      kind: _NotificationFeedKind.chat,
+    ),
+  );
+}
+
 class _NotificationSectionView extends StatefulWidget {
   const _NotificationSectionView({
     required this.controller,
@@ -270,6 +296,10 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         controller.accountActivity.replyNotificationsListenable,
         () => controller.loadReplyNotifications(widget.siteUrl),
       ),
+      _NotificationFeedKind.chat => (
+        controller.accountActivity.chatNotificationsListenable,
+        () => controller.loadChatNotifications(widget.siteUrl),
+      ),
     };
     return ListenableBuilder(
       listenable: listenable,
@@ -281,6 +311,9 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
           _NotificationFeedKind.replies => controller.replyNotificationsFor(
             widget.siteUrl,
           ),
+          _NotificationFeedKind.chat => controller.chatNotificationsFor(
+            widget.siteUrl,
+          ),
         };
 
         if (currentFeed.error case final error?) {
@@ -290,7 +323,11 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         // asked for has started, which is a wait like any other.
         if (!currentFeed.loaded) return const UserMenuMessage(text: null);
         if (currentFeed.isEmpty) {
-          return const UserMenuMessage(text: 'Nothing new.');
+          return UserMenuMessage(
+            text: widget.kind == _NotificationFeedKind.chat
+                ? 'You don’t have any chat notifications yet.'
+                : 'Nothing new.',
+          );
         }
 
         return Column(
