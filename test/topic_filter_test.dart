@@ -436,6 +436,7 @@ Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
       api: api,
       authenticator: FakeAuthenticator(),
       drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),

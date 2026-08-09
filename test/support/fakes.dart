@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/authenticator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
+import 'package:discourse_native/src/data/forum_tab_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
@@ -15,6 +16,7 @@ import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/incoming_topics.dart';
@@ -51,6 +53,26 @@ class FakeInstanceStore implements InstanceStore {
   @override
   Future<void> save(List<DiscourseInstance> instances) async {
     _instances = List.of(instances);
+    saveCount++;
+  }
+}
+
+/// Keeps forum workspaces in memory instead of shared_preferences.
+class FakeForumTabStore implements ForumTabStore {
+  FakeForumTabStore([Iterable<ForumWorkspace> workspaces = const []])
+    : _workspaces = List.of(workspaces);
+
+  List<ForumWorkspace> _workspaces;
+  int saveCount = 0;
+
+  List<ForumWorkspace> get workspaces => List.unmodifiable(_workspaces);
+
+  @override
+  Future<List<ForumWorkspace>> load() async => List.unmodifiable(_workspaces);
+
+  @override
+  Future<void> save(Iterable<ForumWorkspace> workspaces) async {
+    _workspaces = List.of(workspaces);
     saveCount++;
   }
 }

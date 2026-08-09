@@ -6,6 +6,7 @@ import 'dart:ui' show Color;
 import '../data/authenticator.dart';
 import '../data/discourse_api.dart';
 import '../data/draft_store.dart';
+import '../data/forum_tab_store.dart';
 import '../data/instance_store.dart';
 import '../data/site_lifecycle.dart';
 import '../data/site_tracker.dart';
@@ -23,6 +24,7 @@ import '../models/composer_upload.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
+import '../models/forum_workspace.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
 import '../models/list_link.dart';
@@ -111,13 +113,15 @@ class ShellController extends FrameSafeNotifier {
     required this.api,
     required this.authenticator,
     required this.drafts,
+    ForumTabStore? forumTabs,
     Store? store,
     SiteLifecycle? lifecycle,
     this.trackers = SiteTracker.new,
     Updater updater = const UnsupportedUpdater(),
     UpdateStore? updateStore,
     this.ownsApi = true,
-  }) : store = store ?? Store(),
+  }) : forumTabs = forumTabs ?? ForumTabStore.memory(),
+       store = store ?? Store(),
        lifecycle = lifecycle ?? SiteLifecycle(),
        updates = UpdateController(
          updater: updater,
@@ -125,6 +129,7 @@ class ShellController extends FrameSafeNotifier {
        );
 
   final InstanceStore instanceStore;
+  final ForumTabStore forumTabs;
 
   /// The identity map. Every topic, post, category and user card the app holds
   /// lives here once, and the maps in this class hold ids into it — so a list,
@@ -423,20 +428,124 @@ class ShellController extends FrameSafeNotifier {
   DiscourseInstance? get currentInstance =>
       hasInstances ? _instances[_instanceIndex] : null;
 
-  String? _destinationId;
+  final Map<String, ForumWorkspace> _forumWorkspaces = {};
+  int _tabSequence = 0;
 
-  /// Id of the highlighted sidebar entry, or null once the user has navigated
-  /// deeper than the entry the stack started from.
-  String? get destinationId => _destinationId;
+  ForumWorkspace? get currentWorkspace {
+    final siteUrl = currentInstance?.url;
+    return siteUrl == null ? null : _forumWorkspaces[siteUrl];
+  }
 
-  final List<ContentRoute> _contentStack = [];
-  List<ContentRoute> get contentStack => List.unmodifiable(_contentStack);
-  ContentRoute? get currentContent =>
-      _contentStack.isEmpty ? null : _contentStack.last;
-  bool get canPopContent => _contentStack.length > 1;
+  ForumWorkspace? workspaceFor(String siteUrl) => _forumWorkspaces[siteUrl];
+
+  ForumTab? get activeTab => currentWorkspace?.activeTab;
+  String? get activeTabId => currentWorkspace?.activeTabId;
+  List<ForumTab> get tabsForCurrentForum => currentWorkspace?.tabs ?? const [];
+
+  /// Id of the sidebar destination at the root of the active tab.
+  String? get destinationId => activeTab?.rootDestinationId;
+
+  /// Navigation within the active tab. Inactive tabs retain their own stack.
+  List<ContentRoute> get contentStack => activeTab?.contentStack ?? const [];
+  ContentRoute? get currentContent => activeTab?.currentContent;
+  bool get canPopContent => (activeTab?.contentStack.length ?? 0) > 1;
 
   MobilePane _mobilePane = MobilePane.sidebar;
   MobilePane get mobilePane => _mobilePane;
+
+  static String _workspaceAccountIdentity(DiscourseInstance instance) =>
+      instance.user == null
+      ? 'anonymous'
+      : 'user:${instance.user!.username.toLowerCase()}';
+
+  String _nextTabId() {
+    final held = <String>{
+      for (final workspace in _forumWorkspaces.values)
+        for (final tab in workspace.tabs) tab.id,
+    };
+    late String id;
+    do {
+      _tabSequence++;
+      id =
+          'tab-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}-'
+          '${_tabSequence.toRadixString(36)}';
+    } while (held.contains(id));
+    return id;
+  }
+
+  ForumTab _newDefaultTab(DiscourseInstance instance) {
+    final destination = instance.defaultDestination;
+    return ForumTab(
+      id: _nextTabId(),
+      rootDestinationId: destination.id,
+      contentStack: [ContentRoute.fromDestination(destination)],
+    );
+  }
+
+  ForumWorkspace _newWorkspace(DiscourseInstance instance) {
+    final tab = _newDefaultTab(instance);
+    return ForumWorkspace(
+      siteUrl: instance.url,
+      accountIdentity: _workspaceAccountIdentity(instance),
+      tabs: [tab],
+      activeTabId: tab.id,
+    );
+  }
+
+  ForumWorkspace _ensureWorkspace(
+    DiscourseInstance instance, {
+    bool persist = true,
+  }) {
+    final existing = _forumWorkspaces[instance.url];
+    if (existing != null &&
+        existing.accountIdentity == _workspaceAccountIdentity(instance)) {
+      return existing;
+    }
+    final workspace = _newWorkspace(instance);
+    _forumWorkspaces[instance.url] = workspace;
+    if (persist) _persistWorkspaces();
+    return workspace;
+  }
+
+  void _putWorkspace(ForumWorkspace workspace, {bool persist = true}) {
+    _forumWorkspaces[workspace.siteUrl] = workspace;
+    if (persist) _persistWorkspaces();
+  }
+
+  void _removeWorkspace(String siteUrl, {bool persist = true}) {
+    if (_forumWorkspaces.remove(siteUrl) != null && persist) {
+      _persistWorkspaces();
+    }
+  }
+
+  void _persistWorkspaces() {
+    unawaited(forumTabs.save(_forumWorkspaces.values));
+  }
+
+  void _replaceTab(
+    String siteUrl,
+    ForumTab replacement, {
+    bool persist = true,
+  }) {
+    final workspace = _forumWorkspaces[siteUrl];
+    if (workspace == null || workspace.tabById(replacement.id) == null) return;
+    _putWorkspace(
+      workspace.copyWith(
+        tabs: [
+          for (final tab in workspace.tabs)
+            if (tab.id == replacement.id) replacement else tab,
+        ],
+      ),
+      persist: persist,
+    );
+  }
+
+  void _replaceActiveTab(ForumTab replacement, {bool persist = true}) {
+    final siteUrl = currentInstance?.url;
+    if (siteUrl != null) {
+      _replaceTab(siteUrl, replacement, persist: persist);
+    }
+  }
 
   Future<void>? _loadTask;
 
@@ -461,6 +570,7 @@ class ShellController extends FrameSafeNotifier {
   }
 
   Future<void> _load() async {
+    final storedWorkspaces = forumTabs.load();
     final List<DiscourseInstance> stored;
     try {
       stored = await instanceStore.load();
@@ -483,11 +593,19 @@ class ShellController extends FrameSafeNotifier {
       ..clear()
       ..addAll(stored);
     _instanceIndex = 0;
+    _forumWorkspaces.clear();
+    for (final workspace in await storedWorkspaces) {
+      final instance = _instanceAt(workspace.siteUrl);
+      if (instance != null &&
+          workspace.accountIdentity == _workspaceAccountIdentity(instance)) {
+        _forumWorkspaces[workspace.siteUrl] = workspace;
+      }
+    }
     final initialInstance = currentInstance;
     // A persisted palette is already good enough for the first frame. Its
     // expensive stylesheet refresh follows the selected account's small JSON
     // reads instead of competing with the feed during the cold-start burst.
-    _resetToInstanceDefault(
+    _restoreInstanceWorkspace(
       refreshAppearance: initialInstance?.appearance == null,
     );
     _loadStatus = InstanceLoadStatus.ready;
@@ -512,8 +630,6 @@ class ShellController extends FrameSafeNotifier {
     if (contains(instance.url)) return true;
 
     final previousSiteUrl = currentInstance?.url;
-    final previousDestinationId = _destinationId;
-    final previousContent = List.of(_contentStack);
     final previousPane = _mobilePane;
 
     _instances.add(instance);
@@ -552,16 +668,11 @@ class ShellController extends FrameSafeNotifier {
             : _instances.indexWhere((item) => item.url == previousSiteUrl);
         if (previousIndex >= 0) {
           _instanceIndex = previousIndex;
-          _destinationId = previousDestinationId;
-          _contentStack
-            ..clear()
-            ..addAll(previousContent);
+          _restoreInstanceWorkspace();
           _mobilePane = previousPane;
-          _syncTracking();
-          _syncTopicChannels();
         } else {
           _instanceIndex = _instances.isEmpty ? 0 : _instances.length - 1;
-          _resetToInstanceDefault();
+          _restoreInstanceWorkspace();
         }
       } else {
         final selectedIndex = selectedSiteUrl == null
@@ -613,7 +724,7 @@ class ShellController extends FrameSafeNotifier {
       _instanceIndex = _instances.isEmpty
           ? 0
           : index.clamp(0, _instances.length - 1);
-      _resetToInstanceDefault();
+      _restoreInstanceWorkspace();
     } else {
       // Removing a site the user is not looking at must not cost them their
       // place, so follow the selected one to wherever the removal left it
@@ -889,7 +1000,7 @@ class ShellController extends FrameSafeNotifier {
   String? get currentFeedId {
     final route = currentContent;
     if (route != null && route.feedPath != null) return route.id;
-    return _destinationId;
+    return destinationId;
   }
 
   TopicFeed? get currentFeed {
@@ -982,7 +1093,7 @@ class ShellController extends FrameSafeNotifier {
   /// long as it is open, and giving it a second home to be evicted from would
   /// be one more thing to keep in step with the back button.
   String? _feedPath(String feedId, DiscourseInstance instance) {
-    for (final route in _contentStack.reversed) {
+    for (final route in contentStack.reversed) {
       if (route.id == feedId && route.feedPath != null) return route.feedPath;
     }
 
@@ -1024,7 +1135,7 @@ class ShellController extends FrameSafeNotifier {
   /// not call this; core only refreshes its list on Enter or clear.
   Future<void> submitTopicFilter(String query) async {
     final instance = currentInstance;
-    if (instance == null || _destinationId != 'filter') return;
+    if (instance == null || destinationId != 'filter') return;
     topicFeeds.setFilterQuery(instance.url, query);
     await loadFeed('filter', force: true);
   }
@@ -1137,15 +1248,58 @@ class ShellController extends FrameSafeNotifier {
   int feedScrollRow(String destinationId) {
     final instance = currentInstance;
     if (instance == null) return 0;
-    return topicFeeds.scrollRowFor(instance.url, destinationId);
+    final anchor = activeTab?.anchors[destinationId];
+    if (anchor?.kind == 'feed') return anchor!.itemId;
+    return 0;
   }
 
   /// Records the list position. Deliberately silent: nothing on screen depends
   /// on it, and it is written as the list scrolls.
   void saveFeedScrollRow(String destinationId, int row) {
     final instance = currentInstance;
-    if (instance == null) return;
+    final tab = activeTab;
+    if (instance == null || tab == null) return;
     topicFeeds.saveScrollRow(instance.url, destinationId, row);
+    final previous = tab.anchors[destinationId];
+    if (previous?.kind == 'feed' && previous?.itemId == row) return;
+    _replaceActiveTab(
+      tab.copyWith(
+        anchors: {
+          ...tab.anchors,
+          destinationId: ForumTabAnchor(kind: 'feed', itemId: row),
+        },
+      ),
+    );
+  }
+
+  /// The post a remounted topic tab should reveal.
+  ///
+  /// A viewport anchor supersedes the route's original deep-link target after
+  /// the reader has moved through the topic.
+  int? topicScrollPostNumber(int topicId) {
+    final tab = activeTab;
+    final route = currentContent;
+    if (tab == null || route?.topicId != topicId) return null;
+    final anchor = tab.anchors[route!.id];
+    if (anchor?.kind == 'topic') return anchor!.itemId;
+    return route.postNumber;
+  }
+
+  /// Records the first visible post for the active topic tab.
+  void saveTopicScrollPost(int topicId, int postNumber) {
+    final tab = activeTab;
+    final route = currentContent;
+    if (tab == null || route?.topicId != topicId) return;
+    final previous = tab.anchors[route!.id];
+    if (previous?.kind == 'topic' && previous?.itemId == postNumber) return;
+    _replaceActiveTab(
+      tab.copyWith(
+        anchors: {
+          ...tab.anchors,
+          route.id: ForumTabAnchor(kind: 'topic', itemId: postNumber),
+        },
+      ),
+    );
   }
 
   final Map<String, SiteTracker> _trackers = {};
@@ -1955,11 +2109,11 @@ class ShellController extends FrameSafeNotifier {
   /// at the title from the slug in the URL.
   void _retitle(int topicId, String title) {
     if (title.isEmpty) return;
-
-    for (var i = 0; i < _contentStack.length; i++) {
-      final route = _contentStack[i];
-      if (route.topicId != topicId || route.title == title) continue;
-      _contentStack[i] = ContentRoute.topic(
+    final siteUrl = currentInstance?.url;
+    if (siteUrl == null) return;
+    _rewriteTopicRoutes(siteUrl, topicId, (route) {
+      if (route.title == title) return route;
+      return ContentRoute.topic(
         topicId: topicId,
         slug: route.slug ?? '',
         title: title,
@@ -1967,7 +2121,7 @@ class ShellController extends FrameSafeNotifier {
         color: route.color,
         postNumber: route.postNumber,
       );
-    }
+    });
   }
 
   void _updateTopicRouteMetadata(
@@ -1977,17 +2131,43 @@ class ShellController extends FrameSafeNotifier {
     int? categoryId,
   ) {
     final category = categoryFor(categoryId, siteUrl: siteUrl);
-    for (var i = 0; i < _contentStack.length; i++) {
-      final route = _contentStack[i];
-      if (route.topicId != topicId) continue;
-      _contentStack[i] = ContentRoute.topic(
+    _rewriteTopicRoutes(siteUrl, topicId, (route) {
+      return ContentRoute.topic(
         topicId: topicId,
         slug: route.slug ?? '',
         title: title,
         subtitle: route.subtitle,
         color: category == null ? null : Color(category.colorValue),
+        postNumber: route.postNumber,
       );
+    });
+  }
+
+  void _rewriteTopicRoutes(
+    String siteUrl,
+    int topicId,
+    ContentRoute Function(ContentRoute route) rewrite,
+  ) {
+    final workspace = _forumWorkspaces[siteUrl];
+    if (workspace == null) return;
+    var changed = false;
+    final tabs = <ForumTab>[];
+    for (final tab in workspace.tabs) {
+      var tabChanged = false;
+      final routes = <ContentRoute>[];
+      for (final route in tab.contentStack) {
+        if (route.topicId != topicId) {
+          routes.add(route);
+          continue;
+        }
+        final updated = rewrite(route);
+        routes.add(updated);
+        tabChanged = tabChanged || !identical(updated, route);
+      }
+      changed = changed || tabChanged;
+      tabs.add(tabChanged ? tab.copyWith(contentStack: routes) : tab);
     }
+    if (changed) _putWorkspace(workspace.copyWith(tabs: tabs));
   }
 
   /// Files a topic payload: the posts under their own ids, the topic under
@@ -2156,6 +2336,9 @@ class ShellController extends FrameSafeNotifier {
     final instance = currentInstance;
     if (composer == null || instance == null) return null;
     if (composer.target.siteUrl != instance.url) return null;
+    if (composer.target.tabId case final tabId?) {
+      if (tabId != activeTabId) return null;
+    }
     if (composer.target.isNewTopic) {
       return currentContent?.isTopic == false &&
               currentFeedId == composer.target.originFeedId
@@ -2214,9 +2397,11 @@ class ShellController extends FrameSafeNotifier {
     final instance = currentInstance;
     final route = currentContent;
     final feedId = currentFeedId;
+    final tabId = activeTabId;
     if (instance == null ||
         route == null ||
         feedId == null ||
+        tabId == null ||
         !canCreateTopicHere) {
       return;
     }
@@ -2227,7 +2412,9 @@ class ShellController extends FrameSafeNotifier {
     String? apiKey;
     if (capabilities == null || categories == null) {
       final credential = await _credentialForWrite(instance.url);
-      if (!lease.isCurrent || currentFeedId != feedId) return;
+      if (!lease.isCurrent || currentFeedId != feedId || activeTabId != tabId) {
+        return;
+      }
       if (credential.failure != null) return;
       apiKey = credential.apiKey!;
       try {
@@ -2249,7 +2436,9 @@ class ShellController extends FrameSafeNotifier {
         return;
       }
     }
-    if (!lease.isCurrent || currentFeedId != feedId) return;
+    if (!lease.isCurrent || currentFeedId != feedId || activeTabId != tabId) {
+      return;
+    }
 
     int? categoryId;
     var tags = const <TopicTag>[];
@@ -2286,7 +2475,9 @@ class ShellController extends FrameSafeNotifier {
         // Context prefill is optional; the composer remains usable without it.
       }
     }
-    if (!lease.isCurrent || currentFeedId != feedId) return;
+    if (!lease.isCurrent || currentFeedId != feedId || activeTabId != tabId) {
+      return;
+    }
 
     _categoriesBySite[instance.url] = List.unmodifiable(categories);
     _topicComposerCapabilities[instance.url] = capabilities;
@@ -2294,6 +2485,7 @@ class ShellController extends FrameSafeNotifier {
     _replaceComposer();
     final target = ComposerTarget(
       siteUrl: instance.url,
+      tabId: tabId,
       topicId: 0,
       slug: '',
       topicTitle: 'New topic',
@@ -2405,7 +2597,8 @@ class ShellController extends FrameSafeNotifier {
     if (existing != null &&
         !existing.target.isEdit &&
         existing.target.topicId == topicId &&
-        existing.target.siteUrl == instance.url) {
+        existing.target.siteUrl == instance.url &&
+        existing.target.tabId == activeTabId) {
       existing.retarget(
         replyToPostNumber: replyToPostNumber,
         replyToUsername: replyToUsername,
@@ -2417,6 +2610,7 @@ class ShellController extends FrameSafeNotifier {
     _replaceComposer();
     final target = ComposerTarget(
       siteUrl: instance.url,
+      tabId: activeTabId,
       topicId: topicId,
       slug: route?.slug ?? '',
       topicTitle: route?.title ?? '',
@@ -2449,6 +2643,7 @@ class ShellController extends FrameSafeNotifier {
     final editsTopic = post.postNumber == 1 && detail?.canEdit == true;
     final target = ComposerTarget(
       siteUrl: instance.url,
+      tabId: activeTabId,
       topicId: topicId,
       slug: route?.slug ?? '',
       topicTitle: route?.title ?? '',
@@ -2491,6 +2686,7 @@ class ShellController extends FrameSafeNotifier {
     _replaceComposer();
     final target = ComposerTarget(
       siteUrl: instance.url,
+      tabId: activeTabId,
       topicId: route!.topicId!,
       slug: route.slug ?? '',
       topicTitle: detail!.title,
@@ -5274,6 +5470,7 @@ class ShellController extends FrameSafeNotifier {
 
   void _forgetSiteState(String siteUrl) {
     lifecycle.invalidate(siteUrl);
+    _removeWorkspace(siteUrl);
     if (currentInstance?.url == siteUrl) search.clear();
     _draftSaveRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _draftSequences.removeWhere((key, _) => key.startsWith('$siteUrl#'));
@@ -5336,25 +5533,40 @@ class ShellController extends FrameSafeNotifier {
     if (index >= 0) _instances[index] = updated;
   }
 
-  void _resetToInstanceDefault({bool refreshAppearance = true}) {
+  void _restoreInstanceWorkspace({bool refreshAppearance = true}) {
     final instance = currentInstance;
-    _contentStack.clear();
-    _syncTracking();
-
     if (instance == null) {
-      _destinationId = null;
       search.selectSite(null);
+      _syncTracking();
       return;
     }
+
+    _ensureWorkspace(instance);
+    _activateInstanceWorkspace(instance, refreshAppearance: refreshAppearance);
+  }
+
+  void _resetToInstanceDefault({bool refreshAppearance = true}) {
+    final instance = currentInstance;
+    if (instance == null) {
+      search.selectSite(null);
+      _syncTracking();
+      return;
+    }
+
+    _putWorkspace(_newWorkspace(instance));
+    _activateInstanceWorkspace(instance, refreshAppearance: refreshAppearance);
+  }
+
+  void _activateInstanceWorkspace(
+    DiscourseInstance instance, {
+    required bool refreshAppearance,
+  }) {
+    assert(currentInstance?.url == instance.url);
 
     search.selectSite(
       instance.url,
       minimumLength: instance.config.minSearchTermLength,
     );
-
-    final destination = instance.defaultDestination;
-    _destinationId = destination.id;
-    _contentStack.add(ContentRoute.fromDestination(destination));
     if (refreshAppearance) {
       unawaited(_presentation.ensureAppearance(instance.url));
     }
@@ -5365,7 +5577,34 @@ class ShellController extends FrameSafeNotifier {
     unawaited(_presentation.ensureCustomEmojis(instance.url));
     unawaited(_ensureCategoriesFor(instance));
     if (instance.isConnected) unawaited(resenha.ensureLoaded(instance.url));
-    unawaited(loadFeed(destination.id));
+    _syncTracking();
+    _syncTopicChannels();
+    _hydrateActiveTab(instance);
+  }
+
+  void _hydrateActiveTab(DiscourseInstance instance) {
+    final tab = activeTab;
+    if (tab == null || currentInstance?.url != instance.url) return;
+
+    final root = tab.contentStack.first;
+    unawaited(
+      loadFeed(root.feedPath == null ? tab.rootDestinationId : root.id),
+    );
+    final route = tab.currentContent;
+    if (route.topicId case final topicId?) {
+      final anchor = tab.anchors[route.id];
+      unawaited(
+        loadTopic(
+          topicId,
+          route.slug ?? '',
+          postNumber: anchor?.kind == 'topic'
+              ? anchor!.itemId
+              : route.postNumber,
+        ),
+      );
+    } else if (route.feedPath != null && route.id != root.id) {
+      unawaited(loadFeed(route.id));
+    }
   }
 
   /// Tapping the already-selected instance is how you get back to its sidebar
@@ -5374,7 +5613,7 @@ class ShellController extends FrameSafeNotifier {
     assert(index >= 0 && index < _instances.length);
     if (index != _instanceIndex) {
       _instanceIndex = index;
-      _resetToInstanceDefault();
+      _restoreInstanceWorkspace();
       final selected = currentInstance;
       if (selected != null && selected.isConnected) {
         unawaited(_refreshOne(selected));
@@ -5385,22 +5624,95 @@ class ShellController extends FrameSafeNotifier {
   }
 
   void selectDestination(SidebarDestination destination) {
+    final instance = currentInstance;
+    if (instance == null) return;
+    final tab = _ensureWorkspace(instance).activeTab;
     // Tapping what you are already looking at asks for it again — the cache
     // otherwise holds a list for the life of the session, and a mouse cannot
     // pull to refresh. Only at the destination's root: a tap that is busy
     // returning from a topic stays a return.
     final refresh =
-        destination.id == _destinationId && _contentStack.length <= 1;
+        destination.id == tab.rootDestinationId && tab.contentStack.length <= 1;
 
-    _destinationId = destination.id;
-    _contentStack
-      ..clear()
-      ..add(ContentRoute.fromDestination(destination));
+    _replaceActiveTab(
+      tab.copyWith(
+        rootDestinationId: destination.id,
+        contentStack: [ContentRoute.fromDestination(destination)],
+      ),
+    );
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
 
     unawaited(loadFeed(destination.id, force: refresh));
+  }
+
+  /// Adds a fresh Topics work context to the selected forum and opens it.
+  void createTab() {
+    final instance = currentInstance;
+    if (instance == null) return;
+    final workspace = _ensureWorkspace(instance);
+    final tab = _newDefaultTab(instance);
+    _putWorkspace(
+      workspace.copyWith(tabs: [...workspace.tabs, tab], activeTabId: tab.id),
+    );
+    _mobilePane = MobilePane.content;
+    _syncTopicChannels();
+    _notify();
+    _hydrateActiveTab(instance);
+  }
+
+  /// Activates one of the tabs owned by the selected forum.
+  void selectTab(String id) {
+    final instance = currentInstance;
+    final workspace = currentWorkspace;
+    if (instance == null || workspace?.tabById(id) == null) return;
+
+    if (workspace!.activeTabId != id) {
+      _putWorkspace(workspace.copyWith(activeTabId: id));
+      _syncTopicChannels();
+      _hydrateActiveTab(instance);
+    }
+    _mobilePane = MobilePane.content;
+    _notify();
+  }
+
+  /// Closes a tab in the selected forum without affecting any other forum.
+  ///
+  /// When the active tab closes, its right neighbour wins, falling back to the
+  /// left at the end of the list. The forum always keeps one fresh Topics tab.
+  void closeTab(String id) {
+    final instance = currentInstance;
+    final workspace = currentWorkspace;
+    if (instance == null || workspace == null) return;
+    final index = workspace.tabs.indexWhere((tab) => tab.id == id);
+    if (index < 0) return;
+
+    if (_composer?.target.tabId == id) closeComposer();
+
+    final closedActive = workspace.activeTabId == id;
+    late ForumWorkspace replacement;
+    if (workspace.tabs.length == 1) {
+      final fresh = _newDefaultTab(instance);
+      replacement = workspace.copyWith(tabs: [fresh], activeTabId: fresh.id);
+    } else {
+      final remaining = [
+        for (final tab in workspace.tabs)
+          if (tab.id != id) tab,
+      ];
+      final activeId = closedActive
+          ? remaining[index < remaining.length ? index : remaining.length - 1]
+                .id
+          : workspace.activeTabId;
+      replacement = workspace.copyWith(tabs: remaining, activeTabId: activeId);
+    }
+
+    _putWorkspace(replacement);
+    if (closedActive) {
+      _syncTopicChannels();
+      _hydrateActiveTab(instance);
+    }
+    _notify();
   }
 
   /// Opens the Drafts destination for [siteUrl], including from a profile menu
@@ -5461,7 +5773,7 @@ class ShellController extends FrameSafeNotifier {
       // shell. Do not start that second, unawaited request when a header-menu
       // draft is resumed from the default list; openNewTopic needs the
       // creatable feed that is already in hand.
-      if (_destinationId != destination.id || _contentStack.length != 1) {
+      if (destinationId != destination.id || contentStack.length != 1) {
         selectDestination(destination);
       }
       await loadFeed(destination.id);
@@ -5505,7 +5817,9 @@ class ShellController extends FrameSafeNotifier {
 
   /// Replaces the main region with something deeper, keeping a way back.
   void pushContent(ContentRoute route) {
-    _contentStack.add(route);
+    final tab = activeTab;
+    if (tab == null) return;
+    _replaceActiveTab(tab.copyWith(contentStack: [...tab.contentStack, route]));
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
@@ -5523,21 +5837,37 @@ class ShellController extends FrameSafeNotifier {
     final sameInstance = index == _instanceIndex;
     if (index != _instanceIndex) {
       _instanceIndex = index;
-      _resetToInstanceDefault();
+      _restoreInstanceWorkspace();
     }
     if (sameInstance && currentContent?.id == route.id) {
       // The sidebar secondary action and the persistent call card can both
       // open the room already on screen. Replacing its metadata keeps the
       // route fresh without adding an indistinguishable stack entry that
       // would make the first Back press appear to do nothing.
-      _contentStack[_contentStack.length - 1] = route;
+      final tab = activeTab!;
+      _replaceActiveTab(
+        tab.copyWith(
+          contentStack: [
+            ...tab.contentStack.take(tab.contentStack.length - 1),
+            route,
+          ],
+        ),
+      );
       _mobilePane = MobilePane.content;
       _syncTopicChannels();
       _notify();
       return;
     }
-    if (replaceCurrent && sameInstance && _contentStack.isNotEmpty) {
-      _contentStack[_contentStack.length - 1] = route;
+    if (replaceCurrent && sameInstance && contentStack.isNotEmpty) {
+      final tab = activeTab!;
+      _replaceActiveTab(
+        tab.copyWith(
+          contentStack: [
+            ...tab.contentStack.take(tab.contentStack.length - 1),
+            route,
+          ],
+        ),
+      );
       _mobilePane = MobilePane.content;
       _syncTopicChannels();
       _notify();
@@ -5553,7 +5883,14 @@ class ShellController extends FrameSafeNotifier {
   /// to let the platform handle the back gesture.
   bool handleBack({bool canReturnToSidebar = true}) {
     if (canPopContent) {
-      _contentStack.removeLast();
+      final tab = activeTab!;
+      _replaceActiveTab(
+        tab.copyWith(
+          contentStack: tab.contentStack
+              .take(tab.contentStack.length - 1)
+              .toList(),
+        ),
+      );
       _syncTopicChannels();
       _notify();
       return true;

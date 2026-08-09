@@ -186,6 +186,59 @@ void main() {
       expect(rebuilt, isNot(contains(isolated)));
     }
   });
+
+  testWidgets('same-route tab switches remount only the active viewport', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([
+        instance('meta.discourse.org', title: 'Meta'),
+      ]),
+      api: FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [
+            Topic(id: 7, title: 'A real topic', slug: 'a-real-topic'),
+          ],
+        },
+      ),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(theme: AppTheme.light, home: const AdaptiveShell()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final firstTabId = controller.activeTabId!;
+    final firstViewport = tester.element(find.byType(TopicListView));
+
+    controller.createTab();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TopicListView), findsOneWidget);
+    final secondViewport = tester.element(find.byType(TopicListView));
+    expect(secondViewport, isNot(same(firstViewport)));
+
+    controller.selectTab(firstTabId);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TopicListView), findsOneWidget);
+    expect(
+      tester.element(find.byType(TopicListView)),
+      isNot(same(secondViewport)),
+    );
+  });
 }
 
 void _noop() {}

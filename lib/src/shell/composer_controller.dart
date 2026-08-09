@@ -31,6 +31,7 @@ class ComposerTarget {
     required this.topicId,
     required this.slug,
     required this.topicTitle,
+    this.tabId,
     this.replyToPostNumber,
     this.replyToUsername,
     this.editingPostId,
@@ -44,6 +45,7 @@ class ComposerTarget {
            (editingPostId == null ? ComposerMode.reply : ComposerMode.postEdit);
 
   final String siteUrl;
+  final String? tabId;
   final int topicId;
   final String slug;
   final String topicTitle;
@@ -81,6 +83,7 @@ class ComposerTarget {
   ComposerTarget replyingTo(int? postNumber, String? username) =>
       ComposerTarget(
         siteUrl: siteUrl,
+        tabId: tabId,
         topicId: topicId,
         slug: slug,
         topicTitle: topicTitle,
