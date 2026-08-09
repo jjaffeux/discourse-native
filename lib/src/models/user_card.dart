@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
 import 'json.dart';
-import 'post.dart' show resolveAvatarUrl;
 
 /// The summary of an account behind `/u/{username}/card.json`.
 ///

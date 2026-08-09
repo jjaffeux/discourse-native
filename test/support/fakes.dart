@@ -409,6 +409,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.gate,
     this.topics = const {},
     this.postsById = const {},
+    this.postRecommendations = const {},
     this.postGate,
     this.cards = const {},
     this.creation,
@@ -523,6 +524,9 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Returned by [posts], keyed by post id.
   final Map<int, Post> postsById;
+
+  /// More-topics data returned with the final [topicPosts] window.
+  final Map<int, TopicRecommendations> postRecommendations;
 
   /// When set, post refreshes wait on it so a write can supersede one already
   /// in flight and a test can observe the queued replay.
@@ -934,6 +938,22 @@ class FakeDiscourseApi implements DiscourseApi {
     postFetches.add(ids);
     if (postGate != null) await postGate!.future;
     return ids.map((i) => postsById[i]).whereType<Post>().toList();
+  }
+
+  @override
+  Future<TopicPostsPayload> topicPosts({
+    required String siteUrl,
+    required int topicId,
+    required List<int> ids,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    postFetches.add(ids);
+    if (postGate != null) await postGate!.future;
+    return (
+      posts: ids.map((i) => postsById[i]).whereType<Post>().toList(),
+      recommendations: postRecommendations[topicId],
+    );
   }
 
   @override
@@ -1743,6 +1763,7 @@ TopicPayload topicPayload({
   bool canCreatePost = false,
   ComposerDraft? draft,
   int draftSequence = 0,
+  TopicRecommendations? recommendations,
 }) => (
   detail: TopicDetail(
     id: id,
@@ -1753,6 +1774,7 @@ TopicPayload topicPayload({
     canCreatePost: canCreatePost,
     draft: draft,
     draftSequence: draftSequence,
+    recommendations: recommendations,
   ),
   posts: posts,
 );

@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
 import 'json.dart';
-import 'post.dart' show resolveAvatarUrl;
 import 'topic_filter.dart';
 import 'topic_tag.dart';
 
@@ -44,7 +43,9 @@ class Topic with Storable<Topic> {
   ) {
     final resolvedPosters = <String>[];
     for (final poster in jsonObjects(json['posters'])) {
-      final id = jsonIntOrNull(poster['user_id']);
+      final id =
+          jsonIntOrNull(poster['user_id']) ??
+          jsonIntOrNull(jsonObject(poster['user'])['id']);
       final avatar = id == null ? null : avatarsByUserId[id];
       if (avatar != null) resolvedPosters.add(avatar);
     }
@@ -76,6 +77,25 @@ class Topic with Storable<Topic> {
       ),
       posterAvatars: posters,
     );
+  }
+
+  /// Suggested-topic serializers embed each poster's user instead of sending
+  /// the sibling `users` array used by ordinary topic lists.
+  factory Topic.fromRecommendationJson(
+    Map<String, dynamic> json,
+    String siteUrl,
+  ) {
+    final avatars = <int, String?>{};
+    for (final poster in jsonObjects(json['posters'])) {
+      final user = jsonObject(poster['user']);
+      final id = jsonIntOrNull(user['id']);
+      if (id == null) continue;
+      avatars[id] = resolveAvatarUrl(
+        jsonText(user['avatar_template']),
+        siteUrl,
+      );
+    }
+    return Topic.fromJson(json, avatars);
   }
 
   final int id;
@@ -257,6 +277,53 @@ class Topic with Storable<Topic> {
     Object.hashAll(tags),
     Object.hashAll(posterAvatars),
   ]);
+}
+
+/// The optional topic lists attached to the end of a topic.
+@immutable
+class TopicRecommendations {
+  const TopicRecommendations({
+    this.suggested = const [],
+    this.related = const [],
+  });
+
+  /// Null means neither field was present, which is how Discourse says the
+  /// reader has not reached the final post window yet.
+  static TopicRecommendations? fromJson(
+    Map<String, dynamic> json,
+    String siteUrl,
+  ) {
+    if (!json.containsKey('suggested_topics') &&
+        !json.containsKey('related_topics')) {
+      return null;
+    }
+    return TopicRecommendations(
+      suggested: List.unmodifiable([
+        for (final topic in jsonObjects(json['suggested_topics']))
+          Topic.fromRecommendationJson(topic, siteUrl),
+      ]),
+      related: List.unmodifiable([
+        for (final topic in jsonObjects(json['related_topics']))
+          Topic.fromRecommendationJson(topic, siteUrl),
+      ]),
+    );
+  }
+
+  final List<Topic> suggested;
+  final List<Topic> related;
+
+  bool get isNotEmpty => suggested.isNotEmpty || related.isNotEmpty;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TopicRecommendations &&
+          listEquals(other.suggested, suggested) &&
+          listEquals(other.related, related);
+
+  @override
+  int get hashCode =>
+      Object.hash(Object.hashAll(suggested), Object.hashAll(related));
 }
 
 /// One page of a topic list, plus what the rows need to render.

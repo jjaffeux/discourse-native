@@ -639,9 +639,55 @@ class DiscourseApi
   }) async {
     if (ids.isEmpty) return const [];
 
+    return (await _topicPosts(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      ids: ids,
+      includeRaw: includeRaw,
+      includeSuggested: false,
+      apiKey: apiKey,
+      clientId: clientId,
+    )).posts;
+  }
+
+  /// A post window that may also carry the lists shown after the last post.
+  ///
+  /// Discourse only serializes these when the requested window reaches the
+  /// end. Core owns `suggested_topics`; discourse-ai adds `related_topics`.
+  Future<TopicPostsPayload> topicPosts({
+    required String siteUrl,
+    required int topicId,
+    required List<int> ids,
+    String? apiKey,
+    String? clientId,
+  }) {
+    if (ids.isEmpty) {
+      return Future.value((posts: const <Post>[], recommendations: null));
+    }
+    return _topicPosts(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      ids: ids,
+      includeRaw: false,
+      includeSuggested: true,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+
+  Future<TopicPostsPayload> _topicPosts({
+    required String siteUrl,
+    required int topicId,
+    required List<int> ids,
+    required bool includeRaw,
+    required bool includeSuggested,
+    String? apiKey,
+    String? clientId,
+  }) async {
     final query = [
       ...ids.map((id) => 'post_ids[]=$id'),
       if (includeRaw) 'include_raw=true',
+      if (includeSuggested) 'include_suggested=true',
     ].join('&');
     final response = await _get(
       Uri.parse('$siteUrl/t/$topicId/posts.json?$query'),
@@ -652,10 +698,13 @@ class DiscourseApi
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final stream = jsonObject(body['post_stream']);
-    return List.unmodifiable([
-      for (final post in jsonObjects(stream['posts']))
-        Post.fromJson(post, siteUrl),
-    ]);
+    return (
+      posts: List<Post>.unmodifiable([
+        for (final post in jsonObjects(stream['posts']))
+          Post.fromJson(post, siteUrl),
+      ]),
+      recommendations: TopicRecommendations.fromJson(body, siteUrl),
+    );
   }
 
   /// The summary shown when an avatar or a username is clicked.

@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/store.dart';
 import '../../models/json.dart';
-import '../../models/post.dart';
 
 /// Who wrote a message.
 ///

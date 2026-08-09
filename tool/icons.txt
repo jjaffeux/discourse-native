@@ -12,6 +12,7 @@
 # --- Sidebar and navigation
 layer-group
 asterisk
+discourse-sparkles
 circle
 fire
 envelope
