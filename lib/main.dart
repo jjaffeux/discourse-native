@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'src/app.dart';
+import 'src/data/bounded_http_overrides.dart';
 import 'src/diagnostics/diagnostics.dart';
 
 void main() {
@@ -21,6 +22,7 @@ void main() {
     runZonedGuarded<Future<void>>(
           () async {
             WidgetsFlutterBinding.ensureInitialized();
+            BoundedHttpOverrides.install();
             final controller = await DiagnosticsController.create();
             DiagnosticsSink.install(controller);
             RecordingHttpOverrides.install(controller);

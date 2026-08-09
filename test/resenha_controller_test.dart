@@ -1275,6 +1275,54 @@ void main() {
     },
   );
 
+  test('a slow heartbeat has only one request in flight', () async {
+    final joinPayload = fixture('join_mesh');
+    (joinPayload['room'] as Map<String, dynamic>)['room_type'] = 'stage';
+    final controlled = _ControlledResenhaTransport(
+      pluginResponses: {
+        'GET /resenha/rooms.json': fixture('directory'),
+        'POST /resenha/rooms/7/join.json': joinPayload,
+        'POST /resenha/rooms/7/heartbeat.json': <String, dynamic>{},
+        'DELETE /resenha/rooms/7/leave.json': <String, dynamic>{},
+        'POST /resenha/rooms/7/state.json': <String, dynamic>{},
+        'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
+      },
+    )..heldPluginWritePaths.add('/resenha/rooms/7/heartbeat.json');
+    useTransport(controlled);
+
+    Future<void> waitForHeartbeatCount(int count) async {
+      for (var attempt = 0; attempt < 40; attempt++) {
+        if (controlled.pendingPluginWrites.length >= count) return;
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+    }
+
+    await controller.ensureLoaded(firstSite);
+    await controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: controller.room(firstSite, 7)!,
+    );
+    expect(controller.call?.status, ResenhaCallStatus.connected);
+    controller.setForeground(false);
+    await waitForHeartbeatCount(1);
+    expect(controlled.pendingPluginWrites, hasLength(1));
+
+    controller.setForeground(true);
+    controller.setForeground(false);
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(controlled.pendingPluginWrites, hasLength(1));
+
+    controlled.pendingPluginWrites[0].response.complete({});
+    await waitForHeartbeatCount(2);
+    expect(controlled.pendingPluginWrites, hasLength(2));
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(controlled.pendingPluginWrites, hasLength(2));
+
+    controlled.pendingPluginWrites[1].response.complete({});
+    await controller.leave();
+  });
+
   test(
     'keeps a local media setting when roster state is rate limited',
     () async {

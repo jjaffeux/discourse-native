@@ -162,6 +162,8 @@ final class ResenhaController extends ChangeNotifier {
   ResenhaMediaSession? _leavingMedia;
   final Expando<Future<void>> _mediaDisposals = Expando<Future<void>>();
   Timer? _heartbeat;
+  Future<void>? _heartbeatRequest;
+  bool _heartbeatPending = false;
   ResenhaIdleState _idleState = ResenhaIdleState.active;
   ResenhaCallSnapshot? _call;
   bool _disposed = false;
@@ -693,7 +695,42 @@ final class ResenhaController extends ChangeNotifier {
 
   void _startHeartbeat() {
     _heartbeat?.cancel();
-    _heartbeat = Timer.periodic(heartbeatInterval, (_) => unawaited(_beat()));
+    _heartbeatPending = false;
+    _scheduleHeartbeat();
+  }
+
+  void _scheduleHeartbeat() {
+    _heartbeat?.cancel();
+    if (_disposed || _call?.status != ResenhaCallStatus.connected) return;
+    _heartbeat = Timer(heartbeatInterval, () {
+      _heartbeat = null;
+      unawaited(_requestHeartbeat());
+    });
+  }
+
+  Future<void> _requestHeartbeat() {
+    final active = _heartbeatRequest;
+    if (active != null) {
+      _heartbeatPending = true;
+      return active;
+    }
+
+    _heartbeat?.cancel();
+    _heartbeat = null;
+    late final Future<void> request;
+    request = _beat().whenComplete(() {
+      if (!identical(_heartbeatRequest, request)) return;
+      _heartbeatRequest = null;
+      if (_disposed || _call?.status != ResenhaCallStatus.connected) return;
+      if (_heartbeatPending) {
+        _heartbeatPending = false;
+        unawaited(_requestHeartbeat());
+      } else {
+        _scheduleHeartbeat();
+      }
+    });
+    _heartbeatRequest = request;
+    return request;
   }
 
   Future<void> _beat() async {
@@ -723,7 +760,7 @@ final class ResenhaController extends ChangeNotifier {
 
   void setForeground(bool foreground) {
     _idleState = foreground ? ResenhaIdleState.active : ResenhaIdleState.afk;
-    if (_call != null) unawaited(_beat());
+    if (_call != null) unawaited(_requestHeartbeat());
   }
 
   Future<void> setMuted(bool muted) => _setMuted(muted, syncSystem: true);
@@ -996,6 +1033,7 @@ final class ResenhaController extends ChangeNotifier {
     _joinRevision = Object();
     _heartbeat?.cancel();
     _heartbeat = null;
+    _heartbeatPending = false;
     _stateRetry?.cancel();
     _stateRetry = null;
     _stateSyncPending = false;
@@ -1556,6 +1594,7 @@ final class ResenhaController extends ChangeNotifier {
     if (_disposed) return;
     _disposed = true;
     _heartbeat?.cancel();
+    _heartbeatPending = false;
     _stateRetry?.cancel();
     for (final subscription in _directorySubscriptions.values) {
       subscription.cancel();

@@ -63,18 +63,21 @@ void main() {
     expect(completed, isTrue);
   });
 
-  testWidgets('a late search response cannot replace newer results', (
+  testWidgets('a newer search waits for the active response and owns results', (
     tester,
   ) async {
     final oldResult = Completer<List<AssignmentAssignee>>();
     final newResult = Completer<List<AssignmentAssignee>>();
+    final terms = <String>[];
 
     await tester.pumpWidget(
       _editor(
         suggestions: AssignmentSuggestions(users: const [_sam]),
         searchDebounce: Duration.zero,
-        search: (_, term) =>
-            term == 'old' ? oldResult.future : newResult.future,
+        search: (_, term) {
+          terms.add(term);
+          return term == 'old' ? oldResult.future : newResult.future;
+        },
       ),
     );
     await tester.pumpAndSettle();
@@ -104,25 +107,25 @@ void main() {
     );
     await tester.enterText(find.byKey(const Key('assignment-search')), 'new');
     await tester.pump();
+    expect(terms, ['old']);
 
+    oldResult.complete(const [
+      AssignmentUser(username: 'old-user', name: 'Old result'),
+    ]);
+    await tester.pump();
+    expect(terms, ['old', 'new']);
     newResult.complete(const [
       AssignmentUser(username: 'new-user', name: 'New result'),
     ]);
     await tester.pump();
     expect(find.text('New result'), findsOneWidget);
+    expect(find.text('Old result'), findsNothing);
     expect(
       tester
           .widget<FilledButton>(find.byKey(const Key('assignment-save')))
           .onPressed,
       isNotNull,
     );
-
-    oldResult.complete(const [
-      AssignmentUser(username: 'old-user', name: 'Old result'),
-    ]);
-    await tester.pump();
-    expect(find.text('New result'), findsOneWidget);
-    expect(find.text('Old result'), findsNothing);
   });
 
   testWidgets('write errors stay inline and a pending write cannot duplicate', (

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/json.dart';
 import 'discourse_api_contracts.dart';
+import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
 
 /// The ordinary JSON request boundary used by [DiscourseApi].
@@ -16,11 +17,24 @@ import 'http_transport.dart';
 /// This lives under `src` and is deliberately not exported. Callers depend on
 /// the smaller domain interfaces in `discourse_api_contracts.dart` instead.
 final class DiscourseTransport {
-  const DiscourseTransport(this._client, this.timeout, this._maxResponseBytes);
+  DiscourseTransport(
+    this._client,
+    this.timeout,
+    this._maxResponseBytes, {
+    DiscourseRequestCoordinator? coordinator,
+    int maxConcurrentPerOrigin = 4,
+    Duration defaultRateLimitCooldown = const Duration(seconds: 15),
+  }) : coordinator =
+           coordinator ??
+           DiscourseRequestCoordinator(
+             maxConcurrentPerOrigin: maxConcurrentPerOrigin,
+             defaultRateLimitCooldown: defaultRateLimitCooldown,
+           );
 
   final SafeHttpClient _client;
   final Duration timeout;
   final int _maxResponseBytes;
+  final DiscourseRequestCoordinator coordinator;
 
   static const String userAgent = 'DiscourseNative/1.0';
 
@@ -31,11 +45,15 @@ final class DiscourseTransport {
     Duration? requestTimeout,
   }) async {
     try {
-      return await sendBoundedHttpRequest(
-        _client,
-        request,
-        timeout: requestTimeout ?? timeout,
-        maxBodyBytes: _maxResponseBytes,
+      requireSafeHttpUrl(request.url);
+      return await coordinator.run(
+        request.url,
+        () => sendBoundedHttpRequest(
+          _client,
+          request,
+          timeout: requestTimeout ?? timeout,
+          maxBodyBytes: _maxResponseBytes,
+        ),
       );
     } on UnsafeHttpTransportException catch (error, stackTrace) {
       throw SiteLookupException(
@@ -82,15 +100,28 @@ final class DiscourseTransport {
   }) async {
     final http.Response response;
     try {
-      final request = http.Request('GET', url);
-      response = apiKey == null
-          ? await send(request)
-          : await sendAuthenticated(
-              request,
-              siteUrl: siteUrl,
-              apiKey: apiKey,
-              clientId: clientId,
-            );
+      requireSafeHttpUrl(url);
+      if (apiKey != null) _requireCredentialOrigin(url, siteUrl);
+      response = await coordinator.run(
+        url,
+        () {
+          final request = http.Request('GET', url);
+          if (apiKey != null) {
+            request.headers.addAll(authHeaders(apiKey, clientId: clientId));
+          }
+          return sendBoundedHttpRequest(
+            _client,
+            request,
+            timeout: timeout,
+            maxBodyBytes: _maxResponseBytes,
+          );
+        },
+        coalesce: DiscourseGetRequestKey(
+          url,
+          apiKey: apiKey,
+          clientId: clientId,
+        ),
+      );
     } catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
@@ -206,34 +237,8 @@ final class DiscourseTransport {
       },
       errors: errors,
       statusCode: response.statusCode,
-      retryAfter: _retryAfter(response, decoded),
+      retryAfter: DiscourseRequestCoordinator.explicitRetryAfter(response),
     );
-  }
-
-  static const Duration _maximumRetryAfter = Duration(hours: 1);
-
-  static Duration? _retryAfter(
-    http.Response response,
-    Map<String, dynamic> body,
-  ) {
-    final header = int.tryParse(response.headers['retry-after'] ?? '');
-    final headerDuration = _safeRetryAfter(header);
-    if (headerDuration != null) return headerDuration;
-
-    final extras = jsonObject(body['extras']);
-    return switch (extras['wait_seconds']) {
-      final num seconds when seconds.isFinite && seconds >= 0 =>
-        seconds >= _maximumRetryAfter.inSeconds
-            ? _maximumRetryAfter
-            : _safeRetryAfter(seconds.round()),
-      final String seconds => _safeRetryAfter(int.tryParse(seconds)),
-      _ => null,
-    };
-  }
-
-  static Duration? _safeRetryAfter(int? seconds) {
-    if (seconds == null || seconds < 0) return null;
-    return Duration(seconds: seconds.clamp(0, _maximumRetryAfter.inSeconds));
   }
 
   /// Error bodies can be HTML or empty. A failed decode is response metadata,
@@ -266,4 +271,6 @@ final class DiscourseTransport {
     'Content-Type': 'application/json',
     'Dont-Chunk': 'true',
   };
+
+  void close() => coordinator.close();
 }

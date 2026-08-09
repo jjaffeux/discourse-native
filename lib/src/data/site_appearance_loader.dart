@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/site_appearance.dart';
+import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
 import 'site_appearance_parser.dart';
 
@@ -60,15 +61,18 @@ final class SiteAppearanceLoader {
     this.timeout = const Duration(seconds: 10),
     this.maxResponseBytes = 2 * 1024 * 1024,
     this.maxRedirects = 5,
+    DiscourseRequestCoordinator? coordinator,
   }) : assert(timeout > Duration.zero),
        assert(maxResponseBytes > 0),
        assert(maxRedirects >= 0),
-       _client = SafeHttpClient.borrowed(client);
+       _client = SafeHttpClient.borrowed(client),
+       _coordinator = coordinator ?? DiscourseRequestCoordinator();
 
   final http.Client _client;
   final Duration timeout;
   final int maxResponseBytes;
   final int maxRedirects;
+  final DiscourseRequestCoordinator _coordinator;
 
   static const String _userAgent = 'DiscourseNative/1.0';
 
@@ -359,11 +363,21 @@ final class SiteAppearanceLoader {
 
   Future<http.Response> _send(http.BaseRequest request) async {
     try {
-      return await sendBoundedHttpRequest(
-        _client,
-        request,
-        timeout: timeout,
-        maxBodyBytes: maxResponseBytes,
+      return await _coordinator.run(
+        request.url,
+        () => sendBoundedHttpRequest(
+          _client,
+          request,
+          timeout: timeout,
+          maxBodyBytes: maxResponseBytes,
+        ),
+        coalesce: request.method == 'GET'
+            ? DiscourseGetRequestKey(
+                request.url,
+                apiKey: request.headers['User-Api-Key'],
+                clientId: request.headers['User-Api-Client-Id'],
+              )
+            : null,
       );
     } on SiteAppearanceLoadException {
       rethrow;

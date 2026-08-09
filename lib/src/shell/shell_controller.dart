@@ -482,7 +482,13 @@ class ShellController extends FrameSafeNotifier {
       ..clear()
       ..addAll(stored);
     _instanceIndex = 0;
-    _resetToInstanceDefault();
+    final initialInstance = currentInstance;
+    // A persisted palette is already good enough for the first frame. Its
+    // expensive stylesheet refresh follows the selected account's small JSON
+    // reads instead of competing with the feed during the cold-start burst.
+    _resetToInstanceDefault(
+      refreshAppearance: initialInstance?.appearance == null,
+    );
     _loadStatus = InstanceLoadStatus.ready;
     _notify();
 
@@ -490,13 +496,10 @@ class ShellController extends FrameSafeNotifier {
     // a failure here has to stay quiet. See UpdateController.check.
     unawaited(updates.load());
 
-    // Counters are stale from the moment they were stored, so pull fresh ones
-    // for every connected site. Deliberately not awaited by callers.
-    unawaited(_refreshTotals());
-    // Poll creation, staff status, and group eligibility are authorization
-    // inputs. Refresh them for every connected site once this app session,
-    // not only when that site happens to become the selected one.
-    unawaited(_refreshSessionUsers());
+    // Refresh the selected account first, then optional appearance metadata,
+    // then the remaining accounts one at a time. A rail full of sites should
+    // not multiply the selected site's cold-start burst.
+    unawaited(_refreshAccountState(initialInstance));
   }
 
   bool contains(String url) => _instances.any((i) => i.url == url);
@@ -686,20 +689,38 @@ class ShellController extends FrameSafeNotifier {
     return _instanceAt(siteUrl)?.user?.draftCount ?? 0;
   }
 
-  /// Refreshes counters for every connected site, in parallel.
-  Future<void> _refreshTotals() async {
-    await accountActivity.refreshAll(_instances);
-  }
-
   Future<void> _refreshOne(DiscourseInstance instance) async {
     await accountActivity.refresh(instance);
   }
 
-  Future<void> _refreshSessionUsers() async {
-    await Future.wait([
+  Future<void> _refreshAccountState(DiscourseInstance? initialInstance) async {
+    final connected = [
       for (final instance in List<DiscourseInstance>.of(_instances))
-        if (instance.isConnected) _refreshSessionUserFor(instance),
-    ]);
+        if (instance.isConnected) instance,
+    ];
+    final selected = connected.where(
+      (instance) => instance.url == initialInstance?.url,
+    );
+
+    if (selected.firstOrNull case final instance?) {
+      await Future.wait([
+        _refreshOne(instance),
+        _refreshSessionUserFor(instance),
+      ]);
+      if (isDisposed || !contains(instance.url)) return;
+      await _presentation.ensureAppearance(instance.url);
+    } else if (initialInstance case final instance?) {
+      if (isDisposed || !contains(instance.url)) return;
+      await _presentation.ensureAppearance(instance.url);
+    }
+
+    for (final instance in connected) {
+      if (instance.url == initialInstance?.url) continue;
+      if (isDisposed || !contains(instance.url)) return;
+      await _refreshOne(instance);
+      if (isDisposed || !contains(instance.url)) return;
+      await _refreshSessionUserFor(instance);
+    }
   }
 
   Future<void> _refreshSessionUserFor(DiscourseInstance instance) async {
@@ -711,10 +732,9 @@ class ShellController extends FrameSafeNotifier {
       );
       if (credential == null || !lease.isCurrent) return;
       if (credential.value case final apiKey?) {
-        await Future.wait([
-          _sessionUser(instance.url, apiKey, lease: lease),
-          _refreshCustomSidebarSections(instance.url, apiKey, lease: lease),
-        ]);
+        await _sessionUser(instance.url, apiKey, lease: lease);
+        if (!lease.isCurrent) return;
+        await _refreshCustomSidebarSections(instance.url, apiKey, lease: lease);
       }
     } catch (_) {
       // Capabilities remain unknown. Persisted values never authorize a poll

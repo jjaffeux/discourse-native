@@ -71,7 +71,7 @@ void main() {
 
   tearDown(() => controller.dispose());
 
-  test('only the newest whole-list request can publish records', () async {
+  test('a forced load replays once after the active request', () async {
     final site = instance('one.example');
     final older = controller.load(
       instance: site,
@@ -90,13 +90,16 @@ void main() {
     );
     await pumpEventQueue();
 
-    api.requests[1].response.complete(_page(2));
-    await newer;
+    expect(api.requests, hasLength(1));
     api.requests[0].response.complete(_page(1));
     await older;
+    await pumpEventQueue();
+    expect(api.requests, hasLength(2));
+    api.requests[1].response.complete(_page(2));
+    await newer;
 
     expect(controller.feedFor(site.url, 'latest')?.topicIds, [2]);
-    expect(store.read<Topic>(site.url, 1), isNull);
+    expect(store.read<Topic>(site.url, 1)?.title, 'Topic 1');
     expect(store.read<Topic>(site.url, 2)?.title, 'Topic 2');
   });
 

@@ -172,6 +172,8 @@ class TopicFilterController extends ChangeNotifier {
   TopicFilterSuggestions engine;
   Timer? _timer;
   int _request = 0;
+  bool _suggestionRunning = false;
+  _QueuedTopicFilterSuggestions? _queuedSuggestions;
   bool _disposed = false;
   String? _lastSuggestionInput;
   List<TopicFilterSuggestion> _suggestions = const [];
@@ -212,20 +214,48 @@ class TopicFilterController extends ChangeNotifier {
     await refreshSuggestions();
   }
 
-  Future<void> refreshSuggestions() async {
+  Future<void> refreshSuggestions() {
     final input = text.text;
     final request = ++_request;
+    final queued = _QueuedTopicFilterSuggestions(input, request);
+    if (_suggestionRunning) {
+      _queuedSuggestions?.complete();
+      _queuedSuggestions = queued;
+    } else {
+      _startSuggestions(queued);
+    }
+    return queued.done.future;
+  }
+
+  void _startSuggestions(_QueuedTopicFilterSuggestions queued) {
+    _suggestionRunning = true;
+    unawaited(_runSuggestions(queued));
+  }
+
+  Future<void> _runSuggestions(_QueuedTopicFilterSuggestions queued) async {
     List<TopicFilterSuggestion> result;
     try {
-      result = await engine.suggestions(input);
+      result = await engine.suggestions(queued.input);
     } catch (_) {
       result = const [];
     }
-    if (_disposed || request != _request || input != text.text) return;
-    _lastSuggestionInput = input;
-    _suggestions = result;
-    _selectedIndex = -1;
-    notifyListeners();
+    if (!_disposed && queued.request == _request && queued.input == text.text) {
+      _lastSuggestionInput = queued.input;
+      _suggestions = result;
+      _selectedIndex = -1;
+      notifyListeners();
+    }
+    queued.complete();
+    _suggestionRunning = false;
+
+    final next = _queuedSuggestions;
+    _queuedSuggestions = null;
+    if (next == null) return;
+    if (_disposed || next.request != _request || next.input != text.text) {
+      next.complete();
+      return;
+    }
+    _startSuggestions(next);
   }
 
   void moveSelection(int delta) {
@@ -295,8 +325,22 @@ class TopicFilterController extends ChangeNotifier {
     _disposed = true;
     _request++;
     _timer?.cancel();
+    _queuedSuggestions?.complete();
+    _queuedSuggestions = null;
     text.dispose();
     super.dispose();
+  }
+}
+
+final class _QueuedTopicFilterSuggestions {
+  _QueuedTopicFilterSuggestions(this.input, this.request);
+
+  final String input;
+  final int request;
+  final Completer<void> done = Completer();
+
+  void complete() {
+    if (!done.isCompleted) done.complete();
   }
 }
 

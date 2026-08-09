@@ -67,27 +67,31 @@ Future<ShellController> _loadedShell(_ControllableFeedApi api) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('an older forced refresh cannot replace a newer response', () async {
-    final api = _ControllableFeedApi();
-    final shell = await _loadedShell(api);
-    addTearDown(shell.dispose);
+  test(
+    'forced refreshes collapse into one replay after the active load',
+    () async {
+      final api = _ControllableFeedApi();
+      final shell = await _loadedShell(api);
+      addTearDown(shell.dispose);
 
-    final older = shell.loadFeed('latest', force: true);
-    await api.waitForRequests(2);
-    final newer = shell.loadFeed('latest', force: true);
-    await api.waitForRequests(3);
+      final older = shell.loadFeed('latest', force: true);
+      await api.waitForRequests(2);
+      final newer = shell.loadFeed('latest', force: true);
+      final newest = shell.loadFeed('latest', force: true);
+      await Future<void>.delayed(Duration.zero);
 
-    await _complete(api.requests[2], _page(3));
-    await newer;
-    expect(shell.currentFeed?.topicIds, [3]);
+      expect(api.requests, hasLength(2));
+      await _complete(api.requests[1], _page(2));
+      await older;
+      await api.waitForRequests(3);
 
-    await _complete(api.requests[1], _page(2));
-    await older;
-
-    expect(shell.currentFeed?.topicIds, [3]);
-    expect(shell.store.read<Topic>(_siteUrl, 2), isNull);
-    expect(shell.store.read<Topic>(_siteUrl, 3)?.title, 'Topic 3');
-  });
+      await _complete(api.requests[2], _page(3));
+      await Future.wait([newer, newest]);
+      expect(shell.currentFeed?.topicIds, [3]);
+      expect(shell.store.read<Topic>(_siteUrl, 2)?.title, 'Topic 2');
+      expect(shell.store.read<Topic>(_siteUrl, 3)?.title, 'Topic 3');
+    },
+  );
 
   test(
     'pagination from the old snapshot cannot append after refresh',

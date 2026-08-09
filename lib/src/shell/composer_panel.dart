@@ -733,6 +733,8 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
   final TextEditingController _query = TextEditingController();
   Timer? _debounce;
   int _revision = 0;
+  bool _searchRunning = false;
+  ({int revision, String term})? _queuedSearch;
   TopicTagSearch _result = const TopicTagSearch();
   bool _loading = true;
 
@@ -745,6 +747,7 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _queuedSearch = null;
     _query.dispose();
     super.dispose();
   }
@@ -757,6 +760,15 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
   Future<void> _search(String term) async {
     final revision = ++_revision;
     setState(() => _loading = true);
+    if (_searchRunning) {
+      _queuedSearch = (revision: revision, term: term);
+      return;
+    }
+    await _runSearch(revision, term);
+  }
+
+  Future<void> _runSearch(int revision, String term) async {
+    _searchRunning = true;
     try {
       final result = await ShellScope.read(
         context,
@@ -772,6 +784,13 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
         _result = const TopicTagSearch(forbiddenMessage: "Couldn't load tags.");
         _loading = false;
       });
+    } finally {
+      _searchRunning = false;
+      final queued = _queuedSearch;
+      _queuedSearch = null;
+      if (queued != null && mounted && queued.revision == _revision) {
+        unawaited(_runSearch(queued.revision, queued.term));
+      }
     }
   }
 

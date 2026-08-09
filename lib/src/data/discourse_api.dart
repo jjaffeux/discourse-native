@@ -93,6 +93,7 @@ class DiscourseApi
 
   late final SiteAppearanceLoader _siteAppearanceLoader = SiteAppearanceLoader(
     client: _client,
+    coordinator: _transport.coordinator,
     timeout: timeout,
     maxResponseBytes: _maxResponseBytes < 2 * 1024 * 1024
         ? _maxResponseBytes
@@ -2369,7 +2370,10 @@ class DiscourseApi
     return '$baseUrl${icon.startsWith('/') ? '' : '/'}$icon';
   }
 
-  void close() => _client.close();
+  void close() {
+    _transport.close();
+    _client.close();
+  }
 }
 
 Iterable<Map<String, dynamic>> _flattenCategories(Object? categories) sync* {
