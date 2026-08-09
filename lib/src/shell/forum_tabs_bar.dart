@@ -13,6 +13,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';
+import 'shell_metrics.dart';
 import 'shell_scope.dart';
 
 /// Presentation data for one tab in a forum's horizontal tab bar.
@@ -67,7 +68,7 @@ class ForumTabsBar extends StatefulWidget {
   }) : assert(items.isNotEmpty),
        assert(items.any((item) => item.id == selectedId));
 
-  static const double height = 42;
+  static const double height = shellHeaderHeight;
 
   final String forumName;
   final List<ForumTabItem> items;
