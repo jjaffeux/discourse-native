@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../models/post.dart';
+import '../models/topic.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -17,6 +18,7 @@ import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'small_action.dart';
+import 'topic_list_view.dart';
 import 'user_card.dart';
 
 /// A topic and its posts.
@@ -299,6 +301,8 @@ class _TopicViewState extends State<TopicView> {
     // otherwise it spins forever at the bottom of a topic with more to fetch.
     final showFooter = snapshot.loadingMore;
     final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
+    final showRecommendations =
+        !snapshot.hasMore && snapshot.recommendations?.isNotEmpty == true;
 
     // Which posts are on screen, and in what order. The posts themselves are
     // in the store; each tile watches its own, so an edit or a deletion redraws
@@ -339,7 +343,11 @@ class _TopicViewState extends State<TopicView> {
         controller: _scroll,
         listController: _list,
         // Lazy, like the topic list: a 500-post topic builds only what shows.
-        itemCount: postIds.length + (showHeader ? 1 : 0) + (showFooter ? 1 : 0),
+        itemCount:
+            postIds.length +
+            (showHeader ? 1 : 0) +
+            (showFooter ? 1 : 0) +
+            (showRecommendations ? 1 : 0),
         separatorBuilder: (context, _) =>
             Divider(height: 1, color: theme.shell.divider),
         itemBuilder: (context, index) {
@@ -352,7 +360,14 @@ class _TopicViewState extends State<TopicView> {
 
           final postIndex = index - (showHeader ? 1 : 0);
           if (postIndex >= postIds.length) {
-            return const _LoadingPostsRow();
+            final trailingIndex = postIndex - postIds.length;
+            if (showFooter && trailingIndex == 0) {
+              return const _LoadingPostsRow();
+            }
+            return _MoreTopics(
+              key: ValueKey((siteUrl, snapshot.topicId, 'more-topics')),
+              recommendations: snapshot.recommendations!,
+            );
           }
 
           // Building the last post means the end is in view. Scrolling alone
@@ -385,6 +400,7 @@ class _TopicViewSnapshot {
     required this.hasMore,
     required this.hasEarlier,
     required this.initialPostIndex,
+    required this.recommendations,
   });
 
   factory _TopicViewSnapshot.from(ShellController controller) {
@@ -415,6 +431,7 @@ class _TopicViewSnapshot {
       hasMore: controller.currentTopicHasMore,
       hasEarlier: hasEarlier,
       initialPostIndex: initialPostIndex,
+      recommendations: controller.currentTopic?.recommendations,
     );
   }
 
@@ -427,6 +444,7 @@ class _TopicViewSnapshot {
   final bool hasMore;
   final bool hasEarlier;
   final int? initialPostIndex;
+  final TopicRecommendations? recommendations;
 
   @override
   bool operator ==(Object other) =>
@@ -440,7 +458,8 @@ class _TopicViewSnapshot {
           loadingEarlier == other.loadingEarlier &&
           hasMore == other.hasMore &&
           hasEarlier == other.hasEarlier &&
-          initialPostIndex == other.initialPostIndex;
+          initialPostIndex == other.initialPostIndex &&
+          recommendations == other.recommendations;
 
   @override
   int get hashCode => Object.hash(
@@ -453,7 +472,165 @@ class _TopicViewSnapshot {
     hasMore,
     hasEarlier,
     initialPostIndex,
+    recommendations,
   );
+}
+
+enum _MoreTopicsTab { suggested, related }
+
+/// Core's more-topics footer. Suggested topics are always a core feature;
+/// related topics appear when discourse-ai's semantic recommendations are on.
+class _MoreTopics extends StatefulWidget {
+  const _MoreTopics({super.key, required this.recommendations});
+
+  final TopicRecommendations recommendations;
+
+  @override
+  State<_MoreTopics> createState() => _MoreTopicsState();
+}
+
+class _MoreTopicsState extends State<_MoreTopics> {
+  _MoreTopicsTab _selected = _MoreTopicsTab.suggested;
+
+  _MoreTopicsTab get _effectiveSelection {
+    if (_selected == _MoreTopicsTab.suggested &&
+        widget.recommendations.suggested.isNotEmpty) {
+      return _MoreTopicsTab.suggested;
+    }
+    if (widget.recommendations.related.isNotEmpty) {
+      return _MoreTopicsTab.related;
+    }
+    return _MoreTopicsTab.suggested;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final suggested = widget.recommendations.suggested.isNotEmpty;
+    final related = widget.recommendations.related.isNotEmpty;
+    final hasTabs = suggested && related;
+    final selection = _effectiveSelection;
+    final topics = switch (selection) {
+      _MoreTopicsTab.suggested => widget.recommendations.suggested,
+      _MoreTopicsTab.related => widget.recommendations.related,
+    };
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (hasTabs)
+            DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: theme.shell.divider)),
+              ),
+              child: Row(
+                children: [
+                  _MoreTopicsTabButton(
+                    key: const ValueKey('suggested-topics-tab'),
+                    label: 'Suggested',
+                    selected: selection == _MoreTopicsTab.suggested,
+                    onPressed: () =>
+                        setState(() => _selected = _MoreTopicsTab.suggested),
+                  ),
+                  _MoreTopicsTabButton(
+                    key: const ValueKey('related-topics-tab'),
+                    label: 'Related',
+                    icon: DIcons.discourseSparkles,
+                    selected: selection == _MoreTopicsTab.related,
+                    onPressed: () =>
+                        setState(() => _selected = _MoreTopicsTab.related),
+                  ),
+                ],
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Row(
+                children: [
+                  if (related) ...[
+                    DIcon(
+                      DIcons.discourseSparkles,
+                      size: 14,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(
+                    related ? 'Related' : 'Suggested',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ],
+              ),
+            ),
+          for (var index = 0; index < topics.length; index++) ...[
+            TopicListRow(topic: topics[index]),
+            if (index < topics.length - 1)
+              Divider(height: 1, color: theme.shell.divider),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MoreTopicsTabButton extends StatelessWidget {
+  const _MoreTopicsTabButton({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+    this.icon,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onPressed;
+  final DIconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onPressed,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: selected
+                    ? theme.colorScheme.primary
+                    : Colors.transparent,
+                width: 2,
+              ),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon case final icon?) ...[
+                DIcon(icon, size: 13, color: color),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: theme.textTheme.labelLarge?.copyWith(color: color),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _EarlierPostsRow extends StatelessWidget {

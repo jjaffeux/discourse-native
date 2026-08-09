@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import 'json.dart';
-import 'post.dart' show resolveAvatarUrl;
 
 /// One account the site offered while somebody was typing a mention.
 ///

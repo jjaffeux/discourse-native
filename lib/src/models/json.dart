@@ -70,3 +70,15 @@ String jsonTitle(Object? plain, Object? fancy) {
   }
   return '';
 }
+
+/// Resolves a Discourse avatar template into an image URL for this site.
+///
+/// Templates are normally site-relative and carry a `{size}` placeholder,
+/// while CDN-backed sites may answer with a protocol-relative or absolute URL.
+String? resolveAvatarUrl(String? template, String siteUrl) {
+  if (template == null || template.isEmpty) return null;
+  final sized = template.replaceAll('{size}', '90');
+  if (sized.startsWith('//')) return 'https:$sized';
+  if (sized.startsWith('http')) return sized;
+  return '$siteUrl${sized.startsWith('/') ? '' : '/'}$sized';
+}

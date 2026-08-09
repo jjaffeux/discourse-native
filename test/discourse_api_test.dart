@@ -2374,6 +2374,47 @@ void _writeGroups() {
       // needs the source, not the cooked HTML.
       expect(posts.single.raw, 'hi');
     });
+
+    test('asks for and parses more topics on a final post window', () async {
+      late Uri asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          return http.Response(
+            jsonEncode({
+              'post_stream': {
+                'posts': [
+                  {
+                    'id': 20,
+                    'post_number': 20,
+                    'username': 'sam',
+                    'cooked': '<p>the end</p>',
+                  },
+                ],
+              },
+              'suggested_topics': [
+                {'id': 30, 'title': 'Suggested', 'slug': 'suggested'},
+              ],
+              'related_topics': [
+                {'id': 40, 'title': 'Related', 'slug': 'related'},
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final page = await api.topicPosts(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 12,
+        ids: [20],
+      );
+
+      expect(asked.query, contains('include_suggested=true'));
+      expect(page.posts.single.id, 20);
+      expect(page.recommendations!.suggested.single.id, 30);
+      expect(page.recommendations!.related.single.id, 40);
+    });
   });
 
   group('saveDraft', () {

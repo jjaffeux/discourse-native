@@ -4,7 +4,7 @@ import '../data/store.dart';
 import '../plugins/site_plugin.dart';
 import 'composer_draft.dart';
 import 'json.dart';
-import 'topic_tag.dart';
+import 'topic.dart';
 
 /// One post in a topic.
 @immutable
@@ -355,15 +355,6 @@ class Post with Storable<Post> {
   ]);
 }
 
-/// Avatar templates are site-relative and carry a `{size}` placeholder.
-String? resolveAvatarUrl(String? template, String siteUrl) {
-  if (template == null || template.isEmpty) return null;
-  final sized = template.replaceAll('{size}', '90');
-  if (sized.startsWith('//')) return 'https:$sized';
-  if (sized.startsWith('http')) return sized;
-  return '$siteUrl${sized.startsWith('/') ? '' : '/'}$sized';
-}
-
 /// What a topic fetch answers with.
 ///
 /// Two things, kept apart: the topic, and the first chunk of its posts. They
@@ -371,6 +362,16 @@ String? resolveAvatarUrl(String? template, String siteUrl) {
 /// fetched again from anywhere is the same record — and this is the shape that
 /// carries them from the parser to whoever does the storing.
 typedef TopicPayload = ({TopicDetail detail, List<Post> posts});
+
+/// A page of posts and the more-topics payload attached to the final page.
+///
+/// Core sends `suggested_topics` there; discourse-ai adds `related_topics` to
+/// the same response. [recommendations] is null before the end rather than an
+/// empty value, so a partial refetch cannot erase recommendations already held.
+typedef TopicPostsPayload = ({
+  List<Post> posts,
+  TopicRecommendations? recommendations,
+});
 
 /// A topic, and the order its posts go in.
 ///
@@ -394,6 +395,7 @@ class TopicDetail with Storable<TopicDetail> {
     this.archived = false,
     this.draft,
     this.draftSequence = 0,
+    this.recommendations,
   });
 
   /// Reads a topic payload into the topic and its posts.
@@ -430,6 +432,7 @@ class TopicDetail with Storable<TopicDetail> {
         // composer needs no request of its own.
         draft: ComposerDraft.decode(json['draft']),
         draftSequence: jsonInt(json['draft_sequence']),
+        recommendations: TopicRecommendations.fromJson(json, siteUrl),
       ),
       posts: List.unmodifiable([
         for (final post in jsonObjects(postStream['posts']))
@@ -461,6 +464,10 @@ class TopicDetail with Storable<TopicDetail> {
 
   /// What the next draft save must be sequenced against.
   final int draftSequence;
+
+  /// The lists Discourse places after the final post. Null means this response
+  /// was not the final post window and therefore had nothing to say about them.
+  final TopicRecommendations? recommendations;
 
   @override
   Object get storeId => id;
@@ -499,6 +506,9 @@ class TopicDetail with Storable<TopicDetail> {
     draftSequence: sequence,
   );
 
+  TopicDetail withRecommendations(TopicRecommendations recommendations) =>
+      copyWith(recommendations: recommendations);
+
   /// A refetched copy wins, except that it may not have caught up.
   ///
   /// A reply made a moment ago can be missing from the stream the site answers
@@ -511,12 +521,15 @@ class TopicDetail with Storable<TopicDetail> {
   TopicDetail merge(TopicDetail incoming) {
     final arrived = incoming.stream.toSet();
     final missing = stream.where((id) => !arrived.contains(id)).toList();
-    final merged = missing.isEmpty
+    var merged = missing.isEmpty
         ? incoming
         : incoming.copyWith(
             stream: [...incoming.stream, ...missing],
             postsCount: incoming.postsCount + missing.length,
           );
+    if (merged.recommendations == null && recommendations != null) {
+      merged = merged.copyWith(recommendations: recommendations);
+    }
     return this == merged ? this : merged;
   }
 
@@ -533,6 +546,7 @@ class TopicDetail with Storable<TopicDetail> {
     List<TopicTag>? tags,
     bool? canEdit,
     bool? canEditTags,
+    TopicRecommendations? recommendations,
   }) => TopicDetail(
     id: id,
     title: title ?? this.title,
@@ -546,6 +560,7 @@ class TopicDetail with Storable<TopicDetail> {
     archived: archived ?? this.archived,
     draft: clearDraft ? null : (draft ?? this.draft),
     draftSequence: draftSequence ?? this.draftSequence,
+    recommendations: recommendations ?? this.recommendations,
   );
 
   @override
@@ -563,7 +578,8 @@ class TopicDetail with Storable<TopicDetail> {
           listEquals(other.tags, tags) &&
           other.archived == archived &&
           other.draft == draft &&
-          other.draftSequence == draftSequence;
+          other.draftSequence == draftSequence &&
+          other.recommendations == recommendations;
 
   @override
   int get hashCode => Object.hash(
@@ -579,5 +595,6 @@ class TopicDetail with Storable<TopicDetail> {
     archived,
     draft,
     draftSequence,
+    recommendations,
   );
 }

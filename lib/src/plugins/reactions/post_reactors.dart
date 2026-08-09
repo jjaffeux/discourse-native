@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/store.dart';
 import '../../models/json.dart';
-import '../../models/post.dart';
 
 /// One account that reacted to a post, and what with.
 ///

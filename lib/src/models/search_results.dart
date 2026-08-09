@@ -3,7 +3,6 @@ import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html;
 
 import 'json.dart';
-import 'post.dart' show resolveAvatarUrl;
 
 /// The transient answer from Discourse's header-search endpoint.
 ///

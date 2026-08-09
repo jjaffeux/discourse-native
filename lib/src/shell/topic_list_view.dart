@@ -395,6 +395,38 @@ class _TopicRow extends StatelessWidget {
   }
 }
 
+/// A topic-list row for a topic already in hand.
+///
+/// Suggested and AI-related topics are embedded in a topic response rather
+/// than filed in a feed. This keeps their presentation and navigation exactly
+/// the same as an ordinary topic row without making them masquerade as a feed.
+class TopicListRow extends StatelessWidget {
+  const TopicListRow({super.key, required this.topic});
+
+  final Topic topic;
+
+  @override
+  Widget build(BuildContext context) {
+    return ShellSelector<String?>(
+      select: (controller) => controller.currentInstance?.url,
+      builder: (context, siteUrl, _) {
+        if (siteUrl == null) return const SizedBox.shrink();
+        final controller = ShellScope.read(context);
+        return ShellSelector<TopicCategory?>(
+          select: (controller) =>
+              controller.categoryFor(topic.categoryId, siteUrl: siteUrl),
+          builder: (context, category, _) => _TopicRowBody(
+            topic: topic,
+            category: category,
+            siteUrl: siteUrl,
+            onTap: () => controller.openTopic(topic),
+          ),
+        );
+      },
+    );
+  }
+}
+
 typedef _TopicListSnapshot = ({
   (String?, String) feedIdentity,
   String destination,

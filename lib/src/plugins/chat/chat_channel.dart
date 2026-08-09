@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../../data/store.dart';
 import '../../models/json.dart';
-import '../../models/post.dart';
 import '../../models/sidebar.dart';
 
 /// What a channel is attached to, which is what decides how it is drawn.

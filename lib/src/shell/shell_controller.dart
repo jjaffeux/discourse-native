@@ -1997,13 +1997,22 @@ class ShellController extends FrameSafeNotifier {
     _notify();
 
     try {
-      final posts = await api.posts(
+      final page = await api.topicPosts(
         siteUrl: instance.url,
         topicId: topicId,
         ids: pending.take(batchSize).toList(),
         apiKey: await authenticator.apiKeyFor(instance.url),
       );
-      lease.commit(() => store.putAll(instance.url, posts));
+      lease.commit(() {
+        store.putAll(instance.url, page.posts);
+        if (page.recommendations case final recommendations?) {
+          store.update<TopicDetail>(
+            instance.url,
+            topicId,
+            (detail) => detail.withRecommendations(recommendations),
+          );
+        }
+      });
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _reportOperationalError(

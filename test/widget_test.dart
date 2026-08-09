@@ -2040,11 +2040,15 @@ void main() {
       cooked: '<p>$body</p>',
     );
 
-    TopicPayload detail({List<int> stream = const [1]}) => topicPayload(
+    TopicPayload detail({
+      List<int> stream = const [1],
+      TopicRecommendations? recommendations,
+    }) => topicPayload(
       id: 7,
       title: 'A real topic',
       posts: [post(1, 1, 'First post body')],
       stream: stream,
+      recommendations: recommendations,
     );
 
     testWidgets('tapping a row replaces the list with the topic', (
@@ -2233,6 +2237,79 @@ void main() {
         [2, 3],
       ]);
       expect(renderedText('Second post body'), findsOneWidget);
+    });
+
+    testWidgets('shows suggested and discourse-ai related tabs at the end', (
+      tester,
+    ) async {
+      const recommendations = TopicRecommendations(
+        suggested: [
+          Topic(id: 8, title: 'A suggested topic', slug: 'a-suggested-topic'),
+        ],
+        related: [
+          Topic(id: 9, title: 'An AI related topic', slug: 'an-ai-topic'),
+        ],
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: detail(recommendations: recommendations),
+          9: topicPayload(
+            id: 9,
+            title: 'An AI related topic',
+            posts: [post(9, 1, 'Related topic body')],
+          ),
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Suggested'), findsOneWidget);
+      expect(find.text('Related'), findsOneWidget);
+      expect(find.text('A suggested topic'), findsOneWidget);
+      expect(find.text('An AI related topic'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('related-topics-tab')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('A suggested topic'), findsNothing);
+      expect(find.text('An AI related topic'), findsOneWidget);
+
+      await tester.tap(find.text('An AI related topic'));
+      await tester.pumpAndSettle();
+
+      expect(api.topicsOpened, [7, 9]);
+      expect(renderedText('Related topic body'), findsOneWidget);
+    });
+
+    testWidgets('gets more topics with the final page of a long topic', (
+      tester,
+    ) async {
+      const recommendations = TopicRecommendations(
+        suggested: [
+          Topic(id: 8, title: 'Suggested at the end', slug: 'suggested-end'),
+        ],
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: detail(stream: [1, 2]),
+        },
+        postsById: {2: post(2, 2, 'Last post body')},
+        postRecommendations: {7: recommendations},
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(api.postFetches, [
+        [2],
+      ]);
+      expect(renderedText('Last post body'), findsOneWidget);
+      expect(find.text('Suggested at the end'), findsOneWidget);
     });
 
     testWidgets('a topic already held is not refetched', (tester) async {

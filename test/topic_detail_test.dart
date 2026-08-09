@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const site = 'https://meta.discourse.org';
@@ -74,6 +75,56 @@ void main() {
 
       expect(payload.detail.canCreatePost, isFalse);
     });
+
+    test('reads core suggestions and discourse-ai related topics', () {
+      final payload = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A real topic',
+        'suggested_topics': [
+          {
+            'id': 8,
+            'title': 'Suggested one',
+            'slug': 'suggested-one',
+            'reply_count': 3,
+            'views': 42,
+            'posters': [
+              {
+                'user': {'id': 1, 'avatar_template': '/letter/s/{size}.png'},
+              },
+            ],
+          },
+        ],
+        'related_topics': [
+          {'id': 9, 'title': 'Related one', 'slug': 'related-one'},
+        ],
+      }, site);
+
+      final recommendations = payload.detail.recommendations!;
+      expect(recommendations.suggested.single.title, 'Suggested one');
+      expect(recommendations.suggested.single.replyCount, 3);
+      expect(recommendations.suggested.single.views, 42);
+      expect(recommendations.suggested.single.posterAvatars, [
+        '$site/letter/s/90.png',
+      ]);
+      expect(recommendations.related.single.title, 'Related one');
+      expect(() => recommendations.suggested.clear(), throwsUnsupportedError);
+    });
+
+    test('distinguishes a partial response from an empty final response', () {
+      final partial = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A real topic',
+      }, site);
+      final finalPage = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A real topic',
+        'suggested_topics': <Object>[],
+      }, site);
+
+      expect(partial.detail.recommendations, isNull);
+      expect(finalPage.detail.recommendations, isNotNull);
+      expect(finalPage.detail.recommendations!.isNotEmpty, isFalse);
+    });
   });
 
   group('withPostId', () {
@@ -136,6 +187,20 @@ void main() {
       ).merge(detail(stream: [1], postsCount: 399));
 
       expect(merged.stream, [1, 400]);
+    });
+
+    test('keeps recommendations when a partial refetch omits them', () {
+      const recommendations = TopicRecommendations(
+        suggested: [Topic(id: 8, title: 'Suggested', slug: 'suggested')],
+      );
+      final held = TopicDetail(
+        id: 7,
+        title: 'A real topic',
+        stream: const [1],
+        recommendations: recommendations,
+      );
+
+      expect(held.merge(detail(stream: [1])).recommendations, recommendations);
     });
   });
 
