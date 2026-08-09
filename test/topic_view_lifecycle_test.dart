@@ -442,6 +442,56 @@ void main() {
     expect(controller.currentTopicHasEarlier, isFalse);
   });
 
+  testWidgets('pulling past the first post does not fetch it again', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final posts = {
+      for (var number = 1; number <= 6; number++)
+        number: Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: '<p>Post $number</p>',
+        ),
+    };
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      postsById: posts,
+    );
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (var id = 1; id <= 6; id++) id],
+          postsCount: 6,
+        ),
+      )
+      ..putAll(site.url, posts.values);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+    expect(controller.currentTopicHasEarlier, isFalse);
+    expect(api.postFetches, isEmpty);
+
+    final vertical = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.down,
+    );
+    await tester.drag(vertical.first, const Offset(0, 200));
+    await tester.pumpAndSettle();
+
+    expect(api.postFetches, isEmpty);
+  });
+
   testWidgets('a queued page request cannot cross a topic switch', (
     tester,
   ) async {

@@ -201,58 +201,54 @@ class _TopicListViewState extends State<TopicListView> {
     _syncControllers(feedIdentity);
     _restore(controller, destination, feedIdentity);
 
-    return RefreshIndicator(
-      onRefresh: () => controller.loadFeed(destination, force: true),
-      child: NotificationListener<ScrollNotification>(
-        // Fetching on a scroll notification rather than from itemBuilder keeps
-        // the request off the hot path of building rows. Both paths coalesce
-        // through a post-frame callback because a viewport can emit a scroll
-        // notification while applying new content dimensions during layout.
-        onNotification: (notification) {
-          if (notification.depth != 0) return false;
-          // Opening a topic tears this list down, so the position has to be
-          // handed to the controller as it changes rather than on dispose.
-          if (_isCurrent(controller, feedIdentity) &&
-              _list?.isAttached == true) {
-            if (_list!.visibleRange case final range?) {
-              controller.saveFeedScrollRow(destination, range.$1);
-            }
+    return NotificationListener<ScrollNotification>(
+      // Fetching on a scroll notification rather than from itemBuilder keeps
+      // the request off the hot path of building rows. Both paths coalesce
+      // through a post-frame callback because a viewport can emit a scroll
+      // notification while applying new content dimensions during layout.
+      onNotification: (notification) {
+        if (notification.depth != 0) return false;
+        // Opening a topic tears this list down, so the position has to be
+        // handed to the controller as it changes rather than on dispose.
+        if (_isCurrent(controller, feedIdentity) && _list?.isAttached == true) {
+          if (_list!.visibleRange case final range?) {
+            controller.saveFeedScrollRow(destination, range.$1);
           }
-          if (notification.metrics.extentAfter < _loadMoreThreshold) {
+        }
+        if (notification.metrics.extentAfter < _loadMoreThreshold) {
+          _scheduleLoadMore(controller, destination, feedIdentity, feed);
+        }
+        return false;
+      },
+      // Titles wrap to one line or two, so a plain ListView's average-based
+      // guess at the unbuilt rows drifts as you scroll and the scrollbar
+      // thumb slides with it. SuperListView remembers each row's measured
+      // height instead. See TopicView, where the same problem is severe.
+      child: SuperListView.separated(
+        // Switching destinations swaps the controller, so the scrollable has
+        // to be a new one rather than re-attached to a different controller.
+        key: ValueKey(feedIdentity),
+        controller: _scroll,
+        listController: _list,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        // Still builds lazily through a SliverChildBuilderDelegate, so only
+        // rows near the viewport exist — a list of thousands costs the same
+        // as a list of thirty.
+        // Spinner only while fetching; see TopicView for why.
+        itemCount: feed.topicIds.length + (feed.loadingMore ? 1 : 0),
+        separatorBuilder: (context, _) =>
+            Divider(height: 1, color: Theme.of(context).shell.divider),
+        itemBuilder: (context, index) {
+          if (index >= feed.topicIds.length) return const _LoadingMoreRow();
+
+          // The end is in view; fetch before the user gets there.
+          if (index == feed.topicIds.length - 1 && feed.hasMore) {
             _scheduleLoadMore(controller, destination, feedIdentity, feed);
           }
-          return false;
+
+          final topicId = feed.topicIds[index];
+          return _TopicRow(key: ValueKey(topicId), topicId: topicId);
         },
-        // Titles wrap to one line or two, so a plain ListView's average-based
-        // guess at the unbuilt rows drifts as you scroll and the scrollbar
-        // thumb slides with it. SuperListView remembers each row's measured
-        // height instead. See TopicView, where the same problem is severe.
-        child: SuperListView.separated(
-          // Switching destinations swaps the controller, so the scrollable has
-          // to be a new one rather than re-attached to a different controller.
-          key: ValueKey(feedIdentity),
-          controller: _scroll,
-          listController: _list,
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          // Still builds lazily through a SliverChildBuilderDelegate, so only
-          // rows near the viewport exist — a list of thousands costs the same
-          // as a list of thirty.
-          // Spinner only while fetching; see TopicView for why.
-          itemCount: feed.topicIds.length + (feed.loadingMore ? 1 : 0),
-          separatorBuilder: (context, _) =>
-              Divider(height: 1, color: Theme.of(context).shell.divider),
-          itemBuilder: (context, index) {
-            if (index >= feed.topicIds.length) return const _LoadingMoreRow();
-
-            // The end is in view; fetch before the user gets there.
-            if (index == feed.topicIds.length - 1 && feed.hasMore) {
-              _scheduleLoadMore(controller, destination, feedIdentity, feed);
-            }
-
-            final topicId = feed.topicIds[index];
-            return _TopicRow(key: ValueKey(topicId), topicId: topicId);
-          },
-        ),
       ),
     );
   }

@@ -424,7 +424,11 @@ class _TopicViewState extends State<TopicView> {
   }
 
   void _allowLoadEarlierRetry(_TopicViewSnapshot snapshot) {
-    if (_loadEarlierToken != null || snapshot.loadingEarlier) return;
+    if (_loadEarlierToken != null ||
+        !snapshot.hasEarlier ||
+        snapshot.loadingEarlier) {
+      return;
+    }
     final siteUrl = snapshot.siteUrl;
     final topicId = snapshot.topicId;
     if (siteUrl == null || topicId == null || snapshot.postIds.isEmpty) return;
@@ -529,8 +533,12 @@ class _TopicViewState extends State<TopicView> {
         controller: _scroll,
         listController: _list,
         // A short around-post window still needs to accept a pull toward the
-        // top, both to fetch and to retry an earlier page.
-        physics: const AlwaysScrollableScrollPhysics(),
+        // top, both to fetch and to retry an earlier page. Once post one is in
+        // hand, stop forcing top-edge overscroll: there is no earlier request
+        // left for that gesture to make.
+        physics: snapshot.hasEarlier
+            ? const AlwaysScrollableScrollPhysics()
+            : null,
         // Keep existing post elements attached to their ids when a page is
         // inserted before them; separated lists address the expanded index.
         findChildIndexCallback: (key) {

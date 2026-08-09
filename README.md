@@ -149,9 +149,8 @@ bookmark on something this app has never heard of still opens.
 path is named after the account, so signed out it falls back to the placeholder.
 
 Lists are cached per site and destination — revisiting one does not refetch.
-Two things force it anyway: pull-to-refresh, and tapping the destination you
-are already looking at — the second exists because a mouse cannot pull, and a
-desktop list would otherwise be session-stale. They work signed out too, since
+Tapping the destination you are already looking at forces a refresh; merely
+scrolling past the first row does not. It works signed out too, since
 `/latest.json` is public; unread state simply arrives as zero.
 
 Two things the payload makes you handle:
