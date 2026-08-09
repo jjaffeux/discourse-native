@@ -258,6 +258,15 @@ class DiscourseApi
       canCreatePoll: user.containsKey('can_create_poll')
           ? user['can_create_poll'] == true
           : null,
+      // Assign deliberately omits these serializer fields when the plugin is
+      // absent or disabled. Preserve key presence so a fresh false is a real
+      // denial and absence never turns into permission.
+      canAssign: user.containsKey('can_assign')
+          ? user['can_assign'] == true
+          : null,
+      canAssignGlobally: user.containsKey('can_assign_globally')
+          ? user['can_assign_globally'] == true
+          : null,
       staff:
           user['staff'] == true ||
           user['admin'] == true ||
@@ -363,7 +372,7 @@ class DiscourseApi
   /// is the same act. Read state is a separate thing and is not touched, so the
   /// rows stay unread until they are tapped.
   ///
-  /// [filterByTypes] produces the filtered view used by tabs such as Replies.
+  /// [filterByTypes] produces the filtered views used by Replies and Chat.
   /// Filtered requests include `silent=true`, just as Discourse's web client
   /// does, so opening one category does not move the account-wide seen marker.
   @override

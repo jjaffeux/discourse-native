@@ -187,6 +187,13 @@ final class DiscourseTransport {
     final errors = [
       for (final error in jsonArray(decoded['errors']))
         if (error is String && error.trim().isNotEmpty) error.trim(),
+      // Some plugin controllers, including discourse-assign, return a single
+      // localized business-rule refusal under `error` rather than core's
+      // usual `errors` array. Preserve it at the shared boundary so callers
+      // can show what the site actually refused.
+      if (jsonText(decoded['error'])?.trim() case final error?
+          when error.isNotEmpty)
+        error,
     ];
 
     throw WriteException(

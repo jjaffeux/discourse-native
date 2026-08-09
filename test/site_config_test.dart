@@ -18,6 +18,8 @@ Map<String, dynamic> settings({
   int? maxImageWidth,
   int? maxImageHeight,
   int? minSearchTermLength,
+  bool? enableAssignStatus,
+  String? assignStatuses,
 }) => {
   'emoji_set': ?emojiSet,
   'external_emoji_url': externalEmojiUrl,
@@ -32,6 +34,8 @@ Map<String, dynamic> settings({
   'max_image_width': ?maxImageWidth,
   'max_image_height': ?maxImageHeight,
   'min_search_term_length': ?minSearchTermLength,
+  'enable_assign_status': ?enableAssignStatus,
+  'assign_statuses': ?assignStatuses,
 };
 
 void main() {
@@ -137,6 +141,23 @@ void main() {
       );
 
       expect(config.mainReaction, isNull);
+    });
+
+    test('reads optional Assign statuses without claiming capability', () {
+      final enabled = SiteConfig.fromSettings(
+        settings(
+          enableAssignStatus: true,
+          assignStatuses: 'New|In Progress|Done',
+        ),
+      );
+      final disabled = SiteConfig.fromSettings(
+        settings(enableAssignStatus: false, assignStatuses: 'New|Done'),
+      );
+
+      expect(enabled.assignStatusesEnabled, isTrue);
+      expect(enabled.assignStatuses, ['New', 'In Progress', 'Done']);
+      expect(disabled.assignStatusesEnabled, isFalse);
+      expect(disabled.assignStatuses, isEmpty);
     });
   });
 

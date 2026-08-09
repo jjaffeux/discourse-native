@@ -4,9 +4,11 @@ import 'package:html/dom.dart' as dom;
 import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
+import '../models/topic.dart';
 import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
+import 'assign/assign_plugin.dart';
 import 'chat/chat_plugin.dart';
 import 'poll/poll_plugin.dart';
 import 'reactions/reactions_plugin.dart';
@@ -57,16 +59,20 @@ abstract interface class SitePlugin {
   String get name;
 }
 
-/// A feature record embedded in a post payload.
-abstract interface class PostRecordPlugin<T extends Object> {
-  /// The type [readPost] answers with, and the key [PluginData.get] finds it
-  /// under.
+/// The typed key shared by a plugin's records.
+abstract interface class PluginRecord<T extends Object> {
+  /// The type a record reader answers with, and the key [PluginData.get] finds
+  /// it under.
   ///
   /// Written out rather than taken from the value's `runtimeType`, which would
   /// quietly file a private subclass somewhere no reader looks, and rather than
   /// from [T], which is erased by the time [sitePlugins] is walked.
   Type get record;
+}
 
+/// A feature record embedded in a post payload.
+abstract interface class PostRecordPlugin<T extends Object>
+    implements PluginRecord<T> {
   /// What this plugin added to a post payload, or null when the site did not
   /// mention it.
   ///
@@ -81,6 +87,18 @@ abstract interface class PostRecordPlugin<T extends Object> {
   /// record; Poll deliberately takes the incoming value, including null when
   /// its block was removed.
   T? mergeAfterPostEdit(T? held, T? incoming);
+}
+
+/// A feature record embedded in a topic or topic-list payload.
+abstract interface class TopicRecordPlugin<T extends Object>
+    implements PluginRecord<T> {
+  /// What this plugin added to a topic payload, or null when the site did not
+  /// mention it.
+  ///
+  /// A topic list row and a full topic response can carry different subsets of
+  /// one feature's state, so the reader owns that distinction. Core merely
+  /// preserves the typed answer on the record it came from.
+  T? readTopic(Map<String, dynamic> json, String siteUrl);
 }
 
 /// Replaces a top-level element inside a post's cooked body.
@@ -103,6 +121,60 @@ abstract interface class PostFooterPlugin {
   /// chain and `open_link.dart`'s dispatch: the first plugin with something to
   /// say wins, and the core answer is what is left when none of them do.
   Widget? postFooter(String siteUrl, Post post);
+}
+
+/// Adds content between a post's cooked body and its core footer.
+abstract interface class PostDecorationPlugin {
+  /// Decorations this feature contributes to [post], in visual order.
+  ///
+  /// [topic] is included because some server features attach state to the
+  /// topic while presenting it beside the first post. Contributions are
+  /// additive: several optional features can all have something to show.
+  List<Widget> postDecorations(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+    Post post,
+  );
+}
+
+/// Recognises and describes a plugin-owned small action in the post stream.
+abstract interface class PostSmallActionPlugin {
+  /// The one-line notice for [post], or null when this feature does not own it.
+  ///
+  /// Returning a contribution is also the classification signal. This lets a
+  /// plugin recognise its serializer's post type and action codes together,
+  /// without teaching the core [Post] model either value.
+  PluginSmallAction? smallAction(Post post);
+}
+
+/// A plugin-owned small action's presentation.
+@immutable
+class PluginSmallAction {
+  const PluginSmallAction({required this.icon, required this.phrase});
+
+  final DIconData icon;
+  final String phrase;
+}
+
+/// Adds compact metadata to a topic-list row.
+abstract interface class TopicListMetadataPlugin {
+  /// Metadata widgets placed alongside category, tags, counts and bump time.
+  List<Widget> topicListMetadata(
+    BuildContext context,
+    String siteUrl,
+    Topic topic,
+  );
+}
+
+/// Adds actions or state to the header of an open topic.
+abstract interface class TopicHeaderPlugin {
+  /// Header widgets placed before core's reply action, in plugin order.
+  List<Widget> topicHeader(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  );
 }
 
 /// Contributes actions to a post menu.
@@ -194,6 +266,16 @@ abstract interface class TopicLivePlugin {
   List<int> stalePosts(String channel, Object? data);
 }
 
+/// Marks the full topic serializer stale after a topic-scoped live message.
+///
+/// Kept separate from [TopicLivePlugin] so existing post-only live features do
+/// not acquire a meaningless method. A feature that uses it also implements
+/// [TopicLivePlugin] to name the channel that carries the invalidation.
+abstract interface class TopicLiveReloadPlugin {
+  /// Whether [data] says the open [topicId] must be fetched again.
+  bool staleTopic(int topicId, String channel, Object? data);
+}
+
 /// A plugin's share of the post action menu.
 @immutable
 class PostMenuContribution {
@@ -239,6 +321,7 @@ class ComposerToolbarContribution {
 const List<SitePlugin> sitePlugins = <SitePlugin>[
   ReactionsPlugin(),
   PollPlugin(),
+  AssignPlugin(),
   ChatPlugin(),
   ResenhaPlugin(),
 ];
@@ -261,6 +344,16 @@ final class PluginRegistry {
     Map<Type, Object>? values;
     for (final plugin in plugins.whereType<PostRecordPlugin<Object>>()) {
       final value = plugin.readPost(json, siteUrl);
+      if (value == null) continue;
+      (values ??= <Type, Object>{})[plugin.record] = value;
+    }
+    return values == null ? PluginData.none : PluginData._(values);
+  }
+
+  PluginData readTopic(Map<String, dynamic> json, String siteUrl) {
+    Map<Type, Object>? values;
+    for (final plugin in plugins.whereType<TopicRecordPlugin<Object>>()) {
+      final value = plugin.readTopic(json, siteUrl);
       if (value == null) continue;
       (values ??= <Type, Object>{})[plugin.record] = value;
     }
@@ -297,6 +390,44 @@ final class PluginRegistry {
     }
     return null;
   }
+
+  List<Widget> postDecorations(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+    Post post,
+  ) => [
+    for (final plugin in plugins.whereType<PostDecorationPlugin>())
+      ...plugin.postDecorations(context, siteUrl, topic, post),
+  ];
+
+  PluginSmallAction? smallAction(Post post) {
+    for (final plugin in plugins.whereType<PostSmallActionPlugin>()) {
+      final contribution = plugin.smallAction(post);
+      if (contribution != null) return contribution;
+    }
+    return null;
+  }
+
+  bool isSmallAction(Post post) => smallAction(post) != null;
+
+  List<Widget> topicListMetadata(
+    BuildContext context,
+    String siteUrl,
+    Topic topic,
+  ) => [
+    for (final plugin in plugins.whereType<TopicListMetadataPlugin>())
+      ...plugin.topicListMetadata(context, siteUrl, topic),
+  ];
+
+  List<Widget> topicHeader(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  ) => [
+    for (final plugin in plugins.whereType<TopicHeaderPlugin>())
+      ...plugin.topicHeader(context, siteUrl, topic),
+  ];
 
   PostMenuContribution postMenu(
     BuildContext context,
@@ -353,6 +484,10 @@ final class PluginRegistry {
     for (final plugin in plugins.whereType<TopicLivePlugin>())
       ...plugin.stalePosts(channel, data),
   };
+
+  bool staleTopic(int topicId, String channel, Object? data) => plugins
+      .whereType<TopicLiveReloadPlugin>()
+      .any((plugin) => plugin.staleTopic(topicId, channel, data));
 }
 
 /// What plugins had to say about one record.
@@ -383,6 +518,12 @@ class PluginData {
   /// a site running plain core — allocates nothing per post.
   static PluginData forPost(Map<String, dynamic> json, String siteUrl) =>
       pluginRegistry.readPost(json, siteUrl);
+
+  /// Asks every plugin what it makes of a topic or topic-list payload.
+  ///
+  /// Just like [forPost], an unclaimed record uses the shared [none] value.
+  static PluginData forTopic(Map<String, dynamic> json, String siteUrl) =>
+      pluginRegistry.readTopic(json, siteUrl);
 
   /// The same data with one plugin's answer replaced, or dropped when [value]
   /// is null.

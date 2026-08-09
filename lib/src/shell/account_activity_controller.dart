@@ -42,20 +42,24 @@ final class AccountActivityController extends FrameSafeNotifier {
   final _totalsChanges = _ActivityAspect();
   final _notificationChanges = _ActivityAspect();
   final _replyNotificationChanges = _ActivityAspect();
+  final _chatNotificationChanges = _ActivityAspect();
   final _bookmarkChanges = _ActivityAspect();
 
   Listenable get totalsListenable => _totalsChanges;
   Listenable get notificationsListenable => _notificationChanges;
   Listenable get replyNotificationsListenable => _replyNotificationChanges;
+  Listenable get chatNotificationsListenable => _chatNotificationChanges;
   Listenable get bookmarksListenable => _bookmarkChanges;
 
   final Map<String, NotificationTotals> _totals = {};
   final Map<String, NotificationFeed> _notifications = {};
   final Map<String, NotificationFeed> _replyNotifications = {};
+  final Map<String, NotificationFeed> _chatNotifications = {};
   final Map<String, BookmarkFeed> _bookmarks = {};
   final Map<String, Object> _totalsRequests = {};
   final Map<String, Object> _notificationRequests = {};
   final Map<String, Object> _replyNotificationRequests = {};
+  final Map<String, Object> _chatNotificationRequests = {};
   final Map<String, Object> _bookmarkRequests = {};
   final Map<(String, int), Object> _notificationReadRequests = {};
   final Map<String, Set<int>> _locallyReadNotificationIds = {};
@@ -69,6 +73,10 @@ final class AccountActivityController extends FrameSafeNotifier {
   NotificationFeed replyNotificationsFor(String? siteUrl) => siteUrl == null
       ? const NotificationFeed()
       : _replyNotifications[siteUrl] ?? const NotificationFeed();
+
+  NotificationFeed chatNotificationsFor(String? siteUrl) => siteUrl == null
+      ? const NotificationFeed()
+      : _chatNotifications[siteUrl] ?? const NotificationFeed();
 
   BookmarkFeed bookmarksFor(String? siteUrl) => siteUrl == null
       ? const BookmarkFeed()
@@ -155,6 +163,24 @@ final class AccountActivityController extends FrameSafeNotifier {
         failureMessage: "Couldn't load replies from ${instance.host}.",
         operation: 'account.loadReplyNotifications',
         notify: _notifyReplyNotifications,
+      );
+
+  Future<void> loadChatNotifications(DiscourseInstance instance) =>
+      _loadNotificationFeed(
+        instance,
+        feeds: _chatNotifications,
+        requests: _chatNotificationRequests,
+        fetch: (apiKey) => api.notifications(
+          siteUrl: instance.url,
+          apiKey: apiKey,
+          filterByTypes: userMenuChatNotificationKinds,
+        ),
+        reconnectMessage:
+            'Reconnect to ${instance.host} to see chat notifications.',
+        failureMessage:
+            "Couldn't load chat notifications from ${instance.host}.",
+        operation: 'account.loadChatNotifications',
+        notify: _notifyChatNotifications,
       );
 
   Future<void> _loadNotificationFeed(
@@ -353,6 +379,7 @@ final class AccountActivityController extends FrameSafeNotifier {
         .add(notification.id);
     var notificationChanged = false;
     var replyNotificationChanged = false;
+    var chatNotificationChanged = false;
     var bookmarkChanged = false;
     if (_notifications[instance.url] case final feed?) {
       final updated = feed.withRead(notification.id);
@@ -368,6 +395,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         replyNotificationChanged = true;
       }
     }
+    if (_chatNotifications[instance.url] case final feed?) {
+      final updated = feed.withRead(notification.id);
+      if (!identical(updated, feed)) {
+        _chatNotifications[instance.url] = updated;
+        chatNotificationChanged = true;
+      }
+    }
     if (_bookmarks[instance.url] case final feed?) {
       final updated = feed.withRead(notification.id);
       if (!identical(updated, feed)) {
@@ -377,8 +411,12 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
     if (notificationChanged) _notificationChanges.changed();
     if (replyNotificationChanged) _replyNotificationChanges.changed();
+    if (chatNotificationChanged) _chatNotificationChanges.changed();
     if (bookmarkChanged) _bookmarkChanges.changed();
-    if (notificationChanged || replyNotificationChanged || bookmarkChanged) {
+    if (notificationChanged ||
+        replyNotificationChanged ||
+        chatNotificationChanged ||
+        bookmarkChanged) {
       notifySafely();
     }
 
@@ -429,18 +467,25 @@ final class AccountActivityController extends FrameSafeNotifier {
     final hadTotals = _totals.remove(siteUrl) != null;
     final hadNotifications = _notifications.remove(siteUrl) != null;
     final hadReplyNotifications = _replyNotifications.remove(siteUrl) != null;
+    final hadChatNotifications = _chatNotifications.remove(siteUrl) != null;
     final hadBookmarks = _bookmarks.remove(siteUrl) != null;
     _totalsRequests.remove(siteUrl);
     _notificationRequests.remove(siteUrl);
     _replyNotificationRequests.remove(siteUrl);
+    _chatNotificationRequests.remove(siteUrl);
     _bookmarkRequests.remove(siteUrl);
     _notificationReadRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _locallyReadNotificationIds.remove(siteUrl);
     final changed =
-        hadTotals || hadNotifications || hadReplyNotifications || hadBookmarks;
+        hadTotals ||
+        hadNotifications ||
+        hadReplyNotifications ||
+        hadChatNotifications ||
+        hadBookmarks;
     if (hadTotals) _totalsChanges.changed();
     if (hadNotifications) _notificationChanges.changed();
     if (hadReplyNotifications) _replyNotificationChanges.changed();
+    if (hadChatNotifications) _chatNotificationChanges.changed();
     if (hadBookmarks) _bookmarkChanges.changed();
     if (changed) notifySafely();
   }
@@ -457,6 +502,11 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   void _notifyReplyNotifications() {
     _replyNotificationChanges.changed();
+    notifySafely();
+  }
+
+  void _notifyChatNotifications() {
+    _chatNotificationChanges.changed();
     notifySafely();
   }
 
@@ -529,6 +579,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _totalsChanges.dispose();
     _notificationChanges.dispose();
     _replyNotificationChanges.dispose();
+    _chatNotificationChanges.dispose();
     _bookmarkChanges.dispose();
     super.dispose();
   }

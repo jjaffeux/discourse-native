@@ -396,6 +396,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.totals,
     this.notificationList,
     this.replyNotificationList,
+    this.chatNotificationList,
     this.bookmarkList,
     this.reminderList = const [],
     this.feeds = const {},
@@ -483,6 +484,9 @@ class FakeDiscourseApi implements DiscourseApi {
   /// Returned by filtered [notifications] calls; null means the call fails.
   final List<DiscourseNotification>? replyNotificationList;
 
+  /// Returned by Chat-filtered [notifications] calls; null means the call fails.
+  final List<DiscourseNotification>? chatNotificationList;
+
   /// Returned by [bookmarks]; null means the call fails.
   final List<Bookmark>? bookmarkList;
 
@@ -493,6 +497,7 @@ class FakeDiscourseApi implements DiscourseApi {
   int totalsCalls = 0;
   int notificationCalls = 0;
   int replyNotificationCalls = 0;
+  int chatNotificationCalls = 0;
 
   /// The type filters passed to [notifications], one immutable list per call.
   final List<List<NotificationKind>> notificationFilters = [];
@@ -841,17 +846,37 @@ class FakeDiscourseApi implements DiscourseApi {
     String? clientId,
   }) async {
     notificationFilters.add(List.unmodifiable(filterByTypes));
-    final filtered = filterByTypes.isNotEmpty;
-    if (filtered) {
+    final replies = _sameKinds(filterByTypes, userMenuReplyNotificationKinds);
+    final chat = _sameKinds(filterByTypes, userMenuChatNotificationKinds);
+    if (replies) {
       replyNotificationCalls++;
-    } else {
+    } else if (chat) {
+      chatNotificationCalls++;
+    } else if (filterByTypes.isEmpty) {
       notificationCalls++;
     }
-    final result = filtered ? replyNotificationList : notificationList;
+    final result = replies
+        ? replyNotificationList
+        : chat
+        ? chatNotificationList
+        : filterByTypes.isEmpty
+        ? notificationList
+        : null;
     if (result == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return result;
+  }
+
+  static bool _sameKinds(
+    List<NotificationKind> actual,
+    List<NotificationKind> expected,
+  ) {
+    if (actual.length != expected.length) return false;
+    for (var index = 0; index < actual.length; index++) {
+      if (actual[index] != expected[index]) return false;
+    }
+    return true;
   }
 
   @override

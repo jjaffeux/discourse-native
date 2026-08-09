@@ -35,6 +35,8 @@ class DiscourseUser {
     this.avatarUrl,
     this.draftCount = 0,
     this.canCreatePoll,
+    this.canAssign,
+    this.canAssignGlobally,
     this.staff = false,
     this.groups = const [],
     this.hasChatEnabled,
@@ -56,6 +58,8 @@ class DiscourseUser {
     // stored value is display state only; ShellController requires a fresh
     // session read before it treats this as a capability.
     canCreatePoll: json['canCreatePoll'] as bool?,
+    canAssign: json['canAssign'] as bool?,
+    canAssignGlobally: json['canAssignGlobally'] as bool?,
     staff: json['staff'] == true,
     groups: List.unmodifiable(
       jsonArray(json['groups']).map(jsonText).whereType<String>(),
@@ -82,6 +86,13 @@ class DiscourseUser {
   /// The Poll plugin's session capability. Null means the plugin did not add
   /// it (or this account predates the field), rather than false.
   final bool? canCreatePoll;
+
+  /// Assign's session capabilities. Null means the plugin did not add the
+  /// serializer attributes (or this is an older persisted account), while
+  /// false means Assign is active but this account does not have that scope.
+  /// Individual topic and post payloads remain authoritative for a target.
+  final bool? canAssign;
+  final bool? canAssignGlobally;
 
   /// Whether the current account is an administrator or moderator.
   final bool staff;
@@ -112,6 +123,8 @@ class DiscourseUser {
     'avatarUrl': avatarUrl,
     'draftCount': draftCount,
     'canCreatePoll': canCreatePoll,
+    'canAssign': canAssign,
+    'canAssignGlobally': canAssignGlobally,
     'staff': staff,
     'groups': groups,
     'hasChatEnabled': hasChatEnabled,
@@ -132,6 +145,8 @@ class DiscourseUser {
       other.avatarUrl == avatarUrl &&
       other.draftCount == draftCount &&
       other.canCreatePoll == canCreatePoll &&
+      other.canAssign == canAssign &&
+      other.canAssignGlobally == canAssignGlobally &&
       other.staff == staff &&
       listEquals(other.groups, groups) &&
       other.hasChatEnabled == hasChatEnabled &&
@@ -147,6 +162,8 @@ class DiscourseUser {
     avatarUrl,
     draftCount,
     canCreatePoll,
+    canAssign,
+    canAssignGlobally,
     staff,
     Object.hashAll(groups),
     hasChatEnabled,
