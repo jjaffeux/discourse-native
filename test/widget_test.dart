@@ -896,6 +896,8 @@ void main() {
     expect(action, findsOneWidget);
     expect(chevron, findsOneWidget);
     expect(tester.getCenter(action).dx, lessThan(tester.getCenter(chevron).dx));
+    // A larger action would make this header taller than adjacent sections.
+    expect(tester.getSize(action), tester.getSize(chevron));
   });
 
   testWidgets('sidebar destinations show a background when hovered', (
