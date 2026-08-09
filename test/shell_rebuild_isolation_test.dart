@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -186,6 +187,90 @@ void main() {
       expect(rebuilt, isNot(contains(isolated)));
     }
   });
+
+  testWidgets(
+    'closing an inactive tab updates the bar without rebuilding the viewport',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('meta.discourse.org', title: 'Meta'),
+        ]),
+        api: FakeDiscourseApi(
+          feeds: const {
+            '/latest.json': [
+              Topic(id: 7, title: 'A real topic', slug: 'a-real-topic'),
+            ],
+          },
+        ),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const AdaptiveShell(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final inactiveTabId = controller.activeTabId!;
+      controller.createTab();
+      await tester.pumpAndSettle();
+
+      final activeTabId = controller.activeTabId!;
+      expect(activeTabId, isNot(inactiveTabId));
+      expect(
+        tester
+            .widget<ForumTabsBar>(find.byType(ForumTabsBar))
+            .items
+            .map((item) => item.id),
+        [inactiveTabId, activeTabId],
+      );
+
+      final bar = tester.element(find.byType(ForumTabsBar));
+      final viewport = tester.element(find.byType(TopicListView));
+      final viewportSelector = _onlyChild(viewport);
+      final rowTitle = tester.element(find.text('A real topic'));
+      final rebuilt = <Element>{};
+      final previousRebuildCallback = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        rebuilt.add(element);
+        previousRebuildCallback?.call(element, builtOnce);
+      };
+      addTearDown(() {
+        debugOnRebuildDirtyWidget = previousRebuildCallback;
+      });
+
+      controller.closeTab(inactiveTabId);
+      await tester.pump();
+
+      expect(controller.activeTabId, activeTabId);
+      expect(
+        tester
+            .widget<ForumTabsBar>(find.byType(ForumTabsBar))
+            .items
+            .map((item) => item.id),
+        [activeTabId],
+      );
+      expect(find.byKey(ValueKey('forum-tab-$inactiveTabId')), findsNothing);
+      expect(rebuilt, contains(bar));
+      for (final isolated in [viewport, viewportSelector, rowTitle]) {
+        expect(rebuilt, isNot(contains(isolated)));
+      }
+      expect(tester.element(find.byType(TopicListView)), same(viewport));
+    },
+  );
 
   testWidgets('same-route tab switches remount only the active viewport', (
     tester,

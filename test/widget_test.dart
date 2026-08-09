@@ -42,13 +42,13 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/empty_state.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
+import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
-import 'package:discourse_native/src/shell/open_tabs_section.dart';
 import 'package:discourse_native/src/shell/post_footer.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -206,26 +206,35 @@ final class _GatedUserCardApi extends FakeDiscourseApi {
 /// The account avatar in the top right, wherever the layout has put it.
 final Finder userMenu = find.byKey(UserMenuButton.avatarKey);
 
-/// A sidebar entry by its label. Scoped to the sidebar because the user menu
-/// names some of the same things — "Messages" is both a destination and a tab.
+/// A sidebar entry by its label. Scoped because other shell regions can repeat
+/// destination names.
 Finder sidebarDestination(String label) => find.byElementPredicate((element) {
   final widget = element.widget;
   if (widget is! Text || widget.data != label) return false;
 
   var inSidebar = false;
-  var inOpenTabs = false;
   element.visitAncestorElements((ancestor) {
     inSidebar |= ancestor.widget is InstanceSidebar;
-    inOpenTabs |= ancestor.widget is OpenTabsSection;
     return true;
   });
-  return inSidebar && !inOpenTabs;
+  return inSidebar;
 }, description: 'sidebar destination labelled "$label"');
 
-/// Text inside the content pane, excluding the active tab that mirrors its
-/// route title in the sidebar.
-Finder contentText(String label) =>
-    find.descendant(of: find.byType(MainContent), matching: find.text(label));
+/// Text inside the active content viewport, excluding the forum tab that
+/// mirrors its route title above the content header.
+Finder contentText(String label) => find.byElementPredicate((element) {
+  final widget = element.widget;
+  if (widget is! Text || widget.data != label) return false;
+
+  var inMainContent = false;
+  var inForumTabs = false;
+  element.visitAncestorElements((ancestor) {
+    inMainContent |= ancestor.widget is MainContent;
+    inForumTabs |= ancestor.widget is ForumTabsBar;
+    return true;
+  });
+  return inMainContent && !inForumTabs;
+}, description: 'content text labelled "$label"');
 
 /// Opens the account menu and walks to the section holding the real actions.
 /// On touch that is a row leading to a nested sheet; with a pointer it is an
@@ -8788,8 +8797,8 @@ void main() {
           await tester.tap(sidebarDestination('Bugs'));
           await tester.pumpAndSettle();
 
-          OpenTabItem item() => tester
-              .widget<OpenTabsSection>(find.byType(OpenTabsSection))
+          ForumTabItem item() => tester
+              .widget<ForumTabsBar>(find.byType(ForumTabsBar))
               .items
               .single;
 
