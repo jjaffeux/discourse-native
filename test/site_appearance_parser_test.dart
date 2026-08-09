@@ -5,6 +5,41 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('discoverSiteThemeStylesheets', () {
+    test('finds only the selected parent common stylesheet', () {
+      final result = discoverSiteThemeStylesheets(
+        '''<html><head>
+        <link rel="stylesheet" data-target="common_theme" data-theme-id="264"
+              href="/styles/component.css">
+        <link rel="stylesheet preload" data-target="common_theme"
+              data-theme-id="331" href="styles/meta.css">
+        <link rel="stylesheet" data-target="desktop_theme"
+              data-theme-id="331" href="styles/desktop.css">
+        <link rel="preload" data-target="common_theme" data-theme-id="331"
+              href="styles/preload.css">
+      </head></html>''',
+        documentUrl: Uri.parse('https://forum.example/community/'),
+        themeId: 331,
+      );
+
+      expect(result, [
+        Uri.parse('https://forum.example/community/styles/meta.css'),
+      ]);
+    });
+
+    test('skips malformed stylesheet hrefs', () {
+      expect(
+        discoverSiteThemeStylesheets(
+          '''<link rel="stylesheet"
+          data-target="common_theme" data-theme-id="5" href="%zz">''',
+          documentUrl: Uri.parse('https://forum.example/'),
+          themeId: 5,
+        ),
+        isEmpty,
+      );
+    });
+  });
+
   group('resolveSiteAppearanceSelection', () {
     test('uses the anonymous site default and follows the system', () {
       final result = resolveSiteAppearanceSelection(site: _siteJson());
@@ -285,6 +320,32 @@ void main() {
       expect(palette?.danger, const Color(0xFF000000));
       expect(palette?.success, const Color(0xFFFFFFFF));
       expect(palette?.love, const Color(0xFFFF0000));
+    });
+
+    test('cascades theme aliases and relative alpha colors', () {
+      final palette = parseSiteAppearanceStylesheets([
+        _stylesheet({
+          '--scheme-type': 'dark',
+          '--primary': '#ffffff',
+          '--secondary': '#1a1a1a',
+          '--tertiary': '#7b5fe2',
+          '--d-selected': '#d1f0ff',
+          '--d-hover': '#f1ecff',
+        }),
+        '''@supports (color: lab(from red l 1 1% / calc(alpha + 0.1)))
+            and (color: light-dark(red, red)) {
+          :root { --d-selected: #badbad; }
+        }
+        :root {
+          --meta-color-surface-accent:
+            oklch(from var(--tertiary) l c h / 0.15);
+          --d-selected: var(--meta-color-surface-accent);
+          --d-hover: var(--meta-color-surface-accent);
+        }''',
+      ]);
+
+      expect(palette?.selected, const Color(0x267B5FE2));
+      expect(palette?.hover, const Color(0x267B5FE2));
     });
 
     test('uses dark scheme type even for the base stylesheet role', () {

@@ -29,6 +29,11 @@ void main() {
               _details('https://cdn.example/dark.css'),
               contentType: 'application/json',
             ),
+          ('forum.example', '/community/') => _response(
+            request,
+            _themeDocument(),
+            contentType: 'text/html',
+          ),
           ('forum.example', '/community/styles/light.css') => _response(
             request,
             _paletteCss,
@@ -54,6 +59,7 @@ void main() {
         'https://forum.example/community/site.json',
         'https://forum.example/community/color-scheme-stylesheet/10/5.json',
         'https://forum.example/community/color-scheme-stylesheet/11/5.json',
+        'https://forum.example/community/',
         'https://forum.example/community/styles/light.css',
         'https://cdn.example/dark.css',
       ]);
@@ -64,74 +70,141 @@ void main() {
       }
     });
 
-    test('uses authenticated user preferences for JSON only', () async {
+    test(
+      'uses authenticated preferences and isolates CSS credentials',
+      () async {
+        final client = _Client((request) async {
+          final path = request.url.path;
+          if (path == '/site.json') {
+            return _response(
+              request,
+              _siteJson(),
+              contentType: 'application/json',
+            );
+          }
+          if (path == '/u/alice.json') {
+            return _response(
+              request,
+              _userJson(
+                themeIds: const [6],
+                colorSchemeId: 20,
+                darkSchemeId: 21,
+                interfaceColorMode: 3,
+              ),
+              contentType: 'application/json',
+            );
+          }
+          if (path == '/color-scheme-stylesheet/20/6.json') {
+            return _response(
+              request,
+              _details('/styles/light.css'),
+              contentType: 'application/json',
+            );
+          }
+          if (path == '/color-scheme-stylesheet/21/6.json') {
+            return _response(
+              request,
+              _details('/styles/dark.css'),
+              contentType: 'application/json',
+            );
+          }
+          if (path == '/') {
+            return _response(
+              request,
+              _themeDocument(),
+              contentType: 'text/html',
+            );
+          }
+          if (path == '/styles/light.css') {
+            return _response(request, _paletteCss, contentType: 'text/css');
+          }
+          if (path == '/styles/dark.css') {
+            return _response(
+              request,
+              _paletteCss.replaceFirst('light', 'dark'),
+              contentType: 'text/css',
+            );
+          }
+          throw StateError('Unexpected request: ${request.url}');
+        });
+
+        final appearance = await SiteAppearanceLoader(client: client).load(
+          siteUrl: 'https://forum.example',
+          username: 'alice',
+          apiKey: 'secret-key',
+          clientId: 'client-id',
+        );
+
+        expect(appearance?.mode, SiteAppearanceMode.alternate);
+        expect(client.requests, hasLength(7));
+        for (final request in client.requests.take(4)) {
+          expect(request.headers['accept'], 'application/json');
+          expect(request.headers['user-api-key'], 'secret-key');
+          expect(request.headers['user-api-client-id'], 'client-id');
+        }
+        expect(client.requests[4].headers['accept'], 'text/html');
+        expect(client.requests[4].headers['user-api-key'], 'secret-key');
+        expect(client.requests[4].headers['user-api-client-id'], 'client-id');
+        for (final request in client.requests.skip(5)) {
+          expect(request.headers['accept'], 'text/css');
+          expect(request.headers, isNot(contains('user-api-key')));
+          expect(request.headers, isNot(contains('user-api-client-id')));
+        }
+      },
+    );
+
+    test('applies selected theme CSS after the color definitions', () async {
+      final metaCss = _paletteCss.replaceAll('#0088cc', '#7b5fe2');
       final client = _Client((request) async {
-        final path = request.url.path;
-        if (path == '/site.json') {
-          return _response(
+        return switch (request.url.path) {
+          '/site.json' => _response(
             request,
             _siteJson(),
             contentType: 'application/json',
-          );
-        }
-        if (path == '/u/alice.json') {
-          return _response(
+          ),
+          '/color-scheme-stylesheet/10/5.json' => _response(
             request,
-            _userJson(
-              themeIds: const [6],
-              colorSchemeId: 20,
-              darkSchemeId: 21,
-              interfaceColorMode: 3,
-            ),
+            _details('/light.css'),
             contentType: 'application/json',
-          );
-        }
-        if (path == '/color-scheme-stylesheet/20/6.json') {
-          return _response(
+          ),
+          '/color-scheme-stylesheet/11/5.json' => _response(
             request,
-            _details('/styles/light.css'),
+            _details('/dark.css'),
             contentType: 'application/json',
-          );
-        }
-        if (path == '/color-scheme-stylesheet/21/6.json') {
-          return _response(
+          ),
+          '/' => _response(
             request,
-            _details('/styles/dark.css'),
-            contentType: 'application/json',
-          );
-        }
-        if (path == '/styles/light.css') {
-          return _response(request, _paletteCss, contentType: 'text/css');
-        }
-        if (path == '/styles/dark.css') {
-          return _response(
+            _themeDocument(themeId: 5, href: '/theme.css'),
+            contentType: 'text/html',
+          ),
+          '/light.css' => _response(request, metaCss, contentType: 'text/css'),
+          '/dark.css' => _response(
             request,
-            _paletteCss.replaceFirst('light', 'dark'),
+            metaCss.replaceFirst('light', 'dark'),
             contentType: 'text/css',
-          );
-        }
-        throw StateError('Unexpected request: ${request.url}');
+          ),
+          '/theme.css' => _response(
+            request,
+            _metaThemeCss,
+            contentType: 'text/css',
+          ),
+          _ => throw StateError('Unexpected request: ${request.url}'),
+        };
       });
 
-      final appearance = await SiteAppearanceLoader(client: client).load(
-        siteUrl: 'https://forum.example',
-        username: 'alice',
-        apiKey: 'secret-key',
-        clientId: 'client-id',
-      );
+      final appearance = await SiteAppearanceLoader(
+        client: client,
+      ).load(siteUrl: 'https://forum.example');
 
-      expect(appearance?.mode, SiteAppearanceMode.alternate);
-      expect(client.requests, hasLength(6));
-      for (final request in client.requests.take(4)) {
-        expect(request.headers['accept'], 'application/json');
-        expect(request.headers['user-api-key'], 'secret-key');
-        expect(request.headers['user-api-client-id'], 'client-id');
-      }
-      for (final request in client.requests.skip(4)) {
-        expect(request.headers['accept'], 'text/css');
-        expect(request.headers, isNot(contains('user-api-key')));
-        expect(request.headers, isNot(contains('user-api-client-id')));
-      }
+      expect(appearance?.base?.selected, const Color(0x267B5FE2));
+      expect(appearance?.base?.hover, const Color(0x267B5FE2));
+      expect(appearance?.alternate?.selected, const Color(0x267B5FE2));
+      expect(appearance?.alternate?.hover, const Color(0x267B5FE2));
+      final themeRequest = client.requests.singleWhere(
+        (request) => request.url.path == '/theme.css',
+      );
+      expect(themeRequest.headers, isNot(contains('user-api-key')));
+      expect(themeRequest.headers['accept'], 'text/css');
     });
 
     test('returns null when modern site theme metadata is absent', () async {
@@ -206,6 +279,11 @@ void main() {
             _details('/forum/styles/colors.css'),
             contentType: 'application/json',
           ),
+          '/forum/' => _response(
+            request,
+            _themeDocument(),
+            contentType: 'text/html',
+          ),
           '/forum/styles/colors.css' => _response(
             request,
             _paletteCss,
@@ -228,9 +306,10 @@ void main() {
         '/forum/site.json',
         '/forum/u/alice.json',
         '/forum/color-scheme-stylesheet/10/5.json',
+        '/forum/',
         '/forum/styles/colors.css',
       ]);
-      for (final request in client.requests.take(4)) {
+      for (final request in client.requests.take(5)) {
         expect(request.headers['user-api-key'], 'secret-key');
       }
       expect(client.requests.last.headers, isNot(contains('user-api-key')));
@@ -261,6 +340,11 @@ void main() {
               _details('/community/styles/colors.css'),
               contentType: 'application/json',
             ),
+          ('canonical.example', '/community/') => _response(
+            request,
+            _themeDocument(),
+            contentType: 'text/html',
+          ),
           ('canonical.example', '/community/styles/colors.css') => _response(
             request,
             _paletteCss,
@@ -278,6 +362,7 @@ void main() {
       );
       expect(client.requests.map((request) => request.url.host), [
         'forum.example',
+        'canonical.example',
         'canonical.example',
         'canonical.example',
         'canonical.example',
@@ -379,6 +464,11 @@ void main() {
             _details('https://cdn-one.example/colors.css'),
             contentType: 'application/json',
           ),
+          ('forum.example', '/') => _response(
+            request,
+            _themeDocument(),
+            contentType: 'text/html',
+          ),
           ('cdn-one.example', '/colors.css') => _response(
             request,
             '',
@@ -440,6 +530,37 @@ void main() {
       expect(client.requests, hasLength(3));
     });
 
+    test('prevalidates a parent theme href before any CSS request', () async {
+      final client = _Client((request) async {
+        return switch (request.url.path) {
+          '/site.json' => _response(
+            request,
+            _siteJson(includeAlternate: false),
+            contentType: 'application/json',
+          ),
+          '/color-scheme-stylesheet/10/5.json' => _response(
+            request,
+            _details('/light.css'),
+            contentType: 'application/json',
+          ),
+          '/' => _response(
+            request,
+            _themeDocument(themeId: 5, href: 'http://127.0.0.1:8765/theme.css'),
+            contentType: 'text/html',
+          ),
+          _ => throw StateError('No CSS request should start: ${request.url}'),
+        };
+      });
+
+      await expectLater(
+        SiteAppearanceLoader(
+          client: client,
+        ).load(siteUrl: 'https://forum.example'),
+        _failsWith(SiteAppearanceLoadFailure.unsafeUrl),
+      );
+      expect(client.requests, hasLength(3));
+    });
+
     test('does not mix a valid base with a malformed alternate', () async {
       final client = _Client((request) async {
         final path = request.url.path;
@@ -464,6 +585,9 @@ void main() {
             contentType: 'application/json',
           );
         }
+        if (path == '/') {
+          return _response(request, _themeDocument(), contentType: 'text/html');
+        }
         return _response(
           request,
           path == '/light.css' ? _paletteCss : ':root{--primary:#fff}',
@@ -477,7 +601,7 @@ void main() {
         ).load(siteUrl: 'https://forum.example'),
         _failsWith(SiteAppearanceLoadFailure.malformed),
       );
-      expect(client.requests, hasLength(5));
+      expect(client.requests, hasLength(6));
     });
   });
 
@@ -585,6 +709,23 @@ String _userJson({
 });
 
 String _details(String href) => jsonEncode({'new_href': href});
+
+String _themeDocument({int? themeId, String? href}) =>
+    switch ((themeId, href)) {
+      (final int id, final String stylesheet) =>
+        '<html><head><link rel="stylesheet" data-target="common_theme" '
+            'data-theme-id="$id" href="$stylesheet"></head></html>',
+      _ => '<html><head><title>Forum</title></head></html>',
+    };
+
+const String _metaThemeCss = '''
+:root {
+  --meta-color-surface-accent:
+    oklch(from var(--tertiary) l c h / 0.15);
+  --d-selected: var(--meta-color-surface-accent);
+  --d-hover: var(--meta-color-surface-accent);
+}
+''';
 
 const String _paletteCss = '''
 :root {
