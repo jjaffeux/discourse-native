@@ -53,3 +53,16 @@ app.*.map.json
 # Exported release signing bundles. Encrypted, but private material -- back
 # them up out of band, never in the repo.
 *.dukey
+
+# Fastlane output and Apple credentials. API keys and signing material must be
+# stored outside the repository.
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+fastlane/.env
+fastlane/.env.*
+!fastlane/.env.example
+*.p8
+*.p12
+*.mobileprovision

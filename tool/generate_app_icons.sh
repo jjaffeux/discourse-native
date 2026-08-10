@@ -202,6 +202,14 @@ done <<'EOF'
 1024  Icon-App-1024x1024@1x.png
 EOF
 
+# The launch screen uses the same mark on a flat version of the app-icon
+# background. Keep these in this generator so regenerating the platform icons
+# cannot bring Flutter's transparent placeholder back.
+IOS_LAUNCH_SET="ios/Runner/Assets.xcassets/LaunchImage.imageset"
+emit "$WORK/mark.png" 120 "$IOS_LAUNCH_SET/LaunchImage.png"
+emit "$WORK/mark.png" 240 "$IOS_LAUNCH_SET/LaunchImage@2x.png"
+emit "$WORK/mark.png" 360 "$IOS_LAUNCH_SET/LaunchImage@3x.png"
+
 # --- macOS ------------------------------------------------------------------
 
 MACOS_SET="macos/Runner/Assets.xcassets/AppIcon.appiconset"

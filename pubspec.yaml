@@ -79,8 +79,14 @@ dependencies:
   # Native media transports for the Resenha voice-room plugin. Pinned exactly:
   # both packages expose a native ABI and must be upgraded together after
   # exercising Mesh and LiveKit rooms on every supported platform.
-  flutter_webrtc: 1.5.2
-  livekit_client: 2.9.0
+  flutter_webrtc: 1.6.0
+  livekit_client: 2.10.0
+
+dependency_overrides:
+  # Version 1.6.0 lacks the iOS required-reason privacy manifest. Keep every
+  # consumer, including livekit_client, on the reviewed local copy.
+  flutter_webrtc:
+    path: third_party/flutter_webrtc
 
 dev_dependencies:
   flutter_test:
