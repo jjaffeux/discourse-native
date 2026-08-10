@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/byte_cache.dart';
+import 'package:discourse_native/src/data/byte_cache_store.dart';
+import 'package:discourse_native/src/data/media_request_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -378,6 +381,329 @@ void main() {
 
     expect(requests, {'a': 2, 'b': 1, 'c': 1});
   });
+
+  test(
+    'shares concurrency and a 429 circuit breaker across media caches',
+    () async {
+      final coordinator = MediaRequestCoordinator(
+        maxConcurrentPerOrigin: 2,
+        defaultRateLimitCooldown: const Duration(milliseconds: 40),
+      );
+      addTearDown(coordinator.close);
+      final rateLimitedResponse = Completer<void>();
+      final activeResponse = Completer<void>();
+      final rateLimitedStarted = Completer<void>();
+      final activeStarted = Completer<void>();
+      final requested = <Uri>[];
+      var active = 0;
+      var maximumActive = 0;
+
+      final client = MockClient((request) async {
+        requested.add(request.url);
+        active++;
+        maximumActive = maximumActive < active ? active : maximumActive;
+        try {
+          switch (request.url.path) {
+            case '/rate-limited':
+              rateLimitedStarted.complete();
+              await rateLimitedResponse.future;
+              return http.Response('slow down', 429);
+            case '/active':
+              activeStarted.complete();
+              await activeResponse.future;
+              return http.Response.bytes([2], 200);
+            default:
+              return http.Response.bytes([3], 200);
+          }
+        } finally {
+          active--;
+        }
+      });
+      final avatars = _TestByteCache(
+        client: client,
+        coordinator: coordinator,
+        retryAfter: const Duration(milliseconds: 40),
+      );
+      final emoji = _TestByteCache(
+        client: client,
+        coordinator: coordinator,
+        retryAfter: const Duration(milliseconds: 40),
+      );
+      final otherOrigin = _TestByteCache(
+        client: client,
+        coordinator: coordinator,
+      );
+
+      final limited = avatars.load('https://site.test/rate-limited');
+      await rateLimitedStarted.future;
+      final held = emoji.load('https://site.test/active');
+      await activeStarted.future;
+      final queued = <Future<Uint8List?>>[
+        for (var index = 0; index < 5; index++)
+          avatars.load('https://site.test/avatar-$index'),
+        for (var index = 0; index < 5; index++)
+          emoji.load('https://site.test/emoji-$index'),
+      ];
+      await Future<void>.delayed(Duration.zero);
+
+      expect(requested, hasLength(2));
+      expect(maximumActive, 2);
+      rateLimitedResponse.complete();
+      expect(await limited, isNull);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        requested.where((url) => url.host == 'site.test'),
+        hasLength(2),
+        reason: 'distinct queued URLs must not drain after the first 429',
+      );
+      expect(
+        await otherOrigin.load('https://other.test/emoji'),
+        orderedEquals([3]),
+        reason: 'the circuit breaker is scoped to one origin',
+      );
+
+      activeResponse.complete();
+      expect(await held, orderedEquals([2]));
+      expect(await Future.wait(queued), everyElement(isNull));
+
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(
+        await avatars.load('https://site.test/after-cooldown'),
+        orderedEquals([3]),
+      );
+      expect(maximumActive, 2);
+    },
+  );
+
+  testWidgets('closing a coordinator makes an active lease inert', (
+    tester,
+  ) async {
+    final coordinator = MediaRequestCoordinator();
+    final lease = await coordinator.acquire(
+      Uri.parse('https://cdn.test/avatar.png'),
+    );
+
+    coordinator.close();
+    lease.rateLimited({'retry-after': '3600'});
+    lease.release();
+    await tester.pump();
+
+    await expectLater(
+      coordinator.acquire(Uri.parse('https://cdn.test/other.png')),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test('bounds persistent reads with the cache work semaphore', () async {
+    final store = _BlockingByteCacheStore();
+    final cache = _TestByteCache(
+      maxConcurrent: 2,
+      store: store,
+      client: MockClient((_) async => http.Response.bytes([1], 200)),
+    );
+
+    final loads = [
+      for (var index = 0; index < 8; index++)
+        cache.load('https://site.test/avatar-$index'),
+    ];
+    await store.twoReadsStarted.future;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(store.reads, 2);
+    expect(store.maximumActive, 2);
+
+    store.releaseReads.complete();
+    expect(await Future.wait(loads), everyElement(orderedEquals([1])));
+    expect(store.reads, 8);
+    expect(store.maximumActive, 2);
+  });
+
+  test('a no-store redirect keeps public final bytes process-local', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'discourse-native-byte-cache-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final store = FileByteCacheStore(directory);
+    await store.initialize();
+    final requested = <Uri>[];
+    final client = MockClient((request) async {
+      requested.add(request.url);
+      if (request.url.host == 'site.test') {
+        return http.Response(
+          '',
+          302,
+          headers: {
+            'location': 'https://cdn.test/avatar.png',
+            'cache-control': 'no-store',
+          },
+        );
+      }
+      return http.Response.bytes(
+        [1, 2, 3],
+        200,
+        headers: {'cache-control': 'public, max-age=3600, immutable'},
+      );
+    });
+    const url = 'https://site.test/avatar.png';
+
+    expect(
+      await _TestByteCache(client: client, store: store).load(url),
+      orderedEquals([1, 2, 3]),
+    );
+    expect(
+      await _TestByteCache(client: client, store: store).load(url),
+      orderedEquals([1, 2, 3]),
+    );
+
+    expect(requested, [
+      Uri.parse(url),
+      Uri.parse('https://cdn.test/avatar.png'),
+      Uri.parse(url),
+      Uri.parse('https://cdn.test/avatar.png'),
+    ]);
+  });
+
+  test('persistent policy handles directives and Vary conservatively', () {
+    final now = DateTime.utc(2026, 8, 11, 12);
+    final forbidden = <Map<String, String>>[
+      {'Cache-Control': 'public, no-cache="etag, last-modified", max-age=3600'},
+      {
+        'cache-control':
+            'public, private="set-cookie, authorization", max-age=3600',
+      },
+      {'Cache-Control': 'PUBLIC, NO-STORE, MAX-AGE=3600'},
+      {'cache-control': 'public, max-age=3600', 'Vary': 'accept-encoding, *'},
+    ];
+
+    for (final headers in forbidden) {
+      expect(
+        responseAllowsPersistentByteCache(headers),
+        isFalse,
+        reason: '$headers',
+      );
+      expect(
+        persistentByteCacheExpiry(headers, now),
+        isNull,
+        reason: '$headers',
+      );
+    }
+
+    expect(
+      persistentByteCacheExpiry({
+        'cache-control': 'public, max-age=60, s-maxage=120',
+        'age': '20',
+      }, now),
+      now.add(const Duration(seconds: 100)),
+    );
+  });
+
+  test('pruning removes stale temporary files but not a live writer', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'discourse-native-byte-cache-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final now = DateTime.utc(2026, 8, 11, 12);
+    final stale = File('${directory.path}/stale.tmp');
+    final recent = File('${directory.path}/recent.tmp');
+    await stale.writeAsBytes([1]);
+    await recent.writeAsBytes([1]);
+    await stale.setLastModified(now.subtract(const Duration(hours: 2)));
+    await recent.setLastModified(now);
+
+    await FileByteCacheStore(directory, clock: () => now).initialize();
+
+    expect(await stale.exists(), isFalse);
+    expect(await recent.exists(), isTrue);
+  });
+
+  test('rejects an oversized disk entry before returning its bytes', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'discourse-native-byte-cache-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final now = DateTime.utc(2026, 8, 11, 12);
+    final store = FileByteCacheStore(
+      directory,
+      maxEntryBytes: 4,
+      clock: () => now,
+    );
+    await store.initialize();
+    const url = 'https://cdn.test/oversized.png';
+    await store.write(
+      url,
+      Uint8List.fromList([1, 2, 3, 4]),
+      expiresAt: now.add(const Duration(hours: 1)),
+    );
+    final entry = await directory
+        .list()
+        .where((entity) => entity.path.endsWith('.bin'))
+        .cast<File>()
+        .single;
+    await entry.writeAsBytes(List<int>.filled(128, 9), mode: FileMode.append);
+
+    expect(await store.read(url), isNull);
+    expect(await entry.exists(), isFalse);
+  });
+
+  test('reuses fresh immutable bytes across cache instances', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'discourse-native-byte-cache-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final store = FileByteCacheStore(directory);
+    await store.initialize();
+    var requests = 0;
+    final client = MockClient((_) async {
+      requests++;
+      return http.Response.bytes(
+        [1, 2, 3],
+        200,
+        headers: {'cache-control': 'public, max-age=3600, immutable'},
+      );
+    });
+    const url = 'https://cdn.test/avatar.png';
+
+    expect(
+      await _TestByteCache(client: client, store: store).load(url),
+      orderedEquals([1, 2, 3]),
+    );
+    expect(
+      await _TestByteCache(client: client, store: store).load(url),
+      orderedEquals([1, 2, 3]),
+    );
+
+    expect(requests, 1, reason: 'the second cache represents a warm relaunch');
+  });
+
+  test('does not persist responses which forbid shared caching', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'discourse-native-byte-cache-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final store = FileByteCacheStore(directory);
+    await store.initialize();
+    var requests = 0;
+    final client = MockClient((_) async {
+      requests++;
+      return http.Response.bytes(
+        [requests],
+        200,
+        headers: {'cache-control': 'private, no-store, max-age=3600'},
+      );
+    });
+    const url = 'https://cdn.test/private.png';
+
+    expect(
+      await _TestByteCache(client: client, store: store).load(url),
+      orderedEquals([1]),
+    );
+    expect(
+      await _TestByteCache(client: client, store: store).load(url),
+      orderedEquals([2]),
+    );
+    expect(requests, 2);
+  });
 }
 
 class _TestByteCache extends ByteCache<Uint8List> {
@@ -389,8 +715,39 @@ class _TestByteCache extends ByteCache<Uint8List> {
     super.maxCachedBytes = 4096,
     super.timeout = const Duration(seconds: 10),
     super.maxRedirects,
+    super.retryAfter,
+    super.coordinator,
+    super.store,
   });
 
   @override
   Uint8List? decode(http.Response response) => response.bodyBytes;
+}
+
+final class _BlockingByteCacheStore implements ByteCacheStore {
+  final Completer<void> twoReadsStarted = Completer<void>();
+  final Completer<void> releaseReads = Completer<void>();
+  int reads = 0;
+  int _active = 0;
+  int maximumActive = 0;
+
+  @override
+  Future<Uint8List?> read(String url) async {
+    reads++;
+    _active++;
+    if (_active > maximumActive) maximumActive = _active;
+    if (_active == 2 && !twoReadsStarted.isCompleted) {
+      twoReadsStarted.complete();
+    }
+    await releaseReads.future;
+    _active--;
+    return null;
+  }
+
+  @override
+  Future<void> write(
+    String url,
+    Uint8List bytes, {
+    required DateTime expiresAt,
+  }) async {}
 }

@@ -74,6 +74,7 @@ class _AccountApi implements AccountActivityApi {
   final List<Bookmark>? bookmarkList;
   final List<DiscourseNotification> reminderList;
   final List<String> bookmarksRequested = [];
+  final List<String> totalsRequested = [];
   final List<int> markedRead = [];
 
   @override
@@ -81,7 +82,10 @@ class _AccountApi implements AccountActivityApi {
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async => totals ?? (throw StateError('No totals configured'));
+  }) async {
+    totalsRequested.add(siteUrl);
+    return totals ?? (throw StateError('No totals configured'));
+  }
 
   @override
   Future<List<DiscourseNotification>> notifications({
@@ -135,11 +139,15 @@ AccountActivityController _controller(
   FakeApiCredentialReader credentials, {
   SiteLifecycle? lifecycle,
   TotalsLoaded? onTotalsLoaded,
+  Duration minimumRefreshInterval = const Duration(minutes: 5),
+  DateTime Function()? clock,
 }) => AccountActivityController(
   api: api,
   credentials: credentials,
   lifecycle: lifecycle ?? SiteLifecycle(),
   onTotalsLoaded: onTotalsLoaded,
+  minimumRefreshInterval: minimumRefreshInterval,
+  clock: clock,
 );
 
 void main() {
@@ -304,10 +312,9 @@ void main() {
     },
   );
 
-  test('overlapping totals refreshes collapse into one replay', () async {
+  test('ordinary overlapping totals refreshes share one request', () async {
     final first = Completer<NotificationTotals>();
-    final second = Completer<NotificationTotals>();
-    final api = _GatedTotalsApi([first, second]);
+    final api = _GatedTotalsApi([first]);
     final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
     final controller = _controller(api, credentials);
     addTearDown(controller.dispose);
@@ -321,13 +328,59 @@ void main() {
     expect(api._calls, 1);
     expect(api.secondStarted.isCompleted, isFalse);
     first.complete(const NotificationTotals(unreadNotifications: 1));
-    await older;
-    await api.secondStarted.future;
-    expect(api._calls, 2);
-    second.complete(const NotificationTotals(unreadNotifications: 2));
-    await Future.wait([newer, newest]);
+    await Future.wait([older, newer, newest]);
 
-    expect(controller.totalsFor(_siteUrl)?.unreadNotifications, 2);
+    expect(api._calls, 1);
+    expect(controller.totalsFor(_siteUrl)?.unreadNotifications, 1);
+  });
+
+  test(
+    'a forced refresh queues one reconciliation behind an active one',
+    () async {
+      final first = Completer<NotificationTotals>();
+      final second = Completer<NotificationTotals>();
+      final api = _GatedTotalsApi([first, second]);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      addTearDown(controller.dispose);
+
+      final initial = controller.refresh(_connectedInstance());
+      await api.firstStarted.future;
+      final forced = controller.refresh(_connectedInstance(), force: true);
+      final duplicate = controller.refresh(_connectedInstance(), force: true);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(api._calls, 1);
+      first.complete(const NotificationTotals(unreadNotifications: 1));
+      await initial;
+      await api.secondStarted.future;
+      expect(api._calls, 2);
+      second.complete(const NotificationTotals(unreadNotifications: 2));
+      await Future.wait([forced, duplicate]);
+
+      expect(controller.totalsFor(_siteUrl)?.unreadNotifications, 2);
+    },
+  );
+
+  test('recent totals are reused until explicitly refreshed', () async {
+    var now = DateTime(2026, 8, 11, 10);
+    final api = _AccountApi(
+      totals: const NotificationTotals(unreadNotifications: 1),
+    );
+    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+    final controller = _controller(api, credentials, clock: () => now);
+    addTearDown(controller.dispose);
+
+    await controller.refresh(_connectedInstance());
+    await controller.refresh(_connectedInstance());
+    expect(api.totalsRequested, hasLength(1));
+
+    now = now.add(const Duration(minutes: 6));
+    await controller.refresh(_connectedInstance());
+    expect(api.totalsRequested, hasLength(2));
+
+    await controller.refresh(_connectedInstance(), force: true);
+    expect(api.totalsRequested, hasLength(3));
   });
 
   test('a live counter update survives an older totals response', () async {

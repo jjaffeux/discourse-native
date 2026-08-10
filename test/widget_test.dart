@@ -2771,10 +2771,11 @@ void main() {
     ) async {
       await pumpWithFeeds(tester, FakeDiscourseApi());
 
-      // Backgrounded, the connection is left to the client's own pacing.
+      // A hidden native app owns no ordinary live connection.
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await tester.pump();
       expect(tracker().pollNowCalls, 0);
+      expect(tracker().polling, isFalse);
 
       // Back in front, it is asked immediately rather than waiting out a
       // backoff that started while the connection was dead.
@@ -2783,6 +2784,7 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
       expect(tracker().pollNowCalls, 1);
+      expect(tracker().polling, isTrue);
     });
   });
 

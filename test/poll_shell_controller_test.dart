@@ -206,7 +206,7 @@ void main() {
   );
 
   test(
-    'session poll capabilities refresh once for every connected site',
+    'session poll capabilities hydrate once when each site is selected',
     () async {
       final api = _PerSiteCurrentUserApi();
       final authenticator = FakeAuthenticator()
@@ -229,14 +229,23 @@ void main() {
       addTearDown(shell.dispose);
 
       await shell.load();
-      while (api.calls.length < 2) {
+      while (api.calls.isEmpty) {
         await pumpEventQueue();
       }
       await pumpEventQueue();
 
       expect(api.calls.where((site) => site == _site), hasLength(1));
-      expect(api.calls.where((site) => site == _site2), hasLength(1));
+      expect(api.calls.where((site) => site == _site2), isEmpty);
       expect(shell.canCreatePollFor(_site), isTrue);
+      expect(shell.canCreatePollFor(_site2), isFalse);
+
+      shell.selectInstance(1);
+      while (api.calls.length < 2) {
+        await pumpEventQueue();
+      }
+      await pumpEventQueue();
+
+      expect(api.calls.where((site) => site == _site2), hasLength(1));
       expect(shell.canCreatePollFor(_site2), isTrue);
       expect(shell.freshCurrentUserFor(_site2)?.groups, ['community-builders']);
     },

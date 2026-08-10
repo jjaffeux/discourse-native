@@ -310,6 +310,7 @@ final class _ControlledResenhaTransport extends FakeDiscourseApi {
 
   final Set<String> heldPluginPaths = {};
   final Set<String> heldPluginWritePaths = {};
+  final Map<String, SiteLookupException> pluginGetFailures = {};
   final List<String> pluginGets = [];
   final List<_PendingPluginGet> pendingPluginGets = [];
   final List<_PendingPluginWrite> pendingPluginWrites = [];
@@ -324,6 +325,9 @@ final class _ControlledResenhaTransport extends FakeDiscourseApi {
     String? clientId,
   }) {
     pluginGets.add(path);
+    if (pluginGetFailures[path] case final failure?) {
+      return Future.error(failure);
+    }
     if (!heldPluginPaths.contains(path)) {
       return super.pluginGetJson(
         siteUrl: siteUrl,
@@ -528,6 +532,74 @@ void main() {
       },
     );
   }
+
+  test(
+    'caches a missing or unsupported plugin until the site is forgotten',
+    () async {
+      final unsupportedFailures = <SiteLookupException>[
+        const SiteLookupException(
+          SiteLookupFailure.unreachable,
+          firstSite,
+          statusCode: HttpStatus.notFound,
+        ),
+        const SiteLookupException(
+          SiteLookupFailure.notDiscourse,
+          firstSite,
+          statusCode: HttpStatus.forbidden,
+        ),
+      ];
+
+      for (final failure in unsupportedFailures) {
+        final controlled = _ControlledResenhaTransport()
+          ..pluginGetFailures['/resenha/rooms.json'] = failure;
+        useTransport(controlled);
+
+        await controller.ensureLoaded(firstSite);
+        await controller.ensureLoaded(firstSite);
+        await controller.ensureLoaded(firstSite, force: true);
+
+        expect(
+          controlled.pluginGets,
+          ['/resenha/rooms.json'],
+          reason:
+              'a confirmed unavailable capability is stable for the session',
+        );
+
+        controller.forget(firstSite);
+        await controller.ensureLoaded(firstSite);
+
+        expect(
+          controlled.pluginGets,
+          ['/resenha/rooms.json', '/resenha/rooms.json'],
+          reason: 'forget starts a new site session and clears the capability',
+        );
+      }
+    },
+  );
+
+  test('an unreachable directory remains retryable', () async {
+    final controlled =
+        _ControlledResenhaTransport(
+            pluginResponses: {'GET /resenha/rooms.json': fixture('directory')},
+          )
+          ..pluginGetFailures['/resenha/rooms.json'] =
+              const SiteLookupException(
+                SiteLookupFailure.unreachable,
+                firstSite,
+                statusCode: HttpStatus.serviceUnavailable,
+              );
+    useTransport(controlled);
+
+    await controller.ensureLoaded(firstSite);
+    controlled.pluginGetFailures.remove('/resenha/rooms.json');
+    await controller.ensureLoaded(firstSite);
+
+    expect(controlled.pluginGets, [
+      '/resenha/rooms.json',
+      '/resenha/rooms.json',
+    ]);
+    expect(controller.directory(firstSite), isNotNull);
+  });
 
   test(
     'forget prevents a credential-gated join from reaching the server',

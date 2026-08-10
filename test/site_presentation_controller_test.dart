@@ -35,8 +35,8 @@ void main() {
 
     expect(controller.appearanceFor(site), stored);
     await Future.wait([
-      controller.ensureAppearance(site),
-      controller.ensureAppearance(site),
+      controller.refreshAppearance(site),
+      controller.refreshAppearance(site),
     ]);
 
     expect(api.appearanceCalls, 1);
@@ -51,7 +51,7 @@ void main() {
     controller.dispose();
   });
 
-  test('an unchanged persisted appearance causes no churn', () async {
+  test('warm persisted appearance causes no churn or request', () async {
     final appearance = siteAppearance();
     final api = _PresentationApi()..appearance = appearance;
     var persistenceCalls = 0;
@@ -66,6 +66,7 @@ void main() {
     await controller.ensureAppearance(site);
 
     expect(controller.appearanceFor(site), appearance);
+    expect(api.appearanceCalls, 0);
     expect(notifications, 0);
     expect(persistenceCalls, 0);
     controller.dispose();
@@ -80,6 +81,7 @@ void main() {
       final controller = _controller(
         api,
         persistedAppearances: {site: stored},
+        persistedFreshness: Duration.zero,
         onAppearanceLoaded: (_, _) async => persistenceCalls++,
       );
       var notifications = 0;
@@ -152,8 +154,8 @@ void main() {
 
     expect(controller.configFor(site), stored);
     await Future.wait([
-      controller.ensureConfig(site),
-      controller.ensureConfig(site),
+      controller.refreshConfig(site),
+      controller.refreshConfig(site),
     ]);
 
     expect(api.configCalls, 1);
@@ -168,6 +170,100 @@ void main() {
     expect(notifications, 1);
 
     await controller.ensureConfig(site);
+    expect(api.configCalls, 1);
+    controller.dispose();
+  });
+
+  test(
+    'warm persisted presentation makes no request until freshness expires',
+    () async {
+      var now = DateTime.utc(2026, 8, 11, 12);
+      final api = _PresentationApi()
+        ..appearance = siteAppearance(accent: const Color(0xFF445566))
+        ..config = const SiteConfig(emojiSet: 'google');
+      final credentials = _Credentials();
+      final controller = _controller(
+        api,
+        credentials: credentials,
+        persisted: const {site: SiteConfig(emojiSet: 'apple')},
+        persistedAppearances: {
+          site: siteAppearance(accent: const Color(0xFF112233)),
+        },
+        clock: () => now,
+      );
+
+      await Future.wait([
+        controller.ensureAppearance(site),
+        controller.ensureAppearance(site),
+        controller.ensureConfig(site),
+        controller.ensureConfig(site),
+      ]);
+
+      expect(api.appearanceCalls, 0);
+      expect(api.configCalls, 0);
+      expect(credentials.apiKeySites, isEmpty);
+      expect(credentials.clientIdCalls, 0);
+
+      now = now.add(
+        SitePresentationController.defaultPersistedFreshness +
+            const Duration(seconds: 1),
+      );
+      await Future.wait([
+        controller.ensureAppearance(site),
+        controller.ensureAppearance(site),
+        controller.ensureConfig(site),
+        controller.ensureConfig(site),
+      ]);
+
+      expect(api.appearanceCalls, 1);
+      expect(api.configCalls, 1);
+      expect(credentials.apiKeySites, [site, site]);
+      expect(credentials.clientIdCalls, 2);
+      controller.dispose();
+    },
+  );
+
+  test('unknown persisted config still loads on first ensure', () async {
+    final api = _PresentationApi()
+      ..config = const SiteConfig(emojiSet: 'google');
+    final controller = _controller(
+      api,
+      persisted: const {site: SiteConfig.unknown()},
+    );
+
+    await controller.ensureConfig(site);
+
+    expect(api.configCalls, 1);
+    expect(controller.configFor(site).emojiSet, 'google');
+    controller.dispose();
+  });
+
+  test('forget invalidates warm persisted presentation', () async {
+    final api = _PresentationApi()
+      ..appearance = siteAppearance(accent: const Color(0xFF445566))
+      ..config = const SiteConfig(emojiSet: 'google');
+    final controller = _controller(
+      api,
+      persisted: const {site: SiteConfig(emojiSet: 'apple')},
+      persistedAppearances: {
+        site: siteAppearance(accent: const Color(0xFF112233)),
+      },
+    );
+
+    await Future.wait([
+      controller.ensureAppearance(site),
+      controller.ensureConfig(site),
+    ]);
+    expect(api.appearanceCalls, 0);
+    expect(api.configCalls, 0);
+
+    controller.forget(site);
+    await Future.wait([
+      controller.ensureAppearance(site),
+      controller.ensureConfig(site),
+    ]);
+
+    expect(api.appearanceCalls, 1);
     expect(api.configCalls, 1);
     controller.dispose();
   });
@@ -388,6 +484,9 @@ SitePresentationController _controller(
   SiteAppearanceLoaded? onAppearanceLoaded,
   SiteConfigLoaded? onConfigLoaded,
   void Function()? onEmojiIndexChanged,
+  Duration persistedFreshness =
+      SitePresentationController.defaultPersistedFreshness,
+  DateTime Function()? clock,
 }) {
   return SitePresentationController(
     loadAppearance: api.loadAppearance,
@@ -401,6 +500,8 @@ SitePresentationController _controller(
     onAppearanceLoaded: onAppearanceLoaded ?? (_, _) async {},
     onConfigLoaded: onConfigLoaded ?? (_, _) async {},
     onEmojiIndexChanged: onEmojiIndexChanged ?? () {},
+    persistedFreshness: persistedFreshness,
+    clock: clock,
   );
 }
 

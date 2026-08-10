@@ -190,12 +190,18 @@ class ChatController extends FrameSafeNotifier {
     required this.credentials,
     required this.store,
     SiteLifecycle? lifecycle,
-  }) : lifecycle = lifecycle ?? SiteLifecycle();
+    this.minimumWindowRefreshInterval = const Duration(seconds: 30),
+    DateTime Function()? clock,
+  }) : assert(minimumWindowRefreshInterval >= Duration.zero),
+       lifecycle = lifecycle ?? SiteLifecycle(),
+       _clock = clock ?? DateTime.now;
 
   final ChatApi api;
   final ApiCredentialReader credentials;
   final Store store;
   final SiteLifecycle lifecycle;
+  final Duration minimumWindowRefreshInterval;
+  final DateTime Function() _clock;
 
   void _report(
     Object error,
@@ -246,6 +252,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, ChatStreamState> _streams = {};
   final Map<String, FrameSafeValueNotifier<ChatStreamState>> _streamRefs = {};
   final Map<String, Object> _streamGenerations = {};
+  final Map<String, DateTime> _windowAttemptedAt = {};
   final Map<String, Object> _pageRequests = {};
   final Map<
     String,
@@ -516,21 +523,35 @@ class ChatController extends FrameSafeNotifier {
   /// no-target branch. So a channel opened for the first time still starts at
   /// the present, without this having to ask a different question.
   ///
-  /// Asked again on every open, the way the reactor lists are: this is a list of
-  /// what other people have just said, it is stale within minutes, and there is
-  /// nothing live yet to correct it. Whatever was fetched last time stays on
-  /// screen while the answer is on its way.
+  /// A normal open refreshes an old window, but reuses one attempted in the last
+  /// [minimumWindowRefreshInterval]. Site and tab activation can remount this
+  /// view several times in one navigation; those mounts do not make the answer
+  /// meaningfully fresher. Explicit reloads and post-mutation reconciliations
+  /// pass [force], while paging remains independent. Whatever was fetched last
+  /// time stays on screen while an allowed answer is on its way.
   ///
   /// The answer **replaces** the stream rather than merging into it. Contiguity
   /// is what [loadOlder] and [loadNewer] depend on, and merging a window fetched
   /// around one message into a window around another would leave a hole in the
   /// middle that nothing could ever fill.
-  Future<void> openChannel(String siteUrl, int channelId) {
+  Future<void> openChannel(
+    String siteUrl,
+    int channelId, {
+    bool force = false,
+  }) {
     _lastOpenedChannelIds[siteUrl] = channelId;
+    final key = _streamKey(siteUrl, channelId);
+    if (!force && _windowAttemptedRecently(key)) return Future.value();
     return DiagnosticsSink.runOperation(
       'chat.loadWindow',
       () => _fetchWindow(siteUrl, channelId, fromLastRead: true),
     );
+  }
+
+  bool _windowAttemptedRecently(String key) {
+    final attemptedAt = _windowAttemptedAt[key];
+    return attemptedAt != null &&
+        _clock().difference(attemptedAt) < minimumWindowRefreshInterval;
   }
 
   /// Puts the newest page on screen, wherever the reader was.
@@ -554,6 +575,7 @@ class ChatController extends FrameSafeNotifier {
   }) async {
     final key = _streamKey(siteUrl, channelId);
     if (!_loading.add(key)) return;
+    _windowAttemptedAt[key] = _clock();
 
     final lease = lifecycle.capture(siteUrl);
     final generation = Object();
@@ -972,6 +994,7 @@ class ChatController extends FrameSafeNotifier {
     _attempts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _streams.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _streamGenerations.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _windowAttemptedAt.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _pageRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _queuedReadReceipts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _readReceiptTasks.removeWhere((key, _) => key.startsWith('$siteUrl~'));
@@ -1031,6 +1054,7 @@ class ChatController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    _windowAttemptedAt.clear();
     _queuedReadReceipts.clear();
     _readReceiptTasks.clear();
     _readReceiptRuns.clear();

@@ -766,10 +766,9 @@ void main() {
     () async {
       final signedOutAppearance = siteAppearance();
       final accountAppearance = siteAppearance(accent: const Color(0xFFAA2200));
-      final stored = instance('meta.discourse.org').copyWith(
-        user: const DiscourseUser(id: 7, username: 'account'),
-        appearance: accountAppearance,
-      );
+      final stored = instance(
+        'meta.discourse.org',
+      ).copyWith(user: const DiscourseUser(id: 7, username: 'account'));
       final store = FakeInstanceStore([stored]);
       final authenticator = FakeAuthenticator(
         disconnectFailure: StateError('keychain unavailable'),
@@ -844,10 +843,9 @@ void main() {
           accent: const Color(0xFF0066BB),
         );
         final store = FakeInstanceStore([
-          instance('meta.discourse.org').copyWith(
-            user: const DiscourseUser(id: 7, username: 'account'),
-            appearance: initialAccountAppearance,
-          ),
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: const DiscourseUser(id: 7, username: 'account')),
           instance('other.example.com'),
         ]);
         final authenticator = FakeAuthenticator()
@@ -935,10 +933,9 @@ void main() {
       accent: const Color(0xFFAA2200),
     );
     final signedOutAppearance = siteAppearance(accent: const Color(0xFF0066BB));
-    final connected = instance('meta.discourse.org').copyWith(
-      user: const DiscourseUser(id: 7, username: 'account'),
-      appearance: initialAccountAppearance,
-    );
+    final connected = instance(
+      'meta.discourse.org',
+    ).copyWith(user: const DiscourseUser(id: 7, username: 'account'));
     final store = FakeInstanceStore([connected, instance('other.example.com')]);
     final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'account-key';
     final api = _DisconnectRaceAppearanceApi(

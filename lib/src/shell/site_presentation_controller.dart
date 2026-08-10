@@ -47,6 +47,8 @@ typedef SiteAppearanceLoaded =
 /// settings and custom artwork can repaint visible content, while the complete
 /// emoji index only needs to refresh an open composer's autocomplete.
 final class SitePresentationController extends FrameSafeNotifier {
+  static const Duration defaultPersistedFreshness = Duration(minutes: 5);
+
   SitePresentationController({
     required this.loadAppearance,
     required this.loadConfig,
@@ -60,7 +62,13 @@ final class SitePresentationController extends FrameSafeNotifier {
     required this.onConfigLoaded,
     required this.onEmojiIndexChanged,
     this.maxAttempts = 3,
-  }) : assert(maxAttempts > 0);
+    this.persistedFreshness = defaultPersistedFreshness,
+    DateTime Function()? clock,
+  }) : assert(maxAttempts > 0),
+       assert(persistedFreshness >= Duration.zero),
+       _clock = clock ?? DateTime.now {
+    _persistedFreshUntil = _clock().add(persistedFreshness);
+  }
 
   final SiteAppearanceLoader loadAppearance;
   final SiteConfigLoader loadConfig;
@@ -74,6 +82,11 @@ final class SitePresentationController extends FrameSafeNotifier {
   final SiteConfigLoaded onConfigLoaded;
   final VoidCallback onEmojiIndexChanged;
   final int maxAttempts;
+  final Duration persistedFreshness;
+  final DateTime Function() _clock;
+  late final DateTime _persistedFreshUntil;
+  final Set<String> _invalidatedPersistedAppearances = {};
+  final Set<String> _invalidatedPersistedConfigs = {};
 
   final _appearances = _RetryingSiteCache<SiteAppearance>();
 
@@ -109,8 +122,23 @@ final class SitePresentationController extends FrameSafeNotifier {
       readPersistedConfig(siteUrl) ??
       const SiteConfig.unknown();
 
-  Future<void> ensureAppearance(String siteUrl) async {
-    if (isDisposed || !_appearances.start(siteUrl, maxAttempts)) return;
+  Future<void> ensureAppearance(String siteUrl) =>
+      _ensureAppearance(siteUrl, refresh: false);
+
+  /// Revalidates persisted or already-fetched colors immediately.
+  ///
+  /// Ordinary startup goes through [ensureAppearance] and can use the warm
+  /// persisted snapshot. An explicit refresh is a new retry boundary and keeps
+  /// the last usable colors in place if the request fails.
+  Future<void> refreshAppearance(String siteUrl) =>
+      _ensureAppearance(siteUrl, refresh: true);
+
+  Future<void> _ensureAppearance(
+    String siteUrl, {
+    required bool refresh,
+  }) async {
+    if (isDisposed || (!refresh && _warmPersistedAppearance(siteUrl))) return;
+    if (!_appearances.start(siteUrl, maxAttempts, refresh: refresh)) return;
     final lease = lifecycle.capture(siteUrl);
 
     try {
@@ -153,8 +181,20 @@ final class SitePresentationController extends FrameSafeNotifier {
     return configFor(siteUrl).emojiUrl(name, siteUrl: siteUrl);
   }
 
-  Future<void> ensureConfig(String siteUrl) async {
-    if (isDisposed || !_configs.start(siteUrl, maxAttempts)) return;
+  Future<void> ensureConfig(String siteUrl) =>
+      _ensureConfig(siteUrl, refresh: false);
+
+  /// Revalidates persisted or already-fetched client settings immediately.
+  ///
+  /// This bypasses the short warm-start window and resets the bounded cache's
+  /// retry budget for a user-initiated refresh without discarding the value the
+  /// UI is currently using.
+  Future<void> refreshConfig(String siteUrl) =>
+      _ensureConfig(siteUrl, refresh: true);
+
+  Future<void> _ensureConfig(String siteUrl, {required bool refresh}) async {
+    if (isDisposed || (!refresh && _warmPersistedConfig(siteUrl))) return;
+    if (!_configs.start(siteUrl, maxAttempts, refresh: refresh)) return;
     final lease = lifecycle.capture(siteUrl);
 
     try {
@@ -280,9 +320,39 @@ final class SitePresentationController extends FrameSafeNotifier {
     return length != 0 ? length : a.$2.name.compareTo(b.$2.name);
   }
 
+  bool get _persistedIsFresh =>
+      persistedFreshness > Duration.zero &&
+      _clock().isBefore(_persistedFreshUntil);
+
+  bool _warmPersistedAppearance(String siteUrl) {
+    if (!_persistedIsFresh ||
+        _invalidatedPersistedAppearances.contains(siteUrl)) {
+      return false;
+    }
+    return readPersistedAppearance(siteUrl)?.isKnown == true;
+  }
+
+  bool _warmPersistedConfig(String siteUrl) {
+    if (!_persistedIsFresh || _invalidatedPersistedConfigs.contains(siteUrl)) {
+      return false;
+    }
+    final config = readPersistedConfig(siteUrl);
+    // The persisted model predates freshness metadata. Its unknown sentinel is
+    // value-equal to a real site using every core default, so it cannot safely
+    // prove that settings were fetched. Err toward one request for that
+    // ambiguous case; non-default snapshots are known to have come from the
+    // endpoint and are safe to use through the short startup window.
+    return config != null && config != const SiteConfig.unknown();
+  }
+
   /// Drops one site's fetched state immediately; the shell owns invalidation.
   void forget(String siteUrl) {
     if (isDisposed) return;
+    // Forget marks an identity/lifecycle boundary in the shell. A value still
+    // present on the immutable instance may belong to the account that was
+    // just disconnected, so it must not regain warm-start status.
+    _invalidatedPersistedAppearances.add(siteUrl);
+    _invalidatedPersistedConfigs.add(siteUrl);
     final oldAppearance = appearanceFor(siteUrl);
     final oldConfig = configFor(siteUrl);
     final customChanged = _customEmojis[siteUrl]?.isNotEmpty ?? false;
@@ -335,10 +405,10 @@ final class _RetryingSiteCache<T> {
 
   bool contains(String siteUrl) => _values.containsKey(siteUrl);
 
-  bool start(String siteUrl, int maxAttempts) {
-    if (_values.containsKey(siteUrl) || _loading.contains(siteUrl)) {
-      return false;
-    }
+  bool start(String siteUrl, int maxAttempts, {bool refresh = false}) {
+    if (_loading.contains(siteUrl)) return false;
+    if (!refresh && _values.containsKey(siteUrl)) return false;
+    if (refresh) _attempts.remove(siteUrl);
     final attempts = _attempts[siteUrl] ?? 0;
     if (attempts >= maxAttempts) return false;
     _attempts[siteUrl] = attempts + 1;

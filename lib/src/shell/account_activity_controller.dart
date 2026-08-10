@@ -23,12 +23,17 @@ final class AccountActivityController extends FrameSafeNotifier {
     required this.credentials,
     required this.lifecycle,
     this.onTotalsLoaded,
-  });
+    this.minimumRefreshInterval = const Duration(minutes: 5),
+    DateTime Function()? clock,
+  }) : assert(minimumRefreshInterval >= Duration.zero),
+       _clock = clock ?? DateTime.now;
 
   final AccountActivityApi api;
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
   final TotalsLoaded? onTotalsLoaded;
+  final Duration minimumRefreshInterval;
+  final DateTime Function() _clock;
 
   void _report(Object error, StackTrace stackTrace, String operation) {
     DiagnosticsSink.current.reportError(
@@ -60,6 +65,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, BookmarkFeed> _bookmarks = {};
   final Map<String, Object> _totalsRequests = {};
   final Map<String, Future<NotificationTotals?>> _totalsTasks = {};
+  final Map<String, DateTime> _totalsAttemptedAt = {};
   final Map<String, DiscourseInstance> _pendingTotals = {};
   final Map<String, Completer<NotificationTotals?>> _pendingTotalsWaiters = {};
   final Map<String, Object> _notificationRequests = {};
@@ -93,15 +99,32 @@ final class AccountActivityController extends FrameSafeNotifier {
     );
   }
 
-  Future<NotificationTotals?> refresh(DiscourseInstance instance) async {
+  Future<NotificationTotals?> refresh(
+    DiscourseInstance instance, {
+    bool force = false,
+  }) async {
     final active = _totalsTasks[instance.url];
     if (active != null) {
+      // Ordinary lifecycle and navigation callers all want the same snapshot.
+      // Replaying after it lands doubled `/notifications/totals.json` whenever
+      // two of them overlapped. Only a write that can invalidate the active
+      // snapshot is allowed to queue one reconciliation behind it.
+      if (!force) return active;
       _pendingTotals[instance.url] = instance;
       return _pendingTotalsWaiters
           .putIfAbsent(instance.url, Completer<NotificationTotals?>.new)
           .future;
     }
+    if (!force && _recentlyAttempted(instance.url)) {
+      return _totals[instance.url];
+    }
     return _startTotalsRefresh(instance);
+  }
+
+  bool _recentlyAttempted(String siteUrl) {
+    final attemptedAt = _totalsAttemptedAt[siteUrl];
+    return attemptedAt != null &&
+        _clock().difference(attemptedAt) < minimumRefreshInterval;
   }
 
   Future<NotificationTotals?> _startTotalsRefresh(DiscourseInstance instance) {
@@ -117,6 +140,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     DiscourseInstance instance,
   ) async {
     if (isDisposed) return null;
+    _totalsAttemptedAt[instance.url] = _clock();
     final lease = lifecycle.capture(instance.url);
     final request = Object();
     _totalsRequests[instance.url] = request;
@@ -499,7 +523,7 @@ final class AccountActivityController extends FrameSafeNotifier {
 
     final key = (instance.url, notification.id);
     if (!_ownsRequest(lease, _notificationReadRequests[key], request)) return;
-    await refresh(instance);
+    await refresh(instance, force: true);
   }
 
   void applyCounts(
@@ -522,6 +546,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     final hadChatNotifications = _chatNotifications.remove(siteUrl) != null;
     final hadBookmarks = _bookmarks.remove(siteUrl) != null;
     _totalsRequests.remove(siteUrl);
+    _totalsAttemptedAt.remove(siteUrl);
     final abandonedTotals = _totalsTasks.remove(siteUrl);
     abandonedTotals?.ignore();
     _pendingTotals.remove(siteUrl);
