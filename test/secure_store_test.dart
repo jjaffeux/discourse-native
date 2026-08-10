@@ -26,7 +26,7 @@ void main() {
       expect(storage.events, isEmpty);
     });
 
-    test('migrates the old private-storage id to preferences', () async {
+    test('copies the old private-storage id to preferences once', () async {
       final storage = _FakeStorage({'client_id': 'legacy-id'});
       final clientIds = _FakeClientIds();
       final store = SecureStore(
@@ -37,8 +37,8 @@ void main() {
 
       expect(await store.readOrCreateClientId(), 'legacy-id');
       expect(clientIds.value, 'legacy-id');
-      expect(storage.values, isEmpty);
-      expect(storage.events, ['read:client_id', 'delete:client_id']);
+      expect(storage.values['client_id'], 'legacy-id');
+      expect(storage.events, ['read:client_id']);
     });
 
     test('creates a missing id in preferences', () async {
@@ -234,16 +234,78 @@ void main() {
       expect(await store.readApiKey(siteUrl), 'second-key');
     });
 
-    test('does not ask the platform to delete a missing key', () async {
+    test('an in-flight stale read resolves to a completed deletion', () async {
+      const siteUrl = 'https://meta.discourse.org';
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      final storage = _FakeStorage({'api_key::$siteUrl': 'old-key'})
+        ..gatedReadKey = 'api_key::$siteUrl'
+        ..snapshotGatedRead = true
+        ..readGate = gate
+        ..readStarted = started;
+      final store = SecureStore(storage: storage);
+
+      final staleRead = store.readApiKey(siteUrl);
+      await started.future;
+      final coalescedRead = store.readApiKey(siteUrl);
+      await store.deleteApiKey(siteUrl);
+      gate.complete();
+
+      expect(await staleRead, isNull);
+      expect(await coalescedRead, isNull);
+      expect(await store.readApiKey(siteUrl), isNull);
+    });
+
+    test('a delete queued behind a write wins', () async {
+      const siteUrl = 'https://meta.discourse.org';
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      final storage = _FakeStorage()
+        ..gatedWriteKey = 'api_key::$siteUrl'
+        ..writeGate = gate
+        ..writeStarted = started;
+      final store = SecureStore(storage: storage);
+
+      final write = store.writeApiKey(siteUrl, 'new-key');
+      await started.future;
+      final deletion = store.deleteApiKey(siteUrl);
+      gate.complete();
+      await Future.wait([write, deletion]);
+
+      expect(storage.values.containsKey('api_key::$siteUrl'), isFalse);
+      expect(await store.readApiKey(siteUrl), isNull);
+    });
+
+    test('a write queued behind a delete wins', () async {
+      const siteUrl = 'https://meta.discourse.org';
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      final storage = _FakeStorage({'api_key::$siteUrl': 'old-key'})
+        ..gatedDeleteKey = 'api_key::$siteUrl'
+        ..deleteGate = gate
+        ..deleteStarted = started;
+      final store = SecureStore(storage: storage);
+
+      final deletion = store.deleteApiKey(siteUrl);
+      await started.future;
+      final write = store.writeApiKey(siteUrl, 'new-key');
+      gate.complete();
+      await Future.wait([deletion, write]);
+
+      expect(storage.values['api_key::$siteUrl'], 'new-key');
+      expect(await store.readApiKey(siteUrl), 'new-key');
+    });
+
+    test('asks storage for an idempotent deletion of a missing key', () async {
       final storage = _FakeStorage();
       final store = SecureStore(storage: storage);
 
       await store.deleteApiKey('https://missing.example');
 
-      expect(storage.events, ['read:api_key::https://missing.example']);
+      expect(storage.events, ['delete:api_key::https://missing.example']);
     });
 
-    test('deletes an existing key after confirming it exists', () async {
+    test('deletes an existing key without a stale preflight read', () async {
       final storage = _FakeStorage({
         'api_key::https://meta.discourse.org': 'api-key',
       });
@@ -252,28 +314,22 @@ void main() {
       await store.deleteApiKey('https://meta.discourse.org');
 
       expect(storage.values, isEmpty);
-      expect(storage.events, [
-        'read:api_key::https://meta.discourse.org',
-        'delete:api_key::https://meta.discourse.org',
-      ]);
+      expect(storage.events, ['delete:api_key::https://meta.discourse.org']);
       expect(await store.readApiKey('https://meta.discourse.org'), isNull);
-      expect(storage.events, [
-        'read:api_key::https://meta.discourse.org',
-        'delete:api_key::https://meta.discourse.org',
-      ]);
+      expect(storage.events, ['delete:api_key::https://meta.discourse.org']);
     });
 
-    test('propagates read failures without attempting deletion', () async {
+    test('propagates deletion failures', () async {
       final error = StateError('keychain unavailable');
       final storage = _FakeStorage()
-        ..readErrors['api_key::https://meta.discourse.org'] = error;
+        ..deleteErrors['api_key::https://meta.discourse.org'] = error;
       final store = SecureStore(storage: storage);
 
       await expectLater(
         store.deleteApiKey('https://meta.discourse.org'),
         throwsA(same(error)),
       );
-      expect(storage.events, ['read:api_key::https://meta.discourse.org']);
+      expect(storage.events, ['delete:api_key::https://meta.discourse.org']);
     });
   });
 }
@@ -294,6 +350,9 @@ final class _FakeStorage implements PrivateStorage {
   String? gatedWriteKey;
   Completer<void>? writeGate;
   Completer<void>? writeStarted;
+  String? gatedDeleteKey;
+  Completer<void>? deleteGate;
+  Completer<void>? deleteStarted;
 
   @override
   Future<String?> read(String key) async {
@@ -315,9 +374,6 @@ final class _FakeStorage implements PrivateStorage {
   }
 
   @override
-  Future<Map<String, String>> readAll() async => Map.of(values);
-
-  @override
   Future<void> write(String key, String value) async {
     events.add('write:$key');
     if (key == gatedWriteKey) {
@@ -333,6 +389,12 @@ final class _FakeStorage implements PrivateStorage {
   @override
   Future<void> delete(String key) async {
     events.add('delete:$key');
+    if (key == gatedDeleteKey) {
+      if (deleteStarted case final started? when !started.isCompleted) {
+        started.complete();
+      }
+      await deleteGate?.future;
+    }
     if (deleteErrors[key] case final error?) throw error;
     values.remove(key);
   }

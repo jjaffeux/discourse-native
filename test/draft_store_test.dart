@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
@@ -204,6 +205,16 @@ void main() {
     );
   });
 
+  test('site clearing fails closed when its blocker is not durable', () async {
+    final error = FileSystemException('draft file unavailable');
+    await store.write(siteUrl, draftKey, 'previous account text');
+    persistence.deletePrefixError = error;
+
+    await expectLater(store.clearSite(siteUrl), throwsA(same(error)));
+
+    expect(persistence.values[storageKey], 'previous account text');
+  });
+
   test('conditional site clearing keeps a newer session draft', () async {
     await store.write(siteUrl, draftKey, 'newer account text');
 
@@ -234,20 +245,23 @@ void main() {
     );
   });
 
-  test('does not overwrite secure data when its read fails', () async {
-    persistence
-      ..values[storageKey] = 'new secure text'
-      ..failReads = true;
-    SharedPreferences.setMockInitialValues({storageKey: 'old legacy text'});
+  test(
+    'does not reveal or overwrite fallback data when secure read fails',
+    () async {
+      persistence
+        ..values[storageKey] = 'new secure text'
+        ..failReads = true;
+      SharedPreferences.setMockInitialValues({storageKey: 'old legacy text'});
 
-    expect(await store.read(siteUrl, draftKey), 'old legacy text');
-    expect(persistence.values[storageKey], 'new secure text');
-    expect(persistence.writeCount, 0);
-    expect(
-      (await SharedPreferences.getInstance()).getString(storageKey),
-      'old legacy text',
-    );
-  });
+      expect(await store.read(siteUrl, draftKey), isNull);
+      expect(persistence.values[storageKey], 'new secure text');
+      expect(persistence.writeCount, 0);
+      expect(
+        (await SharedPreferences.getInstance()).getString(storageKey),
+        'old legacy text',
+      );
+    },
+  );
 
   test('secure persistence takes precedence over a legacy draft', () async {
     persistence.values[storageKey] = 'secure text';
@@ -259,12 +273,25 @@ void main() {
       isFalse,
     );
   });
+
+  test('a durable blocker suppresses a stale preference draft', () async {
+    persistence.allowPreferenceFallback = false;
+    SharedPreferences.setMockInitialValues({storageKey: 'stale text'});
+
+    expect(await store.read(siteUrl, draftKey), isNull);
+    expect(
+      (await SharedPreferences.getInstance()).containsKey(storageKey),
+      isFalse,
+    );
+  });
 }
 
 final class MemoryDraftPersistence implements DraftPersistence {
   final Map<String, String> values = {};
   bool failReads = false;
   bool failWrites = false;
+  bool allowPreferenceFallback = true;
+  Object? deletePrefixError;
   Completer<void>? firstWriteGate;
   final Completer<void> firstWriteStarted = Completer<void>();
   int writeCount = 0;
@@ -275,13 +302,19 @@ final class MemoryDraftPersistence implements DraftPersistence {
   }
 
   @override
-  Future<String?> read(String key) async {
+  Future<DraftPersistenceRead> read(String key) async {
     if (failReads) throw StateError('secure storage unavailable');
-    return values[key];
+    return (
+      value: values[key],
+      allowPreferenceFallback: allowPreferenceFallback,
+    );
   }
 
   @override
-  Future<Map<String, String>> readAll() async => Map.of(values);
+  Future<void> deletePrefix(String prefix) async {
+    if (deletePrefixError case final error?) throw error;
+    values.removeWhere((key, _) => key.startsWith(prefix));
+  }
 
   @override
   Future<void> write(String key, String value) async {
@@ -305,10 +338,11 @@ final class _ThrowingDraftPersistence implements DraftPersistence {
   Future<void> delete(String key) async {}
 
   @override
-  Future<String?> read(String key) async => null;
+  Future<void> deletePrefix(String prefix) async {}
 
   @override
-  Future<Map<String, String>> readAll() async => const {};
+  Future<DraftPersistenceRead> read(String key) async =>
+      (value: null, allowPreferenceFallback: true);
 
   @override
   Future<void> write(String key, String value) async => throw error;

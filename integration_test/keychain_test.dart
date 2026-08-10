@@ -5,10 +5,10 @@ import 'package:integration_test/integration_test.dart';
 /// Private storage behaves differently per platform and only reaches Keychain
 /// or the Linux filesystem on a real device, so it gets an integration test.
 ///
-/// macOS in particular refuses the data protection keychain without the
-/// `keychain-access-groups` entitlement, which needs a signing certificate —
-/// see [SecureStore]. That failure surfaces as `errSecMissingEntitlement`
-/// (-34018) and is invisible to unit tests.
+/// A normal macOS test run exercises the isolated custom-signed development
+/// service. The distributed release uses the Data Protection Keychain instead;
+/// its application identifier is supplied by TestFlight/App Store signing and
+/// must also be checked in a distribution-signed smoke test.
 ///
 ///   `flutter test integration_test/keychain_test.dart -d macos`
 void main() {
@@ -18,20 +18,20 @@ void main() {
     final store = SecureStore();
     const site = 'https://keychain-test.invalid';
 
+    await store.writeApiKey(site, 'first-key');
     await store.writeApiKey(site, 'secret-key');
-    expect(await store.readApiKey(site), 'secret-key');
+    final reopened = SecureStore();
+    expect(await reopened.readApiKey(site), 'secret-key');
 
-    await store.deleteApiKey(site);
-    expect(await store.readApiKey(site), isNull);
+    await reopened.deleteApiKey(site);
+    expect(await SecureStore().readApiKey(site), isNull);
   });
 
   test('deleting a key that was never written is not an error', () async {
     final store = SecureStore();
 
-    // Removing a site that was never connected asks for exactly this, and on
-    // macOS it is the delete that finds nothing which reports -34018 — see
-    // [SecureStore.deleteApiKey]. The round-trip above never reaches it,
-    // because there the entry is always there to delete.
+    // Removing a site that was never connected asks for exactly this. It must
+    // remain idempotent and must never enumerate unrelated legacy items.
     await expectLater(
       store.deleteApiKey('https://never-connected.invalid'),
       completes,

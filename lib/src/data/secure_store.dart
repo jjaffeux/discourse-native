@@ -29,20 +29,25 @@ final class PreferencesClientIdPersistence implements ClientIdPersistence {
 
 /// Persistent per-install identity and per-site API keys.
 ///
-/// API keys use [PrivateStorage]: Keychain on Apple, and a mode-0600 XDG data
-/// file on Linux. The non-secret client id lives in preferences.
+/// API keys use [PrivateStorage]: the Data Protection Keychain on Apple, and a
+/// mode-0600 XDG data file on Linux. The non-secret client id lives in
+/// preferences.
 class SecureStore {
   SecureStore({
     PrivateStorage? storage,
+    PrivateStorage? legacyClientIds,
     ClientIdPersistence? clientIds,
     String Function()? tokenGenerator,
-  }) : _storage = storage ?? platformPrivateStorage,
+  }) : _storage = storage ?? platformCredentialStorage,
+       _legacyClientIds =
+           legacyClientIds ?? storage ?? platformLegacyClientIdStorage,
        _clientIds = clientIds ?? PreferencesClientIdPersistence(),
        _tokenGenerator = tokenGenerator ?? randomToken;
 
   static const String _legacyClientIdEntry = 'client_id';
 
   final PrivateStorage _storage;
+  final PrivateStorage? _legacyClientIds;
   final ClientIdPersistence _clientIds;
   final String Function() _tokenGenerator;
 
@@ -90,13 +95,18 @@ class SecureStore {
     if (existing != null && existing.isNotEmpty) return existing;
 
     // Apple releases before the Linux file backend kept this non-secret value
-    // in Keychain. Move it out after the new preference write is durable.
-    final legacy = await _storage.read(_legacyClientIdEntry);
+    // in Keychain. Copy it out, but leave the now-inert old item alone: deleting
+    // an ACL-protected item after reading it can cause a second macOS prompt.
+    final legacyStorage = _legacyClientIds;
+    if (legacyStorage == null) {
+      final created = _tokenGenerator();
+      await _clientIds.write(created);
+      return created;
+    }
+
+    final legacy = await legacyStorage.read(_legacyClientIdEntry);
     if (legacy != null && legacy.isNotEmpty) {
       await _clientIds.write(legacy);
-      try {
-        await _storage.delete(_legacyClientIdEntry);
-      } catch (_) {}
       return legacy;
     }
 
@@ -201,34 +211,15 @@ class SecureStore {
     }
   }
 
-  /// Looks before deleting, because on macOS deleting nothing is not free.
-  ///
-  /// The plugin deletes twice, once for each synchronizable variant, and the
-  /// synchronizable query needs the data protection keychain we deliberately
-  /// do not use (see [AppleKeychainStorage]) — so it answers
-  /// `errSecMissingEntitlement`
-  /// (-34018). That is harmless while the other delete succeeds, since either
-  /// one succeeding is reported as success. When there is no entry to delete
-  /// the other one only finds nothing, and -34018 becomes the answer.
-  ///
-  /// Which makes removing a site that was never connected — the one case where
-  /// there is certainly no key — the case that fails. A read is exact where a
-  /// delete is not, so ask first.
+  /// Invalidates the credential locally, including a durable migration
+  /// tombstone on distributed Apple builds.
   Future<void> deleteApiKey(String siteUrl) async {
     final version = Object();
     _apiKeyVersions[siteUrl] = version;
-    final hadCachedValue = _apiKeys.containsKey(siteUrl);
-    final cachedValue = _apiKeys[siteUrl];
     _apiKeys.remove(siteUrl);
     final _ = _apiKeyRequests.remove(siteUrl);
     final previous = _apiKeyMutations[siteUrl];
-    final mutation = _deleteApiKeyAfter(
-      previous,
-      siteUrl,
-      version,
-      hadCachedValue: hadCachedValue,
-      cachedValue: cachedValue,
-    );
+    final mutation = _deleteApiKeyAfter(previous, siteUrl, version);
     _apiKeyMutations[siteUrl] = mutation;
     try {
       await mutation;
@@ -242,17 +233,10 @@ class SecureStore {
   Future<void> _deleteApiKeyAfter(
     Future<void>? previous,
     String siteUrl,
-    Object version, {
-    required bool hadCachedValue,
-    required String? cachedValue,
-  }) async {
+    Object version,
+  ) async {
     await _ignorePreviousFailure(previous);
-    final existing = previous == null && hadCachedValue
-        ? cachedValue
-        : await _storage.read(_apiKeyEntry(siteUrl));
-    if (existing != null) {
-      await _storage.delete(_apiKeyEntry(siteUrl));
-    }
+    await _storage.delete(_apiKeyEntry(siteUrl));
     if (identical(_apiKeyVersions[siteUrl], version)) {
       _apiKeys[siteUrl] = null;
     }

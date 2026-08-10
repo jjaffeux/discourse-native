@@ -717,14 +717,14 @@ class ShellController extends FrameSafeNotifier {
 
   /// Signs [instance] out and takes it out of the rail.
   ///
-  /// Returns false when the local rail could not be persisted. The key is
-  /// still forgotten, and the site is restored as signed out so memory and the
-  /// repaired on-disk snapshot agree and the removal remains retryable.
+  /// Returns false when the private-draft boundary or local rail could not be
+  /// persisted. A boundary failure leaves the account/key intact; a later rail
+  /// failure restores the already-forgotten site as signed out and retryable.
   Future<bool> removeInstance(DiscourseInstance instance) async {
     if (!_instances.contains(instance)) return false;
 
     final lease = await _revokeAndForget(instance);
-    if (!lease.isCurrent) return false;
+    if (lease == null || !lease.isCurrent) return false;
 
     // Presentation metadata may have replaced the immutable instance object
     // while revocation was in flight. URL is the rail identity; resolve the
@@ -5384,13 +5384,14 @@ class ShellController extends FrameSafeNotifier {
 
   /// Forgets the key and account belonging to [siteUrl].
   ///
-  /// Returns whether the signed-out rail snapshot was persisted. The key and
-  /// private in-memory state are forgotten regardless.
+  /// Returns whether the signed-out rail snapshot was persisted. A failure to
+  /// make the private-draft boundary durable leaves the account and key intact.
   Future<bool> disconnectInstance(String siteUrl) async {
     final instance = _instanceAt(siteUrl);
     if (instance == null) return false;
 
     final lease = await _revokeAndForget(instance);
+    if (lease == null) return false;
     final accepted = lease.commit(() {
       final held = _instanceAt(instance.url);
       if (held == null) return;
@@ -5431,9 +5432,19 @@ class ShellController extends FrameSafeNotifier {
   ///
   /// Deleting locally is not enough: the key would stay live in the user's
   /// authorized-apps list with no way for them to connect it to us.
-  Future<SiteLease> _revokeAndForget(DiscourseInstance instance) async {
+  Future<SiteLease?> _revokeAndForget(DiscourseInstance instance) async {
     _forgetSiteState(instance.url);
     final lease = lifecycle.capture(instance.url);
+
+    // Persist the private-text boundary before revoking or deleting the key.
+    // If storage cannot retain the blocker, abort while the account and its
+    // credential still agree instead of leaving connected UI backed by no key.
+    try {
+      await drafts.clearSite(instance.url, ifCurrent: () => lease.isCurrent);
+    } catch (_) {
+      return null;
+    }
+    if (!lease.isCurrent) return lease;
 
     String? apiKey;
     try {
@@ -5479,8 +5490,6 @@ class ShellController extends FrameSafeNotifier {
       }
       // Connecting again overwrites a key local storage could not remove.
     }
-    if (!lease.isCurrent) return lease;
-    await drafts.clearSite(instance.url, ifCurrent: () => lease.isCurrent);
     if (!lease.isCurrent) return lease;
 
     // Revocation is asynchronous, so switching away and back can start fresh

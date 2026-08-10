@@ -1038,45 +1038,61 @@ forgotten locally either way, since keeping one we can no longer see is worse.
 
 ### macOS keychain
 
-`AppleKeychainStorage` passes `usesDataProtectionKeychain: false` directly to
-the Darwin plugin. The plugin defaults to the data protection keychain, which
-needs the
-`keychain-access-groups` entitlement — and adding that entitlement makes the
-build require a real development certificate:
+Apple API keys use the Data Protection Keychain under the namespaced service
+`org.discourse.native.credentials`. A TestFlight/App Store signature supplies
+the app's private application-identifier access group; the plugin does not
+request a shared group, so no Keychain Sharing entitlement is needed. Without
+that signed application identifier, Data Protection operations fail with
+`errSecMissingEntitlement` (-34018).
 
-```
-"Runner" has entitlements that require signing with a development certificate.
-```
+Older builds used the legacy login keychain and the generic service
+`flutter_secure_storage_service`. That keychain binds a separate ACL to every
+item, so changing from the old development certificate to TestFlight could
+produce one password prompt per connected site even though both apps were
+signed. Release builds recover those credentials lazily by exact key: read the
+new service first, read only the matching legacy item when absent, durably write
+the Data Protection copy, then mark that namespace authoritative. Migration
+does not delete ACL-protected old items: plain **Allow** must not cause a second
+password prompt. Those inert items can be removed later in Keychain Access. The
+migrator never calls `readAll`. macOS may still require one final authorization
+for an old item because a newly signed identity cannot silently claim another
+code requirement's secret.
 
-Without one, every keychain call fails with `errSecMissingEntitlement` (-34018)
-and the connect flow reports "could not connect". The file-based keychain needs
-no entitlement. Once the macOS target is signed with a team, switch the flag
-back and add the entitlement together.
+Custom-signed macOS debug and profile builds use bundle id
+`org.discourse.native.dev` and the isolated login-keychain service
+`org.discourse.native.dev.credentials`; release keeps
+`org.discourse.native`/`org.discourse.native.credentials`. Development builds
+therefore need no provisioning profile and cannot prompt for, migrate, or
+delete production's old login-keychain items. Only a distribution-signed
+release has the application identifier required by its Data Protection
+backend; a locally custom-signed release is not a runnable credential-storage
+configuration. Migration operations are serialized in-process and across app
+processes with an owner-only advisory lock. A Data Protection state item is
+made authoritative before deletion cleanup, so a legacy ACL refusal cannot
+keep a key active or resurrect it; reconnecting makes the replacement durable
+before lifting that tombstone.
 
-Opting out of that keychain leaves one sharp edge, which is why
-`SecureStore.deleteApiKey` reads before it deletes. The plugin deletes twice,
-once per synchronizable variant, and the synchronizable query is the one that
-needs the data protection keychain — so it answers -34018. Harmless while the
-other delete succeeds, since either one succeeding is reported as success; but
-when there is no entry the other one only finds nothing, and -34018 becomes the
-answer. So *deleting a key that was never written* fails while every other
-keychain call works, which is exactly what removing a site you never connected
-to asks for.
-
-`integration_test/keychain_test.dart` covers both — it is the only place either
-failure is visible, since unit tests never touch a real keychain. Note the
-round-trip test cannot catch the delete case on its own: there the entry is
-always there to delete.
+`integration_test/keychain_test.dart` covers missing-item behavior and a real
+round trip. Unit tests verify the modern/legacy native options, migration
+ordering, failures, and read/write/delete races.
 
 On Apple, API keys live in Keychain keyed by site URL. The client id, username
 and avatar are not secrets and live in preferences, so a relaunch knows who you
 are without a round trip. A client id left in Keychain by an older build is
-moved to preferences after the first successful preference write.
+copied to preferences after the first successful preference write; its old copy
+is then inert and is not touched again.
 
-Unsent local draft mirrors use the same platform-private storage as API keys:
-Keychain on Apple and the private XDG file described below on Linux. Older
-builds wrote drafts to preferences; the first read moves that value only after
-the private write succeeds.
+Unsent local draft mirrors no longer share the Apple Keychain service. They use
+an owner-only, atomically replaced file at
+`Application Support/drafts/drafts-v1.json`; Linux retains the existing private
+XDG JSON store. Complete-file updates share an in-process queue and an advisory
+sidecar lock, so separate persistence instances or processes cannot overwrite
+one another's snapshots. An Apple release can recover an old Keychain draft
+only when that exact draft is opened; the old copy is left inert to avoid a
+second ACL prompt. Durable key and site-prefix blockers prevent a cleared draft
+from later being resurrected, account-boundary clearing fails if its blocker
+cannot be written, and no draft operation enumerates Keychain. Still-older
+preference drafts are moved only after the private file write succeeds.
 
 ## Checks
 
@@ -1258,7 +1274,9 @@ State is a plain `ChangeNotifier` so the skeleton carries no state-management
 dependency; swapping in Riverpod or Bloc later only touches `shell_scope.dart`
 and `shell_controller.dart`.
 
-Bundle identifier: `org.discourse.native`.
+Release bundle identifier: `org.discourse.native`. macOS debug/profile builds
+use `org.discourse.native.dev` so their sandbox data and credential service
+cannot overlap the installed TestFlight app.
 
 Dependencies are managed with Swift Package Manager rather than CocoaPods, which
 is the default for Flutter 3.44 projects.

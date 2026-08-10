@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
@@ -17,6 +18,7 @@ void main() {
 
   late _InstrumentedAuthenticator authenticator;
   late _InstrumentedFailureApi api;
+  late _InstrumentedDraftStore drafts;
   late ShellController controller;
   late DiagnosticsController diagnostics;
   late DiagnosticsSinkBinding diagnosticsBinding;
@@ -34,6 +36,7 @@ void main() {
 
     authenticator = _InstrumentedAuthenticator()..keys[_siteUrl] = 'api-key';
     api = _InstrumentedFailureApi(feeds: const {'/latest.json': []});
+    drafts = _InstrumentedDraftStore();
     controller = ShellController(
       instanceStore: FakeInstanceStore([
         instance(
@@ -42,7 +45,7 @@ void main() {
       ]),
       api: api,
       authenticator: authenticator,
-      drafts: FakeDraftStore(),
+      drafts: drafts,
       trackers: FakeSiteTracker.reset(),
       updateStore: FakeUpdateStore(),
     );
@@ -209,6 +212,40 @@ void main() {
       );
     },
   );
+
+  test(
+    'disconnect aborts before credential removal when drafts cannot clear',
+    () async {
+      final error = FileSystemException('draft boundary unavailable');
+      drafts.clearSiteError = error;
+
+      expect(await controller.disconnectInstance(_siteUrl), isFalse);
+
+      expect(controller.currentInstance?.user?.username, 'reader');
+      expect(authenticator.keys[_siteUrl], 'api-key');
+      expect(authenticator.disconnected, isEmpty);
+      expect(api.revoked, isEmpty);
+    },
+  );
+
+  test(
+    'removal aborts before credential removal when drafts cannot clear',
+    () async {
+      final error = FileSystemException('draft boundary unavailable');
+      drafts.clearSiteError = error;
+
+      expect(
+        await controller.removeInstance(controller.currentInstance!),
+        isFalse,
+      );
+
+      expect(controller.instances, hasLength(1));
+      expect(controller.currentInstance?.user?.username, 'reader');
+      expect(authenticator.keys[_siteUrl], 'api-key');
+      expect(authenticator.disconnected, isEmpty);
+      expect(api.revoked, isEmpty);
+    },
+  );
 }
 
 List<ErrorDiagnosticEvent> _operationEvents(
@@ -238,6 +275,16 @@ final class _InstrumentedAuthenticator extends FakeAuthenticator {
   Future<void> disconnect(String siteUrl) async {
     if (deleteError case final error?) throw error;
     return super.disconnect(siteUrl);
+  }
+}
+
+final class _InstrumentedDraftStore extends FakeDraftStore {
+  Object? clearSiteError;
+
+  @override
+  Future<void> clearSite(String siteUrl, {bool Function()? ifCurrent}) async {
+    if (clearSiteError case final error?) throw error;
+    await super.clearSite(siteUrl, ifCurrent: ifCurrent);
   }
 }
 
