@@ -135,6 +135,23 @@ void main() {
       expect(colors, contains(CodeColors.light.keyword));
     });
 
+    testWidgets('uses the same code face as Discourse', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: CodeBlock(data: parseBlock(codeFence))),
+        ),
+      );
+
+      final line = tester.widget<Text>(find.text('def hello').first);
+      expect(line.style?.fontFamily, monospaceFontFamily);
+      expect(line.style?.fontFamilyFallback, monospaceFallback);
+      expect(
+        line.style?.fontFeatures,
+        contains(const FontFeature.disable('liga')),
+      );
+    });
+
     testWidgets('fills the width it is given, however short the code', (
       tester,
     ) async {

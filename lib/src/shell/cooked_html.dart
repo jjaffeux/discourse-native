@@ -3,6 +3,7 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../models/post.dart';
+import '../plugins/local_dates/local_date_widget.dart';
 import '../plugins/site_plugin.dart';
 import 'code_block.dart';
 import 'emoji.dart';
@@ -56,6 +57,7 @@ class CookedHtml extends StatelessWidget {
   ) =>
       (element) =>
           _pluginWidget(element, siteUrl, post) ??
+          localDateWidgetBuilder(element, siteUrl: siteUrl) ??
           emojiWidgetBuilder(element, siteUrl, textStyle) ??
           mentionWidgetBuilder(element, textStyle, siteUrl: siteUrl) ??
           hashtagWidgetBuilder(element, textStyle, siteUrl: siteUrl) ??

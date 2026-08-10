@@ -4,6 +4,8 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -11,6 +13,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -75,6 +78,67 @@ Future<ShellController> _openComposer({
 }
 
 void main() {
+  setUpAll(() {
+    LocalDateEnvironment.instance.ensureDatabase();
+    LocalDateEnvironment.instance.setDeviceTimezone('Etc/UTC');
+  });
+
+  testWidgets('local-date toolbar gating and Shift+. follow the site setting', (
+    tester,
+  ) async {
+    final disabled = await _openComposer();
+    addTearDown(disabled.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ShellScope(
+          controller: disabled,
+          child: Scaffold(
+            body: ComposerPanel(composer: disabled.visibleComposer!),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byTooltip('Insert date/time  ⇧.'), findsNothing);
+
+    final enabled = await _openComposer(
+      api: FakeDiscourseApi(
+        user: const DiscourseUser(id: 7, username: 'reader'),
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {7: topicPayload(id: 7, title: 'Lunch', canCreatePost: true)},
+        siteConfigs: const {_site: SiteConfig(localDatesEnabled: true)},
+      ),
+    );
+    addTearDown(enabled.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ShellScope(
+          controller: enabled,
+          child: Scaffold(
+            body: ComposerPanel(composer: enabled.visibleComposer!),
+          ),
+        ),
+      ),
+    );
+    for (var frame = 0; frame < 4; frame++) {
+      await tester.pump(const Duration(milliseconds: 1));
+    }
+    expect(find.byTooltip('Insert date/time  ⇧.'), findsOneWidget);
+
+    await tester.tap(find.byType(TextField).last);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.period);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+
+    expect(enabled.visibleComposer!.text.text, startsWith('[date='));
+    expect(find.byType(LocalDateComposerPill), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets(
     'the Add poll action waits for and reacts to a fresh session capability',
     (tester) async {

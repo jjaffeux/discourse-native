@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../models/category_feed.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
@@ -12,10 +13,12 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
+import 'categories_page.dart';
 import 'composer_controller.dart';
 import 'composer_panel.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
+import 'forum_tabs_bar.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -54,10 +57,17 @@ class _MainContentBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final forumTabsEnabled = ShellScope.read(context).forumTabsEnabled;
 
     final route = state.route;
     if (route == null) return ColoredBox(color: theme.shell.content);
     final pluginContent = _pluginContent(context, route);
+    final contentKey = ValueKey((
+      state.siteUrl,
+      state.activeTabId,
+      route.id,
+      route.postNumber,
+    ));
 
     return ColoredBox(
       color: theme.shell.content,
@@ -65,6 +75,7 @@ class _MainContentBody extends StatelessWidget {
         left: false,
         child: Column(
           children: [
+            if (forumTabsEnabled) const CurrentForumTabsBar(),
             _ContentHeader(
               layout: layout,
               route: route,
@@ -78,38 +89,53 @@ class _MainContentBody extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child:
-                        !route.isTopic &&
-                            route.id == 'drafts' &&
-                            state.siteUrl != null
-                        ? DraftListView(siteUrl: state.siteUrl!)
-                        : !route.isTopic &&
-                              route.id == 'filter' &&
-                              state.siteUrl != null &&
-                              state.feed != null
-                        ? TopicFilterPage(
-                            siteUrl: state.siteUrl!,
-                            feed: state.feed!,
-                            categories: state.filterCategories,
-                          )
-                        : switch ((route.isTopic, pluginContent, state.feed)) {
-                            // A topic route wins over its originating list.
-                            (true, _, _) => TopicView(
-                              showRecommendationsPanel:
-                                  layout == ShellLayout.expanded,
-                            ),
-                            // A route an optional feature claims is that feature's,
-                            // whichever list happens to still be cached behind it.
-                            (false, final content?, _) => content,
-                            // Destinations backed by a topic list show the real
-                            // thing; the rest retain the placeholder.
-                            (false, null, final feed?) => TopicListView(
-                              feed: feed,
-                            ),
-                            (false, null, null) => _ContentPlaceholder(
-                              route: route,
-                            ),
-                          },
+                    child: KeyedSubtree(
+                      key: contentKey,
+                      child:
+                          !route.isTopic &&
+                              route.id == 'drafts' &&
+                              state.siteUrl != null
+                          ? DraftListView(siteUrl: state.siteUrl!)
+                          : !route.isTopic &&
+                                route.id == 'all-categories' &&
+                                state.siteUrl != null &&
+                                state.categoryFeed != null
+                          ? CategoriesPage(
+                              siteUrl: state.siteUrl!,
+                              feed: state.categoryFeed!,
+                            )
+                          : !route.isTopic &&
+                                route.id == 'filter' &&
+                                state.siteUrl != null &&
+                                state.feed != null
+                          ? TopicFilterPage(
+                              siteUrl: state.siteUrl!,
+                              feed: state.feed!,
+                              categories: state.filterCategories,
+                            )
+                          : switch ((
+                              route.isTopic,
+                              pluginContent,
+                              state.feed,
+                            )) {
+                              // A topic route wins over its originating list.
+                              (true, _, _) => TopicView(
+                                showRecommendationsPanel:
+                                    layout == ShellLayout.expanded,
+                              ),
+                              // A route an optional feature claims is that feature's,
+                              // whichever list happens to still be cached behind it.
+                              (false, final content?, _) => content,
+                              // Destinations backed by a topic list show the real
+                              // thing; the rest retain the placeholder.
+                              (false, null, final feed?) => TopicListView(
+                                feed: feed,
+                              ),
+                              (false, null, null) => _ContentPlaceholder(
+                                route: route,
+                              ),
+                            },
+                    ),
                   ),
                   if (state.composer case final composer?)
                     Positioned.fill(
@@ -380,6 +406,7 @@ class _ContentPlaceholder extends StatelessWidget {
 class _MainContentSnapshot {
   const _MainContentSnapshot({
     required this.siteUrl,
+    required this.activeTabId,
     required this.route,
     required this.topic,
     required this.feed,
@@ -389,11 +416,13 @@ class _MainContentSnapshot {
     required this.canCreateTopic,
     required this.canAssignLegacyTargets,
     required this.filterCategories,
+    required this.categoryFeed,
   });
 
   factory _MainContentSnapshot.from(ShellController controller) =>
       _MainContentSnapshot(
         siteUrl: controller.currentInstance?.url,
+        activeTabId: controller.activeTabId,
         route: controller.currentContent,
         topic: controller.currentTopic,
         feed: controller.currentFeed,
@@ -412,9 +441,19 @@ class _MainContentSnapshot {
           ('filter', final siteUrl?) => controller.filterCategoriesFor(siteUrl),
           _ => const [],
         },
+        categoryFeed: switch ((
+          controller.currentContent?.id,
+          controller.currentInstance?.url,
+        )) {
+          ('all-categories', final siteUrl?) => controller.categoryFeedFor(
+            siteUrl,
+          ),
+          _ => null,
+        },
       );
 
   final String? siteUrl;
+  final String? activeTabId;
   final ContentRoute? route;
   final TopicDetail? topic;
   final TopicFeed? feed;
@@ -424,11 +463,13 @@ class _MainContentSnapshot {
   final bool canCreateTopic;
   final bool canAssignLegacyTargets;
   final List<TopicCategory> filterCategories;
+  final CategoryFeed? categoryFeed;
 
   @override
   bool operator ==(Object other) =>
       other is _MainContentSnapshot &&
       siteUrl == other.siteUrl &&
+      activeTabId == other.activeTabId &&
       identical(route, other.route) &&
       identical(topic, other.topic) &&
       identical(feed, other.feed) &&
@@ -437,11 +478,13 @@ class _MainContentSnapshot {
       canReply == other.canReply &&
       canCreateTopic == other.canCreateTopic &&
       canAssignLegacyTargets == other.canAssignLegacyTargets &&
-      identical(filterCategories, other.filterCategories);
+      identical(filterCategories, other.filterCategories) &&
+      identical(categoryFeed, other.categoryFeed);
 
   @override
   int get hashCode => Object.hash(
     siteUrl,
+    activeTabId,
     identityHashCode(route),
     identityHashCode(topic),
     identityHashCode(feed),
@@ -451,5 +494,6 @@ class _MainContentSnapshot {
     canCreateTopic,
     canAssignLegacyTargets,
     identityHashCode(filterCategories),
+    identityHashCode(categoryFeed),
   );
 }

@@ -50,6 +50,7 @@ class _TopicViewState extends State<TopicView> {
   ScrollController? _scroll;
   ListController? _list;
   (String, int)? _topicIdentity;
+  String? _tabId;
   ShellController? _controller;
   Object? _loadMoreToken;
   (String, int, int)? _loadMoreTarget;
@@ -71,7 +72,9 @@ class _TopicViewState extends State<TopicView> {
     ShellController controller,
     (String, int) topicIdentity,
   ) {
-    if (_topicIdentity == topicIdentity && identical(_controller, controller)) {
+    if (_topicIdentity == topicIdentity &&
+        _tabId == controller.activeTabId &&
+        identical(_controller, controller)) {
       return;
     }
 
@@ -79,6 +82,7 @@ class _TopicViewState extends State<TopicView> {
     _disposeControllers();
     _controller = controller;
     _topicIdentity = topicIdentity;
+    _tabId = controller.activeTabId;
     _loadMoreToken = null;
     _loadMoreTarget = null;
     _loadEarlierToken = null;
@@ -105,7 +109,11 @@ class _TopicViewState extends State<TopicView> {
       // A numbered route may briefly be drawing cached posts that do not
       // include its target. Leave restoration armed for the around-post
       // response. An unnumbered topic genuinely belongs at the beginning.
-      if (controller.currentContent?.postNumber == null) _restored = true;
+      final topicId = snapshot.topicId;
+      if (topicId == null ||
+          controller.topicScrollPostNumber(topicId) == null) {
+        _restored = true;
+      }
       return;
     }
     _restored = true;
@@ -147,6 +155,7 @@ class _TopicViewState extends State<TopicView> {
   bool _isCurrent(ShellController controller, (String, int) topicIdentity) =>
       mounted &&
       _topicIdentity == topicIdentity &&
+      _tabId == controller.activeTabId &&
       controller.currentInstance?.url == topicIdentity.$1 &&
       controller.currentTopic?.id == topicIdentity.$2;
 
@@ -231,6 +240,20 @@ class _TopicViewState extends State<TopicView> {
     if (range == null) return;
 
     final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
+    for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
+      if (childIndex.isOdd) continue;
+      final itemIndex = childIndex ~/ 2;
+      final postIndex = itemIndex - leading;
+      if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
+      final post = controller.store.read<Post>(
+        snapshot.siteUrl!,
+        snapshot.postIds[postIndex],
+      );
+      if (post != null) {
+        controller.saveTopicScrollPost(snapshot.topicId!, post.postNumber);
+      }
+      break;
+    }
     for (var childIndex = range.$2; childIndex >= range.$1; childIndex--) {
       // Even children are list items; odd children are separators.
       if (childIndex.isOdd) continue;
@@ -677,7 +700,10 @@ class _TopicViewSnapshot {
   factory _TopicViewSnapshot.from(ShellController controller) {
     final postIds = controller.currentPostIds;
     final siteUrl = controller.currentInstance?.url;
-    final target = controller.currentContent?.postNumber;
+    final topicId = controller.currentContent?.topicId;
+    final target = topicId == null
+        ? null
+        : controller.topicScrollPostNumber(topicId);
     final hasEarlier = controller.currentTopicHasEarlier;
     int? initialPostIndex;
     if (siteUrl != null && target != null) {
@@ -735,7 +761,6 @@ class _TopicViewSnapshot {
           loadingEarlier == other.loadingEarlier &&
           hasMore == other.hasMore &&
           hasEarlier == other.hasEarlier &&
-          initialPostIndex == other.initialPostIndex &&
           recommendations == other.recommendations &&
           canAssignLegacyTargets == other.canAssignLegacyTargets;
 
@@ -750,7 +775,6 @@ class _TopicViewSnapshot {
     loadingEarlier,
     hasMore,
     hasEarlier,
-    initialPostIndex,
     recommendations,
     canAssignLegacyTargets,
   );

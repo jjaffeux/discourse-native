@@ -35,12 +35,14 @@ import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
+import 'package:discourse_native/src/shell/categories_page.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/empty_state.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
+import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -92,6 +94,7 @@ Future<void> pumpShell(
   FakeInstanceStore? store,
   FakeAuthenticator? authenticator,
   FakeDraftStore? drafts,
+  FakeForumTabStore? forumTabs,
   FakeUpdater? updater,
   FakeUpdateStore? updateStore,
   Key? key,
@@ -118,6 +121,7 @@ Future<void> pumpShell(
       api: api ?? FakeDiscourseApi(),
       authenticator: authenticator ?? FakeAuthenticator(),
       drafts: drafts ?? FakeDraftStore(),
+      forumTabs: forumTabs ?? FakeForumTabStore(),
       // Never the real one: it opens a long poll, and its backoff timer
       // outlives the tree the binding then complains about.
       trackers: FakeSiteTracker.reset(),
@@ -202,12 +206,35 @@ final class _GatedUserCardApi extends FakeDiscourseApi {
 /// The account avatar in the top right, wherever the layout has put it.
 final Finder userMenu = find.byKey(UserMenuButton.avatarKey);
 
-/// A sidebar entry by its label. Scoped to the sidebar because the user menu
-/// names some of the same things — "Messages" is both a destination and a tab.
-Finder sidebarDestination(String label) => find.descendant(
-  of: find.byType(InstanceSidebar),
-  matching: find.text(label),
-);
+/// A sidebar entry by its label. Scoped because other shell regions can repeat
+/// destination names.
+Finder sidebarDestination(String label) => find.byElementPredicate((element) {
+  final widget = element.widget;
+  if (widget is! Text || widget.data != label) return false;
+
+  var inSidebar = false;
+  element.visitAncestorElements((ancestor) {
+    inSidebar |= ancestor.widget is InstanceSidebar;
+    return true;
+  });
+  return inSidebar;
+}, description: 'sidebar destination labelled "$label"');
+
+/// Text inside the active content viewport, excluding the forum tab that
+/// mirrors its route title above the content header.
+Finder contentText(String label) => find.byElementPredicate((element) {
+  final widget = element.widget;
+  if (widget is! Text || widget.data != label) return false;
+
+  var inMainContent = false;
+  var inForumTabs = false;
+  element.visitAncestorElements((ancestor) {
+    inMainContent |= ancestor.widget is MainContent;
+    inForumTabs |= ancestor.widget is ForumTabsBar;
+    return true;
+  });
+  return inMainContent && !inForumTabs;
+}, description: 'content text labelled "$label"');
 
 /// Opens the account menu and walks to the section holding the real actions.
 /// On touch that is a row leading to a nested sheet; with a pointer it is an
@@ -946,6 +973,134 @@ void main() {
     expect(api.feedPaths, contains('/c/roadmap/4.json'));
   });
 
+  testWidgets('keeps the sidebar scroll boundary stable near its end', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    addTearDown(() => SharedPreferences.setMockInitialValues({}));
+
+    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Discourse Meta',
+    ).copyWith(user: me);
+    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
+    final destinations = [
+      for (var index = 0; index < 24; index++)
+        SidebarDestination(
+          id: 'long-scroll-$index',
+          label: 'Long destination $index',
+          icon: DIcons.link,
+        ),
+    ];
+    final api = FakeDiscourseApi(
+      user: me,
+      customSidebarSectionsBySite: {
+        site.url: [
+          SidebarSection(
+            id: 'long-scroll-boundary',
+            title: 'Long section',
+            destinations: destinations,
+          ),
+        ],
+      },
+    );
+
+    await pumpShell(
+      tester,
+      const Size(1000, 400),
+      instances: [site],
+      api: api,
+      authenticator: auth,
+    );
+
+    final scrollable = find.descendant(
+      of: find.byType(InstanceSidebar),
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    final initialMax = position.maxScrollExtent;
+    expect(initialMax, greaterThan(position.viewportDimension));
+
+    // The old two-child list let a macOS trackpad reach this estimated
+    // boundary before the shorter plugin column was laid out. Lazy rows must
+    // keep the replacement's exact boundary while materializing the end.
+    position.jumpTo(initialMax);
+    await tester.pumpAndSettle();
+
+    expect(position.maxScrollExtent, closeTo(initialMax, 0.001));
+    expect(position.pixels, closeTo(initialMax, 0.001));
+  });
+
+  testWidgets('builds only sidebar destinations near the viewport', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    addTearDown(() => SharedPreferences.setMockInitialValues({}));
+
+    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Discourse Meta',
+    ).copyWith(user: me);
+    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
+    final destinations = [
+      for (var index = 0; index < 200; index++)
+        SidebarDestination(
+          id: 'lazy-row-$index',
+          label: 'Lazy destination $index',
+          icon: DIcons.link,
+        ),
+    ];
+    final api = FakeDiscourseApi(
+      user: me,
+      customSidebarSectionsBySite: {
+        site.url: [
+          SidebarSection(
+            id: 'lazy-destinations',
+            title: 'Lazy destinations',
+            destinations: destinations,
+            collapsible: false,
+          ),
+        ],
+      },
+    );
+
+    await pumpShell(
+      tester,
+      const Size(1000, 400),
+      instances: [site],
+      api: api,
+      authenticator: auth,
+    );
+
+    final sidebar = find.byType(InstanceSidebar);
+    Finder row(int index) => find.descendant(
+      of: sidebar,
+      matching: find.byKey(ValueKey('lazy-row-$index')),
+    );
+    final mountedRows = find.descendant(
+      of: sidebar,
+      matching: find.byWidgetPredicate((widget) {
+        final key = widget.key;
+        return key is ValueKey<String> && key.value.startsWith('lazy-row-');
+      }),
+    );
+
+    expect(row(199), findsNothing);
+    expect(mountedRows.evaluate().length, lessThan(destinations.length ~/ 2));
+
+    final scrollable = find.descendant(
+      of: sidebar,
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(row(199), 500, scrollable: scrollable);
+    await tester.pumpAndSettle();
+
+    expect(row(199), findsOneWidget);
+    expect(mountedRows.evaluate().length, lessThan(destinations.length ~/ 2));
+  });
+
   testWidgets('shows preferred categories and opens their native lists', (
     tester,
   ) async {
@@ -1086,6 +1241,47 @@ void main() {
     expect(api.categoryRequests, [site.url]);
     expect(find.text('CATEGORIES'), findsOneWidget);
     expect(sidebarDestination('Support'), findsOneWidget);
+  });
+
+  testWidgets('opens All categories as a native root-only page', (
+    tester,
+  ) async {
+    final site = instance('meta.discourse.org', title: 'Discourse Meta');
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      categoryList: const [
+        TopicCategory(id: 1, name: 'Support', color: '0088CC', slug: 'support'),
+        TopicCategory(
+          id: 2,
+          name: 'Support child',
+          color: '22AA66',
+          slug: 'child',
+          parentCategoryId: 1,
+        ),
+        TopicCategory(
+          id: 3,
+          name: 'Announcements',
+          color: 'FF8800',
+          slug: 'announcements',
+        ),
+      ],
+    );
+    final launched = watchBrowser(tester);
+
+    await pumpShell(tester, desktop, instances: [site], api: api);
+    await tester.tap(sidebarDestination('All categories'));
+    await tester.pumpAndSettle();
+
+    final controller = ShellScope.read(
+      tester.element(find.byType(MainContent)),
+    );
+    expect(controller.destinationId, 'all-categories');
+    expect(controller.currentContent?.id, 'all-categories');
+    expect(find.byType(CategoriesPage), findsOneWidget);
+    expect(find.byKey(const ValueKey('category-card-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('category-card-2')), findsNothing);
+    expect(find.byKey(const ValueKey('category-card-3')), findsOneWidget);
+    expect(launched, isEmpty);
   });
 
   testWidgets('retries an incomplete category supplement on feed refresh', (
@@ -1650,7 +1846,7 @@ void main() {
 
       await pumpShell(tester, desktop, store: store, api: api);
 
-      await tester.tap(find.dIcon(DIcons.plus));
+      await tester.tap(find.byTooltip('Add a Discourse site'));
       await tester.pumpAndSettle();
 
       await tester.enterText(
@@ -1983,7 +2179,7 @@ void main() {
       expect(api.topicsCreated.single['title'], 'A native topic');
       expect(api.topicsCreated.single['categoryId'], isNull);
       expect(find.byType(ComposerPanel), findsNothing);
-      expect(find.text('A native topic'), findsOneWidget);
+      expect(contentText('A native topic'), findsOneWidget);
       expect(
         api.feedPaths.where((path) => path == '/latest.json').length,
         greaterThanOrEqualTo(2),
@@ -2303,7 +2499,7 @@ void main() {
       );
 
       await pumpShell(tester, phone, api: api);
-      await tester.tap(find.text('Topics'));
+      await tester.tap(sidebarDestination('Topics'));
       await tester.pumpAndSettle();
 
       expect(find.text('design,'), findsOneWidget);
@@ -2778,6 +2974,7 @@ void main() {
         store: FakeInstanceStore(twoSites),
         api: api,
         authenticator: FakeAuthenticator(),
+        forumTabs: FakeForumTabStore(),
       ),
     );
     // Let load() and the first feed request start, but not finish.
@@ -4577,7 +4774,7 @@ void main() {
       expect(api.topicsOpened, [7, 9]);
       expect(renderedText('Other topic body'), findsOneWidget);
       // The slug was only a stand-in until the topic named itself.
-      expect(find.text('The other one [solved]'), findsOneWidget);
+      expect(contentText('The other one [solved]'), findsOneWidget);
       expect(launched, isEmpty);
     });
 
@@ -4926,7 +5123,7 @@ void main() {
         instances: connectedSites(),
         authenticator: signedIn(),
       );
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
     }
 
@@ -5162,7 +5359,7 @@ void main() {
 
       await tester.tap(find.text('DM'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
@@ -8127,6 +8324,7 @@ void main() {
       int unread = 0,
       int mentions = 0,
       bool muted = false,
+      bool starred = false,
       int? lastRead,
     }) => ChatChannel(
       id: id,
@@ -8140,6 +8338,7 @@ void main() {
       membership: ChatMembership(
         following: true,
         muted: muted,
+        starred: starred,
         lastReadMessageId: lastRead,
       ),
       tracking: ChatTracking(unreadCount: unread, mentionCount: mentions),
@@ -8152,6 +8351,7 @@ void main() {
       int unread = 0,
       int mentions = 0,
       int watchedThreads = 0,
+      bool starred = false,
     }) => ChatChannel(
       id: id,
       title: title,
@@ -8165,7 +8365,7 @@ void main() {
               avatarUrl: '$site/user_avatar/h/90.png',
             ),
           ],
-      membership: const ChatMembership(following: true),
+      membership: ChatMembership(following: true, starred: starred),
       tracking: ChatTracking(
         unreadCount: unread,
         mentionCount: mentions,
@@ -8487,6 +8687,41 @@ void main() {
       });
 
       testWidgets(
+        'lists starred public channels and DMs first without duplicating them',
+        (tester) async {
+          await pumpChat(
+            tester,
+            public: [
+              channel(9, title: 'Alpha', starred: true),
+              channel(10, title: 'Bugs'),
+            ],
+            direct: [
+              dm(12, title: 'Zoe', starred: true),
+              dm(13, title: 'Alice', starred: true),
+              dm(14, title: 'hawk'),
+            ],
+          );
+
+          final starredHeading = tester
+              .getTopLeft(find.text('STARRED CHANNELS'))
+              .dy;
+          final chatHeading = tester.getTopLeft(find.text('CHAT')).dy;
+          final dmHeading = tester.getTopLeft(find.text('DIRECT MESSAGES')).dy;
+          expect(starredHeading, lessThan(chatHeading));
+          expect(chatHeading, lessThan(dmHeading));
+
+          final alpha = tester.getTopLeft(sidebarDestination('Alpha')).dy;
+          final alice = tester.getTopLeft(sidebarDestination('Alice')).dy;
+          final zoe = tester.getTopLeft(sidebarDestination('Zoe')).dy;
+          expect(alpha, lessThan(alice));
+          expect(alice, lessThan(zoe));
+          expect(sidebarDestination('Alpha'), findsOneWidget);
+          expect(sidebarDestination('Alice'), findsOneWidget);
+          expect(sidebarDestination('Zoe'), findsOneWidget);
+        },
+      );
+
+      testWidgets(
         'draws a channel emoji where an ordinary entry draws an icon',
         (tester) async {
           await pumpChat(tester, public: [channel(9, emoji: 'bug')]);
@@ -8533,6 +8768,61 @@ void main() {
           findsNothing,
         );
         expect(sidebarDestination('Bugs'), findsOneWidget);
+      });
+
+      testWidgets('an open channel tab mirrors live channel presentation', (
+        tester,
+      ) async {
+        final previous = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          final channels = <String, ChatChannels>{
+            site: (
+              public: [channel(9, emoji: 'bug', color: '0088CC', unread: 42)],
+              direct: const [],
+            ),
+          };
+          await pumpChat(
+            tester,
+            api: FakeDiscourseApi(
+              totals: withChat,
+              user: me,
+              chatChannelsBySite: channels,
+              chatMessagesByKey: {
+                key(9): page([msg(1)]),
+              },
+            ),
+          );
+
+          await tester.tap(sidebarDestination('Bugs'));
+          await tester.pumpAndSettle();
+
+          ForumTabItem item() => tester
+              .widget<ForumTabsBar>(find.byType(ForumTabsBar))
+              .items
+              .single;
+
+          expect(item().title, 'Bugs');
+          expect(item().icon, DIcons.comment);
+          expect(item().iconColor, const Color(0xFF0088CC));
+          expect(item().emojiName, 'bug');
+          expect(item().emojiUrl, isNotNull);
+          expect(item().badge, const SidebarBadge.dot());
+
+          channels[site] = (
+            public: [channel(9, emoji: 'bug', color: '0088CC')],
+            direct: const [],
+          );
+          final controller = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          await controller.chat.loadChannels(site, force: true);
+          await tester.pump();
+
+          expect(item().badge, SidebarBadge.none);
+        } finally {
+          debugDefaultTargetPlatformOverride = previous;
+        }
       });
 
       testWidgets('forgets a disconnected site’s channels', (tester) async {

@@ -60,12 +60,7 @@ void main() {
     tester,
   ) async {
     await _pump(tester, size: const Size(390, 844));
-    await tester.tap(
-      find.descendant(
-        of: find.byType(InstanceSidebar),
-        matching: find.text('Topics'),
-      ),
-    );
+    await tester.tap(find.byKey(const ValueKey('latest')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
@@ -376,6 +371,7 @@ Future<_Fixture> _pump(
       api: api,
       authenticator: authenticator,
       drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),

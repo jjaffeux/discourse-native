@@ -1,17 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:relative_time/relative_time.dart';
 
 import 'data/authenticator.dart';
 import 'data/discourse_api.dart';
 import 'data/draft_store.dart';
+import 'data/forum_tab_store.dart';
 import 'data/instance_store.dart';
 import 'data/site_tracker.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
 import 'diagnostics/diagnostics.dart';
 import 'models/site_appearance.dart';
+import 'plugins/local_dates/local_date_environment.dart';
 import 'shell/adaptive_shell.dart';
+import 'shell/platform.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
 import 'theme/app_theme.dart';
@@ -28,6 +32,7 @@ class DiscourseApp extends StatefulWidget {
     this.api,
     this.authenticator,
     this.drafts,
+    this.forumTabs,
     this.trackers,
     this.updater,
     this.updateStore,
@@ -38,6 +43,7 @@ class DiscourseApp extends StatefulWidget {
   final DiscourseApi? api;
   final Authenticator? authenticator;
   final DraftStore? drafts;
+  final ForumTabStore? forumTabs;
   final SiteTrackerFactory? trackers;
   final Updater? updater;
   final UpdateStore? updateStore;
@@ -53,6 +59,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   late DiscourseApi _api;
   late Authenticator _authenticator;
   late DraftStore _drafts;
+  late ForumTabStore _forumTabs;
   late SiteTrackerFactory _trackers;
   late Updater _updater;
   late UpdateStore _updateStore;
@@ -64,6 +71,8 @@ class _DiscourseAppState extends State<DiscourseApp>
     api: _api,
     authenticator: _authenticator,
     drafts: _drafts,
+    forumTabs: _forumTabs,
+    forumTabsEnabled: forumTabsEnabledForCurrentPlatform,
     trackers: _trackers,
     // Nothing updates itself. Linux ships as a .deb from an apt repository, so
     // updates arrive with `apt upgrade` the way the rest of the system does,
@@ -83,6 +92,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     _api = widget.api ?? DiscourseApi();
     _authenticator = widget.authenticator ?? Authenticator();
     _drafts = widget.drafts ?? DraftStore();
+    _forumTabs = widget.forumTabs ?? ForumTabStore();
     _trackers = widget.trackers ?? SiteTracker.new;
     _updater = widget.updater ?? const UnsupportedUpdater();
     _updateStore = widget.updateStore ?? UpdateStore();
@@ -108,6 +118,7 @@ class _DiscourseAppState extends State<DiscourseApp>
       !identical(widget.api, oldWidget.api) ||
       !identical(widget.authenticator, oldWidget.authenticator) ||
       !identical(widget.drafts, oldWidget.drafts) ||
+      !identical(widget.forumTabs, oldWidget.forumTabs) ||
       !identical(widget.trackers, oldWidget.trackers) ||
       !identical(widget.updater, oldWidget.updater) ||
       !identical(widget.updateStore, oldWidget.updateStore);
@@ -125,6 +136,9 @@ class _DiscourseAppState extends State<DiscourseApp>
     }
     if (!identical(widget.drafts, oldWidget.drafts)) {
       _drafts = widget.drafts ?? DraftStore();
+    }
+    if (!identical(widget.forumTabs, oldWidget.forumTabs)) {
+      _forumTabs = widget.forumTabs ?? ForumTabStore();
     }
     if (!identical(widget.trackers, oldWidget.trackers)) {
       _trackers = widget.trackers ?? SiteTracker.new;
@@ -158,6 +172,11 @@ class _DiscourseAppState extends State<DiscourseApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = _isForeground(state);
     _controller.setForeground(_foreground);
+    if (state == AppLifecycleState.resumed) {
+      unawaited(
+        LocalDateEnvironment.instance.refreshDeviceTimezone(forceNotify: true),
+      );
+    }
     if (!_foreground) unawaited(widget.diagnostics?.flush());
   }
 
@@ -223,6 +242,8 @@ class _DiscourseAppState extends State<DiscourseApp>
     theme: theme,
     darkTheme: darkTheme,
     themeMode: themeMode,
+    localizationsDelegates: RelativeTimeLocalizations.localizationsDelegates,
+    supportedLocales: RelativeTimeLocalizations.supportedLocales,
     home: const AdaptiveShell(),
   );
 }

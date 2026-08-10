@@ -25,6 +25,9 @@ class SiteConfig {
     this.desaturatedReactionPanel = false,
     this.pollMaximumOptions = defaultPollMaximumOptions,
     this.pollDefaultPublic = true,
+    this.localDatesEnabled = false,
+    this.localDateFormats = defaultLocalDateFormats,
+    this.localDateTimezones = defaultLocalDateTimezones,
     this.assignStatusesEnabled = false,
     this.assignStatuses = const [],
     this.authorizedExtensions = defaultAuthorizedExtensions,
@@ -46,6 +49,16 @@ class SiteConfig {
   /// `emoji_set`'s own default, server side.
   static const String defaultEmojiSet = 'twitter';
   static const int defaultPollMaximumOptions = 20;
+  static const List<String> defaultLocalDateFormats = [
+    'LLL',
+    'LTS',
+    'LL',
+    'LLLL',
+  ];
+  static const List<String> defaultLocalDateTimezones = [
+    'Europe/Paris',
+    'America/Los_Angeles',
+  ];
   static const List<String> defaultAuthorizedExtensions = [
     'jpg',
     'jpeg',
@@ -103,6 +116,15 @@ class SiteConfig {
         _ => defaultPollMaximumOptions,
       },
       pollDefaultPublic: json['poll_default_public'] != false,
+      localDatesEnabled: json['discourse_local_dates_enabled'] == true,
+      localDateFormats: _pipeListOr(
+        json['discourse_local_dates_default_formats'],
+        defaultLocalDateFormats,
+      ),
+      localDateTimezones: _pipeListOr(
+        json['discourse_local_dates_default_timezones'],
+        defaultLocalDateTimezones,
+      ),
       assignStatusesEnabled: json['enable_assign_status'] == true,
       assignStatuses: json['enable_assign_status'] == true
           ? _pipeList(json['assign_statuses'])
@@ -151,6 +173,15 @@ class SiteConfig {
     pollMaximumOptions:
         jsonIntOrNull(json['pollMaximumOptions']) ?? defaultPollMaximumOptions,
     pollDefaultPublic: json['pollDefaultPublic'] != false,
+    localDatesEnabled: json['localDatesEnabled'] == true,
+    localDateFormats: _pipeListOr(
+      json['localDateFormats'],
+      defaultLocalDateFormats,
+    ),
+    localDateTimezones: _pipeListOr(
+      json['localDateTimezones'],
+      defaultLocalDateTimezones,
+    ),
     assignStatusesEnabled: json['assignStatusesEnabled'] == true,
     assignStatuses: List.unmodifiable(
       jsonArray(json['assignStatuses']).map(jsonText).whereType<String>(),
@@ -189,6 +220,9 @@ class SiteConfig {
     'desaturatedReactionPanel': desaturatedReactionPanel,
     'pollMaximumOptions': pollMaximumOptions,
     'pollDefaultPublic': pollDefaultPublic,
+    'localDatesEnabled': localDatesEnabled,
+    'localDateFormats': localDateFormats,
+    'localDateTimezones': localDateTimezones,
     'assignStatusesEnabled': assignStatusesEnabled,
     'assignStatuses': assignStatuses,
     'authorizedExtensions': authorizedExtensions,
@@ -237,6 +271,12 @@ class SiteConfig {
   /// claim that Poll is enabled on a site.
   final int pollMaximumOptions;
   final bool pollDefaultPublic;
+
+  /// Local Dates is the unusual optional feature whose site setting is its
+  /// only creation capability. Cooked spans remain renderable regardless.
+  final bool localDatesEnabled;
+  final List<String> localDateFormats;
+  final List<String> localDateTimezones;
 
   /// Optional Assign status presentation. These settings only decide what an
   /// already-authorized assignment sheet offers; payload records and their
@@ -335,6 +375,9 @@ class SiteConfig {
       other.desaturatedReactionPanel == desaturatedReactionPanel &&
       other.pollMaximumOptions == pollMaximumOptions &&
       other.pollDefaultPublic == pollDefaultPublic &&
+      other.localDatesEnabled == localDatesEnabled &&
+      listEquals(other.localDateFormats, localDateFormats) &&
+      listEquals(other.localDateTimezones, localDateTimezones) &&
       other.assignStatusesEnabled == assignStatusesEnabled &&
       listEquals(other.assignStatuses, assignStatuses) &&
       listEquals(other.authorizedExtensions, authorizedExtensions) &&
@@ -356,7 +399,7 @@ class SiteConfig {
       listEquals(other.offeredReactions, offeredReactions);
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     emojiSet,
     externalEmojiUrl,
     mainReaction,
@@ -364,6 +407,9 @@ class SiteConfig {
     desaturatedReactionPanel,
     pollMaximumOptions,
     pollDefaultPublic,
+    localDatesEnabled,
+    Object.hashAll(localDateFormats),
+    Object.hashAll(localDateTimezones),
     assignStatusesEnabled,
     Object.hashAll(assignStatuses),
     Object.hashAll(authorizedExtensions),
@@ -377,7 +423,7 @@ class SiteConfig {
     Object.hashAll(defaultNavigationMenuCategoryIds),
     resenha,
     Object.hashAll(offeredReactions),
-  );
+  ]);
 
   static List<String> _extensionList(Object? raw, List<String> fallback) {
     final values = switch (raw) {
@@ -401,6 +447,11 @@ class SiteConfig {
     return List.unmodifiable(
       values.map((value) => value.trim()).where((value) => value.isNotEmpty),
     );
+  }
+
+  static List<String> _pipeListOr(Object? raw, List<String> fallback) {
+    final values = _pipeList(raw);
+    return values.isEmpty ? List.unmodifiable(fallback) : values;
   }
 
   static int _positiveInt(Object? raw, int fallback) =>

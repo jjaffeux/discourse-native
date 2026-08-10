@@ -4,7 +4,7 @@ import 'package:html/dom.dart' as dom;
 import '../../../theme/app_theme.dart';
 import '../../../theme/d_icon.dart';
 import '../../avatar_image.dart';
-import '../../code_block.dart' show monospaceFallback;
+import '../../code_block.dart' show monospaceTextStyle;
 import '../../open_link.dart';
 import '../../site_url.dart';
 
@@ -243,12 +243,13 @@ class GithubBodyText extends StatelessWidget {
         text,
         maxLines: 10,
         overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodySmall?.copyWith(
-          fontFamilyFallback: monospaceFallback,
-          fontSize: 12,
-          height: 1.4,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+        style: theme.textTheme.bodySmall
+            ?.merge(monospaceTextStyle)
+            .copyWith(
+              fontSize: 12,
+              height: 1.4,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
       ),
     );
   }

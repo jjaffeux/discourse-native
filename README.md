@@ -168,9 +168,13 @@ Two things the payload makes you handle:
 
 The list is lazy already: `ListView.separated` with an `itemBuilder` is backed
 by a `SliverChildBuilderDelegate`, so only rows near the viewport are built.
-That is Flutter's virtualization — there is no separate widget for it. (The
-non-builder `ListView(children: [...])` form *is* eager; the sidebar uses it,
-which is fine for a fixed handful of entries.)
+That is Flutter's virtualization — there is no separate widget for it. The
+sidebar uses the same idea at destination-row granularity: its section shells
+stay mounted so offscreen sections can restore stored collapse state without
+building their rows, while each section's fixed-height
+`SliverFixedExtentList` avoids building every destination upfront. The fixed
+extent also gives Flutter the exact scroll boundary without measuring every
+destination or estimating one independently updating section from another.
 
 Pagination follows `topic_list.more_topics_url`, with one trap: Discourse
 reports it as `/latest?no_definitions=true&page=1` — **no extension**, and that
@@ -801,11 +805,11 @@ otherwise:
   cannot be enumerated — so it asks `/hashtags.json`. Two keys, two sources; the
   asymmetry is the design, not an oversight.
 
-The honest limitation: `/categories.json` paginates to twenty parents on a large
-or lazy-loading site, so some hashtags draw a neutral square with the right name
-and a working tap. That is what Discourse itself shows before its own colours
-arrive, and the topic-row badge has had the same gap for as long as it has
-existed.
+The initial `/categories.json` read paginates to twenty parents on a large or
+lazy-loading site, so some hashtags can draw a neutral square with the right
+name and a working tap. Opening **All categories** loads the remaining pages as
+the grid scrolls and fills those identities in. Before then, the neutral square
+is what Discourse itself shows while its own category data is still absent.
 
 Not everything gets a pill, and that is deliberate. An unresolved mention cooks
 as `<span class="mention">` and an unresolved hashtag as
@@ -947,6 +951,11 @@ Lines scroll horizontally rather than wrapping, because wrapping makes
 indentation lie about structure. `<li class="selected">` — the lines the link
 pointed at, e.g. `#L78-L94` — keeps its highlight.
 
+Rendered code, inline `<code>`, `<kbd>`, and their composer previews all use the
+bundled regular and bold weights of JetBrains Mono. That is the web client's
+`--d-font-family--monospace` face; its `Consolas, Monaco, monospace` fallback
+stack and disabled ligatures are kept here too.
+
 #### Syntax highlighting
 
 Discourse highlights code in the browser, not in `cooked`, so the HTML arrives
@@ -1013,9 +1022,11 @@ Avatars go through [`AvatarLoader`](lib/src/data/avatar_loader.dart) rather than
 Anything undecodable falls back to a placeholder rather than throwing.
 
 Categories are fetched once per site from
-`/categories.json?include_subcategories=true` and flattened, because topic rows
-look categories up by id and subcategories arrive nested. It is ~185 KB against
-~300 KB for `/site.json`.
+`/categories.json?include_subcategories=true&include_topics=true` and flattened,
+because topic rows look categories up by id and subcategories arrive nested.
+The embedded featured-topic summaries power the native **All categories** card
+grid without a second first-page request; later category pages are fetched only
+as that grid scrolls.
 
 ### Disconnecting revokes
 
@@ -1125,6 +1136,30 @@ Three ways to show something, and they are not interchangeable:
   stretched edge to edge.
 
 Back unwinds the content stack first, and only then returns to the sidebar.
+
+### Forum-scoped tabs
+
+On native macOS, Linux, and Windows, each forum owns an ordered workspace shown
+in a horizontal tab strip above the main content header. `+` appends and
+activates a fresh tab rooted at **Topics**. Sidebar selections, deeper
+navigation, and Back change only the active tab's content stack; inactive tabs
+keep their route and logical list or topic scroll anchor. Closing the active tab
+selects a neighbour, while closing the last tab immediately creates a fresh
+Topics tab.
+
+Workspaces are isolated by forum and account. Switching forums restores that
+workspace's tab list and active tab, and versioned local persistence restores
+route stacks and logical scroll anchors after launch. A composer belongs to
+the tab that opened it: switching tabs hides it without changing its origin,
+and closing its tab flushes the draft before disposal.
+
+Forum tabs are a native-desktop capability, independent of window width. On a
+compact desktop layout, the strip stays with the main content pane and scrolls
+horizontally when its tabs no longer fit; the add action remains visible and no
+opened-tab count is shown. Back unwinds the active tab's stack before returning
+to the sidebar. iOS, Android, Fuchsia, and web do not show any forum-tab
+controls; each forum keeps a single navigation context with no add, switch, or
+close lifecycle.
 
 ### Removing a site
 

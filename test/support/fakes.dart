@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/authenticator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
+import 'package:discourse_native/src/data/forum_tab_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
@@ -15,6 +16,7 @@ import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/incoming_topics.dart';
@@ -51,6 +53,26 @@ class FakeInstanceStore implements InstanceStore {
   @override
   Future<void> save(List<DiscourseInstance> instances) async {
     _instances = List.of(instances);
+    saveCount++;
+  }
+}
+
+/// Keeps forum workspaces in memory instead of shared_preferences.
+class FakeForumTabStore implements ForumTabStore {
+  FakeForumTabStore([Iterable<ForumWorkspace> workspaces = const []])
+    : _workspaces = List.of(workspaces);
+
+  List<ForumWorkspace> _workspaces;
+  int saveCount = 0;
+
+  List<ForumWorkspace> get workspaces => List.unmodifiable(_workspaces);
+
+  @override
+  Future<List<ForumWorkspace>> load() async => List.unmodifiable(_workspaces);
+
+  @override
+  Future<void> save(Iterable<ForumWorkspace> workspaces) async {
+    _workspaces = List.of(workspaces);
     saveCount++;
   }
 }
@@ -403,7 +425,9 @@ class FakeDiscourseApi implements DiscourseApi {
     this.filterOptionsByPath = const {},
     this.creatableFeedPaths = const {},
     this.categoryList = const [],
+    this.categoryPages = const {},
     this.categoryLoadComplete = true,
+    this.categoryCanCreateTopic = false,
     this.composerCapabilities = const TopicComposerCapabilities(),
     this.topicTagSearches = const {},
     this.serverDrafts = const {},
@@ -517,9 +541,12 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Returned by [categories].
   final List<TopicCategory> categoryList;
+  final Map<int, List<TopicCategory>> categoryPages;
   final bool categoryLoadComplete;
+  final bool categoryCanCreateTopic;
   final TopicComposerCapabilities composerCapabilities;
   final List<String> categoryRequests = [];
+  final List<int> categoryPagesRequested = [];
   final List<String> topicComposerCapabilityRequests = [];
   final Map<String, TopicTagSearch> topicTagSearches;
   final Map<String, ComposerDraft> serverDrafts;
@@ -1020,9 +1047,11 @@ class FakeDiscourseApi implements DiscourseApi {
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    int page = 1,
   }) async {
     categoryRequests.add(siteUrl);
-    return categoryList;
+    categoryPagesRequested.add(page);
+    return categoryPages[page] ?? (page == 1 ? categoryList : const []);
   }
 
   @override
@@ -1030,9 +1059,17 @@ class FakeDiscourseApi implements DiscourseApi {
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    int page = 1,
   }) async {
     categoryRequests.add(siteUrl);
-    return CategoryLoadResult(categoryList, complete: categoryLoadComplete);
+    categoryPagesRequested.add(page);
+    final categories =
+        categoryPages[page] ?? (page == 1 ? categoryList : const []);
+    return CategoryLoadResult(
+      categories,
+      complete: categoryLoadComplete,
+      canCreateTopic: categoryCanCreateTopic,
+    );
   }
 
   @override

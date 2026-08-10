@@ -362,6 +362,7 @@ Future<void> _pumpApp(
       api: api,
       authenticator: authenticator ?? FakeAuthenticator(),
       drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),

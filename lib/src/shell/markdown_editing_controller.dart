@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../data/emoji_cache.dart';
 import '../models/composer_upload.dart';
+import '../plugins/local_dates/local_date_composer_parser.dart';
+import '../plugins/local_dates/local_date_composer_pill.dart';
 import '../plugins/poll/poll_composer_parser.dart';
 import '../plugins/poll/poll_composer_pill.dart';
 import '../theme/app_theme.dart';
@@ -33,6 +35,7 @@ class MarkdownEditingController extends TextEditingController {
     this.resolveEmoji,
     this.pills,
     this.pollMaximumOptions = 20,
+    this.localDateAccountTimezone,
     this.resolveUploadUrls,
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
@@ -53,6 +56,7 @@ class MarkdownEditingController extends TextEditingController {
   final ComposerPills? pills;
 
   final int pollMaximumOptions;
+  final String? localDateAccountTimezone;
   final ComposerUploadUrlResolver? resolveUploadUrls;
   final int maxImageWidth;
   final int maxImageHeight;
@@ -200,6 +204,69 @@ class MarkdownEditingController extends TextEditingController {
     return _pollBlocks = parsePollComposerBlocks(source);
   }
 
+  String? _localDateScanned;
+  List<LocalDateComposerBlock> _localDateBlocks = const [];
+  final LocalDateRawExpansion _rawLocalDate = LocalDateRawExpansion();
+  int? _suppressedLocalDateStart;
+  int? _suppressedLocalDateCaret;
+  Set<int> _collapsedLocalDateStarts = const {};
+  final Map<int, GlobalKey> _localDatePillKeys = {};
+
+  List<LocalDateComposerBlock> get localDateBlocks =>
+      List.unmodifiable(_localDateBlocksFor(text));
+
+  LocalDateComposerBlock? localDateAtOffset(int offset) =>
+      localDateBlockAtComposerOffset(_localDateBlocksFor(text), offset);
+
+  bool isLocalDateCollapsed(LocalDateComposerBlock block) =>
+      _collapsedLocalDateStarts.contains(block.start);
+
+  LocalDateComposerBlock? collapsedLocalDateAtGlobalPosition(
+    Offset globalPosition,
+  ) {
+    for (final block in _localDateBlocksFor(text)) {
+      if (!isLocalDateCollapsed(block)) continue;
+      final rect = collapsedLocalDateGlobalRect(block);
+      if (rect?.contains(globalPosition) == true) return block;
+    }
+    return null;
+  }
+
+  Rect? collapsedLocalDateGlobalRect(LocalDateComposerBlock block) {
+    if (!isLocalDateCollapsed(block)) return null;
+    final renderObject = _localDatePillKeys[block.start]?.currentContext
+        ?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+  }
+
+  void suppressCollapsedCaretForLocalDate(LocalDateComposerBlock block) {
+    _suppressedLocalDateStart = block.start;
+    _suppressedLocalDateCaret = value.selection.extentOffset;
+    artworkArrived();
+  }
+
+  void expandLocalDateAsRaw(LocalDateComposerBlock block) {
+    _suppressedLocalDateStart = null;
+    _suppressedLocalDateCaret = null;
+    _rawLocalDate.expand(block);
+    value = value.copyWith(
+      selection: TextSelection.collapsed(
+        offset: (block.start + 1).clamp(block.start, block.end),
+      ),
+    );
+  }
+
+  List<LocalDateComposerBlock> _localDateBlocksFor(String source) {
+    if (_localDateScanned == source) return _localDateBlocks;
+    _localDateScanned = source;
+    _suppressedLocalDateStart = null;
+    _suppressedLocalDateCaret = null;
+    _rawLocalDate.clear();
+    _localDatePillKeys.clear();
+    return _localDateBlocks = parseLocalDateComposerBlocks(source);
+  }
+
   /// How many pieces of artwork have arrived, so the span cache knows the
   /// answer changed when nothing about the text did.
   int _artwork = 0;
@@ -281,6 +348,36 @@ class MarkdownEditingController extends TextEditingController {
       ),
     );
 
+    final locale = Localizations.localeOf(context);
+    final localDateBlocks = _localDateBlocksFor(source);
+    _rawLocalDate.updateSelection(value.selection);
+    if (_suppressedLocalDateCaret != value.selection.extentOffset) {
+      _suppressedLocalDateStart = null;
+      _suppressedLocalDateCaret = null;
+    }
+    final collapsedLocalDates = [
+      for (final block in localDateBlocks)
+        if (!localDateBlockNeedsRawSource(
+          block: block,
+          value: value,
+          explicitlyRaw: _rawLocalDate.contains(block),
+          suppressCollapsedCaret: _suppressedLocalDateStart == block.start,
+        ))
+          block,
+    ];
+    _collapsedLocalDateStarts = {
+      for (final block in collapsedLocalDates) block.start,
+    };
+    final localDateProjection = Object.hash(
+      locale,
+      localDateAccountTimezone,
+      Object.hashAll(
+        collapsedLocalDates.map(
+          (block) => Object.hash(block.start, block.end, block.source),
+        ),
+      ),
+    );
+
     final images = _imageBlocksFor(source);
     if (_suppressedImageCaret != value.selection.extentOffset) {
       _suppressedImageStart = null;
@@ -328,6 +425,7 @@ class MarkdownEditingController extends TextEditingController {
           revealed: revealed,
           artwork: _artwork,
           pollProjection: pollProjection,
+          localDateProjection: localDateProjection,
           imageProjection: imageProjection,
         )) {
       return cached.span;
@@ -397,6 +495,21 @@ class MarkdownEditingController extends TextEditingController {
             maximumOptions: pollMaximumOptions,
           ),
         ),
+      for (final block in collapsedLocalDates)
+        _SpanProjection(
+          block.start,
+          block.end,
+          () => buildCollapsedLocalDateSpans(
+            block: block,
+            baseStyle: base,
+            locale: locale,
+            accountTimezone: localDateAccountTimezone,
+            pillKey: _localDatePillKeys.putIfAbsent(
+              block.start,
+              () => GlobalKey(debugLabel: 'local-date-pill-${block.start}'),
+            ),
+          ),
+        ),
       for (final image in collapsedImages)
         _SpanProjection(
           image.start,
@@ -443,6 +556,7 @@ class MarkdownEditingController extends TextEditingController {
       revealed: revealed,
       artwork: _artwork,
       pollProjection: pollProjection,
+      localDateProjection: localDateProjection,
       imageProjection: imageProjection,
       span: span,
     );
@@ -848,6 +962,7 @@ class _CachedMarkdownSpan {
     required this.revealed,
     required this.artwork,
     required this.pollProjection,
+    required this.localDateProjection,
     required this.imageProjection,
     required this.span,
   });
@@ -859,6 +974,7 @@ class _CachedMarkdownSpan {
   final int revealed;
   final int artwork;
   final int pollProjection;
+  final int localDateProjection;
   final int imageProjection;
   final TextSpan span;
 
@@ -870,6 +986,7 @@ class _CachedMarkdownSpan {
     required int revealed,
     required int artwork,
     required int pollProjection,
+    required int localDateProjection,
     required int imageProjection,
   }) =>
       this.source == source &&
@@ -879,6 +996,7 @@ class _CachedMarkdownSpan {
       this.revealed == revealed &&
       this.artwork == artwork &&
       this.pollProjection == pollProjection &&
+      this.localDateProjection == localDateProjection &&
       this.imageProjection == imageProjection;
 }
 
@@ -910,11 +1028,11 @@ TextStyle markdownStyle(
 
   if (mask & Md.codeBlock != 0) {
     scale *= 0.9;
-    style = style.copyWith(
-      fontFamily: null,
-      fontFamilyFallback: monospaceFallback,
-      color: scopeColor(detail, theme.code) ?? theme.colorScheme.onSurface,
-    );
+    style = style
+        .merge(monospaceTextStyle)
+        .copyWith(
+          color: scopeColor(detail, theme.code) ?? theme.colorScheme.onSurface,
+        );
   }
 
   if (mask & Md.heading != 0) {
@@ -936,11 +1054,9 @@ TextStyle markdownStyle(
     // against, so one standing in for a longer run would put every offset
     // after it wrong. A flat background is the honest approximation.
     scale *= 0.875;
-    style = style.copyWith(
-      fontFamily: null,
-      fontFamilyFallback: monospaceFallback,
-      backgroundColor: theme.code.inlineBackground,
-    );
+    style = style
+        .merge(monospaceTextStyle)
+        .copyWith(backgroundColor: theme.code.inlineBackground);
   }
 
   if (mask & Md.bold != 0) style = style.copyWith(fontWeight: FontWeight.w700);
@@ -990,11 +1106,9 @@ TextStyle markdownStyle(
 (TextStyle, double) _tagStyle(String tag, TextStyle style, ThemeData theme) =>
     switch (tag) {
       'kbd' => (
-        style.copyWith(
-          fontFamily: null,
-          fontFamilyFallback: monospaceFallback,
-          backgroundColor: theme.code.inlineBackground,
-        ),
+        style
+            .merge(monospaceTextStyle)
+            .copyWith(backgroundColor: theme.code.inlineBackground),
         0.9,
       ),
       'mark' => (

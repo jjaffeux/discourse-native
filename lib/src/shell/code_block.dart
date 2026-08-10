@@ -127,17 +127,34 @@ class CodeLine {
   String get text => tokens.map((token) => token.text).join();
 }
 
-/// Monospace across the platforms this app targets, in preference order.
+/// The face Discourse loads for `code`, `pre`, and `kbd`.
 ///
-/// Shared with inline `<code>`, so a setting name reads the same whether it is
-/// quoted mid-sentence or shown in a fence.
-const List<String> monospaceFallback = [
-  'Menlo',
-  'SF Mono',
-  'Consolas',
-  'Roboto Mono',
-  'monospace',
+/// It is bundled rather than left to the platform: otherwise macOS would draw
+/// Menlo, Windows Consolas, and Android its default body face. Regular and bold
+/// are the same two weights the web app ships.
+const String monospaceFontFamily = 'JetBrains Mono';
+
+/// Discourse's fallback stack, for glyphs JetBrains Mono does not contain.
+const List<String> monospaceFallback = ['Consolas', 'Monaco', 'monospace'];
+
+/// `font-variant-ligatures: none`, as set by Discourse for JetBrains Mono.
+///
+/// Coding ligatures would make the painted characters disagree with the
+/// markdown source the reader or composer is looking at.
+const List<FontFeature> monospaceFontFeatures = [
+  FontFeature.disable('liga'),
+  FontFeature.disable('clig'),
+  FontFeature.disable('dlig'),
+  FontFeature.disable('hlig'),
+  FontFeature.disable('calt'),
 ];
+
+/// Shared by rendered code, the composer, and monospace onebox fragments.
+const TextStyle monospaceTextStyle = TextStyle(
+  fontFamily: monospaceFontFamily,
+  fontFamilyFallback: monospaceFallback,
+  fontFeatures: monospaceFontFeatures,
+);
 
 /// Maps a highlight.js scope onto one of the six colors the theme defines.
 ///
@@ -227,8 +244,7 @@ class _CodeBlockState extends State<CodeBlock> {
 
     if (data.lines.isEmpty) return const SizedBox();
 
-    final style = TextStyle(
-      fontFamilyFallback: monospaceFallback,
+    final style = monospaceTextStyle.copyWith(
       fontSize: 12,
       height: 1.4,
       color: theme.colorScheme.onSurface,

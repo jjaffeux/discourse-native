@@ -283,6 +283,34 @@ class ChatController extends FrameSafeNotifier {
   List<ChatChannel> directChannels(String siteUrl) =>
       _resolve(siteUrl, _directIds[siteUrl]);
 
+  /// Starred public channels followed by starred direct messages, matching
+  /// Discourse's desktop sidebar. Public channels already arrive slug-sorted;
+  /// direct messages need a separate title sort because their ordinary section
+  /// stays in the server's activity order.
+  List<ChatChannel> starredChannels(String siteUrl) {
+    final direct = directChannels(
+      siteUrl,
+    ).where((channel) => channel.membership.starred).toList();
+    direct.sort(
+      (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+    );
+    return [
+      for (final channel in publicChannels(siteUrl))
+        if (channel.membership.starred) channel,
+      ...direct,
+    ];
+  }
+
+  List<ChatChannel> unstarredPublicChannels(String siteUrl) => [
+    for (final channel in publicChannels(siteUrl))
+      if (!channel.membership.starred) channel,
+  ];
+
+  List<ChatChannel> unstarredDirectChannels(String siteUrl) => [
+    for (final channel in directChannels(siteUrl))
+      if (!channel.membership.starred) channel,
+  ];
+
   /// The header's aggregate signal, following ChatHeaderIconUnreadIndicator.
   ///
   /// Urgent means every direct-message unread, every mention and every watched

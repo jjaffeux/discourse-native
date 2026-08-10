@@ -40,11 +40,42 @@ export 'discourse_api_contracts.dart';
 /// arrived. A partial list is still useful for badges/navigation, but callers
 /// should leave it retryable so lazy-loaded user choices can be filled in.
 final class CategoryLoadResult {
-  CategoryLoadResult(Iterable<TopicCategory> categories, {this.complete = true})
-    : categories = List.unmodifiable(categories);
+  factory CategoryLoadResult(
+    Iterable<TopicCategory> categories, {
+    bool complete = true,
+    Iterable<int>? rootCategoryIds,
+    bool canCreateTopic = false,
+  }) {
+    final immutableCategories = List<TopicCategory>.unmodifiable(categories);
+    return CategoryLoadResult._(
+      immutableCategories,
+      List<int>.unmodifiable(
+        rootCategoryIds ??
+            immutableCategories
+                .where((category) => category.parentCategoryId == null)
+                .map((category) => category.id),
+      ),
+      complete,
+      canCreateTopic,
+    );
+  }
+
+  CategoryLoadResult._(
+    this.categories,
+    this.rootCategoryIds,
+    this.complete,
+    this.canCreateTopic,
+  );
 
   final List<TopicCategory> categories;
+
+  /// Category ids represented as roots by this page's category-list response.
+  ///
+  /// Nested categories and the page-one `site.json` supplement remain in
+  /// [categories] for identity lookup, but must not become category cards.
+  final List<int> rootCategoryIds;
   final bool complete;
+  final bool canCreateTopic;
 }
 
 /// Talks to a Discourse site.
@@ -298,6 +329,7 @@ class DiscourseApi
       chatHeaderIndicatorPreference: ChatHeaderIndicatorPreference.read(
         jsonObject(user['user_option'])['chat_header_indicator_preference'],
       ),
+      timezone: jsonText(jsonObject(user['user_option'])['timezone']),
       doNotDisturbUntil: jsonDate(user['do_not_disturb_until']),
       lastChatChannelId: jsonIntOrNull(
         jsonObject(user['custom_fields'])['last_chat_channel_id'],
@@ -1145,28 +1177,39 @@ class DiscourseApi
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    int page = 1,
   }) async => (await loadCategories(
     siteUrl: siteUrl,
     apiKey: apiKey,
     clientId: clientId,
+    page: page,
   )).categories;
 
   Future<CategoryLoadResult> loadCategories({
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    int page = 1,
   }) async {
+    if (page < 1) throw RangeError.value(page, 'page', 'Must be positive');
+
     // Start every authenticated request before yielding. A controller lease is
     // known-current when this method is entered; dispatching a second request
     // only after the first response could send a key whose session was revoked
     // while that response was in flight.
     final categoryRequest = _getObject(
-      Uri.parse('$siteUrl/categories.json?include_subcategories=true'),
+      Uri.parse('$siteUrl/categories.json').replace(
+        queryParameters: {
+          'include_subcategories': 'true',
+          'include_topics': 'true',
+          if (page > 1) 'page': '$page',
+        },
+      ),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
-    final siteRequest = apiKey == null
+    final siteRequest = apiKey == null || page > 1
         ? null
         : _categorySiteMetadata(
             siteUrl: siteUrl,
@@ -1176,9 +1219,15 @@ class DiscourseApi
 
     final body = await categoryRequest;
     final list = jsonObject(body['category_list']);
+    final roots = jsonObjects(list['categories']).toList(growable: false);
+    final rootCategoryIds = <int>[
+      for (final category in roots)
+        if (category['parent_category_id'] == null)
+          if (jsonIntOrNull(category['id']) case final id? when id > 0) id,
+    ];
     final rawById = <int, Map<String, dynamic>>{};
 
-    for (final category in _flattenCategories(list['categories'])) {
+    for (final category in _flattenCategories(roots)) {
       rawById.putIfAbsent(jsonInt(category['id']), () => category);
     }
 
@@ -1192,14 +1241,19 @@ class DiscourseApi
     }
     final uncategorizedId = jsonIntOrNull(site['uncategorized_category_id']);
 
-    return CategoryLoadResult([
-      for (final entry in rawById.entries)
-        TopicCategory.fromJson(
-          entry.key == uncategorizedId
-              ? {...entry.value, 'is_uncategorized': true}
-              : entry.value,
-        ),
-    ], complete: siteResult?.complete ?? true);
+    return CategoryLoadResult(
+      [
+        for (final entry in rawById.entries)
+          TopicCategory.fromJson(
+            entry.key == uncategorizedId
+                ? {...entry.value, 'is_uncategorized': true}
+                : entry.value,
+          ),
+      ],
+      rootCategoryIds: rootCategoryIds,
+      complete: siteResult?.complete ?? true,
+      canCreateTopic: list['can_create_topic'] == true,
+    );
   }
 
   Future<({Map<String, dynamic>? body, bool complete})> _categorySiteMetadata({

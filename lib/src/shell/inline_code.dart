@@ -60,15 +60,15 @@ class InlineCode extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: (baseStyle ?? const TextStyle()).copyWith(
-          fontFamily: null,
-          fontFamilyFallback: monospaceFallback,
-          fontSize: (baseStyle?.fontSize ?? 14) * _scale,
-          color: isLink
-              ? theme.colorScheme.primary
-              : baseStyle?.color ?? theme.colorScheme.onSurface,
-          height: 1.2,
-        ),
+        style: (baseStyle ?? const TextStyle())
+            .merge(monospaceTextStyle)
+            .copyWith(
+              fontSize: (baseStyle?.fontSize ?? 14) * _scale,
+              color: isLink
+                  ? theme.colorScheme.primary
+                  : baseStyle?.color ?? theme.colorScheme.onSurface,
+              height: 1.2,
+            ),
       ),
     );
   }
