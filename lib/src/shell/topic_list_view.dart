@@ -493,6 +493,26 @@ class _TopicRowBody extends StatelessWidget {
                           siteUrl: siteUrl,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
+                          trailing: [
+                            if (topic.showUnreadCount) ...[
+                              const SizedBox(width: 8),
+                              _UnreadPill(count: topic.unreadCount),
+                            ],
+                            if (topic.showNewTopicDot) ...[
+                              const SizedBox(width: 8),
+                              const _TopicStateDot(
+                                key: ValueKey('new-topic-dot'),
+                                label: 'New topic',
+                              ),
+                            ],
+                            if (topic.showNewRepliesDot) ...[
+                              const SizedBox(width: 8),
+                              const _TopicStateDot(
+                                key: ValueKey('new-replies-dot'),
+                                label: 'Topic has new replies',
+                              ),
+                            ],
+                          ],
                           style: theme.textTheme.bodyLarge?.copyWith(
                             // Core dims only rows whose last visible post has
                             // been read. Tracking level controls the badge, not
@@ -504,24 +524,6 @@ class _TopicRowBody extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (topic.showUnreadCount) ...[
-                        const SizedBox(width: 8),
-                        _UnreadPill(count: topic.unreadCount),
-                      ],
-                      if (topic.showNewTopicDot) ...[
-                        const SizedBox(width: 8),
-                        const _TopicStateDot(
-                          key: ValueKey('new-topic-dot'),
-                          label: 'New topic',
-                        ),
-                      ],
-                      if (topic.showNewRepliesDot) ...[
-                        const SizedBox(width: 8),
-                        const _TopicStateDot(
-                          key: ValueKey('new-replies-dot'),
-                          label: 'Topic has new replies',
-                        ),
-                      ],
                     ],
                   ),
                   const SizedBox(height: 6),

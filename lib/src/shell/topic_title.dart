@@ -17,6 +17,7 @@ class TopicTitle extends StatelessWidget {
     this.overflow,
     this.style,
     this.textAlign,
+    this.trailing = const [],
   });
 
   final String title;
@@ -25,6 +26,7 @@ class TopicTitle extends StatelessWidget {
   final TextOverflow? overflow;
   final TextStyle? style;
   final TextAlign? textAlign;
+  final List<Widget> trailing;
 
   @override
   Widget build(BuildContext context) => SiteEmojiText.plain(
@@ -34,5 +36,6 @@ class TopicTitle extends StatelessWidget {
     overflow: overflow,
     style: style,
     textAlign: textAlign,
+    trailing: trailing,
   );
 }

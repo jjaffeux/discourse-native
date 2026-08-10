@@ -67,6 +67,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -2389,9 +2390,68 @@ void main() {
 
       await pumpShell(tester, desktop, api: api);
 
-      final title = tester.getRect(find.text('Short title'));
+      final title = find.text('Short title');
+      final titleEnd = tester.getTopLeft(title).dx + _textWidth(tester, title);
       final dot = tester.getRect(find.byKey(const ValueKey('new-topic-dot')));
-      expect(dot.left - title.right, moreOrLessEquals(8, epsilon: 0.01));
+      expect(dot.left - titleEnd, moreOrLessEquals(8, epsilon: 0.5));
+    });
+
+    testWidgets('topic state follows the end of a wrapped title', (
+      tester,
+    ) async {
+      const title = 'Footnotes can scroll?';
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            const Topic(
+              id: 9,
+              title: title,
+              slug: 'wrapped-new-topic',
+              seen: false,
+              posterAvatars: ['', '', ''],
+            ),
+          ],
+        },
+      );
+
+      await pumpShell(tester, phone, api: api);
+      await tester.tap(sidebarDestination('Topics'));
+      await tester.pumpAndSettle();
+
+      final titleRect = tester.getRect(find.text(title));
+      final dot = _inlineWidgetBoxes(tester, find.text(title)).last;
+      expect(titleRect.height, greaterThan(24));
+      expect(dot.center.dy, greaterThan(titleRect.center.dy));
+      expect(dot.bottom, lessThanOrEqualTo(titleRect.bottom));
+    });
+
+    testWidgets('unread count follows the end of a wrapped title', (
+      tester,
+    ) async {
+      const title = 'Footnotes can scroll?';
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            const Topic(
+              id: 9,
+              title: title,
+              slug: 'wrapped-unread-topic',
+              unreadPosts: 3,
+              posterAvatars: ['', '', ''],
+            ),
+          ],
+        },
+      );
+
+      await pumpShell(tester, phone, api: api);
+      await tester.tap(sidebarDestination('Topics'));
+      await tester.pumpAndSettle();
+
+      final titleRect = tester.getRect(find.text(title));
+      final count = _inlineWidgetBoxes(tester, find.text(title)).last;
+      expect(titleRect.height, greaterThan(24));
+      expect(count.center.dy, greaterThan(titleRect.center.dy));
+      expect(count.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
 
     testWidgets('a nested topic only carries its new-replies dot', (
@@ -9442,6 +9502,27 @@ void main() {
       });
     });
   });
+}
+
+double _textWidth(WidgetTester tester, Finder text) {
+  final widget = tester.widget<Text>(text);
+  final context = tester.element(text);
+  final painter = TextPainter(
+    text: TextSpan(text: widget.textSpan!.toPlainText(), style: widget.style),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  return painter.width;
+}
+
+List<Rect> _inlineWidgetBoxes(WidgetTester tester, Finder text) {
+  final paragraph = tester.renderObject<RenderParagraph>(text);
+  final boxes = <Rect>[];
+  paragraph.visitChildren((child) {
+    final box = child as RenderBox;
+    boxes.add(box.localToGlobal(Offset.zero) & box.size);
+  });
+  return boxes;
 }
 
 /// A 1x1 transparent PNG — the smallest thing `Image.memory` will accept.

@@ -26,6 +26,7 @@ class SiteEmojiText extends StatelessWidget {
     this.overflow,
     this.style,
     this.textAlign,
+    this.trailing = const [],
   });
 
   SiteEmojiText.plain(
@@ -36,6 +37,7 @@ class SiteEmojiText extends StatelessWidget {
     this.overflow,
     this.style,
     this.textAlign,
+    this.trailing = const [],
   }) : runs = [SiteEmojiTextRun(text)];
 
   final List<SiteEmojiTextRun> runs;
@@ -45,13 +47,23 @@ class SiteEmojiText extends StatelessWidget {
   final TextStyle? style;
   final TextAlign? textAlign;
 
+  /// Widgets that participate in the final line of text.
+  ///
+  /// Topic rows use this for unread state, where placing the marker beside the
+  /// paragraph would center it against all of a wrapped title instead of
+  /// leaving it immediately after the title's final word.
+  final List<Widget> trailing;
+
   static final RegExp _shortcode = RegExp(r':([a-z0-9_+-]+(?::t[1-6])?):');
 
   @override
   Widget build(BuildContext context) {
     final text = runs.map((run) => run.text).join();
     final matches = _shortcode.allMatches(text).toList();
-    if (matches.isEmpty && runs.length == 1 && runs.single.style == null) {
+    if (matches.isEmpty &&
+        runs.length == 1 &&
+        runs.single.style == null &&
+        trailing.isEmpty) {
       return Text(
         text,
         maxLines: maxLines,
@@ -84,20 +96,33 @@ class SiteEmojiText extends StatelessWidget {
       cursor = match.end;
     }
     _appendText(spans, cursor, text.length);
+    spans.addAll(
+      trailing.map(
+        (widget) => _TrailingWidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: widget,
+        ),
+      ),
+    );
+
+    final richText = Text.rich(
+      TextSpan(children: spans),
+      maxLines: maxLines,
+      overflow: overflow,
+      style: style,
+      textAlign: textAlign,
+    );
+
+    // A trailing WidgetSpan carries meaningful semantics of its own. Keep
+    // those descendants exposed; ordinary emoji-only prose still gets one
+    // clean label rather than being announced as several fragments.
+    if (trailing.isNotEmpty) return richText;
 
     // The artwork is decorative to assistive technology; the original text is
     // the clearest single reading of the row.
     return Semantics(
       label: text,
-      child: ExcludeSemantics(
-        child: Text.rich(
-          TextSpan(children: spans),
-          maxLines: maxLines,
-          overflow: overflow,
-          style: style,
-          textAlign: textAlign,
-        ),
-      ),
+      child: ExcludeSemantics(child: richText),
     );
   }
 
@@ -132,4 +157,21 @@ class SiteEmojiText extends StatelessWidget {
     }
     return null;
   }
+}
+
+/// An inline widget that is absent from the title's plain-text value.
+///
+/// Flutter normally flattens every [WidgetSpan] to an object-replacement
+/// character. These widgets are state appended to the title rather than title
+/// content, so omitting that character preserves text lookup, selection and
+/// copying as the topic title alone.
+class _TrailingWidgetSpan extends WidgetSpan {
+  const _TrailingWidgetSpan({required super.child, super.alignment});
+
+  @override
+  void computeToPlainText(
+    StringBuffer buffer, {
+    bool includeSemanticsLabels = true,
+    bool includePlaceholders = true,
+  }) {}
 }
