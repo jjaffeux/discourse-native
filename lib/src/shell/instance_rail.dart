@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 
 import '../diagnostics/diagnostics_scope.dart';
 import '../models/discourse_instance.dart';
@@ -11,6 +14,7 @@ import 'adaptive_activity_indicator.dart';
 import 'add_instance_sheet.dart';
 import 'avatar_image.dart';
 import 'instance_actions.dart';
+import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'update_controller.dart';
@@ -55,15 +59,108 @@ class InstanceRail extends StatelessWidget {
                         // the shell, so the rail only needs this padding.
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         itemCount: state.instances.length,
+                        findChildIndexCallback: (key) {
+                          if (key is! ValueKey<String>) return null;
+                          final index = state.instances.indexWhere(
+                            (instance) => instance.url == key.value,
+                          );
+                          return index < 0 ? null : index;
+                        },
                         itemBuilder: (context, index) {
                           final instance = state.instances[index];
-                          return _RailItem(
-                            key: ValueKey(instance.url),
+                          final moveUp = index == 0
+                              ? null
+                              : () => _moveInstance(
+                                  context,
+                                  controller,
+                                  instance,
+                                  index - 1,
+                                );
+                          final moveDown = index == state.instances.length - 1
+                              ? null
+                              : () => _moveInstance(
+                                  context,
+                                  controller,
+                                  instance,
+                                  index + 1,
+                                );
+                          final item = _RailItem(
                             instance: instance,
                             appearance: state.appearances[index],
                             selected: index == state.selectedIndex,
                             badgeCount: controller.railBadgeFor(instance),
                             onTap: () => controller.selectInstance(index),
+                            onMoveUp: moveUp,
+                            onMoveDown: moveDown,
+                          );
+                          return KeyedSubtree(
+                            key: ValueKey(instance.url),
+                            child: Semantics(
+                              customSemanticsActions: {
+                                const CustomSemanticsAction(label: 'Move up'):
+                                    ?moveUp,
+                                const CustomSemanticsAction(label: 'Move down'):
+                                    ?moveDown,
+                              },
+                              // A desktop pointer can drag the site itself. On
+                              // touch, long press remains the established route
+                              // to site actions; its sheet carries Move buttons.
+                              child:
+                                  !context.isTouch && state.instances.length > 1
+                                  ? DragTarget<String>(
+                                      onWillAcceptWithDetails: (details) =>
+                                          details.data != instance.url,
+                                      onAcceptWithDetails: (details) {
+                                        final dragged = state.instances
+                                            .firstWhere(
+                                              (item) =>
+                                                  item.url == details.data,
+                                            );
+                                        _moveInstance(
+                                          context,
+                                          controller,
+                                          dragged,
+                                          index,
+                                        );
+                                      },
+                                      builder:
+                                          (
+                                            context,
+                                            candidates,
+                                            rejected,
+                                          ) => Draggable<String>(
+                                            data: instance.url,
+                                            axis: Axis.vertical,
+                                            dragAnchorStrategy:
+                                                pointerDragAnchorStrategy,
+                                            feedback: Transform.translate(
+                                              offset: const Offset(-22, -22),
+                                              child: _RailDragFeedback(
+                                                instance: instance,
+                                                appearance:
+                                                    state.appearances[index],
+                                                selected:
+                                                    index ==
+                                                    state.selectedIndex,
+                                              ),
+                                            ),
+                                            child: DecoratedBox(
+                                              decoration: BoxDecoration(
+                                                color: candidates.isEmpty
+                                                    ? Colors.transparent
+                                                    : theme.shell.railForeground
+                                                          .withValues(
+                                                            alpha: 0.08,
+                                                          ),
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                              ),
+                                              child: item,
+                                            ),
+                                          ),
+                                    )
+                                  : item,
+                            ),
                           );
                         },
                       ),
@@ -80,6 +177,27 @@ class InstanceRail extends StatelessWidget {
         );
       },
     );
+  }
+
+  static void _moveInstance(
+    BuildContext context,
+    ShellController controller,
+    DiscourseInstance instance,
+    int newIndex,
+  ) {
+    unawaited(() async {
+      final persisted = await controller.moveInstance(instance, newIndex);
+      if (persisted ||
+          !context.mounted ||
+          !identical(ShellScope.read(context), controller)) {
+        return;
+      }
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text("Couldn't save the new site order. Try again."),
+        ),
+      );
+    }());
   }
 }
 
@@ -379,14 +497,73 @@ class _UpdateButton extends StatelessWidget {
   }
 }
 
+/// The lightweight avatar that follows a pointer while a site is reordered.
+///
+/// It deliberately excludes [InstanceActions]: a menu owns an overlay portal,
+/// and moving that portal into a drag overlay would make an open context menu
+/// part of the drag lifecycle.
+class _RailDragFeedback extends StatelessWidget {
+  const _RailDragFeedback({
+    required this.instance,
+    required this.appearance,
+    required this.selected,
+  });
+
+  final DiscourseInstance instance;
+  final SiteAppearance? appearance;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final palette = _activePalette(
+      appearance,
+      MediaQuery.platformBrightnessOf(context),
+    );
+    final accent = palette?.tertiary ?? instance.accentColor;
+    final background = selected
+        ? accent
+        : accent.withValues(alpha: accent.a * 0.16);
+    final scaffold = opaqueColorOnCanvas(
+      theme.scaffoldBackgroundColor,
+      theme.brightness,
+    );
+    final railSurface = Color.alphaBlend(theme.shell.rail, scaffold);
+    final foreground = contrastSafeForeground(
+      background: background,
+      backdrop: railSurface,
+      preferred: [
+        if (!selected) theme.shell.railForeground,
+        palette?.secondary,
+        palette?.primary,
+        if (selected) theme.shell.railForeground,
+      ],
+    );
+
+    return Material(
+      type: MaterialType.transparency,
+      child: SizedBox.square(
+        dimension: 44,
+        child: _InstanceAvatar(
+          instance: instance,
+          foreground: foreground,
+          background: background,
+          selected: selected,
+        ),
+      ),
+    );
+  }
+}
+
 class _RailItem extends StatefulWidget {
   const _RailItem({
-    super.key,
     required this.instance,
     required this.appearance,
     required this.selected,
     required this.badgeCount,
     required this.onTap,
+    required this.onMoveUp,
+    required this.onMoveDown,
   });
 
   final DiscourseInstance instance;
@@ -394,6 +571,8 @@ class _RailItem extends StatefulWidget {
   final bool selected;
   final int badgeCount;
   final VoidCallback onTap;
+  final VoidCallback? onMoveUp;
+  final VoidCallback? onMoveDown;
 
   @override
   State<_RailItem> createState() => _RailItemState();
@@ -458,12 +637,15 @@ class _RailItemState extends State<_RailItem> {
           Center(
             child: InstanceActions(
               instance: widget.instance,
+              onMoveUp: widget.onMoveUp,
+              onMoveDown: widget.onMoveDown,
               child: _RailTooltip(
                 instance: widget.instance,
                 accent: accent,
                 child: InkWell(
                   onTap: widget.onTap,
                   onHover: _handleHover,
+                  mouseCursor: context.isTouch ? null : SystemMouseCursors.grab,
                   borderRadius: BorderRadius.circular(16),
                   child: Stack(
                     clipBehavior: Clip.none,

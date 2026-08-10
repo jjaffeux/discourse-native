@@ -73,10 +73,14 @@ class InstanceActions extends StatefulWidget {
     super.key,
     required this.instance,
     required this.child,
+    this.onMoveUp,
+    this.onMoveDown,
   });
 
   final DiscourseInstance instance;
   final Widget child;
+  final VoidCallback? onMoveUp;
+  final VoidCallback? onMoveDown;
 
   @override
   State<InstanceActions> createState() => _InstanceActionsState();
@@ -99,7 +103,7 @@ class _InstanceActionsState extends State<InstanceActions> {
   /// The touch path: everything the menu could not sensibly hold, full width
   /// and far enough from the press that opened it.
   Future<void> _openSheet() async {
-    final asked = await showShellSheet<bool>(
+    final asked = await showShellSheet<_InstanceSheetAction>(
       context: context,
       title: widget.instance.title,
       builder: (sheetContext) {
@@ -116,8 +120,42 @@ class _InstanceActionsState extends State<InstanceActions> {
               ),
             ),
             const SizedBox(height: 20),
+            if (widget.onMoveUp != null || widget.onMoveDown != null) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onMoveUp == null
+                          ? null
+                          : () => Navigator.of(
+                              sheetContext,
+                            ).pop(_InstanceSheetAction.moveUp),
+                      icon: const DIcon(DIcons.arrowUp, size: 18),
+                      label: const Text('Move up'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onMoveDown == null
+                          ? null
+                          : () => Navigator.of(
+                              sheetContext,
+                            ).pop(_InstanceSheetAction.moveDown),
+                      icon: const RotatedBox(
+                        quarterTurns: 2,
+                        child: DIcon(DIcons.arrowUp, size: 18),
+                      ),
+                      label: const Text('Move down'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             FilledButton.icon(
-              onPressed: () => Navigator.of(sheetContext).pop(true),
+              onPressed: () =>
+                  Navigator.of(sheetContext).pop(_InstanceSheetAction.remove),
               style: FilledButton.styleFrom(
                 backgroundColor: theme.colorScheme.error,
                 foregroundColor: theme.colorScheme.onError,
@@ -130,9 +168,17 @@ class _InstanceActionsState extends State<InstanceActions> {
       },
     );
 
-    if (asked != true) return;
     if (!mounted) return;
-    await _confirmRemoval();
+    switch (asked) {
+      case _InstanceSheetAction.moveUp:
+        widget.onMoveUp?.call();
+      case _InstanceSheetAction.moveDown:
+        widget.onMoveDown?.call();
+      case _InstanceSheetAction.remove:
+        await _confirmRemoval();
+      case null:
+        return;
+    }
   }
 
   Future<void> _confirmRemoval() async {
@@ -151,6 +197,23 @@ class _InstanceActionsState extends State<InstanceActions> {
     }
 
     return [
+      if (widget.onMoveUp != null)
+        MenuItemButton(
+          leadingIcon: const DIcon(DIcons.arrowUp, size: 18),
+          onPressed: widget.onMoveUp,
+          child: const Text('Move up'),
+        ),
+      if (widget.onMoveDown != null)
+        MenuItemButton(
+          leadingIcon: const RotatedBox(
+            quarterTurns: 2,
+            child: DIcon(DIcons.arrowUp, size: 18),
+          ),
+          onPressed: widget.onMoveDown,
+          child: const Text('Move down'),
+        ),
+      if (widget.onMoveUp != null || widget.onMoveDown != null)
+        const Divider(height: 1),
       MenuItemButton(
         leadingIcon: const DIcon(DIcons.trashCan, size: 18),
         style: MenuItemButton.styleFrom(
@@ -190,3 +253,5 @@ class _InstanceActionsState extends State<InstanceActions> {
     );
   }
 }
+
+enum _InstanceSheetAction { moveUp, moveDown, remove }

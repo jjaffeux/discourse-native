@@ -1870,6 +1870,105 @@ void main() {
     });
   });
 
+  group('ordering sites', () {
+    Finder railItem(String host) =>
+        find.byKey(ValueKey<String>('https://$host'));
+
+    testWidgets('dragging saves the order and restores it after restart', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final store = FakeInstanceStore(twoSites);
+        await pumpShell(tester, desktop, store: store);
+
+        final meta = railItem('meta.discourse.org');
+        final team = railItem('team.discourse.org');
+        await tester.tap(team);
+        await tester.pumpAndSettle();
+        final controller = ShellScope.read(tester.element(team));
+        final content = controller.currentContent;
+        final metaTooltipElement = tester.element(
+          find.descendant(of: meta, matching: find.byType(RawTooltip)),
+        );
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(meta));
+        await mouse.down(tester.getCenter(meta));
+        await tester.pump();
+        // Drop in the upper part of Team's row. The drag avatar is centred on
+        // the pointer, but target hit testing must remain at the pointer.
+        for (var step = 0; step < 2; step++) {
+          await mouse.moveBy(const Offset(0, 16));
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        await mouse.up();
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getTopLeft(team).dy,
+          lessThan(tester.getTopLeft(meta).dy),
+        );
+        expect(
+          tester.element(
+            find.descendant(of: meta, matching: find.byType(RawTooltip)),
+          ),
+          same(metaTooltipElement),
+        );
+        expect(controller.currentInstance?.url, 'https://team.discourse.org');
+        expect(controller.currentContent, same(content));
+        expect((await store.load()).map((site) => site.url), [
+          'https://team.discourse.org',
+          'https://meta.discourse.org',
+        ]);
+
+        await pumpShell(
+          tester,
+          desktop,
+          store: store,
+          key: const ValueKey('restarted-after-reorder'),
+        );
+
+        expect(
+          tester.getTopLeft(team).dy,
+          lessThan(tester.getTopLeft(meta).dy),
+        );
+        expect(find.text('Discourse Team'), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
+    testWidgets('the touch actions can move a site without taking its slot', (
+      tester,
+    ) async {
+      final store = FakeInstanceStore(twoSites);
+      await pumpShell(tester, phone, store: store);
+
+      final meta = railItem('meta.discourse.org');
+      final team = railItem('team.discourse.org');
+      await tester.longPress(meta);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('More Options'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Move up'), findsOneWidget);
+      expect(find.text('Move down'), findsOneWidget);
+      await tester.tap(find.text('Move down'));
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(team).dy, lessThan(tester.getTopLeft(meta).dy));
+      expect(find.text('Discourse Meta'), findsOneWidget);
+      expect((await store.load()).map((site) => site.url), [
+        'https://team.discourse.org',
+        'https://meta.discourse.org',
+      ]);
+    });
+  });
+
   group('removing a site', () {
     Finder railItem(String host) =>
         find.byKey(ValueKey<String>('https://$host'));

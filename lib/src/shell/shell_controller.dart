@@ -424,6 +424,15 @@ class ShellController extends FrameSafeNotifier {
   List<DiscourseInstance> get instances => List.unmodifiable(_instances);
   bool get hasInstances => _instances.isNotEmpty;
 
+  // Reorders are optimistic, just like adding and removing a site. This small
+  // drain owns their writes because InstanceStore coalesces queued snapshots:
+  // one failed older write must not roll a newer drag out of the rail.
+  int _instanceReorderRevision = 0;
+  bool _savingInstanceOrder = false;
+  List<String> _durableInstanceOrder = const [];
+  final List<({int revision, Completer<bool> result})>
+  _pendingInstanceReorders = [];
+
   InstanceLoadStatus _loadStatus = InstanceLoadStatus.loading;
 
   InstanceLoadStatus get loadStatus => _loadStatus;
@@ -611,6 +620,7 @@ class ShellController extends FrameSafeNotifier {
     _instances
       ..clear()
       ..addAll(stored);
+    _durableInstanceOrder = [for (final instance in stored) instance.url];
     _instanceIndex = 0;
     _forumWorkspaces.clear();
     var workspacesNormalized = false;
@@ -713,6 +723,135 @@ class ShellController extends FrameSafeNotifier {
       } catch (_) {}
       return false;
     }
+  }
+
+  /// Moves [instance] to [newIndex] and persists the resulting rail order.
+  ///
+  /// Reordering is presentation-only: the forum being read, its workspace,
+  /// current route and compact-layout pane all stay exactly where they were.
+  Future<bool> moveInstance(DiscourseInstance instance, int newIndex) {
+    if (isDisposed || !loaded || _instances.length < 2) {
+      return Future.value(false);
+    }
+
+    final oldIndex = _instances.indexWhere((item) => item.url == instance.url);
+    if (oldIndex < 0) return Future.value(false);
+    final destination = newIndex.clamp(0, _instances.length - 1);
+    if (oldIndex == destination) return Future.value(true);
+
+    // When no reorder is outstanding, the live membership/order came from a
+    // completed load, add or removal and is the rollback boundary for this
+    // batch of drags.
+    if (!_savingInstanceOrder && _pendingInstanceReorders.isEmpty) {
+      _durableInstanceOrder = [for (final item in _instances) item.url];
+    }
+    final revision = ++_instanceReorderRevision;
+
+    final selectedSiteUrl = currentInstance?.url;
+    final moved = _instances.removeAt(oldIndex);
+    _instances.insert(destination, moved);
+    _followSelectedInstance(selectedSiteUrl);
+    _notify();
+
+    final result = Completer<bool>();
+    _pendingInstanceReorders.add((revision: revision, result: result));
+    if (!_savingInstanceOrder) {
+      _savingInstanceOrder = true;
+      unawaited(_drainInstanceOrderSaves());
+    }
+    return result.future;
+  }
+
+  Future<void> _drainInstanceOrderSaves() async {
+    try {
+      while (_pendingInstanceReorders.isNotEmpty) {
+        final savedRevision = _instanceReorderRevision;
+        final snapshot = List.of(_instances);
+        final savedOrder = [for (final item in snapshot) item.url];
+
+        try {
+          await instanceStore.save(snapshot);
+        } catch (_) {
+          if (isDisposed) {
+            _completeInstanceReordersThrough(savedRevision, false);
+            continue;
+          }
+
+          // A drag landed behind the write that failed. Its newest snapshot
+          // still contains the whole intended ordering, so let the next loop
+          // persist it rather than allowing the older failure to roll it back.
+          if (savedRevision != _instanceReorderRevision) continue;
+
+          final restored = _restoreDurableInstanceOrder();
+          _completeInstanceReordersThrough(savedRevision, false);
+
+          // Put the rollback (or, if membership changed concurrently, the
+          // untouched newest rail) behind the failed snapshot before accepting
+          // another batch. New drags can still update the live list while this
+          // repair is in flight; the next loop persists them afterward.
+          final repairSnapshot = List.of(_instances);
+          final repairOrder = [for (final item in repairSnapshot) item.url];
+          var repairPersisted = false;
+          try {
+            await instanceStore.save(repairSnapshot);
+            repairPersisted = true;
+          } catch (_) {}
+          if (restored && repairPersisted) {
+            _durableInstanceOrder = repairOrder;
+          }
+          continue;
+        }
+
+        _durableInstanceOrder = savedOrder;
+        _completeInstanceReordersThrough(savedRevision, true);
+      }
+    } finally {
+      _savingInstanceOrder = false;
+      if (_pendingInstanceReorders.isNotEmpty) {
+        _savingInstanceOrder = true;
+        unawaited(_drainInstanceOrderSaves());
+      }
+    }
+  }
+
+  void _completeInstanceReordersThrough(int revision, bool persisted) {
+    final completed = _pendingInstanceReorders
+        .where((request) => request.revision <= revision)
+        .toList();
+    _pendingInstanceReorders.removeWhere(
+      (request) => request.revision <= revision,
+    );
+    for (final request in completed) {
+      if (!request.result.isCompleted) request.result.complete(persisted);
+    }
+  }
+
+  void _followSelectedInstance(String? selectedSiteUrl) {
+    if (selectedSiteUrl == null) {
+      _instanceIndex = _instances.isEmpty ? 0 : _instanceIndex;
+      return;
+    }
+    final selectedIndex = _instances.indexWhere(
+      (item) => item.url == selectedSiteUrl,
+    );
+    if (selectedIndex >= 0) _instanceIndex = selectedIndex;
+  }
+
+  bool _restoreDurableInstanceOrder() {
+    if (_instances.length != _durableInstanceOrder.length) return false;
+    final byUrl = {for (final instance in _instances) instance.url: instance};
+    if (byUrl.length != _durableInstanceOrder.length ||
+        _durableInstanceOrder.any((url) => !byUrl.containsKey(url))) {
+      return false;
+    }
+
+    final selectedSiteUrl = currentInstance?.url;
+    _instances
+      ..clear()
+      ..addAll(_durableInstanceOrder.map((url) => byUrl[url]!));
+    _followSelectedInstance(selectedSiteUrl);
+    _notify();
+    return true;
   }
 
   /// Signs [instance] out and takes it out of the rail.
