@@ -3452,6 +3452,45 @@ void main() {
       await tester.pumpAndSettle();
       expect(postBackground(tester), Colors.transparent);
     });
+
+    testWidgets('whisper posts use core styling and an indicator', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [
+              post(1, 1, 'First post body'),
+              const Post(
+                id: 2,
+                postNumber: 2,
+                username: 'sam',
+                cooked: '<p>A private aside</p>',
+                postType: Post.whisperPostType,
+              ),
+            ],
+            stream: const [1, 2],
+          ),
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.dIcon(DIcons.farEyeSlash), findsOneWidget);
+      expect(find.byTooltip('This post is a private whisper'), findsOneWidget);
+
+      final whisper = tester.widget<RichText>(renderedText('A private aside'));
+      expect(whisper.text.style?.fontStyle, FontStyle.italic);
+      expect(
+        whisper.text.style?.color,
+        Theme.of(tester.element(find.byType(TopicView))).discourse.whisper,
+      );
+    });
   });
 
   group('connecting', () {

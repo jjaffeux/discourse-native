@@ -1190,6 +1190,18 @@ class _PostTileState extends State<_PostTile> {
                         ],
                       ),
                     ),
+                    if (post.isWhisper) ...[
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: 'This post is a private whisper',
+                        child: DIcon(
+                          DIcons.farEyeSlash,
+                          size: 14,
+                          color: theme.discourse.whisper,
+                        ),
+                      ),
+                      if (post.createdAt != null) const SizedBox(width: 8),
+                    ],
                     if (post.createdAt case final createdAt?)
                       Text(
                         relativeTime(createdAt),
@@ -1202,7 +1214,12 @@ class _PostTileState extends State<_PostTile> {
                 const SizedBox(height: 10),
                 CookedHtml(
                   html: post.cooked,
-                  textStyle: theme.textTheme.bodyMedium,
+                  textStyle: post.isWhisper
+                      ? theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.discourse.whisper,
+                          fontStyle: FontStyle.italic,
+                        )
+                      : theme.textTheme.bodyMedium,
                   siteUrl: widget.siteUrl,
                   post: post,
                 ),

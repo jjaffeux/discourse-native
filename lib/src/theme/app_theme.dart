@@ -296,26 +296,37 @@ class CodeColors extends ThemeExtension<CodeColors> {
 /// Discourse semantic colours with no Material [ColorScheme] equivalent.
 @immutable
 class DiscourseColors extends ThemeExtension<DiscourseColors> {
-  const DiscourseColors({required this.success, required this.love});
+  const DiscourseColors({
+    required this.success,
+    required this.love,
+    required this.whisper,
+  });
 
   final Color success;
   final Color love;
 
+  /// Whisper body text, mirroring Discourse's `--primary-medium` role.
+  final Color whisper;
+
   static const DiscourseColors light = DiscourseColors(
     success: discourseSuccess,
     love: discourseLove,
+    whisper: Color(0xFF919191),
   );
 
   static const DiscourseColors dark = DiscourseColors(
     success: Color(0xFF1CA551),
     love: discourseLove,
+    whisper: Color(0xFF909090),
   );
 
   @override
-  DiscourseColors copyWith({Color? success, Color? love}) => DiscourseColors(
-    success: success ?? this.success,
-    love: love ?? this.love,
-  );
+  DiscourseColors copyWith({Color? success, Color? love, Color? whisper}) =>
+      DiscourseColors(
+        success: success ?? this.success,
+        love: love ?? this.love,
+        whisper: whisper ?? this.whisper,
+      );
 
   @override
   DiscourseColors lerp(ThemeExtension<DiscourseColors>? other, double t) {
@@ -323,6 +334,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     return DiscourseColors(
       success: Color.lerp(success, other.success, t)!,
       love: Color.lerp(love, other.love, t)!,
+      whisper: Color.lerp(whisper, other.whisper, t)!,
     );
   }
 }
@@ -391,6 +403,7 @@ abstract final class AppTheme {
     final discourse = DiscourseColors(
       success: palette.success,
       love: palette.love,
+      whisper: palette.primaryMedium,
     );
     final materialBackdrop = opaqueColorOnCanvas(
       palette.secondary,

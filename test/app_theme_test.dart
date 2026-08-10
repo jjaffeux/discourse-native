@@ -201,6 +201,7 @@ void main() {
 
       expect(theme.discourse.success, source.success);
       expect(theme.discourse.love, source.love);
+      expect(theme.discourse.whisper, source.primaryMedium);
     });
 
     test('maps the site palette into adaptive Cupertino controls', () {

@@ -37,9 +37,11 @@ class Post with Storable<Post> {
   });
 
   /// `post_type` values Discourse uses. Regular posts are 1; the moderator
-  /// notices a topic collects — closed, pinned, invited — are 3.
+  /// notices a topic collects — closed, pinned, invited — are 3; and private
+  /// whispers are 4.
   static const int regularPostType = 1;
   static const int smallActionPostType = 3;
+  static const int whisperPostType = 4;
 
   /// The like's row in `actions_summary`, and the `post_action_type_id` the
   /// like routes take. It is `PostActionType::LIKE_POST_ACTION_ID` server side
@@ -198,6 +200,9 @@ class Post with Storable<Post> {
   /// action codes without making those values part of this core model.
   bool get isSmallAction =>
       postType == smallActionPostType || pluginRegistry.isSmallAction(this);
+
+  /// A private aside visible only to the site's configured whisper groups.
+  bool get isWhisper => postType == whisperPostType;
 
   String get displayName => name ?? username;
 
