@@ -649,9 +649,11 @@ class ShellController extends FrameSafeNotifier {
     // a failure here has to stay quiet. See UpdateController.check.
     unawaited(updates.load());
 
-    // Refresh the selected account first, then optional appearance metadata,
-    // then the remaining accounts one at a time. A rail full of sites should
-    // not multiply the selected site's cold-start burst.
+    // Refresh only the selected account. The web client asks about the one site
+    // being viewed; eagerly hydrating every saved native site multiplied a cold
+    // start into six authenticated reads per inactive account. The others are
+    // refreshed lazily when selected, while their persisted rail metadata is
+    // already enough to draw them.
     unawaited(_refreshAccountState(initialInstance));
   }
 
@@ -969,15 +971,7 @@ class ShellController extends FrameSafeNotifier {
   }
 
   Future<void> _refreshAccountState(DiscourseInstance? initialInstance) async {
-    final connected = [
-      for (final instance in List<DiscourseInstance>.of(_instances))
-        if (instance.isConnected) instance,
-    ];
-    final selected = connected.where(
-      (instance) => instance.url == initialInstance?.url,
-    );
-
-    if (selected.firstOrNull case final instance?) {
+    if (initialInstance case final instance? when instance.isConnected) {
       await Future.wait([
         _refreshOne(instance),
         _refreshSessionUserFor(instance),
@@ -986,15 +980,11 @@ class ShellController extends FrameSafeNotifier {
       await _presentation.ensureAppearance(instance.url);
     } else if (initialInstance case final instance?) {
       if (isDisposed || !contains(instance.url)) return;
-      await _presentation.ensureAppearance(instance.url);
-    }
-
-    for (final instance in connected) {
-      if (instance.url == initialInstance?.url) continue;
-      if (isDisposed || !contains(instance.url)) return;
-      await _refreshOne(instance);
-      if (isDisposed || !contains(instance.url)) return;
-      await _refreshSessionUserFor(instance);
+      // Anonymous appearance is public and may have been populated by lookup
+      // moments ago. Refresh it normally; the warm-start suppression is for a
+      // persisted connected account whose many authenticated appearance reads
+      // otherwise join the cold-start burst.
+      await _presentation.refreshAppearance(instance.url);
     }
   }
 
@@ -1008,7 +998,7 @@ class ShellController extends FrameSafeNotifier {
       if (credential == null || !lease.isCurrent) return;
       if (credential.value case final apiKey?) {
         await _sessionUser(instance.url, apiKey, lease: lease);
-        if (!lease.isCurrent) return;
+        if (!lease.isCurrent || currentInstance?.url != instance.url) return;
         await _refreshCustomSidebarSections(instance.url, apiKey, lease: lease);
       }
     } catch (_) {
@@ -1018,6 +1008,11 @@ class ShellController extends FrameSafeNotifier {
   }
 
   final Map<String, List<SidebarSection>> _customSidebarSections = {};
+  final Set<String> _customSidebarSectionsLoaded = {};
+  final Map<String, Future<void>> _customSidebarSectionRequests = {};
+  final Map<String, DateTime> _customSidebarSectionAttemptedAt = {};
+
+  static const _customSidebarRetryInterval = Duration(minutes: 5);
 
   List<SidebarSection> customSidebarSectionsFor(String siteUrl) =>
       _customSidebarSections[siteUrl] ?? const [];
@@ -1026,11 +1021,47 @@ class ShellController extends FrameSafeNotifier {
     String siteUrl,
     String apiKey, {
     SiteLease? lease,
+  }) {
+    // Custom sections belong only to the site on screen. A session lookup can
+    // finish after the reader has switched away, and must not turn that stale
+    // completion into another inactive-site request.
+    if (isDisposed || currentInstance?.url != siteUrl) return Future.value();
+    if (_customSidebarSectionsLoaded.contains(siteUrl)) return Future.value();
+
+    final active = _customSidebarSectionRequests[siteUrl];
+    if (active != null) return active;
+    final attemptedAt = _customSidebarSectionAttemptedAt[siteUrl];
+    if (attemptedAt != null &&
+        DateTime.now().difference(attemptedAt) < _customSidebarRetryInterval) {
+      return Future.value();
+    }
+
+    late final Future<void> request;
+    request = _loadCustomSidebarSections(siteUrl, apiKey, lease: lease)
+        .whenComplete(() {
+          if (identical(_customSidebarSectionRequests[siteUrl], request)) {
+            final removed = _customSidebarSectionRequests.remove(siteUrl);
+            assert(identical(removed, request));
+          }
+        });
+    _customSidebarSectionRequests[siteUrl] = request;
+    return request;
+  }
+
+  Future<void> _loadCustomSidebarSections(
+    String siteUrl,
+    String apiKey, {
+    SiteLease? lease,
   }) async {
     final session = lease ?? lifecycle.capture(siteUrl);
     try {
       final identity = await _readSessionValue(session, authenticator.clientId);
-      if (identity == null || !session.isCurrent) return;
+      if (identity == null ||
+          !session.isCurrent ||
+          currentInstance?.url != siteUrl) {
+        return;
+      }
+      _customSidebarSectionAttemptedAt[siteUrl] = DateTime.now();
       final sections = await api.customSidebarSections(
         siteUrl: siteUrl,
         apiKey: apiKey,
@@ -1038,6 +1069,7 @@ class ShellController extends FrameSafeNotifier {
       );
       session.commit(() {
         _customSidebarSections[siteUrl] = sections;
+        _customSidebarSectionsLoaded.add(siteUrl);
         _notify();
       });
     } catch (error, stackTrace) {
@@ -1054,10 +1086,19 @@ class ShellController extends FrameSafeNotifier {
   }
 
   void _onTotalsLoaded(DiscourseInstance instance, NotificationTotals totals) {
+    _hydrateSelectedChat(instance, totals);
+  }
+
+  void _hydrateSelectedChat(
+    DiscourseInstance instance, [
+    NotificationTotals? loadedTotals,
+  ]) {
     // A post arrives whether or not you care about reactions, so its payload
     // can be the gate. A channel list arrives only if you ask, so its absence
     // proves nothing.
-    if (totals.hasChatEnabled) {
+    final totals = loadedTotals ?? accountActivity.totalsFor(instance.url);
+    if (totals?.hasChatEnabled == true &&
+        currentInstance?.url == instance.url) {
       unawaited(_presentation.ensureConfig(instance.url));
       unawaited(_presentation.ensureCustomEmojis(instance.url));
       unawaited(chat.loadChannels(instance.url));
@@ -1522,14 +1563,20 @@ class ShellController extends FrameSafeNotifier {
     final callSiteUrl = resenha.activeSiteUrl;
 
     for (final entry in _trackers.entries) {
-      if (entry.key != instance?.url && entry.key != callSiteUrl) {
+      final selectedAndVisible = _foreground && entry.key == instance?.url;
+      if (!selectedAndVisible && entry.key != callSiteUrl) {
         entry.value.stop();
       }
     }
     if (callSiteUrl != null && callSiteUrl != instance?.url) {
       _trackers[callSiteUrl]?.start();
     }
-    if (instance == null) return;
+    if (!_foreground || instance == null) return;
+
+    // Core never starts MessageBus for an anonymous reader on a private site.
+    // Such a poll can only be refused, and retrying that refusal adds traffic
+    // without a channel the reader is allowed to consume.
+    if (instance.loginRequired && !instance.isConnected) return;
 
     final tracker = _trackers[instance.url];
     if (tracker == null) {
@@ -1699,6 +1746,7 @@ class ShellController extends FrameSafeNotifier {
   /// account still gets the banner.
   Future<void> _startTracking(DiscourseInstance instance) async {
     final siteUrl = instance.url;
+    if (instance.loginRequired && !instance.isConnected) return;
     if (_trackers.containsKey(siteUrl) || !_trackersStarting.add(siteUrl)) {
       return;
     }
@@ -1727,6 +1775,15 @@ class ShellController extends FrameSafeNotifier {
     lease.commit(() {
       _trackersStarting.remove(siteUrl);
       if (isDisposed || _instanceAt(siteUrl) == null) return;
+
+      // Credentials and the current-user lookup can outlive the navigation or
+      // lifecycle state that asked for this tracker. SiteTracker starts its
+      // message bus in the constructor, so checking only after construction
+      // still spends one poll for a site that is already hidden. A voice call
+      // remains eligible because its signalling deliberately survives both a
+      // site switch and app backgrounding.
+      final selectedAndVisible = _foreground && currentInstance?.url == siteUrl;
+      if (!selectedAndVisible && resenha.activeSiteUrl != siteUrl) return;
 
       void commit(SiteMutation mutation) {
         if (!isDisposed) lease.commit(mutation);
@@ -1757,7 +1814,9 @@ class ShellController extends FrameSafeNotifier {
       }
       _trackers[siteUrl] = tracker;
       resenha.attachTracker(siteUrl);
-      if (currentInstance?.url != siteUrl && resenha.activeSiteUrl != siteUrl) {
+      final stillSelectedAndVisible =
+          _foreground && currentInstance?.url == siteUrl;
+      if (!stillSelectedAndVisible && resenha.activeSiteUrl != siteUrl) {
         tracker.stop();
       } else {
         _syncTopicWatch(siteUrl, tracker);
@@ -1870,15 +1929,18 @@ class ShellController extends FrameSafeNotifier {
 
   /// Tells the shell whether it is the app in front.
   ///
-  /// A backgrounded app must not hold a long poll open — the connection is
-  /// usually dead by the time it comes back and the OS has been waiting on it
-  /// the whole while — so polling drops to the message_bus client's background
-  /// pacing and a returning app reconnects at once rather than waiting out a
-  /// backoff.
+  /// A backgrounded native app stops ordinary polling altogether. The browser
+  /// client's one-minute hidden-tab pacing assumes a tab that remains runnable;
+  /// on desktop that made this hidden app wake forever, and on mobile the OS can
+  /// suspend the socket at any point. Cursors survive [SiteTracker.stop], so a
+  /// returning app still asks for exactly what it missed. A tracker carrying an
+  /// active voice call is the sole exception because call signalling must stay
+  /// live in the background.
   void setForeground(bool foreground) {
     if (foreground == _foreground) return;
     _foreground = foreground;
     resenha.setForeground(foreground);
+    _syncTracking();
     if (!foreground) return;
 
     final instance = currentInstance;
@@ -5365,7 +5427,11 @@ class ShellController extends FrameSafeNotifier {
         _replaceInstance(held, connected!);
         _sessionUsersRefreshed.add(instance.url);
         if (currentInstance?.url == instance.url) {
-          _resetToInstanceDefault();
+          // The anonymous palette may have completed while the account lookup
+          // was in flight. This identity boundary must bypass warm persisted
+          // freshness and fetch the authenticated palette exactly once.
+          _resetToInstanceDefault(refreshAppearance: false);
+          unawaited(_presentation.refreshAppearance(instance.url));
         }
         _notify();
       });
@@ -5680,6 +5746,9 @@ class ShellController extends FrameSafeNotifier {
     _categorySidebarCache.remove(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
     _customSidebarSections.remove(siteUrl);
+    _customSidebarSectionsLoaded.remove(siteUrl);
+    _customSidebarSectionAttemptedAt.remove(siteUrl);
+    _customSidebarSectionRequests.remove(siteUrl)?.ignore();
     _sitePresentation?.forget(siteUrl);
     _hashtags.remove(siteUrl);
     _hashtagsInFlight.remove(siteUrl);
@@ -5751,6 +5820,11 @@ class ShellController extends FrameSafeNotifier {
     if (instance.isConnected) unawaited(resenha.ensureLoaded(instance.url));
     _syncTracking();
     _syncTopicChannels();
+    // Totals may have landed while this site was inactive. The ordinary
+    // refresh on reselection can legitimately reuse that five-minute snapshot,
+    // so activation itself must apply its chat capability instead of relying
+    // on a callback which only runs after network responses.
+    _hydrateSelectedChat(instance);
     _hydrateActiveTab(instance);
   }
 
@@ -5788,7 +5862,12 @@ class ShellController extends FrameSafeNotifier {
       _restoreInstanceWorkspace();
       final selected = currentInstance;
       if (selected != null && selected.isConnected) {
-        unawaited(_refreshOne(selected));
+        unawaited(
+          Future.wait([
+            _refreshOne(selected),
+            _refreshSessionUserFor(selected),
+          ]),
+        );
       }
     }
     _mobilePane = MobilePane.sidebar;

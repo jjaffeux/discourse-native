@@ -60,6 +60,8 @@ ChatChannel channel(
   Completer<void>? channelGate,
   Completer<void>? messageGate,
   WriteException? readFailure,
+  Duration minimumWindowRefreshInterval = const Duration(seconds: 30),
+  DateTime Function()? clock,
 }) {
   final api = FakeDiscourseApi(
     chatChannelsBySite: channels,
@@ -71,7 +73,13 @@ ChatChannel channel(
   final credentials = FakeApiCredentialReader()..keys[site] = 'key';
   final store = Store();
   return (
-    chat: ChatController(api: api, credentials: credentials, store: store),
+    chat: ChatController(
+      api: api,
+      credentials: credentials,
+      store: store,
+      minimumWindowRefreshInterval: minimumWindowRefreshInterval,
+      clock: clock,
+    ),
     api: api,
     store: store,
   );
@@ -471,6 +479,47 @@ void main() {
 
   group('opening a channel', () {
     test(
+      'reuses a recently attempted window unless refresh is forced',
+      () async {
+        var now = DateTime.utc(2026, 8, 11, 10);
+        final subject = build(
+          messages: {
+            key(9): page([message(1)]),
+          },
+          clock: () => now,
+        );
+
+        await subject.chat.openChannel(site, 9);
+        now = now.add(const Duration(seconds: 29));
+        await subject.chat.openChannel(site, 9);
+
+        expect(subject.api.chatMessagesRequested, hasLength(1));
+        expect(subject.chat.stream(site, 9).fetches, 1);
+
+        await subject.chat.openChannel(site, 9, force: true);
+
+        expect(subject.api.chatMessagesRequested, hasLength(2));
+        expect(subject.chat.stream(site, 9).fetches, 2);
+      },
+    );
+
+    test('retries an attempted window when its cooldown expires', () async {
+      var now = DateTime.utc(2026, 8, 11, 10);
+      final subject = build(clock: () => now);
+
+      // Failures are attempts too. Rapid remounts must not turn an unavailable
+      // or rate-limited endpoint into a retry loop.
+      await subject.chat.openChannel(site, 9);
+      await subject.chat.openChannel(site, 9);
+      expect(subject.api.chatMessagesRequested, hasLength(1));
+
+      now = now.add(const Duration(seconds: 30));
+      await subject.chat.openChannel(site, 9);
+
+      expect(subject.api.chatMessagesRequested, hasLength(2));
+    });
+
+    test(
       'a disposed credential-gated window never reaches the message API',
       () async {
         final api = FakeDiscourseApi();
@@ -568,9 +617,9 @@ void main() {
       gate.complete();
       await first;
 
-      // Re-opening refreshes underneath what is already there rather than
+      // A forced refresh works underneath what is already there rather than
       // replacing a conversation with a spinner.
-      final second = subject.chat.openChannel(site, 9);
+      final second = subject.chat.openChannel(site, 9, force: true);
       expect(subject.chat.stream(site, 9).loading, isFalse);
       await second;
     });
@@ -590,7 +639,7 @@ void main() {
 
         await subject.chat.openChannel(site, 9);
         subject.store.putAll(site, [message(5, minute: 5)]);
-        await subject.chat.openChannel(site, 9);
+        await subject.chat.openChannel(site, 9, force: true);
 
         expect(subject.chat.stream(site, 9).messageIds, [9]);
       },
@@ -607,10 +656,10 @@ void main() {
       await subject.chat.openChannel(site, 9);
 
       pages.remove(key(9));
-      await subject.chat.openChannel(site, 9);
+      await subject.chat.openChannel(site, 9, force: true);
 
-      // A conversation that was true a moment ago beats an error where it was,
-      // and the next open asks again.
+      // A conversation that was true a moment ago beats an error where it was;
+      // an explicit reconciliation can still ask again during the cooldown.
       expect(subject.chat.stream(site, 9).messageIds, [1]);
       expect(subject.chat.stream(site, 9).error, isNull);
       expect(subject.api.chatMessagesRequested, hasLength(2));
@@ -792,7 +841,7 @@ void main() {
       await subject.chat.loadOlder(site, 9);
       expect(subject.chat.stream(site, 9).fetches, opened);
 
-      await subject.chat.openChannel(site, 9);
+      await subject.chat.openChannel(site, 9, force: true);
       expect(subject.chat.stream(site, 9).fetches, opened + 1);
     });
 
@@ -848,7 +897,7 @@ void main() {
 
         final oldPage = chat.loadOlder(site, 9);
         await clientIdStarted;
-        final replacement = chat.openChannel(site, 9);
+        final replacement = chat.openChannel(site, 9, force: true);
         credentials.releaseClientId();
         await Future.wait([oldPage, replacement]);
 
@@ -1367,11 +1416,11 @@ void main() {
       expect(subject.chat.stream(site, 9).lastReadOnOpen, 1);
     });
 
-    test('moves the divider only when the channel is opened again', () async {
+    test('moves the divider when the channel is explicitly reopened', () async {
       final subject = await reading(held: channel(9, lastRead: 1));
       await subject.chat.markRead(site, 9, 3);
 
-      await subject.chat.openChannel(site, 9);
+      await subject.chat.openChannel(site, 9, force: true);
 
       expect(subject.chat.stream(site, 9).lastReadOnOpen, 3);
     });

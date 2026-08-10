@@ -141,6 +141,7 @@ final class ResenhaController extends ChangeNotifier {
   final Map<String, ResenhaDirectory> _directories = {};
   final Map<String, Map<int, ResenhaRoom>> _linkedRooms = {};
   final Set<String> _loadingSites = {};
+  final Set<String> _unavailableSites = {};
   final Map<String, SiteMessageBusSubscription> _directorySubscriptions = {};
   final Map<String, Map<int, SiteMessageBusSubscription>> _roomSubscriptions =
       {};
@@ -258,7 +259,11 @@ final class ResenhaController extends ChangeNotifier {
 
   Future<void> ensureLoaded(String siteUrl, {bool force = false}) async {
     if (!supportedPlatform) return;
-    if (_disposed || _loadingSites.contains(siteUrl)) return;
+    if (_disposed ||
+        _loadingSites.contains(siteUrl) ||
+        _unavailableSites.contains(siteUrl)) {
+      return;
+    }
     if (!force && _directories.containsKey(siteUrl)) {
       attachTracker(siteUrl);
       return;
@@ -291,14 +296,16 @@ final class ResenhaController extends ChangeNotifier {
       _replaceSubscriptions(siteUrl, directory);
     } on SiteLookupException catch (error, stackTrace) {
       if (!isCurrent()) return;
-      // Plugin absence and account refusal both mean no section. Network and
-      // parse failures stay available for an explicit retry without claiming
-      // that the plugin exists.
-      if (error.failure == SiteLookupFailure.unreachable) {
+      // Plugin absence and account refusal both mean no section for this site
+      // session. Remember that negative capability so every later activation
+      // does not probe the same missing route again. Network, rate-limit, 5xx,
+      // and parse failures stay retryable without claiming the plugin exists.
+      if (_isUnavailableDirectoryFailure(error)) {
+        _directories.remove(siteUrl);
+        _unavailableSites.add(siteUrl);
+      } else {
         _errors[siteUrl] = "Couldn't load voice rooms.";
         _report(error, stackTrace, 'resenha.directory');
-      } else {
-        _directories.remove(siteUrl);
       }
     } catch (error, stackTrace) {
       if (!isCurrent()) return;
@@ -312,6 +319,10 @@ final class ResenhaController extends ChangeNotifier {
       }
     }
   }
+
+  static bool _isUnavailableDirectoryFailure(SiteLookupException error) =>
+      error.failure == SiteLookupFailure.notDiscourse ||
+      error.statusCode == HttpStatus.notFound;
 
   Object _siteSession(String siteUrl) =>
       _siteSessions.putIfAbsent(siteUrl, Object.new);
@@ -1605,6 +1616,7 @@ final class ResenhaController extends ChangeNotifier {
     _directoryRequests.remove(siteUrl);
     _chatRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _directories.remove(siteUrl);
+    _unavailableSites.remove(siteUrl);
     _linkedRooms.remove(siteUrl);
     _chats.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     for (final key

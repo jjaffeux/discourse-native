@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import 'byte_cache.dart';
+import 'media_request_coordinator.dart';
 
 /// What came back for an avatar URL.
 class AvatarBytes {
@@ -19,10 +20,18 @@ class AvatarBytes {
 /// to avatars: Discourse serves some of them as SVG even though the URL ends in
 /// `.png`, so the format cannot be known from the URL — only from the bytes.
 class AvatarLoader extends ByteCache<AvatarBytes> {
-  AvatarLoader({super.client, super.maxConcurrent, super.retryAfter});
+  AvatarLoader({
+    super.client,
+    super.maxConcurrent,
+    super.retryAfter,
+    super.coordinator,
+    super.store,
+  });
 
   /// Swappable so tests do not reach the network.
-  static AvatarLoader instance = AvatarLoader();
+  static AvatarLoader instance = AvatarLoader(
+    coordinator: MediaRequestCoordinator.shared,
+  );
 
   @override
   AvatarBytes decode(http.Response response) => AvatarBytes(

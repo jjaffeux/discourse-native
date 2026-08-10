@@ -4,6 +4,7 @@ import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -128,6 +129,7 @@ void main() {
 
     lifecycleObserver.didChangeAppLifecycleState(AppLifecycleState.paused);
     await tester.pump();
+    expect(built.first.polling, isFalse);
 
     await tester.pumpWidget(
       app(FakeInstanceStore([instance('second.example')])),
@@ -135,15 +137,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_controller(tester), isNot(same(firstController)));
-    expect(built, hasLength(2));
+    // A controller created while the process is paused does not spend any
+    // credentials or create a poller until the process becomes visible.
+    expect(built, hasLength(1));
     expect(built.first.disposed, isTrue);
-    expect(longPollChecks, hasLength(2));
-    expect(longPollChecks.last(), isFalse);
 
     lifecycleObserver.didChangeAppLifecycleState(AppLifecycleState.resumed);
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(built, hasLength(2));
+    expect(longPollChecks, hasLength(2));
     expect(longPollChecks.last(), isTrue);
-    expect(built.last.pollNowCalls, 1);
+    expect(built.last.polling, isTrue);
   });
 
   testWidgets('closes each API when the app releases it', (tester) async {
@@ -182,6 +186,103 @@ void main() {
     expect(firstApi.closeCalls, 1);
     expect(secondApi.closeCalls, 1);
   });
+
+  test(
+    'backgrounding while tracker credentials resolve starts no poll',
+    () async {
+      const siteUrl = 'https://first.example';
+      const user = DiscourseUser(id: 7, username: 'reader');
+      final api = FakeDiscourseApi(user: user);
+      final authenticator = _GatedAuthenticator(siteUrl)
+        ..keys[siteUrl] = 'first-key';
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('first.example').copyWith(user: user),
+        ]),
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(shell.dispose);
+
+      await shell.load();
+      await authenticator.started.future;
+
+      shell.setForeground(false);
+      authenticator.release();
+      await pumpEventQueue();
+
+      expect(
+        FakeSiteTracker.built,
+        isEmpty,
+        reason:
+            'a hidden app must not construct a tracker that starts one poll',
+      );
+
+      shell.setForeground(true);
+      await pumpEventQueue();
+
+      expect(FakeSiteTracker.built, hasLength(1));
+      expect(FakeSiteTracker.built.single.siteUrl, siteUrl);
+      expect(FakeSiteTracker.built.single.polling, isTrue);
+    },
+  );
+
+  test(
+    'switching sites while tracker credentials resolve starts only selected poll',
+    () async {
+      const firstUrl = 'https://first.example';
+      const secondUrl = 'https://second.example';
+      const user = DiscourseUser(id: 7, username: 'reader');
+      final api = FakeDiscourseApi(user: user);
+      final authenticator = _GatedAuthenticator(firstUrl)
+        ..keys[firstUrl] = 'first-key'
+        ..keys[secondUrl] = 'second-key';
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('first.example').copyWith(user: user),
+          instance('second.example').copyWith(user: user),
+        ]),
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(shell.dispose);
+
+      await shell.load();
+      await authenticator.started.future;
+
+      shell.selectInstance(1);
+      await pumpEventQueue();
+      expect(FakeSiteTracker.built.map((tracker) => tracker.siteUrl), [
+        secondUrl,
+      ]);
+
+      authenticator.release();
+      await pumpEventQueue();
+
+      expect(
+        FakeSiteTracker.built.map((tracker) => tracker.siteUrl),
+        [secondUrl],
+        reason: 'the deselected pending site must not spend a poll',
+      );
+
+      shell.selectInstance(0);
+      await pumpEventQueue();
+
+      expect(
+        FakeSiteTracker.built.map((tracker) => tracker.siteUrl),
+        [secondUrl, firstUrl],
+        reason: 'deselection must leave tracker startup retryable on reselect',
+      );
+      expect(FakeSiteTracker.built.first.polling, isFalse);
+      expect(FakeSiteTracker.built.last.polling, isTrue);
+    },
+  );
 
   test('a disposed controller ignores a pending initial load', () async {
     final gate = Completer<List<DiscourseInstance>>();
@@ -249,4 +350,24 @@ final class _GatedInstanceStore implements InstanceStore {
 
   @override
   Future<void> save(List<DiscourseInstance> instances) async {}
+}
+
+final class _GatedAuthenticator extends FakeAuthenticator {
+  _GatedAuthenticator(this.gatedSiteUrl);
+
+  final String gatedSiteUrl;
+  final Completer<void> started = Completer<void>();
+  final Completer<void> _release = Completer<void>();
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async {
+    if (siteUrl != gatedSiteUrl) return super.apiKeyFor(siteUrl);
+    if (!started.isCompleted) started.complete();
+    await _release.future;
+    return super.apiKeyFor(siteUrl);
+  }
+
+  void release() {
+    if (!_release.isCompleted) _release.complete();
+  }
 }

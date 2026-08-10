@@ -3,7 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'src/app.dart';
+import 'src/data/avatar_loader.dart';
 import 'src/data/bounded_http_overrides.dart';
+import 'src/data/byte_cache_store.dart';
+import 'src/data/emoji_cache.dart';
+import 'src/data/media_request_coordinator.dart';
 import 'src/diagnostics/diagnostics.dart';
 import 'src/plugins/local_dates/local_date_environment.dart';
 
@@ -29,6 +33,29 @@ void main() {
             DiagnosticsSink.install(controller);
             RecordingHttpOverrides.install(controller);
             globalErrors = DiagnosticsGlobalErrorBinding.install(controller);
+
+            try {
+              final mediaStore = await FileByteCacheStore.applicationCache();
+              AvatarLoader.instance = AvatarLoader(
+                coordinator: MediaRequestCoordinator.shared,
+                store: mediaStore,
+              );
+              EmojiCache.instance = EmojiCache(
+                coordinator: MediaRequestCoordinator.shared,
+                store: mediaStore,
+              );
+            } catch (error, stackTrace) {
+              // The disk cache is an optimization. A read-only/unavailable
+              // cache directory must not keep the forum itself from opening.
+              controller.reportError(
+                error,
+                stackTrace,
+                operation: 'image.initializePersistentCache',
+                source: 'image',
+                handled: true,
+                degraded: true,
+              );
+            }
 
             runApp(DiscourseApp(diagnostics: controller));
           },

@@ -168,11 +168,13 @@ void main() {
     await controller.chat.openChannel(firstSite, 9);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(controller.chat.openChannel(firstSite, 9));
+      // The view's own rapid remount is cooled down. This callback models the
+      // explicit replacement whose generation must invalidate queued paging.
+      unawaited(controller.chat.openChannel(firstSite, 9, force: true));
     });
     await tester.pumpWidget(_TestView(controller: controller));
 
-    expect(controller.chat.stream(firstSite, 9).oldestId, 20);
+    expect(controller.chat.stream(firstSite, 9).oldestId, 10);
     expect(api.olderSites, isEmpty);
   });
 

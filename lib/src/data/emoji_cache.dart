@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import 'byte_cache.dart';
+import 'media_request_coordinator.dart';
 
 /// Deduplicates emoji fetches and keeps their concurrency bounded.
 ///
@@ -20,10 +21,18 @@ import 'byte_cache.dart';
 /// upload, PNG or GIF; both go through Flutter's raster decoder and neither is
 /// SVG.
 class EmojiCache extends ByteCache<Uint8List> {
-  EmojiCache({super.client, super.maxConcurrent, super.retryAfter});
+  EmojiCache({
+    super.client,
+    super.maxConcurrent,
+    super.retryAfter,
+    super.coordinator,
+    super.store,
+  });
 
   /// Swappable so tests do not reach the network.
-  static EmojiCache instance = EmojiCache();
+  static EmojiCache instance = EmojiCache(
+    coordinator: MediaRequestCoordinator.shared,
+  );
 
   @override
   Uint8List? decode(http.Response response) =>

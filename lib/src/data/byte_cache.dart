@@ -6,8 +6,10 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../diagnostics/diagnostics_controller.dart';
+import 'byte_cache_store.dart';
 import 'discourse_api.dart';
 import 'http_transport.dart';
+import 'media_request_coordinator.dart';
 
 /// Deduplicates image fetches and keeps their concurrency bounded.
 ///
@@ -35,16 +37,26 @@ abstract class ByteCache<T extends Object> {
     this.retryAfter = const Duration(minutes: 2),
     this.timeout = const Duration(seconds: 10),
     this.maxRedirects = 5,
+    MediaRequestCoordinator? coordinator,
+    this.store,
   }) : assert(maxConcurrent > 0),
        assert(maxEntries > 0),
        assert(maxResponseBytes > 0),
        assert(maxCachedBytes > 0),
        assert(maxRedirects >= 0),
+       _coordinator =
+           coordinator ??
+           MediaRequestCoordinator(
+             maxConcurrentPerOrigin: maxConcurrent,
+             defaultRateLimitCooldown: retryAfter,
+           ),
        _client = client == null
            ? SafeHttpClient.create()
            : SafeHttpClient.borrowed(client);
 
   final http.Client _client;
+  final MediaRequestCoordinator _coordinator;
+  final ByteCacheStore? store;
   final int maxConcurrent;
 
   /// How many results or unique pending loads are held.
@@ -172,8 +184,37 @@ abstract class ByteCache<T extends Object> {
   }
 
   Future<T?> _fetch(String url, Object generation) async {
+    // Disk misses can fan out just as aggressively as network misses. Take the
+    // cache's work slot before either one so a cold screen cannot start one
+    // filesystem read per visible avatar while HTTP is correctly bounded.
     if (!await _acquire(generation)) return null;
     try {
+      final persistent = store;
+      if (persistent != null) {
+        try {
+          final bytes = await persistent.read(url);
+          if (bytes != null && identical(_generation, generation)) {
+            final response = http.Response.bytes(
+              bytes,
+              200,
+              request: http.Request('GET', Uri.parse(url)),
+            );
+            final decoded = decode(response);
+            if (decoded != null) {
+              _put(url, decoded, byteSize: bytes.length);
+              return decoded;
+            }
+          }
+        } catch (error, stackTrace) {
+          // Cache corruption or an unavailable cache directory is a miss,
+          // never a reason to leave a drawable image blank.
+          _report(error, stackTrace, url, 'image.cacheRead');
+        }
+      }
+      // This is the generation check which used to happen when the work slot
+      // was acquired after the disk lookup.
+      if (!identical(_generation, generation)) return null;
+
       final downloaded = await _download(url);
       final response = downloaded.response;
       bool current() => identical(_generation, generation);
@@ -219,7 +260,33 @@ abstract class ByteCache<T extends Object> {
           byteSize: decoded == null ? 0 : response.bodyBytes.length,
         );
       }
+      if (decoded != null && persistent != null && downloaded.persistable) {
+        final expiresAt = persistentByteCacheExpiry(
+          response.headers,
+          DateTime.now(),
+        );
+        if (expiresAt != null) {
+          try {
+            await persistent.write(
+              url,
+              response.bodyBytes,
+              expiresAt: expiresAt,
+            );
+          } catch (error, stackTrace) {
+            _report(error, stackTrace, url, 'image.cacheWrite');
+          }
+        }
+      }
       return decoded;
+    } on MediaOriginRateLimitedException {
+      // This URL never reached the network: another native-managed media
+      // request put its whole origin into cooldown. Remember it as transient
+      // without producing one diagnostic per rejected avatar/emoji.
+      if (identical(_generation, generation)) {
+        _rememberTransientFailure(url);
+        _put(url, null, byteSize: 0);
+      }
+      return null;
     } catch (error, stackTrace) {
       _report(error, stackTrace, url, 'image.load');
       // Offline or timed out: worth another go later.
@@ -252,79 +319,119 @@ abstract class ByteCache<T extends Object> {
     );
   }
 
-  Future<({http.Response response, bool oversized})> _download(
-    String url,
-  ) async {
+  Future<({http.Response response, bool oversized, bool persistable})>
+  _download(String url) async {
     final elapsed = Stopwatch()..start();
-    var current = requireSafeHttpUrl(Uri.parse(url));
+    final original = requireSafeHttpUrl(Uri.parse(url));
+    var current = original;
     var redirects = 0;
+    var persistable = true;
 
     while (true) {
-      final sent = await _send(current, elapsed);
-      final streamed = sent.response;
-      final location = streamed.headers['location'];
-      if (_isRedirect(streamed.statusCode) && location != null) {
-        _cancel(streamed.stream);
-        if (redirects >= maxRedirects) {
-          throw http.ClientException('Too many image redirects', current);
+      final sent = await _send(current, original, elapsed);
+      try {
+        final streamed = sent.response;
+        // The bytes are keyed by the original URL, so every response which
+        // resolves that URL participates in its storage policy. In particular,
+        // a public CDN target must not override a private/no-store redirect.
+        persistable =
+            persistable && responseAllowsPersistentByteCache(streamed.headers);
+        final location = streamed.headers['location'];
+        if (_isRedirect(streamed.statusCode) && location != null) {
+          _cancel(streamed.stream);
+          if (redirects >= maxRedirects) {
+            throw http.ClientException('Too many image redirects', current);
+          }
+          current = resolveSafeHttpRedirect(current, location);
+          redirects++;
+          continue;
         }
-        current = resolveSafeHttpRedirect(current, location);
-        redirects++;
-        continue;
-      }
 
-      final contentLength = streamed.contentLength;
-      if (contentLength != null && contentLength > maxResponseBytes) {
-        _cancel(streamed.stream);
-        return (response: _response(streamed, Uint8List(0)), oversized: true);
-      }
+        final contentLength = streamed.contentLength;
+        if (contentLength != null && contentLength > maxResponseBytes) {
+          _cancel(streamed.stream);
+          return (
+            response: _response(streamed, Uint8List(0)),
+            oversized: true,
+            persistable: persistable,
+          );
+        }
 
-      if (streamed.statusCode != 200) {
-        _cancel(streamed.stream);
-        return (response: _response(streamed, Uint8List(0)), oversized: false);
-      }
+        if (streamed.statusCode != 200) {
+          _cancel(streamed.stream);
+          return (
+            response: _response(streamed, Uint8List(0)),
+            oversized: false,
+            persistable: persistable,
+          );
+        }
 
-      final Duration remaining;
-      try {
-        remaining = _remaining(elapsed);
-      } on TimeoutException {
-        _abort(sent.timeoutAbort);
-        _cancel(streamed.stream);
-        rethrow;
+        final Duration remaining;
+        try {
+          remaining = _remaining(elapsed);
+        } on TimeoutException {
+          _abort(sent.timeoutAbort);
+          _cancel(streamed.stream);
+          rethrow;
+        }
+        final Uint8List? bytes;
+        try {
+          bytes = await _readAtMost(streamed.stream, remaining);
+        } on TimeoutException {
+          _abort(sent.timeoutAbort);
+          rethrow;
+        }
+        return (
+          response: _response(streamed, bytes ?? Uint8List(0)),
+          oversized: bytes == null,
+          persistable: persistable,
+        );
+      } finally {
+        sent.lease.release();
       }
-      final Uint8List? bytes;
-      try {
-        bytes = await _readAtMost(streamed.stream, remaining);
-      } on TimeoutException {
-        _abort(sent.timeoutAbort);
-        rethrow;
-      }
-      return (
-        response: _response(streamed, bytes ?? Uint8List(0)),
-        oversized: bytes == null,
-      );
     }
   }
 
-  Future<({http.StreamedResponse response, Completer<void> timeoutAbort})>
-  _send(Uri url, Stopwatch elapsed) async {
+  Future<
+    ({
+      http.StreamedResponse response,
+      Completer<void> timeoutAbort,
+      MediaRequestLease lease,
+    })
+  >
+  _send(Uri url, Uri original, Stopwatch elapsed) async {
+    final lease = await _coordinator.acquire(url, relatedUrl: original);
     final timeoutAbort = Completer<void>();
-    final request =
-        http.AbortableRequest('GET', url, abortTrigger: timeoutAbort.future)
-          // Sites are friendlier to a request that identifies itself.
-          ..headers['User-Agent'] = DiscourseApi.userAgent
-          ..followRedirects = false;
-    final response = _client.send(request);
+    Future<http.StreamedResponse>? response;
     try {
-      return (
-        response: await response.timeout(_remaining(elapsed)),
-        timeoutAbort: timeoutAbort,
-      );
+      // A request may have waited behind the shared avatar/emoji gate. Do not
+      // start it after this load's complete timeout budget has elapsed.
+      final remaining = _remaining(elapsed);
+      final request =
+          http.AbortableRequest('GET', url, abortTrigger: timeoutAbort.future)
+            // Sites are friendlier to a request that identifies itself.
+            ..headers['User-Agent'] = DiscourseApi.userAgent
+            ..followRedirects = false;
+      response = _client.send(request);
+      final streamed = await response.timeout(remaining);
+      if (streamed.statusCode == 429) {
+        // A CDN 429 also gates the source forum. Otherwise queued forum avatar
+        // URLs would all continue producing redirects into the blocked CDN.
+        lease.rateLimited(streamed.headers);
+      }
+      return (response: streamed, timeoutAbort: timeoutAbort, lease: lease);
     } on TimeoutException {
       _abort(timeoutAbort);
       response
-          .then<void>((lateResponse) => _cancel(lateResponse.stream))
+          ?.then<void>(
+            (lateResponse) => _cancel(lateResponse.stream),
+            onError: (Object _, StackTrace _) {},
+          )
           .ignore();
+      lease.release();
+      rethrow;
+    } catch (_) {
+      lease.release();
       rethrow;
     }
   }
