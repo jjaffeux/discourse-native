@@ -1489,18 +1489,43 @@ class ShellController extends FrameSafeNotifier {
     return route.postNumber;
   }
 
+  /// Where the remembered post's leading edge sat relative to the viewport.
+  ///
+  /// This is usually zero or negative. Keeping it separately from the post
+  /// number matters for posts taller than the viewport: revealing only their
+  /// number would always reopen them at the beginning.
+  double topicScrollPostOffset(int topicId) {
+    final tab = activeTab;
+    final route = currentContent;
+    if (tab == null || route?.topicId != topicId) return 0;
+    final anchor = tab.anchors[route!.id];
+    return anchor?.kind == 'topic' ? anchor!.offset : 0;
+  }
+
   /// Records the first visible post for the active topic tab.
-  void saveTopicScrollPost(int topicId, int postNumber) {
+  void saveTopicScrollPost(
+    int topicId,
+    int postNumber, {
+    double viewportOffset = 0,
+  }) {
     final tab = activeTab;
     final route = currentContent;
     if (tab == null || route?.topicId != topicId) return;
     final previous = tab.anchors[route!.id];
-    if (previous?.kind == 'topic' && previous?.itemId == postNumber) return;
+    if (previous?.kind == 'topic' &&
+        previous?.itemId == postNumber &&
+        previous?.offset == viewportOffset) {
+      return;
+    }
     _replaceActiveTab(
       tab.copyWith(
         anchors: {
           ...tab.anchors,
-          route.id: ForumTabAnchor(kind: 'topic', itemId: postNumber),
+          route.id: ForumTabAnchor(
+            kind: 'topic',
+            itemId: postNumber,
+            offset: viewportOffset,
+          ),
         },
       ),
     );

@@ -62,6 +62,8 @@ class _TopicViewState extends State<TopicView> {
   bool _restored = false;
   bool _restoring = false;
   bool _lookScheduled = false;
+  bool _saveAnchorAfterLook = false;
+  int? _savedAnchorPostNumber;
   String? _recommendationsPanelSiteUrl;
   bool _recommendationsPanelCollapsed = false;
   int _recommendationsPanelRestoreGeneration = 0;
@@ -93,6 +95,8 @@ class _TopicViewState extends State<TopicView> {
     _restored = false;
     _restoring = false;
     _lookScheduled = false;
+    _saveAnchorAfterLook = false;
+    _savedAnchorPostNumber = null;
     _seen = null;
     _scroll = ScrollController();
     _list = ListController();
@@ -117,14 +121,35 @@ class _TopicViewState extends State<TopicView> {
       return;
     }
     _restored = true;
-    if (index <= 0) return;
+    if (index <= 0 &&
+        controller.topicScrollPostOffset(snapshot.topicId!) == 0) {
+      return;
+    }
     final identity = (snapshot.siteUrl!, snapshot.topicId!);
     _restoring = true;
 
     void jumpToTarget() {
       if (!_isCurrent(controller, identity)) return;
-      final currentIndex = _TopicViewSnapshot.from(controller).initialPostIndex;
-      if (currentIndex != null) _jumpTo(currentIndex);
+      final current = _TopicViewSnapshot.from(controller);
+      final currentIndex = current.initialPostIndex;
+      if (currentIndex != null) {
+        final postIndex = currentIndex - (current.hasEarlier ? 1 : 0);
+        final target = controller.topicScrollPostNumber(snapshot.topicId!);
+        final post = postIndex >= 0 && postIndex < current.postIds.length
+            ? controller.store.read<Post>(
+                snapshot.siteUrl!,
+                current.postIds[postIndex],
+              )
+            : null;
+        _jumpTo(
+          currentIndex,
+          // A deleted anchor falls forward to the next post. Its old pixel
+          // offset belongs to the deleted post and must not be applied there.
+          viewportOffset: post?.postNumber == target
+              ? controller.topicScrollPostOffset(snapshot.topicId!)
+              : 0,
+        );
+      }
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -142,7 +167,7 @@ class _TopicViewState extends State<TopicView> {
     });
   }
 
-  void _jumpTo(int index) {
+  void _jumpTo(int index, {double viewportOffset = 0}) {
     final list = _list;
     final scroll = _scroll;
     if (list == null || scroll == null) return;
@@ -150,6 +175,13 @@ class _TopicViewState extends State<TopicView> {
     // `separated` interleaves a separator after every logical item, and the
     // ListController addresses that expanded child list.
     list.jumpToItem(index: index * 2, scrollController: scroll, alignment: 0);
+    if (viewportOffset == 0 || !scroll.hasClients) return;
+    final position = scroll.position;
+    scroll.jumpTo(
+      (position.pixels - viewportOffset)
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble(),
+    );
   }
 
   bool _isCurrent(ShellController controller, (String, int) topicIdentity) =>
@@ -215,16 +247,23 @@ class _TopicViewState extends State<TopicView> {
 
   /// Measures the viewport after layout. This also covers short topics that
   /// never produce a scroll notification at all.
-  void _scheduleLook() {
+  void _scheduleLook({bool saveAnchor = false}) {
+    _saveAnchorAfterLook = _saveAnchorAfterLook || saveAnchor;
     if (_lookScheduled) return;
     _lookScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _lookScheduled = false;
+      final saveAnchor = _saveAnchorAfterLook;
+      _saveAnchorAfterLook = false;
       final controller = _controller;
       final identity = _topicIdentity;
       if (controller == null || identity == null) return;
       if (!_isCurrent(controller, identity)) return;
-      _noteWhatIsOnScreen(controller, _TopicViewSnapshot.from(controller));
+      _noteWhatIsOnScreen(
+        controller,
+        _TopicViewSnapshot.from(controller),
+        saveAnchor: saveAnchor,
+      );
     });
   }
 
@@ -233,8 +272,9 @@ class _TopicViewState extends State<TopicView> {
   /// receipt for every pixel of a fling.
   void _noteWhatIsOnScreen(
     ShellController controller,
-    _TopicViewSnapshot snapshot,
-  ) {
+    _TopicViewSnapshot snapshot, {
+    bool saveAnchor = false,
+  }) {
     if (!_restored || _restoring || _list?.isAttached != true) return;
     final range = _list!.visibleRange;
     if (range == null) return;
@@ -249,8 +289,15 @@ class _TopicViewState extends State<TopicView> {
         snapshot.siteUrl!,
         snapshot.postIds[postIndex],
       );
-      if (post != null) {
-        controller.saveTopicScrollPost(snapshot.topicId!, post.postNumber);
+      if (post != null &&
+          (saveAnchor || _savedAnchorPostNumber != post.postNumber)) {
+        controller.saveTopicScrollPost(
+          snapshot.topicId!,
+          post.postNumber,
+          viewportOffset:
+              _offsetBeforeChild(_list!, childIndex) - _scroll!.position.pixels,
+        );
+        _savedAnchorPostNumber = post.postNumber;
       }
       break;
     }
@@ -572,7 +619,7 @@ class _TopicViewState extends State<TopicView> {
           // SuperSliverList publishes its new visible range during layout,
           // after the scroll notification. Looking synchronously here reads
           // the previous viewport and repeatedly credits the old post.
-          _scheduleLook();
+          _scheduleLook(saveAnchor: notification is ScrollEndNotification);
           // A failed page stays suppressed through the rebuild it causes, so
           // it cannot retry in a tight loop. A fresh scroll deliberately
           // re-arms that same page, including when the pane is too short to

@@ -71,6 +71,76 @@ void main() {
     expect(controller.currentContent?.postNumber, 30);
   });
 
+  testWidgets('reopening restores the position within a long final post', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+    final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([site]),
+      api: api,
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        const TopicDetail(id: 1, title: 'One', stream: [100], postsCount: 1),
+      )
+      ..putAll(site.url, [
+        Post(
+          id: 100,
+          postNumber: 1,
+          username: 'sam',
+          cooked: List.filled(80, '<p>A long final post</p>').join(),
+        ),
+      ])
+      ..put(
+        site.url,
+        const Topic(
+          id: 1,
+          title: 'One',
+          slug: 'one',
+          unreadPosts: 1,
+          highestPostNumber: 1,
+        ),
+      );
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+    var list = tester.widget<SuperListView>(find.byType(SuperListView));
+    list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(
+      list.controller!.position.pixels,
+      closeTo(list.controller!.position.maxScrollExtent, 1),
+    );
+    expect(api.topicReadsRecorded.last, (topicId: 1, postNumber: 1));
+    final row = controller.store.read<Topic>(site.url, 1)!;
+    expect(row.hasUnread, isFalse);
+
+    expect(controller.handleBack(), isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    controller.openTopic(row);
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+
+    list = tester.widget<SuperListView>(find.byType(SuperListView));
+    expect(
+      list.controller!.position.pixels,
+      closeTo(list.controller!.position.maxScrollExtent, 1),
+    );
+  });
+
   testWidgets(
     'records the visible range after programmatic scrolling lays out',
     (tester) async {
