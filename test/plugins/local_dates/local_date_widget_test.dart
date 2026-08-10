@@ -64,6 +64,10 @@ void main() {
   testWidgets('compacts a same-device-day range to the ending time', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1200, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
     await pump(
       tester,
       '<p><span class="discourse-local-date" data-range="from" '
@@ -77,6 +81,11 @@ void main() {
     expect(find.byType(LocalDateInline), findsNWidgets(2));
     expect(find.textContaining('10:30'), findsOneWidget);
     expect(find.textContaining('(UTC)'), findsWidgets);
+    expect(
+      tester.getTopLeft(find.byType(LocalDateInline).first).dy,
+      closeTo(tester.getTopLeft(find.byType(LocalDateInline).last).dy, 1),
+      reason: 'range dates should remain on the same line when they fit',
+    );
   });
 
   testWidgets('activation opens device, source, and extra zone previews', (
