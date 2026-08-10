@@ -13,6 +13,17 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 # Available Actions
 
+### beta
+
+```sh
+[bundle exec] fastlane beta
+```
+
+Build and upload iOS and macOS builds to TestFlight
+
+----
+
+
 ## iOS
 
 ### ios preflight
@@ -21,7 +32,7 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 [bundle exec] fastlane ios preflight
 ```
 
-Run the local checks and create an unsigned TestFlight archive
+Run local checks and create an unsigned iOS archive
 
 ----
 

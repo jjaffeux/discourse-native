@@ -1,26 +1,234 @@
 opt_out_usage
 
+APP_IDENTIFIER = "org.discourse.native"
+DEVELOPER_TEAM_ID = "6T3LU73T8S"
+PROJECT_ROOT = File.expand_path("..", __dir__)
+TESTFLIGHT_OUTPUT = File.join(PROJECT_ROOT, "build", "testflight")
+
 default_platform(:ios)
 
-platform :ios do
-  desc "Run the local checks and create an unsigned TestFlight archive"
-  lane :preflight do
-    project_root = File.expand_path("..", __dir__)
+def boolean_option(value, name:, default: nil)
+  return default if value.nil?
+  return value if value == true || value == false
 
-    Dir.chdir(project_root) do
-      sh("flutter", "pub", "get", "--enforce-lockfile")
-      sh(
-        "dart",
-        "format",
-        "--output=none",
-        "--set-exit-if-changed",
-        "lib",
-        "test",
-        "integration_test",
-        "tool"
-      )
-      sh("flutter", "analyze")
-      sh("flutter", "test")
+  normalized = value.to_s.strip.downcase
+  return true if %w[1 true yes].include?(normalized)
+  return false if %w[0 false no].include?(normalized)
+
+  UI.user_error!("#{name} must be true or false")
+end
+
+def required_api_key_path(options)
+  path = options[:api_key_path] || ENV["APP_STORE_CONNECT_API_KEY_PATH"]
+  UI.user_error!(
+    "Set APP_STORE_CONNECT_API_KEY_PATH to a Fastlane API-key JSON file"
+  ) if path.to_s.strip.empty?
+
+  expanded = File.expand_path(path)
+  UI.user_error!("API-key JSON not found at #{expanded}") unless File.file?(expanded)
+  expanded
+end
+
+def required_version(options)
+  version = options[:version].to_s.strip
+  UI.user_error!("Pass a version, for example version:1.0.1") if version.empty?
+  UI.user_error!("Version must have the form x.y.z") unless version.match?(/\A\d+\.\d+\.\d+\z/)
+  version
+end
+
+def required_encryption_answer(options)
+  value = options[:uses_non_exempt_encryption]
+  value = ENV["FASTLANE_USES_NON_EXEMPT_ENCRYPTION"] if value.nil?
+  UI.user_error!(
+    "Set FASTLANE_USES_NON_EXEMPT_ENCRYPTION to true or false after confirming export compliance"
+  ) if value.nil? || value.to_s.strip.empty?
+
+  boolean_option(value, name: "uses_non_exempt_encryption")
+end
+
+def ensure_clean_worktree!(allow_dirty:)
+  return if allow_dirty
+
+  status = sh("git", "status", "--porcelain", log: false).strip
+  return if status.empty?
+
+  UI.user_error!(
+    "The worktree is not clean. Commit/stash changes, or pass allow_dirty:true.\n#{status}"
+  )
+end
+
+def numeric_build_number(value, platform:)
+  Integer(value.to_s, 10)
+rescue ArgumentError
+  UI.user_error!(
+    "The latest #{platform} build number (#{value.inspect}) is not an integer"
+  )
+end
+
+private_lane :quality_checks do
+  Dir.chdir(PROJECT_ROOT) do
+    sh("flutter", "pub", "get", "--enforce-lockfile")
+    sh(
+      "dart",
+      "format",
+      "--output=none",
+      "--set-exit-if-changed",
+      "lib",
+      "test",
+      "integration_test",
+      "tool"
+    )
+    sh("flutter", "analyze")
+    sh("flutter", "test")
+  end
+end
+
+desc "Build and upload iOS and macOS builds to TestFlight"
+lane :beta do |options|
+  version = required_version(options)
+  api_key_path = required_api_key_path(options)
+  uses_non_exempt_encryption = required_encryption_answer(options)
+  allow_dirty = boolean_option(options[:allow_dirty], name: "allow_dirty", default: false)
+  skip_checks = boolean_option(options[:skip_checks], name: "skip_checks", default: false)
+  wait_for_processing = boolean_option(
+    options[:wait_for_processing],
+    name: "wait_for_processing",
+    default: true
+  )
+
+  ensure_clean_worktree!(allow_dirty: allow_dirty)
+  quality_checks unless skip_checks
+  ensure_clean_worktree!(allow_dirty: allow_dirty)
+
+  auth = { api_key_path: api_key_path }
+  latest_ios = latest_testflight_build_number(
+    **auth,
+    app_identifier: APP_IDENTIFIER,
+    version: version,
+    platform: "ios",
+    initial_build_number: 0
+  )
+  latest_macos = latest_testflight_build_number(
+    **auth,
+    app_identifier: APP_IDENTIFIER,
+    version: version,
+    platform: "osx",
+    initial_build_number: 0
+  )
+
+  next_build = [
+    numeric_build_number(latest_ios, platform: "iOS"),
+    numeric_build_number(latest_macos, platform: "macOS")
+  ].max + 1
+  ios_build = next_build
+  macos_build = next_build + 1
+
+  UI.message("Preparing #{version}: iOS build #{ios_build}, macOS build #{macos_build}")
+
+  ios_artifact = nil
+  macos_artifact = nil
+
+  Dir.chdir(PROJECT_ROOT) do
+    sh(
+      "flutter",
+      "build",
+      "ios",
+      "--release",
+      "--config-only",
+      "--no-codesign",
+      "--build-name=#{version}",
+      "--build-number=#{ios_build}"
+    )
+
+    ios_artifact = build_app(
+      workspace: "ios/Runner.xcworkspace",
+      scheme: "Runner",
+      configuration: "Release",
+      clean: true,
+      archive_path: File.join(TESTFLIGHT_OUTPUT, "ios", "Runner-#{version}-#{ios_build}.xcarchive"),
+      output_directory: File.join(TESTFLIGHT_OUTPUT, "ios"),
+      output_name: "Discourse-#{version}-#{ios_build}",
+      export_method: "app-store",
+      export_options: {
+        method: "app-store",
+        signingStyle: "automatic",
+        teamID: DEVELOPER_TEAM_ID,
+        uploadSymbols: true
+      },
+      xcargs: "-allowProvisioningUpdates DEVELOPMENT_TEAM=#{DEVELOPER_TEAM_ID}"
+    )
+
+    sh(
+      "flutter",
+      "build",
+      "macos",
+      "--release",
+      "--config-only",
+      "--build-name=#{version}",
+      "--build-number=#{macos_build}"
+    )
+
+    macos_artifact = build_app(
+      workspace: "macos/Runner.xcworkspace",
+      scheme: "Runner",
+      configuration: "Release",
+      destination: "generic/platform=macOS",
+      clean: true,
+      archive_path: File.join(TESTFLIGHT_OUTPUT, "macos", "Runner-#{version}-#{macos_build}.xcarchive"),
+      output_directory: File.join(TESTFLIGHT_OUTPUT, "macos"),
+      output_name: "Discourse-#{version}-#{macos_build}",
+      export_method: "app-store",
+      export_options: {
+        method: "app-store",
+        signingStyle: "automatic",
+        teamID: DEVELOPER_TEAM_ID,
+        uploadSymbols: true
+      },
+      xcargs: "-allowProvisioningUpdates DEVELOPMENT_TEAM=#{DEVELOPER_TEAM_ID}"
+    )
+  end
+
+  upload_to_testflight(
+    **auth,
+    app_identifier: APP_IDENTIFIER,
+    app_platform: "ios",
+    ipa: ios_artifact,
+    uses_non_exempt_encryption: uses_non_exempt_encryption,
+    skip_waiting_for_build_processing: true
+  )
+  upload_to_testflight(
+    **auth,
+    app_identifier: APP_IDENTIFIER,
+    app_platform: "osx",
+    pkg: macos_artifact,
+    uses_non_exempt_encryption: uses_non_exempt_encryption,
+    skip_waiting_for_build_processing: !wait_for_processing
+  )
+
+  if wait_for_processing
+    upload_to_testflight(
+      **auth,
+      app_identifier: APP_IDENTIFIER,
+      app_platform: "ios",
+      distribute_only: true,
+      app_version: version,
+      build_number: ios_build.to_s,
+      uses_non_exempt_encryption: uses_non_exempt_encryption,
+      skip_waiting_for_build_processing: false
+    )
+  end
+
+  UI.success(
+    "Uploaded iOS #{version} (#{ios_build}) and macOS #{version} (#{macos_build}) to TestFlight"
+  )
+end
+
+platform :ios do
+  desc "Run local checks and create an unsigned iOS archive"
+  lane :preflight do
+    quality_checks
+
+    Dir.chdir(PROJECT_ROOT) do
       sh("flutter", "build", "ipa", "--release", "--no-codesign")
     end
   end

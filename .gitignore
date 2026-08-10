@@ -63,6 +63,7 @@ fastlane/test_output/
 fastlane/.env
 fastlane/.env.*
 !fastlane/.env.example
+fastlane/*api*key*.json
 *.p8
 *.p12
 *.mobileprovision
