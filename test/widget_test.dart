@@ -7160,6 +7160,13 @@ void main() {
       );
       expect(named, findsOneWidget);
       expect(find.text('codinghorror'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(ReactorList),
+          matching: find.byType(SiteEmojiImage),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('somebody else reacting arrives without a refresh', (

@@ -475,16 +475,6 @@ class _ReactorRow extends StatelessWidget {
                 style: theme.textTheme.bodyMedium,
               ),
             ),
-            // Which emoji they gave. Drawn even in a list already narrowed to
-            // one, because the sheet's title is a count rather than a picture.
-            const SizedBox(width: 8),
-            SiteEmojiImage(
-              siteUrl: siteUrl,
-              name: reactor.reaction,
-              size: 14,
-              alt: ':${reactor.reaction}:',
-              style: theme.textTheme.labelSmall,
-            ),
           ],
         ),
       ),
