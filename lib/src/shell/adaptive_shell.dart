@@ -481,7 +481,7 @@ class _ShellLoadProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ColoredBox(
     color: Theme.of(context).shell.content,
-    child: const Center(child: CircularProgressIndicator()),
+    child: const Center(child: CircularProgressIndicator.adaptive()),
   );
 }
 

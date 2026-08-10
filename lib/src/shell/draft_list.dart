@@ -8,6 +8,8 @@ import '../models/topic.dart';
 import '../models/user_draft.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'adaptive_activity_indicator.dart';
+import 'adaptive_dialog_action.dart';
 import 'external_link.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
@@ -63,25 +65,21 @@ class _DraftListViewState extends State<DraftListView> {
   }
 
   Future<void> _remove(UserDraft draft) async {
-    final theme = Theme.of(context);
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAdaptiveDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AlertDialog.adaptive(
         title: const Text('Remove draft?'),
         content: Text(
           '“${draft.displayTitle}” will be permanently removed from this '
           'account.',
         ),
         actions: [
-          TextButton(
+          AdaptiveDialogAction(
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: theme.colorScheme.error,
-              foregroundColor: theme.colorScheme.onError,
-            ),
+          AdaptiveDialogAction(
+            kind: AdaptiveDialogActionKind.destructive,
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Remove'),
           ),
@@ -111,7 +109,7 @@ class _DraftListViewState extends State<DraftListView> {
 
         final feed = controller.draftList.feedFor(widget.siteUrl);
         if (!feed.loaded && feed.drafts.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator.adaptive());
         }
         if (feed.isEmpty) {
           return const _DraftState(
@@ -239,7 +237,9 @@ class _Drafts extends StatelessWidget {
                   child: feed.loading
                       ? const SizedBox.square(
                           dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
                         )
                       : const Text('Load more'),
                 ),
@@ -481,9 +481,10 @@ class _DraftAction extends StatelessWidget {
               child: loading
                   ? SizedBox.square(
                       dimension: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
+                      child: AdaptiveActivityIndicator(
                         color: foregroundColor,
+                        cupertinoRadius: 9,
+                        materialStrokeWidth: 2,
                       ),
                     )
                   : DIcon(icon, size: 18, color: foregroundColor),

@@ -10,6 +10,7 @@ import '../foundation/diagnostic_errors.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'adaptive_activity_indicator.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'site_url.dart';
@@ -430,7 +431,11 @@ class _LightboxGalleryState extends State<LightboxGallery> {
       loadingBuilder: (context, event) => const Center(
         child: SizedBox.square(
           dimension: 24,
-          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          child: AdaptiveActivityIndicator(
+            color: Colors.white,
+            cupertinoRadius: 12,
+            materialStrokeWidth: 2,
+          ),
         ),
       ),
       builder: (context, index) {

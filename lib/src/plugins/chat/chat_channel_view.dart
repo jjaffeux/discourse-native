@@ -105,7 +105,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
   Widget _buildChannel(ChatStreamState stream) {
     if (stream.loading && stream.messageIds.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator.adaptive());
     }
     if (stream.error case final error?) {
       return _Message(icon: DIcons.triangleExclamation, text: error);
@@ -916,7 +916,7 @@ class _LoadingOlderRow extends StatelessWidget {
       child: SizedBox(
         width: 20,
         height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
+        child: CircularProgressIndicator.adaptive(strokeWidth: 2),
       ),
     ),
   );

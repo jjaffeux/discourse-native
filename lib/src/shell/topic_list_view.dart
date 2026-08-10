@@ -9,6 +9,7 @@ import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'adaptive_activity_indicator.dart';
 import 'avatar_image.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
@@ -194,7 +195,7 @@ class _TopicListViewState extends State<TopicListView> {
     final feed = widget.feed;
 
     if (feed.loading && feed.topicIds.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator.adaptive());
     }
     if (feed.error case final error?) {
       return _Message(icon: DIcons.triangleExclamation, text: error);
@@ -311,9 +312,10 @@ class _IncomingBanner extends StatelessWidget {
                 SizedBox(
                   width: 14,
                   height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
+                  child: AdaptiveActivityIndicator(
                     color: foreground,
+                    cupertinoRadius: 7,
+                    materialStrokeWidth: 2,
                   ),
                 )
               else
@@ -347,7 +349,7 @@ class _LoadingMoreRow extends StatelessWidget {
       child: SizedBox(
         width: 20,
         height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
+        child: CircularProgressIndicator.adaptive(strokeWidth: 2),
       ),
     ),
   );

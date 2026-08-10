@@ -872,7 +872,7 @@ class UserMenuAvatar extends StatelessWidget {
         height: size,
         child: const Padding(
           padding: EdgeInsets.all(4),
-          child: CircularProgressIndicator(strokeWidth: 2),
+          child: CircularProgressIndicator.adaptive(strokeWidth: 2),
         ),
       );
     }

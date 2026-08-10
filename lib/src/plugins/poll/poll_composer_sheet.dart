@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../shell/adaptive_dialog_action.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
 import 'poll_composer_editor.dart';
@@ -113,20 +114,21 @@ Future<bool> confirmPublishedPollRemoval(
       ? 'This poll may already have votes.'
       : 'This poll has $voterCount '
             '${voterCount == 1 ? 'voter' : 'voters'}.';
-  return await showDialog<bool>(
+  return await showAdaptiveDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => AlertDialog.adaptive(
           title: const Text('Remove published poll?'),
           content: Text(
             '$detail Removing it will remove the poll from the post.',
           ),
           actions: [
-            TextButton(
+            AdaptiveDialogAction(
               onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
             ),
-            FilledButton(
+            AdaptiveDialogAction(
               onPressed: () => Navigator.of(context).pop(true),
+              kind: AdaptiveDialogActionKind.destructive,
               child: const Text('Remove poll'),
             ),
           ],

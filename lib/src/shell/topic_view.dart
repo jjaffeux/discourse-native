@@ -519,7 +519,7 @@ class _TopicViewState extends State<TopicView> {
 
     if (snapshot.topicId == null) {
       if (snapshot.loading) {
-        return const Center(child: CircularProgressIndicator());
+        return const Center(child: CircularProgressIndicator.adaptive());
       }
       return Center(
         child: Padding(
@@ -1021,7 +1021,9 @@ class _EarlierPostsRow extends StatelessWidget {
       child: SizedBox(
         width: 20,
         height: 20,
-        child: loading ? const CircularProgressIndicator(strokeWidth: 2) : null,
+        child: loading
+            ? const CircularProgressIndicator.adaptive(strokeWidth: 2)
+            : null,
       ),
     ),
   );
@@ -1252,7 +1254,7 @@ class _LoadingPostsRow extends StatelessWidget {
       child: SizedBox(
         width: 20,
         height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
+        child: CircularProgressIndicator.adaptive(strokeWidth: 2),
       ),
     ),
   );

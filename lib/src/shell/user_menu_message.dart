@@ -34,7 +34,7 @@ class UserMenuMessage extends StatelessWidget {
             ? const SizedBox(
                 width: 22,
                 height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
               )
             : Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),

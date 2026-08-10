@@ -63,6 +63,7 @@ import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart';
@@ -80,6 +81,13 @@ import 'support/finders.dart';
 const Size phone = Size(390, 844);
 const Size laptop = Size(1000, 800);
 const Size desktop = Size(1440, 900);
+
+Finder get activityIndicators => find.byWidgetPredicate(
+  (widget) =>
+      widget is CircularProgressIndicator ||
+      widget is CupertinoActivityIndicator,
+  description: 'adaptive activity indicator',
+);
 
 final List<DiscourseInstance> twoSites = [
   instance('meta.discourse.org', title: 'Discourse Meta'),
@@ -6457,7 +6465,7 @@ void main() {
       expect(find.textContaining('Too fast'), findsOneWidget);
       expect(count('2'), findsOneWidget);
       // Names, not a spinner, and asked for again rather than assumed.
-      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(activityIndicators, findsNothing);
       expect(find.text('Sam Saffron'), findsOneWidget);
       expect(api.likersRequested, [1, 1]);
     });
@@ -8033,7 +8041,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Check for updates'), findsNothing);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(activityIndicators, findsOneWidget);
 
       gate.complete();
       await tester.pumpAndSettle();
@@ -8206,7 +8214,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('Downloading'), findsNothing);
 
-      await tester.tap(find.byType(CircularProgressIndicator).last);
+      await tester.tap(activityIndicators.last);
       await tester.pumpAndSettle();
 
       // Still the same download, at the same point, not restarted.
@@ -8907,7 +8915,7 @@ void main() {
 
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pump();
-        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(activityIndicators, findsOneWidget);
 
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         var shellNotifications = 0;

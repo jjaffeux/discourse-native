@@ -411,7 +411,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(16),
-                child: CircularProgressIndicator(),
+                child: CircularProgressIndicator.adaptive(),
               ),
             )
           else if (_suggestions != null) ...[
@@ -528,7 +528,9 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
                 icon: _saving
                     ? const SizedBox.square(
                         dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                        ),
                       )
                     : const DIcon(DIcons.check),
                 label: Text(widget.existing == null ? 'Assign' : 'Save'),

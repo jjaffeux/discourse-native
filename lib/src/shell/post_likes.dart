@@ -328,7 +328,7 @@ class _LikersViewState extends State<_LikersView> {
             child: SizedBox(
               width: 18,
               height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
             ),
           ),
         );

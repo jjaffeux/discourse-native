@@ -238,7 +238,9 @@ class _RecentDraftsMenu extends StatelessWidget {
                     child: Center(
                       child: SizedBox.square(
                         dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                        ),
                       ),
                     ),
                   )

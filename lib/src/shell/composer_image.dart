@@ -55,7 +55,7 @@ class ComposerImagePreview extends StatelessWidget {
                 fit: BoxFit.contain,
                 errorBuilder: (_, _, _) => _ImageFallback(label: image.alt),
                 placeholderBuilder: (_) => const Center(
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 ),
               )
             : _MeasuredNetworkImage(
@@ -133,7 +133,9 @@ class _MeasuredNetworkImageState extends State<_MeasuredNetworkImage> {
     widget.url,
     fit: BoxFit.contain,
     frameBuilder: (context, child, frame, _) => frame == null
-        ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+        ? const Center(
+            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+          )
         : child,
     errorBuilder: (_, _, _) => widget.fallback,
   );

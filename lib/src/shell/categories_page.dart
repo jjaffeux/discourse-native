@@ -105,7 +105,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
   Widget build(BuildContext context) {
     final feed = widget.feed;
     if (!feed.loaded && feed.categoryIds.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator.adaptive());
     }
     if (feed.error != null && feed.categoryIds.isEmpty) {
       return _CategoryPageState(
@@ -166,7 +166,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
                     child: Center(
                       child: SizedBox.square(
                         dimension: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                        ),
                       ),
                     ),
                   ),

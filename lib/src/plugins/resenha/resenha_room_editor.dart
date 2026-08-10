@@ -90,17 +90,17 @@ class _ResenhaRoomEditorDialogState extends State<_ResenhaRoomEditorDialog> {
               minLines: 2,
               maxLines: 5,
             ),
-            SwitchListTile(
+            SwitchListTile.adaptive(
               value: _isPublic,
               onChanged: (value) => setState(() => _isPublic = value),
               title: const Text('Public room'),
             ),
-            SwitchListTile(
+            SwitchListTile.adaptive(
               value: _stage,
               onChanged: (value) => setState(() => _stage = value),
               title: const Text('Stage room'),
             ),
-            SwitchListTile(
+            SwitchListTile.adaptive(
               value: _video,
               onChanged: (value) => setState(() => _video = value),
               title: const Text('Allow video'),
@@ -143,7 +143,7 @@ class _ResenhaRoomEditorDialogState extends State<_ResenhaRoomEditorDialog> {
               ),
             ),
             if (_room?.livekitEnabled != null)
-              SwitchListTile(
+              SwitchListTile.adaptive(
                 value: _livekit,
                 onChanged: (value) => setState(() => _livekit = value),
                 title: const Text('Use LiveKit'),

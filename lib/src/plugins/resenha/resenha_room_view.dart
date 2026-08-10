@@ -715,7 +715,7 @@ Future<void> _showMediaSettings(
                   },
                 ),
                 if (Platform.isMacOS || Platform.isLinux)
-                  SwitchListTile(
+                  SwitchListTile.adaptive(
                     value: pushToTalk,
                     title: const Text('Push to talk'),
                     subtitle: const Text(
@@ -980,7 +980,9 @@ Future<void> _showResenhaChat(
                   builder: (context, _) {
                     final chat = controller.chat(siteUrl, roomId);
                     if (chat == null || chat.loading) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const Center(
+                        child: CircularProgressIndicator.adaptive(),
+                      );
                     }
                     if (chat.messages.isEmpty) {
                       return const Center(child: Text('No messages yet.'));

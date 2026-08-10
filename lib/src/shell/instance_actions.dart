@@ -4,6 +4,7 @@ import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'adaptive_dialog_action.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -17,12 +18,10 @@ Future<void> confirmInstanceRemoval(
 ) async {
   final controller = ShellScope.read(context);
 
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showAdaptiveDialog<bool>(
     context: context,
     builder: (dialogContext) {
-      final theme = Theme.of(dialogContext);
-
-      return AlertDialog(
+      return AlertDialog.adaptive(
         title: Text('Remove ${instance.title}?'),
         content: Text(
           'This signs out of ${instance.host} and takes it out of the rail. '
@@ -30,16 +29,13 @@ Future<void> confirmInstanceRemoval(
           'any time.',
         ),
         actions: [
-          TextButton(
+          AdaptiveDialogAction(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          AdaptiveDialogAction(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: theme.colorScheme.error,
-              foregroundColor: theme.colorScheme.onError,
-            ),
+            kind: AdaptiveDialogActionKind.destructive,
             child: const Text('Remove'),
           ),
         ],

@@ -898,7 +898,7 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
         if (_loading)
           const Padding(
             padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(child: CircularProgressIndicator.adaptive()),
           )
         else ...[
           if (_result.explanation case final message?)
@@ -1931,7 +1931,7 @@ class _Footer extends StatelessWidget {
                 ? const SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                   )
                 : Text(label),
           ),

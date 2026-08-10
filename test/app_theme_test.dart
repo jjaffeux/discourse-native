@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -202,6 +203,20 @@ void main() {
       expect(theme.discourse.love, source.love);
     });
 
+    test('maps the site palette into adaptive Cupertino controls', () {
+      final source = palette();
+      final theme = AppTheme.fromPalette(source);
+      final cupertino = theme.cupertinoOverrideTheme!;
+
+      expect(cupertino.brightness, source.brightness);
+      expect(cupertino.primaryColor, source.tertiary);
+      expect(cupertino.primaryContrastingColor, source.secondary);
+      expect(cupertino.barBackgroundColor, source.primaryVeryLow);
+      expect(cupertino.scaffoldBackgroundColor, source.secondary);
+      expect(cupertino.selectionHandleColor, source.tertiary);
+      expect(cupertino.applyThemeToAll, isTrue);
+    });
+
     test('keeps app-only placeholder colors out of site palettes', () {
       expect(
         AppTheme.fromPalette(palette()).shell.placeholder,
@@ -233,5 +248,25 @@ void main() {
     expect(AppTheme.dark.code, CodeColors.dark);
     expect(AppTheme.light.discourse, DiscourseColors.light);
     expect(AppTheme.dark.discourse, DiscourseColors.dark);
+  });
+
+  testWidgets('MaterialApp exposes the mapped Cupertino theme', (tester) async {
+    late CupertinoThemeData cupertino;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Builder(
+          builder: (context) {
+            cupertino = CupertinoTheme.of(context);
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+
+    expect(cupertino.primaryColor, AppTheme.light.colorScheme.primary);
+    expect(cupertino.barBackgroundColor, AppTheme.light.shell.sidebar);
+    expect(cupertino.scaffoldBackgroundColor, AppTheme.light.shell.content);
+    expect(cupertino.applyThemeToAll, isTrue);
   });
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../models/site_appearance.dart';
@@ -496,6 +497,21 @@ abstract final class AppTheme {
 
     return ThemeData(
       colorScheme: resolvedColorScheme,
+      // MaterialApp remains the common application shell, but Flutter's
+      // adaptive widgets read CupertinoTheme on Apple platforms. Keep that
+      // theme on the same Discourse palette rather than falling back to the
+      // system-blue/system-background defaults.
+      cupertinoOverrideTheme: CupertinoThemeData(
+        brightness: brightness,
+        primaryColor: resolvedColorScheme.primary,
+        primaryContrastingColor: resolvedColorScheme.onPrimary,
+        barBackgroundColor: shell.sidebar,
+        scaffoldBackgroundColor: shell.content,
+        selectionHandleColor: resolvedColorScheme.primary,
+        // Modern iOS and macOS both apply the accent to controls such as
+        // switches. Flutter leaves this off by default for compatibility.
+        applyThemeToAll: true,
+      ).noDefault(),
       // The backdrop the panels sit on, visible above them and behind the rail.
       scaffoldBackgroundColor: shell.rail,
       extensions: [shell, code, discourse],

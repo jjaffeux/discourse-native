@@ -8,6 +8,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'adaptive_dialog_action.dart';
 
 /// The initial width used by both the docked diagnostics sidebar and the
 /// non-phone overlay.
@@ -294,21 +295,22 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
   }
 
   Future<void> _confirmClear() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAdaptiveDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) => AlertDialog.adaptive(
         title: const Text('Clear diagnostics history?'),
         content: const Text(
           'This removes the recorded requests and errors from this device. '
           'Requests already in progress will not be restored afterward.',
         ),
         actions: [
-          TextButton(
+          AdaptiveDialogAction(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          AdaptiveDialogAction(
             onPressed: () => Navigator.of(dialogContext).pop(true),
+            kind: AdaptiveDialogActionKind.destructive,
             child: const Text('Clear history'),
           ),
         ],

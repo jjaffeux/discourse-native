@@ -187,7 +187,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
               ? const SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
               : const Text('Connect'),
         ),
