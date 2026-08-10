@@ -13,11 +13,16 @@ typedef ResenhaSignalSender =
     Future<void> Function(int recipientId, Map<String, Object?> event);
 typedef ResenhaLiveKitCredentialRefresher =
     Future<ResenhaLiveKitCredentials> Function();
+typedef ResenhaPeerConnectionCreator =
+    Future<rtc.RTCPeerConnection> Function(Map<String, dynamic> configuration);
+typedef ResenhaUserMediaGetter =
+    Future<rtc.MediaStream> Function(Map<String, dynamic> constraints);
 
 abstract interface class ResenhaMediaSession implements Listenable {
   ResenhaTransport get transport;
   ResenhaMediaConnectionState get connectionState;
   Object? get localVideoTrack;
+  bool get screenSharing;
   Object? videoTrackFor(int participantId);
   Set<int> get speakingParticipantIds;
 
@@ -109,19 +114,101 @@ abstract base class _ResenhaMediaNotifier extends ChangeNotifier
   }
 }
 
+enum _MeshSource { microphone, video, screenAudio }
+
+final class _MeshSendSlots {
+  _MeshSendSlots({
+    required this.microphone,
+    required this.video,
+    required this.screenAudio,
+  });
+
+  rtc.RTCRtpSender microphone;
+  rtc.RTCRtpSender video;
+  rtc.RTCRtpSender screenAudio;
+
+  rtc.RTCRtpSender sender(_MeshSource source) => switch (source) {
+    _MeshSource.microphone => microphone,
+    _MeshSource.video => video,
+    _MeshSource.screenAudio => screenAudio,
+  };
+
+  void bind(_MeshSource source, rtc.RTCRtpSender sender) {
+    switch (source) {
+      case _MeshSource.microphone:
+        microphone = sender;
+      case _MeshSource.video:
+        video = sender;
+      case _MeshSource.screenAudio:
+        screenAudio = sender;
+    }
+  }
+}
+
+final class _MeshRemoteSlots {
+  rtc.MediaStreamTrack? microphone;
+  rtc.MediaStreamTrack? video;
+  rtc.MediaStreamTrack? screenAudio;
+
+  Iterable<rtc.MediaStreamTrack> get audioTracks sync* {
+    if (microphone case final track?) yield track;
+    if (screenAudio case final track?) yield track;
+  }
+
+  void accept(rtc.RTCTrackEvent event) {
+    final track = event.track;
+    if (track.kind == 'video') {
+      video = track;
+    } else if (event.streams.isEmpty) {
+      screenAudio = track;
+    } else {
+      microphone = track;
+    }
+  }
+
+  void remove(rtc.MediaStreamTrack track) {
+    bool matches(rtc.MediaStreamTrack? value) =>
+        identical(value, track) ||
+        (track.id != null && value?.id != null && value?.id == track.id);
+    if (matches(microphone)) microphone = null;
+    if (matches(video)) video = null;
+    if (matches(screenAudio)) screenAudio = null;
+  }
+}
+
 final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   MeshResenhaMediaSession({
     required this.join,
     required this.localUserId,
     required this.sendSignal,
     required this.audioPublishingAllowed,
-  });
+    ResenhaPeerConnectionCreator? createPeerConnection,
+    ResenhaUserMediaGetter? getUserMedia,
+    ResenhaUserMediaGetter? getDisplayMedia,
+  }) : _createPeerConnection = createPeerConnection ?? rtc.createPeerConnection,
+       _getUserMedia =
+           getUserMedia ??
+           ((constraints) =>
+               rtc.navigator.mediaDevices.getUserMedia(constraints)),
+       _getDisplayMedia =
+           getDisplayMedia ??
+           ((constraints) =>
+               rtc.navigator.mediaDevices.getDisplayMedia(constraints));
 
   final ResenhaJoinResponse join;
   final int localUserId;
   final ResenhaSignalSender sendSignal;
+  final ResenhaPeerConnectionCreator _createPeerConnection;
+  final ResenhaUserMediaGetter _getUserMedia;
+  final ResenhaUserMediaGetter _getDisplayMedia;
   final Map<int, rtc.RTCPeerConnection> _peers = {};
-  final Map<int, rtc.MediaStream> _remoteStreams = {};
+  final Map<int, Future<void>> _peerCreations = {};
+  final Map<int, _MeshSendSlots> _sendSlots = {};
+  final Map<int, _MeshRemoteSlots> _remoteTracks = {};
+  final Map<int, double> _participantVolumes = {};
+  final Map<int, ResenhaRole> _participantRoles = {};
+  final Set<rtc.MediaStream> _ownedLocalStreams =
+      Set<rtc.MediaStream>.identity();
   final Map<int, List<rtc.RTCIceCandidate>> _pendingCandidates = {};
   final Map<int, List<Map<String, Object?>>> _outgoingCandidates = {};
   final Map<int, Timer> _candidateTimers = {};
@@ -135,6 +222,8 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   bool _pollingSpeaking = false;
   Set<int> _speaking = const {};
   String? _audioInputDeviceId;
+  Future<void> _mutationTail = Future<void>.value();
+  bool _closing = false;
 
   @override
   ResenhaTransport get transport => ResenhaTransport.mesh;
@@ -144,35 +233,71 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       ResenhaMediaConnectionState.connected;
 
   @override
-  Object? get localVideoTrack =>
-      _screenStream?.getVideoTracks().firstOrNull ??
-      _localStream?.getVideoTracks().firstOrNull;
+  Object? get localVideoTrack => _screenVideoTrack ?? _cameraTrack;
+
+  @override
+  bool get screenSharing => _screenStream != null;
 
   @override
   Object? videoTrackFor(int participantId) => participantId == localUserId
       ? localVideoTrack
-      : _remoteStreams[participantId]?.getVideoTracks().firstOrNull;
+      : _remoteTracks[participantId]?.video;
+
+  rtc.MediaStreamTrack? get _microphoneTrack =>
+      _localStream?.getAudioTracks().firstOrNull;
+  rtc.MediaStreamTrack? get _cameraTrack =>
+      _localStream?.getVideoTracks().firstOrNull;
+  rtc.MediaStreamTrack? get _screenVideoTrack =>
+      _screenStream?.getVideoTracks().firstOrNull;
+  rtc.MediaStreamTrack? get _screenAudioTrack =>
+      _screenStream?.getAudioTracks().firstOrNull;
+  rtc.MediaStreamTrack? get _publishedVideoTrack =>
+      _screenVideoTrack ?? _cameraTrack;
 
   @override
   Set<int> get speakingParticipantIds => _speaking;
 
   @override
-  Future<void> connect() async {
+  Future<void> connect() => _serialize(_connect);
+
+  Future<void> _connect() async {
     if (audioPublishingAllowed) await _ensureAudioTrack();
-    await syncParticipants(join.room.participants);
+    await _syncParticipants(join.room.participants);
+    if (_closing || disposed) return;
     _speakingTimer = Timer.periodic(
       const Duration(milliseconds: 250),
       (_) => unawaited(_pollSpeakingLevels()),
     );
   }
 
+  Future<void> _serialize(Future<void> Function() action) {
+    if (_closing || disposed) return Future<void>.value();
+    final operation = _mutationTail.then((_) async {
+      if (_closing || disposed) return;
+      await action();
+    });
+    _mutationTail = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return operation;
+  }
+
   Future<void> _pollSpeakingLevels() async {
-    if (_pollingSpeaking || disposed) return;
+    if (_pollingSpeaking || _closing || disposed) return;
     _pollingSpeaking = true;
     final next = <int>{};
     try {
-      for (final entry in _peers.entries) {
-        final reports = await entry.value.getStats();
+      for (final entry in _peers.entries.toList()) {
+        if (_closing || disposed) return;
+        if (!identical(_peers[entry.key], entry.value)) continue;
+        List<rtc.StatsReport> reports;
+        try {
+          reports = await entry.value.getStats();
+        } catch (_) {
+          continue;
+        }
+        if (!identical(_peers[entry.key], entry.value)) continue;
         final audible = reports.any((report) {
           if (report.type != 'inbound-rtp') return false;
           final values = report.values;
@@ -184,7 +309,7 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
         });
         if (audible) next.add(entry.key);
       }
-      if (!setEquals(next, _speaking)) {
+      if (!_closing && !disposed && !setEquals(next, _speaking)) {
         _speaking = Set.unmodifiable(next);
         changed();
       }
@@ -193,9 +318,26 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     }
   }
 
-  Future<void> _ensureAudioTrack() async {
+  Future<void> _ensureAudioTrack({bool syncPeers = true}) async {
     if (_localStream?.getAudioTracks().isNotEmpty == true) return;
-    final stream = await rtc.navigator.mediaDevices.getUserMedia({
+    final (stream, track) = await _captureAudioTrack();
+    final previousLocalStream = _localStream;
+    track.enabled = !_muted;
+    try {
+      await _attachLocalTrack(stream, track);
+      if (syncPeers) await _setSourceTrack(_MeshSource.microphone, track);
+    } catch (_) {
+      await _discardCapturedTrack(
+        stream,
+        track,
+        previousLocalStream: previousLocalStream,
+      );
+      rethrow;
+    }
+  }
+
+  Future<(rtc.MediaStream, rtc.MediaStreamTrack)> _captureAudioTrack() async {
+    final stream = await _getUserMedia({
       'audio': {
         'deviceId': ?_audioInputDeviceId,
         'echoCancellation': true,
@@ -204,11 +346,35 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       },
       'video': false,
     });
-    _localStream ??= stream;
     final track = stream.getAudioTracks().first;
-    track.enabled = !_muted;
-    if (!identical(_localStream, stream)) await _localStream!.addTrack(track);
-    await _replaceTrack(null, track);
+    _ownedLocalStreams.add(stream);
+    return (stream, track);
+  }
+
+  Future<void> _attachLocalTrack(
+    rtc.MediaStream stream,
+    rtc.MediaStreamTrack track,
+  ) async {
+    if (_localStream == null) {
+      _localStream = stream;
+    } else if (!identical(_localStream, stream)) {
+      await _localStream!.addTrack(track);
+    }
+  }
+
+  Future<void> _discardCapturedTrack(
+    rtc.MediaStream stream,
+    rtc.MediaStreamTrack track, {
+    required rtc.MediaStream? previousLocalStream,
+  }) async {
+    if (previousLocalStream == null && identical(_localStream, stream)) {
+      _localStream = null;
+    } else {
+      await _localStream?.removeTrack(track);
+    }
+    await track.stop();
+    _ownedLocalStreams.remove(stream);
+    await stream.dispose();
   }
 
   Map<String, dynamic> get _configuration => {
@@ -225,56 +391,155 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   };
 
   @override
-  Future<void> syncParticipants(List<ResenhaParticipant> participants) async {
+  Future<void> syncParticipants(List<ResenhaParticipant> participants) =>
+      _serialize(() => _syncParticipants(participants));
+
+  Future<void> _syncParticipants(List<ResenhaParticipant> participants) async {
     final wanted = {
       for (final participant in participants)
-        if (participant.id != localUserId) participant.id,
+        if (participant.id != localUserId &&
+            (join.room.type != ResenhaRoomType.stage ||
+                audioPublishingAllowed ||
+                participant.role == ResenhaRole.moderator ||
+                participant.role == ResenhaRole.speaker))
+          participant.id,
+    };
+    final changedRoles = {
+      for (final participant in participants)
+        if (participant.id != localUserId &&
+            _participantRoles[participant.id] != null &&
+            _participantRoles[participant.id] != participant.role)
+          participant.id,
     };
     final gone = _peers.keys.where((id) => !wanted.contains(id)).toList();
     for (final id in gone) {
       await _closePeer(id);
+      _participantVolumes.remove(id);
     }
+    for (final id in changedRoles.difference(gone.toSet())) {
+      await _closePeer(id);
+    }
+    _participantRoles
+      ..removeWhere((id, _) => id != localUserId && !wanted.contains(id))
+      ..addEntries(
+        participants.map(
+          (participant) => MapEntry(participant.id, participant.role),
+        ),
+      );
     for (final id in wanted) {
       if (!_peers.containsKey(id)) await _createPeer(id);
     }
   }
 
-  Future<void> _createPeer(int peerId) async {
-    if (disposed || _peers.containsKey(peerId)) return;
-    final peer = await rtc.createPeerConnection(_configuration);
-    _peers[peerId] = peer;
-    peer.onIceCandidate = (candidate) {
-      if (candidate.candidate == null) return;
-      _queueCandidate(peerId, candidate);
-    };
-    peer.onTrack = (event) {
-      if (event.streams.isNotEmpty) {
-        _remoteStreams[peerId] = event.streams.first;
+  Future<void> _createPeer(int peerId) {
+    if (_closing || disposed || _peers.containsKey(peerId)) {
+      return Future.value();
+    }
+    return _peerCreations.putIfAbsent(peerId, () async {
+      try {
+        await _createPeerNow(peerId);
+      } finally {
+        final _ = _peerCreations.remove(peerId);
+      }
+    });
+  }
+
+  Future<void> _createPeerNow(int peerId) async {
+    if (_closing || disposed || _peers.containsKey(peerId)) return;
+    final peer = await _createPeerConnection(_configuration);
+    var registered = false;
+    if (_closing || disposed || _peers.containsKey(peerId)) {
+      await peer.close();
+      await peer.dispose();
+      return;
+    }
+    try {
+      peer.onIceCandidate = (candidate) {
+        if (candidate.candidate == null) return;
+        _queueCandidate(peerId, candidate);
+      };
+      peer.onTrack = (event) {
+        if (!identical(_peers[peerId], peer)) return;
+        final slots = _remoteTracks[peerId] ??= _MeshRemoteSlots();
+        slots.accept(event);
+        event.track.onEnded = () {
+          if (!identical(_peers[peerId], peer)) return;
+          slots.remove(event.track);
+          _applyRemoteAudio(peerId);
+          changed();
+        };
         _applyRemoteAudio(peerId);
         changed();
-      }
-    };
-    peer.onConnectionState = (state) {
-      if (state == rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
-        unawaited(_restartPeer(peerId));
-      }
-    };
-    final local = _localStream;
-    if (local != null) {
-      for (final track in local.getTracks()) {
-        final sender = await peer.addTrack(track, local);
-        if (track.kind == 'audio') await _applyAudioQuality(sender);
-      }
-    }
-    if (local?.getAudioTracks().isEmpty ?? true) {
-      await peer.addTransceiver(
-        kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
+      };
+      peer.onConnectionState = (state) {
+        if (identical(_peers[peerId], peer) &&
+            state == rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+          unawaited(_serialize(() => _restartPeer(peerId)));
+        }
+      };
+
+      final microphone = _microphoneTrack;
+      final microphoneSender = microphone != null && _localStream != null
+          ? await peer.addTrack(microphone, _localStream!)
+          : (await peer.addTransceiver(
+              kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
+              init: rtc.RTCRtpTransceiverInit(
+                direction: rtc.TransceiverDirection.SendRecv,
+              ),
+            )).sender;
+      final video = await peer.addTransceiver(
+        kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeVideo,
         init: rtc.RTCRtpTransceiverInit(
-          direction: rtc.TransceiverDirection.RecvOnly,
+          direction: rtc.TransceiverDirection.SendRecv,
         ),
       );
+      final screenAudio = await peer.addTransceiver(
+        kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
+        init: rtc.RTCRtpTransceiverInit(
+          direction: rtc.TransceiverDirection.SendRecv,
+        ),
+      );
+      if (_publishedVideoTrack case final track?) {
+        await video.sender.replaceTrack(track);
+      }
+      if (_screenAudioTrack case final track?) {
+        await screenAudio.sender.replaceTrack(track);
+      }
+
+      if (_closing || disposed || _peers.containsKey(peerId)) return;
+
+      _sendSlots[peerId] = _MeshSendSlots(
+        microphone: microphoneSender,
+        video: video.sender,
+        screenAudio: screenAudio.sender,
+      );
+      _peers[peerId] = peer;
+      registered = true;
+      if (microphone != null) await _applyAudioQuality(microphoneSender);
+      if (_screenAudioTrack != null) {
+        await _applyAudioQuality(screenAudio.sender);
+      }
+      if (localUserId < peerId) await _offer(peerId);
+    } catch (_) {
+      if (registered && identical(_peers[peerId], peer)) {
+        await _closePeer(peerId);
+      } else {
+        await peer.close();
+        await peer.dispose();
+      }
+      rethrow;
+    } finally {
+      if (!registered &&
+          !identical(_peers[peerId], peer) &&
+          (_closing || disposed || _peers.containsKey(peerId))) {
+        try {
+          await peer.close();
+          await peer.dispose();
+        } catch (_) {
+          // The peer may already have been released by the early-exit path.
+        }
+      }
     }
-    if (localUserId < peerId) await _offer(peerId);
   }
 
   void _queueCandidate(int peerId, rtc.RTCIceCandidate candidate) {
@@ -322,7 +587,10 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   }
 
   @override
-  Future<void> handleSignal(int senderId, Map<String, dynamic> data) async {
+  Future<void> handleSignal(int senderId, Map<String, dynamic> data) =>
+      _serialize(() => _handleSignal(senderId, data));
+
+  Future<void> _handleSignal(int senderId, Map<String, dynamic> data) async {
     if (disposed) return;
     if (!_peers.containsKey(senderId)) await _createPeer(senderId);
     final peer = _peers[senderId];
@@ -335,7 +603,7 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
             _makingOffer.contains(senderId) ||
             peer.signalingState !=
                 rtc.RTCSignalingState.RTCSignalingStateStable;
-        final polite = localUserId > senderId;
+        final polite = localUserId < senderId;
         if (collision && !polite) return;
         if (collision) {
           await peer.setLocalDescription(
@@ -345,17 +613,24 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
         await peer.setRemoteDescription(
           rtc.RTCSessionDescription(sdp, 'offer'),
         );
+        await _alignSendSlotsForAnswer(senderId, peer);
         await _flushCandidates(senderId);
         final answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
         await sendSignal(senderId, {'type': 'answer', 'sdp': answer.sdp});
+        await _refreshSendSlotsBestEffort(senderId, peer);
       case 'answer':
         final sdp = data['sdp'];
         if (sdp is! String) return;
+        if (peer.signalingState !=
+            rtc.RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+          return;
+        }
         await peer.setRemoteDescription(
           rtc.RTCSessionDescription(sdp, 'answer'),
         );
         await _flushCandidates(senderId);
+        await _refreshSendSlotsBestEffort(senderId, peer);
       case 'candidate':
         final candidate = data['candidate'];
         if (candidate is! Map) return;
@@ -375,6 +650,102 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     }
   }
 
+  Future<void> _alignSendSlotsForAnswer(
+    int peerId,
+    rtc.RTCPeerConnection peer,
+  ) async {
+    final slots = _sendSlots[peerId];
+    if (slots == null) return;
+    final associated = (await peer.getTransceivers())
+        .where((transceiver) => transceiver.mid.isNotEmpty)
+        .toList();
+    final audio = associated
+        .where((transceiver) => transceiver.receiver.track?.kind == 'audio')
+        .toList();
+    final video = associated
+        .where((transceiver) => transceiver.receiver.track?.kind == 'video')
+        .firstOrNull;
+
+    if (audio.isNotEmpty) {
+      slots.microphone = await _adoptAnswerSender(
+        _MeshSource.microphone,
+        slots.microphone,
+        audio.first,
+      );
+    }
+    if (video != null) {
+      slots.video = await _adoptAnswerSender(
+        _MeshSource.video,
+        slots.video,
+        video,
+      );
+    }
+    if (audio.length >= 2) {
+      slots.screenAudio = await _adoptAnswerSender(
+        _MeshSource.screenAudio,
+        slots.screenAudio,
+        audio.last,
+      );
+    }
+  }
+
+  Future<rtc.RTCRtpSender> _adoptAnswerSender(
+    _MeshSource source,
+    rtc.RTCRtpSender oldSender,
+    rtc.RTCRtpTransceiver associated,
+  ) async {
+    await associated.setDirection(rtc.TransceiverDirection.SendRecv);
+    final sender = associated.sender;
+    if (sender.senderId == oldSender.senderId) return sender;
+    final track = oldSender.track;
+    if (source == _MeshSource.microphone &&
+        track != null &&
+        _localStream != null) {
+      await sender.setStreams([_localStream!]);
+    }
+    if (track != null) await sender.replaceTrack(track);
+    await oldSender.replaceTrack(null);
+    return sender;
+  }
+
+  Future<void> _refreshSendSlots(int peerId, rtc.RTCPeerConnection peer) async {
+    final slots = _sendSlots[peerId];
+    if (slots == null) return;
+    final senders = {
+      for (final sender in await peer.getSenders()) sender.senderId: sender,
+    };
+    for (final source in _MeshSource.values) {
+      final current = slots.sender(source);
+      final refreshed = senders[current.senderId];
+      if (refreshed != null) slots.bind(source, refreshed);
+    }
+  }
+
+  Future<void> _applySlotAudioQuality(int peerId) async {
+    final slots = _sendSlots[peerId];
+    if (slots == null) return;
+    if (slots.microphone.track != null) {
+      await _applyAudioQuality(slots.microphone);
+    }
+    if (slots.screenAudio.track != null) {
+      await _applyAudioQuality(slots.screenAudio);
+    }
+  }
+
+  Future<void> _refreshSendSlotsBestEffort(
+    int peerId,
+    rtc.RTCPeerConnection peer,
+  ) async {
+    try {
+      await _refreshSendSlots(peerId, peer);
+      await _applySlotAudioQuality(peerId);
+    } catch (_) {
+      // Sender wrappers and bitrate limits are performance hints after SDP is
+      // committed. A platform-specific refresh failure must not tear down a
+      // working media connection.
+    }
+  }
+
   Future<void> _flushCandidates(int peerId) async {
     final peer = _peers[peerId];
     if (peer == null) return;
@@ -385,51 +756,142 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   }
 
   @override
-  Future<void> selectAudioInput(String deviceId) async {
+  Future<void> selectAudioInput(String deviceId) =>
+      _serialize(() => _selectAudioInput(deviceId));
+
+  Future<void> _selectAudioInput(String deviceId) async {
     _audioInputDeviceId = deviceId;
     if (!audioPublishingAllowed) return;
-    final oldTracks =
-        _localStream?.getAudioTracks() ?? const <rtc.MediaStreamTrack>[];
+    final oldTracks = List<rtc.MediaStreamTrack>.of(
+      _localStream?.getAudioTracks() ?? const <rtc.MediaStreamTrack>[],
+    );
+    final (stream, replacement) = await _captureAudioTrack();
+    final previousLocalStream = _localStream;
+    replacement.enabled = !_muted;
+    try {
+      await _attachLocalTrack(stream, replacement);
+      await _setSourceTrack(_MeshSource.microphone, replacement);
+    } catch (_) {
+      await _discardCapturedTrack(
+        stream,
+        replacement,
+        previousLocalStream: previousLocalStream,
+      );
+      rethrow;
+    }
     for (final track in oldTracks) {
-      await _replaceTrack(track, null);
-      await track.stop();
       await _localStream?.removeTrack(track);
+      await track.stop();
     }
-    await _ensureAudioTrack();
   }
 
   @override
-  Future<void> setAudioPublishingAllowed(bool allowed) async {
-    if (audioPublishingAllowed == allowed) return;
-    audioPublishingAllowed = allowed;
+  Future<void> setAudioPublishingAllowed(bool allowed) =>
+      _serialize(() => _setAudioPublishingAllowed(allowed));
+
+  Future<void> _setAudioPublishingAllowed(bool allowed) async {
+    final previous = audioPublishingAllowed;
+    final sourceIsConsistent = allowed
+        ? _microphoneTrack != null
+        : _microphoneTrack == null;
+    if (previous == allowed && sourceIsConsistent) return;
+    final peerIds = _peers.keys.toList();
+    try {
+      if (allowed) {
+        await _ensureAudioTrack(syncPeers: false);
+      } else {
+        await _detachAndStopMicrophone();
+      }
+      await _replacePeers(peerIds);
+      audioPublishingAllowed = allowed;
+    } catch (error, stackTrace) {
+      audioPublishingAllowed = previous;
+      await _restoreAudioPublishingBestEffort(previous, peerIds);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
+  Future<void> _detachAndStopMicrophone() async {
+    await _setSourceTrack(_MeshSource.microphone, null);
+    for (final track in List<rtc.MediaStreamTrack>.of(
+      _localStream?.getAudioTracks() ?? const <rtc.MediaStreamTrack>[],
+    )) {
+      await _localStream?.removeTrack(track);
+      await track.stop();
+    }
+  }
+
+  Future<void> _replacePeers(Iterable<int> peerIds) async {
+    final wanted = peerIds.toSet();
+    for (final peerId in _peers.keys.toList()) {
+      await _closePeer(peerId);
+    }
+    for (final peerId in wanted) {
+      await _createPeer(peerId);
+    }
+  }
+
+  Future<void> _restoreAudioPublishingBestEffort(
+    bool allowed,
+    Iterable<int> peerIds,
+  ) async {
+    await _setSourceTrackBestEffort(_MeshSource.microphone, null);
+    await _removeAllMicrophoneTracksBestEffort();
     if (allowed) {
-      await _ensureAudioTrack();
-      for (final peer in _peers.values) {
-        for (final transceiver in await peer.getTransceivers()) {
-          if (transceiver.receiver.track?.kind == 'audio') {
-            await transceiver.setDirection(rtc.TransceiverDirection.SendRecv);
-          }
-        }
+      try {
+        await _ensureAudioTrack(syncPeers: false);
+      } catch (_) {
+        // The original transition error remains authoritative. Rebuilding
+        // without a microphone is safer than retaining a half-migrated sender.
       }
-      return;
     }
-    for (final track
-        in _localStream?.getAudioTracks() ?? const <rtc.MediaStreamTrack>[]) {
-      await _replaceTrack(track, null);
-      await track.stop();
-      await _localStream?.removeTrack(track);
+    await _replacePeersBestEffort(peerIds);
+  }
+
+  Future<void> _removeAllMicrophoneTracksBestEffort() async {
+    final tracks = Set<rtc.MediaStreamTrack>.identity();
+    tracks.addAll(
+      _localStream?.getAudioTracks() ?? const <rtc.MediaStreamTrack>[],
+    );
+    for (final stream in _ownedLocalStreams) {
+      tracks.addAll(stream.getAudioTracks());
     }
-    for (final peer in _peers.values) {
-      for (final transceiver in await peer.getTransceivers()) {
-        if (transceiver.receiver.track?.kind == 'audio') {
-          await transceiver.setDirection(rtc.TransceiverDirection.RecvOnly);
-        }
+    for (final track in tracks) {
+      try {
+        await _localStream?.removeTrack(track);
+      } catch (_) {
+        // Keep detaching and stopping every captured microphone.
+      }
+      try {
+        await track.stop();
+      } catch (_) {
+        // A stopped platform track may reject a second stop request.
+      }
+    }
+  }
+
+  Future<void> _replacePeersBestEffort(Iterable<int> peerIds) async {
+    final wanted = peerIds.toSet();
+    for (final peerId in _peers.keys.toList()) {
+      try {
+        await _closePeer(peerId);
+      } catch (_) {
+        // Continue removing every partially rebuilt peer.
+      }
+    }
+    for (final peerId in wanted) {
+      try {
+        await _createPeer(peerId);
+      } catch (_) {
+        // A later roster/signal update can retry an unavailable peer.
       }
     }
   }
 
   @override
-  Future<void> setMuted(bool muted) async {
+  Future<void> setMuted(bool muted) => _serialize(() => _setMuted(muted));
+
+  Future<void> _setMuted(bool muted) async {
     _muted = muted;
     if (audioPublishingAllowed && !muted) await _ensureAudioTrack();
     for (final track
@@ -441,14 +903,15 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   @override
   Future<void> setDeafened(bool deafened) async {
     _deafened = deafened;
-    for (final peerId in _remoteStreams.keys) {
+    for (final peerId in _remoteTracks.keys) {
       _applyRemoteAudio(peerId);
     }
   }
 
-  void _applyRemoteAudio(int participantId, [double volume = 1]) {
+  void _applyRemoteAudio(int participantId) {
+    final volume = _participantVolumes[participantId] ?? 1;
     for (final track
-        in _remoteStreams[participantId]?.getAudioTracks() ??
+        in _remoteTracks[participantId]?.audioTracks ??
             const <rtc.MediaStreamTrack>[]) {
       track.enabled = !_deafened;
       unawaited(rtc.Helper.setVolume(_deafened ? 0 : volume, track));
@@ -457,18 +920,23 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
 
   @override
   Future<void> setParticipantVolume(int participantId, double volume) async {
-    _applyRemoteAudio(participantId, volume.clamp(0, 1));
+    _participantVolumes[participantId] = volume.clamp(0, 1);
+    _applyRemoteAudio(participantId);
   }
 
   @override
-  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) async {
-    final existing =
-        _localStream?.getVideoTracks() ?? const <rtc.MediaStreamTrack>[];
+  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) =>
+      _serialize(() => _setCameraEnabled(enabled, deviceId: deviceId));
+
+  Future<void> _setCameraEnabled(bool enabled, {String? deviceId}) async {
+    final existing = List<rtc.MediaStreamTrack>.of(
+      _localStream?.getVideoTracks() ?? const <rtc.MediaStreamTrack>[],
+    );
     if (!enabled) {
+      await _setSourceTrack(_MeshSource.video, _screenVideoTrack);
       for (final track in existing) {
-        await track.stop();
-        await _replaceTrack(track, null);
         await _localStream?.removeTrack(track);
+        await track.stop();
       }
       changed();
       return;
@@ -479,7 +947,7 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       ResenhaQualityProfile.high => (1280, 720, 24),
       ResenhaQualityProfile.maximum => (1920, 1080, 30),
     };
-    final stream = await rtc.navigator.mediaDevices.getUserMedia({
+    final stream = await _getUserMedia({
       'audio': false,
       'video': {
         'deviceId': ?deviceId,
@@ -489,82 +957,167 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       },
     });
     final track = stream.getVideoTracks().first;
-    if (_localStream == null) {
-      _localStream = stream;
-    } else {
-      await _localStream!.addTrack(track);
+    _ownedLocalStreams.add(stream);
+    final previousLocalStream = _localStream;
+    try {
+      await _attachLocalTrack(stream, track);
+      await _setSourceTrack(_MeshSource.video, _publishedVideoTrack);
+    } catch (_) {
+      await _discardCapturedTrack(
+        stream,
+        track,
+        previousLocalStream: previousLocalStream,
+      );
+      rethrow;
     }
-    await _replaceTrack(null, track);
     changed();
   }
 
   @override
-  Future<void> setScreenShareEnabled(bool enabled) async {
+  Future<void> setScreenShareEnabled(bool enabled) =>
+      _serialize(() => _setScreenShareEnabled(enabled));
+
+  Future<void> _setScreenShareEnabled(bool enabled) async {
     if (!enabled) {
       final stream = _screenStream;
-      _screenStream = null;
-      for (final track
-          in stream?.getTracks() ?? const <rtc.MediaStreamTrack>[]) {
-        await track.stop();
-        await _replaceTrack(track, null);
+      if (stream == null) return;
+      try {
+        await _setSourceTrack(_MeshSource.video, _cameraTrack);
+        await _setSourceTrack(_MeshSource.screenAudio, null);
+      } catch (_) {
+        await _setSourceTrackBestEffort(_MeshSource.video, _screenVideoTrack);
+        await _setSourceTrackBestEffort(
+          _MeshSource.screenAudio,
+          _screenAudioTrack,
+        );
+        rethrow;
       }
+      _screenStream = null;
+      await _disposeStreamBestEffort(stream);
       changed();
       return;
     }
     if (_screenStream != null) return;
-    final stream = await rtc.navigator.mediaDevices.getDisplayMedia({
-      'video': true,
-      'audio': true,
-    });
+    final stream = await _getDisplayMedia({'video': true, 'audio': true});
     _screenStream = stream;
-    for (final track in stream.getTracks()) {
-      await _replaceTrack(null, track);
+    if (stream.getVideoTracks().firstOrNull case final screenVideo?) {
+      screenVideo.onEnded = () {
+        if (!identical(_screenStream, stream) || _closing || disposed) return;
+        unawaited(
+          _serialize(() async {
+            if (identical(_screenStream, stream)) {
+              await _setScreenShareEnabled(false);
+            }
+          }),
+        );
+      };
+    }
+    try {
+      await _setSourceTrack(_MeshSource.video, _publishedVideoTrack);
+      await _setSourceTrack(_MeshSource.screenAudio, _screenAudioTrack);
+    } catch (error, stackTrace) {
+      _screenStream = null;
+      await _setSourceTrackBestEffort(_MeshSource.video, _cameraTrack);
+      await _setSourceTrackBestEffort(_MeshSource.screenAudio, null);
+      await _disposeStreamBestEffort(stream);
+      Error.throwWithStackTrace(error, stackTrace);
     }
     changed();
   }
 
-  Future<void> _replaceTrack(
-    rtc.MediaStreamTrack? oldTrack,
-    rtc.MediaStreamTrack? newTrack,
+  Future<void> _setSourceTrackBestEffort(
+    _MeshSource source,
+    rtc.MediaStreamTrack? track,
   ) async {
-    for (final peer in _peers.values) {
-      final senders = await peer.getSenders();
-      final sender = senders
-          .where((value) => value.track?.kind == (oldTrack ?? newTrack)?.kind)
-          .firstOrNull;
-      if (sender != null) {
-        await sender.replaceTrack(newTrack);
-        if (newTrack?.kind == 'audio') await _applyAudioQuality(sender);
-      } else if (newTrack != null) {
-        final added = await peer.addTrack(
-          newTrack,
-          _screenStream ?? _localStream!,
-        );
-        if (newTrack.kind == 'audio') await _applyAudioQuality(added);
+    try {
+      await _setSourceTrack(source, track);
+    } catch (_) {
+      // Preserve the primary capture/transition error while restoring as many
+      // senders as the surviving peer connections allow.
+    }
+  }
+
+  Future<void> _disposeStreamBestEffort(rtc.MediaStream stream) async {
+    for (final track in stream.getTracks()) {
+      try {
+        await track.stop();
+      } catch (_) {
+        // Keep releasing the remaining capture resources.
+      }
+    }
+    try {
+      await stream.dispose();
+    } catch (_) {
+      // Sender state already reflects the requested transition.
+    }
+  }
+
+  Future<void> _setSourceTrack(
+    _MeshSource source,
+    rtc.MediaStreamTrack? track,
+  ) async {
+    final changedSenders = <(rtc.RTCRtpSender, rtc.MediaStreamTrack?)>[];
+    bool sameTrack(
+      rtc.MediaStreamTrack? current,
+      rtc.MediaStreamTrack? desired,
+    ) =>
+        identical(current, desired) ||
+        (current == null && desired == null) ||
+        (current?.id != null &&
+            desired?.id != null &&
+            current?.id == desired?.id);
+    try {
+      for (final entry in _sendSlots.entries.toList()) {
+        if (!identical(_sendSlots[entry.key], entry.value)) continue;
+        final sender = entry.value.sender(source);
+        final previous = sender.track;
+        if (sameTrack(previous, track)) continue;
+        await sender.replaceTrack(track);
+        changedSenders.add((sender, previous));
+      }
+    } catch (_) {
+      for (final (sender, previous) in changedSenders.reversed) {
+        try {
+          await sender.replaceTrack(previous);
+        } catch (_) {
+          // Continue restoring every peer even if one sender has gone stale.
+        }
+      }
+      rethrow;
+    }
+    if (track != null && source != _MeshSource.video) {
+      for (final (sender, _) in changedSenders) {
+        await _applyAudioQuality(sender);
       }
     }
   }
 
   Future<void> _applyAudioQuality(rtc.RTCRtpSender sender) async {
-    final parameters = sender.parameters;
-    final bitrate = switch (join.room.maxQualityProfile) {
-      ResenhaQualityProfile.standard => 24000,
-      ResenhaQualityProfile.high => 48000,
-      ResenhaQualityProfile.maximum => 96000,
-    };
-    for (final encoding
-        in parameters.encodings ?? const <rtc.RTCRtpEncoding>[]) {
-      encoding.maxBitrate = bitrate;
+    try {
+      final parameters = sender.parameters;
+      final bitrate = switch (join.room.maxQualityProfile) {
+        ResenhaQualityProfile.standard => 24000,
+        ResenhaQualityProfile.high => 48000,
+        ResenhaQualityProfile.maximum => 96000,
+      };
+      for (final encoding
+          in parameters.encodings ?? const <rtc.RTCRtpEncoding>[]) {
+        encoding.maxBitrate = bitrate;
+      }
+      await sender.setParameters(parameters);
+    } catch (_) {
+      // Bitrate is a best-effort quality cap, never a prerequisite for media.
     }
-    await sender.setParameters(parameters);
   }
 
   Future<void> _closePeer(int id) async {
     final peer = _peers.remove(id);
-    _remoteStreams.remove(id);
+    _sendSlots.remove(id);
+    _remoteTracks.remove(id);
     _pendingCandidates.remove(id);
     _candidateTimers.remove(id)?.cancel();
     _outgoingCandidates.remove(id);
+    _makingOffer.remove(id);
     if (peer != null) {
       await peer.close();
       await peer.dispose();
@@ -574,26 +1127,54 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
 
   @override
   Future<void> dispose() async {
-    _speakingTimer?.cancel();
-    _speakingTimer = null;
-    for (final timer in _candidateTimers.values) {
-      timer.cancel();
-    }
-    _candidateTimers.clear();
-    _outgoingCandidates.clear();
-    for (final id in _peers.keys.toList()) {
-      await _closePeer(id);
-    }
-    for (final stream in [_localStream, _screenStream]) {
-      for (final track
-          in stream?.getTracks() ?? const <rtc.MediaStreamTrack>[]) {
-        await track.stop();
+    if (_closing || disposed) return;
+    _closing = true;
+    try {
+      await _mutationTail;
+      _speakingTimer?.cancel();
+      _speakingTimer = null;
+      for (final timer in _candidateTimers.values) {
+        timer.cancel();
       }
-      await stream?.dispose();
+      _candidateTimers.clear();
+      _outgoingCandidates.clear();
+      for (final id in _peers.keys.toList()) {
+        try {
+          await _closePeer(id);
+        } catch (_) {
+          // Continue releasing tracks and the remaining peer connections.
+        }
+      }
+      final streams = Set<rtc.MediaStream>.identity()
+        ..addAll(_ownedLocalStreams);
+      if (_localStream case final stream?) streams.add(stream);
+      if (_screenStream case final stream?) streams.add(stream);
+      final tracks = Set<rtc.MediaStreamTrack>.identity();
+      for (final stream in streams) {
+        tracks.addAll(stream.getTracks());
+      }
+      for (final track in tracks) {
+        try {
+          await track.stop();
+        } catch (_) {
+          // Continue releasing all remaining captures.
+        }
+      }
+      for (final stream in streams) {
+        try {
+          await stream.dispose();
+        } catch (_) {
+          // The notifier must still reach its terminal disposed state.
+        }
+      }
+    } finally {
+      _localStream = null;
+      _screenStream = null;
+      _ownedLocalStreams.clear();
+      _participantVolumes.clear();
+      _participantRoles.clear();
+      await super.dispose();
     }
-    _localStream = null;
-    _screenStream = null;
-    await super.dispose();
   }
 }
 
@@ -644,6 +1225,10 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
 
   @override
   ResenhaMediaConnectionState get connectionState => _reconnect.connectionState;
+
+  @override
+  bool get screenSharing =>
+      _room.localParticipant?.isScreenShareEnabled() ?? false;
 
   lk.Participant? _participant(int id) => _room.remoteParticipants['$id'];
 

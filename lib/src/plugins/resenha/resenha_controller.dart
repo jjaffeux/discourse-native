@@ -150,6 +150,7 @@ final class ResenhaController extends ChangeNotifier {
   final Map<String, Object> _siteSessions = {};
   final Map<String, Object> _directoryRequests = {};
   final Map<String, Object> _chatRequests = {};
+  final Map<String, int> _roomVideoWatchers = {};
   Future<void> _joinTail = Future<void>.value();
   Future<void>? _pendingJoin;
   String? _pendingJoinKey;
@@ -181,6 +182,36 @@ final class ResenhaController extends ChangeNotifier {
   String? get audioOutputDeviceId => _audioOutputDeviceId;
   String? get cameraDeviceId => _cameraDeviceId;
   bool get pushToTalkEnabled => _pushToTalkEnabled;
+
+  void watchRoomVideo({required String siteUrl, required int roomId}) {
+    if (_disposed) return;
+    final key = '$siteUrl#$roomId';
+    final previous = _roomVideoWatchers[key] ?? 0;
+    _roomVideoWatchers[key] = previous + 1;
+    if (previous == 0 && _isCurrentWatchedRoom(siteUrl, roomId)) {
+      unawaited(_requestStateSync());
+    }
+  }
+
+  void stopWatchingRoomVideo({required String siteUrl, required int roomId}) {
+    if (_disposed) return;
+    final key = '$siteUrl#$roomId';
+    final previous = _roomVideoWatchers[key] ?? 0;
+    if (previous <= 1) {
+      _roomVideoWatchers.remove(key);
+      if (previous == 1 && _isCurrentWatchedRoom(siteUrl, roomId)) {
+        unawaited(_requestStateSync());
+      }
+    } else {
+      _roomVideoWatchers[key] = previous - 1;
+    }
+  }
+
+  bool _isCurrentWatchedRoom(String siteUrl, int roomId) =>
+      _call?.siteUrl == siteUrl && _call?.room.id == roomId;
+
+  bool _isWatching(ResenhaCallSnapshot call) =>
+      (_roomVideoWatchers['${call.siteUrl}#${call.room.id}'] ?? 0) > 0;
 
   ResenhaDirectory? directory(String siteUrl) => _directories[siteUrl];
   String? errorFor(String siteUrl) => _errors[siteUrl];
@@ -392,6 +423,21 @@ final class ResenhaController extends ChangeNotifier {
       }
       return;
     }
+    if (event is ResenhaRoleChangedEvent) {
+      final held = room(siteUrl, roomId);
+      if (held != null &&
+          held.participants.any(
+            (participant) => participant.id == event.userId,
+          )) {
+        _replaceParticipants(siteUrl, roomId, [
+          for (final participant in held.participants)
+            participant.id == event.userId
+                ? _participantWithRole(participant, event.role)
+                : participant,
+        ]);
+      }
+      return;
+    }
     if (event is ResenhaParticipantsEvent) {
       _replaceParticipants(siteUrl, roomId, event.participants);
     }
@@ -399,6 +445,24 @@ final class ResenhaController extends ChangeNotifier {
       _replaceRecording(siteUrl, roomId, event.recording);
     }
   }
+
+  static ResenhaParticipant _participantWithRole(
+    ResenhaParticipant participant,
+    ResenhaRole role,
+  ) => ResenhaParticipant(
+    id: participant.id,
+    username: participant.username,
+    role: role,
+    name: participant.name,
+    avatarTemplate: participant.avatarTemplate,
+    muted: participant.muted,
+    deafened: participant.deafened,
+    videoOn: participant.videoOn,
+    screenSharing: participant.screenSharing,
+    watchingVideo: participant.watchingVideo,
+    idleState: participant.idleState,
+    handRaisedAt: participant.handRaisedAt,
+  );
 
   void _replaceRecording(
     String siteUrl,
@@ -454,22 +518,29 @@ final class ResenhaController extends ChangeNotifier {
       var canPublishAudio = true;
       if (userId != null) {
         canPublishAudio = _canPublishAudio(call.room, participants, userId);
-        _observe(
-          () => call.media.setAudioPublishingAllowed(canPublishAudio),
-          'resenha.media.audioPublishing',
-        );
-        if (!canPublishAudio) {
-          _observe(() => call.media.setMuted(true), 'resenha.media.rosterMute');
-        }
       }
       _call = call.copyWith(
         room: call.room.withParticipants(participants),
         muted: canPublishAudio ? null : true,
       );
-      _observe(
-        () => call.media.syncParticipants(participants),
-        'resenha.media.participants',
-      );
+      _observe(() async {
+        if (userId != null) {
+          await _runHandled(
+            () => call.media.setAudioPublishingAllowed(canPublishAudio),
+            'resenha.media.audioPublishing',
+          );
+          if (!canPublishAudio) {
+            await _runHandled(
+              () => call.media.setMuted(true),
+              'resenha.media.rosterMute',
+            );
+          }
+        }
+        await _runHandled(
+          () => call.media.syncParticipants(participants),
+          'resenha.media.participants',
+        );
+      }, 'resenha.media.participantUpdate');
     }
     notifyListeners();
   }
@@ -660,14 +731,9 @@ final class ResenhaController extends ChangeNotifier {
         status: ResenhaCallStatus.connected,
         clearError: true,
       );
+      await _requestStateSync();
+      if (!isCurrent()) return;
       if (initiallyMuted) {
-        await api.state(
-          siteUrl: siteUrl,
-          roomId: room.id,
-          apiKey: apiKey,
-          muted: true,
-        );
-        if (!isCurrent()) return;
         await systemCall.setMuted(true);
         if (!isCurrent()) return;
       }
@@ -984,6 +1050,7 @@ final class ResenhaController extends ChangeNotifier {
           deafened: call.deafened,
           video: call.cameraEnabled,
           screen: call.screenSharing,
+          watching: _isWatching(call),
         );
       } on WriteException catch (error, stackTrace) {
         if (!isCurrent()) return;
@@ -1484,6 +1551,7 @@ final class ResenhaController extends ChangeNotifier {
     if (_disposed) return;
     final call = _call;
     if (call != null) {
+      var updated = call;
       final status = switch (call.media.connectionState) {
         ResenhaMediaConnectionState.connected => ResenhaCallStatus.connected,
         ResenhaMediaConnectionState.reconnecting =>
@@ -1491,7 +1559,7 @@ final class ResenhaController extends ChangeNotifier {
         ResenhaMediaConnectionState.failed => ResenhaCallStatus.failed,
       };
       if (status != call.status && call.status != ResenhaCallStatus.leaving) {
-        _call = call.copyWith(
+        updated = updated.copyWith(
           status: status,
           error: status == ResenhaCallStatus.failed
               ? 'The media connection could not be restored.'
@@ -1499,6 +1567,15 @@ final class ResenhaController extends ChangeNotifier {
           clearError: status == ResenhaCallStatus.connected,
         );
       }
+      final screenShareEnded =
+          updated.status != ResenhaCallStatus.leaving &&
+          updated.screenSharing &&
+          !call.media.screenSharing;
+      if (screenShareEnded) {
+        updated = updated.copyWith(screenSharing: false);
+      }
+      _call = updated;
+      if (screenShareEnded) unawaited(_requestStateSync());
     }
     notifyListeners();
   }
@@ -1596,6 +1673,7 @@ final class ResenhaController extends ChangeNotifier {
     _heartbeat?.cancel();
     _heartbeatPending = false;
     _stateRetry?.cancel();
+    _roomVideoWatchers.clear();
     for (final subscription in _directorySubscriptions.values) {
       subscription.cancel();
     }

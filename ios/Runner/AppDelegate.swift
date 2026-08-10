@@ -122,8 +122,17 @@ private final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
   }
 
   func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
-    provider.reportOutgoingCall(with: action.callUUID, startedConnectingAt: Date())
-    action.fulfill()
+    do {
+      try AVAudioSession.sharedInstance().setCategory(
+        .playAndRecord,
+        mode: .videoChat,
+        options: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
+      )
+      provider.reportOutgoingCall(with: action.callUUID, startedConnectingAt: Date())
+      action.fulfill()
+    } catch {
+      action.fail()
+    }
   }
 
   func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
