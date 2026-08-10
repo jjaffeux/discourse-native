@@ -188,6 +188,13 @@ lane :beta do |options|
     )
   end
 
+  # gym records every generated artifact in the shared lane context. Since this
+  # lane builds both platforms before uploading either, pilot would otherwise
+  # add both paths to each upload and warn that both `ipa` and `pkg` are set.
+  # The explicit paths below are the only upload inputs we need.
+  Fastlane::Actions.lane_context[Fastlane::Actions::SharedValues::IPA_OUTPUT_PATH] = nil
+  Fastlane::Actions.lane_context[Fastlane::Actions::SharedValues::PKG_OUTPUT_PATH] = nil
+
   upload_to_testflight(
     **auth,
     app_identifier: APP_IDENTIFIER,
