@@ -141,7 +141,7 @@ lane :beta do |options|
     )
 
     ios_artifact = build_app(
-      workspace: "ios/Runner.xcworkspace",
+      workspace: File.join(PROJECT_ROOT, "ios", "Runner.xcworkspace"),
       scheme: "Runner",
       configuration: "Release",
       clean: true,
@@ -169,7 +169,7 @@ lane :beta do |options|
     )
 
     macos_artifact = build_app(
-      workspace: "macos/Runner.xcworkspace",
+      workspace: File.join(PROJECT_ROOT, "macos", "Runner.xcworkspace"),
       scheme: "Runner",
       configuration: "Release",
       destination: "generic/platform=macOS",
