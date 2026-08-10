@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -49,7 +50,9 @@ Widget? localDateWidgetBuilder(dom.Element element, {String? siteUrl}) {
       );
     }
   }
-  return LocalDateInline(spec: spec, siteUrl: siteUrl, from: from, to: to);
+  return InlineCustomWidget(
+    child: LocalDateInline(spec: spec, siteUrl: siteUrl, from: from, to: to),
+  );
 }
 
 /// Native inline treatment for server-cooked local dates. It deliberately has
