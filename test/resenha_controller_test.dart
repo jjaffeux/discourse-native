@@ -85,6 +85,9 @@ final class FakeResenhaMediaSession extends ChangeNotifier
   Object? get localVideoTrack => null;
 
   @override
+  bool get screenSharing => screen;
+
+  @override
   Set<int> get speakingParticipantIds => const {};
 
   @override
@@ -983,6 +986,14 @@ void main() {
       expect(media.audioPublishingAllowed, isFalse);
 
       firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+        'type': 'role_change',
+        'user_id': 1,
+        'role': 'speaker',
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(media.audioPublishingAllowed, isTrue);
+
+      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
         'type': 'participants',
         'participants': [
           {'id': 1, 'username': 'sam', 'role': 'speaker'},
@@ -992,6 +1003,68 @@ void main() {
       expect(media.audioPublishingAllowed, isTrue);
     },
   );
+
+  test('room video watching is reference counted across a join', () async {
+    controller.watchRoomVideo(siteUrl: firstSite, roomId: 7);
+    controller.watchRoomVideo(siteUrl: firstSite, roomId: 7);
+
+    expect(
+      transport.pluginWrites.where(
+        (write) => write.path.endsWith('/state.json'),
+      ),
+      isEmpty,
+    );
+
+    await controller.ensureLoaded(firstSite);
+    await controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: controller.room(firstSite, 7)!,
+    );
+    await pumpEventQueue();
+
+    var stateWrites = transport.pluginWrites
+        .where((write) => write.path.endsWith('/state.json'))
+        .toList();
+    expect(stateWrites, isNotEmpty);
+    expect(
+      stateWrites.every((write) => write.body.containsKey('watching')),
+      isTrue,
+    );
+    expect(stateWrites.last.body['watching'], isTrue);
+
+    await controller.leave();
+    await controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: controller.room(firstSite, 7)!,
+    );
+    await pumpEventQueue();
+    stateWrites = transport.pluginWrites
+        .where((write) => write.path.endsWith('/state.json'))
+        .toList();
+    expect(stateWrites.last.body['watching'], isTrue);
+
+    controller.stopWatchingRoomVideo(siteUrl: firstSite, roomId: 7);
+    await pumpEventQueue();
+    expect(
+      transport.pluginWrites.where(
+        (write) => write.path.endsWith('/state.json'),
+      ),
+      hasLength(stateWrites.length),
+    );
+
+    controller.stopWatchingRoomVideo(siteUrl: firstSite, roomId: 7);
+    await pumpEventQueue();
+    stateWrites = transport.pluginWrites
+        .where((write) => write.path.endsWith('/state.json'))
+        .toList();
+    expect(stateWrites.last.body['watching'], isFalse);
+    expect(
+      stateWrites.every((write) => write.body.containsKey('watching')),
+      isTrue,
+    );
+  });
 
   test('reports asynchronous signal and roster media failures', () async {
     final diagnostics = await DiagnosticsController.create(
@@ -1356,6 +1429,29 @@ void main() {
       );
     },
   );
+
+  test('an externally ended screen share updates roster state', () async {
+    await controller.ensureLoaded(firstSite);
+    await controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: controller.room(firstSite, 7)!,
+    );
+    final media = mediaFactory.sessions.single;
+
+    await controller.setScreenSharing(true);
+    expect(controller.call?.screenSharing, isTrue);
+
+    media.screen = false;
+    media.notifyListeners();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.call?.screenSharing, isFalse);
+    final stateWrites = transport.pluginWrites
+        .where((write) => write.path.endsWith('/state.json'))
+        .toList();
+    expect(stateWrites.last.body['screen'], isFalse);
+  });
 
   test(
     'a roster removal from another client tears the local call down',

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:discourse_native/src/plugins/resenha/resenha_api.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_callkit.dart';
@@ -202,6 +203,118 @@ void main() {
     expect(find.text('Dismiss raised hand'), findsNothing);
     expect(find.text('Remove from room'), findsNothing);
   });
+
+  testWidgets('room content watches video from mount until unmount', (
+    tester,
+  ) async {
+    final room = _room(
+      participants: const [
+        ResenhaParticipant(
+          id: 1,
+          username: 'sam',
+          role: ResenhaRole.participant,
+        ),
+      ],
+    );
+    final harness = _Harness(joinRoom: room);
+    addTearDown(harness.dispose);
+
+    await tester.pumpWidget(
+      _app(harness.controller, room: room, followCall: true),
+    );
+    expect(
+      harness.transport.pluginWrites.where(
+        (write) => write.path.endsWith('/state.json'),
+      ),
+      isEmpty,
+    );
+
+    await tester.tap(find.text('Join room'));
+    await tester.pumpAndSettle();
+
+    var stateWrites = harness.transport.pluginWrites
+        .where((write) => write.path.endsWith('/state.json'))
+        .toList();
+    expect(stateWrites, isNotEmpty);
+    expect(stateWrites.last.body['watching'], isTrue);
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+    await tester.pump();
+
+    stateWrites = harness.transport.pluginWrites
+        .where((write) => write.path.endsWith('/state.json'))
+        .toList();
+    expect(stateWrites.last.body['watching'], isFalse);
+
+    await harness.controller.leave();
+    await tester.pump();
+  });
+
+  testWidgets('stage listeners are only offered receive-only controls', (
+    tester,
+  ) async {
+    final harness = _Harness();
+    addTearDown(harness.dispose);
+    final room = _room(
+      type: ResenhaRoomType.stage,
+      videoAllowed: true,
+      participants: const [
+        ResenhaParticipant(
+          id: 1,
+          username: 'sam',
+          role: ResenhaRole.participant,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      _app(
+        harness.controller,
+        room: room,
+        call: _call(room, harness.media.createSession()),
+      ),
+    );
+
+    expect(find.byTooltip('Mute'), findsNothing);
+    expect(find.byTooltip('Unmute'), findsNothing);
+    expect(find.byTooltip('Camera on'), findsNothing);
+    expect(find.byTooltip('Camera off'), findsNothing);
+    expect(find.byTooltip('Share screen'), findsNothing);
+    expect(find.byTooltip('Stop sharing'), findsNothing);
+    expect(find.byTooltip('Deafen'), findsOneWidget);
+    expect(find.byTooltip('Raise hand'), findsOneWidget);
+    expect(find.text('Leave room'), findsOneWidget);
+  });
+
+  for (final role in [ResenhaRole.speaker, ResenhaRole.moderator]) {
+    testWidgets('stage ${role.name}s retain publishing controls', (
+      tester,
+    ) async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final room = _room(
+        type: ResenhaRoomType.stage,
+        videoAllowed: true,
+        participants: [ResenhaParticipant(id: 1, username: 'sam', role: role)],
+      );
+
+      await tester.pumpWidget(
+        _app(
+          harness.controller,
+          room: room,
+          call: _call(room, harness.media.createSession()),
+        ),
+      );
+
+      expect(find.byTooltip('Mute'), findsOneWidget);
+      expect(find.byTooltip('Camera on'), findsOneWidget);
+      expect(
+        find.byTooltip('Share screen'),
+        (Platform.isMacOS || Platform.isLinux) ? findsOneWidget : findsNothing,
+      );
+      expect(find.byTooltip('Raise hand'), findsNothing);
+    });
+  }
 
   testWidgets('room editor validates its name as the user types', (
     tester,
@@ -450,6 +563,7 @@ ResenhaRoom _room({
   int? creatorId,
   bool canManage = false,
   bool videoAllowed = false,
+  ResenhaRoomType type = ResenhaRoomType.open,
 }) => ResenhaRoom(
   id: 7,
   name: 'Lounge',
@@ -457,7 +571,7 @@ ResenhaRoom _room({
   description: description,
   isPublic: true,
   ephemeral: false,
-  type: ResenhaRoomType.open,
+  type: type,
   participants: participants,
   creatorId: creatorId,
   canManage: canManage,
@@ -586,6 +700,8 @@ final class _MediaSession extends ChangeNotifier
       ResenhaMediaConnectionState.connected;
   @override
   Object? get localVideoTrack => null;
+  @override
+  bool get screenSharing => false;
   @override
   Object? videoTrackFor(int participantId) => null;
   @override

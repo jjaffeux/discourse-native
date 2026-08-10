@@ -76,7 +76,7 @@ class ResenhaRoomView extends StatelessWidget {
 /// Keeping those app-level concerns in [ResenhaRoomView] makes the important
 /// room states and controls independently renderable in widget tests while the
 /// production view continues to use the same [ResenhaController].
-class ResenhaRoomContent extends StatelessWidget {
+class ResenhaRoomContent extends StatefulWidget {
   const ResenhaRoomContent({
     super.key,
     required this.controller,
@@ -99,12 +99,65 @@ class ResenhaRoomContent extends StatelessWidget {
   final ResenhaController Function()? controllerResolver;
 
   @override
+  State<ResenhaRoomContent> createState() => _ResenhaRoomContentState();
+}
+
+class _ResenhaRoomContentState extends State<ResenhaRoomContent> {
+  @override
+  void initState() {
+    super.initState();
+    _startWatching(widget);
+  }
+
+  @override
+  void didUpdateWidget(ResenhaRoomContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.controller, widget.controller) &&
+        oldWidget.siteUrl == widget.siteUrl &&
+        oldWidget.room?.id == widget.room?.id) {
+      return;
+    }
+    _stopWatching(oldWidget);
+    _startWatching(widget);
+  }
+
+  void _startWatching(ResenhaRoomContent content) {
+    if (content.room case final room?) {
+      content.controller.watchRoomVideo(
+        siteUrl: content.siteUrl,
+        roomId: room.id,
+      );
+    }
+  }
+
+  void _stopWatching(ResenhaRoomContent content) {
+    if (content.room case final room?) {
+      content.controller.stopWatchingRoomVideo(
+        siteUrl: content.siteUrl,
+        roomId: room.id,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopWatching(widget);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final room = this.room;
+    final controller = widget.controller;
+    final room = widget.room;
     if (room == null) {
       return const Center(child: Text('This voice room is unavailable.'));
     }
-    final active = call;
+    final active = widget.call;
+    final siteUrl = widget.siteUrl;
+    final siteName = widget.siteName;
+    final currentUserId = widget.currentUserId;
+    final recordingEnabled = widget.recordingEnabled;
+    final controllerResolver = widget.controllerResolver;
     return Column(
       children: [
         if (active?.error case final error?)
@@ -399,23 +452,29 @@ class _CallControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canPublishVideo = call.room.videoAllowed;
-    final canShare = (Platform.isMacOS || Platform.isLinux) && canPublishVideo;
     final me = call.room.participants
         .where((participant) => participant.id == currentUserId)
         .firstOrNull;
+    final role = me?.role ?? call.room.membership?.role;
+    final canPublish =
+        call.room.type != ResenhaRoomType.stage ||
+        role == ResenhaRole.moderator ||
+        role == ResenhaRole.speaker;
+    final canPublishVideo = canPublish && call.room.videoAllowed;
+    final canShare = (Platform.isMacOS || Platform.isLinux) && canPublishVideo;
     return Wrap(
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 8,
       runSpacing: 8,
       children: [
-        _Control(
-          label: call.muted ? 'Unmute' : 'Mute',
-          icon: call.muted ? DIcons.microphoneSlash : DIcons.microphoneLines,
-          selected: call.muted,
-          onPressed: () => controller.setMuted(!call.muted),
-        ),
+        if (canPublish)
+          _Control(
+            label: call.muted ? 'Unmute' : 'Mute',
+            icon: call.muted ? DIcons.microphoneSlash : DIcons.microphoneLines,
+            selected: call.muted,
+            onPressed: () => controller.setMuted(!call.muted),
+          ),
         _Control(
           label: call.deafened ? 'Listen' : 'Deafen',
           icon: DIcons.earListen,
@@ -437,7 +496,7 @@ class _CallControls extends StatelessWidget {
             onPressed: () => controller.setScreenSharing(!call.screenSharing),
           ),
         if (call.room.type == ResenhaRoomType.stage &&
-            me?.role == ResenhaRole.participant)
+            role == ResenhaRole.participant)
           _Control(
             label: me?.handRaisedAt == null ? 'Raise hand' : 'Lower hand',
             icon: DIcons.hand,
@@ -552,13 +611,16 @@ class ResenhaVideoSurface extends StatelessWidget {
       track,
       fit: lk.VideoViewFit.cover,
     ),
-    final rtc.MediaStreamTrack track => _RtcTrackRenderer(track: track),
+    final rtc.MediaStreamTrack track => _RtcTrackRenderer(
+      key: ValueKey(track.id),
+      track: track,
+    ),
     _ => const SizedBox.shrink(),
   };
 }
 
 class _RtcTrackRenderer extends StatefulWidget {
-  const _RtcTrackRenderer({required this.track});
+  const _RtcTrackRenderer({super.key, required this.track});
   final rtc.MediaStreamTrack track;
 
   @override
@@ -568,6 +630,8 @@ class _RtcTrackRenderer extends StatefulWidget {
 class _RtcTrackRendererState extends State<_RtcTrackRenderer> {
   final rtc.RTCVideoRenderer _renderer = rtc.RTCVideoRenderer();
   rtc.MediaStream? _stream;
+  bool _rendererReady = false;
+  bool _disposed = false;
 
   @override
   void initState() {
@@ -577,20 +641,24 @@ class _RtcTrackRendererState extends State<_RtcTrackRenderer> {
 
   Future<void> _attach() async {
     await _renderer.initialize();
+    _rendererReady = true;
+    if (_disposed) {
+      await _renderer.dispose();
+      return;
+    }
     final stream = await rtc.createLocalMediaStream('resenha-video-surface');
+    if (_disposed) {
+      await stream.dispose();
+      return;
+    }
     await stream.addTrack(widget.track);
+    if (_disposed) {
+      await stream.dispose();
+      return;
+    }
     _stream = stream;
     _renderer.srcObject = stream;
     if (mounted) setState(() {});
-  }
-
-  @override
-  void didUpdateWidget(_RtcTrackRenderer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.track.id != widget.track.id) {
-      unawaited(_stream?.removeTrack(oldWidget.track));
-      unawaited(_stream?.addTrack(widget.track));
-    }
   }
 
   @override
@@ -601,8 +669,9 @@ class _RtcTrackRendererState extends State<_RtcTrackRenderer> {
 
   @override
   void dispose() {
+    _disposed = true;
     _renderer.srcObject = null;
-    unawaited(_renderer.dispose());
+    if (_rendererReady) unawaited(_renderer.dispose());
     unawaited(_stream?.dispose());
     super.dispose();
   }

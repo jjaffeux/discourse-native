@@ -22,17 +22,9 @@ final class NativeResenhaSystemCall implements ResenhaSystemCall {
   NativeResenhaSystemCall() {
     if (Platform.isIOS) {
       _channel.setMethodCallHandler(_onMethodCall);
-      unawaited(
-        AudioManager.instance
-            .setAudioSessionManagementMode(
-              AudioSessionManagementMode.externalCallSystem,
-            )
-            .then(
-              (_) => AudioManager.instance.setEngineAvailability(
-                AudioEngineAvailability.none,
-              ),
-            ),
-      );
+      _ready = _prepareAudioSessionSafely();
+    } else {
+      _ready = Future<void>.value();
     }
   }
 
@@ -40,6 +32,32 @@ final class NativeResenhaSystemCall implements ResenhaSystemCall {
     'org.discourse.native/resenha_callkit',
   );
   final _actions = StreamController<ResenhaSystemCallAction>.broadcast();
+  late final Future<void> _ready;
+  Object? _readyError;
+  StackTrace? _readyStackTrace;
+
+  Future<void> _prepareAudioSessionSafely() async {
+    try {
+      final audioManager = AudioManager.instance;
+      await audioManager.setAudioSessionManagementMode(
+        AudioSessionManagementMode.externalCallSystem,
+      );
+      await audioManager.setAudioSessionOptions(
+        const AudioSessionOptions.communication(),
+      );
+      await audioManager.setEngineAvailability(AudioEngineAvailability.none);
+    } catch (error, stackTrace) {
+      _readyError = error;
+      _readyStackTrace = stackTrace;
+    }
+  }
+
+  Future<void> _awaitReady() async {
+    await _ready;
+    if (_readyError case final error?) {
+      Error.throwWithStackTrace(error, _readyStackTrace ?? StackTrace.current);
+    }
+  }
 
   @override
   Stream<ResenhaSystemCallAction> get actions => _actions.stream;
@@ -68,6 +86,7 @@ final class NativeResenhaSystemCall implements ResenhaSystemCall {
 
   Future<void> _invoke(String method, [Map<String, Object?>? arguments]) async {
     if (!Platform.isIOS) return;
+    await _awaitReady();
     await _channel.invokeMethod<void>(method, arguments);
   }
 
@@ -91,12 +110,15 @@ final class NativeResenhaSystemCall implements ResenhaSystemCall {
   Future<void> dispose() async {
     if (Platform.isIOS) _channel.setMethodCallHandler(null);
     if (Platform.isIOS) {
-      await AudioManager.instance.setEngineAvailability(
-        AudioEngineAvailability.none,
-      );
-      await AudioManager.instance.setAudioSessionManagementMode(
-        AudioSessionManagementMode.automatic,
-      );
+      await _ready;
+      if (_readyError == null) {
+        await AudioManager.instance.setEngineAvailability(
+          AudioEngineAvailability.none,
+        );
+        await AudioManager.instance.setAudioSessionManagementMode(
+          AudioSessionManagementMode.automatic,
+        );
+      }
     }
     await _actions.close();
   }
