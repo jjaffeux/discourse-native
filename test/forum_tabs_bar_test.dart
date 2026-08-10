@@ -55,6 +55,7 @@ void main() {
     final barRect = tester.getRect(bar);
     final selectedRect = tester.getRect(selected);
     final ordinaryRect = tester.getRect(ordinary);
+    expect(selectedRect.left, barRect.left);
     expect(selectedRect.top, barRect.top + 4);
     expect(selectedRect.bottom, barRect.bottom - bottomDivider.width);
     expect(ordinaryRect.top, selectedRect.top);
