@@ -280,6 +280,97 @@ void main() {
     expect(tester.state<ScrollableState>(vertical.first).position.pixels, 0);
   });
 
+  testWidgets('showing the recommendations panel keeps one scroll attachment', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([site]),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        const TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [1, 2, 3, 4, 5, 6],
+          postsCount: 6,
+          recommendations: TopicRecommendations(
+            suggested: [Topic(id: 2, title: 'Suggested', slug: 'suggested')],
+          ),
+        ),
+      )
+      ..putAll(site.url, [
+        for (var id = 4; id <= 6; id++)
+          Post(
+            id: id,
+            postNumber: id,
+            username: 'sam',
+            cooked: '<p>Post $id</p>',
+          ),
+      ]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One', postNumber: 5),
+    );
+
+    var showRecommendationsPanel = false;
+    late StateSetter rebuild;
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return TopicView(
+                  showRecommendationsPanel: showRecommendationsPanel,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.currentTopicHasEarlier, isTrue);
+    final scroll = tester
+        .widget<SuperListView>(find.byType(SuperListView))
+        .controller!;
+    expect(scroll.positions, hasLength(1));
+    final position = scroll.position;
+
+    rebuild(() => showRecommendationsPanel = true);
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byKey(const ValueKey('topic-recommendations-panel')),
+      findsOneWidget,
+    );
+    expect(scroll.positions, hasLength(1));
+    expect(scroll.position, same(position));
+
+    await tester.pumpAndSettle();
+    rebuild(() => showRecommendationsPanel = false);
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byKey(const ValueKey('topic-recommendations-panel')),
+      findsNothing,
+    );
+    expect(scroll.positions, hasLength(1));
+    expect(scroll.position, same(position));
+  });
+
   testWidgets('a numbered topic route reveals that post on first layout', (
     tester,
   ) async {

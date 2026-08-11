@@ -714,15 +714,15 @@ class _TopicViewState extends State<TopicView> {
       ),
     );
 
-    if (!showRecommendationsPanel) return postStream;
     return Row(
       children: [
         Expanded(child: postStream),
-        _TopicRecommendationsPanel(
-          collapsed: _recommendationsPanelCollapsed,
-          recommendations: snapshot.recommendations!,
-          onCollapsedChanged: _setRecommendationsPanelCollapsed,
-        ),
+        if (showRecommendationsPanel)
+          _TopicRecommendationsPanel(
+            collapsed: _recommendationsPanelCollapsed,
+            recommendations: snapshot.recommendations!,
+            onCollapsedChanged: _setRecommendationsPanelCollapsed,
+          ),
       ],
     );
   }
