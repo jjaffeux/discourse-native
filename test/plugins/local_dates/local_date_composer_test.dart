@@ -183,8 +183,18 @@ void main() {
         tester
             .widget<LocalDateComposerPill>(find.byType(LocalDateComposerPill))
             .highlighted,
+        isFalse,
+      );
+
+      controller.selectPillForKeyboard(controller.localDateBlocks.single);
+      await tester.pump();
+      expect(
+        tester
+            .widget<LocalDateComposerPill>(find.byType(LocalDateComposerPill))
+            .highlighted,
         isTrue,
       );
+      controller.clearKeyboardPillSelection();
 
       controller.selection = const TextSelection.collapsed(offset: 4);
       await tester.pump();

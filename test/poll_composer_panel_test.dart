@@ -178,7 +178,7 @@ void main() {
     },
   );
 
-  testWidgets('click and keyboard boundaries open the poll editor', (
+  testWidgets('click and atomic keyboard navigation open the poll editor', (
     tester,
   ) async {
     final shell = await _openComposer();
@@ -229,20 +229,37 @@ void main() {
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
 
-    for (final offset in [block.start, block.end]) {
-      composer.text.selection = TextSelection.collapsed(offset: offset);
-      composer.focus.requestFocus();
-      await tester.pump();
-      expect(find.text('Edit poll'), findsNothing);
-      expect(
-        tester
-            .widget<PollComposerPill>(find.byType(PollComposerPill))
-            .highlighted,
-        isTrue,
-      );
-    }
+    composer.text.selection = TextSelection.collapsed(offset: block.end);
+    composer.focus.requestFocus();
+    await tester.pump();
+    expect(find.text('Edit poll'), findsNothing);
+    expect(tester.widget<PollComposerPill>(pill).highlighted, isFalse);
 
-    composer.text.selection = TextSelection.collapsed(offset: block.start);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(composer.text.selection.extentOffset, block.end);
+    expect(tester.widget<PollComposerPill>(pill).highlighted, isTrue);
+    expect(find.byType(PollComposerPill), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(composer.text.selection.extentOffset, block.start);
+    expect(tester.widget<PollComposerPill>(pill).highlighted, isFalse);
+    expect(find.byType(PollComposerPill), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(composer.text.selection.extentOffset, block.start);
+    expect(tester.widget<PollComposerPill>(pill).highlighted, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(composer.text.selection.extentOffset, block.end);
+    expect(tester.widget<PollComposerPill>(pill).highlighted, isFalse);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(tester.widget<PollComposerPill>(pill).highlighted, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Edit poll'), findsOneWidget);
@@ -320,7 +337,9 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('backspace after a poll removes the whole poll', (tester) async {
+  testWidgets('backspace on a selected poll removes the whole poll', (
+    tester,
+  ) async {
     final shell = await _openComposer();
     addTearDown(shell.dispose);
     final composer = shell.visibleComposer!;
@@ -344,6 +363,14 @@ void main() {
     composer.text.selection = TextSelection.collapsed(offset: poll.end);
     composer.focus.requestFocus();
     await tester.pump(const Duration(milliseconds: 600));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(
+      tester
+          .widget<PollComposerPill>(find.byType(PollComposerPill))
+          .highlighted,
+      isTrue,
+    );
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
     await tester.pump();
 
@@ -440,9 +467,18 @@ void main() {
       tester
           .widget<LocalDateComposerPill>(find.byType(LocalDateComposerPill))
           .highlighted,
-      isTrue,
+      isFalse,
     );
     expect(find.text('Edit date and time'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(composer.text.selection.extentOffset, block.start);
+    expect(
+      tester
+          .widget<LocalDateComposerPill>(find.byType(LocalDateComposerPill))
+          .highlighted,
+      isTrue,
+    );
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Edit date and time'), findsOneWidget);

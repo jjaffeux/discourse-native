@@ -121,9 +121,18 @@ void main() {
       tester
           .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
           .highlighted,
-      isTrue,
+      isFalse,
     );
     expect(find.byTooltip('Save alt text'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(composer.text.selection.extentOffset, resizedImage.start);
+    expect(
+      tester
+          .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
+          .highlighted,
+      isTrue,
+    );
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(find.byTooltip('Save alt text'), findsOneWidget);
