@@ -1,6 +1,10 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/src/shell/quote.dart';
+import 'package:discourse_native/src/shell/quote_panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
@@ -109,6 +113,88 @@ void main() {
         find.textContaining('combining New and Unread', findRichText: true),
         findsOneWidget,
       );
+    });
+
+    testWidgets('keeps the accent out of the rounded right corners', (
+      tester,
+    ) async {
+      const boundaryKey = ValueKey('quote-pixels');
+      final dark = AppTheme.dark;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: dark.copyWith(
+            colorScheme: dark.colorScheme.copyWith(primary: Colors.red),
+          ),
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: RepaintBoundary(
+                key: boundaryKey,
+                child: SizedBox(
+                  width: 120,
+                  child: QuoteBlock(data: parse(plainBlockquote)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final panel = tester.widget<Container>(
+        find
+            .descendant(
+              of: find.byType(QuotePanel),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      expect((panel.decoration! as BoxDecoration).border, isNull);
+      expect(
+        find.descendant(
+          of: find.byType(QuotePanel),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Positioned &&
+                widget.left == 0 &&
+                widget.top == 0 &&
+                widget.bottom == 0 &&
+                widget.width == 3,
+          ),
+        ),
+        findsOneWidget,
+      );
+
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(boundaryKey),
+      );
+      final capture = (await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 2);
+        try {
+          final bytes = await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          );
+          return (width: image.width, height: image.height, bytes: bytes!);
+        } finally {
+          image.dispose();
+        }
+      }))!;
+
+      var hasAccentFringe = false;
+      for (var y = 0; y < capture.height; y += 1) {
+        for (var x = capture.width - 16; x < capture.width; x += 1) {
+          final offset = (y * capture.width + x) * 4;
+          final red = capture.bytes.getUint8(offset);
+          final green = capture.bytes.getUint8(offset + 1);
+          final blue = capture.bytes.getUint8(offset + 2);
+          if (red > green + 10 && red > blue + 10) {
+            hasAccentFringe = true;
+          }
+        }
+      }
+
+      expect(hasAccentFringe, isFalse);
     });
   });
 }

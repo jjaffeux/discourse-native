@@ -2,6 +2,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_quotes.dart';
+import 'package:discourse_native/src/shell/quote_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -46,6 +47,13 @@ void main() {
     await tester.pump();
 
     expect(find.byType(ComposerQuotePreview), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ComposerQuotePreview),
+        matching: find.byType(QuotePanel),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Régis'), findsOneWidget);
     expect(
       find.descendant(
