@@ -1610,37 +1610,39 @@ class _SelectionFormattingMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      key: const ValueKey('composer-selection-toolbar'),
-      color: theme.shell.floating,
-      elevation: 8,
-      borderRadius: BorderRadius.circular(10),
-      clipBehavior: Clip.antiAlias,
-      child: Container(
-        width: _ComposerEditorState._menuWidth,
-        height: _ComposerEditorState._menuHeight,
-        decoration: BoxDecoration(
-          border: Border.all(color: theme.shell.divider),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (final (mark, icon, label) in const [
-              (ComposerMark.bold, DIcons.bold, 'Bold'),
-              (ComposerMark.italic, DIcons.italic, 'Italic'),
-            ])
-              IconButton(
-                onPressed: () {
-                  composer.toggleMark(mark);
-                  composer.focus.requestFocus();
-                },
-                icon: DIcon(icon, size: 18),
-                tooltip: label,
-                visualDensity: VisualDensity.compact,
-                color: theme.colorScheme.onSurface,
-              ),
-          ],
+    return TextFieldTapRegion(
+      child: Material(
+        key: const ValueKey('composer-selection-toolbar'),
+        color: theme.shell.floating,
+        elevation: 8,
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          width: _ComposerEditorState._menuWidth,
+          height: _ComposerEditorState._menuHeight,
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.shell.divider),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (final (mark, icon, label) in const [
+                (ComposerMark.bold, DIcons.bold, 'Bold'),
+                (ComposerMark.italic, DIcons.italic, 'Italic'),
+              ])
+                IconButton(
+                  onPressed: () {
+                    composer.toggleMark(mark);
+                    composer.focus.requestFocus();
+                  },
+                  icon: DIcon(icon, size: 18),
+                  tooltip: label,
+                  visualDensity: VisualDensity.compact,
+                  color: theme.colorScheme.onSurface,
+                ),
+            ],
+          ),
         ),
       ),
     );

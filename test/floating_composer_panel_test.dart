@@ -7,6 +7,7 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -127,7 +128,12 @@ void main() {
     expect(find.byTooltip('Bold'), findsOneWidget);
     expect(find.byTooltip('Italic'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Bold'));
+    final click = await tester.startGesture(
+      tester.getCenter(find.byTooltip('Bold')),
+      kind: PointerDeviceKind.mouse,
+    );
+    await tester.pump();
+    await click.up();
     await tester.pump();
 
     expect(composer.text.text, '**format** me');
