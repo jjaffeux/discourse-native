@@ -52,6 +52,7 @@ void main() {
       controller.collapsedImageAtOffset(projected.end - 1),
       same(projected),
     );
+    expect(controller.collapsedImageAtOffset(projected.start), isNull);
     expect(controller.collapsedImageAtOffset(projected.end), isNull);
   });
 

@@ -192,10 +192,23 @@ void main() {
       controller.collapsedPollAtOffset(projected.end - 1),
       same(projected),
     );
+    expect(controller.collapsedPollAtOffset(projected.start), isNull);
     expect(controller.collapsedPollAtOffset(projected.end), isNull);
   });
 
   test('selection and composition reveal raw source', () {
+    for (final offset in [block.start, block.end]) {
+      expect(
+        pollBlockNeedsRawSource(
+          block: block,
+          value: TextEditingValue(
+            text: source,
+            selection: TextSelection.collapsed(offset: offset),
+          ),
+        ),
+        isFalse,
+      );
+    }
     expect(
       pollBlockNeedsRawSource(
         block: block,
