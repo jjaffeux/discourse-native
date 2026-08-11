@@ -86,6 +86,7 @@ class Pill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final size = fontSizeFor(baseStyle);
+    final radius = BorderRadius.circular(size * pillRadius);
 
     final pill = Container(
       padding: EdgeInsets.symmetric(
@@ -94,11 +95,14 @@ class Pill extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: theme.shell.mention,
-        borderRadius: BorderRadius.circular(size * pillRadius),
-        boxShadow: highlighted
-            ? [BoxShadow(color: theme.colorScheme.primary, spreadRadius: 1.5)]
-            : null,
+        borderRadius: radius,
       ),
+      foregroundDecoration: highlighted
+          ? BoxDecoration(
+              border: Border.all(color: theme.colorScheme.primary, width: 1.5),
+              borderRadius: radius,
+            )
+          : null,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
