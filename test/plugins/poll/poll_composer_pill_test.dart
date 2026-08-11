@@ -393,12 +393,38 @@ void main() {
     addTearDown(controller.dispose);
     final projected = controller.pollBlocks.single;
     controller.selectPillForKeyboard(projected);
+    controller.keepPollCollapsedForPointerEdit(projected);
 
     controller.expandPollAsRaw(projected);
 
     expect(controller.keyboardSelectedPoll, isNull);
     expect(controller.isPollExpanded(projected), isTrue);
     expect(controller.selection.extentOffset, projected.start + 1);
+  });
+
+  test('a pointer-held poll clamps native range selection to its end', () {
+    final controller = MarkdownEditingController(text: source);
+    addTearDown(controller.dispose);
+    final projected = controller.pollBlocks.single;
+    controller.keepPollCollapsedForPointerEdit(projected);
+
+    controller.selection = TextSelection(
+      baseOffset: projected.start + 1,
+      extentOffset: projected.end - 1,
+    );
+
+    expect(
+      controller.selection,
+      TextSelection.collapsed(offset: controller.pollCaretAfter(projected)),
+    );
+
+    controller.releasePollPointerEdit(projected);
+    final range = TextSelection(
+      baseOffset: projected.start + 1,
+      extentOffset: projected.end - 1,
+    );
+    controller.selection = range;
+    expect(controller.selection, range);
   });
 
   test('a source edit cannot revive a stale keyboard pill selection', () {

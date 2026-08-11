@@ -376,6 +376,129 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('rapid clicks after the pill never reveal or activate it', (
+    tester,
+  ) async {
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    final composer = shell.visibleComposer!;
+    composer.text.value = TextEditingValue(
+      text: _source,
+      selection: const TextSelection.collapsed(offset: _source.length),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(body: ComposerPanel(composer: composer)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final pill = find.byType(PollComposerPill);
+    final block = composer.text.pollBlocks.single;
+    final pillRect = tester.getRect(pill);
+    final position = Offset(pillRect.right + 1, pillRect.center.dy);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: position);
+    addTearDown(mouse.removePointer);
+
+    for (var click = 0; click < 3; click++) {
+      await mouse.down(position);
+      await tester.pump(kPressTimeout + const Duration(milliseconds: 1));
+      expect(
+        find.byType(PollComposerPill),
+        findsOneWidget,
+        reason: 'the pill expanded on pointer-down ${click + 1}',
+      );
+      expect(composer.text.isPollCollapsed(block), isTrue);
+      expect(find.text('Edit poll'), findsNothing);
+      await mouse.up();
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(PollComposerPill), findsOneWidget);
+      expect(find.text('Edit poll'), findsNothing);
+    }
+    await tester.pump(kDoubleTapTimeout + const Duration(milliseconds: 1));
+
+    expect(find.byType(PollComposerPill), findsOneWidget);
+    expect(find.text('Edit poll'), findsNothing);
+    expect(composer.text.text, _source);
+    expect(
+      composer.text.selection,
+      TextSelection.collapsed(offset: composer.text.pollCaretAfter(block)),
+    );
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  for (final lineEnding in const {'LF': '\n', 'CRLF': '\r\n'}.entries) {
+    testWidgets(
+      'rapid clicks after an EOF poll keep the ${lineEnding.key} caret line',
+      (tester) async {
+        final poll = [
+          '[poll]',
+          '* Soup',
+          '* Salad',
+          '[/poll]',
+        ].join(lineEnding.value);
+        final shell = await _openComposer();
+        addTearDown(shell.dispose);
+        final composer = shell.visibleComposer!;
+        composer.text.value = TextEditingValue(
+          text: poll,
+          selection: TextSelection.collapsed(offset: poll.length),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: ShellScope(
+              controller: shell,
+              child: Scaffold(body: ComposerPanel(composer: composer)),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final pillRect = tester.getRect(find.byType(PollComposerPill));
+        final position = Offset(pillRect.right + 1, pillRect.center.dy);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: position);
+        addTearDown(mouse.removePointer);
+
+        await mouse.down(position);
+        await tester.pump(kPressTimeout + const Duration(milliseconds: 1));
+        expect(find.byType(PollComposerPill), findsOneWidget);
+        await mouse.up();
+
+        // TextField activates the after-pill target on pointer-up. Click again
+        // before a frame can lay out the newly appended source line.
+        final expected = '$poll${lineEnding.value}';
+        expect(composer.text.text, expected);
+
+        await mouse.down(position);
+        await tester.pump(kPressTimeout + const Duration(milliseconds: 1));
+        expect(find.byType(PollComposerPill), findsOneWidget);
+        expect(find.text('Edit poll'), findsNothing);
+        await mouse.up();
+        await tester.pump();
+        await tester.pump();
+
+        final block = composer.text.pollBlocks.single;
+        expect(find.byType(PollComposerPill), findsOneWidget);
+        expect(find.text('Edit poll'), findsNothing);
+        expect(composer.text.text, expected);
+        expect(composer.text.selection.extentOffset, expected.length);
+        expect(composer.text.pollCaretAfter(block), expected.length);
+        expect(composer.text.isPollCollapsed(block), isTrue);
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
+  }
+
   testWidgets('tapping after an EOF poll creates its following caret line', (
     tester,
   ) async {

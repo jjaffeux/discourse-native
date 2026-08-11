@@ -92,9 +92,25 @@ class MarkdownEditingController extends TextEditingController {
     if (newValue.text != current.text) {
       _keyboardSelectedProjection = null;
       _keyboardSelectionDocument = null;
+      if (_caretSuppressedPoll case final poll?) {
+        if (!_stillContainsPoll(newValue.text, poll)) {
+          _caretSuppressedPoll = null;
+        }
+      }
     } else if (_keyboardSelectedProjection != null &&
         _keyboardSelectionDocument == current.text) {
       newValue = current;
+    } else if (_caretSuppressedPoll case final poll?
+        when _stillContainsPoll(current.text, poll) &&
+            pollBlockNeedsRawSource(block: poll, value: newValue)) {
+      // EditableText turns consecutive clicks into word and paragraph ranges
+      // on pointer-down. Keep that transient native selection out of the poll.
+      newValue = newValue.copyWith(
+        selection: TextSelection.collapsed(
+          offset: _lineBreakEnd(current.text, poll.end),
+        ),
+        composing: TextRange.empty,
+      );
     }
     super.value = newValue;
   }
@@ -308,6 +324,7 @@ class MarkdownEditingController extends TextEditingController {
 
   void expandPollAsRaw(PollComposerBlock block) {
     clearKeyboardPillSelection();
+    releasePollPointerEdit(block);
     _rawPoll.expand(block);
     value = value.copyWith(
       selection: TextSelection.collapsed(
@@ -318,10 +335,23 @@ class MarkdownEditingController extends TextEditingController {
 
   List<PollComposerBlock> _pollBlocksFor(String source) {
     if (_pollScanned == source) return _pollBlocks;
+    final previousByStart = {
+      for (final block in _pollBlocks) block.start: block,
+    };
+    final nextBlocks = parsePollComposerBlocks(source);
+    final nextByStart = {for (final block in nextBlocks) block.start: block};
+    // A following line can be appended at EOF before the next pointer-down,
+    // but before layout. Preserve geometry only for the exact same projection.
+    _pollPillKeys.removeWhere((start, _) {
+      final previous = previousByStart[start];
+      final next = nextByStart[start];
+      return previous == null ||
+          next == null ||
+          !_sameProjection(previous, next);
+    });
     _pollScanned = source;
     _rawPoll.clear();
-    _pollPillKeys.clear();
-    return _pollBlocks = parsePollComposerBlocks(source);
+    return _pollBlocks = nextBlocks;
   }
 
   String? _localDateScanned;
@@ -995,6 +1025,12 @@ class MarkdownEditingController extends TextEditingController {
           a.start == b.start && a.end == b.end && a.source == b.source,
         _ => false,
       };
+
+  static bool _stillContainsPoll(String source, PollComposerBlock block) =>
+      block.start >= 0 &&
+      block.end <= source.length &&
+      block.start <= block.end &&
+      source.substring(block.start, block.end) == block.source;
 
   static int _lineBreakEnd(String source, int offset) {
     if (offset >= source.length) return offset;
