@@ -49,7 +49,9 @@ void main() {
     expect(before.bottom, closeTo(588, 1));
   });
 
-  testWidgets('sends markdown and starts a clean document', (tester) async {
+  testWidgets('sends markdown and starts a clean, focused document', (
+    tester,
+  ) async {
     final fixture = await _fixture(
       pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
     );
@@ -74,6 +76,8 @@ void main() {
     expect(sent.clientCreatedAt, isNotNull);
     expect(sent.clientCreatedAt!.isUtc, isTrue);
     expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
     expect(fixture.shell.chat.stream(_site, 9).messageIds, isEmpty);
     expect(fixture.shell.chat.stream(_site, 9).localMessageIds, hasLength(1));
     expect(fixture.api.chatMessagesRequested, hasLength(1));
