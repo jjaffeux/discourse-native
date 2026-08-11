@@ -46,6 +46,13 @@ void main() {
     final size = tester.getSize(find.byType(ComposerImagePreview));
     expect(size.width, lessThanOrEqualTo(460));
     expect(size.height, lessThanOrEqualTo(200));
+
+    final projected = controller.imageBlocks.single;
+    expect(
+      controller.collapsedImageAtOffset(projected.end - 1),
+      same(projected),
+    );
+    expect(controller.collapsedImageAtOffset(projected.end), isNull);
   });
 
   testWidgets('reveals ordinary markdown when the caret enters the image', (

@@ -175,6 +175,26 @@ void main() {
     expect(pollBlockAtComposerOffset(blocks, document.length + 1), isNull);
   });
 
+  testWidgets('resolves a collapsed poll from its editable source offset', (
+    tester,
+  ) async {
+    final controller = MarkdownEditingController(text: source);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(body: TextField(controller: controller)),
+      ),
+    );
+
+    final projected = controller.pollBlocks.single;
+    expect(
+      controller.collapsedPollAtOffset(projected.end - 1),
+      same(projected),
+    );
+    expect(controller.collapsedPollAtOffset(projected.end), isNull);
+  });
+
   test('selection and composition reveal raw source', () {
     expect(
       pollBlockNeedsRawSource(
