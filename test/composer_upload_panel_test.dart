@@ -89,7 +89,7 @@ void main() {
           offset: image.start + 1,
         );
         await tester.pump();
-        expect(find.byType(ComposerImagePreview), findsNothing);
+        expect(find.byType(ComposerImagePreview), findsOneWidget);
       }
       await gesture.up();
     }
@@ -102,6 +102,10 @@ void main() {
     expect(find.byTooltip('Increase image size'), findsOneWidget);
     expect(find.byTooltip('Remove image'), findsNothing);
     expect(find.byTooltip('Save alt text'), findsOneWidget);
+    final image = composer.text.imageBlocks.single;
+    composer.text.selection = TextSelection.collapsed(offset: image.end - 1);
+    await tester.pump();
+    expect(find.byType(ComposerImagePreview), findsOneWidget);
 
     await tester.tap(find.byTooltip('Decrease image size'));
     await tester.pump();
