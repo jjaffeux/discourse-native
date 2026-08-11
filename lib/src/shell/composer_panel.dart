@@ -999,6 +999,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (identical(oldWidget.composer, widget.composer)) return;
     oldWidget.composer.text.removeListener(_syncSelectionToolbar);
     oldWidget.composer.focus.removeListener(_syncSelectionToolbar);
+    oldWidget.composer.text.clearKeyboardPillSelection();
     if (_pointerDownImage case final image?) {
       oldWidget.composer.text.releaseImagePointerEdit(image);
     }
@@ -1033,6 +1034,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _imageAlt.dispose();
     widget.composer.text.removeListener(_syncSelectionToolbar);
     widget.composer.focus.removeListener(_syncSelectionToolbar);
+    widget.composer.text.clearKeyboardPillSelection();
     _releasePointerDownPillCollapse();
     if (_selectedImage case final image?) {
       widget.composer.text.releaseImagePointerEdit(image);
@@ -1213,6 +1215,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _pointerDownLocalDate != null;
 
   void _onEditorPointerDown(PointerDownEvent event) {
+    widget.composer.text.clearKeyboardPillSelection();
     _releasePointerDownPillCollapse();
     _pointerSequence++;
     final position = event.position;
@@ -1443,39 +1446,51 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
     final caret = selection.extentOffset;
     final keyboard = HardwareKeyboard.instance;
+    final hasModifier =
+        keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed ||
+        keyboard.isShiftPressed;
+    final selectedPill = _keyboardSelectedPill;
+    final isPlainHorizontalArrow =
+        !hasModifier &&
+        (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+            event.logicalKey == LogicalKeyboardKey.arrowRight);
+    if (isPlainHorizontalArrow) {
+      final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+      if (selectedPill != null) {
+        widget.composer.text.clearKeyboardPillSelection();
+        widget.composer.text.selection = TextSelection.collapsed(
+          offset: moveLeft ? _pillStart(selectedPill) : _pillEnd(selectedPill),
+        );
+        return KeyEventResult.handled;
+      }
+      final pill = moveLeft
+          ? _collapsedPillEndingAt(caret)
+          : _collapsedPillStartingAt(caret);
+      if (pill == null) return KeyEventResult.ignored;
+      widget.composer.text.selectPillForKeyboard(pill);
+      return KeyEventResult.handled;
+    }
     final isPlainEnter =
         (event.logicalKey == LogicalKeyboardKey.enter ||
             event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
-        !keyboard.isMetaPressed &&
-        !keyboard.isControlPressed &&
-        !keyboard.isAltPressed &&
-        !keyboard.isShiftPressed;
-    if (isPlainEnter) {
-      for (final image in widget.composer.text.imageBlocks) {
-        if (!_isPillBoundary(caret, image.start, image.end) ||
-            !widget.composer.text.isImageCollapsed(image)) {
-          continue;
-        }
-        _selectImage(image);
-        return KeyEventResult.handled;
-      }
-      for (final poll in widget.composer.text.pollBlocks) {
-        if (!_isPillBoundary(caret, poll.start, poll.end) ||
-            !widget.composer.text.isPollCollapsed(poll)) {
-          continue;
-        }
-        unawaited(_editPoll(poll));
-        return KeyEventResult.handled;
-      }
-      for (final date in widget.composer.text.localDateBlocks) {
-        if (!_isPillBoundary(caret, date.start, date.end) ||
-            !widget.composer.text.isLocalDateCollapsed(date)) {
-          continue;
-        }
-        unawaited(_editLocalDate(date));
-        return KeyEventResult.handled;
-      }
-      return KeyEventResult.ignored;
+        !hasModifier;
+    if (isPlainEnter && selectedPill != null) {
+      widget.composer.text.clearKeyboardPillSelection();
+      _editPill(selectedPill);
+      return KeyEventResult.handled;
+    }
+    final deletes =
+        event.logicalKey == LogicalKeyboardKey.backspace ||
+        event.logicalKey == LogicalKeyboardKey.delete;
+    if (deletes && selectedPill != null) {
+      widget.composer.text.clearKeyboardPillSelection();
+      _removePill(selectedPill);
+      return KeyEventResult.handled;
+    }
+    if (selectedPill != null) {
+      widget.composer.text.clearKeyboardPillSelection();
     }
     for (final quote in widget.composer.text.quoteBlocks) {
       final removesQuote =
@@ -1525,8 +1540,86 @@ class _ComposerEditorState extends State<ComposerEditor> {
     return KeyEventResult.ignored;
   }
 
-  static bool _isPillBoundary(int caret, int start, int end) =>
-      caret == start || caret == end;
+  Object? get _keyboardSelectedPill =>
+      widget.composer.text.keyboardSelectedImage ??
+      widget.composer.text.keyboardSelectedPoll ??
+      widget.composer.text.keyboardSelectedLocalDate;
+
+  Object? _collapsedPillEndingAt(int caret) {
+    final text = widget.composer.text;
+    for (final image in text.imageBlocks) {
+      if (image.end == caret && text.isImageCollapsed(image)) return image;
+    }
+    for (final poll in text.pollBlocks) {
+      if (poll.end == caret && text.isPollCollapsed(poll)) return poll;
+    }
+    for (final date in text.localDateBlocks) {
+      if (date.end == caret && text.isLocalDateCollapsed(date)) return date;
+    }
+    return null;
+  }
+
+  Object? _collapsedPillStartingAt(int caret) {
+    final text = widget.composer.text;
+    for (final image in text.imageBlocks) {
+      if (image.start == caret && text.isImageCollapsed(image)) return image;
+    }
+    for (final poll in text.pollBlocks) {
+      if (poll.start == caret && text.isPollCollapsed(poll)) return poll;
+    }
+    for (final date in text.localDateBlocks) {
+      if (date.start == caret && text.isLocalDateCollapsed(date)) return date;
+    }
+    return null;
+  }
+
+  static int _pillStart(Object pill) => switch (pill) {
+    ComposerImageBlock image => image.start,
+    PollComposerBlock poll => poll.start,
+    LocalDateComposerBlock date => date.start,
+    _ => throw ArgumentError.value(pill, 'pill'),
+  };
+
+  static int _pillEnd(Object pill) => switch (pill) {
+    ComposerImageBlock image => image.end,
+    PollComposerBlock poll => poll.end,
+    LocalDateComposerBlock date => date.end,
+    _ => throw ArgumentError.value(pill, 'pill'),
+  };
+
+  void _editPill(Object pill) {
+    switch (pill) {
+      case ComposerImageBlock image:
+        _selectImage(image);
+        return;
+      case PollComposerBlock poll:
+        unawaited(_editPoll(poll));
+        return;
+      case LocalDateComposerBlock date:
+        unawaited(_editLocalDate(date));
+        return;
+    }
+    throw ArgumentError.value(pill, 'pill');
+  }
+
+  void _removePill(Object pill) {
+    switch (pill) {
+      case ComposerImageBlock image:
+        if (_selectedImage case final selected?) {
+          widget.composer.text.releaseImagePointerEdit(selected);
+          setState(() => _selectedImage = null);
+        }
+        widget.composer.removeImage(image);
+        return;
+      case PollComposerBlock poll:
+        unawaited(removePollComposer(context, widget.composer, poll));
+        return;
+      case LocalDateComposerBlock date:
+        removeLocalDateComposer(context, widget.composer, date);
+        return;
+    }
+    throw ArgumentError.value(pill, 'pill');
+  }
 
   (double, double)? _imageMenuPosition(BoxConstraints constraints) {
     final image = _selectedImage;

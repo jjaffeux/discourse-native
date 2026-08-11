@@ -66,6 +66,8 @@ class MarkdownEditingController extends TextEditingController {
   List<ComposerImageBlock> _imageBlocks = const [];
   Set<int> _collapsedImageStarts = const {};
   ComposerImageBlock? _caretSuppressedImage;
+  Object? _keyboardSelectedProjection;
+  String? _keyboardSelectionDocument;
   final Map<int, GlobalKey> _imageKeys = {};
   final Map<String, String> _imageUrls = {};
   final Set<String> _resolvingImageUrls = {};
@@ -88,6 +90,50 @@ class MarkdownEditingController extends TextEditingController {
 
   bool isImageCollapsed(ComposerImageBlock image) =>
       _collapsedImageStarts.contains(image.start);
+
+  ComposerImageBlock? get keyboardSelectedImage =>
+      _keyboardSelectionDocument == text &&
+          _keyboardSelectedProjection is ComposerImageBlock
+      ? _keyboardSelectedProjection as ComposerImageBlock
+      : null;
+
+  PollComposerBlock? get keyboardSelectedPoll =>
+      _keyboardSelectionDocument == text &&
+          _keyboardSelectedProjection is PollComposerBlock
+      ? _keyboardSelectedProjection as PollComposerBlock
+      : null;
+
+  LocalDateComposerBlock? get keyboardSelectedLocalDate =>
+      _keyboardSelectionDocument == text &&
+          _keyboardSelectedProjection is LocalDateComposerBlock
+      ? _keyboardSelectedProjection as LocalDateComposerBlock
+      : null;
+
+  void selectPillForKeyboard(Object projection) {
+    if (projection is! ComposerImageBlock &&
+        projection is! PollComposerBlock &&
+        projection is! LocalDateComposerBlock) {
+      throw ArgumentError.value(projection, 'projection');
+    }
+    if (_keyboardSelectionDocument == text &&
+        _sameProjection(_keyboardSelectedProjection, projection)) {
+      return;
+    }
+    _keyboardSelectedProjection = projection;
+    _keyboardSelectionDocument = text;
+    artworkArrived();
+  }
+
+  void clearKeyboardPillSelection() {
+    if (_keyboardSelectedProjection == null) return;
+    _keyboardSelectedProjection = null;
+    _keyboardSelectionDocument = null;
+    artworkArrived();
+  }
+
+  bool isPillSelectedForKeyboard(Object projection) =>
+      _keyboardSelectionDocument == text &&
+      _sameProjection(_keyboardSelectedProjection, projection);
 
   void keepImageCollapsedForPointerEdit(ComposerImageBlock image) {
     if (_sameProjection(_caretSuppressedImage, image)) return;
@@ -445,7 +491,7 @@ class MarkdownEditingController extends TextEditingController {
           (block) => Object.hash(
             block.start,
             block.end,
-            _isProjectionBoundary(value.selection, block.start, block.end),
+            isPillSelectedForKeyboard(block),
           ),
         ),
       ),
@@ -479,7 +525,7 @@ class MarkdownEditingController extends TextEditingController {
             block.start,
             block.end,
             block.source,
-            _isProjectionBoundary(value.selection, block.start, block.end),
+            isPillSelectedForKeyboard(block),
           ),
         ),
       ),
@@ -506,7 +552,7 @@ class MarkdownEditingController extends TextEditingController {
           image.height,
           image.scale,
           resolvedImageUrl(image),
-          _isProjectionBoundary(value.selection, image.start, image.end),
+          isPillSelectedForKeyboard(image),
         ),
       ),
     );
@@ -604,11 +650,7 @@ class MarkdownEditingController extends TextEditingController {
               () => GlobalKey(debugLabel: 'poll-pill-${block.start}'),
             ),
             maximumOptions: pollMaximumOptions,
-            highlighted: _isProjectionBoundary(
-              value.selection,
-              block.start,
-              block.end,
-            ),
+            highlighted: isPillSelectedForKeyboard(block),
           ),
         ),
       for (final block in collapsedLocalDates)
@@ -624,11 +666,7 @@ class MarkdownEditingController extends TextEditingController {
               block.start,
               () => GlobalKey(debugLabel: 'local-date-pill-${block.start}'),
             ),
-            highlighted: _isProjectionBoundary(
-              value.selection,
-              block.start,
-              block.end,
-            ),
+            highlighted: isPillSelectedForKeyboard(block),
           ),
         ),
       for (final image in collapsedImages)
@@ -639,11 +677,7 @@ class MarkdownEditingController extends TextEditingController {
             image,
             base,
             unresolvedImages,
-            highlighted: _isProjectionBoundary(
-              value.selection,
-              image.start,
-              image.end,
-            ),
+            highlighted: isPillSelectedForKeyboard(image),
           ),
         ),
     ]..sort((a, b) => a.start.compareTo(b.start));
@@ -877,15 +911,6 @@ class MarkdownEditingController extends TextEditingController {
           a.start == b.start && a.end == b.end && a.source == b.source,
         _ => false,
       };
-
-  static bool _isProjectionBoundary(
-    TextSelection selection,
-    int start,
-    int end,
-  ) =>
-      selection.isValid &&
-      selection.isCollapsed &&
-      (selection.extentOffset == start || selection.extentOffset == end);
 
   /// A shortcode drawn as its artwork, or null to draw it as text.
   ///
