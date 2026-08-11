@@ -613,7 +613,10 @@ class ComposerController extends ChangeNotifier {
 
   /// Turns [mark] on or off around the selection.
   void toggleMark(ComposerMark mark) {
-    if (_disposed) return;
+    if (_disposed ||
+        selectionTouchesComposerQuote(text.quoteBlocks, text.selection)) {
+      return;
+    }
     text.value = toggleMarkdownMark(text.value, mark.marker);
   }
 

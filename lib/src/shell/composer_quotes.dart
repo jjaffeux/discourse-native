@@ -134,6 +134,30 @@ ComposerQuoteBlock? quoteAtComposerOffset(
   return null;
 }
 
+/// Whether applying an inline edit to [selection] would rewrite a quote.
+///
+/// A non-collapsed selection may include ordinary prose as well as a quote;
+/// wrapping that combined range would still mutate the immutable quote source.
+/// Its opening boundary is unsafe too: inserting a markdown marker immediately
+/// before `[quote]` stops it from being recognized as a block. The ending
+/// boundary remains safe because a marker after the complete source does not
+/// change how the quote is parsed.
+bool selectionTouchesComposerQuote(
+  Iterable<ComposerQuoteBlock> blocks,
+  TextSelection selection,
+) {
+  if (!selection.isValid) return false;
+  for (final block in blocks) {
+    if (selection.isCollapsed) {
+      final offset = selection.extentOffset;
+      if (offset >= block.start && offset < block.end) return true;
+    } else if (selection.start < block.end && selection.end >= block.start) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /// Expands a selection to quote boundaries and keeps a collapsed caret out of
 /// immutable quote source.
 TextSelection quoteSafeSelection(

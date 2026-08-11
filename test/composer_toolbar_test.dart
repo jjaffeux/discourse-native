@@ -62,4 +62,37 @@ void main() {
 
     expect(composer.text.text, 'say hello');
   });
+
+  test('does not mark up a selected quote', () {
+    const quote = '[quote="sam"]\nQuoted words.\n[/quote]';
+    open(quote);
+    composer.text.selection = const TextSelection(
+      baseOffset: 0,
+      extentOffset: quote.length,
+    );
+
+    composer.toggleMark(ComposerMark.bold);
+    composer.toggleMark(ComposerMark.italic);
+
+    expect(composer.text.text, quote);
+  });
+
+  test('does not insert a mark at a quote opening boundary', () {
+    const quote = '[quote="sam"]\nQuoted words.\n[/quote]';
+    const source = 'Before\n\n$quote';
+    open(source);
+    final quoteStart = source.indexOf('[quote');
+    composer.text.selection = TextSelection.collapsed(offset: quoteStart);
+
+    composer.toggleMark(ComposerMark.bold);
+    expect(composer.text.text, source);
+
+    composer.text.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: quoteStart,
+    );
+    composer.toggleMark(ComposerMark.italic);
+
+    expect(composer.text.text, source);
+  });
 }

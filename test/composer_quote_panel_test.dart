@@ -95,6 +95,49 @@ void main() {
     expect(find.byType(ComposerQuotePreview), findsNothing);
   });
 
+  testWidgets('does not offer formatting for a selected quote', (tester) async {
+    final composer = ComposerController(_target);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    const source = 'Before\n\n$_quote';
+    composer.text.text = source;
+
+    await _pumpPanel(tester, shell, composer);
+    await tester.pump();
+
+    final quote = composer.text.quoteBlocks.single;
+    composer.text.selection = TextSelection(
+      baseOffset: quote.start + 1,
+      extentOffset: quote.end - 1,
+    );
+    composer.focus.requestFocus();
+    await tester.pumpAndSettle();
+
+    expect(
+      composer.text.selection,
+      TextSelection(baseOffset: quote.start, extentOffset: quote.end),
+    );
+    expect(
+      find.byKey(const ValueKey('composer-selection-toolbar')),
+      findsNothing,
+    );
+    expect(find.byTooltip('Bold'), findsNothing);
+    expect(find.byTooltip('Italic'), findsNothing);
+
+    composer.text.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: quote.start,
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('composer-selection-toolbar')),
+      findsNothing,
+    );
+    expect(composer.text.text, source);
+  });
+
   testWidgets('Backspace and Delete remove a quote atomically', (tester) async {
     final composer = ComposerController(_target);
     final shell = await _shell();

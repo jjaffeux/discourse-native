@@ -1062,9 +1062,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       }
     }
     final selection = widget.composer.text.selection;
-    if (!widget.composer.focus.hasFocus ||
-        !selection.isValid ||
-        selection.isCollapsed) {
+    if (!_canFormat(selection)) {
       _selectionSyncToken = null;
       _selectionAnchor.value = null;
       if (_selectionPortal.isShowing) _selectionPortal.hide();
@@ -1076,9 +1074,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !identical(_selectionSyncToken, token)) return;
       final current = widget.composer.text.selection;
-      if (!widget.composer.focus.hasFocus ||
-          !current.isValid ||
-          current.isCollapsed) {
+      if (!_canFormat(current)) {
         _selectionAnchor.value = null;
         if (_selectionPortal.isShowing) _selectionPortal.hide();
         return;
@@ -1114,6 +1110,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _selectionPortal.show();
     });
   }
+
+  bool _canFormat(TextSelection selection) =>
+      widget.composer.focus.hasFocus &&
+      selection.isValid &&
+      !selection.isCollapsed &&
+      !selectionTouchesComposerQuote(
+        widget.composer.text.quoteBlocks,
+        selection,
+      );
 
   RenderEditable? get _renderEditable {
     RenderEditable? found;
