@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../data/sidebar_section_store.dart';
 import '../models/sidebar.dart';
 import '../plugins/chat/chat_header_button.dart';
+import '../plugins/chat/chat_user_avatar.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -598,6 +599,17 @@ class _DestinationTileState extends State<_DestinationTile> {
     final theme = Theme.of(context);
 
     if (destination.avatarUrl case final url?) {
+      final siteUrl = ShellScope.read(context).currentInstance?.url;
+      final userId = destination.avatarUserId;
+      if (siteUrl != null && userId != null) {
+        return ChatUserAvatar(
+          siteUrl: siteUrl,
+          userId: userId,
+          url: url,
+          size: 18,
+          fallback: ColoredBox(color: theme.shell.floating),
+        );
+      }
       return ClipOval(
         child: SizedBox(
           width: 18,

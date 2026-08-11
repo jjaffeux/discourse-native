@@ -64,6 +64,7 @@ class SidebarDestination {
     this.parentColor,
     this.emoji,
     this.avatarUrl,
+    this.avatarUserId,
     this.iconColor,
     this.routeColor,
     this.prefixBadgeIcon,
@@ -103,6 +104,13 @@ class SidebarDestination {
   /// One account's face, for a row that stands for a person rather than a
   /// place.
   final String? avatarUrl;
+
+  /// The account behind [avatarUrl], when the row belongs to a chat user.
+  ///
+  /// Kept beside the artwork rather than reduced to an `online` boolean so the
+  /// shared chat avatar can watch live presence itself. Other avatar-backed
+  /// destinations leave this null and keep their ordinary static rendering.
+  final int? avatarUserId;
 
   /// What tints [icon], for an entry the site gave a colour but not a badge.
   ///

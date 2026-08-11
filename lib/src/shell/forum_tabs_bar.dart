@@ -8,6 +8,7 @@ import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_plugin.dart';
+import '../plugins/chat/chat_user_avatar.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -31,6 +32,7 @@ class ForumTabItem {
     this.parentColor,
     this.iconColor,
     this.avatarUrl,
+    this.avatarUserId,
     this.emojiUrl,
     this.emojiName,
     this.badge = SidebarBadge.none,
@@ -46,6 +48,7 @@ class ForumTabItem {
   final Color? parentColor;
   final Color? iconColor;
   final String? avatarUrl;
+  final int? avatarUserId;
   final String? emojiUrl;
   final String? emojiName;
   final SidebarBadge badge;
@@ -318,6 +321,17 @@ class _ForumTabState extends State<_ForumTab> {
     final theme = Theme.of(context);
 
     if (item.avatarUrl case final url?) {
+      final siteUrl = ShellScope.read(context).currentInstance?.url;
+      final userId = item.avatarUserId;
+      if (siteUrl != null && userId != null) {
+        return ChatUserAvatar(
+          siteUrl: siteUrl,
+          userId: userId,
+          url: url,
+          size: 15,
+          fallback: ColoredBox(color: theme.shell.floating),
+        );
+      }
       return ClipOval(
         child: SizedBox.square(
           dimension: 16,
@@ -650,6 +664,7 @@ class CurrentForumTabsBar extends StatelessWidget {
                       parentColor: destination.parentColor,
                       iconColor: destination.iconColor,
                       avatarUrl: destination.avatarUrl,
+                      avatarUserId: destination.avatarUserId,
                       emojiUrl: emoji == null
                           ? null
                           : controller.emojiUrlFor(siteUrl, emoji),
