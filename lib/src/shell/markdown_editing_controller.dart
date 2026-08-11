@@ -34,6 +34,7 @@ class MarkdownEditingController extends TextEditingController {
     super.text,
     this.resolveEmoji,
     this.pills,
+    this.formatQuoteContents,
     this.pollMaximumOptions = 20,
     this.localDateAccountTimezone,
     this.resolveUploadUrls,
@@ -54,6 +55,13 @@ class MarkdownEditingController extends TextEditingController {
   /// Null leaves both as text — which is what the tests and a composer with no
   /// site behind it get, exactly as for [resolveEmoji].
   final ComposerPills? pills;
+
+  /// Recovers the cooked structure of quote source when the referenced post
+  /// is already loaded. This also upgrades an open pre-fix quote whose raw
+  /// selection was flattened by Flutter's selection API.
+  final ComposerQuoteContentsFormatter? formatQuoteContents;
+  ComposerQuoteContentsResolver? _quoteContentsResolver;
+  Object? _quoteContentsResolverContext;
 
   final int pollMaximumOptions;
   final String? localDateAccountTimezone;
@@ -351,6 +359,18 @@ class MarkdownEditingController extends TextEditingController {
   Set<int> _collapsedQuoteStarts = const {};
   final Map<int, GlobalKey> _quoteKeys = {};
   final Map<int, GlobalKey> _quoteRemoveKeys = {};
+  final Map<int, String> _displayedQuoteContents = {};
+
+  void configureQuoteContentsResolver(
+    ComposerQuoteContentsResolver? resolver, {
+    required Object? context,
+  }) {
+    if (_quoteContentsResolverContext == context) return;
+    _quoteContentsResolver = resolver;
+    _quoteContentsResolverContext = context;
+    _displayedQuoteContents.clear();
+    _cachedSpan = null;
+  }
 
   /// Complete quote BBCode blocks in the current raw document.
   List<ComposerQuoteBlock> get quoteBlocks =>
@@ -401,8 +421,18 @@ class MarkdownEditingController extends TextEditingController {
     _quoteScanned = source;
     _quoteKeys.clear();
     _quoteRemoveKeys.clear();
+    _displayedQuoteContents.clear();
     return _quoteBlocks = parseComposerQuotes(source);
   }
+
+  String _displayedContentsFor(ComposerQuoteBlock block) =>
+      _displayedQuoteContents.putIfAbsent(
+        block.start,
+        () =>
+            _quoteContentsResolver?.call(block) ??
+            formatQuoteContents?.call(block) ??
+            block.contents,
+      );
 
   /// How many pieces of artwork have arrived, so the span cache knows the
   /// answer changed when nothing about the text did.
@@ -465,8 +495,12 @@ class MarkdownEditingController extends TextEditingController {
     _collapsedQuoteStarts = {for (final block in collapsedQuotes) block.start};
     final quoteProjection = Object.hashAll(
       collapsedQuotes.map(
-        (block) =>
-            Object.hash(block.start, block.end, block.title, block.contents),
+        (block) => Object.hash(
+          block.start,
+          block.end,
+          block.title,
+          _displayedContentsFor(block),
+        ),
       ),
     );
 
@@ -635,7 +669,7 @@ class MarkdownEditingController extends TextEditingController {
         _SpanProjection(
           block.start,
           block.end,
-          () => _buildQuoteSpans(block, base),
+          () => _buildQuoteSpans(block, _displayedContentsFor(block), base),
         ),
       for (final block in collapsedPolls)
         _SpanProjection(
@@ -727,7 +761,11 @@ class MarkdownEditingController extends TextEditingController {
     return span;
   }
 
-  List<InlineSpan> _buildQuoteSpans(ComposerQuoteBlock block, TextStyle base) {
+  List<InlineSpan> _buildQuoteSpans(
+    ComposerQuoteBlock block,
+    String displayedContents,
+    TextStyle base,
+  ) {
     return [
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
@@ -742,6 +780,7 @@ class MarkdownEditingController extends TextEditingController {
               controller: _imageScrollController,
               child: ComposerQuotePreview(
                 block: block,
+                contents: displayedContents,
                 baseStyle: base,
                 removeKey: _quoteRemoveKeys.putIfAbsent(
                   block.start,

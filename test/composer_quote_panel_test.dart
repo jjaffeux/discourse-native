@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_quotes.dart';
@@ -239,6 +240,60 @@ void main() {
 
     expect(styles.any((style) => style?.fontWeight == FontWeight.w700), isTrue);
     expect(styles.any((style) => style?.fontStyle == FontStyle.italic), isTrue);
+  });
+
+  testWidgets('recovers paragraphs for an already-flattened quote', (
+    tester,
+  ) async {
+    const cooked =
+        '<p>I’ll put on a blindfold.</p>'
+        '<p>You’ll yell the story at me.</p>'
+        '<p>I’ll try to solve the cube.</p>'
+        '<p>This is either going to work beautifully or fail spectacularly.</p>';
+    const flattened =
+        'I’ll put on a blindfold.'
+        'You’ll yell the story at me.'
+        'I’ll try to solve the cube.'
+        'This is either going to work beautifully or fail spectacularly.';
+    const expected =
+        'I’ll put on a blindfold.\n\n'
+        'You’ll yell the story at me.\n\n'
+        'I’ll try to solve the cube.\n\n'
+        'This is either going to work beautifully or fail spectacularly.';
+    final composer = ComposerController(_target);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    shell.store.put(
+      _target.siteUrl,
+      const TopicDetail(id: 650, title: 'Quote support', stream: [42]),
+    );
+    shell.store.put(
+      _target.siteUrl,
+      const Post(
+        id: 42,
+        postNumber: 5,
+        username: 'zogstrip',
+        name: 'Régis',
+        cooked: cooked,
+      ),
+    );
+    composer.text.text =
+        '[quote="Régis, post:5, topic:650, username:zogstrip"]\n'
+        '$flattened\n'
+        '[/quote]';
+
+    await _pumpPanel(tester, shell, composer);
+    await tester.pump();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Text && widget.textSpan?.toPlainText() == expected,
+      ),
+      findsOneWidget,
+    );
+    expect(composer.text.text, contains(flattened));
   });
 }
 

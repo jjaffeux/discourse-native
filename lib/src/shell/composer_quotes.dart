@@ -45,6 +45,12 @@ class ComposerQuoteBlock {
       offset >= start && (includeEnd ? offset <= end : offset < end);
 }
 
+typedef ComposerQuoteContentsFormatter =
+    String Function(ComposerQuoteBlock block);
+
+typedef ComposerQuoteContentsResolver =
+    String? Function(ComposerQuoteBlock block);
+
 /// Finds complete block-level quote BBCode outside code.
 ///
 /// This mirrors the important parts of core's `bbcode-block` and `quotes`
@@ -256,11 +262,13 @@ class ComposerQuotePreview extends StatelessWidget {
   const ComposerQuotePreview({
     super.key,
     required this.block,
+    required this.contents,
     required this.baseStyle,
     this.removeKey,
   });
 
   final ComposerQuoteBlock block;
+  final String contents;
   final TextStyle baseStyle;
   final Key? removeKey;
 
@@ -278,10 +286,10 @@ class ComposerQuotePreview extends StatelessWidget {
     final quoteBody = Text.rich(
       TextSpan(
         children: [
-          for (final run in scanMarkdown(block.contents))
+          for (final run in scanMarkdown(contents))
             if (!run.has(Md.marker))
               TextSpan(
-                text: block.contents.substring(run.start, run.end),
+                text: contents.substring(run.start, run.end),
                 style: markdownStyle(
                   run.mask,
                   run.detail,
