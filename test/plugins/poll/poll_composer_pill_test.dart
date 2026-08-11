@@ -387,4 +387,38 @@ void main() {
     expansion.updateSelection(TextSelection.collapsed(offset: block.end));
     expect(expansion.contains(block), isFalse);
   });
+
+  test('explicit raw expansion clears keyboard pill selection', () {
+    final controller = MarkdownEditingController(text: source);
+    addTearDown(controller.dispose);
+    final projected = controller.pollBlocks.single;
+    controller.selectPillForKeyboard(projected);
+
+    controller.expandPollAsRaw(projected);
+
+    expect(controller.keyboardSelectedPoll, isNull);
+    expect(controller.isPollExpanded(projected), isTrue);
+    expect(controller.selection.extentOffset, projected.start + 1);
+  });
+
+  test('a source edit cannot revive a stale keyboard pill selection', () {
+    final controller = MarkdownEditingController(text: source);
+    addTearDown(controller.dispose);
+    controller.selectPillForKeyboard(controller.pollBlocks.single);
+
+    controller.value = TextEditingValue(
+      text: '$source!',
+      selection: TextSelection.collapsed(offset: source.length + 1),
+    );
+    expect(controller.keyboardSelectedPoll, isNull);
+
+    controller.value = const TextEditingValue(
+      text: source,
+      selection: TextSelection.collapsed(offset: source.length),
+    );
+    expect(controller.keyboardSelectedPoll, isNull);
+
+    controller.selection = const TextSelection.collapsed(offset: 0);
+    expect(controller.selection.extentOffset, 0);
+  });
 }
