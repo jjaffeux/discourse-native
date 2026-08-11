@@ -53,6 +53,7 @@ class Pill extends StatelessWidget {
     required this.baseStyle,
     this.leading,
     this.onTap,
+    this.highlighted = false,
   });
 
   final String label;
@@ -67,6 +68,9 @@ class Pill extends StatelessWidget {
   final Widget? leading;
 
   final VoidCallback? onTap;
+
+  /// A keyboard focus ring for projected composer items.
+  final bool highlighted;
 
   /// The pill's own font size, which every other measurement is taken against.
   static double fontSizeFor(TextStyle? baseStyle) =>
@@ -91,6 +95,9 @@ class Pill extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.shell.mention,
         borderRadius: BorderRadius.circular(size * pillRadius),
+        boxShadow: highlighted
+            ? [BoxShadow(color: theme.colorScheme.primary, spreadRadius: 1.5)]
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

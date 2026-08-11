@@ -178,7 +178,7 @@ void main() {
     },
   );
 
-  testWidgets('tapping the collapsed poll pill opens its editor', (
+  testWidgets('click and keyboard boundaries open the poll editor', (
     tester,
   ) async {
     final shell = await _openComposer();
@@ -227,6 +227,27 @@ void main() {
     );
 
     await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+
+    for (final offset in [block.start, block.end]) {
+      composer.text.selection = TextSelection.collapsed(offset: offset);
+      composer.focus.requestFocus();
+      await tester.pump();
+      expect(find.text('Edit poll'), findsNothing);
+      expect(
+        tester
+            .widget<PollComposerPill>(find.byType(PollComposerPill))
+            .highlighted,
+        isTrue,
+      );
+    }
+
+    composer.text.selection = TextSelection.collapsed(offset: block.start);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Edit poll'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Edit poll'))).pop();
+    await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -411,7 +432,22 @@ void main() {
     expect(composer.text.text, source);
 
     await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    composer.text.selection = TextSelection.collapsed(offset: block.start);
+    composer.focus.requestFocus();
     await tester.pump();
+    expect(
+      tester
+          .widget<LocalDateComposerPill>(find.byType(LocalDateComposerPill))
+          .highlighted,
+      isTrue,
+    );
+    expect(find.text('Edit date and time'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Edit date and time'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Edit date and time'))).pop();
+    await tester.pumpAndSettle();
     composer.text.selection = TextSelection.collapsed(
       offset: composer.text.localDateBlocks.single.end,
     );

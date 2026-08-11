@@ -176,6 +176,16 @@ void main() {
       );
       expect(controller.text, date);
 
+      controller.selection = const TextSelection.collapsed(offset: 0);
+      await tester.pump();
+      expect(find.byType(LocalDateComposerPill), findsOneWidget);
+      expect(
+        tester
+            .widget<LocalDateComposerPill>(find.byType(LocalDateComposerPill))
+            .highlighted,
+        isTrue,
+      );
+
       controller.selection = const TextSelection.collapsed(offset: 4);
       await tester.pump();
       expect(find.byType(LocalDateComposerPill), findsNothing);
@@ -213,6 +223,7 @@ void main() {
         controller.collapsedLocalDateAtOffset(projected.end - 1),
         same(projected),
       );
+      expect(controller.collapsedLocalDateAtOffset(projected.start), isNull);
       expect(controller.collapsedLocalDateAtOffset(projected.end), isNull);
     });
   });

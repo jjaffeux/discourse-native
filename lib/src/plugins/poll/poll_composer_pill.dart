@@ -54,6 +54,7 @@ List<InlineSpan> buildCollapsedPollSpans({
   required TextStyle baseStyle,
   Key? pillKey,
   int maximumOptions = 20,
+  bool highlighted = false,
 }) {
   final source = block.source;
   if (source.isEmpty) return const [];
@@ -96,6 +97,7 @@ List<InlineSpan> buildCollapsedPollSpans({
         key: pillKey,
         label: pollComposerSummary(block, maximumOptions: maximumOptions),
         baseStyle: baseStyle,
+        highlighted: highlighted,
       ),
     ),
   );
@@ -115,18 +117,22 @@ class PollComposerPill extends StatelessWidget {
     super.key,
     required this.label,
     required this.baseStyle,
+    this.highlighted = false,
   });
 
   final String label;
   final TextStyle baseStyle;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) => Semantics(
     label: '$label. Activate to edit.',
     button: true,
+    selected: highlighted,
     child: Pill(
       label: label,
       baseStyle: baseStyle,
+      highlighted: highlighted,
       leading: DIcon(
         DIcons.squarePollHorizontal,
         size: Pill.iconBoxFor(baseStyle),
@@ -170,6 +176,10 @@ bool pollBlockNeedsRawSource({
   final selection = value.selection;
   if (!selection.isValid) return false;
   if (selection.isCollapsed) {
+    if (selection.extentOffset == block.start ||
+        selection.extentOffset == block.end) {
+      return false;
+    }
     return !suppressCollapsedCaret &&
         block.containsOffset(selection.extentOffset);
   }
