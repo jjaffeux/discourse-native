@@ -13,6 +13,7 @@ import 'code_block.dart';
 import 'composer_image.dart';
 import 'composer_images.dart';
 import 'composer_pills.dart';
+import 'composer_quotes.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
 import 'markdown_highlight.dart';
@@ -233,6 +234,64 @@ class MarkdownEditingController extends TextEditingController {
     return _localDateBlocks = parseLocalDateComposerBlocks(source);
   }
 
+  String? _quoteScanned;
+  List<ComposerQuoteBlock> _quoteBlocks = const [];
+  Set<int> _collapsedQuoteStarts = const {};
+  final Map<int, GlobalKey> _quoteKeys = {};
+  final Map<int, GlobalKey> _quoteRemoveKeys = {};
+
+  /// Complete quote BBCode blocks in the current raw document.
+  List<ComposerQuoteBlock> get quoteBlocks =>
+      List.unmodifiable(_quoteBlocksFor(text));
+
+  ComposerQuoteBlock? quoteAtOffset(int offset) =>
+      quoteAtComposerOffset(_quoteBlocksFor(text), offset);
+
+  bool isQuoteCollapsed(ComposerQuoteBlock block) =>
+      _collapsedQuoteStarts.contains(block.start);
+
+  ComposerQuoteBlock? collapsedQuoteAtGlobalPosition(Offset globalPosition) {
+    for (final block in _quoteBlocksFor(text)) {
+      if (!isQuoteCollapsed(block)) continue;
+      final rect = collapsedQuoteGlobalRect(block);
+      if (rect?.contains(globalPosition) == true) return block;
+    }
+    return null;
+  }
+
+  bool isQuoteRemoveAtGlobalPosition(
+    ComposerQuoteBlock block,
+    Offset globalPosition,
+  ) {
+    if (!isQuoteCollapsed(block)) return false;
+    final renderObject = _quoteRemoveKeys[block.start]?.currentContext
+        ?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return false;
+    final rect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    return rect.inflate(4).contains(globalPosition);
+  }
+
+  Rect? collapsedQuoteGlobalRect(ComposerQuoteBlock block) {
+    if (!isQuoteCollapsed(block)) return null;
+    final renderObject = _quoteKeys[block.start]?.currentContext
+        ?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+  }
+
+  TextSelection protectQuoteSelection(
+    TextSelection selection,
+    TextSelection previous,
+  ) => quoteSafeSelection(_quoteBlocksFor(text), selection, previous);
+
+  List<ComposerQuoteBlock> _quoteBlocksFor(String source) {
+    if (_quoteScanned == source) return _quoteBlocks;
+    _quoteScanned = source;
+    _quoteKeys.clear();
+    _quoteRemoveKeys.clear();
+    return _quoteBlocks = parseComposerQuotes(source);
+  }
+
   /// How many pieces of artwork have arrived, so the span cache knows the
   /// answer changed when nothing about the text did.
   int _artwork = 0;
@@ -289,6 +348,15 @@ class MarkdownEditingController extends TextEditingController {
         : null;
 
     final runs = _runsFor(source);
+
+    final collapsedQuotes = _quoteBlocksFor(source);
+    _collapsedQuoteStarts = {for (final block in collapsedQuotes) block.start};
+    final quoteProjection = Object.hashAll(
+      collapsedQuotes.map(
+        (block) =>
+            Object.hash(block.start, block.end, block.title, block.contents),
+      ),
+    );
 
     final pollBlocks = _pollBlocksFor(source);
     _rawPoll.updateSelection(value.selection);
@@ -371,6 +439,7 @@ class MarkdownEditingController extends TextEditingController {
           composing: composing,
           revealed: revealed,
           artwork: _artwork,
+          quoteProjection: quoteProjection,
           pollProjection: pollProjection,
           localDateProjection: localDateProjection,
           imageProjection: imageProjection,
@@ -428,6 +497,12 @@ class MarkdownEditingController extends TextEditingController {
     }
 
     final projections = <_SpanProjection>[
+      for (final block in collapsedQuotes)
+        _SpanProjection(
+          block.start,
+          block.end,
+          () => _buildQuoteSpans(block, base),
+        ),
       for (final block in collapsedPolls)
         _SpanProjection(
           block.start,
@@ -502,12 +577,60 @@ class MarkdownEditingController extends TextEditingController {
       composing: composing,
       revealed: revealed,
       artwork: _artwork,
+      quoteProjection: quoteProjection,
       pollProjection: pollProjection,
       localDateProjection: localDateProjection,
       imageProjection: imageProjection,
       span: span,
     );
     return span;
+  }
+
+  List<InlineSpan> _buildQuoteSpans(ComposerQuoteBlock block, TextStyle base) {
+    final height = ComposerQuotePreview.displayHeight(block, base) + 8;
+    final lineHeight = (base.fontSize ?? 14) * (base.height ?? 1.4);
+    final breaks = (height / lineHeight).ceil().clamp(1, block.length - 1);
+    return [
+      WidgetSpan(
+        alignment: PlaceholderAlignment.top,
+        style: base,
+        child: KeyedSubtree(
+          key: _quoteKeys.putIfAbsent(
+            block.start,
+            () => GlobalKey(debugLabel: 'composer-quote-${block.start}'),
+          ),
+          child: IgnorePointer(
+            child: _FollowEditorScroll(
+              controller: _imageScrollController,
+              child: ComposerQuotePreview(
+                block: block,
+                baseStyle: base,
+                removeKey: _quoteRemoveKeys.putIfAbsent(
+                  block.start,
+                  () => GlobalKey(
+                    debugLabel: 'composer-quote-remove-${block.start}',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      TextSpan(
+        text: List.filled(breaks, '\n').join(),
+        style: TextStyle(
+          color: const Color(0x00000000),
+          fontFamily: base.fontFamily,
+          fontFamilyFallback: base.fontFamilyFallback,
+          fontSize: base.fontSize,
+          height: base.height,
+        ),
+      ),
+      TextSpan(
+        text: text.substring(block.start + breaks + 1, block.end),
+        style: _hidden,
+      ),
+    ];
   }
 
   List<InlineSpan> _buildImageSpans(
@@ -910,6 +1033,7 @@ class _CachedMarkdownSpan {
     required this.composing,
     required this.revealed,
     required this.artwork,
+    required this.quoteProjection,
     required this.pollProjection,
     required this.localDateProjection,
     required this.imageProjection,
@@ -922,6 +1046,7 @@ class _CachedMarkdownSpan {
   final TextRange? composing;
   final int revealed;
   final int artwork;
+  final int quoteProjection;
   final int pollProjection;
   final int localDateProjection;
   final int imageProjection;
@@ -934,6 +1059,7 @@ class _CachedMarkdownSpan {
     required TextRange? composing,
     required int revealed,
     required int artwork,
+    required int quoteProjection,
     required int pollProjection,
     required int localDateProjection,
     required int imageProjection,
@@ -944,6 +1070,7 @@ class _CachedMarkdownSpan {
       this.composing == composing &&
       this.revealed == revealed &&
       this.artwork == artwork &&
+      this.quoteProjection == quoteProjection &&
       this.pollProjection == pollProjection &&
       this.localDateProjection == localDateProjection &&
       this.imageProjection == imageProjection;

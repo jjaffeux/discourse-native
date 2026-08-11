@@ -19,6 +19,7 @@ import 'anchored_layout.dart';
 import 'composer_controller.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
+import 'composer_quotes.dart';
 import 'composer_suggestions.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
@@ -970,10 +971,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
   ComposerImageBlock? _selectedImage;
   final TextEditingController _imageAlt = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  TextSelection _lastQuoteSelection = const TextSelection.collapsed(offset: -1);
+  bool _normalizingQuoteSelection = false;
 
   @override
   void initState() {
     super.initState();
+    _lastQuoteSelection = widget.composer.text.selection;
     widget.composer.text.imageScrollController = _scroll;
     widget.composer.text.addListener(_syncSelectionToolbar);
     widget.composer.focus.addListener(_syncSelectionToolbar);
@@ -991,6 +995,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       oldWidget.composer.text.imageScrollController = null;
     }
     widget.composer.text.imageScrollController = _scroll;
+    _lastQuoteSelection = widget.composer.text.selection;
     widget.composer.text.addListener(_syncSelectionToolbar);
     widget.composer.focus.addListener(_syncSelectionToolbar);
     _syncSelectionToolbar();
@@ -1012,6 +1017,20 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _syncSelectionToolbar() {
+    if (!_normalizingQuoteSelection) {
+      final current = widget.composer.text.selection;
+      final normalized = widget.composer.text.protectQuoteSelection(
+        current,
+        _lastQuoteSelection,
+      );
+      _lastQuoteSelection = normalized;
+      if (normalized != current) {
+        _normalizingQuoteSelection = true;
+        widget.composer.text.selection = normalized;
+        _normalizingQuoteSelection = false;
+        return;
+      }
+    }
     final selection = widget.composer.text.selection;
     if (!widget.composer.focus.hasFocus ||
         !selection.isValid ||
@@ -1156,6 +1175,18 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final pointer = _pointerDown;
     _pointerDown = null;
     if (pointer == null) return;
+    final quote = widget.composer.text.collapsedQuoteAtGlobalPosition(pointer);
+    if (quote != null) {
+      if (_selectedImage != null) setState(() => _selectedImage = null);
+      if (widget.composer.text.isQuoteRemoveAtGlobalPosition(quote, pointer)) {
+        widget.composer.removeQuote(quote);
+      } else {
+        widget.composer.text.selection = TextSelection.collapsed(
+          offset: quote.end,
+        );
+      }
+      return;
+    }
     final image = widget.composer.text.collapsedImageAtGlobalPosition(pointer);
     if (image != null) {
       _selectImage(image);
@@ -1211,7 +1242,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
     if (event is! KeyDownEvent ||
-        event.logicalKey != LogicalKeyboardKey.backspace) {
+        (event.logicalKey != LogicalKeyboardKey.backspace &&
+            event.logicalKey != LogicalKeyboardKey.delete)) {
       return KeyEventResult.ignored;
     }
     final value = widget.composer.text.value;
@@ -1224,6 +1256,22 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
 
     final caret = selection.extentOffset;
+    for (final quote in widget.composer.text.quoteBlocks) {
+      final removesQuote =
+          (event.logicalKey == LogicalKeyboardKey.backspace &&
+              quote.end == caret) ||
+          (event.logicalKey == LogicalKeyboardKey.delete &&
+              quote.start == caret);
+      if (!removesQuote || !widget.composer.text.isQuoteCollapsed(quote)) {
+        continue;
+      }
+      if (_selectedImage != null) setState(() => _selectedImage = null);
+      widget.composer.removeQuote(quote);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey != LogicalKeyboardKey.backspace) {
+      return KeyEventResult.ignored;
+    }
     for (final image in widget.composer.text.imageBlocks) {
       if (image.end != caret || !widget.composer.text.isImageCollapsed(image)) {
         continue;
@@ -1351,6 +1399,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
                           textAlignVertical: TextAlignVertical.top,
                           keyboardType: TextInputType.multiline,
                           textCapitalization: TextCapitalization.sentences,
+                          inputFormatters: const [
+                            ComposerQuoteInputFormatter(),
+                          ],
                           onTapAlwaysCalled: true,
                           onTap: _onFieldTap,
                           style: widget.textStyle,

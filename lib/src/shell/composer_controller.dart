@@ -13,6 +13,7 @@ import 'composer_autocomplete.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
 import 'composer_pills.dart';
+import 'composer_quotes.dart';
 import 'composer_triggers.dart';
 import 'markdown_editing_controller.dart';
 
@@ -699,6 +700,25 @@ class ComposerController extends ChangeNotifier {
   }
 
   void removeImage(ComposerImageBlock image) => _replaceImage(image, '');
+
+  void removeQuote(ComposerQuoteBlock quote) => _replaceQuote(quote, '');
+
+  void _replaceQuote(ComposerQuoteBlock quote, String replacement) {
+    if (_disposed ||
+        quote.start < 0 ||
+        quote.end > text.text.length ||
+        text.text.substring(quote.start, quote.end) != quote.source) {
+      return;
+    }
+    final old = text.value;
+    text.value = old.copyWith(
+      text: old.text.replaceRange(quote.start, quote.end, replacement),
+      selection: TextSelection.collapsed(
+        offset: quote.start + replacement.length,
+      ),
+      composing: TextRange.empty,
+    );
+  }
 
   void _replaceImage(ComposerImageBlock image, String replacement) {
     if (_disposed ||
