@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'markdown_highlight.dart';
+import 'markdown_style.dart';
 
 /// One complete Discourse `[quote]` block in a composer document.
 ///
@@ -249,6 +250,25 @@ class ComposerQuotePreview extends StatelessWidget {
     final bodyStyle = theme.textTheme.bodyMedium
         ?.merge(baseStyle)
         .copyWith(color: muted);
+    final quoteBodyStyle = bodyStyle ?? baseStyle.copyWith(color: muted);
+    final quoteBody = Text.rich(
+      TextSpan(
+        children: [
+          for (final run in scanMarkdown(block.contents))
+            if (!run.has(Md.marker))
+              TextSpan(
+                text: block.contents.substring(run.start, run.end),
+                style: markdownStyle(
+                  run.mask,
+                  run.detail,
+                  quoteBodyStyle,
+                  theme,
+                ),
+              ),
+        ],
+      ),
+      style: quoteBodyStyle,
+    );
 
     return Semantics(
       container: true,
@@ -292,7 +312,7 @@ class ComposerQuotePreview extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                   ],
-                  Text(block.contents, style: bodyStyle),
+                  quoteBody,
                 ],
               ),
               Positioned(

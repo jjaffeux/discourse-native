@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/post_text_selection.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -48,6 +49,18 @@ void main() {
     );
   });
 
+  test('restores cooked paragraphs and inline formatting to a selection', () {
+    expect(
+      postQuoteContentsFromSelection(
+        '<p>First <strong>bold</strong> thought.</p>'
+            '<p>Second <em>formatted</em> line.<br>Still second.</p>',
+        'First bold thought.Second formatted line.Still second.',
+      ),
+      'First **bold** thought.\n\n'
+      'Second *formatted* line.\nStill second.',
+    );
+  });
+
   testWidgets('selection shows quote actions and copies portable markup', (
     tester,
   ) async {
@@ -81,6 +94,58 @@ void main() {
 
     expect(clipboard, '[quote="sam, post:2, topic:7"]\nselected\n[/quote]\n\n');
     expect(find.text('Quote copied to clipboard.'), findsOneWidget);
+  });
+
+  testWidgets('copying across cooked blocks keeps their Markdown structure', (
+    tester,
+  ) async {
+    const cookedPost = Post(
+      id: 23,
+      postNumber: 3,
+      username: 'sam',
+      cooked:
+          '<p>First <strong>bold</strong> thought.</p>'
+          '<p>Second <em>formatted</em> line.</p>',
+    );
+    String? clipboard;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboard =
+              (call.arguments as Map<Object?, Object?>)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    final shell = await _pumpSelection(
+      tester,
+      post: cookedPost,
+      child: CookedHtml(html: cookedPost.cooked),
+    );
+    addTearDown(shell.dispose);
+    tester
+        .state<SelectionAreaState>(find.byType(SelectionArea))
+        .selectableRegion
+        .selectAll(SelectionChangedCause.toolbar);
+    await tester.pump(const Duration(milliseconds: 151));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
+    await tester.pumpAndSettle();
+
+    expect(
+      clipboard,
+      '[quote="sam, post:3, topic:7"]\n'
+      'First **bold** thought.\n\nSecond *formatted* line.\n'
+      '[/quote]\n\n',
+    );
   });
 
   testWidgets('a touch long press opens the quote toolbar', (tester) async {
@@ -133,20 +198,20 @@ void main() {
   });
 }
 
-Future<ShellController> _pumpSelection(WidgetTester tester) async {
+Future<ShellController> _pumpSelection(
+  WidgetTester tester, {
+  Post post = _post,
+  Widget child = const Text(_body),
+}) async {
   final shell = await _shell();
   await tester.pumpWidget(
     ShellScope(
       controller: shell,
       child: MaterialApp(
         theme: AppTheme.dark,
-        home: const Scaffold(
+        home: Scaffold(
           body: Center(
-            child: PostTextSelection(
-              post: _post,
-              topicId: 7,
-              child: Text(_body),
-            ),
+            child: PostTextSelection(post: post, topicId: 7, child: child),
           ),
         ),
       ),

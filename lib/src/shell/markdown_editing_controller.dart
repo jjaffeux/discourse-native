@@ -8,8 +8,6 @@ import '../plugins/local_dates/local_date_composer_parser.dart';
 import '../plugins/local_dates/local_date_composer_pill.dart';
 import '../plugins/poll/poll_composer_parser.dart';
 import '../plugins/poll/poll_composer_pill.dart';
-import '../theme/app_theme.dart';
-import 'code_block.dart';
 import 'composer_image.dart';
 import 'composer_images.dart';
 import 'composer_pills.dart';
@@ -17,6 +15,7 @@ import 'composer_quotes.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
 import 'markdown_highlight.dart';
+import 'markdown_style.dart';
 import 'mention.dart';
 
 /// A field controller that draws markdown as what it means.
@@ -1166,130 +1165,3 @@ class _SpanProjection {
   final int end;
   final List<InlineSpan> Function() build;
 }
-
-/// How a marked-up stretch of source is drawn.
-///
-/// Block level first, then inline, then the marker dimming last — a `**` inside
-/// a heading is still a marker, and dimming it after the heading has set its
-/// weight keeps it the same size as the words it wraps.
-TextStyle markdownStyle(
-  int mask,
-  String? detail,
-  TextStyle base,
-  ThemeData theme,
-) {
-  var style = base;
-
-  // Sizes multiply into one factor applied at the end rather than each
-  // construct assigning its own. `<small>` inside a `##` heading is both
-  // things at once, and two assignments would mean the last one read wins.
-  var scale = 1.0;
-
-  if (mask & Md.codeBlock != 0) {
-    scale *= 0.9;
-    style = style
-        .merge(monospaceTextStyle)
-        .copyWith(
-          color: scopeColor(detail, theme.code) ?? theme.colorScheme.onSurface,
-        );
-  }
-
-  if (mask & Md.heading != 0) {
-    // 1.45 down to 1.0, so six levels are visibly six levels without a `#`
-    // line towering over the rest of the field.
-    final level = int.tryParse(detail ?? '1') ?? 1;
-    scale *= 1.45 - (level - 1) * 0.09;
-    style = style.copyWith(fontWeight: FontWeight.w700);
-  }
-
-  if (mask & Md.quote != 0) {
-    style = style.copyWith(color: theme.colorScheme.onSurfaceVariant);
-  }
-
-  if (mask & Md.code != 0) {
-    // The render path draws inline code as a rounded, padded chip, which has
-    // to be a widget — see [InlineCode]. A widget cannot go here: a WidgetSpan
-    // is worth exactly one character of the paragraph the caret is measured
-    // against, so one standing in for a longer run would put every offset
-    // after it wrong. A flat background is the honest approximation.
-    scale *= 0.875;
-    style = style
-        .merge(monospaceTextStyle)
-        .copyWith(backgroundColor: theme.code.inlineBackground);
-  }
-
-  if (mask & Md.bold != 0) style = style.copyWith(fontWeight: FontWeight.w700);
-  if (mask & Md.italic != 0) {
-    style = style.copyWith(fontStyle: FontStyle.italic);
-  }
-  if (mask & Md.strikethrough != 0) {
-    style = style.copyWith(decoration: TextDecoration.lineThrough);
-  }
-
-  if (mask & Md.htmlTag != 0) {
-    for (final tag in (detail ?? '').split(',')) {
-      final (tagStyle, tagScale) = _tagStyle(tag, style, theme);
-      style = tagStyle;
-      scale *= tagScale;
-    }
-  }
-
-  // Links are coloured but never underlined: an underline in an editable is
-  // the IME's way of saying a character is not committed yet, and a link that
-  // borrows it would be lying about the state of the text.
-  if (mask & (Md.linkText | Md.linkUrl | Md.mention | Md.emoji | Md.hashtag) !=
-      0) {
-    style = style.copyWith(color: theme.colorScheme.primary);
-  }
-  if (mask & (Md.mention | Md.hashtag) != 0) {
-    style = style.copyWith(fontWeight: FontWeight.w600);
-  }
-
-  if (mask & Md.marker != 0) {
-    // Only the colour: the marker keeps whatever size and weight its
-    // surroundings gave it, so `**` sits on the same line as the bold word
-    // between them rather than shrinking away from it.
-    style = style.copyWith(color: theme.shell.marker);
-  }
-
-  return scale == 1.0
-      ? style
-      : style.copyWith(fontSize: (base.fontSize ?? 14) * scale);
-}
-
-/// The eight inline tags Discourse keeps, drawn as what they will become.
-///
-/// This is what the deleted rich editor's `discourseInlineStyle` did, minus the
-/// document model: styling is a function of what is true of a span, so it works
-/// just as well over source text as it did over attributions.
-(TextStyle, double) _tagStyle(String tag, TextStyle style, ThemeData theme) =>
-    switch (tag) {
-      'kbd' => (
-        style
-            .merge(monospaceTextStyle)
-            .copyWith(backgroundColor: theme.code.inlineBackground),
-        0.9,
-      ),
-      'mark' => (
-        style.copyWith(
-          backgroundColor: theme.colorScheme.tertiaryContainer,
-          color: theme.colorScheme.onTertiaryContainer,
-        ),
-        1.0,
-      ),
-      'sup' => (
-        style.copyWith(fontFeatures: const [FontFeature.superscripts()]),
-        1.0,
-      ),
-      'sub' => (
-        style.copyWith(fontFeatures: const [FontFeature.subscripts()]),
-        1.0,
-      ),
-      'small' => (style, 0.85),
-      'big' => (style, 1.15),
-      // The one construct allowed an underline, because that is what the tag
-      // means. Everything else leaves it to the IME.
-      'ins' => (style.copyWith(decoration: TextDecoration.underline), 1.0),
-      'del' => (style.copyWith(decoration: TextDecoration.lineThrough), 1.0),
-      _ => (style, 1.0),
-    };
