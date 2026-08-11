@@ -213,6 +213,13 @@ class MarkdownEditingController extends TextEditingController {
   bool isPollCollapsed(PollComposerBlock block) =>
       _collapsedPollStarts.contains(block.start);
 
+  /// The first editable offset on the line following [block].
+  ///
+  /// Newly inserted polls always own this real line ending. Older drafts can
+  /// end at the closing tag; their projection supplies the visual break while
+  /// keeping the saved source byte-for-byte unchanged.
+  int pollCaretAfter(PollComposerBlock block) => _lineBreakEnd(text, block.end);
+
   void keepPollCollapsedForPointerEdit(PollComposerBlock block) {
     if (_sameProjection(_caretSuppressedPoll, block)) return;
     _caretSuppressedPoll = block;
@@ -650,6 +657,7 @@ class MarkdownEditingController extends TextEditingController {
             ),
             maximumOptions: pollMaximumOptions,
             highlighted: isPillSelectedForKeyboard(block),
+            followedByLineBreak: pollCaretAfter(block) > block.end,
           ),
         ),
       for (final block in collapsedLocalDates)
@@ -910,6 +918,17 @@ class MarkdownEditingController extends TextEditingController {
           a.start == b.start && a.end == b.end && a.source == b.source,
         _ => false,
       };
+
+  static int _lineBreakEnd(String source, int offset) {
+    if (offset >= source.length) return offset;
+    if (source.codeUnitAt(offset) == 0x0A) return offset + 1;
+    if (source.codeUnitAt(offset) != 0x0D ||
+        offset + 1 >= source.length ||
+        source.codeUnitAt(offset + 1) != 0x0A) {
+      return offset;
+    }
+    return offset + 2;
+  }
 
   /// A shortcode drawn as its artwork, or null to draw it as text.
   ///

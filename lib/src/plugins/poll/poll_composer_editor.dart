@@ -451,6 +451,20 @@ PollComposerMutation replaceVerifiedPoll({
   required String expectedDocument,
   required PollComposerBlock expectedBlock,
   required String replacement,
+}) => _replaceVerifiedPoll(
+  current: current,
+  expectedDocument: expectedDocument,
+  expectedBlock: expectedBlock,
+  replacement: replacement,
+  keepFollowingLine: true,
+);
+
+PollComposerMutation _replaceVerifiedPoll({
+  required TextEditingValue current,
+  required String expectedDocument,
+  required PollComposerBlock expectedBlock,
+  required String replacement,
+  required bool keepFollowingLine,
 }) {
   if (!_stillContainsExpectedBlock(
     current.text,
@@ -459,16 +473,24 @@ PollComposerMutation replaceVerifiedPoll({
   )) {
     return PollComposerMutation.stale(current);
   }
+  final after = current.text.substring(expectedBlock.end);
+  final lineEnding = _documentLineEnding(current.text);
+  final suffix = keepFollowingLine && after.isEmpty ? lineEnding : '';
   final next = current.text.replaceRange(
     expectedBlock.start,
     expectedBlock.end,
-    replacement,
+    '$replacement$suffix',
   );
+  final followingLineBreakLength = keepFollowingLine
+      ? _leadingLineBreakLength('$suffix$after')
+      : 0;
+  assert(!keepFollowingLine || followingLineBreakLength > 0);
   return PollComposerMutation.applied(
     TextEditingValue(
       text: next,
       selection: TextSelection.collapsed(
-        offset: expectedBlock.start + replacement.length,
+        offset:
+            expectedBlock.start + replacement.length + followingLineBreakLength,
       ),
     ),
   );
@@ -478,11 +500,12 @@ PollComposerMutation removeVerifiedPoll({
   required TextEditingValue current,
   required String expectedDocument,
   required PollComposerBlock expectedBlock,
-}) => replaceVerifiedPoll(
+}) => _replaceVerifiedPoll(
   current: current,
   expectedDocument: expectedDocument,
   expectedBlock: expectedBlock,
   replacement: '',
+  keepFollowingLine: false,
 );
 
 bool _stillContainsExpectedBlock(
@@ -508,6 +531,10 @@ bool _stillContainsExpectedBlock(
 
 /// Inserts at the captured selection, replacing a selected range, with one
 /// blank line on either occupied side of the new block.
+///
+/// A poll at the end still receives one real line ending. The caret lands
+/// after the first following line ending, where typing cannot accidentally
+/// turn `[/poll]` into an invalid closing line.
 PollComposerMutation insertVerifiedPoll({
   required TextEditingValue current,
   required String expectedDocument,
@@ -531,11 +558,17 @@ PollComposerMutation insertVerifiedPoll({
   final suffix = _blankLineSuffix(after, lineEnding);
   final insertion = '$prefix$markup$suffix';
   final next = '$before$insertion$after';
+  final followingLineBreakLength = _leadingLineBreakLength('$suffix$after');
+  assert(followingLineBreakLength > 0);
   return PollComposerMutation.applied(
     TextEditingValue(
       text: next,
       selection: TextSelection.collapsed(
-        offset: before.length + prefix.length + markup.length,
+        offset:
+            before.length +
+            prefix.length +
+            markup.length +
+            followingLineBreakLength,
       ),
     ),
   );
@@ -550,10 +583,21 @@ String _blankLinePrefix(String before, String lineEnding) {
 }
 
 String _blankLineSuffix(String after, String lineEnding) {
-  if (after.isEmpty || _startsWithLineBreaks(after, 2)) return '';
+  if (after.isEmpty) return lineEnding;
+  if (_startsWithLineBreaks(after, 2)) return '';
   return _startsWithLineBreaks(after, 1)
       ? lineEnding
       : '$lineEnding$lineEnding';
+}
+
+int _leadingLineBreakLength(String source) {
+  if (source.isEmpty) return 0;
+  if (source.codeUnitAt(0) == 0x0A) return 1;
+  return source.length > 1 &&
+          source.codeUnitAt(0) == 0x0D &&
+          source.codeUnitAt(1) == 0x0A
+      ? 2
+      : 0;
 }
 
 bool _endsWithLineBreaks(String source, int count) {

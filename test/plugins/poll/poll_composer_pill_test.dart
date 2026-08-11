@@ -33,7 +33,7 @@ void main() {
     );
   });
 
-  testWidgets('collapsed spans retain one code unit per source code unit', (
+  testWidgets('collapsed spans retain offsets and end with a visual line', (
     tester,
   ) async {
     final spans = buildCollapsedPollSpans(
@@ -45,13 +45,19 @@ void main() {
     ).toPlainText(includeSemanticsLabels: false);
 
     expect(flattened.length, source.length);
+    expect(flattened.codeUnitAt(0), PlaceholderSpan.placeholderCodeUnit);
+    expect(flattened.codeUnitAt(1), 0x0A);
     expect(
       spans.whereType<WidgetSpan>(),
       hasLength('\n'.allMatches(source).length + 1),
     );
     for (final span in spans.whereType<TextSpan>()) {
-      expect(span.text, isNot(contains('\n')));
-      expect(span.style?.fontSize, 0);
+      if (span.text == '\n') {
+        expect(span.style?.fontSize, 15);
+      } else {
+        expect(span.text, isNot(contains('\n')));
+        expect(span.style?.fontSize, 0);
+      }
     }
 
     await tester.pumpWidget(
@@ -75,7 +81,54 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(tester.getSize(find.byType(RichText).first).height, lessThan(40));
+    expect(
+      tester.getSize(find.byType(RichText).first).height,
+      greaterThan(tester.getSize(find.byType(PollComposerPill)).height),
+    );
+  });
+
+  testWidgets('before and after carets flank an EOF poll on separate lines', (
+    tester,
+  ) async {
+    final controller = MarkdownEditingController(text: source);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: TextField(controller: controller, maxLines: null),
+          ),
+        ),
+      ),
+    );
+
+    final pillRect = tester.getRect(find.byType(PollComposerPill));
+    final editable = tester.state<EditableTextState>(find.byType(EditableText));
+    final render = editable.renderEditable;
+    Rect caretAt(int offset) => render
+        .getLocalRectForCaret(TextPosition(offset: offset))
+        .shift(render.localToGlobal(Offset.zero));
+
+    final before = caretAt(block.start);
+    final after = caretAt(block.end);
+    expect(before.left, lessThanOrEqualTo(pillRect.left + 1));
+    expect(before.top, lessThan(pillRect.bottom));
+    expect(after.top, greaterThanOrEqualTo(pillRect.bottom));
+    expect(render.plainText.length, controller.text.length);
+
+    for (final offset in [block.start, block.end]) {
+      final caret = caretAt(offset);
+      expect(
+        render.getPositionForPoint(caret.center).offset,
+        offset,
+        reason: 'the caret at $offset must round-trip through hit testing',
+      );
+      controller.selection = TextSelection.collapsed(offset: offset);
+      await tester.pump();
+      expect(find.byType(PollComposerPill), findsOneWidget);
+    }
   });
 
   testWidgets(
@@ -156,7 +209,7 @@ void main() {
     controller.value = mutation.value;
     await tester.pump(const Duration(milliseconds: 600));
 
-    expect(controller.text, source);
+    expect(controller.text, '$source\n');
     expect(find.byType(PollComposerPill), findsOneWidget);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -173,6 +226,21 @@ void main() {
     expect(pollBlockAtComposerOffset(blocks, block.start + 3)?.name, 'lunch');
     expect(pollBlockAtComposerOffset(blocks, block.end), isNull);
     expect(pollBlockAtComposerOffset(blocks, document.length + 1), isNull);
+  });
+
+  test('the after caret consumes one real LF or CRLF', () {
+    for (final (document, lineEndingLength) in [
+      ('$source\n', 1),
+      ('$source\r\n', 2),
+    ]) {
+      final controller = MarkdownEditingController(text: document);
+      final projected = controller.pollBlocks.single;
+      expect(
+        controller.pollCaretAfter(projected),
+        projected.end + lineEndingLength,
+      );
+      controller.dispose();
+    }
   });
 
   testWidgets('resolves a collapsed poll from its editable source offset', (

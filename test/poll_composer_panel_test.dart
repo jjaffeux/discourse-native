@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
+import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -229,7 +230,8 @@ void main() {
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
 
-    composer.text.selection = TextSelection.collapsed(offset: block.end);
+    final afterPoll = composer.text.pollCaretAfter(block);
+    composer.text.selection = TextSelection.collapsed(offset: afterPoll);
     composer.focus.requestFocus();
     await tester.pump();
     expect(find.text('Edit poll'), findsNothing);
@@ -237,7 +239,7 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pump();
-    expect(composer.text.selection.extentOffset, block.end);
+    expect(composer.text.selection.extentOffset, afterPoll);
     expect(tester.widget<PollComposerPill>(pill).highlighted, isTrue);
     expect(find.byType(PollComposerPill), findsOneWidget);
 
@@ -254,7 +256,7 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
-    expect(composer.text.selection.extentOffset, block.end);
+    expect(composer.text.selection.extentOffset, afterPoll);
     expect(tester.widget<PollComposerPill>(pill).highlighted, isFalse);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
@@ -297,6 +299,123 @@ void main() {
 
     expect(find.byType(PollComposerPill), findsOneWidget);
     expect(composer.text.text, _source);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('typing on a newly inserted poll after-line keeps the pill', (
+    tester,
+  ) async {
+    const poll = '[poll]\n* Soup\n* Salad\n[/poll]';
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    final composer = shell.visibleComposer!;
+    composer.text.value = insertVerifiedPoll(
+      current: composer.text.value,
+      expectedDocument: '',
+      expectedSelection: const TextSelection.collapsed(offset: 0),
+      markup: poll,
+    ).value;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(body: ComposerPanel(composer: composer)),
+        ),
+      ),
+    );
+    composer.focus.requestFocus();
+    await tester.pump();
+
+    expect(composer.text.text, '$poll\n');
+    expect(composer.text.selection.extentOffset, poll.length + 1);
+    tester.testTextInput.updateEditingValue(
+      TextEditingValue(
+        text: '$poll\nNext line',
+        selection: TextSelection.collapsed(offset: '$poll\nNext line'.length),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(PollComposerPill), findsOneWidget);
+    expect(composer.text.pollBlocks, hasLength(1));
+    expect(composer.text.text, '$poll\nNext line');
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('boundary deletes select an LF or CRLF poll before removing it', (
+    tester,
+  ) async {
+    const poll = '[poll]\n* Soup\n* Salad\n[/poll]';
+    for (final lineEnding in ['\n', '\r\n']) {
+      final shell = await _openComposer();
+      addTearDown(shell.dispose);
+      final composer = shell.visibleComposer!;
+      final source = '$poll$lineEnding';
+      composer.text.value = TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: source.length),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(body: ComposerPanel(composer: composer)),
+          ),
+        ),
+      );
+      composer.focus.requestFocus();
+      await tester.pump();
+
+      final block = composer.text.pollBlocks.single;
+      final afterPoll = composer.text.pollCaretAfter(block);
+      expect(afterPoll, source.length);
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pump();
+
+      expect(composer.text.text, source);
+      expect(composer.text.selection.extentOffset, afterPoll);
+      expect(
+        tester
+            .widget<PollComposerPill>(find.byType(PollComposerPill))
+            .highlighted,
+        isTrue,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      tester.testTextInput.updateEditingValue(
+        TextEditingValue(
+          text: '${source}Next line',
+          selection: TextSelection.collapsed(
+            offset: '${source}Next line'.length,
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(composer.text.text, '${source}Next line');
+      expect(find.byType(PollComposerPill), findsOneWidget);
+
+      composer.text.value = TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: block.start),
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pump();
+
+      expect(composer.text.text, source);
+      expect(composer.text.selection.extentOffset, block.start);
+      expect(
+        tester
+            .widget<PollComposerPill>(find.byType(PollComposerPill))
+            .highlighted,
+        isTrue,
+      );
+    }
     await tester.pump(const Duration(seconds: 3));
   });
 

@@ -1355,13 +1355,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
   Future<void> _editPoll(PollComposerBlock poll) async {
     final text = widget.composer.text;
     text.keepPollCollapsedForPointerEdit(poll);
-    text.selection = TextSelection.collapsed(offset: poll.end);
+    text.selection = TextSelection.collapsed(offset: text.pollCaretAfter(poll));
     try {
       await openPollComposer(context, widget.composer, block: poll);
     } finally {
       if (_stillContains(text.text, poll.start, poll.end, poll.source) &&
           !text.isPollExpanded(poll)) {
-        text.selection = TextSelection.collapsed(offset: poll.end);
+        text.selection = TextSelection.collapsed(
+          offset: text.pollCaretAfter(poll),
+        );
       }
       text.releasePollPointerEdit(poll);
     }
@@ -1489,6 +1491,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _removePill(selectedPill);
       return KeyEventResult.handled;
     }
+    if (deletes) {
+      final boundaryPoll = event.logicalKey == LogicalKeyboardKey.backspace
+          ? _collapsedPillEndingAt(caret)
+          : _collapsedPillStartingAt(caret);
+      if (boundaryPoll is PollComposerBlock) {
+        widget.composer.text.selectPillForKeyboard(boundaryPoll);
+        return KeyEventResult.handled;
+      }
+    }
     if (selectedPill != null) {
       widget.composer.text.clearKeyboardPillSelection();
     }
@@ -1522,13 +1533,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
       widget.composer.removeImage(image);
       return KeyEventResult.handled;
     }
-    for (final poll in widget.composer.text.pollBlocks) {
-      if (poll.end != caret || !widget.composer.text.isPollCollapsed(poll)) {
-        continue;
-      }
-      unawaited(removePollComposer(context, widget.composer, poll));
-      return KeyEventResult.handled;
-    }
     for (final date in widget.composer.text.localDateBlocks) {
       if (date.end != caret ||
           !widget.composer.text.isLocalDateCollapsed(date)) {
@@ -1551,7 +1555,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
       if (image.end == caret && text.isImageCollapsed(image)) return image;
     }
     for (final poll in text.pollBlocks) {
-      if (poll.end == caret && text.isPollCollapsed(poll)) return poll;
+      if ((poll.end == caret || text.pollCaretAfter(poll) == caret) &&
+          text.isPollCollapsed(poll)) {
+        return poll;
+      }
     }
     for (final date in text.localDateBlocks) {
       if (date.end == caret && text.isLocalDateCollapsed(date)) return date;
@@ -1580,9 +1587,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _ => throw ArgumentError.value(pill, 'pill'),
   };
 
-  static int _pillEnd(Object pill) => switch (pill) {
+  int _pillEnd(Object pill) => switch (pill) {
     ComposerImageBlock image => image.end,
-    PollComposerBlock poll => poll.end,
+    PollComposerBlock poll => widget.composer.text.pollCaretAfter(poll),
     LocalDateComposerBlock date => date.end,
     _ => throw ArgumentError.value(pill, 'pill'),
   };
