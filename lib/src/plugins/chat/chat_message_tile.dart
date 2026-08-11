@@ -143,6 +143,9 @@ class _Tile extends StatelessWidget {
                         textStyle: theme.textTheme.bodyMedium,
                         siteUrl: siteUrl,
                       ),
+                    if (message.optimisticRaw case final raw?
+                        when message.cooked.isEmpty)
+                      Text(raw, style: theme.textTheme.bodyMedium),
                     if (message.uploads.isNotEmpty)
                       ChatUploads(siteUrl: siteUrl, uploads: message.uploads),
                     if (message.reactions.isNotEmpty)
@@ -153,6 +156,7 @@ class _Tile extends StatelessWidget {
                     if (message.thread case final thread?
                         when thread.replyCount > 0)
                       _ThreadRow(thread: thread),
+                    if (message.isOptimistic) _DeliveryStatus(message: message),
                   ],
                 ),
               ),
@@ -161,6 +165,46 @@ class _Tile extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _DeliveryStatus extends StatelessWidget {
+  const _DeliveryStatus({required this.message});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return switch (message.delivery) {
+      ChatMessageDelivery.sending => Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: Text(
+          'Sending…',
+          key: ValueKey(('chat-message-sending', message.id)),
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+      ChatMessageDelivery.failed => Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: Row(
+          children: [
+            if (message.sendError case final error?)
+              Flexible(
+                child: Text(
+                  error,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      ChatMessageDelivery.sent => const SizedBox.shrink(),
+    };
   }
 }
 

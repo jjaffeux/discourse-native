@@ -187,6 +187,12 @@ bool _chains(ChatMessage message, ChatMessage? previous) {
   // person talking — and a person's message after one is not a continuation.
   if (message.isWebhook || previous.isWebhook) return false;
 
+  // The first outgoing overlay may sit after a window anchored arbitrarily far
+  // behind the present. Its local timestamp cannot prove adjacency across that
+  // unseen gap, so it always starts a new run. Consecutive optimistic messages
+  // may still group with one another.
+  if (message.isOptimistic && !previous.isOptimistic) return false;
+
   if (message.author.id != previous.author.id) return false;
 
   final (at, before) = (message.createdAt, previous.createdAt);

@@ -44,6 +44,7 @@ class ChatHeaderIndicator {
 class ChatStreamState {
   const ChatStreamState({
     this.messageIds = const [],
+    this.localMessageIds = const [],
     this.loading = false,
     this.loadingOlder = false,
     this.loadingNewer = false,
@@ -60,6 +61,14 @@ class ChatStreamState {
   /// before the first of these and [ChatController.loadNewer] after the last,
   /// so a gap anywhere between them could never be filled.
   final List<int> messageIds;
+
+  /// Optimistic outgoing rows, oldest first, after the canonical window.
+  ///
+  /// These ids are negative and local. Keeping them out of [messageIds] is
+  /// load-bearing: that list is a contiguous server window used as the cursor
+  /// for paging and read receipts, while a message authored from an anchored
+  /// window may be separated from it by an arbitrarily large unread gap.
+  final List<int> localMessageIds;
 
   /// A first page is on its way and there is nothing to show behind it.
   final bool loading;
@@ -106,7 +115,11 @@ class ChatStreamState {
 
   final String? error;
 
-  bool get isEmpty => fetchedOnce && error == null && messageIds.isEmpty;
+  bool get isEmpty =>
+      fetchedOnce &&
+      error == null &&
+      messageIds.isEmpty &&
+      localMessageIds.isEmpty;
 
   /// The message to page before. Null on an empty stream, where there is
   /// nothing to page from.
@@ -121,6 +134,7 @@ class ChatStreamState {
 
   ChatStreamState copyWith({
     List<int>? messageIds,
+    List<int>? localMessageIds,
     bool? loading,
     bool? loadingOlder,
     bool? loadingNewer,
@@ -131,6 +145,7 @@ class ChatStreamState {
     bool clearError = false,
   }) => ChatStreamState(
     messageIds: messageIds ?? this.messageIds,
+    localMessageIds: localMessageIds ?? this.localMessageIds,
     loading: loading ?? this.loading,
     loadingOlder: loadingOlder ?? this.loadingOlder,
     loadingNewer: loadingNewer ?? this.loadingNewer,
@@ -149,6 +164,7 @@ class ChatStreamState {
       identical(this, other) ||
       other is ChatStreamState &&
           listEquals(other.messageIds, messageIds) &&
+          listEquals(other.localMessageIds, localMessageIds) &&
           other.loading == loading &&
           other.loadingOlder == loadingOlder &&
           other.loadingNewer == loadingNewer &&
@@ -162,6 +178,7 @@ class ChatStreamState {
   @override
   int get hashCode => Object.hash(
     Object.hashAll(messageIds),
+    Object.hashAll(localMessageIds),
     loading,
     loadingOlder,
     loadingNewer,
@@ -191,10 +208,12 @@ class ChatController extends FrameSafeNotifier {
     required this.credentials,
     required this.store,
     SiteLifecycle? lifecycle,
+    DiscourseUser? Function(String siteUrl)? currentUserFor,
     this.minimumWindowRefreshInterval = const Duration(seconds: 30),
     DateTime Function()? clock,
   }) : assert(minimumWindowRefreshInterval >= Duration.zero),
        lifecycle = lifecycle ?? SiteLifecycle(),
+       _currentUserFor = currentUserFor ?? _noCurrentUser,
        _clock = clock ?? DateTime.now;
 
   final ChatApi api;
@@ -202,7 +221,10 @@ class ChatController extends FrameSafeNotifier {
   final Store store;
   final SiteLifecycle lifecycle;
   final Duration minimumWindowRefreshInterval;
+  final DiscourseUser? Function(String siteUrl) _currentUserFor;
   final DateTime Function() _clock;
+
+  static DiscourseUser? _noCurrentUser(String _) => null;
 
   void _report(
     Object error,
@@ -273,6 +295,10 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, Object> _readReceiptRuns = {};
   final Map<String, Future<bool>> _sendRequests = {};
   final Map<String, Object> _sendRuns = {};
+  final Map<String, SiteMessageBusSubscription> _sendSubscriptions = {};
+  final Set<({String siteUrl, int channelId})> _sendSubscriptionChannels = {};
+  int _nextLocalMessageId = -1;
+  int _nextStagedSequence = 0;
 
   static String _channelsKey(String siteUrl) => '$siteUrl~channels';
   static String _streamKey(String siteUrl, int id) => '$siteUrl~$id';
@@ -442,6 +468,11 @@ class ChatController extends FrameSafeNotifier {
   void attachTracker(String siteUrl, SiteTracker tracker) {
     _presenceTrackers[siteUrl] = tracker;
     _syncPresence(siteUrl);
+    for (final target in _sendSubscriptionChannels) {
+      if (target.siteUrl == siteUrl) {
+        _ensureSendSubscription(target.siteUrl, target.channelId);
+      }
+    }
   }
 
   void _syncPresence(String siteUrl) {
@@ -488,6 +519,30 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
+  void _cancelSendSubscriptions(String siteUrl) {
+    final cancelled = <SiteMessageBusSubscription>[];
+    _sendSubscriptions.removeWhere((key, subscription) {
+      if (!key.startsWith('$siteUrl~')) return false;
+      cancelled.add(subscription);
+      return true;
+    });
+    _sendSubscriptionChannels.removeWhere(
+      (target) => target.siteUrl == siteUrl,
+    );
+    for (final subscription in cancelled) {
+      try {
+        subscription.cancel();
+      } catch (error, stackTrace) {
+        _report(
+          error,
+          stackTrace,
+          'chat.sendMessage.unsubscribe',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+    }
+  }
+
   void _applyPresenceMessage(String siteUrl, Object? data) {
     final held = _presence[siteUrl];
     if (held == null) return;
@@ -502,39 +557,120 @@ class ChatController extends FrameSafeNotifier {
     _streamRefs[key]?.value = stream;
   }
 
+  /// Drops optimistic overlays once an ordinary page contains their server id.
+  ///
+  /// Returning the held list when nothing landed preserves its identity, which
+  /// lets the view skip an otherwise unnecessary whole-window projection.
+  List<int> _retireCanonicalLocals(
+    String siteUrl,
+    ChatStreamState stream,
+    Iterable<ChatMessage> canonical,
+  ) {
+    if (stream.localMessageIds.isEmpty) return stream.localMessageIds;
+    final arrived = {for (final message in canonical) message.id};
+    if (arrived.isEmpty) return stream.localMessageIds;
+
+    List<int>? remaining;
+    for (var index = 0; index < stream.localMessageIds.length; index++) {
+      final id = stream.localMessageIds[index];
+      final local = store.read<ChatMessage>(siteUrl, id);
+      if (local?.serverId == null || !arrived.contains(local!.serverId)) {
+        remaining?.add(id);
+        continue;
+      }
+
+      remaining ??= stream.localMessageIds.sublist(0, index);
+      store.remove<ChatMessage>(siteUrl, id);
+    }
+    return remaining == null
+        ? stream.localMessageIds
+        : List.unmodifiable(remaining);
+  }
+
   /// The messages of one channel, oldest first, as far as they are held.
-  List<ChatMessage> messages(String siteUrl, int channelId) => [
-    for (final id in stream(siteUrl, channelId).messageIds)
-      ?store.read<ChatMessage>(siteUrl, id),
-  ];
+  List<ChatMessage> messages(String siteUrl, int channelId) {
+    final held = stream(siteUrl, channelId);
+    return [
+      for (final id in [...held.messageIds, ...held.localMessageIds])
+        ?store.read<ChatMessage>(siteUrl, id),
+    ];
+  }
 
   String? channelsError(String siteUrl) => _errors[_channelsKey(siteUrl)];
 
   // --- writes ------------------------------------------------------------
 
-  /// Sends one message and reconciles the channel against its newest page.
+  /// Whether a new staged row can be accepted synchronously.
+  bool canSendMessage(String siteUrl, int channelId) =>
+      !isDisposed && !_sendRequests.containsKey(_streamKey(siteUrl, channelId));
+
+  /// Stages and sends one message.
   ///
-  /// The API answers only with an id, not the message record needed by the
-  /// stream. Fetching the live edge after a successful write gives the view the
-  /// canonical cooked message and positions the reversed list at the present.
-  /// One in-flight send per channel prevents a double Enter from creating two
-  /// copies while credentials or the network are slow.
+  /// This method does all visible work before its first await: the local row is
+  /// in the stream when it returns, which lets the composer clear immediately.
+  /// The POST carries the web client's same `staged_id` correlation token and
+  /// MessageBus later replaces the raw projection with canonical cooked data.
+  /// This workflow issues no newest-page GET at all, awaited or in the
+  /// background. Full-window reads remain exclusive to ordinary open/paging.
   Future<bool> sendMessage(String siteUrl, int channelId, String message) {
     final text = message.trim();
     if (text.isEmpty) return Future.value(false);
     final key = _streamKey(siteUrl, channelId);
-    final active = _sendRequests[key];
-    if (active != null) return Future.value(false);
+    if (!canSendMessage(siteUrl, channelId)) return Future.value(false);
 
+    final createdAt = _clock().toUtc();
+    final stagedId =
+        'native-${createdAt.microsecondsSinceEpoch}-${_nextStagedSequence++}';
+    final user = _currentUserFor(siteUrl);
+    final local = ChatMessage.optimistic(
+      id: _nextLocalMessageId--,
+      channelId: channelId,
+      raw: text,
+      stagedId: stagedId,
+      author: ChatMessageAuthor(
+        id: user?.id ?? 0,
+        username: user?.username ?? '',
+        name: user?.name,
+        avatarUrl: user?.avatarUrl,
+        isStaff: user?.staff ?? false,
+      ),
+      createdAt: createdAt,
+    );
+    store.put(siteUrl, local);
+    final held = stream(siteUrl, channelId);
+    _setStream(
+      key,
+      held.copyWith(
+        localMessageIds: List.unmodifiable([...held.localMessageIds, local.id]),
+        clearError: true,
+      ),
+    );
+
+    final target = (siteUrl: siteUrl, channelId: channelId);
+    _sendSubscriptionChannels.add(target);
+    _ensureSendSubscription(siteUrl, channelId);
+
+    return _startSend(siteUrl, channelId, local, key);
+  }
+
+  Future<bool> _startSend(
+    String siteUrl,
+    int channelId,
+    ChatMessage local,
+    String key,
+  ) {
     final run = Object();
     _sendRuns[key] = run;
+
     late final Future<bool> request;
-    request = _sendMessage(siteUrl, channelId, text, key, run).whenComplete(() {
-      if (identical(_sendRequests[key], request)) {
-        final _ = _sendRequests.remove(key);
-      }
-      if (identical(_sendRuns[key], run)) _sendRuns.remove(key);
-    });
+    request = _sendMessage(siteUrl, channelId, local, key, run).whenComplete(
+      () {
+        if (identical(_sendRequests[key], request)) {
+          final _ = _sendRequests.remove(key);
+        }
+        if (identical(_sendRuns[key], run)) _sendRuns.remove(key);
+      },
+    );
     _sendRequests[key] = request;
     return request;
   }
@@ -542,7 +678,7 @@ class ChatController extends FrameSafeNotifier {
   Future<bool> _sendMessage(
     String siteUrl,
     int channelId,
-    String message,
+    ChatMessage local,
     String key,
     Object run,
   ) async {
@@ -557,24 +693,171 @@ class ChatController extends FrameSafeNotifier {
       }
       final clientId = await credentials.clientId();
       if (!_requestIsCurrent(lease, ownsRequest)) return false;
-      await api.sendChatMessage(
+      final serverId = await api.sendChatMessage(
         siteUrl: siteUrl,
         apiKey: apiKey,
         clientId: clientId,
         channelId: channelId,
-        message: message,
+        message: local.optimisticRaw!,
+        stagedId: local.stagedId,
+        clientCreatedAt: local.createdAt,
       );
       if (!_requestIsCurrent(lease, ownsRequest)) return false;
-
-      // A successful send belongs at the live edge even when the channel was
-      // opened around an older unread marker.
-      await _fetchWindow(siteUrl, channelId, fromLastRead: false);
-      return _requestIsCurrent(lease, ownsRequest);
+      lease.commit(() {
+        final localId = _updateOutgoing(
+          siteUrl,
+          channelId,
+          local.stagedId!,
+          (held) => held.withSendState(
+            delivery: ChatMessageDelivery.sent,
+            serverId: serverId,
+          ),
+        );
+        if (serverId != null &&
+            localId != null &&
+            stream(siteUrl, channelId).messageIds.contains(serverId)) {
+          _removeLocalMessage(siteUrl, channelId, localId);
+        }
+      });
+      return true;
     } catch (error, stackTrace) {
       if (_requestIsCurrent(lease, ownsRequest)) {
+        final failure = error is WriteException
+            ? error
+            : const WriteException(WriteFailure.unreachable);
+        lease.commit(
+          () => _updateOutgoing(
+            siteUrl,
+            channelId,
+            local.stagedId!,
+            (held) => held.serverId != null
+                ? held
+                : held.withSendState(
+                    delivery: ChatMessageDelivery.failed,
+                    error: failure.message,
+                    deliveryUncertain:
+                        failure.failure == WriteFailure.unreachable,
+                  ),
+          ),
+        );
+        lease.commit(
+          () => _releaseSendSubscriptionIfSettled(siteUrl, channelId),
+        );
         _report(error, stackTrace, 'chat.sendMessage');
       }
       Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
+  int? _updateOutgoing(
+    String siteUrl,
+    int channelId,
+    String stagedId,
+    ChatMessage Function(ChatMessage held) update,
+  ) {
+    final window = stream(siteUrl, channelId);
+    for (final id in window.localMessageIds) {
+      final held = store.read<ChatMessage>(siteUrl, id);
+      if (held?.stagedId != stagedId) continue;
+      store.put(siteUrl, update(held!));
+      return id;
+    }
+    return null;
+  }
+
+  void _removeLocalMessage(String siteUrl, int channelId, int localId) {
+    final key = _streamKey(siteUrl, channelId);
+    final window = _streams[key];
+    if (window == null || !window.localMessageIds.contains(localId)) return;
+    _setStream(
+      key,
+      window.copyWith(
+        localMessageIds: List.unmodifiable(
+          window.localMessageIds.where((id) => id != localId),
+        ),
+      ),
+    );
+    store.remove<ChatMessage>(siteUrl, localId);
+    _releaseSendSubscriptionIfSettled(siteUrl, channelId);
+  }
+
+  void _releaseSendSubscriptionIfSettled(String siteUrl, int channelId) {
+    final window = stream(siteUrl, channelId);
+    for (final id in window.localMessageIds) {
+      final local = store.read<ChatMessage>(siteUrl, id);
+      if (local == null) continue;
+      if (local.delivery == ChatMessageDelivery.sending ||
+          local.deliveryUncertain ||
+          local.delivery == ChatMessageDelivery.sent && local.cooked.isEmpty) {
+        return;
+      }
+    }
+
+    final key = _streamKey(siteUrl, channelId);
+    _sendSubscriptionChannels.remove((siteUrl: siteUrl, channelId: channelId));
+    final subscription = _sendSubscriptions.remove(key);
+    if (subscription == null) return;
+    try {
+      subscription.cancel();
+    } catch (error, stackTrace) {
+      _report(
+        error,
+        stackTrace,
+        'chat.sendMessage.unsubscribe',
+        severity: DiagnosticSeverity.warning,
+      );
+    }
+  }
+
+  void _ensureSendSubscription(String siteUrl, int channelId) {
+    final key = _streamKey(siteUrl, channelId);
+    if (_sendSubscriptions.containsKey(key)) return;
+    final tracker = _presenceTrackers[siteUrl];
+    if (tracker == null) return;
+
+    try {
+      _sendSubscriptions[key] = tracker.watchPluginChannel(
+        '/chat/$channelId',
+        (data) => _applySendMessage(siteUrl, channelId, data),
+      );
+    } catch (error, stackTrace) {
+      _report(
+        error,
+        stackTrace,
+        'chat.sendMessage.subscribe',
+        severity: DiagnosticSeverity.warning,
+      );
+      // The POST response still marks the staged row sent. A later ordinary
+      // channel fetch supplies the canonical cooked record.
+    }
+  }
+
+  void _applySendMessage(String siteUrl, int channelId, Object? data) {
+    if (data is! Map<String, dynamic>) return;
+    if (data['type'] != 'sent' || data['staged_id'] is! String) return;
+    final stagedId = data['staged_id'] as String;
+    final window = stream(siteUrl, channelId);
+    for (final id in window.localMessageIds) {
+      final local = store.read<ChatMessage>(siteUrl, id);
+      if (local?.stagedId != stagedId) continue;
+
+      // Do not deserialize every event in every channel ever sent to. This
+      // listener exists solely to reconcile one of our still-local rows.
+      final payload = data['chat_message'];
+      if (payload is! Map<String, dynamic>) return;
+      final canonical = ChatMessage.fromJson(payload, siteUrl);
+      if (canonical.id <= 0 || canonical.channelId != channelId) return;
+      final currentUserId = _currentUserFor(siteUrl)?.id;
+      if (currentUserId != null && canonical.author.id != currentUserId) return;
+
+      store.put(siteUrl, canonical);
+      if (window.messageIds.contains(canonical.id)) {
+        _removeLocalMessage(siteUrl, channelId, id);
+      } else {
+        store.put(siteUrl, local!.withCanonical(canonical));
+        _releaseSendSubscriptionIfSettled(siteUrl, channelId);
+      }
+      return;
     }
   }
 
@@ -770,10 +1053,16 @@ class ChatController extends FrameSafeNotifier {
       lease.commit(() {
         if (!identical(_streamGenerations[key], generation)) return;
         store.putAll(siteUrl, page.messages);
+        final current = _streams[key] ?? held;
         _setStream(
           key,
           ChatStreamState(
             messageIds: _sortedIds(siteUrl, page.messages),
+            localMessageIds: _retireCanonicalLocals(
+              siteUrl,
+              current,
+              page.messages,
+            ),
             canLoadMorePast: page.canLoadMorePast,
             canLoadMoreFuture: page.canLoadMoreFuture,
             fetchedOnce: true,
@@ -784,6 +1073,7 @@ class ChatController extends FrameSafeNotifier {
             )?.membership.lastReadMessageId,
           ),
         );
+        _releaseSendSubscriptionIfSettled(siteUrl, channelId);
       });
     } catch (error, stackTrace) {
       if (!_requestIsCurrent(lease, ownsRequest)) {
@@ -797,7 +1087,7 @@ class ChatController extends FrameSafeNotifier {
           key,
           current.copyWith(
             fetchedOnce: true,
-            error: current.messageIds.isEmpty
+            error: current.messageIds.isEmpty && current.localMessageIds.isEmpty
                 ? 'Could not load this channel.'
                 : null,
           ),
@@ -873,12 +1163,18 @@ class ChatController extends FrameSafeNotifier {
           key,
           current.copyWith(
             messageIds: merged,
+            localMessageIds: _retireCanonicalLocals(
+              siteUrl,
+              current,
+              page.messages,
+            ),
             canLoadMorePast:
                 merged.length > current.messageIds.length &&
                 page.canLoadMorePast,
             fetchedOnce: true,
           ),
         );
+        _releaseSendSubscriptionIfSettled(siteUrl, channelId);
       });
     } catch (error, stackTrace) {
       if (!_requestIsCurrent(lease, ownsRequest)) {
@@ -969,12 +1265,18 @@ class ChatController extends FrameSafeNotifier {
           key,
           current.copyWith(
             messageIds: merged,
+            localMessageIds: _retireCanonicalLocals(
+              siteUrl,
+              current,
+              page.messages,
+            ),
             canLoadMoreFuture:
                 merged.length > current.messageIds.length &&
                 page.canLoadMoreFuture,
             fetchedOnce: true,
           ),
         );
+        _releaseSendSubscriptionIfSettled(siteUrl, channelId);
       });
     } catch (error, stackTrace) {
       if (!_requestIsCurrent(lease, ownsRequest)) {
@@ -1022,6 +1324,14 @@ class ChatController extends FrameSafeNotifier {
     final held = channel(siteUrl, channelId);
     if (held == null) return Future.value();
     final lease = lifecycle.capture(siteUrl);
+    final window = stream(siteUrl, channelId);
+
+    // Optimistic rows are an outgoing overlay, not part of the contiguous
+    // server window. In particular a first-ever local id is negative and must
+    // never become a site's `last_read_message_id`.
+    if (messageId <= 0 || window.localMessageIds.contains(messageId)) {
+      return Future.value();
+    }
 
     // Only a followed channel has a membership row to move. The site is blunt
     // about the rest — `find_for_user(following: true)` misses, and the answer
@@ -1038,7 +1348,6 @@ class ChatController extends FrameSafeNotifier {
     // present: the reader is caught up only if this is the last message held
     // *and* there is nothing in front of it. Discourse asks its loader the same
     // two questions — `!canLoadMoreFuture && firstMessage.id === last.id`.
-    final window = stream(siteUrl, channelId);
     final caughtUp = window.atPresent && window.newestId == messageId;
 
     // Before credential storage, not after: the await below is a gap two scroll
@@ -1144,6 +1453,7 @@ class ChatController extends FrameSafeNotifier {
   /// themselves are the [Store]'s to forget.
   void forget(String siteUrl) {
     _cancelPresence(siteUrl);
+    _cancelSendSubscriptions(siteUrl);
     _presenceTrackers.remove(siteUrl);
     _presence.remove(siteUrl);
     final presenceRef = _presenceRefs.remove(siteUrl);
@@ -1232,6 +1542,16 @@ class ChatController extends FrameSafeNotifier {
     _readReceiptRuns.clear();
     _sendRequests.clear();
     _sendRuns.clear();
+    for (final subscription in _sendSubscriptions.values) {
+      try {
+        subscription.cancel();
+      } catch (_) {
+        // The tracker is being torn down at the same boundary. Best effort is
+        // enough, and disposal must continue through every remaining ref.
+      }
+    }
+    _sendSubscriptions.clear();
+    _sendSubscriptionChannels.clear();
     for (final ref in _streamRefs.values) {
       ref.dispose();
     }

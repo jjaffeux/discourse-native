@@ -365,6 +365,12 @@ typedef ChatMessagePage = ({
   bool canLoadMoreFuture,
 });
 
+/// Where a locally staged message is in its trip to the site.
+///
+/// Canonical messages are [sent] too. [ChatMessage.isOptimistic] distinguishes
+/// those server records from the temporary rows this state is drawn on.
+enum ChatMessageDelivery { sending, sent, failed }
+
 /// One message in a channel.
 @immutable
 class ChatMessage with Storable<ChatMessage> {
@@ -382,7 +388,40 @@ class ChatMessage with Storable<ChatMessage> {
     this.thread,
     this.reactions = const [],
     this.uploads = const [],
+    this.optimisticRaw,
+    this.stagedId,
+    this.serverId,
+    this.delivery = ChatMessageDelivery.sent,
+    this.sendError,
+    this.deliveryUncertain = false,
   });
+
+  /// A row inserted before credentials or the network are awaited.
+  ///
+  /// Its negative [id] belongs only to the native store. [stagedId] is the
+  /// opaque correlation token Discourse echoes on `/chat/{channel}`; the two
+  /// deliberately stay separate so canonical positive ids remain a contiguous
+  /// paging window.
+  factory ChatMessage.optimistic({
+    required int id,
+    required int channelId,
+    required String raw,
+    required String stagedId,
+    required ChatMessageAuthor author,
+    required DateTime createdAt,
+  }) {
+    assert(id < 0);
+    return ChatMessage(
+      id: id,
+      channelId: channelId,
+      cooked: '',
+      author: author,
+      createdAt: createdAt,
+      optimisticRaw: raw,
+      stagedId: stagedId,
+      delivery: ChatMessageDelivery.sending,
+    );
+  }
 
   factory ChatMessage.fromJson(Map<String, dynamic> json, String siteUrl) {
     final replyTo = switch (json['in_reply_to']) {
@@ -470,7 +509,83 @@ class ChatMessage with Storable<ChatMessage> {
   final List<ChatReaction> reactions;
   final List<ChatUpload> uploads;
 
+  /// Raw markdown shown as plain text until the site echoes canonical cooked
+  /// HTML. Present only on a locally staged row.
+  final String? optimisticRaw;
+
+  /// The arbitrary correlation token sent as `staged_id` and echoed through
+  /// MessageBus. Null on a message read from the site.
+  final String? stagedId;
+
+  /// The id returned by a successful POST or its canonical MessageBus echo.
+  ///
+  /// The record itself intentionally keeps its negative local [id] until a
+  /// normal page fetch includes this server id and retires the overlay row.
+  final int? serverId;
+
+  final ChatMessageDelivery delivery;
+  final String? sendError;
+
+  /// Whether a transport failure may still have committed on the site.
+  ///
+  /// Discourse does not make `staged_id` an idempotency key, so this state is
+  /// deliberately informational rather than an invitation to resend.
+  final bool deliveryUncertain;
+
   bool get isDeleted => deletedAt != null;
+  bool get isOptimistic => stagedId != null;
+
+  ChatMessage withSendState({
+    required ChatMessageDelivery delivery,
+    int? serverId,
+    String? error,
+    bool deliveryUncertain = false,
+  }) => ChatMessage(
+    id: id,
+    channelId: channelId,
+    cooked: cooked,
+    author: author,
+    createdAt: createdAt,
+    deletedAt: deletedAt,
+    edited: edited,
+    isWebhook: isWebhook,
+    replyTo: replyTo,
+    threadId: threadId,
+    thread: thread,
+    reactions: reactions,
+    uploads: uploads,
+    optimisticRaw: optimisticRaw,
+    stagedId: stagedId,
+    serverId: serverId ?? this.serverId,
+    delivery: delivery,
+    sendError: error,
+    deliveryUncertain: deliveryUncertain,
+  );
+
+  /// Applies the site's canonical echo without changing the local row id.
+  ///
+  /// Keeping that identity stable is the native equivalent of the web client
+  /// mutating its staged object in place. The next page containing [serverId]
+  /// removes this overlay, with no duplicate ever entering the stream.
+  ChatMessage withCanonical(ChatMessage canonical) => ChatMessage(
+    id: id,
+    channelId: canonical.channelId,
+    cooked: canonical.cooked,
+    author: canonical.author,
+    createdAt: canonical.createdAt,
+    deletedAt: canonical.deletedAt,
+    edited: canonical.edited,
+    isWebhook: canonical.isWebhook,
+    replyTo: canonical.replyTo,
+    threadId: canonical.threadId,
+    thread: canonical.thread,
+    reactions: canonical.reactions,
+    uploads: canonical.uploads,
+    optimisticRaw: optimisticRaw,
+    stagedId: stagedId,
+    serverId: canonical.id,
+    delivery: ChatMessageDelivery.sent,
+  );
 
   /// Paging windows overlap at their boundary; an unchanged copy should not
   /// wake the row already drawing this record.
@@ -493,7 +608,13 @@ class ChatMessage with Storable<ChatMessage> {
           other.threadId == threadId &&
           other.thread == thread &&
           listEquals(other.reactions, reactions) &&
-          listEquals(other.uploads, uploads);
+          listEquals(other.uploads, uploads) &&
+          other.optimisticRaw == optimisticRaw &&
+          other.stagedId == stagedId &&
+          other.serverId == serverId &&
+          other.delivery == delivery &&
+          other.sendError == sendError &&
+          other.deliveryUncertain == deliveryUncertain;
 
   @override
   int get hashCode => Object.hash(
@@ -510,6 +631,12 @@ class ChatMessage with Storable<ChatMessage> {
     thread,
     Object.hashAll(reactions),
     Object.hashAll(uploads),
+    optimisticRaw,
+    stagedId,
+    serverId,
+    delivery,
+    sendError,
+    deliveryUncertain,
   );
 
   @override

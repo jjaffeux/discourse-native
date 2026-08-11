@@ -352,6 +352,7 @@ class ShellController extends FrameSafeNotifier {
     credentials: authenticator,
     store: store,
     lifecycle: lifecycle,
+    currentUserFor: (siteUrl) => _instanceAt(siteUrl)?.user,
   );
 
   /// Voice/video rooms across every connected site. Unlike topic and chat

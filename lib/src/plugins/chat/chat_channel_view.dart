@@ -83,6 +83,7 @@ class _ChatChannelBody extends StatefulWidget {
 
 class _ChatChannelBodyState extends State<_ChatChannelBody> {
   List<int>? _projectedMessageIds;
+  List<int>? _projectedLocalMessageIds;
   int? _projectedLastRead;
   List<ChatMessage> _messages = const [];
   List<ChatStreamItem> _items = const [];
@@ -106,7 +107,21 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
   Widget _buildChannel(ChatStreamState stream) {
     late final Widget content;
-    if (stream.loading && stream.messageIds.isEmpty) {
+    final hasMessages =
+        stream.messageIds.isNotEmpty || stream.localMessageIds.isNotEmpty;
+    if (hasMessages) {
+      // A send can be staged while the first page is still loading, or after
+      // that page failed. The local row is useful state in either case and
+      // must not be hidden behind the page-level spinner/error.
+      _syncProjection(stream);
+      content = _Stream(
+        siteUrl: widget.siteUrl,
+        channelId: widget.channelId,
+        items: _items,
+        messages: _messages,
+        stream: stream,
+      );
+    } else if (stream.loading) {
       content = const Center(child: CircularProgressIndicator.adaptive());
     } else if (stream.error case final error?) {
       content = _Message(icon: DIcons.triangleExclamation, text: error);
@@ -116,14 +131,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         text: 'No messages here yet.',
       );
     } else {
-      _syncProjection(stream);
-      content = _Stream(
-        siteUrl: widget.siteUrl,
-        channelId: widget.channelId,
-        items: _items,
-        messages: _messages,
-        stream: stream,
-      );
+      content = const SizedBox.shrink();
     }
 
     return Column(
@@ -144,11 +152,13 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     // flag-only states turns each page into repeated work over the whole
     // history accumulated so far.
     if (identical(_projectedMessageIds, stream.messageIds) &&
+        identical(_projectedLocalMessageIds, stream.localMessageIds) &&
         _projectedLastRead == stream.lastReadOnOpen) {
       return;
     }
 
     _projectedMessageIds = stream.messageIds;
+    _projectedLocalMessageIds = stream.localMessageIds;
     _projectedLastRead = stream.lastReadOnOpen;
     _messages = widget.chat.messages(widget.siteUrl, widget.channelId);
     // The stream's snapshot rather than the membership's live answer: reading
@@ -412,11 +422,14 @@ class _StreamState extends State<_Stream> {
     // Seeded rather than measured, for the reason [_anchoring] gives. Landing
     // is the one moment the honest answer is known without looking: the reader
     // is at the message they were put on.
-    _seen = (
-      siteUrl: widget.siteUrl,
-      channelId: widget.channelId,
-      messageId: target ?? stream.newestId ?? 0,
-    );
+    final canonicalId = target ?? stream.newestId;
+    _seen = canonicalId == null
+        ? null
+        : (
+            siteUrl: widget.siteUrl,
+            channelId: widget.channelId,
+            messageId: canonicalId,
+          );
     _syncAwayFromPresent();
     return true;
   }
@@ -565,7 +578,10 @@ class _StreamState extends State<_Stream> {
     if (range == null) return null;
 
     for (var row = range.$1; row <= range.$2; row++) {
-      if (_itemAt(row) case final ChatStreamMessage message) return message.id;
+      if (_itemAt(row) case final ChatStreamMessage message
+          when message.id > 0) {
+        return message.id;
+      }
     }
     return null;
   }

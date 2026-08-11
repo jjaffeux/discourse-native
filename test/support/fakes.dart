@@ -823,7 +823,16 @@ class FakeDiscourseApi implements DiscourseApi {
   final WriteException? chatSendFailure;
   final Completer<void>? chatSendGate;
   final int? chatSentMessageId;
-  final List<({String siteUrl, int channelId, String message, int? threadId})>
+  final List<
+    ({
+      String siteUrl,
+      int channelId,
+      String message,
+      int? threadId,
+      String? stagedId,
+      DateTime? clientCreatedAt,
+    })
+  >
   chatMessagesSent = [];
 
   /// Thrown by [saveDraft] instead of answering.
@@ -1641,6 +1650,8 @@ class FakeDiscourseApi implements DiscourseApi {
     required int channelId,
     required String message,
     int? threadId,
+    String? stagedId,
+    DateTime? clientCreatedAt,
     String? clientId,
   }) async {
     chatMessagesSent.add((
@@ -1648,6 +1659,8 @@ class FakeDiscourseApi implements DiscourseApi {
       channelId: channelId,
       message: message,
       threadId: threadId,
+      stagedId: stagedId,
+      clientCreatedAt: clientCreatedAt,
     ));
     if (chatSendGate != null) await chatSendGate!.future;
     if (chatSendFailure != null) throw chatSendFailure!;

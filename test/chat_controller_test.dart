@@ -62,6 +62,9 @@ ChatChannel channel(
   WriteException? readFailure,
   WriteException? sendFailure,
   Completer<void>? sendGate,
+  int? sentMessageId = 1,
+  FakeApiCredentialReader? credentialReader,
+  DiscourseUser? currentUser,
   Duration minimumWindowRefreshInterval = const Duration(seconds: 30),
   DateTime Function()? clock,
 }) {
@@ -73,14 +76,17 @@ ChatChannel channel(
     chatReadFailure: readFailure,
     chatSendFailure: sendFailure,
     chatSendGate: sendGate,
+    chatSentMessageId: sentMessageId,
   );
-  final credentials = FakeApiCredentialReader()..keys[site] = 'key';
+  final credentials = credentialReader ?? FakeApiCredentialReader();
+  credentials.keys[site] = 'key';
   final store = Store();
   return (
     chat: ChatController(
       api: api,
       credentials: credentials,
       store: store,
+      currentUserFor: (_) => currentUser,
       minimumWindowRefreshInterval: minimumWindowRefreshInterval,
       clock: clock,
     ),
@@ -164,6 +170,47 @@ String key(int channelId, {int? before, int? after}) =>
 
 String latestKey(int channelId) =>
     FakeDiscourseApi.chatMessagesLatestKey(channelId);
+
+const DiscourseUser currentUser = DiscourseUser(
+  id: 7,
+  username: 'reader',
+  name: 'Reader',
+  avatarUrl: 'https://meta.discourse.org/avatar.png',
+);
+
+FakeSiteTracker attachTracker(ChatController chat) {
+  final tracker = FakeSiteTracker(
+    siteUrl: site,
+    onIncomingTopics: () {},
+    onNotifications: (_) {},
+    onReviewableCounts: (_) {},
+    userId: currentUser.id,
+    apiKey: 'key',
+  );
+  chat.attachTracker(site, tracker);
+  return tracker;
+}
+
+Map<String, dynamic> sentEvent({
+  required String stagedId,
+  int serverId = 42,
+  String cooked = '<p>hello chat</p>',
+}) => {
+  'type': 'sent',
+  'staged_id': stagedId,
+  'chat_message': {
+    'id': serverId,
+    'chat_channel_id': 9,
+    'cooked': cooked,
+    'created_at': '2026-05-05T10:01:00.000Z',
+    'user': {
+      'id': currentUser.id,
+      'username': currentUser.username,
+      'name': currentUser.name,
+      'avatar_template': '/avatar/{size}.png',
+    },
+  },
+};
 
 void main() {
   // The controller uses frame-safe notifiers, whose scheduler-phase check needs
@@ -753,46 +800,279 @@ void main() {
   });
 
   group('sending a message', () {
-    test('trims, serializes, and reconciles against the live edge', () async {
-      final gate = Completer<void>();
+    test('stages the local row before credentials can answer', () async {
+      final credentialsGate = Completer<void>();
+      final credentials = _GatedCredentials(credentialsGate);
+      final now = DateTime.utc(2026, 5, 5, 10, 1);
       final subject = build(
-        messages: {
-          latestKey(9): page([message(2, minute: 2)]),
-        },
-        sendGate: gate,
+        credentialReader: credentials,
+        currentUser: currentUser,
+        clock: () => now,
       );
+      addTearDown(subject.chat.dispose);
 
-      final first = subject.chat.sendMessage(site, 9, '  hello chat  ');
-      final duplicate = subject.chat.sendMessage(site, 9, 'hello again');
-      await Future<void>.delayed(Duration.zero);
+      final sending = subject.chat.sendMessage(site, 9, '  hello chat  ');
 
-      expect(subject.api.chatMessagesSent, [
-        (siteUrl: site, channelId: 9, message: 'hello chat', threadId: null),
+      final window = subject.chat.stream(site, 9);
+      expect(window.messageIds, isEmpty);
+      expect(window.localMessageIds, [-1]);
+      final local = subject.store.read<ChatMessage>(site, -1)!;
+      expect(local.optimisticRaw, 'hello chat');
+      expect(local.stagedId, 'native-${now.microsecondsSinceEpoch}-0');
+      expect(local.delivery, ChatMessageDelivery.sending);
+      expect(local.author.username, currentUser.username);
+      expect(subject.api.chatMessagesSent, isEmpty);
+
+      await credentials.started.future;
+      expect(subject.chat.stream(site, 9).localMessageIds, [-1]);
+      expect(subject.api.chatMessagesSent, isEmpty);
+
+      credentialsGate.complete();
+      expect(await sending, isTrue);
+    });
+
+    test(
+      'trims, correlates, serializes, and performs no message GET',
+      () async {
+        final gate = Completer<void>();
+        final now = DateTime.utc(2026, 5, 5, 10, 2);
+        final subject = build(
+          sendGate: gate,
+          currentUser: currentUser,
+          clock: () => now,
+        );
+        addTearDown(subject.chat.dispose);
+
+        final first = subject.chat.sendMessage(site, 9, '  hello chat  ');
+        final duplicate = subject.chat.sendMessage(site, 9, 'hello again');
+        await Future<void>.delayed(Duration.zero);
+
+        expect(subject.api.chatMessagesSent, [
+          (
+            siteUrl: site,
+            channelId: 9,
+            message: 'hello chat',
+            threadId: null,
+            stagedId: 'native-${now.microsecondsSinceEpoch}-0',
+            clientCreatedAt: now,
+          ),
+        ]);
+        expect(subject.api.chatMessagesRequested, isEmpty);
+        expect(subject.chat.stream(site, 9).messageIds, isEmpty);
+        expect(subject.chat.stream(site, 9).localMessageIds, [-1]);
+
+        gate.complete();
+        expect(await first, isTrue);
+        expect(await duplicate, isFalse);
+        expect(subject.api.chatMessagesRequested, isEmpty);
+        expect(
+          subject.store.read<ChatMessage>(site, -1)?.delivery,
+          ChatMessageDelivery.sent,
+        );
+      },
+    );
+
+    test(
+      'keeps an optimistic row outside an anchored canonical window',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(
+          messages: {
+            key(9): page([message(5, minute: 5)], canLoadMoreFuture: true),
+          },
+          sendGate: gate,
+          currentUser: currentUser,
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.openChannel(site, 9);
+
+        final sending = subject.chat.sendMessage(site, 9, 'from the past');
+
+        final window = subject.chat.stream(site, 9);
+        expect(window.messageIds, [5]);
+        expect(window.localMessageIds, [-1]);
+        expect(window.canLoadMoreFuture, isTrue);
+        expect(subject.chat.messages(site, 9).map((message) => message.id), [
+          5,
+          -1,
+        ]);
+        expect(subject.api.chatMessagesRequested, hasLength(1));
+
+        gate.complete();
+        await sending;
+        expect(subject.api.chatMessagesRequested, hasLength(1));
+      },
+    );
+
+    test('a matching sent event canonicalizes the same local row', () async {
+      final subject = build(sentMessageId: 42, currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+      final tracker = attachTracker(subject.chat);
+
+      await subject.chat.sendMessage(site, 9, 'hello chat');
+      final localId = subject.chat.stream(site, 9).localMessageIds.single;
+      final stagedId = subject.store
+          .read<ChatMessage>(site, localId)!
+          .stagedId!;
+
+      tracker.deliverPluginMessage('/chat/9', sentEvent(stagedId: stagedId));
+
+      final window = subject.chat.stream(site, 9);
+      final local = subject.store.read<ChatMessage>(site, localId)!;
+      expect(localId, isNegative);
+      expect(window.messageIds, isEmpty);
+      expect(window.localMessageIds, [localId]);
+      expect(local.id, localId);
+      expect(local.serverId, 42);
+      expect(local.cooked, '<p>hello chat</p>');
+      expect(local.delivery, ChatMessageDelivery.sent);
+      expect(subject.chat.messages(site, 9).map((message) => message.id), [
+        localId,
       ]);
-
-      gate.complete();
-      expect(await first, isTrue);
-      expect(await duplicate, isFalse);
-      expect(subject.chat.stream(site, 9).messageIds, [2]);
-      expect(subject.api.chatMessagesRequested.single.fromLastRead, isFalse);
+      expect(subject.store.read<ChatMessage>(site, 42), isNotNull);
+      expect(tracker.pluginChannelCallbacks['/chat/9'], isEmpty);
     });
 
-    test('surfaces a refusal without replacing the held stream', () async {
-      const refusal = WriteException(
-        WriteFailure.validation,
-        errors: ['That message is not allowed.'],
-      );
-      final subject = build(sendFailure: refusal);
-      subject.store.putAll(site, [message(1)]);
+    test(
+      'a sent event that beats the POST response remains one local row',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(
+          sendGate: gate,
+          sentMessageId: 42,
+          currentUser: currentUser,
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
 
-      await expectLater(
-        subject.chat.sendMessage(site, 9, 'hello'),
-        throwsA(same(refusal)),
-      );
+        final sending = subject.chat.sendMessage(site, 9, 'hello chat');
+        await Future<void>.delayed(Duration.zero);
+        final localId = subject.chat.stream(site, 9).localMessageIds.single;
+        final stagedId = subject.store
+            .read<ChatMessage>(site, localId)!
+            .stagedId!;
 
-      expect(subject.api.chatMessagesSent, hasLength(1));
-      expect(subject.api.chatMessagesRequested, isEmpty);
+        tracker.deliverPluginMessage('/chat/9', sentEvent(stagedId: stagedId));
+        expect(subject.chat.messages(site, 9), hasLength(1));
+        expect(
+          subject.store.read<ChatMessage>(site, localId)?.cooked,
+          '<p>hello chat</p>',
+        );
+
+        gate.complete();
+        expect(await sending, isTrue);
+
+        final window = subject.chat.stream(site, 9);
+        final local = subject.store.read<ChatMessage>(site, localId)!;
+        expect(window.messageIds, isEmpty);
+        expect(window.localMessageIds, [localId]);
+        expect(subject.chat.messages(site, 9), hasLength(1));
+        expect(local.serverId, 42);
+        expect(local.cooked, '<p>hello chat</p>');
+        expect(local.delivery, ChatMessageDelivery.sent);
+        expect(subject.api.chatMessagesRequested, isEmpty);
+        expect(tracker.pluginChannelCallbacks['/chat/9'], isEmpty);
+      },
+    );
+
+    test(
+      'a definitive refusal marks the local row failed without retry',
+      () async {
+        const refusal = WriteException(
+          WriteFailure.validation,
+          errors: ['That message is not allowed.'],
+        );
+        final subject = build(sendFailure: refusal, currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+
+        await expectLater(
+          subject.chat.sendMessage(site, 9, 'hello'),
+          throwsA(same(refusal)),
+        );
+
+        expect(subject.api.chatMessagesSent, hasLength(1));
+        expect(subject.api.chatMessagesRequested, isEmpty);
+        final window = subject.chat.stream(site, 9);
+        final local = subject.store.read<ChatMessage>(
+          site,
+          window.localMessageIds.single,
+        )!;
+        expect(window.messageIds, isEmpty);
+        expect(local.delivery, ChatMessageDelivery.failed);
+        expect(local.sendError, refusal.message);
+        expect(local.deliveryUncertain, isFalse);
+      },
+    );
+
+    test(
+      'an unreachable send leaves only that local row delivery uncertain',
+      () async {
+        const outage = WriteException(WriteFailure.unreachable);
+        final subject = build(sendFailure: outage, currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+
+        await expectLater(
+          subject.chat.sendMessage(site, 9, 'hello'),
+          throwsA(same(outage)),
+        );
+
+        final window = subject.chat.stream(site, 9);
+        final local = subject.store.read<ChatMessage>(
+          site,
+          window.localMessageIds.single,
+        )!;
+        expect(window.messageIds, isEmpty);
+        expect(window.localMessageIds, [-1]);
+        expect(local.delivery, ChatMessageDelivery.failed);
+        expect(local.sendError, outage.message);
+        expect(local.deliveryUncertain, isTrue);
+      },
+    );
+
+    test('read receipts ignore a local negative message id', () async {
+      final subject = build(currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, lastRead: 3));
+      await subject.chat.sendMessage(site, 9, 'hello');
+      final localId = subject.chat.stream(site, 9).localMessageIds.single;
+
+      await subject.chat.markRead(site, 9, localId);
+
+      expect(localId, isNegative);
+      expect(subject.api.chatReadsMarked, isEmpty);
+      expect(
+        subject.store.read<ChatChannel>(site, 9)?.membership.lastReadMessageId,
+        3,
+      );
     });
+
+    test(
+      'a later canonical page retires its local overlay without a duplicate',
+      () async {
+        final subject = build(
+          messages: {
+            key(9): page([message(42, minute: 2)]),
+          },
+          sentMessageId: 42,
+          currentUser: currentUser,
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.sendMessage(site, 9, 'hello');
+        final localId = subject.chat.stream(site, 9).localMessageIds.single;
+        expect(subject.store.read<ChatMessage>(site, localId)?.serverId, 42);
+
+        await subject.chat.openChannel(site, 9);
+
+        final window = subject.chat.stream(site, 9);
+        expect(window.messageIds, [42]);
+        expect(window.localMessageIds, isEmpty);
+        expect(subject.store.read<ChatMessage>(site, localId), isNull);
+        expect(subject.chat.messages(site, 9).map((message) => message.id), [
+          42,
+        ]);
+        expect(subject.api.chatMessagesRequested, hasLength(1));
+      },
+    );
   });
 
   group('paging towards the present', () {

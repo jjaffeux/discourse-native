@@ -314,6 +314,41 @@ void main() {
       expect(jsonDecode(sent.body), {'message': 'hi'});
     });
 
+    test(
+      'chat sends serialize optimistic metadata and return the message id',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(jsonEncode({'message_id': 42}), 200);
+          }),
+        );
+        final clientCreatedAt = DateTime.parse('2026-08-11T16:15:16.123+02:00');
+
+        final messageId = await api.sendChatMessage(
+          siteUrl: 'https://example.com',
+          apiKey: 'secret',
+          clientId: 'client',
+          channelId: 9,
+          message: 'hello',
+          threadId: 17,
+          stagedId: 'staged-123',
+          clientCreatedAt: clientCreatedAt,
+        );
+
+        expect(messageId, 42);
+        expect(sent.method, 'POST');
+        expect(sent.url.path, '/chat/9.json');
+        expect(jsonDecode(sent.body), {
+          'message': 'hello',
+          'thread_id': 17,
+          'staged_id': 'staged-123',
+          'client_created_at': '2026-08-11T14:15:16.123Z',
+        });
+      },
+    );
+
     test('writes preserve a plugin singular error response', () async {
       final transport = DiscourseTransport(
         SafeHttpClient.owned(

@@ -2333,6 +2333,8 @@ class DiscourseApi
     required int channelId,
     required String message,
     int? threadId,
+    String? stagedId,
+    DateTime? clientCreatedAt,
     String? clientId,
   }) async {
     final body = await _write(
@@ -2341,7 +2343,12 @@ class DiscourseApi
       method: 'POST',
       apiKey: apiKey,
       clientId: clientId,
-      body: {'message': message, 'thread_id': threadId},
+      body: {
+        'message': message,
+        'thread_id': threadId,
+        'staged_id': stagedId,
+        'client_created_at': clientCreatedAt?.toUtc().toIso8601String(),
+      },
     );
     return jsonIntOrNull(body['message_id']);
   }

@@ -237,6 +237,8 @@ abstract interface class ChatApi {
     required int channelId,
     required String message,
     int? threadId,
+    String? stagedId,
+    DateTime? clientCreatedAt,
     String? clientId,
   });
 

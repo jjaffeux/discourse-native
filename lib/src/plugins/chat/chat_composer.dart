@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/discourse_api_contracts.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/composer_panel.dart';
 import '../../shell/shell_controller.dart';
@@ -37,7 +36,6 @@ class _ChatComposerState extends State<ChatComposer> {
   ComposerController? _composer;
   String? _sourceKey;
   bool _sending = false;
-  String? _sendError;
 
   @override
   void didChangeDependencies() {
@@ -82,38 +80,33 @@ class _ChatComposerState extends State<ChatComposer> {
     if (shell == null ||
         composer == null ||
         _sending ||
-        composer.raw.isEmpty ||
+        composer.raw.trim().isEmpty ||
         composer.hasActiveUploads) {
       return;
     }
+    if (!shell.chat.canSendMessage(widget.siteUrl, widget.channelId)) return;
 
-    setState(() {
-      _sending = true;
-      _sendError = null;
-    });
+    setState(() => _sending = true);
     try {
-      final sent = await shell.chat.sendMessage(
+      final sending = shell.chat.sendMessage(
         widget.siteUrl,
         widget.channelId,
         composer.raw,
       );
-      if (!mounted) return;
-      if (sent) composer.clearDocument();
-    } on WriteException catch (error) {
-      if (mounted) setState(() => _sendError = error.message);
+      // `sendMessage` stages the outgoing row before returning its future. A
+      // clean document is therefore safe now, before credentials or the POST
+      // can make the composer feel busy. In particular, never clear from the
+      // async completion path: the reader may already be writing their next
+      // message by then.
+      composer.clearDocument();
+      composer.focus.requestFocus();
+      await sending;
     } catch (_) {
-      if (mounted) {
-        setState(
-          () => _sendError = const WriteException(
-            WriteFailure.unreachable,
-          ).message,
-        );
-      }
+      // The optimistic row owns delivery errors and retry. Keeping the same
+      // failure under the composer would split one message's state across two
+      // places.
     } finally {
-      if (mounted) {
-        setState(() => _sending = false);
-        composer.focus.requestFocus();
-      }
+      if (mounted) setState(() => _sending = false);
     }
   }
 
@@ -132,7 +125,7 @@ class _ChatComposerState extends State<ChatComposer> {
           children: [
             if (composer.uploads.isNotEmpty)
               ComposerUploadQueue(composer: composer),
-            if (_sendError ?? composer.notice case final message?)
+            if (composer.notice case final message?)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
                 child: Align(
@@ -140,9 +133,7 @@ class _ChatComposerState extends State<ChatComposer> {
                   child: Text(
                     message,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: _sendError == null
-                          ? Theme.of(context).colorScheme.onSurfaceVariant
-                          : Theme.of(context).colorScheme.error,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
