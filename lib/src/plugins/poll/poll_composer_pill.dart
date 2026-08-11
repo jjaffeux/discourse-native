@@ -44,25 +44,45 @@ int _generatedOptionCount({
 /// Builds the collapsed poll projection without changing a single source
 /// offset.
 ///
-/// Every ordinary source code unit is retained as zero-size text. CR/LF code
-/// units become zero-size one-character widgets so they no longer create
-/// hidden blank lines. The final code unit becomes the visible pill. Flutter
-/// therefore lays out exactly [PollComposerBlock.length] code units, just like
-/// the underlying raw text used for copying, undo, drafts, and submission.
+/// The first code unit becomes the visible pill. Every remaining ordinary
+/// source code unit is retained as zero-size text, while CR/LF code units
+/// become zero-size one-character widgets so they no longer create hidden
+/// blank lines. When the owning document has no real line ending after the
+/// block, the second code unit is projected as one transparent line ending.
+/// The pill therefore remains block-shaped at EOF without changing the raw
+/// Markdown used for copying, undo, drafts, and submission.
 List<InlineSpan> buildCollapsedPollSpans({
   required PollComposerBlock block,
   required TextStyle baseStyle,
   Key? pillKey,
   int maximumOptions = 20,
   bool highlighted = false,
+  bool followedByLineBreak = false,
 }) {
   final source = block.source;
   if (source.isEmpty) return const [];
 
-  final spans = <InlineSpan>[];
-  final visibleAt = source.length - 1;
-  var textStart = 0;
-  for (var offset = 0; offset < visibleAt; offset++) {
+  final projectsLineBreak = !followedByLineBreak && source.length > 1;
+  final spans = <InlineSpan>[
+    WidgetSpan(
+      alignment: PlaceholderAlignment.middle,
+      style: baseStyle,
+      child: PollComposerPill(
+        key: pillKey,
+        label: pollComposerSummary(block, maximumOptions: maximumOptions),
+        baseStyle: baseStyle,
+        highlighted: highlighted,
+      ),
+    ),
+    if (projectsLineBreak)
+      TextSpan(
+        text: '\n',
+        style: baseStyle.copyWith(color: Colors.transparent),
+      ),
+  ];
+  final hiddenFrom = projectsLineBreak ? 2 : 1;
+  var textStart = hiddenFrom;
+  for (var offset = hiddenFrom; offset < source.length; offset++) {
     final codeUnit = source.codeUnitAt(offset);
     if (codeUnit != 0x0A && codeUnit != 0x0D) continue;
     if (textStart < offset) {
@@ -81,26 +101,11 @@ List<InlineSpan> buildCollapsedPollSpans({
     );
     textStart = offset + 1;
   }
-  if (textStart < visibleAt) {
+  if (textStart < source.length) {
     spans.add(
-      TextSpan(
-        text: source.substring(textStart, visibleAt),
-        style: _pollHiddenSource,
-      ),
+      TextSpan(text: source.substring(textStart), style: _pollHiddenSource),
     );
   }
-  spans.add(
-    WidgetSpan(
-      alignment: PlaceholderAlignment.middle,
-      style: baseStyle,
-      child: PollComposerPill(
-        key: pillKey,
-        label: pollComposerSummary(block, maximumOptions: maximumOptions),
-        baseStyle: baseStyle,
-        highlighted: highlighted,
-      ),
-    ),
-  );
 
   assert(
     TextSpan(

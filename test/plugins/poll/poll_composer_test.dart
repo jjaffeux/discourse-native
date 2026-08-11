@@ -292,7 +292,55 @@ void main() {
 
       expect(result.applied, isTrue);
       expect(result.value.text, 'before\n\n$poll\n\nafter');
-      expect(result.value.selection.extentOffset, 8 + poll.length);
+      expect(result.value.selection.extentOffset, 9 + poll.length);
+      expect(
+        result.value.text.replaceRange(
+          result.value.selection.start,
+          result.value.selection.end,
+          'next',
+        ),
+        'before\n\n$poll\nnext\nafter',
+      );
+    });
+
+    test(
+      'an end insertion owns a following line and leaves the caret on it',
+      () {
+        final result = insertVerifiedPoll(
+          current: TextEditingValue.empty,
+          expectedDocument: '',
+          expectedSelection: const TextSelection.collapsed(offset: 0),
+          markup: poll,
+        );
+
+        expect(result.applied, isTrue);
+        expect(result.value.text, '$poll\n');
+        expect(
+          result.value.selection,
+          TextSelection.collapsed(offset: poll.length + 1),
+        );
+
+        final typed = result.value.text.replaceRange(
+          result.value.selection.start,
+          result.value.selection.end,
+          'next',
+        );
+        expect(typed, '$poll\nnext');
+        expect(parsePollComposerBlocks(typed), hasLength(1));
+      },
+    );
+
+    test('the following caret consumes one complete CRLF', () {
+      const source = 'before\r\nafter';
+      final result = insertVerifiedPoll(
+        current: const TextEditingValue(text: source),
+        expectedDocument: source,
+        expectedSelection: const TextSelection.collapsed(offset: 8),
+        markup: poll,
+      );
+
+      expect(result.value.text, 'before\r\n\r\n$poll\r\n\r\nafter');
+      expect(result.value.selection.extentOffset, 12 + poll.length);
     });
 
     test('replaces and removes exactly one verified source range', () {
@@ -308,6 +356,10 @@ void main() {
         replaced.value.text,
         'before\n\n[poll type=number min=0 max=1]\n[/poll]\n\nafter',
       );
+      expect(
+        replaced.value.selection.extentOffset,
+        'before\n\n[poll type=number min=0 max=1]\n[/poll]\n'.length,
+      );
 
       final removed = removeVerifiedPoll(
         current: const TextEditingValue(text: source),
@@ -315,6 +367,23 @@ void main() {
         expectedBlock: block,
       );
       expect(removed.value.text, 'before\n\n\n\nafter');
+    });
+
+    test('editing an EOF poll keeps a real following caret line', () {
+      final block = parsePollComposerBlocks(poll).single;
+      const replacement = '[poll]\n* One\n* Two\n[/poll]';
+      final result = replaceVerifiedPoll(
+        current: const TextEditingValue(text: poll),
+        expectedDocument: poll,
+        expectedBlock: block,
+        replacement: replacement,
+      );
+
+      expect(result.value.text, '$replacement\n');
+      expect(
+        result.value.selection,
+        const TextSelection.collapsed(offset: replacement.length + 1),
+      );
     });
 
     test('a changed document safely refuses to apply', () {

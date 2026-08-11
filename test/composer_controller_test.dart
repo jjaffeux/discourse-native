@@ -232,6 +232,7 @@ void main() {
       );
       composer.text.value = inserted.value;
 
+      expect(composer.text.text, '$markup\n');
       expect(composer.raw, markup);
       expect(composer.canSubmit, isTrue);
       expect(composer.draftPending, isTrue);
@@ -243,19 +244,20 @@ void main() {
       ).copyWith(title: 'Lunch').serialize();
       final edited = replaceVerifiedPoll(
         current: composer.text.value,
-        expectedDocument: composer.raw,
+        expectedDocument: composer.text.text,
         expectedBlock: block,
         replacement: replacement,
       );
       composer.text.value = edited.value;
 
+      expect(composer.text.text, '$replacement\n');
       expect(composer.raw, replacement);
       expect(composer.typingDuration, const Duration(seconds: 1));
 
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
       expect(saves, hasLength(1));
-      expect(saves.single.draft.reply, replacement);
+      expect(saves.single.draft.reply, '$replacement\n');
     },
   );
 
