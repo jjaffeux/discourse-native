@@ -210,6 +210,7 @@ class ComposerController extends ChangeNotifier {
     ComposerSearch? search,
     String Function(String name)? resolveEmoji,
     ComposerPills? pills,
+    ComposerQuoteContentsFormatter? formatQuoteContents,
     this.imageUploader,
     ComposerUploadUrlResolver? resolveUploadUrls,
     this.canUploadImage,
@@ -223,6 +224,7 @@ class ComposerController extends ChangeNotifier {
   }) : text = MarkdownEditingController(
          resolveEmoji: resolveEmoji,
          pills: pills,
+         formatQuoteContents: formatQuoteContents,
          pollMaximumOptions: pollMaximumOptions,
          localDateAccountTimezone: localDateAccountTimezone,
          resolveUploadUrls: resolveUploadUrls,

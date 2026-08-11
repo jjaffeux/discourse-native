@@ -58,6 +58,10 @@ class ComposerPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
+    composer.text.configureQuoteContentsResolver(
+      (block) => controller.quoteContentsFor(composer.target, block),
+      context: (controller, composer.target),
+    );
 
     return ListenableBuilder(
       listenable: composer,

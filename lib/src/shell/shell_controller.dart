@@ -63,8 +63,10 @@ import 'account_activity_controller.dart';
 import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
 import 'composer_pills.dart';
+import 'composer_quotes.dart';
 import 'composer_triggers.dart';
 import 'draft_list_controller.dart';
+import 'post_quote.dart';
 import 'shell_search_controller.dart';
 import 'site_presentation_controller.dart';
 import 'site_url.dart';
@@ -2661,6 +2663,8 @@ class ShellController extends FrameSafeNotifier {
       search: _composerSearch(target),
       resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
       pills: _composerPills(target),
+      formatQuoteContents: (block) =>
+          quoteContentsFor(target, block) ?? block.contents,
       pollMaximumOptions: config.pollMaximumOptions,
       localDateAccountTimezone: currentUserFor(target.siteUrl)?.timezone,
       imageUploader: (file, {required onProgress, required abortTrigger}) =>
@@ -2682,6 +2686,21 @@ class ShellController extends FrameSafeNotifier {
     );
     if (persistsDraft) composer.draftSequence = _draftSequence(target);
     return composer;
+  }
+
+  String? quoteContentsFor(ComposerTarget target, ComposerQuoteBlock block) {
+    final topicId = block.topicId;
+    final postNumber = block.postNumber;
+    if (topicId == null || postNumber == null) return null;
+    final topic = store.read<TopicDetail>(target.siteUrl, topicId);
+    if (topic == null) return null;
+
+    for (final id in topic.stream) {
+      final post = store.read<Post>(target.siteUrl, id);
+      if (post?.postNumber != postNumber) continue;
+      return postQuoteContentsFromSelection(post!.cooked, block.contents);
+    }
+    return null;
   }
 
   /// Builds the inline composer for one chat channel with the same markdown,
