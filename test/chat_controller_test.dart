@@ -36,21 +36,45 @@ ChatMessagePage page(
 ChatChannel channel(
   int id, {
   String title = 'Bugs',
+  ChatChannelKind kind = ChatChannelKind.category,
   bool following = true,
+  bool muted = false,
   bool starred = false,
   int? lastRead,
   int unread = 0,
   int mentions = 0,
+  int watchedThreads = 0,
+  int unreadThreads = 0,
+  bool threadingEnabled = false,
+  DateTime? lastViewedAt,
+  Map<int, DateTime>? unreadThreadOverview,
+  int? lastMessageId,
+  DateTime? lastMessageAt,
 }) => ChatChannel(
   id: id,
   title: title,
-  kind: ChatChannelKind.category,
+  kind: kind,
   membership: ChatMembership(
     following: following,
+    muted: muted,
     starred: starred,
     lastReadMessageId: lastRead,
+    lastViewedAt: lastViewedAt,
   ),
-  tracking: ChatTracking(unreadCount: unread, mentionCount: mentions),
+  tracking: ChatTracking(
+    unreadCount: unread,
+    mentionCount: mentions,
+    watchedThreadsUnreadCount: watchedThreads,
+  ),
+  unreadThreadOverview:
+      unreadThreadOverview ??
+      {
+        for (var index = 0; index < unreadThreads; index++)
+          index + 1: DateTime.utc(2026, 8, 8, 9, index),
+      },
+  threadingEnabled: threadingEnabled || unreadThreads > 0,
+  lastMessageId: lastMessageId,
+  lastMessageAt: lastMessageAt,
 );
 
 /// A controller wired to a fake site the reader is already signed in to.
@@ -212,6 +236,56 @@ Map<String, dynamic> sentEvent({
   },
 };
 
+Map<String, dynamic> newMessageEvent({
+  required int channelId,
+  required int messageId,
+  required int authorId,
+  required String createdAt,
+  String authorUsername = 'author',
+  String type = 'channel',
+  int? threadId,
+}) => {
+  'type': type,
+  'channel_id': channelId,
+  'thread_id': ?threadId,
+  'message': {
+    'id': messageId,
+    'chat_channel_id': channelId,
+    'cooked': '<p>new</p>',
+    'created_at': createdAt,
+    'user': {'id': authorId, 'username': authorUsername},
+  },
+};
+
+Map<String, dynamic> newDirectChannelEvent({
+  required int channelId,
+  required int messageId,
+  required int newMessagesLastId,
+  String title = 'New conversation',
+  String createdAt = '2026-08-08T13:00:00.000Z',
+}) => {
+  'channel': {
+    'id': channelId,
+    'title': title,
+    'chatable_type': 'DirectMessage',
+    'chatable': {
+      'group': false,
+      'users': [
+        {'id': 2, 'username': 'hawk'},
+      ],
+    },
+    'current_user_membership': {
+      'following': true,
+      'muted': false,
+      'starred': false,
+    },
+    'last_message': {'id': messageId, 'created_at': createdAt},
+    'meta': {
+      'message_bus_last_ids': {'new_messages': newMessagesLastId},
+    },
+  },
+};
+
 void main() {
   // The controller uses frame-safe notifiers, whose scheduler-phase check needs
   // a binding even in these non-widget tests.
@@ -278,6 +352,630 @@ void main() {
         ]);
       },
     );
+
+    test('sorts unstarred direct messages like the web sidebar', () async {
+      final subject = build(
+        channels: {
+          site: ChatChannels(
+            direct: [
+              channel(
+                12,
+                title: 'Recent read',
+                kind: ChatChannelKind.directMessage,
+                lastMessageId: 50,
+                lastMessageAt: DateTime.utc(2026, 8, 8, 12),
+              ),
+              channel(
+                13,
+                title: 'Older urgent',
+                kind: ChatChannelKind.directMessage,
+                unread: 1,
+                lastMessageId: 40,
+                lastMessageAt: DateTime.utc(2026, 8, 8, 10),
+              ),
+              channel(14, title: 'Empty', kind: ChatChannelKind.directMessage),
+            ],
+          ),
+        },
+      );
+
+      await subject.chat.loadChannels(site);
+
+      expect(subject.chat.unstarredDirectChannels(site).map((c) => c.id), [
+        13,
+        12,
+        14,
+      ]);
+    });
+
+    test(
+      'uses unread thread dates after the membership last-viewed time',
+      () async {
+        final subject = build(
+          channels: {
+            site: ChatChannels(
+              direct: [
+                channel(
+                  12,
+                  kind: ChatChannelKind.directMessage,
+                  threadingEnabled: true,
+                  lastViewedAt: DateTime.utc(2026, 8, 8, 11),
+                  unreadThreadOverview: {31: DateTime.utc(2026, 8, 8, 12)},
+                  lastMessageId: 40,
+                  lastMessageAt: DateTime.utc(2026, 8, 8, 10),
+                ),
+                channel(
+                  13,
+                  kind: ChatChannelKind.directMessage,
+                  threadingEnabled: true,
+                  lastViewedAt: DateTime.utc(2026, 8, 8, 11),
+                  unreadThreadOverview: {32: DateTime.utc(2026, 8, 8, 13)},
+                  lastMessageId: 41,
+                  lastMessageAt: DateTime.utc(2026, 8, 8, 9),
+                ),
+                channel(
+                  14,
+                  kind: ChatChannelKind.directMessage,
+                  threadingEnabled: true,
+                  lastViewedAt: DateTime.utc(2026, 8, 8, 11),
+                  unreadThreadOverview: {33: DateTime.utc(2026, 8, 8, 10)},
+                  lastMessageId: 42,
+                  lastMessageAt: DateTime.utc(2026, 8, 8, 14),
+                ),
+              ],
+            ),
+          },
+        );
+
+        await subject.chat.loadChannels(site);
+
+        expect(subject.chat.unstarredDirectChannels(site).map((c) => c.id), [
+          13,
+          12,
+          14,
+        ]);
+      },
+    );
+
+    test(
+      'keeps every direct message available without the web browse page',
+      () async {
+        final subject = build(
+          channels: {
+            site: ChatChannels(
+              direct: [
+                for (var id = 1; id <= 75; id++)
+                  channel(
+                    id,
+                    kind: ChatChannelKind.directMessage,
+                    title: 'DM $id',
+                  ),
+              ],
+            ),
+          },
+        );
+
+        await subject.chat.loadChannels(site);
+
+        expect(subject.chat.unstarredDirectChannels(site), hasLength(75));
+      },
+    );
+
+    test('reorders direct messages when a new-message event arrives', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(
+            direct: [
+              channel(
+                12,
+                title: 'First',
+                kind: ChatChannelKind.directMessage,
+                lastMessageId: 50,
+                lastMessageAt: DateTime.utc(2026, 8, 8, 12),
+              ),
+              channel(
+                13,
+                title: 'Second',
+                kind: ChatChannelKind.directMessage,
+                lastMessageId: 40,
+                lastMessageAt: DateTime.utc(2026, 8, 8, 10),
+              ),
+            ],
+            newMessageBusLastIds: const {12: 71, 13: 72},
+          ),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+
+      await subject.chat.loadChannels(site);
+
+      expect(tracker.pluginChannelLastIds['/chat/12/new-messages'], 71);
+      expect(tracker.pluginChannelLastIds['/chat/13/new-messages'], 72);
+      tracker.deliverPluginMessage(
+        '/chat/13/new-messages',
+        newMessageEvent(
+          channelId: 13,
+          messageId: 60,
+          authorId: 2,
+          createdAt: '2026-08-08T13:00:00.000Z',
+        ),
+      );
+
+      expect(subject.chat.unstarredDirectChannels(site).map((c) => c.id), [
+        13,
+        12,
+      ]);
+      expect(subject.chat.channel(site, 13)?.tracking.unreadCount, 1);
+      expect(subject.chat.channel(site, 13)?.lastMessageId, 60);
+
+      // MessageBus replay and out-of-order delivery must not double-count.
+      tracker.deliverPluginMessage(
+        '/chat/13/new-messages',
+        newMessageEvent(
+          channelId: 13,
+          messageId: 60,
+          authorId: 2,
+          createdAt: '2026-08-08T13:00:00.000Z',
+        ),
+      );
+      expect(subject.chat.channel(site, 13)?.tracking.unreadCount, 1);
+
+      // A message sent from another client updates activity without becoming
+      // unread. The older urgent conversation therefore remains above it;
+      // this is intentionally not a blind "move the event to the front".
+      tracker.deliverPluginMessage(
+        '/chat/12/new-messages',
+        newMessageEvent(
+          channelId: 12,
+          messageId: 70,
+          authorId: currentUser.id!,
+          createdAt: '2026-08-08T14:00:00.000Z',
+        ),
+      );
+      expect(subject.chat.unstarredDirectChannels(site).map((c) => c.id), [
+        13,
+        12,
+      ]);
+      expect(subject.chat.channel(site, 12)?.tracking.unreadCount, 0);
+      expect(subject.chat.channel(site, 12)?.membership.lastReadMessageId, 70);
+
+      subject.chat.forget(site);
+      expect(tracker.pluginChannelCallbacks['/chat/12/new-messages'], isEmpty);
+      expect(tracker.pluginChannelCallbacks['/chat/13/new-messages'], isEmpty);
+    });
+
+    test(
+      'subscribes after either half arrives and skips muted channels',
+      () async {
+        final subject = build(
+          channels: {
+            site: ChatChannels(
+              public: [channel(9, muted: true)],
+              direct: [channel(12, kind: ChatChannelKind.directMessage)],
+              newMessageBusLastIds: const {9: 70, 12: 71},
+            ),
+          },
+        );
+
+        await subject.chat.loadChannels(site);
+        final tracker = attachTracker(subject.chat);
+
+        expect(
+          tracker.pluginChannelCallbacks,
+          contains('/chat/12/new-messages'),
+        );
+        expect(
+          tracker.pluginChannelCallbacks,
+          isNot(contains('/chat/9/new-messages')),
+        );
+      },
+    );
+
+    test('does not make an ignored author urgent', () async {
+      const user = DiscourseUser(
+        username: 'sam',
+        id: 1,
+        ignoredUsernames: ['hawk'],
+      );
+      final subject = build(
+        currentUser: user,
+        channels: {
+          site: ChatChannels(
+            direct: [
+              channel(
+                12,
+                kind: ChatChannelKind.directMessage,
+                lastMessageId: 40,
+                lastMessageAt: DateTime.utc(2026, 8, 8, 10),
+              ),
+            ],
+            newMessageBusLastIds: const {12: 71},
+          ),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      tracker.deliverPluginMessage(
+        '/chat/12/new-messages',
+        newMessageEvent(
+          channelId: 12,
+          messageId: 50,
+          authorId: 2,
+          authorUsername: 'hawk',
+          createdAt: '2026-08-08T13:00:00.000Z',
+        ),
+      );
+
+      expect(subject.chat.channel(site, 12)?.tracking.unreadCount, 0);
+      expect(subject.chat.channel(site, 12)?.membership.lastReadMessageId, 50);
+    });
+
+    test('uses live DM thread replies in the activity ordering', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(
+            direct: [
+              channel(
+                12,
+                kind: ChatChannelKind.directMessage,
+                threadingEnabled: true,
+                lastViewedAt: DateTime.utc(2026, 8, 8, 11),
+                lastMessageId: 50,
+                lastMessageAt: DateTime.utc(2026, 8, 8, 12),
+              ),
+              channel(
+                13,
+                kind: ChatChannelKind.directMessage,
+                threadingEnabled: true,
+                lastViewedAt: DateTime.utc(2026, 8, 8, 11),
+                lastMessageId: 40,
+                lastMessageAt: DateTime.utc(2026, 8, 8, 10),
+              ),
+            ],
+            newMessageBusLastIds: const {12: 70, 13: 71},
+          ),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      tracker.deliverPluginMessage(
+        '/chat/13/new-messages',
+        newMessageEvent(
+          channelId: 13,
+          messageId: 60,
+          authorId: 2,
+          createdAt: '2026-08-08T13:00:00.000Z',
+          type: 'thread',
+          threadId: 31,
+        ),
+      );
+
+      expect(subject.chat.unstarredDirectChannels(site).map((c) => c.id), [
+        13,
+        12,
+      ]);
+      expect(subject.chat.channel(site, 13)?.tracking.unreadCount, 0);
+      expect(subject.chat.channel(site, 13)?.unreadThreadOverview, {
+        31: DateTime.utc(2026, 8, 8, 13),
+      });
+
+      tracker.deliverPluginMessage(
+        '/chat/13/new-messages',
+        newMessageEvent(
+          channelId: 13,
+          messageId: 61,
+          authorId: currentUser.id!,
+          createdAt: '2026-08-08T14:00:00.000Z',
+          type: 'thread',
+          threadId: 31,
+        ),
+      );
+      expect(subject.chat.channel(site, 13)?.unreadThreadOverview, isEmpty);
+
+      // A channel-shaped event can still name a thread when the server could
+      // not publish the reply to the thread stream. Core treats it as both
+      // channel unread and unread-thread activity.
+      tracker.deliverPluginMessage(
+        '/chat/13/new-messages',
+        newMessageEvent(
+          channelId: 13,
+          messageId: 62,
+          authorId: 2,
+          createdAt: '2026-08-08T15:00:00.000Z',
+          threadId: 32,
+        ),
+      );
+      expect(subject.chat.channel(site, 13)?.tracking.unreadCount, 1);
+      expect(subject.chat.channel(site, 13)?.unreadThreadOverview, {
+        32: DateTime.utc(2026, 8, 8, 15),
+      });
+    });
+
+    test(
+      'keeps thread activity quiet while its channel pane is active',
+      () async {
+        var now = DateTime.utc(2026, 8, 8, 12, 30);
+        final subject = build(
+          currentUser: currentUser,
+          clock: () => now,
+          channels: {
+            site: ChatChannels(
+              direct: [
+                channel(
+                  12,
+                  title: 'Viewed',
+                  kind: ChatChannelKind.directMessage,
+                  threadingEnabled: true,
+                  lastViewedAt: DateTime.utc(2026, 8, 8, 10),
+                  unreadThreadOverview: {30: DateTime.utc(2026, 8, 8, 11)},
+                  lastMessageId: 50,
+                  lastMessageAt: DateTime.utc(2026, 8, 8, 10),
+                ),
+                channel(
+                  13,
+                  title: 'Other',
+                  kind: ChatChannelKind.directMessage,
+                  lastMessageId: 80,
+                  lastMessageAt: DateTime.utc(2026, 8, 8, 16),
+                ),
+              ],
+              newMessageBusLastIds: const {12: 70, 13: 71},
+            ),
+          },
+        );
+        final tracker = attachTracker(subject.chat);
+
+        // The pane can mount before the channel snapshot arrives. Its token is
+        // retained and the snapshot is marked viewed when it lands.
+        final oldView = subject.chat.beginViewingChannel(site, 12);
+        await subject.chat.loadChannels(site);
+        expect(subject.chat.channel(site, 12)?.membership.lastViewedAt, now);
+        expect(
+          subject.chat.channel(site, 12)?.unreadThreadsCountSinceLastViewed,
+          0,
+        );
+        expect(subject.chat.channel(site, 12)?.badge.isVisible, isFalse);
+
+        // A replacement pane owns a new generation. Releasing the overlapping
+        // old pane must not deactivate it.
+        now = DateTime.utc(2026, 8, 8, 12, 45);
+        final currentView = subject.chat.beginViewingChannel(site, 12);
+        subject.chat.endViewingChannel(site, 12, oldView);
+
+        now = DateTime.utc(2026, 8, 8, 13, 1);
+        tracker.deliverPluginMessage(
+          '/chat/12/new-messages',
+          newMessageEvent(
+            channelId: 12,
+            messageId: 60,
+            authorId: 2,
+            createdAt: '2026-08-08T13:00:00.000Z',
+            type: 'thread',
+            threadId: 31,
+          ),
+        );
+
+        final active = subject.chat.channel(site, 12)!;
+        expect(active.unreadThreadOverview, {
+          30: DateTime.utc(2026, 8, 8, 11),
+          31: DateTime.utc(2026, 8, 8, 13),
+        });
+        expect(active.membership.lastViewedAt, now);
+        expect(active.unreadThreadsCountSinceLastViewed, 0);
+        expect(active.badge.isVisible, isFalse);
+        expect(subject.chat.unstarredDirectChannels(site).map((c) => c.id), [
+          13,
+          12,
+        ]);
+
+        subject.chat.endViewingChannel(site, 12, currentView);
+        now = DateTime.utc(2026, 8, 8, 15, 1);
+        tracker.deliverPluginMessage(
+          '/chat/12/new-messages',
+          newMessageEvent(
+            channelId: 12,
+            messageId: 70,
+            authorId: 2,
+            createdAt: '2026-08-08T15:00:00.000Z',
+            type: 'thread',
+            threadId: 31,
+          ),
+        );
+
+        final inactive = subject.chat.channel(site, 12)!;
+        expect(
+          inactive.membership.lastViewedAt,
+          DateTime.utc(2026, 8, 8, 13, 1),
+        );
+        expect(inactive.unreadThreadsCountSinceLastViewed, 1);
+        expect(inactive.badge.dot, isTrue);
+        expect(inactive.badge.urgent, isFalse);
+        expect(subject.chat.unstarredDirectChannels(site).map((c) => c.id), [
+          12,
+          13,
+        ]);
+      },
+    );
+
+    test('adds a newly followed DM before its first message event', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {site: const ChatChannels(newChannelBusLastId: 80)},
+      );
+      // Store rows outlive sidebar membership across a refresh. Discovery is
+      // about whether the id is listed, not whether an old record still exists.
+      subject.store.put(
+        site,
+        channel(
+          13,
+          kind: ChatChannelKind.directMessage,
+          lastMessageId: 20,
+          lastMessageAt: DateTime.utc(2026, 8, 7, 10),
+        ),
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      expect(tracker.pluginChannelLastIds['/chat/new-channel'], 80);
+      tracker.deliverPluginMessage(
+        '/chat/new-channel',
+        newDirectChannelEvent(
+          channelId: 13,
+          messageId: 60,
+          newMessagesLastId: 81,
+        ),
+      );
+
+      expect(subject.chat.directChannels(site).map((c) => c.id), [13]);
+      expect(tracker.pluginChannelLastIds['/chat/13/new-messages'], 81);
+
+      // The channel snapshot already contains this message, but its cursor is
+      // from immediately before publication. Accept the matching event once
+      // so its unread projection is not lost.
+      tracker.deliverPluginMessage(
+        '/chat/13/new-messages',
+        newMessageEvent(
+          channelId: 13,
+          messageId: 60,
+          authorId: 2,
+          createdAt: '2026-08-08T13:00:00.000Z',
+        ),
+      );
+      expect(subject.chat.channel(site, 13)?.tracking.unreadCount, 1);
+    });
+
+    test(
+      'tracker replacement rebinds and safely replays live channels',
+      () async {
+        final subject = build(
+          currentUser: currentUser,
+          channels: {
+            site: ChatChannels(
+              direct: [
+                channel(
+                  12,
+                  kind: ChatChannelKind.directMessage,
+                  lastMessageId: 50,
+                  lastMessageAt: DateTime.utc(2026, 8, 8, 12),
+                ),
+              ],
+              presence: const ChatPresence(lastMessageId: 47),
+              newMessageBusLastIds: const {12: 70},
+              newChannelBusLastId: 80,
+              userTrackingBusLastId: 81,
+            ),
+          },
+        );
+        final first = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        first.deliverPluginMessage(
+          '/chat/12/new-messages',
+          newMessageEvent(
+            channelId: 12,
+            messageId: 60,
+            authorId: 2,
+            createdAt: '2026-08-08T13:00:00.000Z',
+          ),
+        );
+        expect(subject.chat.channel(site, 12)?.tracking.unreadCount, 1);
+
+        final replacement = attachTracker(subject.chat);
+
+        expect(first.pluginChannelCallbacks['/presence/chat/online'], isEmpty);
+        expect(first.pluginChannelCallbacks['/chat/12/new-messages'], isEmpty);
+        expect(replacement.pluginChannelLastIds['/presence/chat/online'], 47);
+        expect(replacement.pluginChannelLastIds['/chat/12/new-messages'], 70);
+        expect(replacement.pluginChannelLastIds['/chat/new-channel'], 80);
+
+        // A replacement starts from the HTTP cursor, so creation and message
+        // events can replay. Neither may regress activity or double-count.
+        replacement.deliverPluginMessage(
+          '/chat/new-channel',
+          newDirectChannelEvent(
+            channelId: 12,
+            messageId: 50,
+            newMessagesLastId: 70,
+            title: 'First',
+            createdAt: '2026-08-08T12:00:00.000Z',
+          ),
+        );
+        replacement.deliverPluginMessage(
+          '/chat/12/new-messages',
+          newMessageEvent(
+            channelId: 12,
+            messageId: 60,
+            authorId: 2,
+            createdAt: '2026-08-08T13:00:00.000Z',
+          ),
+        );
+        expect(subject.chat.channel(site, 12)?.lastMessageId, 60);
+        expect(subject.chat.channel(site, 12)?.tracking.unreadCount, 1);
+
+        replacement.deliverPluginMessage('/presence/chat/online', {
+          'entering_users': [
+            {'id': 2, 'username': 'hawk'},
+          ],
+        });
+        expect(subject.chat.isOnline(site, 2), isTrue);
+      },
+    );
+
+    test('reconciles single and bulk user tracking snapshots', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(
+            direct: [
+              channel(
+                12,
+                kind: ChatChannelKind.directMessage,
+                unread: 2,
+                lastRead: 40,
+              ),
+              channel(
+                13,
+                kind: ChatChannelKind.directMessage,
+                unread: 3,
+                lastRead: 41,
+              ),
+            ],
+            userTrackingBusLastId: 90,
+          ),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      expect(tracker.pluginChannelLastIds['/chat/user-tracking-state/7'], 90);
+      expect(
+        tracker.pluginChannelLastIds['/chat/bulk-user-tracking-state/7'],
+        90,
+      );
+      tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+        'channel_id': 12,
+        'last_read_message_id': 50,
+        'unread_count': 0,
+        'mention_count': 0,
+        'watched_threads_unread_count': 0,
+      });
+      tracker.deliverPluginMessage('/chat/bulk-user-tracking-state/7', {
+        '13': {
+          'last_read_message_id': 51,
+          'unread_count': 0,
+          'mention_count': 0,
+          'watched_threads_unread_count': 0,
+        },
+      });
+
+      expect(subject.chat.channel(site, 12)?.membership.lastReadMessageId, 50);
+      expect(subject.chat.channel(site, 12)?.tracking, ChatTracking.none);
+      expect(subject.chat.channel(site, 13)?.membership.lastReadMessageId, 51);
+      expect(subject.chat.channel(site, 13)?.tracking, ChatTracking.none);
+    });
 
     test('asks a site once rather than once per caller', () async {
       final subject = build(
@@ -532,12 +1230,13 @@ void main() {
       final subject = build(
         channels: {
           site: ChatChannels(
-            public: const [
+            public: [
               ChatChannel(
                 id: 9,
                 title: 'Bugs',
                 kind: ChatChannelKind.category,
-                unreadThreadCount: 1,
+                unreadThreadOverview: {31: DateTime.utc(2026, 8, 8, 10)},
+                threadingEnabled: true,
               ),
             ],
             direct: const [],
@@ -931,6 +1630,37 @@ void main() {
       ]);
       expect(subject.store.read<ChatMessage>(site, 42), isNotNull);
       expect(tracker.pluginChannelCallbacks['/chat/9'], isEmpty);
+    });
+
+    test('tracker replacement rebinds an in-flight send echo', () async {
+      final gate = Completer<void>();
+      final subject = build(
+        sendGate: gate,
+        sentMessageId: 42,
+        currentUser: currentUser,
+      );
+      addTearDown(subject.chat.dispose);
+      final first = attachTracker(subject.chat);
+
+      final sending = subject.chat.sendMessage(site, 9, 'hello chat');
+      final localId = subject.chat.stream(site, 9).localMessageIds.single;
+      final stagedId = subject.store
+          .read<ChatMessage>(site, localId)!
+          .stagedId!;
+      expect(first.pluginChannelCallbacks['/chat/9'], isNotEmpty);
+
+      final replacement = attachTracker(subject.chat);
+
+      expect(first.pluginChannelCallbacks['/chat/9'], isEmpty);
+      expect(replacement.pluginChannelCallbacks['/chat/9'], isNotEmpty);
+      replacement.deliverPluginMessage(
+        '/chat/9',
+        sentEvent(stagedId: stagedId),
+      );
+      expect(subject.store.read<ChatMessage>(site, localId)?.serverId, 42);
+
+      gate.complete();
+      expect(await sending, isTrue);
     });
 
     test(
@@ -1628,6 +2358,116 @@ void main() {
         expect(held(subject.store)?.badge.isVisible, isFalse);
       },
     );
+
+    test('keeps thread state when the main channel is read', () async {
+      var now = DateTime.utc(2026, 8, 8, 12);
+      final subject = build(
+        currentUser: currentUser,
+        clock: () => now,
+        channels: {
+          site: ChatChannels(
+            public: [
+              channel(
+                9,
+                lastRead: 1,
+                unread: 2,
+                mentions: 1,
+                watchedThreads: 1,
+                threadingEnabled: true,
+                unreadThreadOverview: {31: DateTime.utc(2026, 8, 8, 11)},
+                lastMessageId: 3,
+                lastMessageAt: DateTime.utc(2026, 5, 5, 10, 2),
+              ),
+            ],
+            newMessageBusLastIds: const {9: 70},
+          ),
+        },
+        messages: {
+          key(9): page([
+            message(1),
+            message(2, minute: 1),
+            message(3, minute: 2),
+          ]),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      await subject.chat.openChannel(site, 9);
+
+      await subject.chat.markRead(site, 9, 3);
+
+      final read = subject.chat.channel(site, 9)!;
+      expect(read.membership.lastViewedAt, now);
+      expect(read.tracking.unreadCount, 0);
+      expect(read.tracking.mentionCount, 0);
+      expect(read.tracking.watchedThreadsUnreadCount, 1);
+      expect(read.unreadThreadOverview, {31: DateTime.utc(2026, 8, 8, 11)});
+      expect(read.unreadThreadsCountSinceLastViewed, 0);
+
+      // Once the pane is gone, a later reply to that tracked public thread
+      // can update the retained overview and become sidebar unread again.
+      now = DateTime.utc(2026, 8, 8, 13, 1);
+      tracker.deliverPluginMessage(
+        '/chat/9/new-messages',
+        newMessageEvent(
+          channelId: 9,
+          messageId: 4,
+          authorId: 2,
+          createdAt: '2026-08-08T13:00:00.000Z',
+          type: 'thread',
+          threadId: 31,
+        ),
+      );
+
+      final replied = subject.chat.channel(site, 9)!;
+      expect(replied.unreadThreadOverview, {31: DateTime.utc(2026, 8, 8, 13)});
+      expect(replied.unreadThreadsCountSinceLastViewed, 1);
+      expect(replied.badge.dot, isTrue);
+    });
+
+    test('an old visible edge cannot clear a newly arrived message', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(
+            public: [
+              channel(
+                9,
+                lastRead: 1,
+                lastMessageId: 3,
+                lastMessageAt: DateTime.utc(2026, 5, 5, 10, 2),
+              ),
+            ],
+            newMessageBusLastIds: const {9: 70},
+          ),
+        },
+        messages: {
+          key(9): page([
+            message(1),
+            message(2, minute: 1),
+            message(3, minute: 2),
+          ]),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      await subject.chat.openChannel(site, 9);
+
+      tracker.deliverPluginMessage(
+        '/chat/9/new-messages',
+        newMessageEvent(
+          channelId: 9,
+          messageId: 4,
+          authorId: 2,
+          createdAt: '2026-05-05T10:03:00.000Z',
+        ),
+      );
+      await subject.chat.markRead(site, 9, 3);
+
+      expect(held(subject.store)?.membership.lastReadMessageId, 3);
+      expect(held(subject.store)?.tracking.unreadCount, 1);
+      expect(held(subject.store)?.lastMessageId, 4);
+    });
 
     test(
       'leaves the counts alone in the middle, where it cannot know',

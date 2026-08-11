@@ -8,6 +8,7 @@ import '../../data/store.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
 import '../../models/discourse_user.dart';
+import '../../models/json.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
 
@@ -271,6 +272,10 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, List<int>> _directIds = {};
   final Map<String, int> _lastOpenedChannelIds = {};
 
+  /// The channel panes currently mounted, with a generation token so disposal
+  /// of an older overlapping pane cannot deactivate its replacement.
+  final Map<String, Object> _activeChannelViews = {};
+
   /// The HTTP presence snapshot, its row-scoped listenable and the live
   /// subscription that advances it. A tracker can arrive before or after the
   /// channel list, so both halves are retained and [_syncPresence] joins them
@@ -279,6 +284,18 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, FrameSafeValueNotifier<Set<int>>> _presenceRefs = {};
   final Map<String, SiteTracker> _presenceTrackers = {};
   final Map<String, SiteMessageBusSubscription> _presenceSubscriptions = {};
+
+  /// Persistent activity subscriptions for every channel in the latest HTTP
+  /// snapshot. Separate from [_sendSubscriptions], which temporarily watches
+  /// `/chat/{id}` only to reconcile this client's staged sends.
+  final Map<String, Map<int, int?>> _newMessageCursors = {};
+  final Map<String, SiteMessageBusSubscription> _newMessageSubscriptions = {};
+  final Map<String, int?> _newChannelCursors = {};
+  final Map<String, SiteMessageBusSubscription> _newChannelSubscriptions = {};
+  final Map<String, int?> _userTrackingCursors = {};
+  final Map<String, List<SiteMessageBusSubscription>>
+  _userTrackingSubscriptions = {};
+  final Set<String> _newChannelsAwaitingFirstMessage = {};
 
   /// One channel's stream, keyed `'$siteUrl~$channelId'`.
   final Map<String, ChatStreamState> _streams = {};
@@ -351,10 +368,76 @@ class ChatController extends FrameSafeNotifier {
       if (!channel.membership.starred) channel,
   ];
 
-  List<ChatChannel> unstarredDirectChannels(String siteUrl) => [
-    for (final channel in directChannels(siteUrl))
-      if (!channel.membership.starred) channel,
-  ];
+  List<ChatChannel> unstarredDirectChannels(String siteUrl) {
+    final channels = [
+      for (final channel in directChannels(siteUrl))
+        if (!channel.membership.starred) channel,
+    ];
+    return List.unmodifiable(_sortDirectMessageActivity(channels));
+  }
+
+  List<ChatChannel> _sortDirectMessageActivity(List<ChatChannel> channels) {
+    final originalPositions = {
+      for (var index = 0; index < channels.length; index++)
+        channels[index].id: index,
+    };
+    channels.sort((a, b) {
+      final compared = _compareDirectMessageActivity(a, b);
+      return compared != 0
+          ? compared
+          : originalPositions[a.id]!.compareTo(originalPositions[b.id]!);
+    });
+    return channels;
+  }
+
+  /// Core's `compareDirectMessageChannelsByActivity`, for the unstarred DM
+  /// section this app mirrors. Starred conversations live in their own
+  /// alphabetical section and never enter this comparator.
+  static int _compareDirectMessageActivity(ChatChannel a, ChatChannel b) {
+    final aHasMessage = a.lastMessageId != null && a.lastMessageAt != null;
+    final bHasMessage = b.lastMessageId != null && b.lastMessageAt != null;
+    if (aHasMessage != bHasMessage) return aHasMessage ? -1 : 1;
+
+    final aUrgent =
+        a.tracking.unreadCount +
+        a.tracking.mentionCount +
+        a.tracking.watchedThreadsUnreadCount;
+    final bUrgent =
+        b.tracking.unreadCount +
+        b.tracking.mentionCount +
+        b.tracking.watchedThreadsUnreadCount;
+    if (aUrgent > 0 && bUrgent > 0) {
+      return _newestActivityFirst(a, b);
+    }
+    if ((aUrgent > 0) != (bUrgent > 0)) return aUrgent > 0 ? -1 : 1;
+
+    final aThreads = a.unreadThreadsCountSinceLastViewed;
+    final bThreads = b.unreadThreadsCountSinceLastViewed;
+    if (aThreads > 0 && bThreads > 0) {
+      final aAt = a.lastUnreadThreadAt;
+      final bAt = b.lastUnreadThreadAt;
+      if (aAt != null && bAt != null) {
+        final byThreadDate = bAt.compareTo(aAt);
+        if (byThreadDate != 0) return byThreadDate;
+      }
+      return _newestActivityFirst(a, b);
+    }
+    if ((aThreads > 0) != (bThreads > 0)) return aThreads > 0 ? -1 : 1;
+
+    return _newestActivityFirst(a, b);
+  }
+
+  static int _newestActivityFirst(ChatChannel a, ChatChannel b) {
+    final aAt = a.lastMessageAt;
+    final bAt = b.lastMessageAt;
+    if (aAt == null || bAt == null) {
+      if (aAt == bAt) return 0;
+      return aAt == null ? 1 : -1;
+    }
+    final byDate = bAt.compareTo(aAt);
+    if (byDate != 0) return byDate;
+    return (b.lastMessageId ?? 0).compareTo(a.lastMessageId ?? 0);
+  }
 
   /// The header's aggregate signal, following ChatHeaderIconUnreadIndicator.
   ///
@@ -412,7 +495,9 @@ class ChatController extends FrameSafeNotifier {
       final last = channel(siteUrl, preferredId);
       if (last != null) return last;
     }
-    return directChannels(siteUrl).firstOrNull ??
+    return _sortDirectMessageActivity(
+          directChannels(siteUrl).toList(),
+        ).firstOrNull ??
         publicChannels(siteUrl).firstOrNull;
   }
 
@@ -423,6 +508,41 @@ class ChatController extends FrameSafeNotifier {
 
   ChatChannel? channel(String siteUrl, int channelId) =>
       store.read<ChatChannel>(siteUrl, channelId);
+
+  /// Marks one mounted channel pane active and returns its generation token.
+  ///
+  /// Core advances `lastViewedAt` when the pane opens. That timestamp filters
+  /// old thread overview entries out of both sidebar ordering and its badge.
+  Object beginViewingChannel(String siteUrl, int channelId) {
+    final token = Object();
+    if (isDisposed) return token;
+    final key = _streamKey(siteUrl, channelId);
+    _activeChannelViews[key] = token;
+    _advanceLastViewedAt(siteUrl, channelId);
+    return token;
+  }
+
+  /// Releases a pane only if it is still the active generation for its route.
+  void endViewingChannel(String siteUrl, int channelId, Object token) {
+    final key = _streamKey(siteUrl, channelId);
+    if (identical(_activeChannelViews[key], token)) {
+      _activeChannelViews.remove(key);
+    }
+  }
+
+  void _advanceLastViewedAt(
+    String siteUrl,
+    int channelId, {
+    bool notify = true,
+  }) {
+    final held = channel(siteUrl, channelId);
+    if (held == null) return;
+    final viewedAt = _clock().toUtc();
+    final previous = held.membership.lastViewedAt;
+    if (previous != null && !viewedAt.isAfter(previous)) return;
+    store.put(siteUrl, held.withLastViewedAt(viewedAt));
+    if (notify) notifySafely();
+  }
 
   /// A channel to watch rather than to read, so a row redraws itself when its
   /// record changes without anything above it rebuilding.
@@ -466,8 +586,14 @@ class ChatController extends FrameSafeNotifier {
   /// [ShellController] remains responsible for the tracker lifetime; this
   /// controller owns only the presence channel registration made through it.
   void attachTracker(String siteUrl, SiteTracker tracker) {
+    if (!identical(_presenceTrackers[siteUrl], tracker)) {
+      _cancelPresence(siteUrl);
+      _cancelLiveChatSubscriptions(siteUrl);
+      _cancelSendSubscriptions(siteUrl, forgetTargets: false);
+    }
     _presenceTrackers[siteUrl] = tracker;
     _syncPresence(siteUrl);
+    _syncNewMessageSubscriptions(siteUrl);
     for (final target in _sendSubscriptionChannels) {
       if (target.siteUrl == siteUrl) {
         _ensureSendSubscription(target.siteUrl, target.channelId);
@@ -519,16 +645,18 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  void _cancelSendSubscriptions(String siteUrl) {
+  void _cancelSendSubscriptions(String siteUrl, {bool forgetTargets = true}) {
     final cancelled = <SiteMessageBusSubscription>[];
     _sendSubscriptions.removeWhere((key, subscription) {
       if (!key.startsWith('$siteUrl~')) return false;
       cancelled.add(subscription);
       return true;
     });
-    _sendSubscriptionChannels.removeWhere(
-      (target) => target.siteUrl == siteUrl,
-    );
+    if (forgetTargets) {
+      _sendSubscriptionChannels.removeWhere(
+        (target) => target.siteUrl == siteUrl,
+      );
+    }
     for (final subscription in cancelled) {
       try {
         subscription.cancel();
@@ -541,6 +669,320 @@ class ChatController extends FrameSafeNotifier {
         );
       }
     }
+  }
+
+  void _replaceLiveChatChannels(String siteUrl, ChatChannels channels) {
+    _cancelLiveChatSubscriptions(siteUrl);
+    _newMessageCursors[siteUrl] = {
+      for (final channel in [...channels.public, ...channels.direct])
+        if (!channel.membership.muted)
+          channel.id: channels.newMessageBusLastIds[channel.id],
+    };
+    _newChannelCursors[siteUrl] = channels.newChannelBusLastId;
+    _userTrackingCursors[siteUrl] = channels.userTrackingBusLastId;
+    _newChannelsAwaitingFirstMessage.removeWhere(
+      (key) => key.startsWith('$siteUrl~'),
+    );
+    _syncNewMessageSubscriptions(siteUrl);
+  }
+
+  void _syncNewMessageSubscriptions(String siteUrl) {
+    final tracker = _presenceTrackers[siteUrl];
+    final cursors = _newMessageCursors[siteUrl];
+    if (tracker == null || cursors == null) return;
+
+    final currentUserId = _currentUserFor(siteUrl)?.id;
+    if (currentUserId != null &&
+        _newChannelCursors.containsKey(siteUrl) &&
+        !_newChannelSubscriptions.containsKey(siteUrl)) {
+      try {
+        _newChannelSubscriptions[siteUrl] = tracker.watchPluginChannel(
+          '/chat/new-channel',
+          (data) => _applyNewChannel(siteUrl, data),
+          lastId: _newChannelCursors[siteUrl],
+        );
+      } catch (error, stackTrace) {
+        _report(
+          error,
+          stackTrace,
+          'chat.newChannel.subscribe',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+    }
+
+    if (currentUserId != null &&
+        _userTrackingCursors.containsKey(siteUrl) &&
+        !_userTrackingSubscriptions.containsKey(siteUrl)) {
+      final subscriptions = <SiteMessageBusSubscription>[];
+      try {
+        final cursor = _userTrackingCursors[siteUrl];
+        subscriptions.add(
+          tracker.watchPluginChannel(
+            '/chat/user-tracking-state/$currentUserId',
+            (data) => _applyUserTrackingState(siteUrl, data),
+            lastId: cursor,
+          ),
+        );
+        subscriptions.add(
+          tracker.watchPluginChannel(
+            '/chat/bulk-user-tracking-state/$currentUserId',
+            (data) => _applyBulkUserTrackingState(siteUrl, data),
+            lastId: cursor,
+          ),
+        );
+        _userTrackingSubscriptions[siteUrl] = subscriptions;
+      } catch (error, stackTrace) {
+        for (final subscription in subscriptions) {
+          try {
+            subscription.cancel();
+          } catch (_) {
+            // The failed registration remains isolated from later channels.
+          }
+        }
+        _report(
+          error,
+          stackTrace,
+          'chat.userTracking.subscribe',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+    }
+
+    for (final entry in cursors.entries) {
+      final key = _streamKey(siteUrl, entry.key);
+      if (_newMessageSubscriptions.containsKey(key)) continue;
+      try {
+        _newMessageSubscriptions[key] = tracker.watchPluginChannel(
+          '/chat/${entry.key}/new-messages',
+          (data) => _applyNewMessage(siteUrl, entry.key, data),
+          lastId: entry.value,
+        );
+      } catch (error, stackTrace) {
+        _report(
+          error,
+          stackTrace,
+          'chat.newMessages.subscribe',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+    }
+  }
+
+  void _cancelLiveChatSubscriptions(String siteUrl) {
+    final cancelled = <SiteMessageBusSubscription>[];
+    _newMessageSubscriptions.removeWhere((key, subscription) {
+      if (!key.startsWith('$siteUrl~')) return false;
+      cancelled.add(subscription);
+      return true;
+    });
+    final newChannel = _newChannelSubscriptions.remove(siteUrl);
+    if (newChannel != null) cancelled.add(newChannel);
+    cancelled.addAll(_userTrackingSubscriptions.remove(siteUrl) ?? const []);
+    for (final subscription in cancelled) {
+      try {
+        subscription.cancel();
+      } catch (error, stackTrace) {
+        _report(
+          error,
+          stackTrace,
+          'chat.live.unsubscribe',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+    }
+  }
+
+  void _applyNewChannel(String siteUrl, Object? data) {
+    if (data is! Map<String, dynamic>) return;
+    final payload = data['channel'];
+    if (payload is! Map<String, dynamic>) return;
+
+    final incoming = ChatChannel.fromJson(payload, siteUrl);
+    if (incoming.id <= 0 ||
+        !incoming.membership.following ||
+        !incoming.isDirectMessage && !incoming.isCategoryChannel) {
+      return;
+    }
+
+    final wasListed =
+        (_directIds[siteUrl]?.contains(incoming.id) ?? false) ||
+        (_publicIds[siteUrl]?.contains(incoming.id) ?? false);
+    // The global cursor belongs to the last HTTP snapshot. Replacing a tracker
+    // can replay channel-creation events from that point; an already-listed
+    // channel is discovery we have applied, not a newer channel snapshot.
+    if (wasListed) return;
+
+    store.put(siteUrl, incoming);
+    if (_activeChannelViews.containsKey(_streamKey(siteUrl, incoming.id))) {
+      _advanceLastViewedAt(siteUrl, incoming.id, notify: false);
+    }
+
+    if (incoming.isDirectMessage) {
+      final ids = _directIds.putIfAbsent(siteUrl, () => []);
+      if (!ids.contains(incoming.id)) ids.add(incoming.id);
+    } else if (incoming.isCategoryChannel) {
+      final ids = _publicIds.putIfAbsent(siteUrl, () => []);
+      if (!ids.contains(incoming.id)) ids.add(incoming.id);
+      ids.sort((a, b) {
+        final aChannel = channel(siteUrl, a);
+        final bChannel = channel(siteUrl, b);
+        return (aChannel?.slug ?? aChannel?.title ?? '')
+            .toLowerCase()
+            .compareTo((bChannel?.slug ?? bChannel?.title ?? '').toLowerCase());
+      });
+    }
+
+    final cursor = jsonIntOrNull(
+      jsonObject(
+        jsonObject(payload['meta'])['message_bus_last_ids'],
+      )['new_messages'],
+    );
+    if (!incoming.membership.muted) {
+      (_newMessageCursors[siteUrl] ??= {})[incoming.id] = cursor;
+      if (incoming.lastMessageId != null) {
+        _newChannelsAwaitingFirstMessage.add(_streamKey(siteUrl, incoming.id));
+      }
+      _syncNewMessageSubscriptions(siteUrl);
+    }
+    notifySafely();
+  }
+
+  void _applyUserTrackingState(String siteUrl, Object? data) {
+    if (data is! Map<String, dynamic>) return;
+    final channelId = jsonIntOrNull(data['channel_id']);
+    if (channelId == null) return;
+    _applyTrackingState(siteUrl, channelId, data);
+  }
+
+  void _applyBulkUserTrackingState(String siteUrl, Object? data) {
+    if (data is! Map<String, dynamic>) return;
+    for (final entry in data.entries) {
+      final channelId = int.tryParse(entry.key);
+      final tracking = entry.value;
+      if (channelId != null && tracking is Map<String, dynamic>) {
+        _applyTrackingState(siteUrl, channelId, tracking, notify: false);
+      }
+    }
+    notifySafely();
+  }
+
+  void _applyTrackingState(
+    String siteUrl,
+    int channelId,
+    Map<String, dynamic> data, {
+    bool notify = true,
+  }) {
+    final held = channel(siteUrl, channelId);
+    if (held == null) return;
+
+    Map<int, DateTime>? threadOverview;
+    if (data.containsKey('unread_thread_overview')) {
+      threadOverview = {};
+      for (final entry in jsonObject(data['unread_thread_overview']).entries) {
+        final threadId = int.tryParse(entry.key);
+        final createdAt = jsonDate(entry.value);
+        if (threadId != null && threadId > 0 && createdAt != null) {
+          threadOverview[threadId] = createdAt;
+        }
+      }
+      threadOverview = Map.unmodifiable(threadOverview);
+    }
+
+    final updated = held.withTrackingState(
+      tracking: ChatTracking(
+        unreadCount: jsonInt(data['unread_count']),
+        mentionCount: jsonInt(data['mention_count']),
+        watchedThreadsUnreadCount: jsonInt(
+          data['watched_threads_unread_count'],
+        ),
+      ),
+      lastReadMessageId: jsonIntOrNull(data['thread_id']) == null
+          ? jsonIntOrNull(data['last_read_message_id'])
+          : null,
+      unreadThreadOverview: threadOverview,
+    );
+    if (updated == held) return;
+    store.put(siteUrl, updated);
+    if (notify) notifySafely();
+  }
+
+  void _applyNewMessage(String siteUrl, int channelId, Object? data) {
+    if (data is! Map<String, dynamic>) return;
+    if (data['type'] != 'channel' && data['type'] != 'thread') return;
+    if (jsonIntOrNull(data['channel_id']) != channelId) return;
+    final payload = data['message'];
+    if (payload is! Map<String, dynamic>) return;
+
+    final messageId = jsonIntOrNull(payload['id']);
+    final payloadChannelId = jsonIntOrNull(payload['chat_channel_id']);
+    final createdAt = jsonDate(payload['created_at']);
+    if (messageId == null ||
+        messageId <= 0 ||
+        payloadChannelId != channelId ||
+        createdAt == null) {
+      return;
+    }
+
+    final held = channel(siteUrl, channelId);
+    if (held == null) return;
+    final key = _streamKey(siteUrl, channelId);
+    final awaitingFirst = _newChannelsAwaitingFirstMessage.contains(key);
+    final repeatsSnapshot = awaitingFirst && held.lastMessageId == messageId;
+    if (!repeatsSnapshot &&
+        held.lastMessageId != null &&
+        messageId <= held.lastMessageId!) {
+      return;
+    }
+    if (awaitingFirst) _newChannelsAwaitingFirstMessage.remove(key);
+
+    final currentUser = _currentUserFor(siteUrl);
+    final author = jsonObject(payload['user']);
+    final authorId = jsonIntOrNull(author['id']);
+    final authorUsername = jsonText(author['username']);
+    final fromSelf = currentUser?.id != null && authorId == currentUser?.id;
+    final fromIgnored =
+        authorUsername != null &&
+        currentUser?.ignoredUsernames.contains(authorUsername) == true;
+    var markRead = false;
+    var incrementUnread = false;
+    if (data['type'] == 'channel') {
+      if (fromSelf || fromIgnored) {
+        markRead = true;
+      } else if (currentUser?.id != null &&
+          messageId > (held.membership.lastReadMessageId ?? 0)) {
+        incrementUnread = true;
+      }
+    }
+    // A reply normally has type `thread`, but core also publishes a
+    // channel-shaped event carrying a thread id when it cannot publish to the
+    // thread stream. Both paths update the unread-thread projection.
+    final threadId = jsonIntOrNull(data['thread_id']);
+    final markThreadUnread =
+        threadId != null &&
+        currentUser?.id != null &&
+        !fromSelf &&
+        !fromIgnored;
+
+    var updated = held.withNewMessage(
+      messageId,
+      createdAt,
+      markRead: markRead,
+      incrementUnread: incrementUnread,
+      threadId: threadId,
+      markThreadUnread: markThreadUnread,
+      markThreadRead: threadId != null && (fromSelf || fromIgnored),
+    );
+    if (markThreadUnread && _activeChannelViews.containsKey(key)) {
+      final viewedAt = _clock().toUtc();
+      final previous = updated.membership.lastViewedAt;
+      if (previous == null || viewedAt.isAfter(previous)) {
+        updated = updated.withLastViewedAt(viewedAt);
+      }
+    }
+
+    store.put(siteUrl, updated);
+    notifySafely();
   }
 
   void _applyPresenceMessage(String siteUrl, Object? data) {
@@ -924,8 +1366,16 @@ class ChatController extends FrameSafeNotifier {
       lease.commit(() {
         store.putAll(siteUrl, channels.public);
         store.putAll(siteUrl, channels.direct);
+        for (final channel in [...channels.public, ...channels.direct]) {
+          if (_activeChannelViews.containsKey(
+            _streamKey(siteUrl, channel.id),
+          )) {
+            _advanceLastViewedAt(siteUrl, channel.id, notify: false);
+          }
+        }
         _publicIds[siteUrl] = [for (final c in channels.public) c.id];
         _directIds[siteUrl] = [for (final c in channels.direct) c.id];
+        _replaceLiveChatChannels(siteUrl, channels);
         _replacePresence(siteUrl, channels.presence);
         _errors.remove(key);
         _attempts.remove(key);
@@ -1348,16 +1798,23 @@ class ChatController extends FrameSafeNotifier {
     // present: the reader is caught up only if this is the last message held
     // *and* there is nothing in front of it. Discourse asks its loader the same
     // two questions — `!canLoadMoreFuture && firstMessage.id === last.id`.
-    final caughtUp = window.atPresent && window.newestId == messageId;
+    final caughtUp =
+        window.atPresent &&
+        window.newestId == messageId &&
+        (held.lastMessageId == null || held.lastMessageId! <= messageId);
 
     // Before credential storage, not after: the await below is a gap two scroll
     // ticks can both arrive in, and the guard above is only a guard once the
     // answer it reads has been written.
-    store.update<ChatChannel>(
-      siteUrl,
-      channelId,
-      (current) => current.withLastRead(messageId, caughtUp: caughtUp),
-    );
+    final viewedAt = _clock().toUtc();
+    store.update<ChatChannel>(siteUrl, channelId, (current) {
+      var updated = current.withLastRead(messageId, caughtUp: caughtUp);
+      final previous = updated.membership.lastViewedAt;
+      if (previous == null || viewedAt.isAfter(previous)) {
+        updated = updated.withLastViewedAt(viewedAt);
+      }
+      return updated;
+    });
     notifySafely();
 
     return _queueReadReceipt(
@@ -1454,8 +1911,16 @@ class ChatController extends FrameSafeNotifier {
   void forget(String siteUrl) {
     _cancelPresence(siteUrl);
     _cancelSendSubscriptions(siteUrl);
+    _cancelLiveChatSubscriptions(siteUrl);
     _presenceTrackers.remove(siteUrl);
     _presence.remove(siteUrl);
+    _newMessageCursors.remove(siteUrl);
+    _newChannelCursors.remove(siteUrl);
+    _userTrackingCursors.remove(siteUrl);
+    _newChannelsAwaitingFirstMessage.removeWhere(
+      (key) => key.startsWith('$siteUrl~'),
+    );
+    _activeChannelViews.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     final presenceRef = _presenceRefs.remove(siteUrl);
     if (presenceRef != null) presenceRef.value = const {};
     _loading.removeWhere((key) => key.startsWith('$siteUrl~'));
@@ -1532,6 +1997,37 @@ class ChatController extends FrameSafeNotifier {
     }
     _presenceTrackers.clear();
     _presence.clear();
+    for (final subscription in _newMessageSubscriptions.values) {
+      try {
+        subscription.cancel();
+      } catch (_) {
+        // Disposal continues through every independent subscription.
+      }
+    }
+    _newMessageSubscriptions.clear();
+    _newMessageCursors.clear();
+    for (final subscription in _newChannelSubscriptions.values) {
+      try {
+        subscription.cancel();
+      } catch (_) {
+        // Disposal continues through every independent subscription.
+      }
+    }
+    _newChannelSubscriptions.clear();
+    _newChannelCursors.clear();
+    for (final subscriptions in _userTrackingSubscriptions.values) {
+      for (final subscription in subscriptions) {
+        try {
+          subscription.cancel();
+        } catch (_) {
+          // Disposal continues through every independent subscription.
+        }
+      }
+    }
+    _userTrackingSubscriptions.clear();
+    _userTrackingCursors.clear();
+    _newChannelsAwaitingFirstMessage.clear();
+    _activeChannelViews.clear();
     for (final ref in _presenceRefs.values) {
       ref.dispose();
     }

@@ -698,16 +698,16 @@ replies there are without leading anywhere. Both are deliberate: writing is not
 in this step, and an affordance that looks live and is not is worse than a plain
 label.
 
-Still to come, and what each will press on: live updates ride `/chat/{id}`,
-`/chat/{id}/new-messages` and `/chat/user-tracking-state/{id}`, whose cursors
-both payloads already hand over — `SiteTracker.watchTopic` holds exactly one
-subscription at a time and will have to grow. Marking read is
-`PUT /chat/api/channels/{id}/read`. Jumping to a message, and with it forward
-paging, brings back `can_load_more_future` and breaks the contiguity assumption
-the merge leans on. Threads have their own endpoint and their own notification
-levels. Composing wants a composer that is not topic-shaped. And a header hook
-would let a channel's emoji and a conversation's face reach the top of the
-screen, where today only the sidebar row has them.
+Sidebar activity follows each channel's `/chat/{id}/new-messages` stream from
+the cursor captured with the channel-list response. That updates last-message
+and immediate unread state in the same turn, and the direct-message section
+uses the web client's urgent/thread/activity ordering rather than blindly
+moving an event to the front. `/chat/new-channel` brings in conversations first
+followed on another client, while the single and bulk user-tracking streams
+reconcile reads and counts from the account's other sessions.
+
+Still to come: `/chat/{id}` events for messages authored elsewhere while a
+channel is open. Threads also need their own route and notification levels.
 
 ### GIFs
 

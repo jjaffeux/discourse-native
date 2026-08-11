@@ -82,6 +82,7 @@ class _ChatChannelBody extends StatefulWidget {
 }
 
 class _ChatChannelBodyState extends State<_ChatChannelBody> {
+  late final Object _viewToken;
   List<int>? _projectedMessageIds;
   List<int>? _projectedLocalMessageIds;
   int? _projectedLastRead;
@@ -91,7 +92,17 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   @override
   void initState() {
     super.initState();
+    _viewToken = widget.chat.beginViewingChannel(
+      widget.siteUrl,
+      widget.channelId,
+    );
     unawaited(widget.chat.openChannel(widget.siteUrl, widget.channelId));
+  }
+
+  @override
+  void dispose() {
+    widget.chat.endViewingChannel(widget.siteUrl, widget.channelId, _viewToken);
+    super.dispose();
   }
 
   @override

@@ -16,6 +16,7 @@ Map<String, dynamic> categoryChannel({
   bool muted = false,
   bool starred = false,
   int? lastReadMessageId,
+  String? lastViewedAt,
   bool threading = false,
 }) => {
   'id': id,
@@ -37,6 +38,7 @@ Map<String, dynamic> categoryChannel({
     'muted': muted,
     'starred': starred,
     'last_read_message_id': ?lastReadMessageId,
+    'last_viewed_at': ?lastViewedAt,
   },
 };
 
@@ -46,7 +48,9 @@ Map<String, dynamic> directChannel({
   String title = 'hawk',
   bool group = false,
   List<Map<String, dynamic>>? users,
+  int lastMessageId = 40,
   String? lastMessageAt,
+  int? newMessagesLastId,
   bool? starred,
 }) => {
   'id': id,
@@ -66,7 +70,10 @@ Map<String, dynamic> directChannel({
           },
         ],
   },
-  'last_message': {'id': 40, 'created_at': ?lastMessageAt},
+  'last_message': {'id': lastMessageId, 'created_at': ?lastMessageAt},
+  'meta': {
+    'message_bus_last_ids': {'new_messages': ?newMessagesLastId},
+  },
   'current_user_membership': {
     'following': true,
     'muted': false,
@@ -80,6 +87,8 @@ Map<String, dynamic> payload({
   Map<String, dynamic>? tracking,
   Map<String, dynamic>? unreadThreads,
   Map<String, dynamic>? presence,
+  int? newChannelLastId,
+  int? userTrackingLastId,
 }) => {
   'public_channels': public,
   'direct_message_channels': direct,
@@ -89,7 +98,12 @@ Map<String, dynamic> payload({
   },
   'unread_thread_overview': unreadThreads ?? const <String, dynamic>{},
   'global_presence_channel_state': ?presence,
-  'meta': {'message_bus_last_ids': <String, dynamic>{}},
+  'meta': {
+    'message_bus_last_ids': {
+      'new_channel': ?newChannelLastId,
+      'user_tracking_state': ?userTrackingLastId,
+    },
+  },
 };
 
 Map<String, dynamic> counts({
@@ -294,7 +308,12 @@ void main() {
     test('counts the unread threads reported separately for each channel', () {
       final channels = ChatChannel.parse(
         payload(
-          public: [categoryChannel()],
+          public: [
+            categoryChannel(
+              threading: true,
+              lastViewedAt: '2026-08-08T10:30:00.000Z',
+            ),
+          ],
           unreadThreads: {
             '9': {
               '31': '2026-08-08T10:00:00.000Z',
@@ -306,6 +325,11 @@ void main() {
       );
 
       expect(channels.public.single.unreadThreadCount, 2);
+      expect(channels.public.single.unreadThreadsCountSinceLastViewed, 1);
+      expect(
+        channels.public.single.lastUnreadThreadAt,
+        DateTime.utc(2026, 8, 8, 10),
+      );
     });
 
     test(
@@ -353,6 +377,34 @@ void main() {
       );
 
       expect(channels.direct.map((c) => c.id), [5, 6]);
+    });
+
+    test('keeps the last message and live cursor beside each channel', () {
+      final channels = ChatChannel.parse(
+        payload(
+          direct: [
+            directChannel(
+              lastMessageId: 51,
+              lastMessageAt: '2026-08-08T12:00:00.000Z',
+              newMessagesLastId: 73,
+            ),
+          ],
+        ),
+        site,
+      );
+
+      expect(channels.direct.single.lastMessageId, 51);
+      expect(channels.newMessageBusLastIds, {12: 73});
+    });
+
+    test('keeps the global chat cursors from the same snapshot', () {
+      final channels = ChatChannel.parse(
+        payload(newChannelLastId: 80, userTrackingLastId: 81),
+        site,
+      );
+
+      expect(channels.newChannelBusLastId, 80);
+      expect(channels.userTrackingBusLastId, 81);
     });
 
     test('reads an empty payload as no channels rather than as a failure', () {
@@ -447,6 +499,27 @@ void main() {
         withCounts(categoryChannel(), watchedThreads: 1).badge.urgent,
         isTrue,
       );
+    });
+
+    test('hides thread activity from before the channel was viewed', () {
+      final channel = ChatChannel.parse(
+        payload(
+          public: [
+            categoryChannel(
+              threading: true,
+              lastViewedAt: '2026-08-08T11:00:00.000Z',
+            ),
+          ],
+          unreadThreads: {
+            '9': {'31': '2026-08-08T10:00:00.000Z'},
+          },
+        ),
+        site,
+      ).public.single;
+
+      expect(channel.unreadThreadCount, 1);
+      expect(channel.unreadThreadsCountSinceLastViewed, 0);
+      expect(channel.badge.isVisible, isFalse);
     });
 
     test(
