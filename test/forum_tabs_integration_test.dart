@@ -11,6 +11,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -18,8 +19,96 @@ import 'support/fakes.dart';
 const _compact = Size(390, 844);
 const _medium = Size(1000, 800);
 const _expanded = Size(1440, 900);
+const _tabShortcutKeys = [
+  LogicalKeyboardKey.digit1,
+  LogicalKeyboardKey.digit2,
+  LogicalKeyboardKey.digit3,
+  LogicalKeyboardKey.digit4,
+  LogicalKeyboardKey.digit5,
+  LogicalKeyboardKey.digit6,
+  LogicalKeyboardKey.digit7,
+  LogicalKeyboardKey.digit8,
+  LogicalKeyboardKey.digit9,
+];
 
 void main() {
+  testWidgets(
+    'number shortcuts map directly to the first nine ordered tabs',
+    (tester) => _withPlatform(TargetPlatform.macOS, () async {
+      await _pumpShell(tester);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      for (var index = 1; index < _tabShortcutKeys.length; index++) {
+        controller.createTab();
+      }
+      await tester.pumpAndSettle();
+
+      final tabIds = [for (final tab in controller.tabsForCurrentForum) tab.id];
+      expect(tabIds, hasLength(_tabShortcutKeys.length));
+
+      for (var index = 0; index < _tabShortcutKeys.length; index++) {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        expect(await tester.sendKeyEvent(_tabShortcutKeys[index]), isTrue);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pumpAndSettle();
+
+        expect(controller.activeTabId, tabIds[index]);
+        expect(_bar(tester).selectedId, tabIds[index]);
+      }
+    }),
+  );
+
+  for (final platform in const [
+    TargetPlatform.macOS,
+    TargetPlatform.linux,
+    TargetPlatform.windows,
+  ]) {
+    testWidgets(
+      '${platform.name} switches to a numbered tab with its primary shortcut',
+      (tester) => _withPlatform(platform, () async {
+        await _pumpShell(tester);
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+        controller.createTab();
+        controller.createTab();
+        await tester.pump();
+
+        final tabIds = [
+          for (final tab in controller.tabsForCurrentForum) tab.id,
+        ];
+        expect(controller.activeTabId, tabIds[2]);
+
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit2), isFalse);
+        expect(controller.activeTabId, tabIds[2]);
+
+        final modifier = platform == TargetPlatform.macOS
+            ? LogicalKeyboardKey.metaLeft
+            : LogicalKeyboardKey.controlLeft;
+        await tester.sendKeyDownEvent(modifier);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit2), isTrue);
+        await tester.sendKeyUpEvent(modifier);
+        await tester.pump();
+
+        expect(controller.activeTabId, tabIds[1]);
+        expect(_bar(tester).selectedId, tabIds[1]);
+
+        await tester.sendKeyDownEvent(modifier);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit4), isFalse);
+        await tester.sendKeyUpEvent(modifier);
+        expect(controller.activeTabId, tabIds[1]);
+
+        await tester.sendKeyDownEvent(modifier);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit1), isFalse);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyUpEvent(modifier);
+        expect(controller.activeTabId, tabIds[1]);
+      }),
+    );
+  }
+
   testWidgets(
     'maps current routes and delegates tab lifecycle actions',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {

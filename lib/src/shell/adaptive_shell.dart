@@ -66,6 +66,18 @@ class AdaptiveShell extends StatefulWidget {
 }
 
 class _AdaptiveShellState extends State<AdaptiveShell> {
+  static const _tabShortcutKeys = [
+    LogicalKeyboardKey.digit1,
+    LogicalKeyboardKey.digit2,
+    LogicalKeyboardKey.digit3,
+    LogicalKeyboardKey.digit4,
+    LogicalKeyboardKey.digit5,
+    LogicalKeyboardKey.digit6,
+    LogicalKeyboardKey.digit7,
+    LogicalKeyboardKey.digit8,
+    LogicalKeyboardKey.digit9,
+  ];
+
   final DiagnosticsPanelWidthStore _diagnosticsWidthStore =
       DiagnosticsPanelWidthStore();
   double _diagnosticsWidth = diagnosticsPanelWidth;
@@ -74,27 +86,46 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   @override
   void initState() {
     super.initState();
-    HardwareKeyboard.instance.addHandler(_handleSearchShortcut);
+    HardwareKeyboard.instance.addHandler(_handleShortcut);
     unawaited(_restoreDiagnosticsWidth());
   }
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);
+    HardwareKeyboard.instance.removeHandler(_handleShortcut);
     super.dispose();
   }
 
-  bool _handleSearchShortcut(KeyEvent event) {
-    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.keyK) {
-      return false;
-    }
+  bool _handleShortcut(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+
     final keyboard = HardwareKeyboard.instance;
-    final modifierPressed = defaultTargetPlatform == TargetPlatform.macOS
+    final usesMetaModifier = defaultTargetPlatform == TargetPlatform.macOS;
+    final modifierPressed = usesMetaModifier
         ? keyboard.isMetaPressed
         : keyboard.isControlPressed;
     if (!modifierPressed) return false;
 
-    ShellScope.read(context).search.requestFocus();
+    if (event.logicalKey == LogicalKeyboardKey.keyK) {
+      ShellScope.read(context).search.requestFocus();
+      return true;
+    }
+
+    final tabIndex = _tabShortcutKeys.indexOf(event.logicalKey);
+    if (tabIndex < 0) return false;
+    final extraModifierPressed =
+        keyboard.isShiftPressed ||
+        keyboard.isAltPressed ||
+        (usesMetaModifier ? keyboard.isControlPressed : keyboard.isMetaPressed);
+    if (extraModifierPressed) return false;
+
+    final controller = ShellScope.read(context);
+    final tabs = controller.tabsForCurrentForum;
+    if (!controller.forumTabsEnabled || tabIndex >= tabs.length) {
+      return false;
+    }
+
+    controller.selectTab(tabs[tabIndex].id);
     return true;
   }
 

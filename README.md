@@ -1193,10 +1193,11 @@ and closing its tab flushes the draft before disposal.
 Forum tabs are a native-desktop capability, independent of window width. On a
 compact desktop layout, the strip stays with the main content pane and scrolls
 horizontally when its tabs no longer fit; the add action remains visible and no
-opened-tab count is shown. Back unwinds the active tab's stack before returning
-to the sidebar. iOS, Android, Fuchsia, and web do not show any forum-tab
-controls; each forum keeps a single navigation context with no add, switch, or
-close lifecycle.
+opened-tab count is shown. Command+1 through Command+9 select those ordered tab
+positions on macOS; Linux and Windows use Control+1 through Control+9. Back
+unwinds the active tab's stack before returning to the sidebar. iOS, Android,
+Fuchsia, and web do not show any forum-tab controls; each forum keeps a single
+navigation context with no add, switch, or close lifecycle.
 
 ### Removing a site
 
