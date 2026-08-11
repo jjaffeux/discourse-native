@@ -9,11 +9,13 @@ class ComposerImagePreview extends StatelessWidget {
     required this.image,
     required this.url,
     required this.onNaturalSize,
+    this.highlighted = false,
   });
 
   final ComposerImageBlock image;
   final String? url;
   final void Function(Size size) onNaturalSize;
+  final bool highlighted;
 
   static Size displaySize(ComposerImageBlock image) {
     final sourceWidth = image.width?.toDouble() ?? 360;
@@ -35,6 +37,7 @@ class ComposerImagePreview extends StatelessWidget {
     return Semantics(
       image: source != null,
       label: image.alt.isEmpty ? 'Image' : image.alt,
+      selected: highlighted,
       child: Container(
         width: size.width,
         height: size.height,
@@ -43,7 +46,10 @@ class ComposerImagePreview extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
+            color: highlighted
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.outlineVariant,
+            width: highlighted ? 2 : 1,
           ),
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
         ),

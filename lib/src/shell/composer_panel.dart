@@ -1376,10 +1376,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
-    if (event is! KeyDownEvent ||
-        event.logicalKey != LogicalKeyboardKey.backspace) {
-      return KeyEventResult.ignored;
-    }
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final value = widget.composer.text.value;
     final selection = value.selection;
     if (!selection.isValid || !selection.isCollapsed) {
@@ -1390,6 +1387,44 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
 
     final caret = selection.extentOffset;
+    final keyboard = HardwareKeyboard.instance;
+    final isPlainEnter =
+        (event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+        !keyboard.isMetaPressed &&
+        !keyboard.isControlPressed &&
+        !keyboard.isAltPressed &&
+        !keyboard.isShiftPressed;
+    if (isPlainEnter) {
+      for (final image in widget.composer.text.imageBlocks) {
+        if (!_isPillBoundary(caret, image.start, image.end) ||
+            !widget.composer.text.isImageCollapsed(image)) {
+          continue;
+        }
+        _selectImage(image);
+        return KeyEventResult.handled;
+      }
+      for (final poll in widget.composer.text.pollBlocks) {
+        if (!_isPillBoundary(caret, poll.start, poll.end) ||
+            !widget.composer.text.isPollCollapsed(poll)) {
+          continue;
+        }
+        unawaited(_editPoll(poll));
+        return KeyEventResult.handled;
+      }
+      for (final date in widget.composer.text.localDateBlocks) {
+        if (!_isPillBoundary(caret, date.start, date.end) ||
+            !widget.composer.text.isLocalDateCollapsed(date)) {
+          continue;
+        }
+        unawaited(_editLocalDate(date));
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey != LogicalKeyboardKey.backspace) {
+      return KeyEventResult.ignored;
+    }
     for (final image in widget.composer.text.imageBlocks) {
       if (image.end != caret || !widget.composer.text.isImageCollapsed(image)) {
         continue;
@@ -1418,6 +1453,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
     return KeyEventResult.ignored;
   }
+
+  static bool _isPillBoundary(int caret, int start, int end) =>
+      caret == start || caret == end;
 
   (double, double)? _imageMenuPosition(BoxConstraints constraints) {
     final image = _selectedImage;

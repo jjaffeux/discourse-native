@@ -102,7 +102,10 @@ class MarkdownEditingController extends TextEditingController {
 
   ComposerImageBlock? collapsedImageAtOffset(int offset) {
     final image = imageAtOffset(offset);
-    if (image == null || offset >= image.end || !isImageCollapsed(image)) {
+    if (image == null ||
+        offset <= image.start ||
+        offset >= image.end ||
+        !isImageCollapsed(image)) {
       return null;
     }
     return image;
@@ -178,7 +181,9 @@ class MarkdownEditingController extends TextEditingController {
 
   PollComposerBlock? collapsedPollAtOffset(int offset) {
     final block = pollAtOffset(offset);
-    return block != null && isPollCollapsed(block) ? block : null;
+    return block != null && offset > block.start && isPollCollapsed(block)
+        ? block
+        : null;
   }
 
   /// The collapsed poll whose visible pill contains [globalPosition].
@@ -254,7 +259,9 @@ class MarkdownEditingController extends TextEditingController {
 
   LocalDateComposerBlock? collapsedLocalDateAtOffset(int offset) {
     final block = localDateAtOffset(offset);
-    return block != null && isLocalDateCollapsed(block) ? block : null;
+    return block != null && offset > block.start && isLocalDateCollapsed(block)
+        ? block
+        : null;
   }
 
   LocalDateComposerBlock? collapsedLocalDateAtGlobalPosition(
@@ -366,7 +373,13 @@ class MarkdownEditingController extends TextEditingController {
     final pollProjection = Object.hash(
       pollMaximumOptions,
       Object.hashAll(
-        collapsedPolls.map((block) => Object.hash(block.start, block.end)),
+        collapsedPolls.map(
+          (block) => Object.hash(
+            block.start,
+            block.end,
+            _isProjectionBoundary(value.selection, block.start, block.end),
+          ),
+        ),
       ),
     );
 
@@ -394,7 +407,12 @@ class MarkdownEditingController extends TextEditingController {
       localDateAccountTimezone,
       Object.hashAll(
         collapsedLocalDates.map(
-          (block) => Object.hash(block.start, block.end, block.source),
+          (block) => Object.hash(
+            block.start,
+            block.end,
+            block.source,
+            _isProjectionBoundary(value.selection, block.start, block.end),
+          ),
         ),
       ),
     );
@@ -420,6 +438,7 @@ class MarkdownEditingController extends TextEditingController {
           image.height,
           image.scale,
           resolvedImageUrl(image),
+          _isProjectionBoundary(value.selection, image.start, image.end),
         ),
       ),
     );
@@ -510,6 +529,11 @@ class MarkdownEditingController extends TextEditingController {
               () => GlobalKey(debugLabel: 'poll-pill-${block.start}'),
             ),
             maximumOptions: pollMaximumOptions,
+            highlighted: _isProjectionBoundary(
+              value.selection,
+              block.start,
+              block.end,
+            ),
           ),
         ),
       for (final block in collapsedLocalDates)
@@ -525,13 +549,27 @@ class MarkdownEditingController extends TextEditingController {
               block.start,
               () => GlobalKey(debugLabel: 'local-date-pill-${block.start}'),
             ),
+            highlighted: _isProjectionBoundary(
+              value.selection,
+              block.start,
+              block.end,
+            ),
           ),
         ),
       for (final image in collapsedImages)
         _SpanProjection(
           image.start,
           image.end,
-          () => _buildImageSpans(image, base, unresolvedImages),
+          () => _buildImageSpans(
+            image,
+            base,
+            unresolvedImages,
+            highlighted: _isProjectionBoundary(
+              value.selection,
+              image.start,
+              image.end,
+            ),
+          ),
         ),
     ]..sort((a, b) => a.start.compareTo(b.start));
 
@@ -583,8 +621,9 @@ class MarkdownEditingController extends TextEditingController {
   List<InlineSpan> _buildImageSpans(
     ComposerImageBlock image,
     TextStyle base,
-    Set<String> unresolved,
-  ) {
+    Set<String> unresolved, {
+    required bool highlighted,
+  }) {
     final url = resolvedImageUrl(image);
     if (image.url.startsWith('upload://') && url == null) {
       unresolved.add(image.url);
@@ -614,6 +653,7 @@ class MarkdownEditingController extends TextEditingController {
               child: ComposerImagePreview(
                 image: image,
                 url: url,
+                highlighted: highlighted,
                 onNaturalSize: (size) {
                   if (_naturalImageSizes[image.url] == size) return;
                   _naturalImageSizes[image.url] = size;
@@ -680,6 +720,10 @@ class MarkdownEditingController extends TextEditingController {
     final selection = value.selection;
     if (!selection.isValid) return false;
     if (selection.isCollapsed) {
+      if (selection.extentOffset == image.start ||
+          selection.extentOffset == image.end) {
+        return false;
+      }
       return !suppressCollapsedCaret &&
           selection.extentOffset >= image.start &&
           selection.extentOffset < image.end;
@@ -710,6 +754,15 @@ class MarkdownEditingController extends TextEditingController {
           a.start == b.start && a.end == b.end && a.source == b.source,
         _ => false,
       };
+
+  static bool _isProjectionBoundary(
+    TextSelection selection,
+    int start,
+    int end,
+  ) =>
+      selection.isValid &&
+      selection.isCollapsed &&
+      (selection.extentOffset == start || selection.extentOffset == end);
 
   /// A shortcode drawn as its artwork, or null to draw it as text.
   ///

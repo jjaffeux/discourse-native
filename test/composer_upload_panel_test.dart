@@ -111,8 +111,22 @@ void main() {
     await tester.pump();
     expect(composer.text.text, '![old|640x480, 75%](upload://photo)');
 
-    await tapPreview();
+    final resizedImage = composer.text.imageBlocks.single;
+    composer.text.selection = TextSelection.collapsed(
+      offset: resizedImage.start,
+    );
+    composer.focus.requestFocus();
     await tester.pump();
+    expect(
+      tester
+          .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
+          .highlighted,
+      isTrue,
+    );
+    expect(find.byTooltip('Save alt text'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(find.byTooltip('Save alt text'), findsOneWidget);
     await tester.enterText(
       find.byWidgetPredicate(
         (widget) =>
