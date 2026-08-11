@@ -68,6 +68,42 @@ void main() {
     expect(find.byType(CupertinoActivityIndicator), findsNothing);
     expect(find.byType(CupertinoDialogAction), findsNothing);
   });
+
+  testWidgets('uses the Discourse modal theme for app-owned Apple dialogs', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        TargetPlatform.macOS,
+        Builder(
+          builder: (context) => FilledButton(
+            onPressed: () => showDiscourseDialog<void>(
+              context: context,
+              builder: (dialogContext) => AlertDialog.adaptive(
+                title: const Text('Remove site?'),
+                actions: [
+                  AdaptiveDialogAction(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    kind: AdaptiveDialogActionKind.destructive,
+                    child: const Text('Remove'),
+                  ),
+                ],
+              ),
+            ),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Remove'), findsOneWidget);
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
+    expect(find.byType(CupertinoDialogAction), findsNothing);
+  });
 }
 
 Widget _app(TargetPlatform platform, Widget child) => MaterialApp(

@@ -81,7 +81,6 @@ Future<void> showAssignmentEditor({
   return showDialog<void>(
     context: context,
     builder: (dialogContext) => Dialog(
-      backgroundColor: Theme.of(dialogContext).shell.floating,
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 640, maxHeight: 720),
@@ -90,13 +89,13 @@ Future<void> showAssignmentEditor({
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+              padding: const EdgeInsets.fromLTRB(24, 8, 8, 8),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(dialogContext).textTheme.titleMedium
+                      style: Theme.of(dialogContext).textTheme.titleLarge
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -111,7 +110,10 @@ Future<void> showAssignmentEditor({
             Divider(color: Theme.of(dialogContext).shell.divider, height: 1),
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 child: editor(dialogContext),
               ),
             ),

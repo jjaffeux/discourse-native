@@ -19,13 +19,15 @@ Future<T?> showShellSheet<T>({
   required String title,
   required WidgetBuilder builder,
   bool nested = false,
-  EdgeInsetsGeometry padding = const EdgeInsets.all(20),
+  EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
+    horizontal: 24,
+    vertical: 16,
+  ),
 }) {
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: Theme.of(context).shell.sidebar,
     constraints: const BoxConstraints(maxWidth: 640, maxHeight: 640),
     builder: (context) => _SheetBody(
       title: title,

@@ -4,45 +4,48 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-ResolvedSitePalette palette({Brightness brightness = Brightness.light}) =>
-    ResolvedSitePalette(
-      brightness: brightness,
-      primary: const Color(0xFF111111),
-      secondary: const Color(0xFFFDFDFD),
-      tertiary: const Color(0xFF1256A0),
-      quaternary: const Color(0xFF9A3412),
-      headerBackground: const Color(0xFF010203),
-      headerPrimary: const Color(0xFFF0F1F2),
-      metadataColor: const Color(0xFF5A6470),
-      contentBorderColor: const Color(0xFFD1D5DA),
-      highlight: const Color(0xFFF2C200),
-      danger: const Color(0xFFC80001),
-      success: const Color(0xFF168821),
-      love: const Color(0xFFEC5E82),
-      selected: const Color(0xFF334455),
-      selectedForeground: const Color(0xFFF6F7F8),
-      hover: const Color(0xFF445566),
-      primaryVeryLow: const Color(0xFFF5F5F5),
-      primaryLow: const Color(0xFFE1E1E1),
-      primaryLowMid: const Color(0xFFBBBBBB),
-      primaryMedium: const Color(0xFF888888),
-      primaryHigh: const Color(0xFF555555),
-      primaryVeryHigh: const Color(0xFF292929),
-      secondaryVeryHigh: const Color(0xFFF1F2F3),
-      tertiaryLow: const Color(0xFFD5E8F6),
-      quaternaryLow: const Color(0xFFF4D6C8),
-      highlightLow: const Color(0xFFFFF1A8),
-      dangerLow: const Color(0xFFF5C7C7),
-      mentionBackground: const Color(0xFFE0E7EE),
-      codeBlockBackground: const Color(0xFF20252B),
-      inlineCodeBackground: const Color(0xFFE7EBEF),
-      codeKeyword: const Color(0xFF8B2FA0),
-      codeString: const Color(0xFF2E7D32),
-      codeComment: const Color(0xFF6B7280),
-      codeNumber: const Color(0xFFB35309),
-      codeName: const Color(0xFF1A56B0),
-      codeMeta: const Color(0xFF00707A),
-    );
+ResolvedSitePalette palette({
+  Brightness brightness = Brightness.light,
+  double borderRadius = defaultDiscourseBorderRadius,
+}) => ResolvedSitePalette(
+  borderRadius: borderRadius,
+  brightness: brightness,
+  primary: const Color(0xFF111111),
+  secondary: const Color(0xFFFDFDFD),
+  tertiary: const Color(0xFF1256A0),
+  quaternary: const Color(0xFF9A3412),
+  headerBackground: const Color(0xFF010203),
+  headerPrimary: const Color(0xFFF0F1F2),
+  metadataColor: const Color(0xFF5A6470),
+  contentBorderColor: const Color(0xFFD1D5DA),
+  highlight: const Color(0xFFF2C200),
+  danger: const Color(0xFFC80001),
+  success: const Color(0xFF168821),
+  love: const Color(0xFFEC5E82),
+  selected: const Color(0xFF334455),
+  selectedForeground: const Color(0xFFF6F7F8),
+  hover: const Color(0xFF445566),
+  primaryVeryLow: const Color(0xFFF5F5F5),
+  primaryLow: const Color(0xFFE1E1E1),
+  primaryLowMid: const Color(0xFFBBBBBB),
+  primaryMedium: const Color(0xFF888888),
+  primaryHigh: const Color(0xFF555555),
+  primaryVeryHigh: const Color(0xFF292929),
+  secondaryVeryHigh: const Color(0xFFF1F2F3),
+  tertiaryLow: const Color(0xFFD5E8F6),
+  quaternaryLow: const Color(0xFFF4D6C8),
+  highlightLow: const Color(0xFFFFF1A8),
+  dangerLow: const Color(0xFFF5C7C7),
+  mentionBackground: const Color(0xFFE0E7EE),
+  codeBlockBackground: const Color(0xFF20252B),
+  inlineCodeBackground: const Color(0xFFE7EBEF),
+  codeKeyword: const Color(0xFF8B2FA0),
+  codeString: const Color(0xFF2E7D32),
+  codeComment: const Color(0xFF6B7280),
+  codeNumber: const Color(0xFFB35309),
+  codeName: const Color(0xFF1A56B0),
+  codeMeta: const Color(0xFF00707A),
+);
 
 double contrast(Color foreground, Color background) {
   final first = foreground.computeLuminance();
@@ -216,6 +219,27 @@ void main() {
       expect(cupertino.scaffoldBackgroundColor, source.secondary);
       expect(cupertino.selectionHandleColor, source.tertiary);
       expect(cupertino.applyThemeToAll, isTrue);
+    });
+
+    test('styles modal surfaces with Discourse theme tokens', () {
+      final source = palette(borderRadius: 13);
+      final theme = AppTheme.fromPalette(source);
+      final dialogShape = theme.dialogTheme.shape as RoundedRectangleBorder;
+      final sheetShape = theme.bottomSheetTheme.shape as RoundedRectangleBorder;
+
+      expect(theme.dialogTheme.backgroundColor, source.secondary);
+      expect(theme.dialogTheme.surfaceTintColor, Colors.transparent);
+      expect(theme.dialogTheme.barrierColor, discourseModalBarrier);
+      expect(theme.dialogTheme.clipBehavior, Clip.antiAlias);
+      expect(dialogShape.borderRadius, BorderRadius.circular(13));
+
+      expect(theme.bottomSheetTheme.modalBackgroundColor, source.secondary);
+      expect(theme.bottomSheetTheme.modalBarrierColor, discourseModalBarrier);
+      expect(theme.bottomSheetTheme.clipBehavior, Clip.antiAlias);
+      expect(
+        sheetShape.borderRadius,
+        const BorderRadius.vertical(top: Radius.circular(13)),
+      );
     });
 
     test('keeps app-only placeholder colors out of site palettes', () {
