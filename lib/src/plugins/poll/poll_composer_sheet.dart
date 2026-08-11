@@ -112,7 +112,7 @@ Future<bool> confirmPublishedPollRemoval(
             '${voterCount == 1 ? 'voter' : 'voters'}.';
   return await showDiscourseDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog.adaptive(
+        builder: (context) => DiscourseAlertDialog(
           title: const Text('Remove published poll?'),
           content: Text(
             '$detail Removing it will remove the poll from the post.',

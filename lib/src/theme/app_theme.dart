@@ -516,6 +516,19 @@ abstract final class AppTheme {
     final modalShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(borderRadius),
     );
+    final buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(borderRadius),
+    );
+    final buttonGeometry = ButtonStyle(
+      minimumSize: const WidgetStatePropertyAll(Size(0, 32)),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      ),
+      shape: WidgetStatePropertyAll(buttonShape),
+      textStyle: const WidgetStatePropertyAll(
+        TextStyle(fontWeight: FontWeight.normal),
+      ),
+    );
     // Flutter cannot express core's 0 8px 60px CSS shadow directly through a
     // dialog theme. Elevation 24 gives these native surfaces comparable depth.
     final modalShadow = Colors.black.withValues(
@@ -555,7 +568,11 @@ abstract final class AppTheme {
         shape: modalShape,
         barrierColor: discourseModalBarrier,
         clipBehavior: Clip.antiAlias,
+        actionsPadding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
       ),
+      filledButtonTheme: FilledButtonThemeData(style: buttonGeometry),
+      outlinedButtonTheme: OutlinedButtonThemeData(style: buttonGeometry),
+      textButtonTheme: TextButtonThemeData(style: buttonGeometry),
       bottomSheetTheme: BottomSheetThemeData(
         modalBackgroundColor: shell.content,
         modalBarrierColor: discourseModalBarrier,
