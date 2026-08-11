@@ -22,6 +22,7 @@ import 'anchored_layout.dart';
 import 'composer_controller.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
+import 'composer_quotes.dart';
 import 'composer_suggestions.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
@@ -968,6 +969,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   final OverlayPortalController _selectionPortal = OverlayPortalController();
   final ValueNotifier<Rect?> _selectionAnchor = ValueNotifier(null);
   Object? _selectionSyncToken;
+  ComposerQuoteBlock? _pointerDownQuote;
   ComposerImageBlock? _pointerDownImage;
   PollComposerBlock? _pointerDownPoll;
   LocalDateComposerBlock? _pointerDownLocalDate;
@@ -977,10 +979,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
   ComposerImageBlock? _selectedImage;
   final TextEditingController _imageAlt = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  TextSelection _lastQuoteSelection = const TextSelection.collapsed(offset: -1);
+  bool _normalizingQuoteSelection = false;
 
   @override
   void initState() {
     super.initState();
+    _lastQuoteSelection = widget.composer.text.selection;
     widget.composer.text.imageScrollController = _scroll;
     widget.composer.text.addListener(_syncSelectionToolbar);
     widget.composer.focus.addListener(_syncSelectionToolbar);
@@ -1006,6 +1011,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (_selectedImage case final image?) {
       oldWidget.composer.text.releaseImagePointerEdit(image);
     }
+    _pointerDownQuote = null;
     _pointerDownImage = null;
     _pointerDownPoll = null;
     _pointerDownLocalDate = null;
@@ -1015,6 +1021,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       oldWidget.composer.text.imageScrollController = null;
     }
     widget.composer.text.imageScrollController = _scroll;
+    _lastQuoteSelection = widget.composer.text.selection;
     widget.composer.text.addListener(_syncSelectionToolbar);
     widget.composer.focus.addListener(_syncSelectionToolbar);
     _syncSelectionToolbar();
@@ -1040,6 +1047,20 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _syncSelectionToolbar() {
+    if (!_normalizingQuoteSelection) {
+      final current = widget.composer.text.selection;
+      final normalized = widget.composer.text.protectQuoteSelection(
+        current,
+        _lastQuoteSelection,
+      );
+      _lastQuoteSelection = normalized;
+      if (normalized != current) {
+        _normalizingQuoteSelection = true;
+        widget.composer.text.selection = normalized;
+        _normalizingQuoteSelection = false;
+        return;
+      }
+    }
     final selection = widget.composer.text.selection;
     if (!widget.composer.focus.hasFocus ||
         !selection.isValid ||
@@ -1181,6 +1202,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   bool get _hasPointerDownPill =>
+      _pointerDownQuote != null ||
       _pointerDownImage != null ||
       _pointerDownPoll != null ||
       _pointerDownLocalDate != null;
@@ -1190,26 +1212,36 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _pointerSequence++;
     final position = event.position;
     _pointerDownPosition = position;
-    _pointerDownImage = widget.composer.text.collapsedImageAtGlobalPosition(
+    _pointerDownQuote = widget.composer.text.collapsedQuoteAtGlobalPosition(
       position,
     );
-    _pointerDownPoll = _pointerDownImage == null
+    _pointerDownImage = _pointerDownQuote == null
+        ? widget.composer.text.collapsedImageAtGlobalPosition(position)
+        : null;
+    _pointerDownPoll = _pointerDownQuote == null && _pointerDownImage == null
         ? widget.composer.text.collapsedPollAtGlobalPosition(position)
         : null;
     _pointerDownLocalDate =
-        _pointerDownImage == null && _pointerDownPoll == null
+        _pointerDownQuote == null &&
+            _pointerDownImage == null &&
+            _pointerDownPoll == null
         ? widget.composer.text.collapsedLocalDateAtGlobalPosition(position)
         : null;
     if (!_hasPointerDownPill) {
       final editable = _renderEditable;
       if (editable == null) return;
       final offset = editable.getPositionForPoint(position).offset;
-      _pointerDownImage = widget.composer.text.collapsedImageAtOffset(offset);
-      _pointerDownPoll = _pointerDownImage == null
+      _pointerDownQuote = widget.composer.text.quoteAtOffset(offset);
+      _pointerDownImage = _pointerDownQuote == null
+          ? widget.composer.text.collapsedImageAtOffset(offset)
+          : null;
+      _pointerDownPoll = _pointerDownQuote == null && _pointerDownImage == null
           ? widget.composer.text.collapsedPollAtOffset(offset)
           : null;
       _pointerDownLocalDate =
-          _pointerDownImage == null && _pointerDownPoll == null
+          _pointerDownQuote == null &&
+              _pointerDownImage == null &&
+              _pointerDownPoll == null
           ? widget.composer.text.collapsedLocalDateAtOffset(offset)
           : null;
     }
@@ -1266,6 +1298,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   void _clearPointerDownPill({bool releaseCollapse = true}) {
     if (releaseCollapse) _releasePointerDownPillCollapse();
+    _pointerDownQuote = null;
     _pointerDownImage = null;
     _pointerDownPoll = null;
     _pointerDownLocalDate = null;
@@ -1273,10 +1306,27 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _activatePointerDownPill() {
+    final quote = _pointerDownQuote;
     final image = _pointerDownImage;
     final poll = _pointerDownPoll;
     final date = _pointerDownLocalDate;
+    final position = _pointerDownPosition;
     _clearPointerDownPill(releaseCollapse: false);
+    if (quote != null) {
+      if (_selectedImage case final selected?) {
+        widget.composer.text.releaseImagePointerEdit(selected);
+        setState(() => _selectedImage = null);
+      }
+      if (position != null &&
+          widget.composer.text.isQuoteRemoveAtGlobalPosition(quote, position)) {
+        widget.composer.removeQuote(quote);
+      } else {
+        widget.composer.text.selection = TextSelection.collapsed(
+          offset: quote.end,
+        );
+      }
+      return;
+    }
     if (image != null) {
       _selectImage(image);
       return;
@@ -1377,7 +1427,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
     if (event is! KeyDownEvent ||
-        event.logicalKey != LogicalKeyboardKey.backspace) {
+        (event.logicalKey != LogicalKeyboardKey.backspace &&
+            event.logicalKey != LogicalKeyboardKey.delete)) {
       return KeyEventResult.ignored;
     }
     final value = widget.composer.text.value;
@@ -1390,6 +1441,22 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
 
     final caret = selection.extentOffset;
+    for (final quote in widget.composer.text.quoteBlocks) {
+      final removesQuote =
+          (event.logicalKey == LogicalKeyboardKey.backspace &&
+              quote.end == caret) ||
+          (event.logicalKey == LogicalKeyboardKey.delete &&
+              quote.start == caret);
+      if (!removesQuote || !widget.composer.text.isQuoteCollapsed(quote)) {
+        continue;
+      }
+      if (_selectedImage != null) setState(() => _selectedImage = null);
+      widget.composer.removeQuote(quote);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey != LogicalKeyboardKey.backspace) {
+      return KeyEventResult.ignored;
+    }
     for (final image in widget.composer.text.imageBlocks) {
       if (image.end != caret || !widget.composer.text.isImageCollapsed(image)) {
         continue;
@@ -1522,6 +1589,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
                           textAlignVertical: TextAlignVertical.top,
                           keyboardType: TextInputType.multiline,
                           textCapitalization: TextCapitalization.sentences,
+                          inputFormatters: const [
+                            ComposerQuoteInputFormatter(),
+                          ],
                           onTapAlwaysCalled: true,
                           onTap: _activatePointerDownPill,
                           style: widget.textStyle,
