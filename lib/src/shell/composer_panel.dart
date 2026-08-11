@@ -1720,31 +1720,37 @@ class _ComposerEditorState extends State<ComposerEditor> {
                     field: ClipRect(
                       child: Focus(
                         onKeyEvent: _onEditorKeyEvent,
-                        child: TextField(
-                          // Not decoration: a new key builds a new editable, and
-                          // with it a new undo stack. It is the only way to stop undo
-                          // reaching back into a reply that has already been sent.
-                          key: ValueKey(widget.composer.fieldGeneration),
-                          controller: widget.composer.text,
-                          scrollController: _scroll,
-                          focusNode: widget.composer.focus,
-                          autofocus: widget.autofocus,
-                          expands: true,
-                          maxLines: null,
-                          minLines: null,
-                          textAlignVertical: TextAlignVertical.top,
-                          keyboardType: TextInputType.multiline,
-                          textCapitalization: TextCapitalization.sentences,
-                          inputFormatters: const [
-                            ComposerQuoteInputFormatter(),
-                          ],
-                          onTapAlwaysCalled: true,
-                          onTap: _activatePointerDownPill,
-                          style: widget.textStyle,
-                          // InputDecorator only gives the editable one text line
-                          // even when the TextField expands. The composer draws
-                          // its hint separately so this viewport fills the editor.
-                          decoration: null,
+                        child: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: widget.composer.text,
+                          builder: (_, _, _) => TextField(
+                            // Not decoration: a new key builds a new editable, and
+                            // with it a new undo stack. It is the only way to stop undo
+                            // reaching back into a reply that has already been sent.
+                            key: ValueKey(widget.composer.fieldGeneration),
+                            controller: widget.composer.text,
+                            scrollController: _scroll,
+                            focusNode: widget.composer.focus,
+                            autofocus: widget.autofocus,
+                            expands: true,
+                            maxLines: null,
+                            minLines: null,
+                            textAlignVertical: TextAlignVertical.top,
+                            keyboardType: TextInputType.multiline,
+                            textCapitalization: TextCapitalization.sentences,
+                            inputFormatters: const [
+                              ComposerQuoteInputFormatter(),
+                            ],
+                            showCursor:
+                                widget.composer.text.keyboardSelectedPoll ==
+                                null,
+                            onTapAlwaysCalled: true,
+                            onTap: _activatePointerDownPill,
+                            style: widget.textStyle,
+                            // InputDecorator only gives the editable one text line
+                            // even when the TextField expands. The composer draws
+                            // its hint separately so this viewport fills the editor.
+                            decoration: null,
+                          ),
                         ),
                       ),
                     ),
