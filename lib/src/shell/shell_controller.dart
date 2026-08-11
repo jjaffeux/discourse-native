@@ -123,7 +123,9 @@ class ShellController extends FrameSafeNotifier {
     Updater updater = const UnsupportedUpdater(),
     UpdateStore? updateStore,
     this.ownsApi = true,
+    this.topicLoadTimeout = const Duration(seconds: 30),
   }) : forumTabs = forumTabs ?? ForumTabStore.memory(),
+       assert(topicLoadTimeout > Duration.zero),
        store = store ?? Store(),
        lifecycle = lifecycle ?? SiteLifecycle(),
        updates = UpdateController(
@@ -153,6 +155,14 @@ class ShellController extends FrameSafeNotifier {
   /// The app state keeps this false because it may move one API between
   /// controller generations when another injected dependency changes.
   final bool ownsApi;
+
+  /// Maximum wall-clock time spent getting a topic onto the screen.
+  ///
+  /// The HTTP transport has its own deadline, but a topic can wait before it
+  /// reaches that boundary: credential storage crosses a platform channel and
+  /// the request coordinator may queue work behind an origin cooldown. Bound
+  /// both waits so neither can leave the topic spinner alive indefinitely.
+  final Duration topicLoadTimeout;
 
   final Authenticator authenticator;
   final DraftStore drafts;
@@ -214,6 +224,24 @@ class ShellController extends FrameSafeNotifier {
     final value = await read();
     if (isDisposed || !lease.isCurrent) return null;
     return (value: value);
+  }
+
+  Future<T> _awaitTopicLoadStage<T>(
+    Future<T> stage,
+    Stopwatch elapsed,
+    String description,
+  ) {
+    final remaining = topicLoadTimeout - elapsed.elapsed;
+    if (remaining <= Duration.zero) {
+      return Future<T>.error(
+        TimeoutException('Timed out $description.', topicLoadTimeout),
+      );
+    }
+    return stage.timeout(
+      remaining,
+      onTimeout: () =>
+          throw TimeoutException('Timed out $description.', topicLoadTimeout),
+    );
   }
 
   /// Opens a site's live connection. See [SiteTrackerFactory].
@@ -2322,22 +2350,28 @@ class ShellController extends FrameSafeNotifier {
       if (targetHeld) return;
     }
     final lease = lifecycle.capture(instance.url);
+    final elapsed = Stopwatch()..start();
 
     _topicsLoading.add(key);
     _notify();
 
     try {
-      final credential = await _readSessionValue(
-        lease,
-        () => authenticator.apiKeyFor(instance.url),
+      final credential = await _awaitTopicLoadStage(
+        _readSessionValue(lease, () => authenticator.apiKeyFor(instance.url)),
+        elapsed,
+        'reading credentials for topic $topicId',
       );
       if (credential == null || !lease.isCurrent) return;
-      final fetched = await api.topic(
-        siteUrl: instance.url,
-        slug: slug,
-        id: topicId,
-        postNumber: postNumber,
-        apiKey: credential.value,
+      final fetched = await _awaitTopicLoadStage(
+        api.topic(
+          siteUrl: instance.url,
+          slug: slug,
+          id: topicId,
+          postNumber: postNumber,
+          apiKey: credential.value,
+        ),
+        elapsed,
+        'loading topic $topicId',
       );
       lease.commit(() {
         _absorb(instance.url, fetched);

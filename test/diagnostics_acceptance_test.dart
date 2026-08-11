@@ -78,6 +78,47 @@ void main() {
   );
 
   test(
+    'a stalled credential read cannot leave a topic loading forever',
+    () async {
+      final credentials = _StalledAuthenticator();
+      final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([instance('meta.example')]),
+        api: api,
+        authenticator: credentials,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        topicLoadTimeout: const Duration(milliseconds: 20),
+      );
+      addTearDown(shell.dispose);
+      await shell.load();
+      await pumpEventQueue();
+
+      shell.pushContent(
+        ContentRoute.topic(
+          topicId: 7,
+          slug: 'stalled-credentials',
+          title: 'Stalled credentials',
+        ),
+      );
+      await shell.loadTopic(7, 'stalled-credentials');
+
+      expect(shell.currentTopic, isNull);
+      expect(shell.currentTopicLoading, isFalse);
+      expect(api.topicsOpened, isEmpty);
+      final error = diagnostics.events
+          .whereType<ErrorDiagnosticEvent>()
+          .singleWhere((event) => event.operation == 'topic.load');
+      expect(error.source, 'shell');
+      expect(error.errorType, 'TimeoutException');
+      expect(error.message, contains('reading credentials for topic 7'));
+      expect(error.correlationId, isNotNull);
+      expect(error.handled, isTrue);
+      expect(error.degraded, isFalse);
+    },
+  );
+
+  test(
     'a correlated loopback topic timeout remains diagnosable after restart',
     () async {
       diagnosticsBinding.close();
@@ -529,6 +570,11 @@ class _TimeoutApi extends FakeDiscourseApi {
   }) async {
     throw TimeoutException('forced diagnostics timeout while loading channel');
   }
+}
+
+final class _StalledAuthenticator extends FakeAuthenticator {
+  @override
+  Future<String?> apiKeyFor(String siteUrl) => Completer<String?>().future;
 }
 
 final class _GatedTimeoutApi extends _TimeoutApi {
