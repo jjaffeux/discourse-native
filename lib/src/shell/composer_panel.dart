@@ -939,6 +939,19 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
   }
 }
 
+/// Rejects platform text edits while keyboard selection makes a pill atomic.
+class _SelectedPillInputFormatter extends TextInputFormatter {
+  const _SelectedPillInputFormatter(this.isSelected);
+
+  final bool Function() isSelected;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) => isSelected() ? oldValue : newValue;
+}
+
 /// The shared markdown editor used by topic and chat composers.
 ///
 /// The surrounding composer decides its geometry and submission behavior. The
@@ -984,12 +997,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
   ComposerImageBlock? _selectedImage;
   final TextEditingController _imageAlt = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  late final TextInputFormatter _selectedPillInputFormatter;
   TextSelection _lastQuoteSelection = const TextSelection.collapsed(offset: -1);
   bool _normalizingQuoteSelection = false;
 
   @override
   void initState() {
     super.initState();
+    _selectedPillInputFormatter = _SelectedPillInputFormatter(
+      () => _keyboardSelectedPill != null,
+    );
     _lastQuoteSelection = widget.composer.text.selection;
     widget.composer.text.imageScrollController = _scroll;
     widget.composer.text.addListener(_syncSelectionToolbar);
@@ -1441,6 +1458,34 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
+    final keyboard = HardwareKeyboard.instance;
+    final hasModifier =
+        keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed ||
+        keyboard.isShiftPressed;
+    final selectedPill = _keyboardSelectedPill;
+    if (selectedPill != null) {
+      final isPlainEnter =
+          event is KeyDownEvent &&
+          (event.logicalKey == LogicalKeyboardKey.enter ||
+              event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+          !hasModifier;
+      if (isPlainEnter) {
+        widget.composer.text.clearKeyboardPillSelection();
+        _editPill(selectedPill);
+        return KeyEventResult.handled;
+      }
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.backspace &&
+          !hasModifier) {
+        widget.composer.text.clearKeyboardPillSelection();
+        _removePill(selectedPill);
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.handled;
+    }
+
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final value = widget.composer.text.value;
     final selection = value.selection;
@@ -1452,61 +1497,30 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
 
     final caret = selection.extentOffset;
-    final keyboard = HardwareKeyboard.instance;
-    final hasModifier =
-        keyboard.isMetaPressed ||
-        keyboard.isControlPressed ||
-        keyboard.isAltPressed ||
-        keyboard.isShiftPressed;
-    final selectedPill = _keyboardSelectedPill;
     final isPlainHorizontalArrow =
         !hasModifier &&
         (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
             event.logicalKey == LogicalKeyboardKey.arrowRight);
     if (isPlainHorizontalArrow) {
       final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
-      if (selectedPill != null) {
-        widget.composer.text.clearKeyboardPillSelection();
-        widget.composer.text.selection = TextSelection.collapsed(
-          offset: moveLeft ? _pillStart(selectedPill) : _pillEnd(selectedPill),
-        );
-        return KeyEventResult.handled;
-      }
       final pill = moveLeft
           ? _collapsedPillEndingAt(caret)
           : _collapsedPillStartingAt(caret);
       if (pill == null) return KeyEventResult.ignored;
-      widget.composer.text.selectPillForKeyboard(pill);
-      return KeyEventResult.handled;
-    }
-    final isPlainEnter =
-        (event.logicalKey == LogicalKeyboardKey.enter ||
-            event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
-        !hasModifier;
-    if (isPlainEnter && selectedPill != null) {
-      widget.composer.text.clearKeyboardPillSelection();
-      _editPill(selectedPill);
+      _selectPillForKeyboard(pill);
       return KeyEventResult.handled;
     }
     final deletes =
         event.logicalKey == LogicalKeyboardKey.backspace ||
         event.logicalKey == LogicalKeyboardKey.delete;
-    if (deletes && selectedPill != null) {
-      widget.composer.text.clearKeyboardPillSelection();
-      _removePill(selectedPill);
-      return KeyEventResult.handled;
-    }
     if (deletes) {
       final boundaryPoll = event.logicalKey == LogicalKeyboardKey.backspace
           ? _collapsedPillEndingAt(caret)
           : _collapsedPillStartingAt(caret);
       if (boundaryPoll is PollComposerBlock) {
-        widget.composer.text.selectPillForKeyboard(boundaryPoll);
+        _selectPillForKeyboard(boundaryPoll);
         return KeyEventResult.handled;
       }
-    }
-    if (selectedPill != null) {
-      widget.composer.text.clearKeyboardPillSelection();
     }
     for (final quote in widget.composer.text.quoteBlocks) {
       final removesQuote =
@@ -1554,6 +1568,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
       widget.composer.text.keyboardSelectedPoll ??
       widget.composer.text.keyboardSelectedLocalDate;
 
+  void _selectPillForKeyboard(Object pill) {
+    widget.composer.autocomplete.dismiss();
+    widget.composer.text.selectPillForKeyboard(pill);
+  }
+
   Object? _collapsedPillEndingAt(int caret) {
     final text = widget.composer.text;
     for (final image in text.imageBlocks) {
@@ -1584,20 +1603,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
     return null;
   }
-
-  static int _pillStart(Object pill) => switch (pill) {
-    ComposerImageBlock image => image.start,
-    PollComposerBlock poll => poll.start,
-    LocalDateComposerBlock date => date.start,
-    _ => throw ArgumentError.value(pill, 'pill'),
-  };
-
-  int _pillEnd(Object pill) => switch (pill) {
-    ComposerImageBlock image => image.end,
-    PollComposerBlock poll => widget.composer.text.pollCaretAfter(poll),
-    LocalDateComposerBlock date => date.end,
-    _ => throw ArgumentError.value(pill, 'pill'),
-  };
 
   void _editPill(Object pill) {
     switch (pill) {
@@ -1738,9 +1743,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
                             textAlignVertical: TextAlignVertical.top,
                             keyboardType: TextInputType.multiline,
                             textCapitalization: TextCapitalization.sentences,
-                            inputFormatters: const [
-                              ComposerQuoteInputFormatter(),
-                              PollComposerInputFormatter(),
+                            inputFormatters: [
+                              _selectedPillInputFormatter,
+                              const ComposerQuoteInputFormatter(),
+                              const PollComposerInputFormatter(),
                             ],
                             showCursor:
                                 widget.composer.text.keyboardSelectedPoll ==
