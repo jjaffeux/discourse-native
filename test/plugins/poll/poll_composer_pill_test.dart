@@ -131,6 +131,71 @@ void main() {
     }
   });
 
+  testWidgets('the selected focus ring stays inside the pill bounds', (
+    tester,
+  ) async {
+    const selectedKey = ValueKey('selected-poll');
+    const unselectedKey = ValueKey('unselected-poll');
+    const style = TextStyle(fontSize: 15);
+    const label = 'Poll · Untitled · 2 options';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRect(
+                child: PollComposerPill(
+                  key: selectedKey,
+                  label: label,
+                  baseStyle: style,
+                  highlighted: true,
+                ),
+              ),
+              PollComposerPill(
+                key: unselectedKey,
+                label: label,
+                baseStyle: style,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byKey(selectedKey)),
+      tester.getSize(find.byKey(unselectedKey)),
+      reason: 'selecting the pill must not move its caret or hit geometry',
+    );
+
+    final container = tester
+        .widgetList<Container>(
+          find.descendant(
+            of: find.byKey(selectedKey),
+            matching: find.byType(Container),
+          ),
+        )
+        .singleWhere((widget) => widget.foregroundDecoration != null);
+    final background = container.decoration! as BoxDecoration;
+    final foreground = container.foregroundDecoration! as BoxDecoration;
+    final border = foreground.border! as Border;
+    final primary = Theme.of(
+      tester.element(find.byKey(selectedKey)),
+    ).colorScheme.primary;
+
+    expect(background.boxShadow, isNull);
+    expect(foreground.borderRadius, background.borderRadius);
+    for (final side in [border.top, border.right, border.bottom, border.left]) {
+      expect(side.color, primary);
+      expect(side.width, 1.5);
+      expect(side.strokeAlign, BorderSide.strokeAlignInside);
+    }
+  });
+
   testWidgets(
     'the editable projection collapses and reveals without changing raw',
     (tester) async {
