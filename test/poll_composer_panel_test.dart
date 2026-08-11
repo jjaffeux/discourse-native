@@ -202,9 +202,16 @@ void main() {
 
     final pill = find.byType(PollComposerPill);
     expect(pill, findsOneWidget);
-    // WidgetSpans inside EditableText intentionally ignore pointers; the tap
-    // lands on the TextField at the pill's visual coordinates.
-    await tester.tapAt(tester.getCenter(pill));
+    // The field resolves the pill from its visual coordinates before the
+    // editable moves its caret.
+    final gesture = await tester.startGesture(tester.getCenter(pill));
+    final block = composer.text.pollBlocks.single;
+    // Desktop EditableText can move the caret and rebuild before its tap
+    // callback runs. The pill target must survive that intermediate raw frame.
+    composer.text.selection = TextSelection.collapsed(offset: block.start + 1);
+    await tester.pump();
+    expect(find.byType(PollComposerPill), findsNothing);
+    await gesture.up();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -383,7 +390,13 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tapAt(tester.getCenter(find.byType(LocalDateComposerPill)));
+    final pill = find.byType(LocalDateComposerPill);
+    final gesture = await tester.startGesture(tester.getCenter(pill));
+    final block = composer.text.localDateBlocks.single;
+    composer.text.selection = TextSelection.collapsed(offset: block.start + 1);
+    await tester.pump();
+    expect(find.byType(LocalDateComposerPill), findsNothing);
+    await gesture.up();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 

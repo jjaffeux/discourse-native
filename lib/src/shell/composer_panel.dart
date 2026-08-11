@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart';
@@ -9,7 +10,9 @@ import 'package:flutter/services.dart';
 import '../data/composer_geometry_store.dart';
 import '../models/composer_upload.dart';
 import '../models/topic.dart';
+import '../plugins/local_dates/local_date_composer_parser.dart';
 import '../plugins/local_dates/local_dates_plugin.dart';
+import '../plugins/poll/poll_composer_parser.dart';
 import '../plugins/poll/poll_plugin.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
@@ -965,7 +968,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
   final OverlayPortalController _selectionPortal = OverlayPortalController();
   final ValueNotifier<Rect?> _selectionAnchor = ValueNotifier(null);
   Object? _selectionSyncToken;
-  Offset? _pointerDown;
+  ComposerImageBlock? _pointerDownImage;
+  PollComposerBlock? _pointerDownPoll;
+  LocalDateComposerBlock? _pointerDownLocalDate;
+  Offset? _pointerDownPosition;
+  int _pointerSequence = 0;
   bool _dragging = false;
   ComposerImageBlock? _selectedImage;
   final TextEditingController _imageAlt = TextEditingController();
@@ -1152,27 +1159,75 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
   }
 
-  void _onFieldTap() {
-    final pointer = _pointerDown;
-    _pointerDown = null;
-    if (pointer == null) return;
-    final image = widget.composer.text.collapsedImageAtGlobalPosition(pointer);
+  bool get _hasPointerDownPill =>
+      _pointerDownImage != null ||
+      _pointerDownPoll != null ||
+      _pointerDownLocalDate != null;
+
+  void _onEditorPointerDown(PointerDownEvent event) {
+    _pointerSequence++;
+    final position = event.position;
+    _pointerDownPosition = position;
+    _pointerDownImage = widget.composer.text.collapsedImageAtGlobalPosition(
+      position,
+    );
+    _pointerDownPoll = _pointerDownImage == null
+        ? widget.composer.text.collapsedPollAtGlobalPosition(position)
+        : null;
+    _pointerDownLocalDate =
+        _pointerDownImage == null && _pointerDownPoll == null
+        ? widget.composer.text.collapsedLocalDateAtGlobalPosition(position)
+        : null;
+  }
+
+  void _onEditorPointerMove(PointerMoveEvent event) {
+    final start = _pointerDownPosition;
+    if (!_hasPointerDownPill || start == null) return;
+    if ((event.position - start).distance > kTouchSlop) {
+      _cancelEditorPointer();
+    }
+  }
+
+  void _onEditorPointerUp(PointerUpEvent _) {
+    if (!_hasPointerDownPill) return;
+    final sequence = _pointerSequence;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || sequence != _pointerSequence || !_hasPointerDownPill) {
+        return;
+      }
+      _activatePointerDownPill();
+    });
+  }
+
+  void _cancelEditorPointer() {
+    _pointerSequence++;
+    _clearPointerDownPill();
+  }
+
+  void _clearPointerDownPill() {
+    _pointerDownImage = null;
+    _pointerDownPoll = null;
+    _pointerDownLocalDate = null;
+    _pointerDownPosition = null;
+  }
+
+  void _activatePointerDownPill() {
+    final image = _pointerDownImage;
+    final poll = _pointerDownPoll;
+    final date = _pointerDownLocalDate;
+    _clearPointerDownPill();
     if (image != null) {
       _selectImage(image);
       return;
     }
     if (_selectedImage != null) setState(() => _selectedImage = null);
-    final block = widget.composer.text.collapsedPollAtGlobalPosition(pointer);
-    if (block != null) {
+    if (poll != null) {
       widget.composer.text.selection = TextSelection.collapsed(
-        offset: block.end,
+        offset: poll.end,
       );
-      unawaited(openPollComposer(context, widget.composer, block: block));
+      unawaited(openPollComposer(context, widget.composer, block: poll));
       return;
     }
-    final date = widget.composer.text.collapsedLocalDateAtGlobalPosition(
-      pointer,
-    );
     if (date != null) {
       widget.composer.text.selection = TextSelection.collapsed(
         offset: date.end,
@@ -1185,6 +1240,17 @@ class _ComposerEditorState extends State<ComposerEditor> {
     widget.composer.text.selection = TextSelection.collapsed(offset: image.end);
     _imageAlt.text = image.alt;
     setState(() => _selectedImage = image);
+    // If pointer-down already moved the caret into the image, the editable
+    // needs one frame to project it again before its render box can anchor the
+    // editor. Refresh the parent after that projection has laid out.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _selectedImage?.start != image.start ||
+          _selectedImage?.source != image.source) {
+        return;
+      }
+      setState(() {});
+    });
   }
 
   void _saveImageAlt() {
@@ -1329,8 +1395,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
               Positioned.fill(
                 child: Listener(
                   behavior: HitTestBehavior.translucent,
-                  onPointerDown: (event) => _pointerDown = event.position,
-                  onPointerCancel: (_) => _pointerDown = null,
+                  onPointerDown: _onEditorPointerDown,
+                  onPointerMove: _onEditorPointerMove,
+                  onPointerUp: _onEditorPointerUp,
+                  onPointerCancel: (_) => _cancelEditorPointer(),
                   child: ComposerSuggestionField(
                     composer: widget.composer,
                     field: ClipRect(
@@ -1352,7 +1420,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                           keyboardType: TextInputType.multiline,
                           textCapitalization: TextCapitalization.sentences,
                           onTapAlwaysCalled: true,
-                          onTap: _onFieldTap,
+                          onTap: _activatePointerDownPill,
                           style: widget.textStyle,
                           // InputDecorator only gives the editable one text line
                           // even when the TextField expands. The composer draws
