@@ -12,6 +12,7 @@ import '../models/composer_upload.dart';
 import '../models/topic.dart';
 import '../plugins/local_dates/local_date_composer_parser.dart';
 import '../plugins/local_dates/local_dates_plugin.dart';
+import '../plugins/poll/poll_composer_editor.dart';
 import '../plugins/poll/poll_composer_parser.dart';
 import '../plugins/poll/poll_plugin.dart';
 import '../plugins/site_plugin.dart';
@@ -1739,6 +1740,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                             textCapitalization: TextCapitalization.sentences,
                             inputFormatters: const [
                               ComposerQuoteInputFormatter(),
+                              PollComposerInputFormatter(),
                             ],
                             showCursor:
                                 widget.composer.text.keyboardSelectedPoll ==
