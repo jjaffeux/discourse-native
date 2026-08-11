@@ -1472,7 +1472,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
               event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
           !hasModifier;
       if (isPlainEnter) {
-        widget.composer.text.clearKeyboardPillSelection();
         _editPill(selectedPill);
         return KeyEventResult.handled;
       }

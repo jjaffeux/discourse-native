@@ -236,5 +236,18 @@ void main() {
       expect(controller.collapsedLocalDateAtOffset(projected.start), isNull);
       expect(controller.collapsedLocalDateAtOffset(projected.end), isNull);
     });
+
+    test('explicit raw expansion clears keyboard pill selection', () {
+      final controller = MarkdownEditingController(text: date);
+      addTearDown(controller.dispose);
+      final projected = controller.localDateBlocks.single;
+      controller.selectPillForKeyboard(projected);
+
+      controller.expandLocalDateAsRaw(projected);
+
+      expect(controller.keyboardSelectedLocalDate, isNull);
+      expect(controller.isLocalDateExpanded(projected), isTrue);
+      expect(controller.selection.extentOffset, projected.start + 1);
+    });
   });
 }

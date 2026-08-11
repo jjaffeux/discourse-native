@@ -286,11 +286,34 @@ void main() {
     expect(composer.text.selection.extentOffset, block.start);
     expect(tester.widget<PollComposerPill>(pill).highlighted, isTrue);
     expect(_composerEditable(tester).showCursor, isFalse);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+
+    final selectedValue = composer.text.value;
+    final selectedCaret = selectedValue.selection.extentOffset;
+    expect(await tester.sendKeyDownEvent(LogicalKeyboardKey.enter), isTrue);
+    tester.testTextInput.updateEditingValue(
+      TextEditingValue(
+        text: selectedValue.text.replaceRange(
+          selectedCaret,
+          selectedCaret,
+          '\n',
+        ),
+        selection: TextSelection.collapsed(offset: selectedCaret + 1),
+      ),
+    );
+    expect(await tester.sendKeyUpEvent(LogicalKeyboardKey.enter), isTrue);
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Edit poll'), findsOneWidget);
     Navigator.of(tester.element(find.text('Edit poll'))).pop();
     await tester.pumpAndSettle();
+    expect(find.text('Edit poll'), findsNothing);
+    expect(composer.text.value, selectedValue);
+    expect(composer.text.keyboardSelectedPoll, isNotNull);
+    expect(
+      composer.text.isPollCollapsed(composer.text.pollBlocks.single),
+      true,
+    );
+    expect(tester.widget<PollComposerPill>(pill).highlighted, isTrue);
+    expect(_composerEditable(tester).showCursor, isFalse);
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -815,13 +838,19 @@ void main() {
           .highlighted,
       isTrue,
     );
+    final selectedValue = composer.text.value;
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Edit date and time'), findsOneWidget);
     Navigator.of(tester.element(find.text('Edit date and time'))).pop();
     await tester.pumpAndSettle();
-    composer.text.selection = TextSelection.collapsed(
-      offset: composer.text.localDateBlocks.single.end,
+    expect(composer.text.value, selectedValue);
+    expect(composer.text.keyboardSelectedLocalDate, isNotNull);
+    expect(
+      tester
+          .widget<LocalDateComposerPill>(find.byType(LocalDateComposerPill))
+          .highlighted,
+      isTrue,
     );
     composer.focus.requestFocus();
     await tester.pump();

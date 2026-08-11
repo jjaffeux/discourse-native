@@ -84,13 +84,16 @@ class MarkdownEditingController extends TextEditingController {
   ScrollController? get imageScrollController => _imageScrollController;
 
   /// Holds the source caret and composing range still while a pill is selected.
-  /// Pointer and atomic edit actions clear the pill selection before moving it.
+  /// Pointer and source-revealing or removing actions clear the pill selection
+  /// before moving it; pill editors retain it while the document is unchanged.
   @override
   set value(TextEditingValue newValue) {
     final current = super.value;
-    if (_keyboardSelectedProjection != null &&
-        _keyboardSelectionDocument == current.text &&
-        newValue.text == current.text) {
+    if (newValue.text != current.text) {
+      _keyboardSelectedProjection = null;
+      _keyboardSelectionDocument = null;
+    } else if (_keyboardSelectedProjection != null &&
+        _keyboardSelectionDocument == current.text) {
       newValue = current;
     }
     super.value = newValue;
@@ -284,6 +287,7 @@ class MarkdownEditingController extends TextEditingController {
   }
 
   void expandPollAsRaw(PollComposerBlock block) {
+    clearKeyboardPillSelection();
     _rawPoll.expand(block);
     value = value.copyWith(
       selection: TextSelection.collapsed(
@@ -358,6 +362,7 @@ class MarkdownEditingController extends TextEditingController {
   }
 
   void expandLocalDateAsRaw(LocalDateComposerBlock block) {
+    clearKeyboardPillSelection();
     _rawLocalDate.expand(block);
     value = value.copyWith(
       selection: TextSelection.collapsed(
