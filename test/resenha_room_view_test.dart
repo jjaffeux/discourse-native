@@ -9,14 +9,104 @@ import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_preferences.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_room_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
+// The regression verifies flutter_webrtc's native renderer contract.
+// ignore: implementation_imports
+import 'package:flutter_webrtc/src/native/media_stream_track_impl.dart';
 
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://voice.example.com';
 
 void main() {
+  testWidgets(
+    'keeps borrowed WebRTC tracks out of native streams across replacement',
+    (tester) async {
+      const webRtcChannel = MethodChannel('FlutterWebRTC.Method');
+      const eventChannel = EventChannel('FlutterWebRTC.Event');
+      const textureChannel = EventChannel('FlutterWebRTC/Texture73');
+      final messenger = tester.binding.defaultBinaryMessenger;
+      final releaseRenderer = Completer<void>();
+      final rendererDisposed = Completer<void>();
+      final calls = <String>[];
+      final rendererScopes = <Object?>[];
+      var directBindings = 0;
+
+      rtc.WebRTC.initialized = false;
+      const streamHandler = MockStreamHandler.inline(onListen: _ignoreEvents);
+      messenger.setMockStreamHandler(eventChannel, streamHandler);
+      messenger.setMockStreamHandler(textureChannel, streamHandler);
+      messenger.setMockMethodCallHandler(webRtcChannel, (call) async {
+        calls.add(call.method);
+        if (call.method == 'mediaStreamAddTrack') {
+          throw TestFailure('Borrowed tracks must not enter a native stream');
+        }
+        final arguments = call.arguments as Map<Object?, Object?>?;
+        if (call.method == 'videoRendererSetSrcObject' &&
+            arguments?['trackId'] == 'stale-video') {
+          directBindings++;
+          rendererScopes.add(arguments?['peerConnectionId']);
+          if (directBindings == 1) await releaseRenderer.future;
+          return null;
+        }
+        if (call.method == 'videoRendererDispose') {
+          if (calls.where((method) => method == call.method).length == 2) {
+            rendererDisposed.complete();
+          }
+          return null;
+        }
+        return switch (call.method) {
+          'initialize' => null,
+          'createVideoRenderer' => <String, Object?>{'textureId': 73},
+          'createLocalMediaStream' => <String, Object?>{
+            'streamId': 'resenha-test-stream',
+          },
+          'videoRendererSetSrcObject' || 'streamDispose' => null,
+          _ => throw UnsupportedError('Unexpected WebRTC call: ${call.method}'),
+        };
+      });
+      addTearDown(() {
+        rtc.WebRTC.initialized = false;
+        messenger.setMockMethodCallHandler(webRtcChannel, null);
+        messenger.setMockStreamHandler(eventChannel, null);
+        messenger.setMockStreamHandler(textureChannel, null);
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(home: ResenhaVideoSurface(track: _nativeVideoTrack())),
+      );
+      expect(calls, contains('videoRendererSetSrcObject'));
+
+      await tester.pumpWidget(
+        MaterialApp(home: ResenhaVideoSurface(track: _nativeVideoTrack())),
+      );
+      expect(
+        calls.where((method) => method == 'createVideoRenderer'),
+        hasLength(2),
+      );
+      expect(directBindings, 2);
+      expect(rendererScopes, everyElement('remote-peer'));
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      releaseRenderer.complete();
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(rendererDisposed.isCompleted, isTrue);
+      expect(calls, isNot(contains('mediaStreamAddTrack')));
+      expect(calls.where((method) => method == 'streamDispose'), hasLength(2));
+      expect(
+        calls.where((method) => method == 'videoRendererDispose'),
+        hasLength(2),
+        reason: '$calls',
+      );
+    },
+  );
+
   testWidgets('renders unavailable and empty rooms without a shell', (
     tester,
   ) async {
@@ -512,6 +602,16 @@ void main() {
     },
   );
 }
+
+MediaStreamTrackNative _nativeVideoTrack() => MediaStreamTrackNative(
+  'stale-video',
+  'Remote video',
+  'video',
+  true,
+  'remote-peer',
+);
+
+void _ignoreEvents(Object? _, MockStreamHandlerEventSink _) {}
 
 Future<void> _join(_Harness harness, ResenhaRoom room) =>
     harness.controller.join(siteUrl: _siteUrl, siteName: 'Voice', room: room);

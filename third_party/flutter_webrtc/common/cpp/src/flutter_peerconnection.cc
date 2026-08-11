@@ -1432,6 +1432,24 @@ scoped_refptr<RTCMediaTrack> FlutterPeerConnectionObserver::MediaTrackForId(
       }
     }
   }
+
+  for (auto receiver : peerconnection_->receivers().std_vector()) {
+    auto track = receiver->track();
+    if (track != nullptr && track->id().std_string() == id) {
+      return track;
+    }
+  }
+
+  for (auto transceiver : peerconnection_->transceivers().std_vector()) {
+    auto receiver = transceiver->receiver();
+    if (receiver != nullptr) {
+      auto track = receiver->track();
+      if (track != nullptr && track->id().std_string() == id) {
+        return track;
+      }
+    }
+  }
+
   return nullptr;
 }
 

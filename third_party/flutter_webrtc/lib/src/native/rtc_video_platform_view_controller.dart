@@ -7,6 +7,7 @@ import 'package:webrtc_interface/webrtc_interface.dart';
 
 import '../helper.dart';
 import '../video_renderer_extension.dart' show AudioControl;
+import 'media_stream_track_impl.dart';
 import 'utils.dart';
 
 class RTCVideoPlatformViewController extends ValueNotifier<RTCVideoValue>
@@ -76,18 +77,23 @@ class RTCVideoPlatformViewController extends ValueNotifier<RTCVideoValue>
       throw 'Can\'t set srcObject: The RTCVideoPlatformController is disposed';
     }
     if (_viewId == null) throw 'Call initialize before setting the stream';
-    if (_srcObject == stream) return;
     _srcObject = stream;
     onSrcObjectChange?.call();
     var oldviewId = _viewId;
+    final selectedTrack =
+        trackId == null ? null : stream?.getTrackById(trackId);
+    final arguments = <String, dynamic>{
+      'viewId': _viewId,
+      'streamId': stream?.id ?? '',
+      'ownerTag': stream?.ownerTag ?? '',
+      'trackId': trackId ?? '0'
+    };
+    if (selectedTrack is MediaStreamTrackNative) {
+      arguments['peerConnectionId'] = selectedTrack.peerConnectionId;
+    }
     try {
       await WebRTC.invokeMethod(
-          'videoPlatformViewRendererSetSrcObject', <String, dynamic>{
-        'viewId': _viewId,
-        'streamId': stream?.id ?? '',
-        'ownerTag': stream?.ownerTag ?? '',
-        'trackId': trackId ?? '0'
-      });
+          'videoPlatformViewRendererSetSrcObject', arguments);
       value = (stream == null)
           ? RTCVideoValue.empty
           : value.copyWith(renderVideo: renderVideo);

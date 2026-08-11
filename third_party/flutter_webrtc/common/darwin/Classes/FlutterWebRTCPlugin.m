@@ -940,6 +940,7 @@ static __weak id<RTCAudioDeviceModuleDelegate> gAudioDeviceModuleObserver = nil;
     FlutterRTCVideoRenderer* render = self.renders[textureId];
     NSString* streamId = argsMap[@"streamId"];
     NSString* ownerTag = argsMap[@"ownerTag"];
+    NSString* peerConnectionId = argsMap[@"peerConnectionId"];
     NSString* trackId = argsMap[@"trackId"];
     if (!render) {
       result([FlutterError errorWithCode:@"videoRendererSetSrcObject: render is nil"
@@ -949,43 +950,14 @@ static __weak id<RTCAudioDeviceModuleDelegate> gAudioDeviceModuleObserver = nil;
     }
     RTCMediaStream* stream = nil;
     RTCVideoTrack* videoTrack = nil;
-    if ([ownerTag isEqualToString:@"local"]) {
-      stream = _localStreams[streamId];
-    }
-    if (!stream) {
-      stream = [self streamForId:streamId peerConnectionId:ownerTag];
-    }
-    if (stream) {
-      NSArray* videoTracks = stream ? stream.videoTracks : nil;
-      videoTrack = videoTracks && videoTracks.count ? videoTracks[0] : nil;
-      for (RTCVideoTrack* track in videoTracks) {
-        if ([track.trackId isEqualToString:trackId]) {
-          videoTrack = track;
-        }
-      }
-      if (!videoTrack) {
-        NSLog(@"Not found video track for RTCMediaStream: %@", streamId);
+    if (trackId && ![trackId isEqualToString:@"0"]) {
+      RTCMediaStreamTrack* track =
+          [self trackForId:trackId peerConnectionId:peerConnectionId];
+      if ([track isKindOfClass:[RTCVideoTrack class]]) {
+        videoTrack = (RTCVideoTrack*)track;
       }
     }
-    [self rendererSetSrcObject:render stream:videoTrack];
-    result(nil);
-  }
-#if TARGET_OS_IPHONE || TARGET_OS_OSX
-  else if ([@"videoPlatformViewRendererSetSrcObject" isEqualToString:call.method]) {
-      NSDictionary* argsMap = call.arguments;
-      NSNumber* viewId = argsMap[@"viewId"];
-      FlutterRTCVideoPlatformViewController* render = _platformViewFactory.renders[viewId];
-      NSString* streamId = argsMap[@"streamId"];
-      NSString* ownerTag = argsMap[@"ownerTag"];
-      NSString* trackId = argsMap[@"trackId"];
-      if (!render) {
-        result([FlutterError errorWithCode:@"videoRendererSetSrcObject: render is nil"
-                                   message:nil
-                                   details:nil]);
-        return;
-      }
-      RTCMediaStream* stream = nil;
-      RTCVideoTrack* videoTrack = nil;
+    if (!videoTrack) {
       if ([ownerTag isEqualToString:@"local"]) {
         stream = _localStreams[streamId];
       }
@@ -1002,6 +974,54 @@ static __weak id<RTCAudioDeviceModuleDelegate> gAudioDeviceModuleObserver = nil;
         }
         if (!videoTrack) {
           NSLog(@"Not found video track for RTCMediaStream: %@", streamId);
+        }
+      }
+    }
+    [self rendererSetSrcObject:render stream:videoTrack];
+    result(nil);
+  }
+#if TARGET_OS_IPHONE || TARGET_OS_OSX
+  else if ([@"videoPlatformViewRendererSetSrcObject" isEqualToString:call.method]) {
+      NSDictionary* argsMap = call.arguments;
+      NSNumber* viewId = argsMap[@"viewId"];
+      FlutterRTCVideoPlatformViewController* render = _platformViewFactory.renders[viewId];
+      NSString* streamId = argsMap[@"streamId"];
+      NSString* ownerTag = argsMap[@"ownerTag"];
+      NSString* peerConnectionId = argsMap[@"peerConnectionId"];
+      NSString* trackId = argsMap[@"trackId"];
+      if (!render) {
+        result([FlutterError errorWithCode:@"videoRendererSetSrcObject: render is nil"
+                                   message:nil
+                                   details:nil]);
+        return;
+      }
+      RTCMediaStream* stream = nil;
+      RTCVideoTrack* videoTrack = nil;
+      if (trackId && ![trackId isEqualToString:@"0"]) {
+        RTCMediaStreamTrack* track =
+            [self trackForId:trackId peerConnectionId:peerConnectionId];
+        if ([track isKindOfClass:[RTCVideoTrack class]]) {
+          videoTrack = (RTCVideoTrack*)track;
+        }
+      }
+      if (!videoTrack) {
+        if ([ownerTag isEqualToString:@"local"]) {
+          stream = _localStreams[streamId];
+        }
+        if (!stream) {
+          stream = [self streamForId:streamId peerConnectionId:ownerTag];
+        }
+        if (stream) {
+          NSArray* videoTracks = stream ? stream.videoTracks : nil;
+          videoTrack = videoTracks && videoTracks.count ? videoTracks[0] : nil;
+          for (RTCVideoTrack* track in videoTracks) {
+            if ([track.trackId isEqualToString:trackId]) {
+              videoTrack = track;
+            }
+          }
+          if (!videoTrack) {
+            NSLog(@"Not found video track for RTCMediaStream: %@", streamId);
+          }
         }
       }
       render.videoTrack = videoTrack;

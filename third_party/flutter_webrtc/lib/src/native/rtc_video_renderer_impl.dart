@@ -7,6 +7,7 @@ import 'package:webrtc_interface/webrtc_interface.dart';
 
 import '../helper.dart';
 import '../video_renderer_extension.dart' show AudioControl;
+import 'media_stream_track_impl.dart';
 import 'utils.dart';
 
 class RTCVideoRenderer extends ValueNotifier<RTCVideoValue>
@@ -78,13 +79,19 @@ class RTCVideoRenderer extends ValueNotifier<RTCVideoValue>
     if (_textureId == null) throw 'Call initialize before setting the stream';
     _srcObject = stream;
     var oldTextureId = _textureId;
+    final selectedTrack =
+        trackId == null ? null : stream?.getTrackById(trackId);
+    final arguments = <String, dynamic>{
+      'textureId': _textureId,
+      'streamId': stream?.id ?? '',
+      'ownerTag': stream?.ownerTag ?? '',
+      'trackId': trackId ?? '0'
+    };
+    if (selectedTrack is MediaStreamTrackNative) {
+      arguments['peerConnectionId'] = selectedTrack.peerConnectionId;
+    }
     try {
-      await WebRTC.invokeMethod('videoRendererSetSrcObject', <String, dynamic>{
-        'textureId': _textureId,
-        'streamId': stream?.id ?? '',
-        'ownerTag': stream?.ownerTag ?? '',
-        'trackId': trackId ?? '0'
-      });
+      await WebRTC.invokeMethod('videoRendererSetSrcObject', arguments);
       value = (stream == null)
           ? RTCVideoValue.empty
           : value.copyWith(renderVideo: renderVideo);
