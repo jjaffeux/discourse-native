@@ -3,11 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'markdown_highlight.dart';
 import 'markdown_style.dart';
+import 'quote_panel.dart';
 
 /// One complete Discourse `[quote]` block in a composer document.
 ///
@@ -272,8 +272,6 @@ class ComposerQuotePreview extends StatelessWidget {
   final TextStyle baseStyle;
   final Key? removeKey;
 
-  static const double _barWidth = 3;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -306,64 +304,49 @@ class ComposerQuotePreview extends StatelessWidget {
       container: true,
       label: title == null ? 'Quote' : 'Quote from $title',
       hint: 'Read only. Use the remove quote button to delete it.',
-      child: Container(
+      child: QuotePanel(
         margin: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color: theme.shell.panel,
-          borderRadius: const BorderRadius.horizontal(
-            left: Radius.circular(3),
-            right: Radius.circular(6),
-          ),
-          border: Border(
-            left: BorderSide(
-              color: theme.colorScheme.primary,
-              width: _barWidth,
-            ),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-          child: Stack(
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (title != null) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(right: 28),
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: muted,
-                          fontWeight: FontWeight.w600,
-                        ),
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        child: Stack(
+          children: [
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (title != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(right: 28),
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: muted,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                  ],
-                  quoteBody,
+                  ),
+                  const SizedBox(height: 8),
                 ],
-              ),
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Tooltip(
-                  message: 'Remove quote',
-                  child: SizedBox(
-                    key: removeKey,
-                    width: 24,
-                    height: 20,
-                    child: Center(
-                      child: DIcon(DIcons.xmark, size: 13, color: muted),
-                    ),
+                quoteBody,
+              ],
+            ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Tooltip(
+                message: 'Remove quote',
+                child: SizedBox(
+                  key: removeKey,
+                  width: 24,
+                  height: 20,
+                  child: Center(
+                    child: DIcon(DIcons.xmark, size: 13, color: muted),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

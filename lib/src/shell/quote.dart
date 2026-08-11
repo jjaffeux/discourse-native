@@ -8,6 +8,7 @@ import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'open_link.dart';
+import 'quote_panel.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
 import 'user_card.dart';
@@ -126,46 +127,29 @@ class QuoteBlock extends StatelessWidget {
   final String? siteUrl;
 
   static const double _avatarSize = 20;
-  static const double _barWidth = 3;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final shell = theme.shell;
     final hasHeader = data.title != null || data.avatarUrl != null;
 
-    return Container(
+    return QuotePanel(
       margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: shell.panel,
-        borderRadius: const BorderRadius.horizontal(
-          left: Radius.circular(3),
-          right: Radius.circular(6),
-        ),
-        // The accent bar is the quote's one strong signal, so it stays the
-        // full height of the block rather than sitting beside the header.
-        border: Border(
-          left: BorderSide(color: theme.colorScheme.primary, width: _barWidth),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (hasHeader) ...[
-              _Header(data: data, siteUrl: siteUrl),
-              const SizedBox(height: 8),
-            ],
-            CookedHtml(
-              html: data.bodyHtml,
-              siteUrl: siteUrl,
-              textStyle: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (hasHeader) ...[
+            _Header(data: data, siteUrl: siteUrl),
+            const SizedBox(height: 8),
           ],
-        ),
+          CookedHtml(
+            html: data.bodyHtml,
+            siteUrl: siteUrl,
+            textStyle: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
