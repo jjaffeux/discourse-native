@@ -250,7 +250,7 @@ void main() {
     );
   });
 
-  testWidgets('ranked choice is locked and can escape to raw source', (
+  testWidgets('ranked choice is locked without a raw editing option', (
     tester,
   ) async {
     const source =
@@ -258,7 +258,6 @@ void main() {
         '* A\n'
         '* B\n'
         '[/poll]';
-    PollComposerSheetAction? result;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark,
@@ -266,7 +265,7 @@ void main() {
           body: Builder(
             builder: (context) => FilledButton(
               onPressed: () async {
-                result = await showPollComposerSheet(
+                await showPollComposerSheet(
                   context: context,
                   draft: PollComposerDraft.fromBlock(
                     parsePollComposerBlocks(source).single,
@@ -290,8 +289,7 @@ void main() {
       find.textContaining('Ranked-choice polls keep their type'),
       findsOneWidget,
     );
-    await tapSheetAction(tester, 'Edit as raw');
-    expect(result?.type, PollComposerSheetActionType.editRaw);
+    expect(find.text('Edit as raw'), findsNothing);
   });
 
   testWidgets('published removal confirms and names the voter count', (

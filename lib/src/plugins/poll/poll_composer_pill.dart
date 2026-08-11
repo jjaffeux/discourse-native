@@ -168,10 +168,8 @@ PollComposerBlock? pollBlockAtComposerOffset(
 bool pollBlockNeedsRawSource({
   required PollComposerBlock block,
   required TextEditingValue value,
-  bool explicitlyRaw = false,
   bool suppressCollapsedCaret = false,
 }) {
-  if (explicitlyRaw) return true;
   final composing = value.isComposingRangeValid
       ? value.composing
       : TextRange.empty;
@@ -194,26 +192,3 @@ bool pollBlockNeedsRawSource({
 
 bool _rangesOverlap(int aStart, int aEnd, int bStart, int bEnd) =>
     aStart < bEnd && bStart < aEnd;
-
-/// Tracks the explicit “Edit as raw” escape until the caret leaves that poll.
-class PollRawExpansion {
-  PollComposerBlock? _block;
-
-  void expand(PollComposerBlock block) => _block = block;
-
-  bool contains(PollComposerBlock block) =>
-      _block?.start == block.start &&
-      _block?.end == block.end &&
-      _block?.source == block.source;
-
-  void updateSelection(TextSelection selection) {
-    final block = _block;
-    if (block == null ||
-        !selection.isValid ||
-        !block.containsOffset(selection.extentOffset)) {
-      _block = null;
-    }
-  }
-
-  void clear() => _block = null;
-}

@@ -154,12 +154,6 @@ Future<void> openPollComposer(
     return;
   }
 
-  if (action.type == PollComposerSheetActionType.editRaw && block != null) {
-    composer.text.expandPollAsRaw(block);
-    composer.focus.requestFocus();
-    return;
-  }
-
   final PollComposerMutation mutation;
   switch (action.type) {
     case PollComposerSheetActionType.apply:
@@ -188,8 +182,6 @@ Future<void> openPollComposer(
         expectedDocument: expectedDocument,
         expectedBlock: block,
       );
-    case PollComposerSheetActionType.editRaw:
-      return;
   }
 
   if (!mutation.applied) {

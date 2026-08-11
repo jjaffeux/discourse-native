@@ -1404,8 +1404,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     try {
       await openPollComposer(context, widget.composer, block: poll);
     } finally {
-      if (_stillContains(text.text, poll.start, poll.end, poll.source) &&
-          !text.isPollExpanded(poll)) {
+      if (_stillContains(text.text, poll.start, poll.end, poll.source)) {
         text.selection = TextSelection.collapsed(
           offset: text.pollCaretAfter(poll),
         );
@@ -1421,8 +1420,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     try {
       await openLocalDateComposer(context, widget.composer, block: date);
     } finally {
-      if (_stillContains(text.text, date.start, date.end, date.source) &&
-          !text.isLocalDateExpanded(date)) {
+      if (_stillContains(text.text, date.start, date.end, date.source)) {
         text.selection = TextSelection.collapsed(offset: date.end);
       }
       text.releaseLocalDatePointerEdit(date);

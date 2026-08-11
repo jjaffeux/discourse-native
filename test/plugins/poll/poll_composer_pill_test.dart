@@ -377,31 +377,6 @@ void main() {
     );
   });
 
-  test('explicit raw expansion ends when the caret leaves', () {
-    final expansion = PollRawExpansion()..expand(block);
-    expect(expansion.contains(block), isTrue);
-    expansion.updateSelection(
-      TextSelection.collapsed(offset: block.start + block.length ~/ 2),
-    );
-    expect(expansion.contains(block), isTrue);
-    expansion.updateSelection(TextSelection.collapsed(offset: block.end));
-    expect(expansion.contains(block), isFalse);
-  });
-
-  test('explicit raw expansion clears keyboard pill selection', () {
-    final controller = MarkdownEditingController(text: source);
-    addTearDown(controller.dispose);
-    final projected = controller.pollBlocks.single;
-    controller.selectPillForKeyboard(projected);
-    controller.keepPollCollapsedForPointerEdit(projected);
-
-    controller.expandPollAsRaw(projected);
-
-    expect(controller.keyboardSelectedPoll, isNull);
-    expect(controller.isPollExpanded(projected), isTrue);
-    expect(controller.selection.extentOffset, projected.start + 1);
-  });
-
   test('a pointer-held poll clamps native range selection to its end', () {
     final controller = MarkdownEditingController(text: source);
     addTearDown(controller.dispose);

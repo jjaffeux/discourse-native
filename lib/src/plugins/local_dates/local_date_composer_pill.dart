@@ -155,10 +155,8 @@ class LocalDateComposerPill extends StatelessWidget {
 bool localDateBlockNeedsRawSource({
   required LocalDateComposerBlock block,
   required TextEditingValue value,
-  bool explicitlyRaw = false,
   bool suppressCollapsedCaret = false,
 }) {
-  if (explicitlyRaw) return true;
   final composing = value.isComposingRangeValid
       ? value.composing
       : TextRange.empty;
@@ -180,25 +178,3 @@ bool localDateBlockNeedsRawSource({
 
 bool _overlap(int aStart, int aEnd, int bStart, int bEnd) =>
     aStart < bEnd && bStart < aEnd;
-
-class LocalDateRawExpansion {
-  LocalDateComposerBlock? _block;
-
-  void expand(LocalDateComposerBlock block) => _block = block;
-
-  bool contains(LocalDateComposerBlock block) =>
-      _block?.start == block.start &&
-      _block?.end == block.end &&
-      _block?.source == block.source;
-
-  void updateSelection(TextSelection selection) {
-    final block = _block;
-    if (block == null ||
-        !selection.isValid ||
-        !block.containsOffset(selection.extentOffset)) {
-      _block = null;
-    }
-  }
-
-  void clear() => _block = null;
-}
