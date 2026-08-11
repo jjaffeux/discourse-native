@@ -207,6 +207,13 @@ void main() {
       expect(find.byType(LocalDateComposerPill), findsOneWidget);
       expect(find.byType(PollComposerPill), findsOneWidget);
       expect(controller.text, source);
+
+      final projected = controller.localDateBlocks.single;
+      expect(
+        controller.collapsedLocalDateAtOffset(projected.end - 1),
+        same(projected),
+      );
+      expect(controller.collapsedLocalDateAtOffset(projected.end), isNull);
     });
   });
 }

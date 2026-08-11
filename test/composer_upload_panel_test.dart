@@ -78,16 +78,34 @@ void main() {
     final previewRect = tester.getRect(find.byType(ComposerImagePreview));
     final editorRect = tester.getRect(find.byType(EditableText));
     expect(previewRect.top, greaterThanOrEqualTo(editorRect.top));
-    Future<void> tapPreview() => tester.tapAt(
-      tester.getTopLeft(find.byType(ComposerImagePreview)) + const Offset(8, 8),
-    );
-    await tapPreview();
+    Future<void> tapPreview({bool redrawBeforeUp = false}) async {
+      final position =
+          tester.getTopLeft(find.byType(ComposerImagePreview)) +
+          const Offset(8, 8);
+      final gesture = await tester.startGesture(position);
+      if (redrawBeforeUp) {
+        final image = composer.text.imageBlocks.single;
+        composer.text.selection = TextSelection.collapsed(
+          offset: image.start + 1,
+        );
+        await tester.pump();
+        expect(find.byType(ComposerImagePreview), findsOneWidget);
+      }
+      await gesture.up();
+    }
+
+    await tapPreview(redrawBeforeUp: true);
+    await tester.pump();
     await tester.pump();
 
     expect(find.byTooltip('Decrease image size'), findsOneWidget);
     expect(find.byTooltip('Increase image size'), findsOneWidget);
     expect(find.byTooltip('Remove image'), findsNothing);
     expect(find.byTooltip('Save alt text'), findsOneWidget);
+    final image = composer.text.imageBlocks.single;
+    composer.text.selection = TextSelection.collapsed(offset: image.end - 1);
+    await tester.pump();
+    expect(find.byType(ComposerImagePreview), findsOneWidget);
 
     await tester.tap(find.byTooltip('Decrease image size'));
     await tester.pump();

@@ -65,6 +65,7 @@ class MarkdownEditingController extends TextEditingController {
   String? _imageScanned;
   List<ComposerImageBlock> _imageBlocks = const [];
   Set<int> _collapsedImageStarts = const {};
+  ComposerImageBlock? _caretSuppressedImage;
   final Map<int, GlobalKey> _imageKeys = {};
   final Map<String, String> _imageUrls = {};
   final Set<String> _resolvingImageUrls = {};
@@ -87,6 +88,26 @@ class MarkdownEditingController extends TextEditingController {
 
   bool isImageCollapsed(ComposerImageBlock image) =>
       _collapsedImageStarts.contains(image.start);
+
+  void keepImageCollapsedForPointerEdit(ComposerImageBlock image) {
+    if (_sameProjection(_caretSuppressedImage, image)) return;
+    _caretSuppressedImage = image;
+    artworkArrived();
+  }
+
+  void releaseImagePointerEdit(ComposerImageBlock image) {
+    if (!_sameProjection(_caretSuppressedImage, image)) return;
+    _caretSuppressedImage = null;
+    artworkArrived();
+  }
+
+  ComposerImageBlock? collapsedImageAtOffset(int offset) {
+    final image = imageAtOffset(offset);
+    if (image == null || offset >= image.end || !isImageCollapsed(image)) {
+      return null;
+    }
+    return image;
+  }
 
   ComposerImageBlock? collapsedImageAtGlobalPosition(Offset globalPosition) {
     for (final image in _imageBlocksFor(text)) {
@@ -129,6 +150,7 @@ class MarkdownEditingController extends TextEditingController {
   List<PollComposerBlock> _pollBlocks = const [];
   final PollRawExpansion _rawPoll = PollRawExpansion();
   Set<int> _collapsedPollStarts = const {};
+  PollComposerBlock? _caretSuppressedPoll;
   final Map<int, GlobalKey> _pollPillKeys = {};
 
   /// Safely projectable poll occurrences in the current raw document.
@@ -143,12 +165,29 @@ class MarkdownEditingController extends TextEditingController {
   bool isPollCollapsed(PollComposerBlock block) =>
       _collapsedPollStarts.contains(block.start);
 
+  void keepPollCollapsedForPointerEdit(PollComposerBlock block) {
+    if (_sameProjection(_caretSuppressedPoll, block)) return;
+    _caretSuppressedPoll = block;
+    artworkArrived();
+  }
+
+  void releasePollPointerEdit(PollComposerBlock block) {
+    if (!_sameProjection(_caretSuppressedPoll, block)) return;
+    _caretSuppressedPoll = null;
+    artworkArrived();
+  }
+
+  PollComposerBlock? collapsedPollAtOffset(int offset) {
+    final block = pollAtOffset(offset);
+    return block != null && isPollCollapsed(block) ? block : null;
+  }
+
   /// The collapsed poll whose visible pill contains [globalPosition].
   ///
   /// EditableText deliberately keeps embedded widgets out of pointer hit
-  /// testing. Their render boxes still have truthful geometry, so the field
-  /// routes taps through these exact rectangles instead of guessing from the
-  /// caret Flutter selected.
+  /// testing. Their render boxes normally provide the most precise hit target;
+  /// the field can fall back to the editable source offset when platform
+  /// layout reports stale widget geometry.
   PollComposerBlock? collapsedPollAtGlobalPosition(Offset globalPosition) {
     for (final block in _pollBlocksFor(text)) {
       if (!isPollCollapsed(block)) continue;
@@ -187,6 +226,7 @@ class MarkdownEditingController extends TextEditingController {
   List<LocalDateComposerBlock> _localDateBlocks = const [];
   final LocalDateRawExpansion _rawLocalDate = LocalDateRawExpansion();
   Set<int> _collapsedLocalDateStarts = const {};
+  LocalDateComposerBlock? _caretSuppressedLocalDate;
   final Map<int, GlobalKey> _localDatePillKeys = {};
 
   List<LocalDateComposerBlock> get localDateBlocks =>
@@ -197,6 +237,26 @@ class MarkdownEditingController extends TextEditingController {
 
   bool isLocalDateCollapsed(LocalDateComposerBlock block) =>
       _collapsedLocalDateStarts.contains(block.start);
+
+  bool isLocalDateExpanded(LocalDateComposerBlock block) =>
+      _rawLocalDate.contains(block);
+
+  void keepLocalDateCollapsedForPointerEdit(LocalDateComposerBlock block) {
+    if (_sameProjection(_caretSuppressedLocalDate, block)) return;
+    _caretSuppressedLocalDate = block;
+    artworkArrived();
+  }
+
+  void releaseLocalDatePointerEdit(LocalDateComposerBlock block) {
+    if (!_sameProjection(_caretSuppressedLocalDate, block)) return;
+    _caretSuppressedLocalDate = null;
+    artworkArrived();
+  }
+
+  LocalDateComposerBlock? collapsedLocalDateAtOffset(int offset) {
+    final block = localDateAtOffset(offset);
+    return block != null && isLocalDateCollapsed(block) ? block : null;
+  }
 
   LocalDateComposerBlock? collapsedLocalDateAtGlobalPosition(
     Offset globalPosition,
@@ -366,6 +426,7 @@ class MarkdownEditingController extends TextEditingController {
           block: block,
           value: value,
           explicitlyRaw: _rawPoll.contains(block),
+          suppressCollapsedCaret: _sameProjection(_caretSuppressedPoll, block),
         ))
           block,
     ];
@@ -386,6 +447,10 @@ class MarkdownEditingController extends TextEditingController {
           block: block,
           value: value,
           explicitlyRaw: _rawLocalDate.contains(block),
+          suppressCollapsedCaret: _sameProjection(
+            _caretSuppressedLocalDate,
+            block,
+          ),
         ))
           block,
     ];
@@ -405,7 +470,12 @@ class MarkdownEditingController extends TextEditingController {
     final images = _imageBlocksFor(source);
     final collapsedImages = [
       for (final image in images)
-        if (!_imageNeedsRawSource(image, value)) image,
+        if (!_imageNeedsRawSource(
+          image,
+          value,
+          suppressCollapsedCaret: _sameProjection(_caretSuppressedImage, image),
+        ))
+          image,
     ];
     _collapsedImageStarts = {for (final image in collapsedImages) image.start};
     final imageProjection = Object.hashAll(
@@ -727,12 +797,14 @@ class MarkdownEditingController extends TextEditingController {
 
   static bool _imageNeedsRawSource(
     ComposerImageBlock image,
-    TextEditingValue value,
-  ) {
+    TextEditingValue value, {
+    bool suppressCollapsedCaret = false,
+  }) {
     final selection = value.selection;
     if (!selection.isValid) return false;
     if (selection.isCollapsed) {
-      return selection.extentOffset >= image.start &&
+      return !suppressCollapsedCaret &&
+          selection.extentOffset >= image.start &&
           selection.extentOffset < image.end;
     }
     return selection.start < image.end && selection.end > image.start;
@@ -750,6 +822,17 @@ class MarkdownEditingController extends TextEditingController {
     _artwork++;
     notifyListeners();
   }
+
+  static bool _sameProjection(Object? first, Object? second) =>
+      switch ((first, second)) {
+        (ComposerImageBlock a, ComposerImageBlock b) =>
+          a.start == b.start && a.end == b.end && a.source == b.source,
+        (PollComposerBlock a, PollComposerBlock b) =>
+          a.start == b.start && a.end == b.end && a.source == b.source,
+        (LocalDateComposerBlock a, LocalDateComposerBlock b) =>
+          a.start == b.start && a.end == b.end && a.source == b.source,
+        _ => false,
+      };
 
   /// A shortcode drawn as its artwork, or null to draw it as text.
   ///
