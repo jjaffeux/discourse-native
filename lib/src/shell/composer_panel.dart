@@ -990,6 +990,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   ComposerQuoteBlock? _pointerDownQuote;
   ComposerImageBlock? _pointerDownImage;
   PollComposerBlock? _pointerDownPoll;
+  PollComposerBlock? _pointerDownAfterPoll;
   LocalDateComposerBlock? _pointerDownLocalDate;
   Offset? _pointerDownPosition;
   int _pointerSequence = 0;
@@ -1028,6 +1029,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (_pointerDownPoll case final poll?) {
       oldWidget.composer.text.releasePollPointerEdit(poll);
     }
+    if (_pointerDownAfterPoll case final poll?) {
+      oldWidget.composer.text.releasePollPointerEdit(poll);
+    }
     if (_pointerDownLocalDate case final date?) {
       oldWidget.composer.text.releaseLocalDatePointerEdit(date);
     }
@@ -1037,6 +1041,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _pointerDownQuote = null;
     _pointerDownImage = null;
     _pointerDownPoll = null;
+    _pointerDownAfterPoll = null;
     _pointerDownLocalDate = null;
     _pointerDownPosition = null;
     _selectedImage = null;
@@ -1234,11 +1239,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _pointerDownQuote != null ||
       _pointerDownImage != null ||
       _pointerDownPoll != null ||
+      _pointerDownAfterPoll != null ||
       _pointerDownLocalDate != null;
 
   void _onEditorPointerDown(PointerDownEvent event) {
     widget.composer.text.clearKeyboardPillSelection();
     _releasePointerDownPillCollapse();
+    _pointerDownAfterPoll = null;
     _pointerSequence++;
     final position = event.position;
     _pointerDownPosition = position;
@@ -1256,6 +1263,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
             _pointerDownImage == null &&
             _pointerDownPoll == null
         ? widget.composer.text.collapsedLocalDateAtGlobalPosition(position)
+        : null;
+    _pointerDownAfterPoll = !_hasPointerDownPill
+        ? widget.composer.text.collapsedPollBeforeGlobalPosition(position)
         : null;
     if (!_hasPointerDownPill) {
       final editable = _renderEditable;
@@ -1306,7 +1316,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final text = widget.composer.text;
     if (_pointerDownImage case final image?) {
       text.keepImageCollapsedForPointerEdit(image);
-    } else if (_pointerDownPoll case final poll?) {
+    } else if ((_pointerDownPoll ?? _pointerDownAfterPoll) case final poll?) {
       text.keepPollCollapsedForPointerEdit(poll);
     } else if (_pointerDownLocalDate case final date?) {
       text.keepLocalDateCollapsedForPointerEdit(date);
@@ -1321,6 +1331,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (_pointerDownPoll case final poll?) {
       text.releasePollPointerEdit(poll);
     }
+    if (_pointerDownAfterPoll case final poll?) {
+      text.releasePollPointerEdit(poll);
+    }
     if (_pointerDownLocalDate case final date?) {
       text.releaseLocalDatePointerEdit(date);
     }
@@ -1331,6 +1344,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _pointerDownQuote = null;
     _pointerDownImage = null;
     _pointerDownPoll = null;
+    _pointerDownAfterPoll = null;
     _pointerDownLocalDate = null;
     _pointerDownPosition = null;
   }
@@ -1339,6 +1353,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final quote = _pointerDownQuote;
     final image = _pointerDownImage;
     final poll = _pointerDownPoll;
+    final afterPoll = _pointerDownAfterPoll;
     final date = _pointerDownLocalDate;
     final position = _pointerDownPosition;
     _clearPointerDownPill(releaseCollapse: false);
@@ -1364,6 +1379,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (_selectedImage case final selected?) {
       widget.composer.text.releaseImagePointerEdit(selected);
       setState(() => _selectedImage = null);
+    }
+    if (afterPoll != null) {
+      try {
+        _moveCaretAfterPoll(afterPoll);
+      } finally {
+        widget.composer.text.releasePollPointerEdit(afterPoll);
+      }
+      return;
     }
     if (poll != null) {
       unawaited(_editPoll(poll));
@@ -1466,6 +1489,28 @@ class _ComposerEditorState extends State<ComposerEditor> {
         keyboard.isShiftPressed;
     final selectedPill = _keyboardSelectedPill;
     if (selectedPill != null) {
+      final isArrowPress = event is KeyDownEvent || event is KeyRepeatEvent;
+      final isPlainHorizontalArrow =
+          isArrowPress &&
+          !hasModifier &&
+          (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+              event.logicalKey == LogicalKeyboardKey.arrowRight);
+      if (isPlainHorizontalArrow) {
+        final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+        widget.composer.text.clearKeyboardPillSelection();
+        if (moveLeft) {
+          widget.composer.text.selection = TextSelection.collapsed(
+            offset: _pillStart(selectedPill),
+          );
+        } else if (selectedPill case final PollComposerBlock poll) {
+          _moveCaretAfterPoll(poll);
+        } else {
+          widget.composer.text.selection = TextSelection.collapsed(
+            offset: _pillEnd(selectedPill),
+          );
+        }
+        return KeyEventResult.handled;
+      }
       final isPlainEnter =
           event is KeyDownEvent &&
           (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -1601,6 +1646,30 @@ class _ComposerEditorState extends State<ComposerEditor> {
       if (date.start == caret && text.isLocalDateCollapsed(date)) return date;
     }
     return null;
+  }
+
+  static int _pillStart(Object pill) => switch (pill) {
+    ComposerImageBlock image => image.start,
+    PollComposerBlock poll => poll.start,
+    LocalDateComposerBlock date => date.start,
+    _ => throw ArgumentError.value(pill, 'pill'),
+  };
+
+  static int _pillEnd(Object pill) => switch (pill) {
+    ComposerImageBlock image => image.end,
+    LocalDateComposerBlock date => date.end,
+    _ => throw ArgumentError.value(pill, 'pill'),
+  };
+
+  void _moveCaretAfterPoll(PollComposerBlock poll) {
+    final text = widget.composer.text;
+    final mutation = replaceVerifiedPoll(
+      current: text.value,
+      expectedDocument: text.text,
+      expectedBlock: poll,
+      replacement: poll.source,
+    );
+    if (mutation.applied) text.value = mutation.value;
   }
 
   void _editPill(Object pill) {

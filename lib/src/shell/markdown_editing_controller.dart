@@ -278,6 +278,26 @@ class MarkdownEditingController extends TextEditingController {
     return null;
   }
 
+  /// The collapsed block-shaped poll immediately left of [globalPosition].
+  ///
+  /// RenderEditable can map points after a WidgetSpan back into its hidden
+  /// source offsets. Checking the laid-out pill separately lets the composer
+  /// treat the rest of that visual row as the following caret line instead of
+  /// mistaking it for activation of the pill itself.
+  PollComposerBlock? collapsedPollBeforeGlobalPosition(Offset globalPosition) {
+    for (final block in _pollBlocksFor(text)) {
+      if (!isPollCollapsed(block)) continue;
+      final rect = collapsedPollGlobalRect(block);
+      if (rect != null &&
+          globalPosition.dx >= rect.right &&
+          globalPosition.dy >= rect.top &&
+          globalPosition.dy < rect.bottom) {
+        return block;
+      }
+    }
+    return null;
+  }
+
   Rect? collapsedPollGlobalRect(PollComposerBlock block) {
     if (!isPollCollapsed(block)) return null;
     final renderObject = _pollPillKeys[block.start]?.currentContext

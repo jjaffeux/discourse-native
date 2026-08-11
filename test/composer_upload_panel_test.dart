@@ -133,6 +133,19 @@ void main() {
           .highlighted,
       isTrue,
     );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(composer.text.selection.extentOffset, resizedImage.end);
+    expect(composer.text.keyboardSelectedImage, isNull);
+    expect(
+      tester
+          .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
+          .highlighted,
+      isFalse,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(composer.text.keyboardSelectedImage, isNotNull);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(find.byTooltip('Save alt text'), findsOneWidget);
