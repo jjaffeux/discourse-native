@@ -83,7 +83,9 @@ class FlutterWebRTCBase {
   bool ParseRTCConfiguration(const EncodableMap& map,
                              RTCConfiguration& configuration);
 
-  scoped_refptr<RTCMediaTrack> MediaTracksForId(const std::string& id);
+  scoped_refptr<RTCMediaTrack> MediaTracksForId(
+      const std::string& id,
+      const std::string& peer_connection_id = std::string());
 
   void RemoveTracksForId(const std::string& id);
 

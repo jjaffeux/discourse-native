@@ -69,7 +69,8 @@ class FlutterVideoRendererManager {
   void VideoRendererSetSrcObject(int64_t texture_id,
                                  const std::string& stream_id,
                                  const std::string& owner_tag,
-                                 const std::string& track_id);
+                                 const std::string& track_id,
+                                 const std::string& peer_connection_id);
 
   void VideoRendererDispose(int64_t texture_id,
                             std::unique_ptr<MethodResultProxy> result);

@@ -729,6 +729,7 @@ public class MethodCallHandlerImpl implements MethodCallHandler, StateProvider {
         int textureId = call.argument("textureId");
         String streamId = call.argument("streamId");
         String ownerTag = call.argument("ownerTag");
+        String peerConnectionId = call.argument("peerConnectionId");
         String trackId = call.argument("trackId");
         FlutterRTCVideoRenderer render = renders.get(textureId);
         if (render == null) {
@@ -742,7 +743,7 @@ public class MethodCallHandlerImpl implements MethodCallHandler, StateProvider {
           stream = getStreamForId(streamId, ownerTag);
         }
         if (trackId != null && !trackId.equals("0")){
-          MediaStreamTrack track = getTrackForId(trackId, ownerTag);
+          MediaStreamTrack track = getTrackForId(trackId, peerConnectionId);
           if (track instanceof VideoTrack) {
             render.setTrack((VideoTrack) track, streamId, ownerTag);
           } else {

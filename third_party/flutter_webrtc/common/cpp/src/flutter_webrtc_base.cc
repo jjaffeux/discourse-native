@@ -319,10 +319,19 @@ bool FlutterWebRTCBase::ParseRTCConfiguration(const EncodableMap& map,
 }
 
 scoped_refptr<RTCMediaTrack> FlutterWebRTCBase::MediaTracksForId(
-    const std::string& id) {
+    const std::string& id,
+    const std::string& peer_connection_id) {
   auto it = local_tracks_.find(id);
   if (it != local_tracks_.end()) {
     return (*it).second;
+  }
+
+  if (!peer_connection_id.empty()) {
+    auto observer = peerconnection_observers_.find(peer_connection_id);
+    if (observer == peerconnection_observers_.end()) {
+      return nullptr;
+    }
+    return observer->second->MediaTrackForId(id);
   }
 
   for (auto it2 : peerconnection_observers_) {

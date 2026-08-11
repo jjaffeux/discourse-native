@@ -134,28 +134,44 @@ void FlutterVideoRendererManager::VideoRendererSetSrcObject(
     int64_t texture_id,
     const std::string& stream_id,
     const std::string& owner_tag,
-    const std::string& track_id) {
+    const std::string& track_id,
+    const std::string& peer_connection_id) {
   scoped_refptr<RTCMediaStream> stream =
       base_->MediaStreamForId(stream_id, owner_tag);
 
   auto it = renderers_.find(texture_id);
   if (it != renderers_.end()) {
     FlutterVideoRenderer* renderer = it->second.get();
+    if (!track_id.empty() && track_id != "0") {
+      scoped_refptr<RTCMediaTrack> track =
+          base_->MediaTracksForId(track_id, peer_connection_id);
+      if (track != nullptr && track->kind().std_string() == "video") {
+        renderer->SetVideoTrack(static_cast<RTCVideoTrack*>(track.get()));
+        renderer->media_stream_id = stream_id;
+        return;
+      }
+    }
     if (stream.get()) {
       auto video_tracks = stream->video_tracks();
+      bool selected_track = false;
       if (video_tracks.size() > 0) {
-        if (track_id == std::string()) {
+        if (track_id.empty() || track_id == "0") {
           renderer->SetVideoTrack(video_tracks[0]);
+          selected_track = true;
         } else {
           for (auto track : video_tracks.std_vector()) {
             if (track->id().std_string() == track_id) {
               renderer->SetVideoTrack(track);
+              selected_track = true;
               break;
             }
           }
         }
-        renderer->media_stream_id = stream_id;
       }
+      if (!selected_track) {
+        renderer->SetVideoTrack(nullptr);
+      }
+      renderer->media_stream_id = stream_id;
     } else {
       renderer->SetVideoTrack(nullptr);
     }

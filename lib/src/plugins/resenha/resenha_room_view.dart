@@ -612,7 +612,7 @@ class ResenhaVideoSurface extends StatelessWidget {
       fit: lk.VideoViewFit.cover,
     ),
     final rtc.MediaStreamTrack track => _RtcTrackRenderer(
-      key: ValueKey(track.id),
+      key: ObjectKey(track),
       track: track,
     ),
     _ => const SizedBox.shrink(),
@@ -629,36 +629,79 @@ class _RtcTrackRenderer extends StatefulWidget {
 
 class _RtcTrackRendererState extends State<_RtcTrackRenderer> {
   final rtc.RTCVideoRenderer _renderer = rtc.RTCVideoRenderer();
+  late final Future<void> _attachment;
   rtc.MediaStream? _stream;
   bool _rendererReady = false;
   bool _disposed = false;
+  bool _released = false;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_attach());
+    _attachment = _attach();
+    unawaited(_attachment);
   }
 
   Future<void> _attach() async {
-    await _renderer.initialize();
-    _rendererReady = true;
-    if (_disposed) {
+    rtc.MediaStream? pendingStream;
+    try {
+      await _renderer.initialize();
+      _rendererReady = true;
+      if (_disposed) return;
+      pendingStream = await rtc.createLocalMediaStream('resenha-video-surface');
+      if (_disposed) return;
+
+      final track = widget.track;
+      // Keep the bridge stream empty on the native side. Disposing a native
+      // stream also disposes its tracks in flutter_webrtc, but this renderer
+      // only borrows tracks owned by the call's media session.
+      await pendingStream.addTrack(track, addToNative: false);
+      if (_disposed) return;
+      await _renderer.setSrcObject(stream: pendingStream, trackId: track.id);
+      if (_disposed) return;
+
+      _stream = pendingStream;
+      pendingStream = null;
+      if (mounted) setState(() {});
+    } catch (_) {
+      // A remote peer can disappear while the renderer crosses the platform
+      // channel. Video rendering is best-effort and the next track update will
+      // create a fresh surface.
+    } finally {
+      if (pendingStream case final stream?) {
+        if (_disposed) {
+          _stream = stream;
+        } else {
+          await _disposeStream(stream);
+        }
+      }
+    }
+  }
+
+  Future<void> _disposeRenderer() async {
+    try {
       await _renderer.dispose();
-      return;
+    } catch (_) {
+      // Native renderer teardown is best-effort during widget disposal.
     }
-    final stream = await rtc.createLocalMediaStream('resenha-video-surface');
-    if (_disposed) {
+  }
+
+  Future<void> _disposeStream(rtc.MediaStream stream) async {
+    try {
       await stream.dispose();
-      return;
+    } catch (_) {
+      // The media session may already have released the native resources.
     }
-    await stream.addTrack(widget.track);
-    if (_disposed) {
-      await stream.dispose();
-      return;
+  }
+
+  Future<void> _release() async {
+    if (_released) return;
+    _released = true;
+    if (_rendererReady) await _disposeRenderer();
+    if (_stream case final stream?) {
+      _stream = null;
+      await _disposeStream(stream);
     }
-    _stream = stream;
-    _renderer.srcObject = stream;
-    if (mounted) setState(() {});
   }
 
   @override
@@ -670,9 +713,7 @@ class _RtcTrackRendererState extends State<_RtcTrackRenderer> {
   @override
   void dispose() {
     _disposed = true;
-    _renderer.srcObject = null;
-    if (_rendererReady) unawaited(_renderer.dispose());
-    unawaited(_stream?.dispose());
+    unawaited(_attachment.then((_) => _release()));
     super.dispose();
   }
 }
