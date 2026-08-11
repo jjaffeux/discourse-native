@@ -601,6 +601,26 @@ void main() {
       expect(renderedText(':slight_smile:'), findsNothing);
     });
 
+    testWidgets('a standalone emoji is large and stays at the leading edge', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1000, 600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await pumpCookedInShell(
+        tester,
+        '<p><img src="/images/emoji/twitter/smiley.png?v=15" '
+        'title=":smiley:" class="emoji only-emoji" alt=":smiley:" '
+        'loading="lazy" width="20" height="20"></p>',
+        emoji: MockClient((_) async => http.Response.bytes(onePixelPng, 200)),
+      );
+
+      final emoji = find.byType(EmojiImage);
+      expect(tester.getSize(emoji), const Size.square(32));
+      expect(tester.getTopLeft(emoji).dx, 0);
+    });
+
     testWidgets(
       'fall back to their shortcode when the site will not serve one',
       (tester) async {

@@ -140,13 +140,27 @@ Widget? emojiWidgetBuilder(
   final url = absoluteEmojiUrl(element.attributes['src'], siteUrl);
   if (url == null) return null;
 
+  final onlyEmoji = element.classes.contains('only-emoji');
+  final emoji = EmojiImage(
+    url: url,
+    size: onlyEmoji ? 32 : (baseStyle?.fontSize ?? 14) * emojiScale,
+    alt: element.attributes['alt'] ?? element.attributes['title'] ?? '',
+    style: baseStyle,
+  );
+
   return InlineCustomWidget(
-    child: EmojiImage(
-      url: url,
-      size: (baseStyle?.fontSize ?? 14) * emojiScale,
-      alt: element.attributes['alt'] ?? element.attributes['title'] ?? '',
-      style: baseStyle,
-    ),
+    // HtmlWidget unwraps a paragraph containing one inline widget into that
+    // widget directly. The paragraph's tight block width would then stretch
+    // the image across the message and paint its artwork in the centre. Align
+    // absorbs that width while giving the emoji its intended square.
+    child: onlyEmoji
+        ? Align(
+            alignment: AlignmentDirectional.centerStart,
+            widthFactor: 1,
+            heightFactor: 1,
+            child: emoji,
+          )
+        : emoji,
   );
 }
 
