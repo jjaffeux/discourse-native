@@ -43,6 +43,19 @@ void main() {
     expect(find.byTooltip('Remove quote'), findsOneWidget);
 
     final quote = composer.text.quoteBlocks.single;
+    final previewBottom = tester
+        .getBottomLeft(find.byType(ComposerQuotePreview))
+        .dy;
+    final editable = tester.state<EditableTextState>(find.byType(EditableText));
+    final render = editable.renderEditable;
+    final caretTop = render
+        .localToGlobal(
+          render.getLocalRectForCaret(TextPosition(offset: quote.end)).topLeft,
+        )
+        .dy;
+
+    expect(caretTop - previewBottom, inInclusiveRange(0, 32));
+
     composer.text.selection = TextSelection.collapsed(offset: quote.start + 1);
     await tester.pump();
 

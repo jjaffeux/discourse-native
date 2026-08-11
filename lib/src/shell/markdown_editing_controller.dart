@@ -657,9 +657,6 @@ class MarkdownEditingController extends TextEditingController {
   }
 
   List<InlineSpan> _buildQuoteSpans(ComposerQuoteBlock block, TextStyle base) {
-    final height = ComposerQuotePreview.displayHeight(block, base) + 8;
-    final lineHeight = (base.fontSize ?? 14) * (base.height ?? 1.4);
-    final breaks = (height / lineHeight).ceil().clamp(1, block.length - 1);
     return [
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
@@ -687,7 +684,10 @@ class MarkdownEditingController extends TextEditingController {
         ),
       ),
       TextSpan(
-        text: List.filled(breaks, '\n').join(),
+        // The WidgetSpan already contributes the quote's full height. One
+        // transparent line break moves subsequent prose below it; reserving
+        // that height again creates a quote-sized gap before the caret.
+        text: '\n',
         style: TextStyle(
           color: const Color(0x00000000),
           fontFamily: base.fontFamily,
@@ -697,7 +697,7 @@ class MarkdownEditingController extends TextEditingController {
         ),
       ),
       TextSpan(
-        text: text.substring(block.start + breaks + 1, block.end),
+        text: text.substring(block.start + 2, block.end),
         style: _hidden,
       ),
     ];
