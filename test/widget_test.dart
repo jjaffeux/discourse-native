@@ -9147,11 +9147,43 @@ void main() {
           matching: find.byType(AvatarImage),
         );
         expect(avatar, findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(InstanceSidebar),
+            matching: find.byType(ChatUserAvatar),
+          ),
+          findsOneWidget,
+        );
         // Round, not an ellipse: the row's prefix slot is a fixed width, and a
         // fixed width is a tight constraint that a SizedBox inside it cannot
         // shrink below. See the message tile's own version of this.
         final size = tester.getSize(avatar);
         expect(size.width, size.height);
+      });
+
+      testWidgets('rings an online direct-message user in the sidebar', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          direct: [dm(12)],
+          presence: const ChatPresence(userIds: {2}, lastMessageId: 47),
+        );
+
+        final ring = find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
+        );
+        expect(ring, findsOneWidget);
+        expect(tester.getSize(ring), const Size.square(18));
+
+        final tracker = FakeSiteTracker.built.single;
+        tracker.deliverPluginMessage('/presence/chat/online', {
+          'leaving_user_ids': [2],
+        });
+        await tester.pump();
+
+        expect(ring, findsNothing);
       });
 
       testWidgets('draws a dot rather than a number, however much is unread', (
@@ -9219,6 +9251,41 @@ void main() {
           await tester.pump();
 
           expect(item().badge, SidebarBadge.none);
+        } finally {
+          debugDefaultTargetPlatformOverride = previous;
+        }
+      });
+
+      testWidgets('uses the shared online avatar in a direct-message tab', (
+        tester,
+      ) async {
+        final previous = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await pumpChat(
+            tester,
+            direct: [dm(12)],
+            presence: const ChatPresence(userIds: {2}, lastMessageId: 47),
+            messages: {key(12): page(const [])},
+          );
+
+          await tester.tap(sidebarDestination('hawk'));
+          await tester.pumpAndSettle();
+
+          final tab = find.byType(ForumTabsBar);
+          final item = tester.widget<ForumTabsBar>(tab).items.single;
+          expect(item.avatarUrl, isNotNull);
+          expect(item.avatarUserId, 2);
+          expect(
+            find.descendant(of: tab, matching: find.byType(ChatUserAvatar)),
+            findsOneWidget,
+          );
+          final ring = find.descendant(
+            of: tab,
+            matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
+          );
+          expect(ring, findsOneWidget);
+          expect(tester.getSize(ring), const Size.square(15));
         } finally {
           debugDefaultTargetPlatformOverride = previous;
         }

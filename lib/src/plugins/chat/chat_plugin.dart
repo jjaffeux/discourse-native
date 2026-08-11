@@ -106,6 +106,9 @@ class ChatPlugin implements SitePlugin, SidebarPlugin, ContentPlugin {
         },
         emoji: channel.emoji,
         avatarUrl: channel.avatarUrl,
+        avatarUserId: channel.isDirectMessage && channel.users.length == 1
+            ? channel.users.first.id
+            : null,
         iconColor: channel.categoryColor,
         badge: channel.badge,
       );
