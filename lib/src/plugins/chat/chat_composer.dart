@@ -117,13 +117,6 @@ class _ChatComposerState extends State<ChatComposer> {
     }
   }
 
-  void _insertTrigger(String trigger) {
-    final composer = _composer;
-    if (composer == null) return;
-    composer.insertText(trigger);
-    composer.focus.requestFocus();
-  }
-
   @override
   Widget build(BuildContext context) {
     final composer = _composer;
@@ -187,32 +180,9 @@ class _ChatComposerState extends State<ChatComposer> {
         ),
         child: Row(
           children: [
-            PopupMenuButton<String>(
-              tooltip: 'Add to message',
-              icon: const DIcon(DIcons.plus, size: 20),
-              onSelected: (value) => _insertTrigger(value),
-              itemBuilder: (context) => const [
-                PopupMenuItem(
-                  value: '@',
-                  child: ListTile(
-                    leading: DIcon(DIcons.at, size: 17),
-                    title: Text('Mention someone'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: ':',
-                  child: ListTile(
-                    leading: DIcon(DIcons.farFaceSmile, size: 17),
-                    title: Text('Add emoji'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ],
-            ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 15),
+                padding: const EdgeInsets.fromLTRB(16, 15, 0, 15),
                 child: ComposerEditor(
                   composer: composer,
                   hintText: hint,
@@ -222,12 +192,6 @@ class _ChatComposerState extends State<ChatComposer> {
                   ),
                 ),
               ),
-            ),
-            IconButton(
-              onPressed: () => _insertTrigger(':'),
-              icon: const DIcon(DIcons.farFaceSmile, size: 20),
-              tooltip: 'Add emoji',
-              color: theme.colorScheme.onSurfaceVariant,
             ),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: composer.text,

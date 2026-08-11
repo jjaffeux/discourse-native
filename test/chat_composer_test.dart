@@ -29,6 +29,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final bar = find.byKey(const ValueKey('chat-composer'));
+    expect(find.byTooltip('Add to message'), findsNothing);
+    expect(find.byTooltip('Add emoji'), findsNothing);
+    expect(find.byKey(const ValueKey('chat-composer-send')), findsOneWidget);
     final before = tester.getRect(bar);
     final scrollable = find.byWidgetPredicate(
       (widget) =>
