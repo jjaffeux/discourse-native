@@ -22,7 +22,12 @@ ChatMessage message({
   ),
   createdAt: DateTime.utc(2026, 8, 8, 10),
   edited: true,
-  replyTo: const ChatReplyTo(id: 6, excerpt: 'Earlier', username: 'alex'),
+  replyTo: const ChatReplyTo(
+    id: 6,
+    userId: 3,
+    excerpt: 'Earlier',
+    username: 'alex',
+  ),
   reactions: reactions,
 );
 

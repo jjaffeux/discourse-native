@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../shell/avatar_image.dart';
 import '../../shell/cooked_html.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/shell_scope.dart';
@@ -11,6 +10,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_message.dart';
 import 'chat_uploads.dart';
+import 'chat_user_avatar.dart';
 
 /// One message, drawn from whichever record the store holds under [messageId].
 ///
@@ -82,7 +82,7 @@ class _Tile extends StatelessWidget {
           // Above the message rather than beside it, which is where Discourse
           // puts it: it is context for what follows, not part of it.
           if (message.replyTo case final reply? when !chained)
-            _ReplyIndicator(reply: reply),
+            _ReplyIndicator(siteUrl: siteUrl, reply: reply),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -104,30 +104,25 @@ class _Tile extends StatelessWidget {
                           child: UserCardTarget(
                             username: message.author.username,
                             siteUrl: siteUrl,
-                            child: ClipOval(
-                              child: SizedBox(
-                                width: 28,
-                                height: 28,
-                                child: AvatarImage(
-                                  url: message.author.avatarUrl,
-                                  size: 28,
-                                  fallback: ColoredBox(
-                                    color: theme.shell.floating,
-                                    child: Center(
-                                      child: Text(
-                                        message.author.username.isEmpty
-                                            ? '?'
-                                            : message
-                                                  .author
-                                                  .username
-                                                  .characters
-                                                  .first
-                                                  .toUpperCase(),
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
+                            child: ChatUserAvatar(
+                              siteUrl: siteUrl,
+                              userId: message.author.id,
+                              url: message.author.avatarUrl,
+                              size: 28,
+                              fallback: ColoredBox(
+                                color: theme.shell.floating,
+                                child: Center(
+                                  child: Text(
+                                    message.author.username.isEmpty
+                                        ? '?'
+                                        : message
+                                              .author
+                                              .username
+                                              .characters
+                                              .first
+                                              .toUpperCase(),
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 ),
@@ -230,8 +225,9 @@ class _Header extends StatelessWidget {
 
 /// What this message is answering, one line above it.
 class _ReplyIndicator extends StatelessWidget {
-  const _ReplyIndicator({required this.reply});
+  const _ReplyIndicator({required this.siteUrl, required this.reply});
 
+  final String siteUrl;
   final ChatReplyTo reply;
 
   @override
@@ -248,16 +244,12 @@ class _ReplyIndicator extends StatelessWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
           const SizedBox(width: 6),
-          ClipOval(
-            child: SizedBox(
-              width: 16,
-              height: 16,
-              child: AvatarImage(
-                url: reply.avatarUrl,
-                size: 16,
-                fallback: ColoredBox(color: theme.shell.floating),
-              ),
-            ),
+          ChatUserAvatar(
+            siteUrl: siteUrl,
+            userId: reply.userId,
+            url: reply.avatarUrl,
+            size: 16,
+            fallback: ColoredBox(color: theme.shell.floating),
           ),
           const SizedBox(width: 6),
           Flexible(

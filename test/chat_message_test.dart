@@ -130,6 +130,7 @@ void main() {
         );
 
         expect(read.replyTo!.id, 7);
+        expect(read.replyTo!.userId, 3);
         expect(read.replyTo!.excerpt, 'before');
         expect(read.replyTo!.username, 'kris');
         expect(read.replyTo!.avatarUrl, '$site/k/90.png');

@@ -176,7 +176,10 @@ void main() {
       () async {
         final subject = build(
           channels: {
-            site: (public: [channel(9), channel(4)], direct: [channel(12)]),
+            site: ChatChannels(
+              public: [channel(9), channel(4)],
+              direct: [channel(12)],
+            ),
           },
         );
 
@@ -193,7 +196,7 @@ void main() {
       () async {
         final subject = build(
           channels: {
-            site: (
+            site: ChatChannels(
               public: [
                 channel(9, title: 'Alpha', starred: true),
                 channel(4, title: 'Beta'),
@@ -232,7 +235,7 @@ void main() {
     test('asks a site once rather than once per caller', () async {
       final subject = build(
         channels: {
-          site: (public: [channel(9)], direct: const []),
+          site: ChatChannels(public: [channel(9)], direct: const []),
         },
       );
 
@@ -242,13 +245,77 @@ void main() {
       expect(subject.api.chatChannelsRequested, [site]);
     });
 
+    test('resumes global presence at the channel snapshot cursor', () async {
+      final subject = build(
+        channels: {
+          site: ChatChannels(
+            public: [channel(9)],
+            presence: const ChatPresence(userIds: {2}, lastMessageId: 47),
+          ),
+        },
+      );
+      final tracker = FakeSiteTracker(
+        siteUrl: site,
+        onIncomingTopics: () {},
+        onNotifications: (_) {},
+        onReviewableCounts: (_) {},
+      );
+      subject.chat.attachTracker(site, tracker);
+
+      await subject.chat.loadChannels(site);
+
+      expect(tracker.pluginChannelLastIds['/presence/chat/online'], 47);
+      expect(subject.chat.isOnline(site, 2), isTrue);
+      expect(subject.chat.onlineUserIdsListenable(site).value, {2});
+
+      tracker.deliverPluginMessage('/presence/chat/online', {
+        'entering_users': [
+          {'id': 3, 'username': 'kris'},
+        ],
+        'leaving_user_ids': [2],
+      });
+
+      expect(subject.chat.isOnline(site, 2), isFalse);
+      expect(subject.chat.isOnline(site, 3), isTrue);
+      expect(subject.chat.onlineUserIdsListenable(site).value, {3});
+    });
+
+    test('stops applying presence after the site is forgotten', () async {
+      final subject = build(
+        channels: {
+          site: const ChatChannels(
+            presence: ChatPresence(userIds: {2}, lastMessageId: 47),
+          ),
+        },
+      );
+      final tracker = FakeSiteTracker(
+        siteUrl: site,
+        onIncomingTopics: () {},
+        onNotifications: (_) {},
+        onReviewableCounts: (_) {},
+      );
+      subject.chat.attachTracker(site, tracker);
+      await subject.chat.loadChannels(site);
+      final online = subject.chat.onlineUserIdsListenable(site);
+
+      subject.chat.forget(site);
+      tracker.deliverPluginMessage('/presence/chat/online', {
+        'entering_users': [
+          {'id': 3},
+        ],
+      });
+
+      expect(online.value, isEmpty);
+      expect(tracker.pluginChannelCallbacks['/presence/chat/online'], isEmpty);
+    });
+
     test(
       'collapses two callers arriving before the first answer into one ask',
       () async {
         final gate = Completer<void>();
         final subject = build(
           channels: {
-            site: (public: [channel(9)], direct: const []),
+            site: ChatChannels(public: [channel(9)], direct: const []),
           },
           channelGate: gate,
         );
@@ -314,7 +381,7 @@ void main() {
     test('keeps each site’s channels apart', () async {
       final subject = build(
         channels: {
-          site: (public: [channel(9)], direct: const []),
+          site: ChatChannels(public: [channel(9)], direct: const []),
         },
       );
 
@@ -328,7 +395,7 @@ void main() {
     test('builds the same aggregate header indicators as core', () async {
       final subject = build(
         channels: {
-          site: (
+          site: ChatChannels(
             public: [
               ChatChannel(
                 id: 9,
@@ -389,7 +456,10 @@ void main() {
     test('uses a dot for ordinary public-channel unread activity', () async {
       final subject = build(
         channels: {
-          site: (public: [channel(9, unread: 42)], direct: const []),
+          site: ChatChannels(
+            public: [channel(9, unread: 42)],
+            direct: const [],
+          ),
         },
       );
       await subject.chat.loadChannels(site);
@@ -414,7 +484,7 @@ void main() {
     test('uses a dot for an ordinary unread thread', () async {
       final subject = build(
         channels: {
-          site: (
+          site: ChatChannels(
             public: const [
               ChatChannel(
                 id: 9,
@@ -440,7 +510,7 @@ void main() {
     test('the shortcut prefers the server’s last channel', () async {
       final subject = build(
         channels: {
-          site: (
+          site: ChatChannels(
             public: [channel(9)],
             direct: [
               const ChatChannel(
@@ -461,7 +531,7 @@ void main() {
     test('the shortcut remembers a channel opened in this client', () async {
       final subject = build(
         channels: {
-          site: (
+          site: ChatChannels(
             public: [channel(9)],
             direct: [
               const ChatChannel(
@@ -1117,7 +1187,7 @@ void main() {
     test('drops its channels, its streams and what was being asked', () async {
       final subject = build(
         channels: {
-          site: (public: [channel(9)], direct: const []),
+          site: ChatChannels(public: [channel(9)], direct: const []),
         },
         messages: {
           key(9): page([message(1)]),
@@ -1165,7 +1235,7 @@ void main() {
     test('lets a site connected again ask afresh', () async {
       final subject = build(
         channels: {
-          site: (public: [channel(9)], direct: const []),
+          site: ChatChannels(public: [channel(9)], direct: const []),
         },
       );
       await subject.chat.loadChannels(site);
@@ -1186,7 +1256,7 @@ void main() {
     }) async {
       final subject = build(
         channels: {
-          site: (public: [held ?? channel(9)], direct: const []),
+          site: ChatChannels(public: [held ?? channel(9)], direct: const []),
         },
         messages: {
           key(9): page([
@@ -1304,7 +1374,7 @@ void main() {
       // sent yet.
       final subject = build(
         channels: {
-          site: (
+          site: ChatChannels(
             public: [channel(9, lastRead: 1, unread: 9)],
             direct: const [],
           ),

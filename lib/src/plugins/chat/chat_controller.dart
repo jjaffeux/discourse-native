@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../data/api_credentials.dart';
 import '../../data/discourse_api_contracts.dart';
 import '../../data/site_lifecycle.dart';
+import '../../data/site_tracker.dart';
 import '../../data/store.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
@@ -248,6 +249,15 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, List<int>> _directIds = {};
   final Map<String, int> _lastOpenedChannelIds = {};
 
+  /// The HTTP presence snapshot, its row-scoped listenable and the live
+  /// subscription that advances it. A tracker can arrive before or after the
+  /// channel list, so both halves are retained and [_syncPresence] joins them
+  /// whenever the second one appears.
+  final Map<String, ChatPresence> _presence = {};
+  final Map<String, FrameSafeValueNotifier<Set<int>>> _presenceRefs = {};
+  final Map<String, SiteTracker> _presenceTrackers = {};
+  final Map<String, SiteMessageBusSubscription> _presenceSubscriptions = {};
+
   /// One channel's stream, keyed `'$siteUrl~$channelId'`.
   final Map<String, ChatStreamState> _streams = {};
   final Map<String, FrameSafeValueNotifier<ChatStreamState>> _streamRefs = {};
@@ -410,6 +420,83 @@ class ChatController extends FrameSafeNotifier {
     );
   }
 
+  /// Whether [userId] is currently in Discourse's global chat presence.
+  bool isOnline(String siteUrl, int userId) =>
+      _presence[siteUrl]?.contains(userId) ?? false;
+
+  /// The smallest live surface a message avatar can watch.
+  ///
+  /// Returning the set, rather than the controller itself, means a presence
+  /// event rebuilds visible chat avatars without also rebuilding channel
+  /// navigation, composer state or the rest of the shell.
+  ValueListenable<Set<int>> onlineUserIdsListenable(String siteUrl) =>
+      _presenceRefs.putIfAbsent(
+        siteUrl,
+        () => FrameSafeValueNotifier(_presence[siteUrl]?.userIds ?? const {}),
+      );
+
+  /// Gives chat access to the selected site's already-owned MessageBus.
+  ///
+  /// [ShellController] remains responsible for the tracker lifetime; this
+  /// controller owns only the presence channel registration made through it.
+  void attachTracker(String siteUrl, SiteTracker tracker) {
+    _presenceTrackers[siteUrl] = tracker;
+    _syncPresence(siteUrl);
+  }
+
+  void _syncPresence(String siteUrl) {
+    if (_presenceSubscriptions.containsKey(siteUrl)) return;
+    final tracker = _presenceTrackers[siteUrl];
+    final presence = _presence[siteUrl];
+    if (tracker == null || presence == null) return;
+
+    try {
+      _presenceSubscriptions[siteUrl] = tracker.watchPluginChannel(
+        '/presence/chat/online',
+        (data) => _applyPresenceMessage(siteUrl, data),
+        lastId: presence.lastMessageId,
+      );
+    } catch (error, stackTrace) {
+      _report(
+        error,
+        stackTrace,
+        'chat.presence.subscribe',
+        severity: DiagnosticSeverity.warning,
+      );
+      // Presence is decoration. A rejected live channel must not turn a valid
+      // channel list into a failed chat sidebar.
+    }
+  }
+
+  void _replacePresence(String siteUrl, ChatPresence presence) {
+    _cancelPresence(siteUrl);
+    _presence[siteUrl] = presence;
+    _presenceRefs[siteUrl]?.value = presence.userIds;
+    _syncPresence(siteUrl);
+  }
+
+  void _cancelPresence(String siteUrl) {
+    try {
+      _presenceSubscriptions.remove(siteUrl)?.cancel();
+    } catch (error, stackTrace) {
+      _report(
+        error,
+        stackTrace,
+        'chat.presence.unsubscribe',
+        severity: DiagnosticSeverity.warning,
+      );
+    }
+  }
+
+  void _applyPresenceMessage(String siteUrl, Object? data) {
+    final held = _presence[siteUrl];
+    if (held == null) return;
+    final updated = held.withMessage(data);
+    if (identical(updated, held)) return;
+    _presence[siteUrl] = updated;
+    _presenceRefs[siteUrl]?.value = updated.userIds;
+  }
+
   void _setStream(String key, ChatStreamState stream) {
     _streams[key] = stream;
     _streamRefs[key]?.value = stream;
@@ -556,6 +643,7 @@ class ChatController extends FrameSafeNotifier {
         store.putAll(siteUrl, channels.direct);
         _publicIds[siteUrl] = [for (final c in channels.public) c.id];
         _directIds[siteUrl] = [for (final c in channels.direct) c.id];
+        _replacePresence(siteUrl, channels.presence);
         _errors.remove(key);
         _attempts.remove(key);
       });
@@ -1055,6 +1143,11 @@ class ChatController extends FrameSafeNotifier {
   /// orderings, and no record holds those. The channels and the messages
   /// themselves are the [Store]'s to forget.
   void forget(String siteUrl) {
+    _cancelPresence(siteUrl);
+    _presenceTrackers.remove(siteUrl);
+    _presence.remove(siteUrl);
+    final presenceRef = _presenceRefs.remove(siteUrl);
+    if (presenceRef != null) presenceRef.value = const {};
     _loading.removeWhere((key) => key.startsWith('$siteUrl~'));
     _channelRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _channelRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
@@ -1124,6 +1217,15 @@ class ChatController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    for (final siteUrl in _presenceSubscriptions.keys.toList()) {
+      _cancelPresence(siteUrl);
+    }
+    _presenceTrackers.clear();
+    _presence.clear();
+    for (final ref in _presenceRefs.values) {
+      ref.dispose();
+    }
+    _presenceRefs.clear();
     _windowAttemptedAt.clear();
     _queuedReadReceipts.clear();
     _readReceiptTasks.clear();

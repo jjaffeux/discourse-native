@@ -79,6 +79,7 @@ Map<String, dynamic> payload({
   List<Map<String, dynamic>> direct = const [],
   Map<String, dynamic>? tracking,
   Map<String, dynamic>? unreadThreads,
+  Map<String, dynamic>? presence,
 }) => {
   'public_channels': public,
   'direct_message_channels': direct,
@@ -87,6 +88,7 @@ Map<String, dynamic> payload({
     'thread_tracking': <String, dynamic>{},
   },
   'unread_thread_overview': unreadThreads ?? const <String, dynamic>{},
+  'global_presence_channel_state': ?presence,
   'meta': {'message_bus_last_ids': <String, dynamic>{}},
 };
 
@@ -358,6 +360,39 @@ void main() {
 
       expect(channels.public, isEmpty);
       expect(channels.direct, isEmpty);
+    });
+
+    test('reads the online users and cursor from global chat presence', () {
+      final channels = ChatChannel.parse(
+        payload(
+          presence: {
+            'count': 2,
+            'last_message_id': 47,
+            'users': [
+              {'id': 2, 'username': 'hawk'},
+              {'id': 3, 'username': 'kris'},
+            ],
+          },
+        ),
+        site,
+      );
+
+      expect(channels.presence.userIds, {2, 3});
+      expect(channels.presence.lastMessageId, 47);
+    });
+
+    test('applies presence joins and leaves by user id', () {
+      const held = ChatPresence(userIds: {2, 3}, lastMessageId: 47);
+
+      final updated = held.withMessage({
+        'entering_users': [
+          {'id': 4, 'username': 'sam'},
+        ],
+        'leaving_user_ids': [2],
+      });
+
+      expect(updated.userIds, {3, 4});
+      expect(updated.lastMessageId, 47);
     });
   });
 
