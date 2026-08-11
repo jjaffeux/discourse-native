@@ -70,10 +70,18 @@ void main() {
   group('GithubCommitOnebox', () {
     testWidgets('draws the commit card', (tester) async {
       final aside = html.parse(commitOnebox).querySelector('aside.onebox')!;
+      const accent = Color(0xFF7B5FE2);
+      const highlight = Color(0xFFFFFF4D);
+      final theme = AppTheme.light.copyWith(
+        colorScheme: AppTheme.light.colorScheme.copyWith(
+          primary: accent,
+          tertiary: highlight,
+        ),
+      );
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light,
+          theme: theme,
           home: Scaffold(
             body: SingleChildScrollView(child: oneboxWidgetBuilder(aside)!),
           ),
@@ -84,6 +92,15 @@ void main() {
       expect(
         find.text('Ship Linux as a .deb from an apt repository'),
         findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.text('Ship Linux as a .deb from an apt repository'),
+            )
+            .style
+            ?.color,
+        accent,
       );
       expect(find.text('octocat'), findsOneWidget);
       expect(find.text('+12'), findsOneWidget);

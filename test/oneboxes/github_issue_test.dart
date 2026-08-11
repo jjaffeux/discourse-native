@@ -77,10 +77,18 @@ void main() {
   group('GithubIssueOnebox', () {
     testWidgets('draws title, labels and the issue glyph', (tester) async {
       final aside = html.parse(issueOnebox).querySelector('aside.onebox')!;
+      const accent = Color(0xFF7B5FE2);
+      const highlight = Color(0xFFFFFF4D);
+      final theme = AppTheme.light.copyWith(
+        colorScheme: AppTheme.light.colorScheme.copyWith(
+          primary: accent,
+          tertiary: highlight,
+        ),
+      );
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light,
+          theme: theme,
           home: Scaffold(
             body: SingleChildScrollView(child: oneboxWidgetBuilder(aside)!),
           ),
@@ -89,6 +97,13 @@ void main() {
       await tester.pump();
 
       expect(find.text('Bug: the thing breaks (#12345)'), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.text('Bug: the thing breaks (#12345)'))
+            .style
+            ?.color,
+        accent,
+      );
       expect(find.text('bug'), findsOneWidget);
       expect(find.text('regression'), findsOneWidget);
       expect(find.text('octocat'), findsOneWidget);
