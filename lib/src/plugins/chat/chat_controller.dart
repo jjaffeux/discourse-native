@@ -1144,8 +1144,9 @@ class ChatController extends FrameSafeNotifier {
     _setStream(
       key,
       held.copyWith(
-        // Only a stream with nothing in it gets to show a spinner in place of
-        // content; a re-open refreshes underneath what is already there.
+        // Only a stream with nothing in it gets to show a loading placeholder
+        // in place of content; a re-open refreshes underneath what is already
+        // there.
         loading: held.messageIds.isEmpty,
         loadingOlder: false,
         loadingNewer: false,

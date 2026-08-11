@@ -436,6 +436,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.nextPages = const {},
     this.gate,
     this.topics = const {},
+    this.topicGate,
     this.postsById = const {},
     this.postRecommendations = const {},
     this.postGate,
@@ -572,6 +573,10 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Returned by [topic], keyed by topic id.
   final Map<int, TopicPayload> topics;
+
+  /// When set, [topic] waits on it so a test can inspect the initial loading
+  /// state before the topic payload arrives.
+  final Completer<void>? topicGate;
 
   /// Returned by [posts], keyed by post id.
   final Map<int, Post> postsById;
@@ -1018,6 +1023,7 @@ class FakeDiscourseApi implements DiscourseApi {
   }) async {
     topicsOpened.add(id);
     topicPostNumbersOpened.add(postNumber);
+    if (topicGate != null) await topicGate!.future;
     final detail = topics[id];
     if (detail == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);

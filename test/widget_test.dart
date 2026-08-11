@@ -3317,6 +3317,44 @@ void main() {
       expect(renderedText('<p>'), findsNothing);
     });
 
+    testWidgets('shows a faithful skeleton while the topic is loading', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+        topicGate: gate,
+      );
+
+      await pumpShell(tester, phone, api: api);
+      await tester.tap(sidebarDestination('Topics'));
+      await tester.pumpAndSettle();
+      final semantics = tester.ensureSemantics();
+
+      await tester.tap(find.text('A real topic'));
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('topic-loading-skeleton')),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Loading topic'), findsOneWidget);
+      expect(activityIndicators, findsNothing);
+      expect(tester.takeException(), isNull);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('topic-loading-skeleton')),
+        findsNothing,
+      );
+      expect(renderedText('First post body'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    });
+
     testWidgets('an unread row opens at its first unread post', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {
@@ -9422,9 +9460,17 @@ void main() {
           ),
         );
 
+        final semantics = tester.ensureSemantics();
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pump();
-        expect(activityIndicators, findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('chat-loading-skeleton')),
+          findsOneWidget,
+        );
+        expect(find.bySemanticsLabel('Loading chat channel'), findsOneWidget);
+        expect(find.byKey(const ValueKey('chat-composer')), findsOneWidget);
+        expect(activityIndicators, findsNothing);
+        expect(tester.takeException(), isNull);
 
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         var shellNotifications = 0;
@@ -9436,7 +9482,13 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(renderedText('Hello there'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('chat-loading-skeleton')),
+          findsNothing,
+        );
         expect(shellNotifications, 0);
+        expect(tester.takeException(), isNull);
+        semantics.dispose();
       });
 
       testWidgets('puts the newest message at the bottom', (tester) async {

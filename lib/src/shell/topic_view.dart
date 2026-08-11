@@ -14,6 +14,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
+import 'loading_skeleton.dart';
 import 'post_actions.dart';
 import 'post_footer.dart';
 import 'post_text_selection.dart';
@@ -567,7 +568,9 @@ class _TopicViewState extends State<TopicView> {
 
     if (snapshot.topicId == null) {
       if (snapshot.loading) {
-        return const Center(child: CircularProgressIndicator.adaptive());
+        return const _TopicLoadingSkeleton(
+          key: ValueKey('topic-loading-skeleton'),
+        );
       }
       return Center(
         child: Padding(
@@ -724,6 +727,120 @@ class _TopicViewState extends State<TopicView> {
             onCollapsedChanged: _setRecommendationsPanelCollapsed,
           ),
       ],
+    );
+  }
+}
+
+/// A faithful outline of the post stream while its first page is in flight.
+///
+/// The column deliberately paints past a short viewport and is clipped there,
+/// so loading never introduces a second scroll position or changes the real
+/// stream's eventual anchor.
+class _TopicLoadingSkeleton extends StatelessWidget {
+  const _TopicLoadingSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final divider = Theme.of(context).shell.divider;
+
+    return LoadingSkeleton(
+      semanticsLabel: 'Loading topic',
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topCenter,
+          maxHeight: double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _TopicPostSkeleton(
+                nameWidthFactor: 0.3,
+                lineWidths: [0.92, 0.72, 0.48],
+              ),
+              Divider(height: 1, color: divider),
+              const _TopicPostSkeleton(
+                nameWidthFactor: 0.22,
+                lineWidths: [0.72, 0.92, 0.3],
+              ),
+              Divider(height: 1, color: divider),
+              const Opacity(
+                opacity: 0.72,
+                child: _TopicPostSkeleton(
+                  nameWidthFactor: 0.3,
+                  lineWidths: [0.92, 0.48],
+                  showFooter: false,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopicPostSkeleton extends StatelessWidget {
+  const _TopicPostSkeleton({
+    required this.nameWidthFactor,
+    required this.lineWidths,
+    this.showFooter = true,
+  });
+
+  final double nameWidthFactor;
+  final List<double> lineWidths;
+  final bool showFooter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const LoadingSkeletonBlock.circle(diameter: 32),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: FractionallySizedBox(
+                    widthFactor: nameWidthFactor,
+                    child: const LoadingSkeletonBlock(height: 10),
+                  ),
+                ),
+              ),
+              const LoadingSkeletonBlock(width: 36, height: 7),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 13, bottom: 12),
+            child: Column(
+              children: [
+                for (var index = 0; index < lineWidths.length; index++) ...[
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: FractionallySizedBox(
+                      widthFactor: lineWidths[index],
+                      child: const LoadingSkeletonBlock(height: 9),
+                    ),
+                  ),
+                  if (index < lineWidths.length - 1) const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+          if (showFooter)
+            const Row(
+              children: [
+                LoadingSkeletonBlock.circle(diameter: 14),
+                SizedBox(width: 12),
+                LoadingSkeletonBlock.circle(diameter: 14),
+                SizedBox(width: 12),
+                LoadingSkeletonBlock(width: 42, height: 7),
+              ],
+            ),
+        ],
+      ),
     );
   }
 }

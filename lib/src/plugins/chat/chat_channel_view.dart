@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../../shell/loading_skeleton.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
@@ -112,7 +113,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     if (hasMessages) {
       // A send can be staged while the first page is still loading, or after
       // that page failed. The local row is useful state in either case and
-      // must not be hidden behind the page-level spinner/error.
+      // must not be hidden behind the page-level loading/error state.
       _syncProjection(stream);
       content = _Stream(
         siteUrl: widget.siteUrl,
@@ -122,7 +123,9 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         stream: stream,
       );
     } else if (stream.loading) {
-      content = const Center(child: CircularProgressIndicator.adaptive());
+      content = const _ChatLoadingSkeleton(
+        key: ValueKey('chat-loading-skeleton'),
+      );
     } else if (stream.error case final error?) {
       content = _Message(icon: DIcons.triangleExclamation, text: error);
     } else if (stream.isEmpty) {
@@ -946,6 +949,164 @@ class _LoadingOlderRow extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// A quiet stand-in for the bottom of a conversation while its first window
+/// is on the way.
+///
+/// The rows mirror the real chat gutter and grouping closely enough that the
+/// loaded messages do not make the pane jump from an unrelated shape. The
+/// oversized column is clipped from the top on exceptionally short panes,
+/// keeping the newest-looking rows attached to the composer without making
+/// this loading state scrollable.
+class _ChatLoadingSkeleton extends StatelessWidget {
+  const _ChatLoadingSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return LoadingSkeleton(
+      semanticsLabel: 'Loading chat channel',
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.bottomCenter,
+          minHeight: 0,
+          maxHeight: double.infinity,
+          child: SizedBox(
+            width: double.infinity,
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ChatSkeletonMessage(nameWidth: 0.22, lineWidths: [0.68, 0.42]),
+                _ChatSkeletonChainedMessage(lineWidth: 0.26),
+                _ChatSkeletonMessage(nameWidth: 0.30, lineWidths: [0.90]),
+                _ChatSkeletonChainedMessage(lineWidth: 0.44),
+                _ChatSkeletonChainedMessage(lineWidth: 0.64),
+                _ChatSkeletonMessage(nameWidth: 0.24, lineWidths: [0.66, 0.30]),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatSkeletonMessage extends StatelessWidget {
+  const _ChatSkeletonMessage({
+    required this.nameWidth,
+    required this.lineWidths,
+  });
+
+  final double nameWidth;
+  final List<double> lineWidths;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final gutterWidth = constraints.maxWidth < ChatMessageTile.gutter
+              ? constraints.maxWidth
+              : ChatMessageTile.gutter;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: gutterWidth,
+                child: const Align(
+                  alignment: Alignment.topLeft,
+                  child: LoadingSkeletonBlock.circle(diameter: 28),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ChatSkeletonHeader(nameWidth: nameWidth),
+                    for (final width in lineWidths) ...[
+                      const SizedBox(height: 7),
+                      _ChatSkeletonLine(width: width),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ChatSkeletonHeader extends StatelessWidget {
+  const _ChatSkeletonHeader({required this.nameWidth});
+
+  final double nameWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 10,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: nameWidth,
+              child: const LoadingSkeletonBlock(height: 10),
+            ),
+          ),
+          const Align(
+            alignment: Alignment.centerRight,
+            child: LoadingSkeletonBlock(width: 36, height: 7),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatSkeletonChainedMessage extends StatelessWidget {
+  const _ChatSkeletonChainedMessage({required this.lineWidth});
+
+  final double lineWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 3),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final gutterWidth = constraints.maxWidth < ChatMessageTile.gutter
+              ? constraints.maxWidth
+              : ChatMessageTile.gutter;
+          return Padding(
+            padding: EdgeInsets.only(left: gutterWidth),
+            child: _ChatSkeletonLine(width: lineWidth),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ChatSkeletonLine extends StatelessWidget {
+  const _ChatSkeletonLine({required this.width});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: FractionallySizedBox(
+        widthFactor: width,
+        child: const LoadingSkeletonBlock(height: 9),
+      ),
+    );
+  }
 }
 
 /// Local to this screen, the way `TopicListView` keeps its own: an empty

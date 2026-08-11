@@ -725,7 +725,7 @@ void main() {
       expect(subject.chat.stream(site, 9).isEmpty, isFalse);
     });
 
-    test('shows a spinner only where there is nothing behind it', () async {
+    test('shows loading only where there is nothing behind it', () async {
       final gate = Completer<void>();
       final subject = build(
         messages: {
@@ -740,7 +740,7 @@ void main() {
       await first;
 
       // A forced refresh works underneath what is already there rather than
-      // replacing a conversation with a spinner.
+      // replacing a conversation with a loading placeholder.
       final second = subject.chat.openChannel(site, 9, force: true);
       expect(subject.chat.stream(site, 9).loading, isFalse);
       await second;
