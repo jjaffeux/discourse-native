@@ -36,6 +36,7 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 
@@ -451,6 +452,10 @@ class FakeDiscourseApi implements DiscourseApi {
     this.siteAppearances = const {},
     this.appearanceGate,
     this.siteConfigs = const {},
+    this.gifCategoriesBySite = const {},
+    this.gifSearchPages = const {},
+    this.gifFailure,
+    this.gifGate,
     this.searchResults = const {},
     this.searchGate,
     this.searchFailure,
@@ -650,6 +655,21 @@ class FakeDiscourseApi implements DiscourseApi {
   /// settings are gets a site drawn as plain core, which is what every test
   /// that is not about an optional feature wants to see.
   final Map<String, SiteConfig> siteConfigs;
+
+  /// Featured categories and cursor pages returned by the GIF proxy.
+  final Map<String, List<GifCategory>> gifCategoriesBySite;
+  final Map<String, GifSearchPage> gifSearchPages;
+  final SiteLookupFailure? gifFailure;
+  final Completer<void>? gifGate;
+  final List<String> gifCategoryRequests = [];
+  final List<
+    ({String siteUrl, String query, String fileDetail, String position})
+  >
+  gifSearchRequests = [];
+
+  static String gifSearchKey(String query, {String position = '0'}) =>
+      '$query::$position';
+
   final Map<String, SearchResults> searchResults;
   final Completer<void>? searchGate;
   final SiteLookupFailure? searchFailure;
@@ -1125,6 +1145,43 @@ class FakeDiscourseApi implements DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return config;
+  }
+
+  @override
+  Future<List<GifCategory>> gifCategories({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    gifCategoryRequests.add(siteUrl);
+    await gifGate?.future;
+    if (gifFailure case final failure?) {
+      throw SiteLookupException(failure, siteUrl);
+    }
+    return gifCategoriesBySite[siteUrl] ?? const [];
+  }
+
+  @override
+  Future<GifSearchPage> searchGifs({
+    required String siteUrl,
+    required String apiKey,
+    required String query,
+    required String fileDetail,
+    String position = '0',
+    String? clientId,
+  }) async {
+    gifSearchRequests.add((
+      siteUrl: siteUrl,
+      query: query,
+      fileDetail: fileDetail,
+      position: position,
+    ));
+    await gifGate?.future;
+    if (gifFailure case final failure?) {
+      throw SiteLookupException(failure, siteUrl);
+    }
+    return gifSearchPages[gifSearchKey(query, position: position)] ??
+        const GifSearchPage.empty();
   }
 
   @override

@@ -99,6 +99,7 @@ discourse-bookmark-clock
 # --- Composer
 bold
 italic
+gif
 square-poll-horizontal
 
 # --- Oneboxes

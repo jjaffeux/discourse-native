@@ -28,6 +28,10 @@ class SiteConfig {
     this.localDatesEnabled = false,
     this.localDateFormats = defaultLocalDateFormats,
     this.localDateTimezones = defaultLocalDateTimezones,
+    this.gifsEnabled = false,
+    this.gifFileDetail = defaultGifFileDetail,
+    this.gifResultLimitEnabled = false,
+    this.gifMaxResults = defaultGifMaxResults,
     this.assignStatusesEnabled = false,
     this.assignStatuses = const [],
     this.authorizedExtensions = defaultAuthorizedExtensions,
@@ -49,6 +53,8 @@ class SiteConfig {
   /// `emoji_set`'s own default, server side.
   static const String defaultEmojiSet = 'twitter';
   static const int defaultPollMaximumOptions = 20;
+  static const String defaultGifFileDetail = 'webp';
+  static const int defaultGifMaxResults = 240;
   static const List<String> defaultLocalDateFormats = [
     'LLL',
     'LTS',
@@ -125,6 +131,11 @@ class SiteConfig {
         json['discourse_local_dates_default_timezones'],
         defaultLocalDateTimezones,
       ),
+      gifsEnabled: json['enable_gifs'] == true,
+      gifFileDetail: _gifFileDetail(json['klipy_file_detail']),
+      gifResultLimitEnabled:
+          json['klipy_limit_infinite_search_results'] == true,
+      gifMaxResults: _gifMaxResults(json['klipy_max_results_limit']),
       assignStatusesEnabled: json['enable_assign_status'] == true,
       assignStatuses: json['enable_assign_status'] == true
           ? _pipeList(json['assign_statuses'])
@@ -182,6 +193,10 @@ class SiteConfig {
       json['localDateTimezones'],
       defaultLocalDateTimezones,
     ),
+    gifsEnabled: json['gifsEnabled'] == true,
+    gifFileDetail: _gifFileDetail(json['gifFileDetail']),
+    gifResultLimitEnabled: json['gifResultLimitEnabled'] == true,
+    gifMaxResults: _gifMaxResults(json['gifMaxResults']),
     assignStatusesEnabled: json['assignStatusesEnabled'] == true,
     assignStatuses: List.unmodifiable(
       jsonArray(json['assignStatuses']).map(jsonText).whereType<String>(),
@@ -223,6 +238,10 @@ class SiteConfig {
     'localDatesEnabled': localDatesEnabled,
     'localDateFormats': localDateFormats,
     'localDateTimezones': localDateTimezones,
+    'gifsEnabled': gifsEnabled,
+    'gifFileDetail': gifFileDetail,
+    'gifResultLimitEnabled': gifResultLimitEnabled,
+    'gifMaxResults': gifMaxResults,
     'assignStatusesEnabled': assignStatusesEnabled,
     'assignStatuses': assignStatuses,
     'authorizedExtensions': authorizedExtensions,
@@ -277,6 +296,15 @@ class SiteConfig {
   final bool localDatesEnabled;
   final List<String> localDateFormats;
   final List<String> localDateTimezones;
+
+  /// Core GIF-picker authoring and presentation settings.
+  ///
+  /// The API key remains server-side; native clients only call Discourse's
+  /// authenticated `/gifs` proxy and select the media format named here.
+  final bool gifsEnabled;
+  final String gifFileDetail;
+  final bool gifResultLimitEnabled;
+  final int gifMaxResults;
 
   /// Optional Assign status presentation. These settings only decide what an
   /// already-authorized assignment sheet offers; payload records and their
@@ -378,6 +406,10 @@ class SiteConfig {
       other.localDatesEnabled == localDatesEnabled &&
       listEquals(other.localDateFormats, localDateFormats) &&
       listEquals(other.localDateTimezones, localDateTimezones) &&
+      other.gifsEnabled == gifsEnabled &&
+      other.gifFileDetail == gifFileDetail &&
+      other.gifResultLimitEnabled == gifResultLimitEnabled &&
+      other.gifMaxResults == gifMaxResults &&
       other.assignStatusesEnabled == assignStatusesEnabled &&
       listEquals(other.assignStatuses, assignStatuses) &&
       listEquals(other.authorizedExtensions, authorizedExtensions) &&
@@ -410,6 +442,10 @@ class SiteConfig {
     localDatesEnabled,
     Object.hashAll(localDateFormats),
     Object.hashAll(localDateTimezones),
+    gifsEnabled,
+    gifFileDetail,
+    gifResultLimitEnabled,
+    gifMaxResults,
     assignStatusesEnabled,
     Object.hashAll(assignStatuses),
     Object.hashAll(authorizedExtensions),
@@ -459,6 +495,17 @@ class SiteConfig {
         final value? when value > 0 => value,
         _ => fallback,
       };
+
+  static String _gifFileDetail(Object? raw) => switch (jsonText(raw)) {
+    'gif' => 'gif',
+    'webp' => 'webp',
+    _ => defaultGifFileDetail,
+  };
+
+  static int _gifMaxResults(Object? raw) => switch (jsonIntOrNull(raw)) {
+    final value? when value >= 24 => value,
+    _ => defaultGifMaxResults,
+  };
 
   static List<int> _categoryIds(Object? raw) {
     final values = switch (raw) {

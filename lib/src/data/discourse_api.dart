@@ -27,6 +27,7 @@ import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
+import '../plugins/gifs/gif.dart';
 import '../plugins/poll/poll.dart';
 import '../plugins/reactions/post_reactors.dart';
 import 'discourse_api_contracts.dart';
@@ -90,6 +91,7 @@ class DiscourseApi
         TopicFeedsApi,
         TopicReadsApi,
         ChatApi,
+        GifsApi,
         ReactionsApi,
         PollsApi,
         PluginApiTransport {
@@ -763,6 +765,71 @@ class DiscourseApi
         causeStackTrace: stackTrace,
       );
     }
+  }
+
+  /// Featured Klipy categories from Discourse's authenticated, key-hiding
+  /// proxy. Malformed individual tags are omitted without losing the rest.
+  @override
+  Future<List<GifCategory>> gifCategories({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    final body = await _getObject(
+      Uri.parse('$siteUrl/gifs/categories.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return List.unmodifiable(
+      jsonArray(
+        body['tags'],
+      ).map(GifCategory.fromJson).whereType<GifCategory>(),
+    );
+  }
+
+  /// One page of GIF search results in the site's configured media format.
+  @override
+  Future<GifSearchPage> searchGifs({
+    required String siteUrl,
+    required String apiKey,
+    required String query,
+    required String fileDetail,
+    String position = '0',
+    String? clientId,
+  }) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isEmpty || normalizedQuery.length > 100) {
+      throw ArgumentError.value(
+        query,
+        'query',
+        'Must contain between 1 and 100 characters.',
+      );
+    }
+    final normalizedPosition = position.trim();
+    if (normalizedPosition.isEmpty) {
+      throw ArgumentError.value(
+        position,
+        'position',
+        'Must be a non-empty Klipy cursor.',
+      );
+    }
+    if (fileDetail != 'webp' && fileDetail != 'gif') {
+      throw ArgumentError.value(
+        fileDetail,
+        'fileDetail',
+        "Must be either 'webp' or 'gif'.",
+      );
+    }
+    final body = await _getObject(
+      Uri.parse('$siteUrl/gifs/search.json').replace(
+        queryParameters: {'q': normalizedQuery, 'pos': normalizedPosition},
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return GifSearchPage.fromJson(body, fileDetail: fileDetail);
   }
 
   /// The emoji artwork the site uploaded itself, by name.

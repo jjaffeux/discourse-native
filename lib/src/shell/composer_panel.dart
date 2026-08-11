@@ -2091,13 +2091,14 @@ class _Toolbar extends StatelessWidget {
   final ComposerController composer;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<(bool, bool)>(
-    // Plugin creation capabilities arrive independently of composer text.
-    // Select the fresh Poll capability so an already-open composer gains (or
-    // keeps hiding) its contributed action as soon as the session answers.
+  Widget build(BuildContext context) => ShellSelector<(bool, bool, bool)>(
+    // Plugin creation capabilities arrive independently of composer text, so
+    // select every input that can add or remove an action while this composer
+    // is already open.
     select: (controller) => (
       controller.canCreatePollFor(composer.target.siteUrl),
       controller.siteConfigFor(composer.target.siteUrl).localDatesEnabled,
+      controller.siteConfigFor(composer.target.siteUrl).gifsEnabled,
     ),
     builder: (context, _, _) => _buildToolbar(context),
   );

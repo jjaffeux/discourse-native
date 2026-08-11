@@ -6,6 +6,7 @@ import '../models/topic.dart';
 import '../models/user_draft.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
+import '../plugins/gifs/gif.dart';
 import '../plugins/poll/poll.dart';
 import '../plugins/reactions/post_reactors.dart';
 
@@ -248,6 +249,24 @@ abstract interface class ChatApi {
     required int channelId,
     required int threadId,
     required int messageId,
+    String? clientId,
+  });
+}
+
+/// Authenticated reads behind Discourse core's GIF picker.
+abstract interface class GifsApi {
+  Future<List<GifCategory>> gifCategories({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  });
+
+  Future<GifSearchPage> searchGifs({
+    required String siteUrl,
+    required String apiKey,
+    required String query,
+    required String fileDetail,
+    String position = '0',
     String? clientId,
   });
 }

@@ -709,6 +709,27 @@ levels. Composing wants a composer that is not topic-shaped. And a header hook
 would let a channel's emoji and a conversation's face reach the top of the
 screen, where today only the sidebar row has them.
 
+### GIFs
+
+Core's GIF picker is an authored remote image, not an upload and not a native
+provider integration. On Discourse `v2026.7.0` and newer the app reads
+`enable_gifs` and the Klipy presentation limits from `/site/settings.json`, then
+uses the connected account's user API key for `GET /gifs/categories.json` and
+`GET /gifs/search.json`. Discourse proxies those requests, so the Klipy API key
+never leaves the server and this client never talks to Klipy directly.
+
+The picker shares categories, debounced search, cursor paging, result limits and
+Klipy attribution across composer surfaces. A topic selection is inserted as
+the same `![title|widthxheight](url)` block the web composer writes. Chat keeps
+its compact composer: a selection is staged as its own optimistic message, and
+an unchanged draft is cleared only after the send succeeds. A failed send or a
+draft edited while it is in flight is retained.
+
+The older `discourse-gifs` theme component is deliberately unsupported. It has
+no authenticated server route or reliable capability contract and would require
+a native client to discover theme settings and contact a provider with its
+credentials.
+
 ### Emoji
 
 Post bodies carry emoji as `<img class="emoji" src="/images/emoji/…">`, and they
