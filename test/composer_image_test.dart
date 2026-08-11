@@ -67,5 +67,10 @@ void main() {
 
     expect(find.byType(ComposerImagePreview), findsNothing);
     expect(controller.text, source);
+
+    controller.selection = TextSelection.collapsed(offset: image.end);
+    await tester.pump();
+
+    expect(find.byType(ComposerImagePreview), findsOneWidget);
   });
 }

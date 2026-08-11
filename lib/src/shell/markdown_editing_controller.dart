@@ -63,8 +63,6 @@ class MarkdownEditingController extends TextEditingController {
 
   String? _imageScanned;
   List<ComposerImageBlock> _imageBlocks = const [];
-  int? _suppressedImageStart;
-  int? _suppressedImageCaret;
   Set<int> _collapsedImageStarts = const {};
   final Map<int, GlobalKey> _imageKeys = {};
   final Map<String, String> _imageUrls = {};
@@ -106,12 +104,6 @@ class MarkdownEditingController extends TextEditingController {
     return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 
-  void suppressCollapsedCaretForImage(ComposerImageBlock image) {
-    _suppressedImageStart = image.start;
-    _suppressedImageCaret = value.selection.extentOffset;
-    artworkArrived();
-  }
-
   void cacheImageUrl(String shortUrl, String url) {
     if (_imageUrls[shortUrl] == url) return;
     _imageUrls[shortUrl] = url;
@@ -128,8 +120,6 @@ class MarkdownEditingController extends TextEditingController {
   List<ComposerImageBlock> _imageBlocksFor(String source) {
     if (_imageScanned == source) return _imageBlocks;
     _imageScanned = source;
-    _suppressedImageStart = null;
-    _suppressedImageCaret = null;
     _imageKeys.clear();
     return _imageBlocks = parseComposerImages(source);
   }
@@ -137,8 +127,6 @@ class MarkdownEditingController extends TextEditingController {
   String? _pollScanned;
   List<PollComposerBlock> _pollBlocks = const [];
   final PollRawExpansion _rawPoll = PollRawExpansion();
-  int? _suppressedPollStart;
-  int? _suppressedPollCaret;
   Set<int> _collapsedPollStarts = const {};
   final Map<int, GlobalKey> _pollPillKeys = {};
 
@@ -158,8 +146,8 @@ class MarkdownEditingController extends TextEditingController {
   ///
   /// EditableText deliberately keeps embedded widgets out of pointer hit
   /// testing. Their render boxes still have truthful geometry, so the field
-  /// routes taps and hover through these exact rectangles instead of guessing
-  /// from the caret Flutter selected.
+  /// routes taps through these exact rectangles instead of guessing from the
+  /// caret Flutter selected.
   PollComposerBlock? collapsedPollAtGlobalPosition(Offset globalPosition) {
     for (final block in _pollBlocksFor(text)) {
       if (!isPollCollapsed(block)) continue;
@@ -177,15 +165,7 @@ class MarkdownEditingController extends TextEditingController {
     return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 
-  void suppressCollapsedCaretFor(PollComposerBlock block) {
-    _suppressedPollStart = block.start;
-    _suppressedPollCaret = value.selection.extentOffset;
-    artworkArrived();
-  }
-
   void expandPollAsRaw(PollComposerBlock block) {
-    _suppressedPollStart = null;
-    _suppressedPollCaret = null;
     _rawPoll.expand(block);
     value = value.copyWith(
       selection: TextSelection.collapsed(
@@ -197,8 +177,6 @@ class MarkdownEditingController extends TextEditingController {
   List<PollComposerBlock> _pollBlocksFor(String source) {
     if (_pollScanned == source) return _pollBlocks;
     _pollScanned = source;
-    _suppressedPollStart = null;
-    _suppressedPollCaret = null;
     _rawPoll.clear();
     _pollPillKeys.clear();
     return _pollBlocks = parsePollComposerBlocks(source);
@@ -207,8 +185,6 @@ class MarkdownEditingController extends TextEditingController {
   String? _localDateScanned;
   List<LocalDateComposerBlock> _localDateBlocks = const [];
   final LocalDateRawExpansion _rawLocalDate = LocalDateRawExpansion();
-  int? _suppressedLocalDateStart;
-  int? _suppressedLocalDateCaret;
   Set<int> _collapsedLocalDateStarts = const {};
   final Map<int, GlobalKey> _localDatePillKeys = {};
 
@@ -240,15 +216,7 @@ class MarkdownEditingController extends TextEditingController {
     return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 
-  void suppressCollapsedCaretForLocalDate(LocalDateComposerBlock block) {
-    _suppressedLocalDateStart = block.start;
-    _suppressedLocalDateCaret = value.selection.extentOffset;
-    artworkArrived();
-  }
-
   void expandLocalDateAsRaw(LocalDateComposerBlock block) {
-    _suppressedLocalDateStart = null;
-    _suppressedLocalDateCaret = null;
     _rawLocalDate.expand(block);
     value = value.copyWith(
       selection: TextSelection.collapsed(
@@ -260,8 +228,6 @@ class MarkdownEditingController extends TextEditingController {
   List<LocalDateComposerBlock> _localDateBlocksFor(String source) {
     if (_localDateScanned == source) return _localDateBlocks;
     _localDateScanned = source;
-    _suppressedLocalDateStart = null;
-    _suppressedLocalDateCaret = null;
     _rawLocalDate.clear();
     _localDatePillKeys.clear();
     return _localDateBlocks = parseLocalDateComposerBlocks(source);
@@ -326,17 +292,12 @@ class MarkdownEditingController extends TextEditingController {
 
     final pollBlocks = _pollBlocksFor(source);
     _rawPoll.updateSelection(value.selection);
-    if (_suppressedPollCaret != value.selection.extentOffset) {
-      _suppressedPollStart = null;
-      _suppressedPollCaret = null;
-    }
     final collapsedPolls = [
       for (final block in pollBlocks)
         if (!pollBlockNeedsRawSource(
           block: block,
           value: value,
           explicitlyRaw: _rawPoll.contains(block),
-          suppressCollapsedCaret: _suppressedPollStart == block.start,
         ))
           block,
     ];
@@ -351,17 +312,12 @@ class MarkdownEditingController extends TextEditingController {
     final locale = Localizations.localeOf(context);
     final localDateBlocks = _localDateBlocksFor(source);
     _rawLocalDate.updateSelection(value.selection);
-    if (_suppressedLocalDateCaret != value.selection.extentOffset) {
-      _suppressedLocalDateStart = null;
-      _suppressedLocalDateCaret = null;
-    }
     final collapsedLocalDates = [
       for (final block in localDateBlocks)
         if (!localDateBlockNeedsRawSource(
           block: block,
           value: value,
           explicitlyRaw: _rawLocalDate.contains(block),
-          suppressCollapsedCaret: _suppressedLocalDateStart == block.start,
         ))
           block,
     ];
@@ -379,18 +335,9 @@ class MarkdownEditingController extends TextEditingController {
     );
 
     final images = _imageBlocksFor(source);
-    if (_suppressedImageCaret != value.selection.extentOffset) {
-      _suppressedImageStart = null;
-      _suppressedImageCaret = null;
-    }
     final collapsedImages = [
       for (final image in images)
-        if (!_imageNeedsRawSource(
-          image,
-          value,
-          suppressCaret: _suppressedImageStart == image.start,
-        ))
-          image,
+        if (!_imageNeedsRawSource(image, value)) image,
     ];
     _collapsedImageStarts = {for (final image in collapsedImages) image.start};
     final imageProjection = Object.hashAll(
@@ -657,12 +604,14 @@ class MarkdownEditingController extends TextEditingController {
 
   static bool _imageNeedsRawSource(
     ComposerImageBlock image,
-    TextEditingValue value, {
-    required bool suppressCaret,
-  }) {
-    if (suppressCaret) return false;
+    TextEditingValue value,
+  ) {
     final selection = value.selection;
     if (!selection.isValid) return false;
+    if (selection.isCollapsed) {
+      return selection.extentOffset >= image.start &&
+          selection.extentOffset < image.end;
+    }
     return selection.start < image.end && selection.end > image.start;
   }
 

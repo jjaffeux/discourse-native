@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -60,7 +61,7 @@ void main() {
     expect(find.text('photo.png'), findsNothing);
   });
 
-  testWidgets('a projected image exposes resize, alt, and remove controls', (
+  testWidgets('click edits a projected image and backspace removes it', (
     tester,
   ) async {
     final composer = ComposerController(
@@ -85,7 +86,7 @@ void main() {
 
     expect(find.byTooltip('Decrease image size'), findsOneWidget);
     expect(find.byTooltip('Increase image size'), findsOneWidget);
-    expect(find.byTooltip('Remove image'), findsOneWidget);
+    expect(find.byTooltip('Remove image'), findsNothing);
     expect(find.byTooltip('Save alt text'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Decrease image size'));
@@ -113,16 +114,9 @@ void main() {
     await tester.pump();
     expect(composer.text.text, r'![new \[alt\]|640x480, 75%](upload://photo)');
 
-    await tapPreview();
+    composer.focus.requestFocus();
     await tester.pump();
-    tester
-        .widget<IconButton>(
-          find.ancestor(
-            of: find.byTooltip('Remove image'),
-            matching: find.byType(IconButton),
-          ),
-        )
-        .onPressed!();
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
     await tester.pump();
     expect(composer.text.text, isEmpty);
   });

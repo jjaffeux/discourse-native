@@ -44,8 +44,8 @@ const double pillGap = 0.287;
 
 /// One pill: optional leading art, then the label.
 ///
-/// [onTap] is null in the composer, where a pill stands over text somebody is
-/// editing and a tap belongs to the caret.
+/// [onTap] is null in the composer, where [EditableText] owns pointer handling
+/// and the composer resolves the pill's exact render-box geometry itself.
 class Pill extends StatelessWidget {
   const Pill({
     super.key,
