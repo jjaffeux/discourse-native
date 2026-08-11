@@ -141,10 +141,18 @@ void main() {
   group('GithubPullRequestOnebox', () {
     testWidgets('draws the card the web draws', (tester) async {
       final aside = html.parse(prOnebox).querySelector('aside.onebox')!;
+      const accent = Color(0xFF7B5FE2);
+      const highlight = Color(0xFFFFFF4D);
+      final theme = AppTheme.light.copyWith(
+        colorScheme: AppTheme.light.colorScheme.copyWith(
+          primary: accent,
+          tertiary: highlight,
+        ),
+      );
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light,
+          theme: theme,
           home: Scaffold(
             body: SingleChildScrollView(child: oneboxWidgetBuilder(aside)!),
           ),
@@ -153,6 +161,10 @@ void main() {
       await tester.pump();
 
       expect(find.text('Add the thing (#30604)'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('Add the thing (#30604)')).style?.color,
+        accent,
+      );
       // The header source row survives into the card chrome.
       expect(find.text('github.com/discourse/discourse'), findsOneWidget);
       expect(find.textContaining('main', findRichText: true), findsOneWidget);
