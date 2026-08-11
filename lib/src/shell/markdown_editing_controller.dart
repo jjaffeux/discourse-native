@@ -83,6 +83,19 @@ class MarkdownEditingController extends TextEditingController {
   ScrollController? _imageScrollController;
   ScrollController? get imageScrollController => _imageScrollController;
 
+  /// Holds the source caret and composing range still while a pill is selected.
+  /// Pointer and atomic edit actions clear the pill selection before moving it.
+  @override
+  set value(TextEditingValue newValue) {
+    final current = super.value;
+    if (_keyboardSelectedProjection != null &&
+        _keyboardSelectionDocument == current.text &&
+        newValue.text == current.text) {
+      newValue = current;
+    }
+    super.value = newValue;
+  }
+
   set imageScrollController(ScrollController? value) {
     if (identical(_imageScrollController, value)) return;
     _imageScrollController = value;
