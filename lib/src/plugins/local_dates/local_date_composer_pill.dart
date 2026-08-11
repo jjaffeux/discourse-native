@@ -108,7 +108,6 @@ List<InlineSpan> buildCollapsedLocalDateSpans({
       style: baseStyle,
       child: LocalDateComposerPill(
         key: pillKey,
-        block: block,
         label: label,
         baseStyle: baseStyle,
       ),
@@ -127,45 +126,23 @@ List<InlineSpan> buildCollapsedLocalDateSpans({
 class LocalDateComposerPill extends StatelessWidget {
   const LocalDateComposerPill({
     super.key,
-    required this.block,
     required this.label,
     required this.baseStyle,
   });
 
-  final LocalDateComposerBlock block;
   final String label;
   final TextStyle baseStyle;
 
   @override
-  Widget build(BuildContext context) => MouseRegion(
-    onEnter: (_) => LocalDateComposerPillHoverNotification(
-      block: block,
-      hovering: true,
-    ).dispatch(context),
-    onExit: (_) => LocalDateComposerPillHoverNotification(
-      block: block,
-      hovering: false,
-    ).dispatch(context),
-    child: Semantics(
-      label: '$label. Activate to show its markup.',
-      button: true,
-      child: Pill(
-        label: label,
-        baseStyle: baseStyle,
-        leading: DIcon(DIcons.farClock, size: Pill.iconBoxFor(baseStyle)),
-      ),
+  Widget build(BuildContext context) => Semantics(
+    label: '$label. Activate to edit.',
+    button: true,
+    child: Pill(
+      label: label,
+      baseStyle: baseStyle,
+      leading: DIcon(DIcons.farClock, size: Pill.iconBoxFor(baseStyle)),
     ),
   );
-}
-
-class LocalDateComposerPillHoverNotification extends Notification {
-  const LocalDateComposerPillHoverNotification({
-    required this.block,
-    required this.hovering,
-  });
-
-  final LocalDateComposerBlock block;
-  final bool hovering;
 }
 
 bool localDateBlockNeedsRawSource({

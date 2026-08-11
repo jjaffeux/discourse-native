@@ -94,7 +94,6 @@ List<InlineSpan> buildCollapsedPollSpans({
       style: baseStyle,
       child: PollComposerPill(
         key: pillKey,
-        block: block,
         label: pollComposerSummary(block, maximumOptions: maximumOptions),
         baseStyle: baseStyle,
       ),
@@ -114,58 +113,26 @@ List<InlineSpan> buildCollapsedPollSpans({
 class PollComposerPill extends StatelessWidget {
   const PollComposerPill({
     super.key,
-    this.block,
     required this.label,
     required this.baseStyle,
   });
 
-  final PollComposerBlock? block;
   final String label;
   final TextStyle baseStyle;
 
   @override
-  Widget build(BuildContext context) {
-    void reportHover(bool hovering) {
-      final block = this.block;
-      if (block == null) return;
-      PollComposerPillHoverNotification(
-        block: block,
-        hovering: hovering,
-      ).dispatch(context);
-    }
-
-    return MouseRegion(
-      onEnter: (_) => reportHover(true),
-      onExit: (_) => reportHover(false),
-      child: Semantics(
-        label: '$label. Activate to show its markdown.',
-        button: true,
-        child: Pill(
-          label: label,
-          baseStyle: baseStyle,
-          leading: DIcon(
-            DIcons.squarePollHorizontal,
-            size: Pill.iconBoxFor(baseStyle),
-          ),
-        ),
+  Widget build(BuildContext context) => Semantics(
+    label: '$label. Activate to edit.',
+    button: true,
+    child: Pill(
+      label: label,
+      baseStyle: baseStyle,
+      leading: DIcon(
+        DIcons.squarePollHorizontal,
+        size: Pill.iconBoxFor(baseStyle),
       ),
-    );
-  }
-}
-
-/// A hover reported by the inline pill itself.
-///
-/// Modern [EditableText] renderers hit-test [WidgetSpan] children. Dispatching
-/// from the child gives the composer an exact signal and avoids depending on
-/// a second, editor-wide coordinate lookup for the primary hover path.
-class PollComposerPillHoverNotification extends Notification {
-  const PollComposerPillHoverNotification({
-    required this.block,
-    required this.hovering,
-  });
-
-  final PollComposerBlock block;
-  final bool hovering;
+    ),
+  );
 }
 
 /// Maps an actual source offset back to a poll range.

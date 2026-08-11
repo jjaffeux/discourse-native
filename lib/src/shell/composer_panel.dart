@@ -9,11 +9,7 @@ import 'package:flutter/services.dart';
 import '../data/composer_geometry_store.dart';
 import '../models/composer_upload.dart';
 import '../models/topic.dart';
-import '../plugins/local_dates/local_date_composer_parser.dart';
-import '../plugins/local_dates/local_date_composer_pill.dart';
 import '../plugins/local_dates/local_dates_plugin.dart';
-import '../plugins/poll/poll_composer_parser.dart';
-import '../plugins/poll/poll_composer_pill.dart';
 import '../plugins/poll/poll_plugin.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
@@ -970,11 +966,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
   final ValueNotifier<Rect?> _selectionAnchor = ValueNotifier(null);
   Object? _selectionSyncToken;
   Offset? _pointerDown;
-  PollComposerBlock? _hoveredPoll;
-  LocalDateComposerBlock? _hoveredLocalDate;
-  Timer? _hideTimer;
-  Timer? _longPressTimer;
-  bool _menuHovered = false;
   bool _dragging = false;
   ComposerImageBlock? _selectedImage;
   final TextEditingController _imageAlt = TextEditingController();
@@ -1008,8 +999,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   void dispose() {
     _selectionSyncToken = null;
-    _hideTimer?.cancel();
-    _longPressTimer?.cancel();
     _imageAlt.dispose();
     widget.composer.text.removeListener(_syncSelectionToolbar);
     widget.composer.focus.removeListener(_syncSelectionToolbar);
@@ -1163,84 +1152,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
   }
 
-  void _onHover(PointerHoverEvent event) {
-    final block = widget.composer.text.collapsedPollAtGlobalPosition(
-      event.position,
-    );
-    if (block != null) return _showMenuFor(block);
-    final date = widget.composer.text.collapsedLocalDateAtGlobalPosition(
-      event.position,
-    );
-    if (date != null) return _showDateMenuFor(date);
-    if (!_menuHovered) _scheduleHide();
-  }
-
-  bool _onPillHover(PollComposerPillHoverNotification notification) {
-    if (notification.hovering) {
-      _showMenuFor(notification.block);
-    } else if (!_menuHovered) {
-      _scheduleHide();
-    }
-    return true;
-  }
-
-  bool _onDatePillHover(LocalDateComposerPillHoverNotification notification) {
-    if (notification.hovering) {
-      _showDateMenuFor(notification.block);
-    } else if (!_menuHovered) {
-      _scheduleHide();
-    }
-    return true;
-  }
-
-  void _showMenuFor(PollComposerBlock block) {
-    _hideTimer?.cancel();
-    if (_hoveredPoll?.start != block.start ||
-        _hoveredPoll?.source != block.source) {
-      setState(() {
-        _hoveredPoll = block;
-        _hoveredLocalDate = null;
-      });
-    }
-  }
-
-  void _showDateMenuFor(LocalDateComposerBlock block) {
-    _hideTimer?.cancel();
-    if (_hoveredLocalDate?.start != block.start ||
-        _hoveredLocalDate?.source != block.source) {
-      setState(() {
-        _hoveredLocalDate = block;
-        _hoveredPoll = null;
-      });
-    }
-  }
-
-  void _scheduleHide() {
-    _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(milliseconds: 120), () {
-      if (!mounted ||
-          _menuHovered ||
-          (_hoveredPoll == null && _hoveredLocalDate == null)) {
-        return;
-      }
-      setState(() {
-        _hoveredPoll = null;
-        _hoveredLocalDate = null;
-      });
-    });
-  }
-
-  void _hideMenu() {
-    _hideTimer?.cancel();
-    _menuHovered = false;
-    if ((_hoveredPoll != null || _hoveredLocalDate != null) && mounted) {
-      setState(() {
-        _hoveredPoll = null;
-        _hoveredLocalDate = null;
-      });
-    }
-  }
-
   void _onFieldTap() {
     final pointer = _pointerDown;
     _pointerDown = null;
@@ -1253,24 +1164,25 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (_selectedImage != null) setState(() => _selectedImage = null);
     final block = widget.composer.text.collapsedPollAtGlobalPosition(pointer);
     if (block != null) {
-      _hideMenu();
-      widget.composer.text.expandPollAsRaw(block);
-      widget.composer.focus.requestFocus();
+      widget.composer.text.selection = TextSelection.collapsed(
+        offset: block.end,
+      );
+      unawaited(openPollComposer(context, widget.composer, block: block));
       return;
     }
     final date = widget.composer.text.collapsedLocalDateAtGlobalPosition(
       pointer,
     );
     if (date != null) {
-      _hideMenu();
-      widget.composer.text.expandLocalDateAsRaw(date);
-      widget.composer.focus.requestFocus();
+      widget.composer.text.selection = TextSelection.collapsed(
+        offset: date.end,
+      );
+      unawaited(openLocalDateComposer(context, widget.composer, block: date));
     }
   }
 
   void _selectImage(ComposerImageBlock image) {
-    _hideMenu();
-    widget.composer.text.suppressCollapsedCaretForImage(image);
+    widget.composer.text.selection = TextSelection.collapsed(offset: image.end);
     _imageAlt.text = image.alt;
     setState(() => _selectedImage = image);
   }
@@ -1291,124 +1203,51 @@ class _ComposerEditorState extends State<ComposerEditor> {
     widget.composer.focus.requestFocus();
   }
 
-  void _deleteImage() {
-    final image = _selectedImage;
-    if (image == null) return;
-    widget.composer.removeImage(image);
-    setState(() => _selectedImage = null);
-    widget.composer.focus.requestFocus();
-  }
-
   void _dismissImage() {
     if (_selectedImage == null) return;
     setState(() => _selectedImage = null);
     widget.composer.focus.requestFocus();
   }
 
-  void _editPoll() {
-    final poll = _hoveredPoll;
-    final date = _hoveredLocalDate;
-    if (poll == null && date == null) return;
-    _hideMenu();
-    if (poll != null) {
-      unawaited(openPollComposer(context, widget.composer, block: poll));
-    } else {
-      unawaited(openLocalDateComposer(context, widget.composer, block: date));
+  KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.backspace) {
+      return KeyEventResult.ignored;
     }
-  }
-
-  void _removePoll() {
-    final poll = _hoveredPoll;
-    final date = _hoveredLocalDate;
-    if (poll == null && date == null) return;
-    _hideMenu();
-    if (poll != null) {
-      unawaited(removePollComposer(context, widget.composer, poll));
-    } else {
-      removeLocalDateComposer(context, widget.composer, date!);
+    final value = widget.composer.text.value;
+    final selection = value.selection;
+    if (!selection.isValid || !selection.isCollapsed) {
+      return KeyEventResult.ignored;
     }
-  }
+    if (value.isComposingRangeValid && !value.composing.isCollapsed) {
+      return KeyEventResult.ignored;
+    }
 
-  (double, double)? _menuPosition(BoxConstraints constraints) {
-    final poll = _hoveredPoll;
-    final date = _hoveredLocalDate;
-    final stack = _stackKey.currentContext?.findRenderObject();
-    final pillRect = poll != null
-        ? widget.composer.text.collapsedPollGlobalRect(poll)
-        : date == null
-        ? null
-        : widget.composer.text.collapsedLocalDateGlobalRect(date);
-    if (stack is! RenderBox || !stack.hasSize || pillRect == null) return null;
-
-    final pillTopLeft = stack.globalToLocal(pillRect.topLeft);
-    final pillBottomRight = stack.globalToLocal(pillRect.bottomRight);
-    final maxLeft = constraints.maxWidth > _menuWidth
-        ? constraints.maxWidth - _menuWidth
-        : 0.0;
-    final left = pillTopLeft.dx.clamp(0.0, maxLeft);
-    var top = pillTopLeft.dy - _menuHeight - _menuGap;
-    if (top < 0) top = pillBottomRight.dy + _menuGap;
-    final maxTop = constraints.maxHeight > _menuHeight
-        ? constraints.maxHeight - _menuHeight
-        : 0.0;
-    return (left, top.clamp(0.0, maxTop));
-  }
-
-  void _onPointerDown(PointerDownEvent event) {
-    _pointerDown = event.position;
-    _longPressTimer?.cancel();
-    if (!context.isTouch) return;
-    final position = event.position;
-    _longPressTimer = Timer(const Duration(milliseconds: 500), () {
-      if (!mounted || _pointerDown != position) return;
-      _pointerDown = null;
-      unawaited(_showTouchPillActions(position));
-    });
-  }
-
-  void _cancelLongPress([PointerEvent? _]) {
-    _longPressTimer?.cancel();
-    _longPressTimer = null;
-  }
-
-  Future<void> _showTouchPillActions(Offset position) async {
-    final poll = widget.composer.text.collapsedPollAtGlobalPosition(position);
-    final date = widget.composer.text.collapsedLocalDateAtGlobalPosition(
-      position,
-    );
-    if (poll == null && date == null) return;
-    final action = await showShellSheet<String>(
-      context: context,
-      title: date == null ? 'Poll' : 'Date and time',
-      padding: EdgeInsets.zero,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const DIcon(DIcons.farPenToSquare),
-            title: const Text('Edit'),
-            onTap: () => Navigator.of(context).pop('edit'),
-          ),
-          ListTile(
-            leading: const DIcon(DIcons.trashCan),
-            title: const Text('Remove'),
-            onTap: () => Navigator.of(context).pop('remove'),
-          ),
-        ],
-      ),
-    );
-    if (!mounted || action == null) return;
-    if (action == 'edit') {
-      if (poll != null) {
-        unawaited(openPollComposer(context, widget.composer, block: poll));
-      } else {
-        unawaited(openLocalDateComposer(context, widget.composer, block: date));
+    final caret = selection.extentOffset;
+    for (final image in widget.composer.text.imageBlocks) {
+      if (image.end != caret || !widget.composer.text.isImageCollapsed(image)) {
+        continue;
       }
-    } else if (poll != null) {
-      unawaited(removePollComposer(context, widget.composer, poll));
-    } else {
-      removeLocalDateComposer(context, widget.composer, date!);
+      if (_selectedImage != null) setState(() => _selectedImage = null);
+      widget.composer.removeImage(image);
+      return KeyEventResult.handled;
     }
+    for (final poll in widget.composer.text.pollBlocks) {
+      if (poll.end != caret || !widget.composer.text.isPollCollapsed(poll)) {
+        continue;
+      }
+      unawaited(removePollComposer(context, widget.composer, poll));
+      return KeyEventResult.handled;
+    }
+    for (final date in widget.composer.text.localDateBlocks) {
+      if (date.end != caret ||
+          !widget.composer.text.isLocalDateCollapsed(date)) {
+        continue;
+      }
+      removeLocalDateComposer(context, widget.composer, date);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   (double, double)? _imageMenuPosition(BoxConstraints constraints) {
@@ -1440,7 +1279,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final menuPosition = _menuPosition(constraints);
       final imageMenuPosition = _imageMenuPosition(constraints);
       return OverlayPortal(
         controller: _selectionPortal,
@@ -1468,133 +1306,101 @@ class _ComposerEditorState extends State<ComposerEditor> {
             if (_dragging) setState(() => _dragging = false);
           },
           onDragDone: _dropImages,
-          child: NotificationListener<LocalDateComposerPillHoverNotification>(
-            onNotification: _onDatePillHover,
-            child: NotificationListener<PollComposerPillHoverNotification>(
-              onNotification: _onPillHover,
-              child: MouseRegion(
-                // Retained as a fallback for embedders that do not hit-test inline
-                // children, and to close the menu when the pointer leaves the field.
-                onHover: _onHover,
-                onExit: (_) => _scheduleHide(),
-                child: Stack(
-                  key: _stackKey,
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned.fill(
-                      child: ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: widget.composer.text,
-                        builder: (context, value, _) => value.text.isEmpty
-                            ? IgnorePointer(
-                                child: Align(
-                                  alignment: Alignment.topLeft,
-                                  child: Text(
-                                    widget.hintText,
-                                    style: widget.hintStyle,
-                                  ),
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                    ),
-                    Positioned.fill(
-                      child: Listener(
-                        behavior: HitTestBehavior.translucent,
-                        onPointerDown: _onPointerDown,
-                        onPointerMove: _cancelLongPress,
-                        onPointerUp: _cancelLongPress,
-                        onPointerCancel: _cancelLongPress,
-                        child: ComposerSuggestionField(
-                          composer: widget.composer,
-                          field: ClipRect(
-                            child: TextField(
-                              // Not decoration: a new key builds a new editable, and
-                              // with it a new undo stack. It is the only way to stop undo
-                              // reaching back into a reply that has already been sent.
-                              key: ValueKey(widget.composer.fieldGeneration),
-                              controller: widget.composer.text,
-                              scrollController: _scroll,
-                              focusNode: widget.composer.focus,
-                              autofocus: widget.autofocus,
-                              expands: true,
-                              maxLines: null,
-                              minLines: null,
-                              textAlignVertical: TextAlignVertical.top,
-                              keyboardType: TextInputType.multiline,
-                              textCapitalization: TextCapitalization.sentences,
-                              onTapAlwaysCalled: true,
-                              onTap: _onFieldTap,
-                              style: widget.textStyle,
-                              // InputDecorator only gives the editable one text line
-                              // even when the TextField expands. The composer draws
-                              // its hint separately so this viewport fills the editor.
-                              decoration: null,
+          child: Stack(
+            key: _stackKey,
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: widget.composer.text,
+                  builder: (context, value, _) => value.text.isEmpty
+                      ? IgnorePointer(
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            child: Text(
+                              widget.hintText,
+                              style: widget.hintStyle,
                             ),
                           ),
-                        ),
-                      ),
-                    ),
-                    if (menuPosition case (final left, final top))
-                      Positioned(
-                        left: left,
-                        top: top,
-                        child: MouseRegion(
-                          onEnter: (_) {
-                            _hideTimer?.cancel();
-                            _menuHovered = true;
-                          },
-                          onExit: (_) {
-                            _menuHovered = false;
-                            _scheduleHide();
-                          },
-                          child: _PollComposerMenu(
-                            onEdit: _editPoll,
-                            onRemove: _removePoll,
-                            noun: _hoveredLocalDate == null ? 'poll' : 'date',
-                          ),
-                        ),
-                      ),
-                    if (imageMenuPosition case (final left, final top))
-                      Positioned(
-                        left: left,
-                        top: top,
-                        child: _ImageComposerMenu(
-                          image: _selectedImage!,
-                          alt: _imageAlt,
-                          onSaveAlt: _saveImageAlt,
-                          onScale: _scaleImage,
-                          onRemove: _deleteImage,
-                          onDismiss: _dismissImage,
-                        ),
-                      ),
-                    if (_dragging)
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: 0.06),
-                              border: Border.all(
-                                color: Theme.of(context).colorScheme.primary,
-                                width: 2,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Align(
-                              alignment: Alignment.topCenter,
-                              child: Padding(
-                                padding: EdgeInsets.all(8),
-                                child: Text('Drop images to upload'),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+                        )
+                      : const SizedBox.shrink(),
                 ),
               ),
-            ),
+              Positioned.fill(
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (event) => _pointerDown = event.position,
+                  onPointerCancel: (_) => _pointerDown = null,
+                  child: ComposerSuggestionField(
+                    composer: widget.composer,
+                    field: ClipRect(
+                      child: Focus(
+                        onKeyEvent: _onEditorKeyEvent,
+                        child: TextField(
+                          // Not decoration: a new key builds a new editable, and
+                          // with it a new undo stack. It is the only way to stop undo
+                          // reaching back into a reply that has already been sent.
+                          key: ValueKey(widget.composer.fieldGeneration),
+                          controller: widget.composer.text,
+                          scrollController: _scroll,
+                          focusNode: widget.composer.focus,
+                          autofocus: widget.autofocus,
+                          expands: true,
+                          maxLines: null,
+                          minLines: null,
+                          textAlignVertical: TextAlignVertical.top,
+                          keyboardType: TextInputType.multiline,
+                          textCapitalization: TextCapitalization.sentences,
+                          onTapAlwaysCalled: true,
+                          onTap: _onFieldTap,
+                          style: widget.textStyle,
+                          // InputDecorator only gives the editable one text line
+                          // even when the TextField expands. The composer draws
+                          // its hint separately so this viewport fills the editor.
+                          decoration: null,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (imageMenuPosition case (final left, final top))
+                Positioned(
+                  left: left,
+                  top: top,
+                  child: _ImageComposerMenu(
+                    image: _selectedImage!,
+                    alt: _imageAlt,
+                    onSaveAlt: _saveImageAlt,
+                    onScale: _scaleImage,
+                    onDismiss: _dismissImage,
+                  ),
+                ),
+              if (_dragging)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.06),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Align(
+                        alignment: Alignment.topCenter,
+                        child: Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Text('Drop images to upload'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       );
@@ -1655,7 +1461,6 @@ class _ImageComposerMenu extends StatelessWidget {
     required this.alt,
     required this.onSaveAlt,
     required this.onScale,
-    required this.onRemove,
     required this.onDismiss,
   });
 
@@ -1663,7 +1468,6 @@ class _ImageComposerMenu extends StatelessWidget {
   final TextEditingController alt;
   final VoidCallback onSaveAlt;
   final void Function(int scale) onScale;
-  final VoidCallback onRemove;
   final VoidCallback onDismiss;
 
   @override
@@ -1706,13 +1510,6 @@ class _ImageComposerMenu extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                     ),
                     const Spacer(),
-                    IconButton(
-                      onPressed: onRemove,
-                      icon: const DIcon(DIcons.trashCan, size: 16),
-                      tooltip: 'Remove image',
-                      color: theme.colorScheme.error,
-                      visualDensity: VisualDensity.compact,
-                    ),
                   ],
                 ),
                 SizedBox(
@@ -1735,51 +1532,6 @@ class _ImageComposerMenu extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PollComposerMenu extends StatelessWidget {
-  const _PollComposerMenu({
-    required this.onEdit,
-    required this.onRemove,
-    required this.noun,
-  });
-
-  final VoidCallback onEdit;
-  final VoidCallback onRemove;
-  final String noun;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      elevation: 4,
-      color: theme.colorScheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(8),
-      clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        width: _ComposerEditorState._menuWidth,
-        height: _ComposerEditorState._menuHeight,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            IconButton(
-              onPressed: onEdit,
-              tooltip: 'Edit $noun',
-              visualDensity: VisualDensity.compact,
-              icon: const DIcon(DIcons.pencil, size: 16),
-            ),
-            IconButton(
-              onPressed: onRemove,
-              tooltip: 'Remove $noun',
-              visualDensity: VisualDensity.compact,
-              color: theme.colorScheme.error,
-              icon: const DIcon(DIcons.trashCan, size: 16),
-            ),
-          ],
         ),
       ),
     );

@@ -178,7 +178,7 @@ void main() {
     },
   );
 
-  testWidgets('tapping the collapsed pill reveals its raw markdown', (
+  testWidgets('tapping the collapsed poll pill opens its editor', (
     tester,
   ) async {
     final shell = await _openComposer();
@@ -206,14 +206,17 @@ void main() {
     // lands on the TextField at the pill's visual coordinates.
     await tester.tapAt(tester.getCenter(pill));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.byType(PollComposerPill), findsNothing);
-    expect(find.text('Edit poll'), findsNothing);
+    expect(find.byType(PollComposerPill), findsOneWidget);
+    expect(find.text('Edit poll'), findsOneWidget);
     expect(composer.text.text, _source);
     expect(
       composer.text.isPollExpanded(composer.text.pollBlocks.single),
-      isTrue,
+      isFalse,
     );
+
+    await tester.tap(find.byTooltip('Close'));
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -249,7 +252,7 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('hovering the pill offers editing without revealing raw', (
+  testWidgets('hovering the pill does not show an edit or delete menu', (
     tester,
   ) async {
     final shell = await _openComposer();
@@ -277,28 +280,16 @@ void main() {
     await mouse.moveTo(tester.getCenter(find.byType(PollComposerPill)));
     await tester.pump();
 
-    expect(find.byTooltip('Edit poll'), findsOneWidget);
-    expect(find.byTooltip('Remove poll'), findsOneWidget);
+    expect(find.byTooltip('Edit poll'), findsNothing);
+    expect(find.byTooltip('Remove poll'), findsNothing);
     expect(
       composer.text.isPollCollapsed(composer.text.pollBlocks.single),
       isTrue,
     );
-
-    await tester.tap(find.byTooltip('Edit poll'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(find.text('Edit poll'), findsOneWidget);
-    expect(composer.text.text, _source);
-
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pump();
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('the hover menu removes an unpublished poll immediately', (
-    tester,
-  ) async {
+  testWidgets('backspace after a poll removes the whole poll', (tester) async {
     final shell = await _openComposer();
     addTearDown(shell.dispose);
     final composer = shell.visibleComposer!;
@@ -318,16 +309,100 @@ void main() {
     );
     await tester.pump();
 
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    addTearDown(mouse.removePointer);
-    await mouse.moveTo(tester.getCenter(find.byType(PollComposerPill)));
-    await tester.pump();
-    await tester.tap(find.byTooltip('Remove poll'));
+    final poll = composer.text.pollBlocks.single;
+    composer.text.selection = TextSelection.collapsed(offset: poll.end);
+    composer.focus.requestFocus();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
     await tester.pump();
 
     expect(composer.text.text, 'Before the poll.\n\n\n\nAfter the poll.');
     expect(find.byType(PollComposerPill), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(composer.text.text, _source);
+    expect(find.byType(PollComposerPill), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('backspace after ordinary text keeps its native behavior', (
+    tester,
+  ) async {
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    final composer = shell.visibleComposer!;
+    composer.text.value = const TextEditingValue(
+      text: 'hello',
+      selection: TextSelection.collapsed(offset: 5),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(body: ComposerPanel(composer: composer)),
+        ),
+      ),
+    );
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pump();
+
+    expect(composer.text.text, 'hell');
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('tapping a date pill edits it and backspace removes it', (
+    tester,
+  ) async {
+    const date = '[date=2026-08-11 time=09:00:00 timezone=UTC calendar=off]';
+    const source = 'Before $date after';
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    final composer = shell.visibleComposer!;
+    composer.text.value = const TextEditingValue(
+      text: source,
+      selection: TextSelection.collapsed(offset: source.length),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(body: ComposerPanel(composer: composer)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tapAt(tester.getCenter(find.byType(LocalDateComposerPill)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Edit date and time'), findsOneWidget);
+    expect(find.byType(LocalDateComposerPill), findsOneWidget);
+    expect(composer.text.text, source);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+    composer.text.selection = TextSelection.collapsed(
+      offset: composer.text.localDateBlocks.single.end,
+    );
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pump();
+
+    expect(composer.text.text, 'Before  after');
+    expect(find.byType(LocalDateComposerPill), findsNothing);
     await tester.pump(const Duration(seconds: 3));
   });
 }
