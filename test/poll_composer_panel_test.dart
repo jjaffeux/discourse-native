@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/local_dates/local_date_environment.
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/pill.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -85,6 +86,17 @@ EditableText _composerEditable(WidgetTester tester) =>
         matching: find.byType(EditableText),
       ),
     );
+
+BoxDecoration _pollPillDecoration(WidgetTester tester) =>
+    tester
+            .widget<Container>(
+              find.descendant(
+                of: find.byType(PollComposerPill),
+                matching: find.byType(Container),
+              ),
+            )
+            .decoration!
+        as BoxDecoration;
 
 void main() {
   setUpAll(() {
@@ -608,7 +620,7 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('hovering the pill does not show an edit or delete menu', (
+  testWidgets('hovering the pill changes its fill without opening a menu', (
     tester,
   ) async {
     final shell = await _openComposer();
@@ -630,18 +642,34 @@ void main() {
     );
     await tester.pump();
 
+    final theme = Theme.of(tester.element(find.byType(PollComposerPill)));
+    final expectedHover = Color.alphaBlend(
+      theme.colorScheme.onSurface.withValues(alpha: 0.08),
+      theme.shell.mention,
+    );
+    final sourceBefore = composer.text.value;
+    final rectBefore = tester.getRect(find.byType(Pill));
+    expect(_pollPillDecoration(tester).color, theme.shell.mention);
+
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
     addTearDown(mouse.removePointer);
     await mouse.moveTo(tester.getCenter(find.byType(PollComposerPill)));
     await tester.pump();
 
+    expect(_pollPillDecoration(tester).color, expectedHover);
+    expect(tester.getRect(find.byType(Pill)), rectBefore);
+    expect(composer.text.value, sourceBefore);
     expect(find.byTooltip('Edit poll'), findsNothing);
     expect(find.byTooltip('Remove poll'), findsNothing);
     expect(
       composer.text.isPollCollapsed(composer.text.pollBlocks.single),
       isTrue,
     );
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
+    expect(_pollPillDecoration(tester).color, theme.shell.mention);
+    expect(tester.getRect(find.byType(Pill)), rectBefore);
     await tester.pump(const Duration(seconds: 3));
   });
 

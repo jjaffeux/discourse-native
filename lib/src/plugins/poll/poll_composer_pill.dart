@@ -137,6 +137,7 @@ class PollComposerPill extends StatelessWidget {
     child: Pill(
       label: label,
       baseStyle: baseStyle,
+      hoverable: true,
       highlighted: highlighted,
       leading: DIcon(
         DIcons.squarePollHorizontal,

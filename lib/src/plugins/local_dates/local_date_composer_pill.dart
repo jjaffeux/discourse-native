@@ -145,6 +145,7 @@ class LocalDateComposerPill extends StatelessWidget {
     child: Pill(
       label: label,
       baseStyle: baseStyle,
+      hoverable: true,
       highlighted: highlighted,
       leading: DIcon(DIcons.farClock, size: Pill.iconBoxFor(baseStyle)),
     ),

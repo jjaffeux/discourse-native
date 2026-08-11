@@ -46,13 +46,14 @@ const double pillGap = 0.287;
 ///
 /// [onTap] is null in the composer, where [EditableText] owns pointer handling
 /// and the composer resolves the pill's exact render-box geometry itself.
-class Pill extends StatelessWidget {
+class Pill extends StatefulWidget {
   const Pill({
     super.key,
     required this.label,
     required this.baseStyle,
     this.leading,
     this.onTap,
+    this.hoverable = false,
     this.highlighted = false,
   });
 
@@ -69,6 +70,10 @@ class Pill extends StatelessWidget {
 
   final VoidCallback? onTap;
 
+  /// Whether this pill is actionable through an owning widget such as an
+  /// editable, rather than through [onTap] itself.
+  final bool hoverable;
+
   /// A keyboard focus ring for projected composer items.
   final bool highlighted;
 
@@ -83,21 +88,42 @@ class Pill extends StatelessWidget {
       fontSizeFor(baseStyle) * pillGlyph / DIcon.glyphScale;
 
   @override
+  State<Pill> createState() => _PillState();
+}
+
+class _PillState extends State<Pill> {
+  bool _hovered = false;
+
+  void _setHovered(bool value) {
+    if (_hovered == value) return;
+    setState(() => _hovered = value);
+  }
+
+  @override
+  void didUpdateWidget(Pill oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.hoverable && widget.onTap == null) _hovered = false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final size = fontSizeFor(baseStyle);
+    final size = Pill.fontSizeFor(widget.baseStyle);
     final radius = BorderRadius.circular(size * pillRadius);
+    final background = _hovered
+        ? Color.alphaBlend(
+            theme.colorScheme.onSurface.withValues(alpha: 0.08),
+            theme.shell.mention,
+          )
+        : theme.shell.mention;
 
     final pill = Container(
       padding: EdgeInsets.symmetric(
         horizontal: size * pillPadX,
         vertical: size * pillPadY,
       ),
-      decoration: BoxDecoration(
-        color: theme.shell.mention,
-        borderRadius: radius,
-      ),
-      foregroundDecoration: highlighted
+      decoration: BoxDecoration(color: background, borderRadius: radius),
+      foregroundDecoration: widget.highlighted
           ? BoxDecoration(
               border: Border.all(color: theme.colorScheme.primary, width: 1.5),
               borderRadius: radius,
@@ -106,7 +132,7 @@ class Pill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (leading case final leading?) ...[
+          if (widget.leading case final leading?) ...[
             ExcludeSemantics(child: leading),
             SizedBox(width: size * pillGap),
           ],
@@ -116,12 +142,12 @@ class Pill extends StatelessWidget {
           // a post is not where that should be discovered.
           Flexible(
             child: Text(
-              label,
+              widget.label,
               // `text-wrap: nowrap`. A pill broken across two lines reads as
               // two pills; past the end of the line it is cut instead.
               softWrap: false,
               overflow: TextOverflow.ellipsis,
-              style: (baseStyle ?? const TextStyle()).copyWith(
+              style: (widget.baseStyle ?? const TextStyle()).copyWith(
                 fontSize: size,
                 // `line-height: 1`, so the chip hugs its label rather than
                 // inheriting the paragraph's leading and standing taller than
@@ -136,16 +162,22 @@ class Pill extends StatelessWidget {
       ),
     );
 
-    final tappable = onTap == null
+    final onTap = widget.onTap;
+    Widget interactive = onTap == null
         ? pill
-        : MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onTap,
-              child: pill,
-            ),
+        : GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: pill,
           );
+    if (widget.hoverable || onTap != null) {
+      interactive = MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => _setHovered(true),
+        onExit: (_) => _setHovered(false),
+        child: interactive,
+      );
+    }
 
     // A paragraph whose only content is a pill — a post that says nothing but
     // `#support` — reaches the renderer as a *block*, with a tight width. The
@@ -155,7 +187,7 @@ class Pill extends StatelessWidget {
       alignment: AlignmentDirectional.centerStart,
       widthFactor: 1,
       heightFactor: 1,
-      child: tappable,
+      child: interactive,
     );
   }
 }
