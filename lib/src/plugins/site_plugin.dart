@@ -10,6 +10,7 @@ import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import 'assign/assign_plugin.dart';
 import 'chat/chat_plugin.dart';
+import 'gifs/gifs_plugin.dart';
 import 'local_dates/local_dates_plugin.dart';
 import 'poll/poll_plugin.dart';
 import 'reactions/reactions_plugin.dart';
@@ -323,6 +324,7 @@ const List<SitePlugin> sitePlugins = <SitePlugin>[
   ReactionsPlugin(),
   LocalDatesPlugin(),
   PollPlugin(),
+  GifsPlugin(),
   AssignPlugin(),
   ChatPlugin(),
   ResenhaPlugin(),

@@ -26,6 +26,10 @@ Map<String, dynamic> settings({
   bool? localDatesEnabled,
   String? localDateFormats,
   String? localDateTimezones,
+  bool? gifsEnabled,
+  String? gifFileDetail,
+  bool? gifResultLimitEnabled,
+  Object? gifMaxResults,
 }) => {
   'emoji_set': ?emojiSet,
   'external_emoji_url': externalEmojiUrl,
@@ -48,6 +52,10 @@ Map<String, dynamic> settings({
   'discourse_local_dates_enabled': ?localDatesEnabled,
   'discourse_local_dates_default_formats': ?localDateFormats,
   'discourse_local_dates_default_timezones': ?localDateTimezones,
+  'enable_gifs': ?gifsEnabled,
+  'klipy_file_detail': ?gifFileDetail,
+  'klipy_limit_infinite_search_results': ?gifResultLimitEnabled,
+  'klipy_max_results_limit': ?gifMaxResults,
 };
 
 void main() {
@@ -69,6 +77,10 @@ void main() {
       expect(unknown.mainReaction, isNull);
       expect(unknown.offeredReactions, isEmpty);
       expect(unknown.minSearchTermLength, 3);
+      expect(unknown.gifsEnabled, isFalse);
+      expect(unknown.gifFileDetail, SiteConfig.defaultGifFileDetail);
+      expect(unknown.gifResultLimitEnabled, isFalse);
+      expect(unknown.gifMaxResults, SiteConfig.defaultGifMaxResults);
     });
 
     test('reads and bounds the minimum search length', () {
@@ -210,6 +222,35 @@ void main() {
         expect(config.localDateTimezones, SiteConfig.defaultLocalDateTimezones);
       },
     );
+
+    test('reads GIF proxy presentation and result-limit settings', () {
+      final config = SiteConfig.fromSettings(
+        settings(
+          gifsEnabled: true,
+          gifFileDetail: 'gif',
+          gifResultLimitEnabled: true,
+          gifMaxResults: 96,
+        ),
+      );
+
+      expect(config.gifsEnabled, isTrue);
+      expect(config.gifFileDetail, 'gif');
+      expect(config.gifResultLimitEnabled, isTrue);
+      expect(config.gifMaxResults, 96);
+    });
+
+    test('bounds unknown GIF format and result-limit values', () {
+      final config = SiteConfig.fromSettings(
+        settings(gifFileDetail: 'future-format', gifMaxResults: 23),
+      );
+
+      expect(config.gifFileDetail, SiteConfig.defaultGifFileDetail);
+      expect(config.gifMaxResults, SiteConfig.defaultGifMaxResults);
+      expect(
+        SiteConfig.fromSettings(settings(gifMaxResults: '48')).gifMaxResults,
+        48,
+      );
+    });
   });
 
   group('emojiUrl', () {
@@ -313,6 +354,10 @@ void main() {
         localDatesEnabled: true,
         localDateFormats: 'LLL|YYYY',
         localDateTimezones: 'Etc/UTC|Asia/Tokyo',
+        gifsEnabled: true,
+        gifFileDetail: 'gif',
+        gifResultLimitEnabled: true,
+        gifMaxResults: 72,
       ),
     );
 

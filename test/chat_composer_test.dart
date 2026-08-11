@@ -2,9 +2,13 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -14,6 +18,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://chat.example';
+const _gifsConfig = SiteConfig(gifsEnabled: true, localDatesEnabled: true);
+const _pollUser = DiscourseUser(id: 7, username: 'reader', canCreatePoll: true);
+const _gif = GifResult(
+  title: 'Party parrot',
+  url: 'https://cdn.example/party.webp',
+  width: 320,
+  height: 180,
+);
 
 void main() {
   testWidgets('stays pinned while the message stream scrolls', (tester) async {
@@ -34,6 +46,7 @@ void main() {
     final bar = find.byKey(const ValueKey('chat-composer'));
     expect(find.byTooltip('Add to message'), findsNothing);
     expect(find.byTooltip('Add emoji'), findsNothing);
+    expect(find.byKey(const ValueKey('chat-composer-gif')), findsNothing);
     expect(find.byKey(const ValueKey('chat-composer-send')), findsOneWidget);
     final before = tester.getRect(bar);
     final scrollable = find.byWidgetPredicate(
@@ -91,6 +104,201 @@ void main() {
     await tester.pump();
 
     expect(field.focusNode!.hasFocus, isFalse);
+  });
+
+  testWidgets('adds only the compact Send GIF action when enabled', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      config: _gifsConfig,
+      sessionUser: _pollUser,
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    expect(fixture.shell.canCreatePollFor(_site), isTrue);
+    expect(find.byTooltip('Send GIF'), findsOneWidget);
+    expect(find.byTooltip('Insert GIF'), findsNothing);
+    expect(find.byTooltip('Search GIFs'), findsNothing);
+    expect(find.byTooltip('Add poll'), findsNothing);
+    expect(find.byTooltip('Insert date/time  ⇧.'), findsNothing);
+    expect(find.byTooltip('Add to message'), findsNothing);
+    expect(find.byTooltip('Add emoji'), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('chat-composer'))).height,
+      58,
+    );
+  });
+
+  testWidgets('keeps both send actions idle while the GIF picker is open', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      config: _gifsConfig,
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    final field = _composerField();
+    await tester.enterText(field, 'keep this draft');
+    await tester.pump();
+    await _openGifPicker(tester);
+
+    expect(_button(tester, 'chat-composer-gif').onPressed, isNull);
+    expect(_button(tester, 'chat-composer-send').onPressed, isNull);
+
+    await _closeGifPicker(tester);
+    await tester.pumpAndSettle();
+
+    expect(_text(tester), 'keep this draft');
+    expect(fixture.api.chatMessagesSent, isEmpty);
+    expect(_button(tester, 'chat-composer-gif').onPressed, isNotNull);
+    expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
+  });
+
+  testWidgets('sends a selected GIF immediately and clears after success', (
+    tester,
+  ) async {
+    final sendGate = Completer<void>();
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      config: _gifsConfig,
+      sendGate: sendGate,
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_composerField(), 'unchanged draft');
+    await tester.pump();
+    await _openGifPicker(tester);
+    await _closeGifPicker(tester, _gif);
+
+    expect(fixture.api.chatMessagesSent, hasLength(1));
+    expect(fixture.api.chatMessagesSent.single.siteUrl, _site);
+    expect(fixture.api.chatMessagesSent.single.channelId, 9);
+    expect(fixture.api.chatMessagesSent.single.message, _gif.markdown.trim());
+    expect(_text(tester), 'unchanged draft');
+    expect(_button(tester, 'chat-composer-gif').onPressed, isNull);
+    expect(_button(tester, 'chat-composer-send').onPressed, isNull);
+
+    sendGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(_text(tester), isEmpty);
+    expect(_field(tester).focusNode!.hasFocus, isTrue);
+  });
+
+  testWidgets('preserves a draft when the GIF send fails', (tester) async {
+    const failure = WriteException(WriteFailure.unreachable);
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      config: _gifsConfig,
+      sendFailure: failure,
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_composerField(), 'do not consume me');
+    await tester.pump();
+    await _openGifPicker(tester);
+    await _closeGifPicker(tester, _gif);
+    await tester.pumpAndSettle();
+
+    expect(_text(tester), 'do not consume me');
+    expect(find.text(failure.message), findsOneWidget);
+    expect(fixture.api.chatMessagesSent, hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('preserves text typed while a GIF send is in flight', (
+    tester,
+  ) async {
+    final sendGate = Completer<void>();
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      config: _gifsConfig,
+      sendGate: sendGate,
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_composerField(), 'old draft');
+    await tester.pump();
+    await _openGifPicker(tester);
+    await _closeGifPicker(tester, _gif);
+    await tester.enterText(_composerField(), 'next draft');
+    await tester.pump();
+
+    sendGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(_text(tester), 'next draft');
+    expect(_field(tester).focusNode!.hasFocus, isTrue);
+  });
+
+  testWidgets('preserves a full editing-value change made in the picker', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      config: _gifsConfig,
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_composerField(), 'same text');
+    await tester.pump();
+    await _openGifPicker(tester);
+    const changedDocument = TextEditingValue(
+      text: 'same text',
+      selection: TextSelection.collapsed(offset: 0),
+    );
+    _field(tester).controller!.value = changedDocument;
+    await tester.pump();
+    await _closeGifPicker(tester, _gif);
+    await tester.pumpAndSettle();
+
+    expect(_field(tester).controller!.value, changedDocument);
+    expect(fixture.api.chatMessagesSent, hasLength(1));
+  });
+
+  testWidgets('does not clear or refocus a replacement channel', (
+    tester,
+  ) async {
+    final sendGate = Completer<void>();
+    final fixture = await _fixture(
+      pages: const {},
+      config: _gifsConfig,
+      sendGate: sendGate,
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_ComposerView(shell: fixture.shell, channelId: 9));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_composerField(), 'channel nine draft');
+    await tester.pump();
+    await _openGifPicker(tester);
+    await _closeGifPicker(tester, _gif);
+    expect(fixture.api.chatMessagesSent.single.channelId, 9);
+
+    await tester.pumpWidget(_ComposerView(shell: fixture.shell, channelId: 10));
+    await tester.pump();
+    await tester.enterText(_composerField(), 'channel ten draft');
+    await tester.pump();
+
+    sendGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(_text(tester), 'channel ten draft');
+    expect(_field(tester).focusNode!.hasFocus, isTrue);
   });
 
   testWidgets('sends markdown and starts a clean, focused document', (
@@ -262,11 +470,14 @@ ChatMessage _message(int id) => ChatMessage(
 
 Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   required Map<String, ChatMessagePage> pages,
+  SiteConfig config = const SiteConfig.unknown(),
+  DiscourseUser? sessionUser,
   Completer<void>? sendGate,
   WriteException? sendFailure,
   int? sentMessageId,
 }) async {
   final api = FakeDiscourseApi(
+    user: sessionUser,
     chatMessagesByKey: pages,
     chatSendGate: sendGate,
     chatSendFailure: sendFailure,
@@ -275,7 +486,13 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   final authenticator = FakeAuthenticator()..keys[_site] = 'key';
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
-      const DiscourseInstance(url: _site, title: 'Chat', apiVersion: 4),
+      DiscourseInstance(
+        url: _site,
+        title: 'Chat',
+        apiVersion: 4,
+        config: config,
+        user: sessionUser,
+      ),
     ]),
     api: api,
     authenticator: authenticator,
@@ -292,7 +509,41 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
       membership: ChatMembership(following: true),
     ),
   );
+  shell.store.put(
+    _site,
+    const ChatChannel(
+      id: 10,
+      title: 'support',
+      kind: ChatChannelKind.category,
+      membership: ChatMembership(following: true),
+    ),
+  );
   return (shell: shell, api: api);
+}
+
+Finder _composerField() => find.descendant(
+  of: find.byKey(const ValueKey('chat-composer')),
+  matching: find.byType(TextField),
+);
+
+TextField _field(WidgetTester tester) => tester.widget(_composerField());
+
+String _text(WidgetTester tester) => _field(tester).controller!.text;
+
+IconButton _button(WidgetTester tester, String key) =>
+    tester.widget(find.byKey(ValueKey(key)));
+
+Future<void> _openGifPicker(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('chat-composer-gif')));
+  await tester.pumpAndSettle();
+  expect(find.byKey(const ValueKey('gif-picker-search')), findsOneWidget);
+}
+
+Future<void> _closeGifPicker(WidgetTester tester, [GifResult? result]) async {
+  final search = find.byKey(const ValueKey('gif-picker-search'));
+  Navigator.of(tester.element(search)).pop(result);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 500));
 }
 
 final class _TestView extends StatelessWidget {
@@ -306,6 +557,24 @@ final class _TestView extends StatelessWidget {
     child: MaterialApp(
       theme: AppTheme.light,
       home: const Scaffold(body: ChatChannelView(channelId: 9)),
+    ),
+  );
+}
+
+final class _ComposerView extends StatelessWidget {
+  const _ComposerView({required this.shell, required this.channelId});
+
+  final ShellController shell;
+  final int channelId;
+
+  @override
+  Widget build(BuildContext context) => ShellScope(
+    controller: shell,
+    child: MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: ChatComposer(siteUrl: _site, channelId: channelId),
+      ),
     ),
   );
 }
