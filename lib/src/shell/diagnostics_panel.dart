@@ -297,7 +297,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
   Future<void> _confirmClear() async {
     final confirmed = await showDiscourseDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog.adaptive(
+      builder: (dialogContext) => DiscourseAlertDialog(
         title: const Text('Clear diagnostics history?'),
         content: const Text(
           'This removes the recorded requests and errors from this device. '

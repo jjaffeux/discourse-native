@@ -79,9 +79,13 @@ void main() {
           builder: (context) => FilledButton(
             onPressed: () => showDiscourseDialog<void>(
               context: context,
-              builder: (dialogContext) => AlertDialog.adaptive(
+              builder: (dialogContext) => DiscourseAlertDialog(
                 title: const Text('Remove site?'),
                 actions: [
+                  AdaptiveDialogAction(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Cancel'),
+                  ),
                   AdaptiveDialogAction(
                     onPressed: () => Navigator.of(dialogContext).pop(),
                     kind: AdaptiveDialogActionKind.destructive,
@@ -100,7 +104,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(Dialog), findsOneWidget);
+    final alert = tester.widget<AlertDialog>(find.byType(AlertDialog));
+    expect(alert.actionsAlignment, MainAxisAlignment.start);
+    expect(alert.actionsOverflowAlignment, OverflowBarAlignment.start);
+    expect(alert.actionsOverflowButtonSpacing, 8);
+    expect(find.widgetWithText(FilledButton, 'Cancel'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Remove'), findsOneWidget);
+    final cancel = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Cancel'),
+    );
+    final colors = AppTheme.light.colorScheme;
+    expect(
+      cancel.style?.backgroundColor?.resolve({}),
+      colors.surfaceContainerHigh,
+    );
+    expect(cancel.style?.foregroundColor?.resolve({}), colors.onSurface);
     expect(find.byType(CupertinoAlertDialog), findsNothing);
     expect(find.byType(CupertinoDialogAction), findsNothing);
   });

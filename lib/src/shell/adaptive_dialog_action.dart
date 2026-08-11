@@ -28,6 +28,31 @@ Future<T?> showDiscourseDialog<T>({
   },
 );
 
+/// An alert dialog with the same start-aligned, wrapping action row as core.
+class DiscourseAlertDialog extends StatelessWidget {
+  const DiscourseAlertDialog({
+    super.key,
+    this.title,
+    this.content,
+    this.actions,
+  });
+
+  final Widget? title;
+  final Widget? content;
+  final List<Widget>? actions;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: title,
+    content: content,
+    actions: actions,
+    actionsAlignment: MainAxisAlignment.start,
+    actionsOverflowAlignment: OverflowBarAlignment.start,
+    actionsOverflowButtonSpacing: 8,
+    buttonPadding: const EdgeInsets.symmetric(horizontal: 8),
+  );
+}
+
 /// The semantic importance of an action in an adaptive alert dialog.
 enum AdaptiveDialogActionKind { regular, primary, destructive }
 
@@ -78,22 +103,29 @@ class _MaterialDialogAction extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => switch (kind) {
-    AdaptiveDialogActionKind.regular => TextButton(
-      onPressed: onPressed,
-      child: child,
-    ),
-    AdaptiveDialogActionKind.primary => FilledButton(
-      onPressed: onPressed,
-      child: child,
-    ),
-    AdaptiveDialogActionKind.destructive => FilledButton(
-      onPressed: onPressed,
-      style: FilledButton.styleFrom(
-        backgroundColor: Theme.of(context).colorScheme.error,
-        foregroundColor: Theme.of(context).colorScheme.onError,
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return switch (kind) {
+      AdaptiveDialogActionKind.regular => FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: colors.surfaceContainerHigh,
+          foregroundColor: colors.onSurface,
+        ),
+        child: child,
       ),
-      child: child,
-    ),
-  };
+      AdaptiveDialogActionKind.primary => FilledButton(
+        onPressed: onPressed,
+        child: child,
+      ),
+      AdaptiveDialogActionKind.destructive => FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: colors.error,
+          foregroundColor: colors.onError,
+        ),
+        child: child,
+      ),
+    };
+  }
 }

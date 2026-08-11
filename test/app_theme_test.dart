@@ -231,7 +231,25 @@ void main() {
       expect(theme.dialogTheme.surfaceTintColor, Colors.transparent);
       expect(theme.dialogTheme.barrierColor, discourseModalBarrier);
       expect(theme.dialogTheme.clipBehavior, Clip.antiAlias);
+      expect(
+        theme.dialogTheme.actionsPadding,
+        const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      );
       expect(dialogShape.borderRadius, BorderRadius.circular(13));
+
+      for (final style in [
+        theme.filledButtonTheme.style!,
+        theme.outlinedButtonTheme.style!,
+        theme.textButtonTheme.style!,
+      ]) {
+        final shape = style.shape?.resolve({}) as RoundedRectangleBorder;
+        expect(shape.borderRadius, BorderRadius.circular(13));
+        expect(style.minimumSize?.resolve({}), const Size(0, 32));
+        expect(
+          style.padding?.resolve({}),
+          const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        );
+      }
 
       expect(theme.bottomSheetTheme.modalBackgroundColor, source.secondary);
       expect(theme.bottomSheetTheme.modalBarrierColor, discourseModalBarrier);

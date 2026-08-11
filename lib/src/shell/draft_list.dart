@@ -67,7 +67,7 @@ class _DraftListViewState extends State<DraftListView> {
   Future<void> _remove(UserDraft draft) async {
     final confirmed = await showDiscourseDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog.adaptive(
+      builder: (context) => DiscourseAlertDialog(
         title: const Text('Remove draft?'),
         content: Text(
           '“${draft.displayTitle}” will be permanently removed from this '

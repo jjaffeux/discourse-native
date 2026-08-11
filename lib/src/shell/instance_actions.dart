@@ -21,7 +21,7 @@ Future<void> confirmInstanceRemoval(
   final confirmed = await showDiscourseDialog<bool>(
     context: context,
     builder: (dialogContext) {
-      return AlertDialog.adaptive(
+      return DiscourseAlertDialog(
         title: Text('Remove ${instance.title}?'),
         content: Text(
           'This signs out of ${instance.host} and takes it out of the rail. '
