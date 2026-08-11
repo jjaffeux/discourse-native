@@ -8,7 +8,7 @@ import '../../theme/app_theme.dart';
 import 'poll_composer_editor.dart';
 import 'poll_composer_parser.dart';
 
-enum PollComposerSheetActionType { apply, remove, editRaw }
+enum PollComposerSheetActionType { apply, remove }
 
 @immutable
 class PollComposerSheetAction {
@@ -19,9 +19,6 @@ class PollComposerSheetAction {
 
   const PollComposerSheetAction.remove()
     : this._(PollComposerSheetActionType.remove, null);
-
-  const PollComposerSheetAction.editRaw()
-    : this._(PollComposerSheetActionType.editRaw, null);
 
   final PollComposerSheetActionType type;
   final PollComposerDraft? draft;
@@ -443,12 +440,6 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
     runSpacing: 8,
     children: [
       if (!widget.draft.isNew) ...[
-        TextButton(
-          onPressed: () => Navigator.of(
-            context,
-          ).pop(const PollComposerSheetAction.editRaw()),
-          child: const Text('Edit as raw'),
-        ),
         TextButton(
           onPressed: () => unawaited(_remove()),
           child: const Text('Remove'),

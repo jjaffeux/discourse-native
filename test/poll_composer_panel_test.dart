@@ -241,11 +241,8 @@ void main() {
 
     expect(find.byType(PollComposerPill), findsOneWidget);
     expect(find.text('Edit poll'), findsOneWidget);
+    expect(find.text('Edit as raw'), findsNothing);
     expect(composer.text.text, _source);
-    expect(
-      composer.text.isPollExpanded(composer.text.pollBlocks.single),
-      isFalse,
-    );
 
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
@@ -1071,6 +1068,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Edit date and time'), findsOneWidget);
+    expect(find.text('Edit as raw'), findsNothing);
     expect(find.byType(LocalDateComposerPill), findsOneWidget);
     expect(composer.text.text, source);
 

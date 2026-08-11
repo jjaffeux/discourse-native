@@ -88,13 +88,6 @@ Future<void> openLocalDateComposer(
     );
     return;
   }
-  if (action.type == LocalDateComposerSheetActionType.editRaw &&
-      block != null) {
-    composer.text.expandLocalDateAsRaw(block);
-    composer.focus.requestFocus();
-    return;
-  }
-
   final LocalDateComposerMutation mutation;
   switch (action.type) {
     case LocalDateComposerSheetActionType.apply:
@@ -123,8 +116,6 @@ Future<void> openLocalDateComposer(
         expectedDocument: expectedDocument,
         expectedBlock: block,
       );
-    case LocalDateComposerSheetActionType.editRaw:
-      return;
   }
   if (!mutation.applied) {
     _message(context, mutation.message!);

@@ -9,7 +9,7 @@ import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_environment.dart';
 
-enum LocalDateComposerSheetActionType { apply, remove, editRaw }
+enum LocalDateComposerSheetActionType { apply, remove }
 
 @immutable
 class LocalDateComposerSheetAction {
@@ -20,9 +20,6 @@ class LocalDateComposerSheetAction {
 
   const LocalDateComposerSheetAction.remove()
     : this._(LocalDateComposerSheetActionType.remove, null);
-
-  const LocalDateComposerSheetAction.editRaw()
-    : this._(LocalDateComposerSheetActionType.editRaw, null);
 
   final LocalDateComposerSheetActionType type;
   final LocalDateComposerDraft? draft;
@@ -496,12 +493,6 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
     runSpacing: 8,
     children: [
       if (!widget.draft.isNew) ...[
-        TextButton(
-          onPressed: () => Navigator.of(
-            context,
-          ).pop(const LocalDateComposerSheetAction.editRaw()),
-          child: const Text('Edit as raw'),
-        ),
         TextButton(
           onPressed: () => Navigator.of(
             context,

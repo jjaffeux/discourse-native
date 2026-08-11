@@ -236,7 +236,6 @@ class MarkdownEditingController extends TextEditingController {
 
   String? _pollScanned;
   List<PollComposerBlock> _pollBlocks = const [];
-  final PollRawExpansion _rawPoll = PollRawExpansion();
   Set<int> _collapsedPollStarts = const {};
   PollComposerBlock? _caretSuppressedPoll;
   final Map<int, GlobalKey> _pollPillKeys = {};
@@ -247,8 +246,6 @@ class MarkdownEditingController extends TextEditingController {
 
   PollComposerBlock? pollAtOffset(int offset) =>
       pollBlockAtComposerOffset(_pollBlocksFor(text), offset);
-
-  bool isPollExpanded(PollComposerBlock block) => _rawPoll.contains(block);
 
   bool isPollCollapsed(PollComposerBlock block) =>
       _collapsedPollStarts.contains(block.start);
@@ -322,17 +319,6 @@ class MarkdownEditingController extends TextEditingController {
     return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 
-  void expandPollAsRaw(PollComposerBlock block) {
-    clearKeyboardPillSelection();
-    releasePollPointerEdit(block);
-    _rawPoll.expand(block);
-    value = value.copyWith(
-      selection: TextSelection.collapsed(
-        offset: (block.start + 1).clamp(block.start, block.end),
-      ),
-    );
-  }
-
   List<PollComposerBlock> _pollBlocksFor(String source) {
     if (_pollScanned == source) return _pollBlocks;
     final previousByStart = {
@@ -350,13 +336,11 @@ class MarkdownEditingController extends TextEditingController {
           !_sameProjection(previous, next);
     });
     _pollScanned = source;
-    _rawPoll.clear();
     return _pollBlocks = nextBlocks;
   }
 
   String? _localDateScanned;
   List<LocalDateComposerBlock> _localDateBlocks = const [];
-  final LocalDateRawExpansion _rawLocalDate = LocalDateRawExpansion();
   Set<int> _collapsedLocalDateStarts = const {};
   LocalDateComposerBlock? _caretSuppressedLocalDate;
   final Map<int, GlobalKey> _localDatePillKeys = {};
@@ -369,9 +353,6 @@ class MarkdownEditingController extends TextEditingController {
 
   bool isLocalDateCollapsed(LocalDateComposerBlock block) =>
       _collapsedLocalDateStarts.contains(block.start);
-
-  bool isLocalDateExpanded(LocalDateComposerBlock block) =>
-      _rawLocalDate.contains(block);
 
   void keepLocalDateCollapsedForPointerEdit(LocalDateComposerBlock block) {
     if (_sameProjection(_caretSuppressedLocalDate, block)) return;
@@ -411,20 +392,9 @@ class MarkdownEditingController extends TextEditingController {
     return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 
-  void expandLocalDateAsRaw(LocalDateComposerBlock block) {
-    clearKeyboardPillSelection();
-    _rawLocalDate.expand(block);
-    value = value.copyWith(
-      selection: TextSelection.collapsed(
-        offset: (block.start + 1).clamp(block.start, block.end),
-      ),
-    );
-  }
-
   List<LocalDateComposerBlock> _localDateBlocksFor(String source) {
     if (_localDateScanned == source) return _localDateBlocks;
     _localDateScanned = source;
-    _rawLocalDate.clear();
     _localDatePillKeys.clear();
     return _localDateBlocks = parseLocalDateComposerBlocks(source);
   }
@@ -580,13 +550,11 @@ class MarkdownEditingController extends TextEditingController {
     );
 
     final pollBlocks = _pollBlocksFor(source);
-    _rawPoll.updateSelection(value.selection);
     final collapsedPolls = [
       for (final block in pollBlocks)
         if (!pollBlockNeedsRawSource(
           block: block,
           value: value,
-          explicitlyRaw: _rawPoll.contains(block),
           suppressCollapsedCaret: _sameProjection(_caretSuppressedPoll, block),
         ))
           block,
@@ -607,13 +575,11 @@ class MarkdownEditingController extends TextEditingController {
 
     final locale = Localizations.localeOf(context);
     final localDateBlocks = _localDateBlocksFor(source);
-    _rawLocalDate.updateSelection(value.selection);
     final collapsedLocalDates = [
       for (final block in localDateBlocks)
         if (!localDateBlockNeedsRawSource(
           block: block,
           value: value,
-          explicitlyRaw: _rawLocalDate.contains(block),
           suppressCollapsedCaret: _sameProjection(
             _caretSuppressedLocalDate,
             block,
