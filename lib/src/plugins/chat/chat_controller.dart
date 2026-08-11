@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
 
 import '../../data/api_credentials.dart';
@@ -8,8 +11,10 @@ import '../../data/store.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
 import '../../models/discourse_user.dart';
+import '../../models/site_config.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
+import 'chat_preview.dart';
 
 /// What Discourse's chat shortcut paints over its comment icon.
 @immutable
@@ -209,11 +214,15 @@ class ChatController extends FrameSafeNotifier {
     required this.store,
     SiteLifecycle? lifecycle,
     DiscourseUser? Function(String siteUrl)? currentUserFor,
+    SiteConfig Function(String siteUrl)? siteConfigFor,
+    ChatPreviewEngine? previewEngine,
     this.minimumWindowRefreshInterval = const Duration(seconds: 30),
     DateTime Function()? clock,
   }) : assert(minimumWindowRefreshInterval >= Duration.zero),
        lifecycle = lifecycle ?? SiteLifecycle(),
        _currentUserFor = currentUserFor ?? _noCurrentUser,
+       _siteConfigFor = siteConfigFor ?? _unknownSiteConfig,
+       _previewEngine = previewEngine ?? ChatPreviewEngine(),
        _clock = clock ?? DateTime.now;
 
   final ChatApi api;
@@ -222,9 +231,12 @@ class ChatController extends FrameSafeNotifier {
   final SiteLifecycle lifecycle;
   final Duration minimumWindowRefreshInterval;
   final DiscourseUser? Function(String siteUrl) _currentUserFor;
+  final SiteConfig Function(String siteUrl) _siteConfigFor;
+  final ChatPreviewEngine _previewEngine;
   final DateTime Function() _clock;
 
   static DiscourseUser? _noCurrentUser(String _) => null;
+  static SiteConfig _unknownSiteConfig(String _) => const SiteConfig.unknown();
 
   void _report(
     Object error,
@@ -293,8 +305,7 @@ class ChatController extends FrameSafeNotifier {
   _queuedReadReceipts = {};
   final Map<String, Future<void>> _readReceiptTasks = {};
   final Map<String, Object> _readReceiptRuns = {};
-  final Map<String, Future<bool>> _sendRequests = {};
-  final Map<String, Object> _sendRuns = {};
+  final Map<String, _ChatSendQueue> _sendQueues = {};
   final Map<String, SiteMessageBusSubscription> _sendSubscriptions = {};
   final Set<({String siteUrl, int channelId})> _sendSubscriptionChannels = {};
   int _nextLocalMessageId = -1;
@@ -601,8 +612,10 @@ class ChatController extends FrameSafeNotifier {
   // --- writes ------------------------------------------------------------
 
   /// Whether a new staged row can be accepted synchronously.
-  bool canSendMessage(String siteUrl, int channelId) =>
-      !isDisposed && !_sendRequests.containsKey(_streamKey(siteUrl, channelId));
+  ///
+  /// Network serialization happens below the optimistic boundary, so an
+  /// in-flight message never makes the composer busy.
+  bool canSendMessage(String siteUrl, int channelId) => !isDisposed;
 
   /// Stages and sends one message.
   ///
@@ -612,21 +625,26 @@ class ChatController extends FrameSafeNotifier {
   /// MessageBus later replaces the raw projection with canonical cooked data.
   /// This workflow issues no newest-page GET at all, awaited or in the
   /// background. Full-window reads remain exclusive to ordinary open/paging.
-  Future<bool> sendMessage(String siteUrl, int channelId, String message) {
-    final text = message.trim();
-    if (text.isEmpty) return Future.value(false);
+  ChatSendHandle? sendMessage(
+    String siteUrl,
+    int channelId,
+    OutgoingChatMessage message,
+  ) {
+    final text = message.raw;
+    if (text.trim().isEmpty || isDisposed) return null;
     final key = _streamKey(siteUrl, channelId);
-    if (!canSendMessage(siteUrl, channelId)) return Future.value(false);
 
     final createdAt = _clock().toUtc();
     final stagedId =
         'native-${createdAt.microsecondsSinceEpoch}-${_nextStagedSequence++}';
     final user = _currentUserFor(siteUrl);
+    final preview = _projectPreview(siteUrl, message);
     final local = ChatMessage.optimistic(
       id: _nextLocalMessageId--,
       channelId: channelId,
       raw: text,
       stagedId: stagedId,
+      preview: preview,
       author: ChatMessageAuthor(
         id: user?.id ?? 0,
         username: user?.username ?? '',
@@ -650,49 +668,123 @@ class ChatController extends FrameSafeNotifier {
     _sendSubscriptionChannels.add(target);
     _ensureSendSubscription(siteUrl, channelId);
 
-    return _startSend(siteUrl, channelId, local, key);
-  }
-
-  Future<bool> _startSend(
-    String siteUrl,
-    int channelId,
-    ChatMessage local,
-    String key,
-  ) {
-    final run = Object();
-    _sendRuns[key] = run;
-
-    late final Future<bool> request;
-    request = _sendMessage(siteUrl, channelId, local, key, run).whenComplete(
-      () {
-        if (identical(_sendRequests[key], request)) {
-          final _ = _sendRequests.remove(key);
-        }
-        if (identical(_sendRuns[key], run)) _sendRuns.remove(key);
-      },
+    final settlement = Completer<ChatSendResult>();
+    final handle = ChatSendHandle.internal(
+      localId: local.id,
+      stagedId: stagedId,
+      settled: settlement.future,
     );
-    _sendRequests[key] = request;
-    return request;
+    final queue = _sendQueues.putIfAbsent(
+      key,
+      () => _ChatSendQueue(siteUrl: siteUrl, channelId: channelId, key: key),
+    );
+    queue.pending.add(
+      _QueuedChatSend(
+        local: local,
+        settlement: settlement,
+        lease: lifecycle.capture(siteUrl),
+      ),
+    );
+    _scheduleSendQueue(queue);
+    return handle;
   }
 
-  Future<bool> _sendMessage(
+  ChatPreviewResult _projectPreview(
     String siteUrl,
-    int channelId,
-    ChatMessage local,
-    String key,
-    Object run,
+    OutgoingChatMessage message,
+  ) {
+    try {
+      return _previewEngine.project(
+        ChatPreviewRequest(
+          raw: message.raw,
+          siteConfig: _siteConfigFor(siteUrl),
+          trustedSeed: message.trustedPreviewSeed,
+        ),
+      );
+    } catch (_) {
+      return SourceFallback(
+        message.raw,
+        ChatPreviewFallbackReason.internalFailure,
+      );
+    }
+  }
+
+  void _scheduleSendQueue(_ChatSendQueue queue) {
+    if (queue.scheduled || queue.cancelled) return;
+    queue.scheduled = true;
+    scheduleMicrotask(() {
+      queue.scheduled = false;
+      _pumpSendQueue(queue);
+    });
+  }
+
+  void _pumpSendQueue(_ChatSendQueue queue) {
+    if (queue.active != null || queue.cancelled) return;
+    if (!identical(_sendQueues[queue.key], queue) || isDisposed) {
+      _cancelSendQueue(queue);
+      return;
+    }
+    if (queue.pending.isEmpty) {
+      _sendQueues.remove(queue.key);
+      return;
+    }
+
+    final item = queue.pending.removeFirst();
+    queue.active = item;
+    unawaited(
+      _guardSendQueued(queue, item).whenComplete(() {
+        if (identical(queue.active, item)) queue.active = null;
+        _scheduleSendQueue(queue);
+      }),
+    );
+  }
+
+  Future<void> _guardSendQueued(
+    _ChatSendQueue queue,
+    _QueuedChatSend item,
   ) async {
-    final lease = lifecycle.capture(siteUrl);
-    bool ownsRequest() => identical(_sendRuns[key], run);
+    try {
+      await _sendQueued(queue, item);
+    } catch (error, stackTrace) {
+      item.complete(
+        _ownsSend(queue, item)
+            ? ChatSendResult.failed
+            : ChatSendResult.cancelled,
+      );
+      try {
+        _report(error, stackTrace, 'chat.sendMessage');
+      } catch (_) {
+        // Settlement and queue progress are stronger guarantees than
+        // diagnostics: neither may be lost if the diagnostic sink is broken.
+      }
+    }
+  }
+
+  bool _ownsSend(_ChatSendQueue queue, _QueuedChatSend item) =>
+      !queue.cancelled &&
+      identical(_sendQueues[queue.key], queue) &&
+      identical(queue.active, item);
+
+  Future<void> _sendQueued(_ChatSendQueue queue, _QueuedChatSend item) async {
+    final siteUrl = queue.siteUrl;
+    final channelId = queue.channelId;
+    final local = item.local;
+    bool ownsRequest() => _ownsSend(queue, item);
 
     try {
       final apiKey = await credentials.apiKeyFor(siteUrl);
-      if (!_requestIsCurrent(lease, ownsRequest)) return false;
+      if (!_requestIsCurrent(item.lease, ownsRequest)) {
+        item.complete(ChatSendResult.cancelled);
+        return;
+      }
       if (apiKey == null) {
         throw const WriteException(WriteFailure.forbidden);
       }
       final clientId = await credentials.clientId();
-      if (!_requestIsCurrent(lease, ownsRequest)) return false;
+      if (!_requestIsCurrent(item.lease, ownsRequest)) {
+        item.complete(ChatSendResult.cancelled);
+        return;
+      }
       final serverId = await api.sendChatMessage(
         siteUrl: siteUrl,
         apiKey: apiKey,
@@ -702,8 +794,11 @@ class ChatController extends FrameSafeNotifier {
         stagedId: local.stagedId,
         clientCreatedAt: local.createdAt,
       );
-      if (!_requestIsCurrent(lease, ownsRequest)) return false;
-      lease.commit(() {
+      if (!_requestIsCurrent(item.lease, ownsRequest)) {
+        item.complete(ChatSendResult.cancelled);
+        return;
+      }
+      item.lease.commit(() {
         final localId = _updateOutgoing(
           siteUrl,
           channelId,
@@ -719,33 +814,55 @@ class ChatController extends FrameSafeNotifier {
           _removeLocalMessage(siteUrl, channelId, localId);
         }
       });
-      return true;
+      item.complete(ChatSendResult.sent);
     } catch (error, stackTrace) {
-      if (_requestIsCurrent(lease, ownsRequest)) {
+      if (_requestIsCurrent(item.lease, ownsRequest)) {
         final failure = error is WriteException
             ? error
             : const WriteException(WriteFailure.unreachable);
-        lease.commit(
-          () => _updateOutgoing(
-            siteUrl,
-            channelId,
-            local.stagedId!,
-            (held) => held.serverId != null
+        var canonicalAlreadyArrived = false;
+        item.lease.commit(
+          () => _updateOutgoing(siteUrl, channelId, local.stagedId!, (held) {
+            canonicalAlreadyArrived = held.serverId != null;
+            return canonicalAlreadyArrived
                 ? held
                 : held.withSendState(
                     delivery: ChatMessageDelivery.failed,
                     error: failure.message,
                     deliveryUncertain:
                         failure.failure == WriteFailure.unreachable,
-                  ),
-          ),
+                  );
+          }),
         );
-        lease.commit(
+        item.lease.commit(
           () => _releaseSendSubscriptionIfSettled(siteUrl, channelId),
         );
         _report(error, stackTrace, 'chat.sendMessage');
+        item.complete(
+          canonicalAlreadyArrived ? ChatSendResult.sent : ChatSendResult.failed,
+        );
+      } else {
+        item.complete(ChatSendResult.cancelled);
       }
-      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
+  void _cancelSendQueue(_ChatSendQueue queue) {
+    if (queue.cancelled) return;
+    queue.cancelled = true;
+    queue.active?.complete(ChatSendResult.cancelled);
+    while (queue.pending.isNotEmpty) {
+      queue.pending.removeFirst().complete(ChatSendResult.cancelled);
+    }
+  }
+
+  void _cancelSendQueues({String? siteUrl}) {
+    final queues = _sendQueues.values
+        .where((queue) => siteUrl == null || queue.siteUrl == siteUrl)
+        .toList(growable: false);
+    for (final queue in queues) {
+      _sendQueues.remove(queue.key);
+      _cancelSendQueue(queue);
     }
   }
 
@@ -788,7 +905,8 @@ class ChatController extends FrameSafeNotifier {
       if (local == null) continue;
       if (local.delivery == ChatMessageDelivery.sending ||
           local.deliveryUncertain ||
-          local.delivery == ChatMessageDelivery.sent && local.cooked.isEmpty) {
+          local.delivery == ChatMessageDelivery.sent &&
+              !local.canonicalReceived) {
         return;
       }
     }
@@ -1452,6 +1570,7 @@ class ChatController extends FrameSafeNotifier {
   /// orderings, and no record holds those. The channels and the messages
   /// themselves are the [Store]'s to forget.
   void forget(String siteUrl) {
+    _cancelSendQueues(siteUrl: siteUrl);
     _cancelPresence(siteUrl);
     _cancelSendSubscriptions(siteUrl);
     _presenceTrackers.remove(siteUrl);
@@ -1470,8 +1589,6 @@ class ChatController extends FrameSafeNotifier {
     _queuedReadReceipts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _readReceiptTasks.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _readReceiptRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _sendRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _sendRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     final forgottenRefs = <FrameSafeValueNotifier<ChatStreamState>>[];
     _streamRefs.removeWhere((key, ref) {
       if (!key.startsWith('$siteUrl~')) return false;
@@ -1527,6 +1644,7 @@ class ChatController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    _cancelSendQueues();
     for (final siteUrl in _presenceSubscriptions.keys.toList()) {
       _cancelPresence(siteUrl);
     }
@@ -1540,8 +1658,6 @@ class ChatController extends FrameSafeNotifier {
     _queuedReadReceipts.clear();
     _readReceiptTasks.clear();
     _readReceiptRuns.clear();
-    _sendRequests.clear();
-    _sendRuns.clear();
     for (final subscription in _sendSubscriptions.values) {
       try {
         subscription.cancel();
@@ -1557,5 +1673,37 @@ class ChatController extends FrameSafeNotifier {
     }
     _streamRefs.clear();
     super.dispose();
+  }
+}
+
+final class _ChatSendQueue {
+  _ChatSendQueue({
+    required this.siteUrl,
+    required this.channelId,
+    required this.key,
+  });
+
+  final String siteUrl;
+  final int channelId;
+  final String key;
+  final ListQueue<_QueuedChatSend> pending = ListQueue<_QueuedChatSend>();
+  _QueuedChatSend? active;
+  bool scheduled = false;
+  bool cancelled = false;
+}
+
+final class _QueuedChatSend {
+  _QueuedChatSend({
+    required this.local,
+    required this.settlement,
+    required this.lease,
+  });
+
+  final ChatMessage local;
+  final Completer<ChatSendResult> settlement;
+  final SiteLease lease;
+
+  void complete(ChatSendResult result) {
+    if (!settlement.isCompleted) settlement.complete(result);
   }
 }

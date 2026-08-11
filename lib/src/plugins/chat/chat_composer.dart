@@ -12,6 +12,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../gifs/gif.dart';
 import '../gifs/gif_picker.dart';
+import 'chat_message.dart';
 
 /// A compact composer pinned underneath one chat stream.
 ///
@@ -37,7 +38,6 @@ class _ChatComposerState extends State<ChatComposer> {
   ShellController? _shell;
   ComposerController? _composer;
   String? _sourceKey;
-  bool _sending = false;
   bool _pickingGif = false;
 
   @override
@@ -77,49 +77,31 @@ class _ChatComposerState extends State<ChatComposer> {
     super.dispose();
   }
 
-  Future<void> _send() async {
+  void _send(ComposerController composer) {
     final shell = _shell;
-    final composer = _composer;
     if (shell == null ||
-        composer == null ||
-        _sending ||
         _pickingGif ||
         composer.raw.trim().isEmpty ||
         composer.hasActiveUploads) {
       return;
     }
-    if (!shell.chat.canSendMessage(widget.siteUrl, widget.channelId)) return;
+    final accepted = shell.chat.sendMessage(
+      widget.siteUrl,
+      widget.channelId,
+      OutgoingChatMessage.text(composer.raw),
+    );
+    if (accepted == null) return;
 
-    setState(() => _sending = true);
-    try {
-      final sending = shell.chat.sendMessage(
-        widget.siteUrl,
-        widget.channelId,
-        composer.raw,
-      );
-      // `sendMessage` stages the outgoing row before returning its future. A
-      // clean document is therefore safe now, before credentials or the POST
-      // can make the composer feel busy. In particular, never clear from the
-      // async completion path: the reader may already be writing their next
-      // message by then.
-      //
-      // `clearDocument` replaces the keyed editor to reset its undo history.
-      // Drop focus first so the replacement opens a fresh input connection.
-      composer.focus.unfocus();
-      composer.clearDocument();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && identical(_composer, composer)) {
-          composer.focus.requestFocus();
-        }
-      });
-      await sending;
-    } catch (_) {
-      // The optimistic row owns delivery errors and retry. Keeping the same
-      // failure under the composer would split one message's state across two
-      // places.
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
+    // Acceptance is the UI boundary: the row already exists and owns every
+    // later delivery outcome. Start a clean document without waiting for
+    // credentials, FIFO queueing, or the network.
+    composer.focus.unfocus();
+    composer.clearDocument();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && identical(_composer, composer)) {
+        composer.focus.requestFocus();
+      }
+    });
   }
 
   Future<void> _pickGif() async {
@@ -129,14 +111,12 @@ class _ChatComposerState extends State<ChatComposer> {
     if (shell == null ||
         composer == null ||
         sourceKey == null ||
-        _sending ||
         _pickingGif ||
         !shell.siteConfigFor(widget.siteUrl).gifsEnabled ||
         !shell.chat.canSendMessage(widget.siteUrl, widget.channelId)) {
       return;
     }
 
-    final expectedDocument = composer.text.value;
     setState(() => _pickingGif = true);
     try {
       final result = await showGifPicker(
@@ -150,47 +130,37 @@ class _ChatComposerState extends State<ChatComposer> {
       if (result == null || !_ownsComposer(shell, composer, sourceKey)) {
         return;
       }
-      await _sendGif(shell, composer, sourceKey, expectedDocument, result);
+      _sendGif(shell, composer, sourceKey, result);
     } finally {
       if (mounted) setState(() => _pickingGif = false);
       _refocus(shell, composer, sourceKey);
     }
   }
 
-  Future<void> _sendGif(
+  void _sendGif(
     ShellController shell,
     ComposerController composer,
     String sourceKey,
-    TextEditingValue expectedDocument,
     GifResult result,
-  ) async {
+  ) {
     if (!_ownsComposer(shell, composer, sourceKey) ||
-        _sending ||
         !shell.chat.canSendMessage(widget.siteUrl, widget.channelId)) {
       return;
     }
 
-    setState(() => _sending = true);
-    try {
-      final sent = await shell.chat.sendMessage(
-        widget.siteUrl,
-        widget.channelId,
-        result.markdown,
-      );
-      if (!sent ||
-          !_ownsComposer(shell, composer, sourceKey) ||
-          composer.text.value != expectedDocument) {
-        return;
-      }
-
-      composer.focus.unfocus();
-      composer.clearDocument();
-    } catch (_) {
-      // The optimistic row owns delivery errors and retry. Keep the reader's
-      // draft intact so a failed GIF never consumes unrelated composer text.
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
+    shell.chat.sendMessage(
+      widget.siteUrl,
+      widget.channelId,
+      OutgoingChatMessage.trustedGif(
+        raw: result.markdown,
+        url: result.url,
+        title: result.title,
+        width: result.width,
+        height: result.height,
+      ),
+    );
+    // A picked GIF is its own outgoing message. Text already in the composer
+    // is unrelated and remains untouched on both success and failure.
   }
 
   bool _ownsComposer(
@@ -262,10 +232,9 @@ class _ChatComposerState extends State<ChatComposer> {
 
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.enter): () =>
-            unawaited(_send()),
+        const SingleActivator(LogicalKeyboardKey.enter): () => _send(composer),
         const SingleActivator(LogicalKeyboardKey.numpadEnter): () =>
-            unawaited(_send()),
+            _send(composer),
       },
       child: Container(
         key: const ValueKey('chat-composer'),
@@ -303,8 +272,7 @@ class _ChatComposerState extends State<ChatComposer> {
                   ? IconButton(
                       key: const ValueKey('chat-composer-gif'),
                       onPressed:
-                          _sending ||
-                              _pickingGif ||
+                          _pickingGif ||
                               !(_shell?.chat.canSendMessage(
                                     widget.siteUrl,
                                     widget.channelId,
@@ -323,21 +291,12 @@ class _ChatComposerState extends State<ChatComposer> {
               builder: (context, value, _) => IconButton(
                 key: const ValueKey('chat-composer-send'),
                 onPressed:
-                    _sending ||
-                        _pickingGif ||
+                    _pickingGif ||
                         value.text.trim().isEmpty ||
                         composer.hasActiveUploads
                     ? null
-                    : () => unawaited(_send()),
-                icon: _sending
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const DIcon(DIcons.paperPlane, size: 18),
+                    : () => _send(composer),
+                icon: const DIcon(DIcons.paperPlane, size: 18),
                 tooltip: 'Send message',
                 color: theme.colorScheme.primary,
               ),

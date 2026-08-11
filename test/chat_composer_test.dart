@@ -8,7 +8,10 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -160,7 +163,7 @@ void main() {
     expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
   });
 
-  testWidgets('sends a selected GIF immediately and clears after success', (
+  testWidgets('sends a selected GIF immediately without consuming the draft', (
     tester,
   ) async {
     final sendGate = Completer<void>();
@@ -181,15 +184,21 @@ void main() {
     expect(fixture.api.chatMessagesSent, hasLength(1));
     expect(fixture.api.chatMessagesSent.single.siteUrl, _site);
     expect(fixture.api.chatMessagesSent.single.channelId, 9);
-    expect(fixture.api.chatMessagesSent.single.message, _gif.markdown.trim());
+    expect(fixture.api.chatMessagesSent.single.message, _gif.markdown);
     expect(_text(tester), 'unchanged draft');
-    expect(_button(tester, 'chat-composer-gif').onPressed, isNull);
-    expect(_button(tester, 'chat-composer-send').onPressed, isNull);
+    expect(_button(tester, 'chat-composer-gif').onPressed, isNotNull);
+    expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
+    expect(find.byKey(const ValueKey('chat-preview-gif')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('chat-preview-gif-fallback')),
+      findsOneWidget,
+    );
+    expect(find.text('Party parrot'), findsOneWidget);
 
     sendGate.complete();
     await tester.pumpAndSettle();
 
-    expect(_text(tester), isEmpty);
+    expect(_text(tester), 'unchanged draft');
     expect(_field(tester).focusNode!.hasFocus, isTrue);
   });
 
@@ -212,6 +221,7 @@ void main() {
 
     expect(_text(tester), 'do not consume me');
     expect(find.text(failure.message), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-preview-gif')), findsOneWidget);
     expect(fixture.api.chatMessagesSent, hasLength(1));
     expect(tester.takeException(), isNull);
   });
@@ -333,6 +343,8 @@ void main() {
     expect(fixture.shell.chat.stream(_site, 9).messageIds, isEmpty);
     expect(fixture.shell.chat.stream(_site, 9).localMessageIds, hasLength(1));
     expect(fixture.api.chatMessagesRequested, hasLength(1));
+    expect(find.text('hello chat'), findsOneWidget);
+    expect(find.text('**hello** chat'), findsNothing);
   });
 
   testWidgets('stages immediately without clearing the next draft', (
@@ -356,13 +368,15 @@ void main() {
 
     expect(tester.widget<TextField>(field).controller!.text, isEmpty);
     expect(find.text('first message'), findsOneWidget);
-    expect(find.text('Sending…'), findsOneWidget);
+    expect(find.text('Sending…'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(fixture.shell.chat.stream(_site, 9).localMessageIds, hasLength(1));
     expect(fixture.api.chatMessagesRequested, hasLength(1));
 
     await tester.enterText(field, 'next draft');
     await tester.pump();
     expect(tester.widget<TextField>(field).controller!.text, 'next draft');
+    expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
 
     sendGate.complete();
     await tester.pumpAndSettle();
@@ -372,6 +386,145 @@ void main() {
     expect(fixture.api.chatMessagesSent, hasLength(1));
     expect(fixture.api.chatMessagesSent.single.stagedId, startsWith('native-'));
     expect(fixture.api.chatMessagesSent.single.clientCreatedAt, isNotNull);
+  });
+
+  testWidgets('canonical cooked content replaces the projected row in place', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_composerField(), '**provisional**');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+    await tester.pumpAndSettle();
+
+    final localId = fixture.shell.chat.stream(_site, 9).localMessageIds.single;
+    final local = fixture.shell.store.read<ChatMessage>(_site, localId)!;
+    expect(find.text('provisional'), findsOneWidget);
+    expect(find.byType(ChatPreviewBody), findsOneWidget);
+    expect(find.byType(ChatMessageTile), findsOneWidget);
+
+    fixture.shell.store.put(
+      _site,
+      local.withCanonical(
+        ChatMessage(
+          id: 42,
+          channelId: 9,
+          cooked: '<p>Canonical answer</p>',
+          author: local.author,
+          createdAt: local.createdAt,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final canonical = tester.widget<CookedHtml>(find.byType(CookedHtml));
+    expect(canonical.html, '<p>Canonical answer</p>');
+    expect(find.byType(ChatPreviewBody), findsNothing);
+    expect(find.text('provisional'), findsNothing);
+    expect(find.byType(ChatMessageTile), findsOneWidget);
+    expect(fixture.shell.chat.stream(_site, 9).localMessageIds, [localId]);
+  });
+
+  testWidgets('an empty canonical body still retires the projected body', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_composerField(), '**provisional**');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+    await tester.pumpAndSettle();
+
+    final localId = fixture.shell.chat.stream(_site, 9).localMessageIds.single;
+    final local = fixture.shell.store.read<ChatMessage>(_site, localId)!;
+    expect(find.byType(ChatPreviewBody), findsOneWidget);
+
+    fixture.shell.store.put(
+      _site,
+      local.withCanonical(
+        ChatMessage(
+          id: 42,
+          channelId: 9,
+          cooked: '',
+          author: local.author,
+          createdAt: local.createdAt,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChatPreviewBody), findsNothing);
+    expect(find.text('provisional'), findsNothing);
+    expect(find.byType(CookedHtml), findsNothing);
+    expect(find.byType(ChatMessageTile), findsOneWidget);
+  });
+
+  testWidgets('accepts another row immediately and sends it FIFO', (
+    tester,
+  ) async {
+    final sendGate = Completer<void>();
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      sendGate: sendGate,
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_composerField(), 'first');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+    await tester.pumpAndSettle();
+    await tester.enterText(_composerField(), 'second');
+    await tester.pump();
+    expect(_text(tester), 'second');
+    expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
+    _button(tester, 'chat-composer-send').onPressed!();
+    expect(fixture.shell.store.read<ChatMessage>(_site, -2), isNotNull);
+    expect(fixture.shell.chat.stream(_site, 9).localMessageIds, hasLength(2));
+    await tester.pump();
+
+    expect(_text(tester), isEmpty);
+    expect(fixture.shell.chat.stream(_site, 9).localMessageIds, hasLength(2));
+    expect(find.text('Sending…'), findsNothing);
+    expect(fixture.api.chatMessagesSent, hasLength(1));
+
+    sendGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(fixture.api.chatMessagesSent.map((call) => call.message), [
+      'first',
+      'second',
+    ]);
+  });
+
+  testWidgets('manually typed image Markdown stays visible as raw source', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_composerField(), _gif.markdown);
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(_gif.markdown), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-preview-gif')), findsNothing);
   });
 
   testWidgets(

@@ -2,6 +2,70 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/store.dart';
 import '../../models/json.dart';
+import 'chat_preview.dart';
+
+/// One message accepted by the optimistic send boundary.
+///
+/// The trusted seed is typed metadata from an app-owned picker, never inferred
+/// from arbitrary Markdown entered by the reader.
+@immutable
+final class OutgoingChatMessage {
+  const OutgoingChatMessage._(this.raw, this.trustedPreviewSeed);
+
+  factory OutgoingChatMessage.text(String raw) =>
+      OutgoingChatMessage._(raw, null);
+
+  factory OutgoingChatMessage.trustedGif({
+    required String raw,
+    required String url,
+    required String title,
+    required int width,
+    required int height,
+  }) {
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        !uri.hasScheme ||
+        (uri.scheme != 'https' && uri.scheme != 'http') ||
+        uri.host.isEmpty ||
+        uri.hasFragment ||
+        title.trim().isEmpty ||
+        width <= 0 ||
+        height <= 0 ||
+        width > 10000 ||
+        height > 10000) {
+      throw ArgumentError('Invalid trusted GIF preview metadata.');
+    }
+    return OutgoingChatMessage._(
+      raw,
+      TrustedGifPreviewSeed(
+        url: uri,
+        title: title,
+        width: width,
+        height: height,
+      ),
+    );
+  }
+
+  final String raw;
+  final TrustedPreviewSeed? trustedPreviewSeed;
+}
+
+/// The terminal result of an accepted optimistic send.
+enum ChatSendResult { sent, failed, cancelled }
+
+/// Synchronous proof that a message was staged, with non-throwing settlement.
+@immutable
+final class ChatSendHandle {
+  const ChatSendHandle.internal({
+    required this.localId,
+    required this.stagedId,
+    required this.settled,
+  });
+
+  final int localId;
+  final String stagedId;
+  final Future<ChatSendResult> settled;
+}
 
 /// Who wrote a message.
 ///
@@ -389,8 +453,10 @@ class ChatMessage with Storable<ChatMessage> {
     this.reactions = const [],
     this.uploads = const [],
     this.optimisticRaw,
+    this.preview,
     this.stagedId,
     this.serverId,
+    this.canonicalReceived = true,
     this.delivery = ChatMessageDelivery.sent,
     this.sendError,
     this.deliveryUncertain = false,
@@ -407,6 +473,7 @@ class ChatMessage with Storable<ChatMessage> {
     required int channelId,
     required String raw,
     required String stagedId,
+    required ChatPreviewResult preview,
     required ChatMessageAuthor author,
     required DateTime createdAt,
   }) {
@@ -418,7 +485,9 @@ class ChatMessage with Storable<ChatMessage> {
       author: author,
       createdAt: createdAt,
       optimisticRaw: raw,
+      preview: preview,
       stagedId: stagedId,
+      canonicalReceived: false,
       delivery: ChatMessageDelivery.sending,
     );
   }
@@ -513,6 +582,11 @@ class ChatMessage with Storable<ChatMessage> {
   /// HTML. Present only on a locally staged row.
   final String? optimisticRaw;
 
+  /// App-owned provisional presentation. Never authoritative and never HTML.
+  /// Present only while a locally staged row is waiting for canonical cooked
+  /// content from the site.
+  final ChatPreviewResult? preview;
+
   /// The arbitrary correlation token sent as `staged_id` and echoed through
   /// MessageBus. Null on a message read from the site.
   final String? stagedId;
@@ -522,6 +596,12 @@ class ChatMessage with Storable<ChatMessage> {
   /// The record itself intentionally keeps its negative local [id] until a
   /// normal page fetch includes this server id and retires the overlay row.
   final int? serverId;
+
+  /// Whether the site has supplied the canonical serialized message.
+  ///
+  /// This is deliberately independent of [cooked]: an empty canonical body is
+  /// still an authoritative answer and must replace the optimistic preview.
+  final bool canonicalReceived;
 
   final ChatMessageDelivery delivery;
   final String? sendError;
@@ -555,8 +635,10 @@ class ChatMessage with Storable<ChatMessage> {
     reactions: reactions,
     uploads: uploads,
     optimisticRaw: optimisticRaw,
+    preview: preview,
     stagedId: stagedId,
     serverId: serverId ?? this.serverId,
+    canonicalReceived: canonicalReceived,
     delivery: delivery,
     sendError: error,
     deliveryUncertain: deliveryUncertain,
@@ -582,8 +664,10 @@ class ChatMessage with Storable<ChatMessage> {
     reactions: canonical.reactions,
     uploads: canonical.uploads,
     optimisticRaw: optimisticRaw,
+    preview: preview,
     stagedId: stagedId,
     serverId: canonical.id,
+    canonicalReceived: true,
     delivery: ChatMessageDelivery.sent,
   );
 
@@ -610,8 +694,10 @@ class ChatMessage with Storable<ChatMessage> {
           listEquals(other.reactions, reactions) &&
           listEquals(other.uploads, uploads) &&
           other.optimisticRaw == optimisticRaw &&
+          other.preview == preview &&
           other.stagedId == stagedId &&
           other.serverId == serverId &&
+          other.canonicalReceived == canonicalReceived &&
           other.delivery == delivery &&
           other.sendError == sendError &&
           other.deliveryUncertain == deliveryUncertain;
@@ -632,11 +718,11 @@ class ChatMessage with Storable<ChatMessage> {
     Object.hashAll(reactions),
     Object.hashAll(uploads),
     optimisticRaw,
+    preview,
     stagedId,
     serverId,
-    delivery,
-    sendError,
-    deliveryUncertain,
+    canonicalReceived,
+    Object.hash(delivery, sendError, deliveryUncertain),
   );
 
   @override

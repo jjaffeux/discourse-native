@@ -4,19 +4,112 @@ import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../shell/composer_controller.dart';
+import '../../shell/markdown_highlight.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
+import '../chat/chat_preview.dart';
 import '../site_plugin.dart';
+import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_composer_parser.dart';
 import 'local_date_composer_sheet.dart';
 import 'local_date_environment.dart';
+import 'local_date_widget.dart';
 
-class LocalDatesPlugin implements SitePlugin, ComposerToolbarPlugin {
+class LocalDatesPlugin
+    implements ChatMessagePreviewPlugin, ComposerToolbarPlugin {
   const LocalDatesPlugin();
 
   @override
   String get name => 'discourse-local-dates';
+
+  @override
+  String get previewFeatureId => 'discourse-local-dates';
+
+  @override
+  ChatPreviewInspection inspect(ChatPreviewRequest request) {
+    final syntax = _localDateSyntaxRanges(request.raw);
+    if (syntax.isEmpty) return ChatPreviewInspection();
+    if (!request.siteConfig.localDatesEnabled) {
+      return ChatPreviewInspection(
+        blockers: [
+          ChatPreviewBlocker('local dates disabled', range: syntax.first),
+        ],
+      );
+    }
+
+    final blocks = parseLocalDateComposerBlocks(request.raw);
+    final forwardIncompatible = blocks.where(
+      (block) => block.attributes.any(
+        (attribute) =>
+            !_knownPreviewAttributes.contains(attribute.normalizedName),
+      ),
+    );
+    if (forwardIncompatible.isNotEmpty) {
+      final block = forwardIncompatible.first;
+      return ChatPreviewInspection(
+        blockers: [
+          ChatPreviewBlocker(
+            'local date syntax contains unsupported options',
+            range: SourceRange(block.start, block.end),
+          ),
+        ],
+      );
+    }
+    for (final occurrence in syntax) {
+      if (!blocks.any((block) => block.start == occurrence.start)) {
+        return ChatPreviewInspection(
+          blockers: [
+            ChatPreviewBlocker(
+              'local date syntax is malformed or unsupported',
+              range: occurrence,
+            ),
+          ],
+        );
+      }
+    }
+    if (blocks.length != syntax.length) {
+      return ChatPreviewInspection(
+        blockers: const [
+          ChatPreviewBlocker('local date syntax could not be accounted for'),
+        ],
+      );
+    }
+
+    return ChatPreviewInspection(
+      claims: [
+        for (final block in blocks)
+          ChatPreviewClaim(
+            range: SourceRange(block.start, block.end),
+            node: PluginPreviewNode(
+              range: SourceRange(block.start, block.end),
+              featureId: previewFeatureId,
+              kind: switch (block.kind) {
+                LocalDateComposerKind.date => 'date',
+                LocalDateComposerKind.range => 'date-range',
+              },
+              fallbackText: block.source,
+            ),
+          ),
+      ],
+    );
+  }
+
+  @override
+  Widget? buildPreviewNode(BuildContext context, PluginPreviewNode node) {
+    if (node.featureId != previewFeatureId) return null;
+    final blocks = parseLocalDateComposerBlocks(node.fallbackText);
+    if (blocks.length != 1 ||
+        blocks.single.start != 0 ||
+        blocks.single.end != node.fallbackText.length) {
+      return null;
+    }
+    final block = blocks.single;
+    if ((node.kind == 'date') != (block.kind == LocalDateComposerKind.date)) {
+      return null;
+    }
+    return _OptimisticLocalDate(block: block);
+  }
 
   @override
   List<ComposerToolbarContribution> composerToolbar(
@@ -38,6 +131,83 @@ class LocalDatesPlugin implements SitePlugin, ComposerToolbarPlugin {
     ];
   }
 }
+
+/// The app-bundled Local Dates claim, rendered from the same conservative
+/// composer model and formatter as canonical cooked Local Dates.
+class _OptimisticLocalDate extends StatelessWidget {
+  const _OptimisticLocalDate({required this.block});
+
+  final LocalDateComposerBlock block;
+
+  @override
+  Widget build(BuildContext context) {
+    final draft = LocalDateComposerDraft.fromBlock(block);
+    LocalDateSpec spec({required String date, String? time, String? range}) =>
+        LocalDateSpec(
+          date: date,
+          time: time,
+          timezone: draft.timezone,
+          range: range,
+          format: draft.format,
+          calendar: draft.calendar,
+          recurring: range == null ? draft.recurring : null,
+          countdown: range == null && draft.countdown,
+          displayedTimezone: draft.displayedTimezone,
+          timezones: draft.previewTimezones,
+          fallbackText: block.source,
+        );
+
+    final start = spec(
+      date: draft.startDate,
+      time: draft.startTime,
+      range: draft.isRange ? 'from' : null,
+    );
+    if (!draft.isRange) return LocalDateInline(spec: start);
+    final end = spec(date: draft.endDate!, time: draft.endTime, range: 'to');
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        LocalDateInline(spec: start, to: end),
+        const Text(' → '),
+        LocalDateInline(spec: end, from: start),
+      ],
+    );
+  }
+}
+
+List<SourceRange> _localDateSyntaxRanges(String source) {
+  final codeRanges = [
+    for (final run in scanMarkdown(source))
+      if (run.has(Md.code) || run.has(Md.codeBlock))
+        SourceRange(run.start, run.end),
+  ];
+  return [
+    for (final match in _localDateOpening.allMatches(source))
+      if (!codeRanges.any(
+        (range) => match.start >= range.start && match.start < range.end,
+      ))
+        SourceRange(match.start, match.end),
+  ];
+}
+
+final RegExp _localDateOpening = RegExp(
+  r'\[(?:date-range|date)(?==|\s|\])',
+  caseSensitive: false,
+);
+
+const Set<String> _knownPreviewAttributes = {
+  'date',
+  'time',
+  'from',
+  'to',
+  'timezone',
+  'format',
+  'recurring',
+  'timezones',
+  'countdown',
+  'displayedtimezone',
+  'calendar',
+};
 
 Future<void> openLocalDateComposer(
   BuildContext context,
