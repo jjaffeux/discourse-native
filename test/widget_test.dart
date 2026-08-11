@@ -9158,7 +9158,7 @@ void main() {
         // fixed width is a tight constraint that a SizedBox inside it cannot
         // shrink below. See the message tile's own version of this.
         final size = tester.getSize(avatar);
-        expect(size.width, size.height);
+        expect(size, const Size.square(24));
       });
 
       testWidgets('rings an online direct-message user in the sidebar', (
@@ -9175,7 +9175,7 @@ void main() {
           matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
         );
         expect(ring, findsOneWidget);
-        expect(tester.getSize(ring), const Size.square(18));
+        expect(tester.getSize(ring), const Size.square(24));
 
         final tracker = FakeSiteTracker.built.single;
         tracker.deliverPluginMessage('/presence/chat/online', {
