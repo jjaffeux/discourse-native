@@ -163,7 +163,8 @@ class ShellController extends FrameSafeNotifier {
   /// The HTTP transport has its own deadline, but a topic can wait before it
   /// reaches that boundary: credential storage crosses a platform channel and
   /// the request coordinator may queue work behind an origin cooldown. Bound
-  /// both waits so neither can leave the topic spinner alive indefinitely.
+  /// both waits so neither can leave the topic loading state alive
+  /// indefinitely.
   final Duration topicLoadTimeout;
 
   final Authenticator authenticator;

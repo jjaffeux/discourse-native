@@ -360,9 +360,9 @@ final class _GatedRevocationApi extends FakeDiscourseApi {
 }
 
 final class _GatedTopicApi extends FakeDiscourseApi {
-  _GatedTopicApi(this.topicGate);
+  _GatedTopicApi(this._requestGate);
 
-  final Completer<void> topicGate;
+  final Completer<void> _requestGate;
   final started = Completer<void>();
 
   @override
@@ -375,7 +375,7 @@ final class _GatedTopicApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     started.complete();
-    await topicGate.future;
+    await _requestGate.future;
     return topicPayload(id: id, title: 'First site title');
   }
 }
