@@ -6007,11 +6007,12 @@ void main() {
       );
 
       await openTopic(tester, api);
-      await tester.longPress(renderedText('First post body'));
+      await tester.longPress(find.text('sam'));
       await tester.pumpAndSettle();
 
       // There is no pointer to hover with, so the same action is reached by
-      // holding the post.
+      // holding a non-selectable part of the post. Holding its body selects
+      // text and opens the quote toolbar instead.
       expect(find.widgetWithText(ListTile, 'Reply'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(ListTile, 'Reply'));
@@ -6298,7 +6299,7 @@ void main() {
     ) async {
       await openTopic(tester, post: mine());
 
-      await tester.longPress(renderedText('First post body'));
+      await tester.longPress(find.text('joffreyj'));
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(ListTile, 'Reply'), findsOneWidget);

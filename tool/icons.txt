@@ -59,6 +59,7 @@ expand
 far-file-lines
 comment
 comments
+quote-left
 reply
 thumbtack
 lock

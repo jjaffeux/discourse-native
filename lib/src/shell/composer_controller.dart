@@ -636,6 +636,44 @@ class ComposerController extends ChangeNotifier {
     );
   }
 
+  /// Inserts a markdown block over the current selection, separated from the
+  /// prose on either side by a blank line.
+  ///
+  /// Post quotes arrive through this path. Keeping block spacing here makes a
+  /// quote safe at the beginning, middle, or end of an existing draft instead
+  /// of making the selection toolbar reason about composer text.
+  void insertBlock(String markdown) {
+    if (_disposed || markdown.trim().isEmpty) return;
+    final old = text.value;
+    final selection = old.selection.isValid
+        ? old.selection
+        : TextSelection.collapsed(offset: old.text.length);
+    final before = old.text.substring(0, selection.start);
+    final after = old.text.substring(selection.end);
+    final block = markdown.trim();
+    final insertion =
+        '${_separatorAfter(before)}$block${_separatorBefore(after)}';
+
+    text.value = old.copyWith(
+      text: old.text.replaceRange(selection.start, selection.end, insertion),
+      selection: TextSelection.collapsed(
+        offset: selection.start + insertion.length,
+      ),
+      composing: TextRange.empty,
+    );
+  }
+
+  static String _separatorAfter(String before) {
+    if (before.isEmpty || before.endsWith('\n\n')) return '';
+    return before.endsWith('\n') ? '\n' : '\n\n';
+  }
+
+  static String _separatorBefore(String after) {
+    if (after.isEmpty) return '\n\n';
+    if (after.startsWith('\n\n')) return '';
+    return after.startsWith('\n') ? '\n' : '\n\n';
+  }
+
   void setImageAlt(ComposerImageBlock image, String alt) {
     _replaceImage(image, image.toMarkdown(alt: alt.trim()));
   }

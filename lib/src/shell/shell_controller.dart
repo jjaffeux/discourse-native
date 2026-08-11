@@ -2617,6 +2617,7 @@ class ShellController extends FrameSafeNotifier {
   }
 
   ComposerController? _composer;
+  Future<void>? _composerDraftRestore;
 
   /// The open composer, but only when it belongs to what is on screen.
   ///
@@ -2817,7 +2818,7 @@ class ShellController extends FrameSafeNotifier {
     );
     _composer = composer;
     _notify();
-    unawaited(_restoreDraft(composer));
+    _startComposerDraftRestore(composer);
   }
 
   Future<TopicTagSearch> searchComposerTags(
@@ -2932,7 +2933,67 @@ class ShellController extends FrameSafeNotifier {
     _composer = composer;
     _notify();
 
-    unawaited(_restoreDraft(composer));
+    _startComposerDraftRestore(composer);
+  }
+
+  /// Opens a reply composer and inserts a selected post quote into it.
+  ///
+  /// Draft restoration finishes first, so quoting into a closed composer adds
+  /// to the unfinished reply Discourse already knows about instead of hiding
+  /// it behind the newly inserted block. An already-open reply keeps its own
+  /// target, matching core: selecting another post should not silently retarget
+  /// text that is already being written.
+  Future<void> openQuote(Post post, String quote) async {
+    final instance = currentInstance;
+    final route = currentContent;
+    final topicId = route?.topicId;
+    if (instance == null ||
+        topicId == null ||
+        !canReplyHere ||
+        quote.trim().isEmpty) {
+      return;
+    }
+
+    var composer = _composer;
+    final reusesOpenReply =
+        composer != null &&
+        !composer.target.isEdit &&
+        !composer.target.isNewTopic &&
+        !composer.target.isChat &&
+        composer.target.topicId == topicId &&
+        composer.target.siteUrl == instance.url &&
+        composer.target.tabId == activeTabId;
+
+    if (!reusesOpenReply) {
+      openReply(
+        replyToPostNumber: post.postNumber == 1 ? null : post.postNumber,
+        replyToUsername: post.postNumber == 1 ? null : post.username,
+      );
+      composer = _composer;
+    }
+    if (composer == null) return;
+
+    final restore = identical(_composer, composer)
+        ? _composerDraftRestore
+        : null;
+    if (restore != null) {
+      try {
+        await restore;
+      } catch (_) {
+        // Draft restoration is best effort. A local-storage failure must not
+        // turn a selected quote into a dead action.
+      }
+    }
+
+    if (isDisposed ||
+        !identical(_composer, composer) ||
+        currentInstance?.url != instance.url ||
+        currentContent?.topicId != topicId ||
+        activeTabId != composer.target.tabId) {
+      return;
+    }
+    composer.insertBlock(quote);
+    composer.focus.requestFocus();
   }
 
   /// Opens the composer over an existing post, to rewrite it.
@@ -3766,12 +3827,16 @@ class ShellController extends FrameSafeNotifier {
   /// neither the site nor this device has yet. Edits have no draft to flush.
   void _replaceComposer() {
     final existing = _composer;
-    if (existing == null) return;
+    if (existing == null) {
+      _composerDraftRestore = null;
+      return;
+    }
     if (existing.draftPending) {
       unawaited(existing.flushDraft());
     }
     existing.dispose();
     _composer = null;
+    _composerDraftRestore = null;
   }
 
   /// Closes the composer, keeping the draft.
@@ -3788,6 +3853,7 @@ class ShellController extends FrameSafeNotifier {
     }
     composer.dispose();
     _composer = null;
+    _composerDraftRestore = null;
     _notify();
   }
 
@@ -3946,6 +4012,12 @@ class ShellController extends FrameSafeNotifier {
       clientId: identity.value,
       shortUrls: urls,
     );
+  }
+
+  void _startComposerDraftRestore(ComposerController composer) {
+    final restore = _restoreDraft(composer);
+    _composerDraftRestore = restore;
+    unawaited(restore);
   }
 
   /// Puts an unfinished reply back in the composer.

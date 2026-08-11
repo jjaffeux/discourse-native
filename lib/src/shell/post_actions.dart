@@ -14,7 +14,9 @@ import 'shell_sheet.dart';
 ///
 /// Nothing is drawn per post until the pointer is over it, which is what keeps
 /// a long topic from reading as a column of buttons. On a touch screen there is
-/// no pointer to hover, so the same actions arrive as a sheet on long press.
+/// no pointer to hover, so the same actions arrive as a sheet when a
+/// non-selectable part of the post is held. Holding the body belongs to text
+/// selection and its quote toolbar.
 ///
 /// Built on [OverlayPortal] rather than a package: the overlay is tied to this
 /// widget's lifetime, so it cannot outlive the row it belongs to when the list

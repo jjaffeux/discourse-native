@@ -16,6 +16,7 @@ import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'post_actions.dart';
 import 'post_footer.dart';
+import 'post_text_selection.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -1259,16 +1260,20 @@ class _PostTileState extends State<_PostTile> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                CookedHtml(
-                  html: post.cooked,
-                  textStyle: post.isWhisper
-                      ? theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.discourse.whisper,
-                          fontStyle: FontStyle.italic,
-                        )
-                      : theme.textTheme.bodyMedium,
-                  siteUrl: widget.siteUrl,
+                PostTextSelection(
                   post: post,
+                  topicId: widget.topic.id,
+                  child: CookedHtml(
+                    html: post.cooked,
+                    textStyle: post.isWhisper
+                        ? theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.discourse.whisper,
+                            fontStyle: FontStyle.italic,
+                          )
+                        : theme.textTheme.bodyMedium,
+                    siteUrl: widget.siteUrl,
+                    post: post,
+                  ),
                 ),
                 ...pluginRegistry.postDecorations(
                   context,
