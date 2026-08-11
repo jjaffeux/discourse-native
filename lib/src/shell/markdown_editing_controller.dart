@@ -87,6 +87,14 @@ class MarkdownEditingController extends TextEditingController {
   bool isImageCollapsed(ComposerImageBlock image) =>
       _collapsedImageStarts.contains(image.start);
 
+  ComposerImageBlock? collapsedImageAtOffset(int offset) {
+    final image = imageAtOffset(offset);
+    if (image == null || offset >= image.end || !isImageCollapsed(image)) {
+      return null;
+    }
+    return image;
+  }
+
   ComposerImageBlock? collapsedImageAtGlobalPosition(Offset globalPosition) {
     for (final image in _imageBlocksFor(text)) {
       if (!isImageCollapsed(image)) continue;
@@ -142,12 +150,17 @@ class MarkdownEditingController extends TextEditingController {
   bool isPollCollapsed(PollComposerBlock block) =>
       _collapsedPollStarts.contains(block.start);
 
+  PollComposerBlock? collapsedPollAtOffset(int offset) {
+    final block = pollAtOffset(offset);
+    return block != null && isPollCollapsed(block) ? block : null;
+  }
+
   /// The collapsed poll whose visible pill contains [globalPosition].
   ///
   /// EditableText deliberately keeps embedded widgets out of pointer hit
-  /// testing. Their render boxes still have truthful geometry, so the field
-  /// routes taps through these exact rectangles instead of guessing from the
-  /// caret Flutter selected.
+  /// testing. Their render boxes normally provide the most precise hit target;
+  /// the field can fall back to the editable source offset when platform
+  /// layout reports stale widget geometry.
   PollComposerBlock? collapsedPollAtGlobalPosition(Offset globalPosition) {
     for (final block in _pollBlocksFor(text)) {
       if (!isPollCollapsed(block)) continue;
@@ -196,6 +209,11 @@ class MarkdownEditingController extends TextEditingController {
 
   bool isLocalDateCollapsed(LocalDateComposerBlock block) =>
       _collapsedLocalDateStarts.contains(block.start);
+
+  LocalDateComposerBlock? collapsedLocalDateAtOffset(int offset) {
+    final block = localDateAtOffset(offset);
+    return block != null && isLocalDateCollapsed(block) ? block : null;
+  }
 
   LocalDateComposerBlock? collapsedLocalDateAtGlobalPosition(
     Offset globalPosition,

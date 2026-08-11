@@ -1178,6 +1178,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
         _pointerDownImage == null && _pointerDownPoll == null
         ? widget.composer.text.collapsedLocalDateAtGlobalPosition(position)
         : null;
+    if (!_hasPointerDownPill) {
+      final editable = _renderEditable;
+      if (editable == null) return;
+      final offset = editable.getPositionForPoint(position).offset;
+      _pointerDownImage = widget.composer.text.collapsedImageAtOffset(offset);
+      _pointerDownPoll = _pointerDownImage == null
+          ? widget.composer.text.collapsedPollAtOffset(offset)
+          : null;
+      _pointerDownLocalDate =
+          _pointerDownImage == null && _pointerDownPoll == null
+          ? widget.composer.text.collapsedLocalDateAtOffset(offset)
+          : null;
+    }
   }
 
   void _onEditorPointerMove(PointerMoveEvent event) {
