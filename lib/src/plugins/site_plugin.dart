@@ -10,6 +10,7 @@ import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import 'assign/assign_plugin.dart';
 import 'chat/chat_plugin.dart';
+import 'chat/chat_preview.dart';
 import 'gifs/gifs_plugin.dart';
 import 'local_dates/local_dates_plugin.dart';
 import 'poll/poll_plugin.dart';
@@ -202,6 +203,24 @@ abstract interface class ComposerToolbarPlugin {
   );
 }
 
+/// Contributes conservative, app-bundled syntax to optimistic chat previews.
+///
+/// Inspection is pure and returns typed claims or blockers. Rendering remains
+/// a separate capability so the preview document never stores a Widget or
+/// locally generated HTML. Server-only plugins cannot implement this Dart
+/// interface and therefore remain literal source until canonical cooking
+/// arrives.
+abstract interface class ChatMessagePreviewPlugin
+    implements SitePlugin, ChatPreviewPluginAdapter {
+  @override
+  String get previewFeatureId;
+
+  @override
+  ChatPreviewInspection inspect(ChatPreviewRequest request);
+
+  Widget? buildPreviewNode(BuildContext context, PluginPreviewNode node);
+}
+
 /// Contributes navigation sections to the instance sidebar.
 abstract interface class SidebarPlugin {
   /// Sections this feature adds to the instance sidebar, after core's own.
@@ -343,6 +362,31 @@ final class PluginRegistry {
   const PluginRegistry(this.plugins);
 
   final List<SitePlugin> plugins;
+
+  /// A projector configured from this build's static plugin capabilities.
+  ///
+  /// Duplicate or invalid feature ids are intentionally left for
+  /// [ChatPreviewEngine] to reject as a whole-source fallback. Silently picking
+  /// one plugin here would make rendering order an accidental syntax contract.
+  ChatPreviewEngine get chatPreviewEngine =>
+      ChatPreviewEngine(plugins: plugins.whereType<ChatMessagePreviewPlugin>());
+
+  /// Draws one already-inspected plugin node, or null for a stale/ambiguous
+  /// owner so the caller can show the node's exact source fallback.
+  Widget? buildChatPreviewNode(BuildContext context, PluginPreviewNode node) {
+    ChatMessagePreviewPlugin? owner;
+    for (final plugin in plugins.whereType<ChatMessagePreviewPlugin>()) {
+      if (plugin.previewFeatureId != node.featureId) continue;
+      if (owner != null) return null;
+      owner = plugin;
+    }
+    if (owner == null) return null;
+    try {
+      return owner.buildPreviewNode(context, node);
+    } catch (_) {
+      return null;
+    }
+  }
 
   PluginData readPost(Map<String, dynamic> json, String siteUrl) {
     Map<Type, Object>? values;

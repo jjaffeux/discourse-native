@@ -9,6 +9,8 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_message.dart';
+import 'chat_preview.dart';
+import 'chat_preview_body.dart';
 import 'chat_uploads.dart';
 import 'chat_user_avatar.dart';
 
@@ -137,14 +139,22 @@ class _Tile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (!chained) _Header(siteUrl: siteUrl, message: message),
-                    if (message.cooked.isNotEmpty)
+                    if (message.canonicalReceived && message.cooked.isNotEmpty)
                       CookedHtml(
                         html: message.cooked,
                         textStyle: theme.textTheme.bodyMedium,
                         siteUrl: siteUrl,
                       ),
+                    if (message.preview case ProjectedPreview(
+                      :final document,
+                    ) when !message.canonicalReceived)
+                      ChatPreviewBody(
+                        document: document,
+                        textStyle: theme.textTheme.bodyMedium,
+                      ),
                     if (message.optimisticRaw case final raw?
-                        when message.cooked.isEmpty)
+                        when !message.canonicalReceived &&
+                            message.preview is! ProjectedPreview)
                       Text(raw, style: theme.textTheme.bodyMedium),
                     if (message.uploads.isNotEmpty)
                       ChatUploads(siteUrl: siteUrl, uploads: message.uploads),
@@ -156,7 +166,8 @@ class _Tile extends StatelessWidget {
                     if (message.thread case final thread?
                         when thread.replyCount > 0)
                       _ThreadRow(thread: thread),
-                    if (message.isOptimistic) _DeliveryStatus(message: message),
+                    if (message.delivery == ChatMessageDelivery.failed)
+                      _DeliveryStatus(message: message),
                   ],
                 ),
               ),
@@ -177,16 +188,6 @@ class _DeliveryStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return switch (message.delivery) {
-      ChatMessageDelivery.sending => Padding(
-        padding: const EdgeInsets.only(top: 2),
-        child: Text(
-          'Sending…',
-          key: ValueKey(('chat-message-sending', message.id)),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
       ChatMessageDelivery.failed => Padding(
         padding: const EdgeInsets.only(top: 2),
         child: Row(
@@ -203,6 +204,7 @@ class _DeliveryStatus extends StatelessWidget {
           ],
         ),
       ),
+      ChatMessageDelivery.sending ||
       ChatMessageDelivery.sent => const SizedBox.shrink(),
     };
   }

@@ -1,0 +1,42 @@
+[
+  {
+    "name": "plain text and soft break",
+    "raw": "hello\nworld",
+    "cooked": "<p>hello\nworld</p>"
+  },
+  {
+    "name": "strong emphasis",
+    "raw": "**bold**",
+    "cooked": "<p><strong>bold</strong></p>"
+  },
+  {
+    "name": "emphasis",
+    "raw": "*italic*",
+    "cooked": "<p><em>italic</em></p>"
+  },
+  {
+    "name": "nested emphasis",
+    "raw": "**bold _italic_**",
+    "cooked": "<p><strong>bold <em>italic</em></strong></p>"
+  },
+  {
+    "name": "strikethrough",
+    "raw": "~~test~~",
+    "cooked": "<p><s>test</s></p>"
+  },
+  {
+    "name": "inline code",
+    "raw": "`test`",
+    "cooked": "<p><code>test</code></p>"
+  },
+  {
+    "name": "fenced code",
+    "raw": "```\nsomething = test\n```\n",
+    "cooked": "<pre><code class=\"lang-auto\">something = test\n</code></pre>"
+  },
+  {
+    "name": "language fenced code",
+    "raw": "```ruby\nWidget.triangulate(argument: \"no u\")\n```\n",
+    "cooked": "<pre data-code-wrap=\"ruby\"><code class=\"lang-ruby\">Widget.triangulate(argument: \"no u\")\n</code></pre>"
+  }
+]

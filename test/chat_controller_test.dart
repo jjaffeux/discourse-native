@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -103,7 +104,7 @@ final class _GatedCredentials extends FakeApiCredentialReader {
 
   @override
   Future<String?> apiKeyFor(String siteUrl) async {
-    started.complete();
+    if (!started.isCompleted) started.complete();
     await gate.future;
     return keys[siteUrl];
   }
@@ -811,15 +812,20 @@ void main() {
       );
       addTearDown(subject.chat.dispose);
 
-      final sending = subject.chat.sendMessage(site, 9, '  hello chat  ');
+      final sending = subject.chat.sendMessage(
+        site,
+        9,
+        OutgoingChatMessage.text('  hello chat  '),
+      )!;
 
       final window = subject.chat.stream(site, 9);
       expect(window.messageIds, isEmpty);
       expect(window.localMessageIds, [-1]);
       final local = subject.store.read<ChatMessage>(site, -1)!;
-      expect(local.optimisticRaw, 'hello chat');
+      expect(local.optimisticRaw, '  hello chat  ');
       expect(local.stagedId, 'native-${now.microsecondsSinceEpoch}-0');
       expect(local.delivery, ChatMessageDelivery.sending);
+      expect(local.preview, isA<ProjectedPreview>());
       expect(local.author.username, currentUser.username);
       expect(subject.api.chatMessagesSent, isEmpty);
 
@@ -828,11 +834,44 @@ void main() {
       expect(subject.api.chatMessagesSent, isEmpty);
 
       credentialsGate.complete();
-      expect(await sending, isTrue);
+      expect(await sending.settled, ChatSendResult.sent);
+    });
+
+    test('stages a FIFO batch before credentials resolve', () async {
+      final credentialsGate = Completer<void>();
+      final credentials = _GatedCredentials(credentialsGate);
+      final subject = build(
+        credentialReader: credentials,
+        currentUser: currentUser,
+      );
+      addTearDown(subject.chat.dispose);
+
+      final first = subject.chat.sendMessage(
+        site,
+        9,
+        OutgoingChatMessage.text('first'),
+      )!;
+      final second = subject.chat.sendMessage(
+        site,
+        9,
+        OutgoingChatMessage.text('second'),
+      )!;
+      await credentials.started.future;
+
+      expect(subject.chat.stream(site, 9).localMessageIds, [-1, -2]);
+      expect(subject.api.chatMessagesSent, isEmpty);
+
+      credentialsGate.complete();
+      expect(await first.settled, ChatSendResult.sent);
+      expect(await second.settled, ChatSendResult.sent);
+      expect(subject.api.chatMessagesSent.map((call) => call.message), [
+        'first',
+        'second',
+      ]);
     });
 
     test(
-      'trims, correlates, serializes, and performs no message GET',
+      'preserves source, correlates, serializes, and performs no message GET',
       () async {
         final gate = Completer<void>();
         final now = DateTime.utc(2026, 5, 5, 10, 2);
@@ -843,15 +882,23 @@ void main() {
         );
         addTearDown(subject.chat.dispose);
 
-        final first = subject.chat.sendMessage(site, 9, '  hello chat  ');
-        final duplicate = subject.chat.sendMessage(site, 9, 'hello again');
+        final first = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('  hello chat  '),
+        )!;
+        final second = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('hello again'),
+        )!;
         await Future<void>.delayed(Duration.zero);
 
         expect(subject.api.chatMessagesSent, [
           (
             siteUrl: site,
             channelId: 9,
-            message: 'hello chat',
+            message: '  hello chat  ',
             threadId: null,
             stagedId: 'native-${now.microsecondsSinceEpoch}-0',
             clientCreatedAt: now,
@@ -859,18 +906,145 @@ void main() {
         ]);
         expect(subject.api.chatMessagesRequested, isEmpty);
         expect(subject.chat.stream(site, 9).messageIds, isEmpty);
-        expect(subject.chat.stream(site, 9).localMessageIds, [-1]);
+        expect(subject.chat.stream(site, 9).localMessageIds, [-1, -2]);
 
         gate.complete();
-        expect(await first, isTrue);
-        expect(await duplicate, isFalse);
+        expect(await first.settled, ChatSendResult.sent);
+        expect(await second.settled, ChatSendResult.sent);
+        expect(subject.api.chatMessagesSent.map((call) => call.message), [
+          '  hello chat  ',
+          'hello again',
+        ]);
         expect(subject.api.chatMessagesRequested, isEmpty);
         expect(
           subject.store.read<ChatMessage>(site, -1)?.delivery,
           ChatMessageDelivery.sent,
         );
+        expect(first.localId, -1);
+        expect(second.localId, -2);
+        expect(first.stagedId, isNot(second.stagedId));
       },
     );
+
+    test('different channels send concurrently', () async {
+      final gate = Completer<void>();
+      final subject = build(sendGate: gate, currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+
+      final first = subject.chat.sendMessage(
+        site,
+        9,
+        OutgoingChatMessage.text('nine'),
+      )!;
+      final second = subject.chat.sendMessage(
+        site,
+        10,
+        OutgoingChatMessage.text('ten'),
+      )!;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        subject.api.chatMessagesSent.map((call) => call.channelId).toSet(),
+        {9, 10},
+      );
+
+      gate.complete();
+      expect(await first.settled, ChatSendResult.sent);
+      expect(await second.settled, ChatSendResult.sent);
+    });
+
+    test('a failed request does not stop its channel queue', () async {
+      const refusal = WriteException(WriteFailure.validation);
+      final subject = build(sendFailure: refusal, currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+
+      final first = subject.chat.sendMessage(
+        site,
+        9,
+        OutgoingChatMessage.text('first'),
+      )!;
+      final second = subject.chat.sendMessage(
+        site,
+        9,
+        OutgoingChatMessage.text('second'),
+      )!;
+
+      expect(await first.settled, ChatSendResult.failed);
+      expect(await second.settled, ChatSendResult.failed);
+      expect(subject.api.chatMessagesSent.map((call) => call.message), [
+        'first',
+        'second',
+      ]);
+    });
+
+    test(
+      'forget cancels active and queued messages without throwing',
+      () async {
+        final credentialsGate = Completer<void>();
+        final credentials = _GatedCredentials(credentialsGate);
+        final subject = build(
+          credentialReader: credentials,
+          currentUser: currentUser,
+        );
+        addTearDown(subject.chat.dispose);
+
+        final first = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('first'),
+        )!;
+        final second = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('second'),
+        )!;
+        await credentials.started.future;
+
+        subject.chat.forget(site);
+
+        expect(await first.settled, ChatSendResult.cancelled);
+        expect(await second.settled, ChatSendResult.cancelled);
+        credentialsGate.complete();
+        await Future<void>.delayed(Duration.zero);
+        expect(subject.api.chatMessagesSent, isEmpty);
+      },
+    );
+
+    test('dispose cancels accepted messages', () async {
+      final credentialsGate = Completer<void>();
+      final credentials = _GatedCredentials(credentialsGate);
+      final subject = build(
+        credentialReader: credentials,
+        currentUser: currentUser,
+      );
+
+      final handle = subject.chat.sendMessage(
+        site,
+        9,
+        OutgoingChatMessage.text('hello'),
+      )!;
+      await credentials.started.future;
+      subject.chat.dispose();
+
+      expect(await handle.settled, ChatSendResult.cancelled);
+      credentialsGate.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(subject.api.chatMessagesSent, isEmpty);
+    });
+
+    test('rejects blank input and messages after disposal synchronously', () {
+      final subject = build(currentUser: currentUser);
+
+      expect(
+        subject.chat.sendMessage(site, 9, OutgoingChatMessage.text('   ')),
+        isNull,
+      );
+      subject.chat.dispose();
+      expect(
+        subject.chat.sendMessage(site, 9, OutgoingChatMessage.text('hello')),
+        isNull,
+      );
+    });
 
     test(
       'keeps an optimistic row outside an anchored canonical window',
@@ -886,7 +1060,11 @@ void main() {
         addTearDown(subject.chat.dispose);
         await subject.chat.openChannel(site, 9);
 
-        final sending = subject.chat.sendMessage(site, 9, 'from the past');
+        final sending = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('from the past'),
+        )!;
 
         final window = subject.chat.stream(site, 9);
         expect(window.messageIds, [5]);
@@ -899,7 +1077,7 @@ void main() {
         expect(subject.api.chatMessagesRequested, hasLength(1));
 
         gate.complete();
-        await sending;
+        await sending.settled;
         expect(subject.api.chatMessagesRequested, hasLength(1));
       },
     );
@@ -909,7 +1087,12 @@ void main() {
       addTearDown(subject.chat.dispose);
       final tracker = attachTracker(subject.chat);
 
-      await subject.chat.sendMessage(site, 9, 'hello chat');
+      final handle = subject.chat.sendMessage(
+        site,
+        9,
+        OutgoingChatMessage.text('hello chat'),
+      )!;
+      await handle.settled;
       final localId = subject.chat.stream(site, 9).localMessageIds.single;
       final stagedId = subject.store
           .read<ChatMessage>(site, localId)!
@@ -945,7 +1128,11 @@ void main() {
         addTearDown(subject.chat.dispose);
         final tracker = attachTracker(subject.chat);
 
-        final sending = subject.chat.sendMessage(site, 9, 'hello chat');
+        final sending = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('hello chat'),
+        )!;
         await Future<void>.delayed(Duration.zero);
         final localId = subject.chat.stream(site, 9).localMessageIds.single;
         final stagedId = subject.store
@@ -960,7 +1147,7 @@ void main() {
         );
 
         gate.complete();
-        expect(await sending, isTrue);
+        expect(await sending.settled, ChatSendResult.sent);
 
         final window = subject.chat.stream(site, 9);
         final local = subject.store.read<ChatMessage>(site, localId)!;
@@ -984,11 +1171,14 @@ void main() {
         );
         final subject = build(sendFailure: refusal, currentUser: currentUser);
         addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
 
-        await expectLater(
-          subject.chat.sendMessage(site, 9, 'hello'),
-          throwsA(same(refusal)),
-        );
+        final handle = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('hello'),
+        )!;
+        expect(await handle.settled, ChatSendResult.failed);
 
         expect(subject.api.chatMessagesSent, hasLength(1));
         expect(subject.api.chatMessagesRequested, isEmpty);
@@ -1001,6 +1191,7 @@ void main() {
         expect(local.delivery, ChatMessageDelivery.failed);
         expect(local.sendError, refusal.message);
         expect(local.deliveryUncertain, isFalse);
+        expect(tracker.pluginChannelCallbacks['/chat/9'], isEmpty);
       },
     );
 
@@ -1010,11 +1201,14 @@ void main() {
         const outage = WriteException(WriteFailure.unreachable);
         final subject = build(sendFailure: outage, currentUser: currentUser);
         addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
 
-        await expectLater(
-          subject.chat.sendMessage(site, 9, 'hello'),
-          throwsA(same(outage)),
-        );
+        final handle = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('hello'),
+        )!;
+        expect(await handle.settled, ChatSendResult.failed);
 
         final window = subject.chat.stream(site, 9);
         final local = subject.store.read<ChatMessage>(
@@ -1026,6 +1220,20 @@ void main() {
         expect(local.delivery, ChatMessageDelivery.failed);
         expect(local.sendError, outage.message);
         expect(local.deliveryUncertain, isTrue);
+        expect(local.canonicalReceived, isFalse);
+        expect(tracker.pluginChannelCallbacks['/chat/9'], hasLength(1));
+
+        tracker.deliverPluginMessage(
+          '/chat/9',
+          sentEvent(stagedId: local.stagedId!, cooked: ''),
+        );
+
+        final reconciled = subject.store.read<ChatMessage>(site, local.id)!;
+        expect(reconciled.delivery, ChatMessageDelivery.sent);
+        expect(reconciled.deliveryUncertain, isFalse);
+        expect(reconciled.cooked, isEmpty);
+        expect(reconciled.canonicalReceived, isTrue);
+        expect(tracker.pluginChannelCallbacks['/chat/9'], isEmpty);
       },
     );
 
@@ -1033,7 +1241,12 @@ void main() {
       final subject = build(currentUser: currentUser);
       addTearDown(subject.chat.dispose);
       subject.store.put(site, channel(9, lastRead: 3));
-      await subject.chat.sendMessage(site, 9, 'hello');
+      final handle = subject.chat.sendMessage(
+        site,
+        9,
+        OutgoingChatMessage.text('hello'),
+      )!;
+      await handle.settled;
       final localId = subject.chat.stream(site, 9).localMessageIds.single;
 
       await subject.chat.markRead(site, 9, localId);
@@ -1057,7 +1270,12 @@ void main() {
           currentUser: currentUser,
         );
         addTearDown(subject.chat.dispose);
-        await subject.chat.sendMessage(site, 9, 'hello');
+        final handle = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('hello'),
+        )!;
+        await handle.settled;
         final localId = subject.chat.stream(site, 9).localMessageIds.single;
         expect(subject.store.read<ChatMessage>(site, localId)?.serverId, 42);
 

@@ -353,6 +353,8 @@ class ShellController extends FrameSafeNotifier {
     store: store,
     lifecycle: lifecycle,
     currentUserFor: (siteUrl) => _instanceAt(siteUrl)?.user,
+    siteConfigFor: siteConfigFor,
+    previewEngine: pluginRegistry.chatPreviewEngine,
   );
 
   /// Voice/video rooms across every connected site. Unlike topic and chat

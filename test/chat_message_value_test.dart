@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const siteUrl = 'https://meta.discourse.org';
@@ -76,11 +77,16 @@ void main() {
         channelId: 3,
         raw: '**Hello**',
         stagedId: 'native-1',
+        preview: const SourceFallback(
+          '**Hello**',
+          ChatPreviewFallbackReason.unsupportedSyntax,
+        ),
         author: const ChatMessageAuthor(id: 1, username: 'sam'),
         createdAt: createdAt,
       );
       store.put(siteUrl, optimistic);
       final ref = store.ref<ChatMessage>(siteUrl, -1);
+      final preview = optimistic.preview;
       var changes = 0;
       ref.addListener(() => changes++);
 
@@ -100,6 +106,8 @@ void main() {
       expect(ref.value?.delivery, ChatMessageDelivery.failed);
       expect(ref.value?.sendError, "Couldn't reach the site.");
       expect(ref.value?.deliveryUncertain, isTrue);
+      expect(ref.value?.preview, same(preview));
+      expect(ref.value?.canonicalReceived, isFalse);
 
       store.put(siteUrl, ref.value!.withCanonical(message()));
 
@@ -110,11 +118,39 @@ void main() {
       expect(ref.value?.delivery, ChatMessageDelivery.sent);
       expect(ref.value?.sendError, isNull);
       expect(ref.value?.deliveryUncertain, isFalse);
+      expect(ref.value?.preview, same(preview));
+      expect(ref.value?.canonicalReceived, isTrue);
     },
   );
 
+  test('an empty canonical body is still an authoritative arrival', () {
+    final optimistic = ChatMessage.optimistic(
+      id: -1,
+      channelId: 3,
+      raw: 'Hello',
+      stagedId: 'native-1',
+      preview: const SourceFallback(
+        'Hello',
+        ChatPreviewFallbackReason.unsupportedSyntax,
+      ),
+      author: const ChatMessageAuthor(id: 1, username: 'sam'),
+      createdAt: DateTime.utc(2026, 8, 8, 11),
+    );
+
+    final reconciled = optimistic.withCanonical(message(cooked: ''));
+
+    expect(optimistic.canonicalReceived, isFalse);
+    expect(reconciled.cooked, isEmpty);
+    expect(reconciled.canonicalReceived, isTrue);
+    expect(reconciled.preview, same(optimistic.preview));
+  });
+
   test('raw text and staged correlation participate in message equality', () {
     final createdAt = DateTime.utc(2026, 8, 8, 11);
+    const preview = SourceFallback(
+      'Hello',
+      ChatPreviewFallbackReason.unsupportedSyntax,
+    );
     ChatMessage optimistic({
       String raw = 'Hello',
       String stagedId = 'native-1',
@@ -123,6 +159,7 @@ void main() {
       channelId: 3,
       raw: raw,
       stagedId: stagedId,
+      preview: preview,
       author: const ChatMessageAuthor(id: 1, username: 'sam'),
       createdAt: createdAt,
     );
@@ -130,5 +167,53 @@ void main() {
     expect(optimistic(), optimistic());
     expect(optimistic(), isNot(optimistic(raw: 'Edited')));
     expect(optimistic(), isNot(optimistic(stagedId: 'native-2')));
+  });
+
+  test('outgoing text never infers trusted preview metadata', () {
+    final outgoing = OutgoingChatMessage.text(
+      '![cat](https://media.example/cat.gif)',
+    );
+
+    expect(outgoing.raw, '![cat](https://media.example/cat.gif)');
+    expect(outgoing.trustedPreviewSeed, isNull);
+  });
+
+  test('trusted GIF input carries validated typed metadata', () {
+    final outgoing = OutgoingChatMessage.trustedGif(
+      raw: '![cat](https://media.example/cat.gif)',
+      url: 'https://media.example/cat.gif',
+      title: 'cat',
+      width: 320,
+      height: 180,
+    );
+
+    final seed = outgoing.trustedPreviewSeed as TrustedGifPreviewSeed;
+    expect(seed.url, Uri.parse('https://media.example/cat.gif'));
+    expect(seed.title, 'cat');
+    expect(seed.width, 320);
+    expect(seed.height, 180);
+  });
+
+  test('trusted GIF input rejects unsafe or incomplete metadata', () {
+    expect(
+      () => OutgoingChatMessage.trustedGif(
+        raw: 'image',
+        url: 'javascript:alert(1)',
+        title: 'cat',
+        width: 320,
+        height: 180,
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => OutgoingChatMessage.trustedGif(
+        raw: 'image',
+        url: 'https://media.example/cat.gif',
+        title: '',
+        width: 0,
+        height: 180,
+      ),
+      throwsArgumentError,
+    );
   });
 }
