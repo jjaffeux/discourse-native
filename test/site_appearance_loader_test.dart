@@ -198,8 +198,10 @@ void main() {
 
       expect(appearance?.base?.selected, const Color(0x267B5FE2));
       expect(appearance?.base?.hover, const Color(0x267B5FE2));
+      expect(appearance?.base?.borderRadius, 8);
       expect(appearance?.alternate?.selected, const Color(0x267B5FE2));
       expect(appearance?.alternate?.hover, const Color(0x267B5FE2));
+      expect(appearance?.alternate?.borderRadius, 8);
       final themeRequest = client.requests.singleWhere(
         (request) => request.url.path == '/theme.css',
       );
@@ -720,6 +722,8 @@ String _themeDocument({int? themeId, String? href}) =>
 
 const String _metaThemeCss = '''
 :root {
+  --theme-border-radius: .5rem;
+  --d-border-radius: var(--theme-border-radius);
   --meta-color-surface-accent:
     oklch(from var(--tertiary) l c h / 0.15);
   --d-selected: var(--meta-color-surface-accent);

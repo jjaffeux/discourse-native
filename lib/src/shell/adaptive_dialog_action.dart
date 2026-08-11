@@ -1,6 +1,33 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+/// Opens an app-owned dialog with the Discourse modal theme on every platform.
+///
+/// [AlertDialog.adaptive] and [AdaptiveDialogAction] still remain useful to
+/// callers outside this route. Inside it, Apple platforms are presented with
+/// their Material counterparts so the site's surface, CSS radius, shadow, and
+/// backdrop are not replaced by fixed Cupertino values.
+Future<T?> showDiscourseDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+}) => showDialog<T>(
+  context: context,
+  barrierDismissible: barrierDismissible,
+  builder: (dialogContext) {
+    final theme = Theme.of(dialogContext);
+    final materialPlatform = switch (theme.platform) {
+      TargetPlatform.iOS => TargetPlatform.android,
+      TargetPlatform.macOS => TargetPlatform.linux,
+      final platform => platform,
+    };
+    return Theme(
+      data: theme.copyWith(platform: materialPlatform),
+      child: Builder(builder: builder),
+    );
+  },
+);
+
 /// The semantic importance of an action in an adaptive alert dialog.
 enum AdaptiveDialogActionKind { regular, primary, destructive }
 

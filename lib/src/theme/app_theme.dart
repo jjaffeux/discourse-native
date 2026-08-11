@@ -15,6 +15,9 @@ const Color discourseLove = Color(0xFFFA6C8D);
 /// Discourse's default `$success` colour.
 const Color discourseSuccess = Color(0xFF009900);
 
+/// Core Discourse's modal backdrop: black animated to 60% opacity.
+const Color discourseModalBarrier = Color(0x99000000);
+
 Color _readableOn(
   Color background,
   Color preferred, {
@@ -490,6 +493,7 @@ abstract final class AppTheme {
       code,
       discourse,
       colorScheme: colorScheme,
+      borderRadius: palette.borderRadius,
     );
   }
 
@@ -503,10 +507,20 @@ abstract final class AppTheme {
     CodeColors code,
     DiscourseColors discourse, {
     ColorScheme? colorScheme,
+    double borderRadius = defaultDiscourseBorderRadius,
   }) {
     final resolvedColorScheme =
         colorScheme ??
         ColorScheme.fromSeed(seedColor: discourseBlue, brightness: brightness);
+
+    final modalShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(borderRadius),
+    );
+    // Flutter cannot express core's 0 8px 60px CSS shadow directly through a
+    // dialog theme. Elevation 24 gives these native surfaces comparable depth.
+    final modalShadow = Colors.black.withValues(
+      alpha: brightness == Brightness.dark ? 1 : 0.6,
+    );
 
     return ThemeData(
       colorScheme: resolvedColorScheme,
@@ -532,6 +546,28 @@ abstract final class AppTheme {
         color: shell.divider,
         thickness: 1,
         space: 1,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: shell.content,
+        elevation: 24,
+        shadowColor: modalShadow,
+        surfaceTintColor: Colors.transparent,
+        shape: modalShape,
+        barrierColor: discourseModalBarrier,
+        clipBehavior: Clip.antiAlias,
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        modalBackgroundColor: shell.content,
+        modalBarrierColor: discourseModalBarrier,
+        modalElevation: 24,
+        shadowColor: modalShadow,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(borderRadius),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
       ),
     );
   }

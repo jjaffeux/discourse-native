@@ -167,6 +167,7 @@ void main() {
       final palette = parseSiteAppearanceStylesheet(_stylesheet());
 
       expect(palette?.brightness, Brightness.light);
+      expect(palette?.borderRadius, defaultDiscourseBorderRadius);
       expect(palette?.primary, const Color(0xFF111111));
       expect(palette?.secondary, const Color(0xFFFFFFFF));
       expect(palette?.tertiary, const Color(0xFF0088CC));
@@ -188,6 +189,34 @@ void main() {
         ''');
 
       expect(palette?.tertiary, const Color(0xFF654321));
+    });
+
+    test('resolves theme radius aliases, units, and calc expressions', () {
+      final rem = parseSiteAppearanceStylesheet(
+        _stylesheet({
+          '--theme-radius': '.5rem',
+          '--d-border-radius': 'var(--theme-radius)',
+        }),
+      );
+      final calculated = parseSiteAppearanceStylesheet(
+        _stylesheet({'--d-border-radius': 'calc(var(--space-2) + 2px)'}),
+      );
+      final zero = parseSiteAppearanceStylesheet(
+        _stylesheet({'--d-border-radius': '0'}),
+      );
+
+      expect(rem?.borderRadius, 8);
+      expect(calculated?.borderRadius, 10);
+      expect(zero?.borderRadius, 0);
+    });
+
+    test('falls back from an invalid theme border radius', () {
+      final palette = parseSiteAppearanceStylesheets([
+        _stylesheet(),
+        ':root { --d-border-radius: -2px; }',
+      ]);
+
+      expect(palette?.borderRadius, defaultDiscourseBorderRadius);
     });
 
     test('honors important declarations across root rules', () {
@@ -432,6 +461,7 @@ Map<String, Object?> _userJson({
 String _stylesheet([Map<String, String> overrides = const {}]) {
   final values = <String, String>{
     '--scheme-type': 'light',
+    '--d-border-radius': '4px',
     '--primary': '#111111',
     '--secondary': '#FFFFFF',
     '--tertiary': '#0088CC',

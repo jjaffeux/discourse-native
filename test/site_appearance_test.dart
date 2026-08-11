@@ -67,6 +67,7 @@ void main() {
     });
 
     expect(palette.brightness, Brightness.light);
+    expect(palette.borderRadius, defaultDiscourseBorderRadius);
     expect(palette.quaternary, const Color(0xFF0088CC));
     expect(palette.headerBackground, const Color(0xFFFFFFFF));
     expect(palette.primaryLow, const Color(0xFFFFFFFF));
@@ -75,6 +76,14 @@ void main() {
     expect(palette.selectedForeground, palette.primary);
     expect(palette.mentionBackground, palette.primaryLow);
     expect(palette.codeKeyword, palette.tertiary);
+  });
+
+  test('ResolvedSitePalette persists a theme border radius', () {
+    final json = palette().toJson()..['borderRadius'] = 11.5;
+    final decoded = ResolvedSitePalette.fromJson(json);
+
+    expect(decoded.borderRadius, 11.5);
+    expect(decoded.toJson()['borderRadius'], 11.5);
   });
 }
 

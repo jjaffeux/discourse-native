@@ -67,7 +67,6 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
   return showDialog<PollComposerSheetAction>(
     context: context,
     builder: (dialogContext) => Dialog(
-      backgroundColor: Theme.of(dialogContext).shell.floating,
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 640, maxHeight: 720),
@@ -76,13 +75,13 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+              padding: const EdgeInsets.fromLTRB(24, 8, 8, 8),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(dialogContext).textTheme.titleMedium
+                      style: Theme.of(dialogContext).textTheme.titleLarge
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -114,7 +113,7 @@ Future<bool> confirmPublishedPollRemoval(
       ? 'This poll may already have votes.'
       : 'This poll has $voterCount '
             '${voterCount == 1 ? 'voter' : 'voters'}.';
-  return await showAdaptiveDialog<bool>(
+  return await showDiscourseDialog<bool>(
         context: context,
         builder: (context) => AlertDialog.adaptive(
           title: const Text('Remove published poll?'),
@@ -212,7 +211,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

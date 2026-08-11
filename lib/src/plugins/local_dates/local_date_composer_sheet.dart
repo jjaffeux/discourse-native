@@ -51,7 +51,6 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
   return showDialog<LocalDateComposerSheetAction>(
     context: context,
     builder: (dialogContext) => Dialog(
-      backgroundColor: Theme.of(dialogContext).shell.floating,
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 680, maxHeight: 780),
@@ -60,13 +59,13 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+              padding: const EdgeInsets.fromLTRB(24, 8, 8, 8),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(dialogContext).textTheme.titleMedium
+                      style: Theme.of(dialogContext).textTheme.titleLarge
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -190,7 +189,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

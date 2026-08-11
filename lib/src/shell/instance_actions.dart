@@ -18,7 +18,7 @@ Future<void> confirmInstanceRemoval(
 ) async {
   final controller = ShellScope.read(context);
 
-  final confirmed = await showAdaptiveDialog<bool>(
+  final confirmed = await showDiscourseDialog<bool>(
     context: context,
     builder: (dialogContext) {
       return AlertDialog.adaptive(

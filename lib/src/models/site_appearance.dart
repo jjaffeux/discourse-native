@@ -4,6 +4,12 @@ import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
+/// Discourse's core value for `--d-border-radius`.
+///
+/// The native appearance loader reads parent-theme overrides, but it does not
+/// fetch core's common stylesheet where this fallback is declared.
+const double defaultDiscourseBorderRadius = 4;
+
 /// Which of a site's two palettes its web UI asks a reader to use.
 enum SiteAppearanceMode { followSystem, base, alternate }
 
@@ -74,14 +80,17 @@ class SiteAppearance {
   int get hashCode => Object.hash(base, alternate, mode);
 }
 
-/// Discourse's color custom properties after their aliases have been resolved.
+/// Discourse appearance custom properties after their aliases are resolved.
 ///
-/// These are source colors rather than Material roles. In Discourse naming,
+/// Most are source colors rather than Material roles. In Discourse naming,
 /// `primary` is ordinary text, `secondary` is the page background, and
-/// `tertiary` is the interactive accent.
+/// `tertiary` is the interactive accent. Theme-wide geometry used by the
+/// native shell lives here too so it follows the same CSS cascade and storage
+/// lifecycle.
 @immutable
 class ResolvedSitePalette {
   const ResolvedSitePalette({
+    this.borderRadius = defaultDiscourseBorderRadius,
     required this.brightness,
     required this.primary,
     required this.secondary,
@@ -136,6 +145,9 @@ class ResolvedSitePalette {
     final danger = _color(json['danger']) ?? const Color(0xFFC80001);
 
     return ResolvedSitePalette(
+      borderRadius:
+          _nonNegativeDouble(json['borderRadius']) ??
+          defaultDiscourseBorderRadius,
       brightness: switch (jsonText(json['brightness'])) {
         'dark' => Brightness.dark,
         'light' => Brightness.light,
@@ -184,6 +196,8 @@ class ResolvedSitePalette {
     );
   }
 
+  /// The resolved value of Discourse's theme-wide `--d-border-radius` token.
+  final double borderRadius;
   final Brightness brightness;
   final Color primary;
   final Color secondary;
@@ -222,6 +236,7 @@ class ResolvedSitePalette {
   final Color codeMeta;
 
   Map<String, dynamic> toJson() => {
+    'borderRadius': borderRadius,
     'brightness': brightness.name,
     'primary': primary.toARGB32(),
     'secondary': secondary.toARGB32(),
@@ -263,6 +278,7 @@ class ResolvedSitePalette {
   @override
   bool operator ==(Object other) =>
       other is ResolvedSitePalette &&
+      other.borderRadius == borderRadius &&
       other.brightness == brightness &&
       other.primary == primary &&
       other.secondary == secondary &&
@@ -302,6 +318,7 @@ class ResolvedSitePalette {
 
   @override
   int get hashCode => Object.hashAll([
+    borderRadius,
     brightness,
     primary,
     secondary,
@@ -339,6 +356,12 @@ class ResolvedSitePalette {
     codeName,
     codeMeta,
   ]);
+}
+
+double? _nonNegativeDouble(Object? value) {
+  if (value is! num) return null;
+  final result = value.toDouble();
+  return result.isFinite && result >= 0 ? result : null;
 }
 
 Color _requiredColor(Map<String, dynamic> json, String name) =>

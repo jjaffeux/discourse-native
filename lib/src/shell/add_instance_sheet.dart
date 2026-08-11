@@ -27,7 +27,6 @@ Future<void> showAddInstanceSheet(BuildContext context) {
   return showDialog<void>(
     context: context,
     builder: (dialogContext) => Dialog(
-      backgroundColor: Theme.of(dialogContext).shell.floating,
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: 480,
@@ -36,13 +35,13 @@ Future<void> showAddInstanceSheet(BuildContext context) {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+              padding: const EdgeInsets.fromLTRB(24, 8, 8, 8),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(dialogContext).textTheme.titleMedium
+                      style: Theme.of(dialogContext).textTheme.titleLarge
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -55,7 +54,10 @@ Future<void> showAddInstanceSheet(BuildContext context) {
               ),
             ),
             Divider(color: Theme.of(dialogContext).shell.divider, height: 1),
-            const Padding(padding: EdgeInsets.all(20), child: form),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: form,
+            ),
           ],
         ),
       ),

@@ -240,7 +240,24 @@ ResolvedSitePalette? parseSiteAppearanceStylesheet(String source) =>
 /// names, because themes commonly introduce an alias before assigning it to a
 /// core semantic variable.
 ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
-  final variables = <String, List<_CascadedValue>>{};
+  // The loader fetches the site's color definitions and selected parent theme,
+  // not core's common stylesheet. Seed the core geometry tokens themes commonly
+  // reference so an override such as `var(--space-2)` resolves as it does in
+  // the browser.
+  final variables = <String, List<_CascadedValue>>{
+    '--d-border-radius': [const _CascadedValue('4px', important: false)],
+    '--space': [const _CascadedValue('.25rem', important: false)],
+    '--space-half': [
+      const _CascadedValue('calc(var(--space) / 2)', important: false),
+    ],
+    for (var index = 1; index <= 12; index++)
+      '--space-$index': [
+        _CascadedValue(
+          index == 1 ? 'var(--space)' : 'calc(var(--space) * $index)',
+          important: false,
+        ),
+      ],
+  };
   for (final source in sources) {
     for (final rule in _globalRootRules(source)) {
       for (final node in rule.declarationGroup.declarations) {
@@ -258,6 +275,14 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
   Color? color(String name) {
     for (final value in resolver.resolveCandidates(name)) {
       final parsed = _parseColor(value);
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  double? length(String name) {
+    for (final value in resolver.resolveCandidates(name)) {
+      final parsed = _parseCssLength(value);
       if (parsed != null) return parsed;
     }
     return null;
@@ -285,6 +310,7 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
     'primary': primary.toARGB32(),
     'secondary': secondary.toARGB32(),
     'tertiary': tertiary.toARGB32(),
+    'borderRadius': ?length('--d-border-radius'),
   };
   void add(String field, String variable) {
     final value = color(variable);
@@ -703,6 +729,233 @@ Color? _parseColor(String source) {
   final name = function.group(1)!;
   final arguments = function.group(2)!;
   return name.startsWith('rgb') ? _rgbColor(arguments) : _hslColor(arguments);
+}
+
+double? _parseCssLength(String source) {
+  final value = source
+      .replaceAll(RegExp(r'/\*.*?\*/', dotAll: true), '')
+      .trim()
+      .toLowerCase();
+  if (value.length > 512) return null;
+  final result = _CssLengthParser(value).parse();
+  if (result == null ||
+      !result.value.isFinite ||
+      result.value < 0 ||
+      (!result.isLength && result.value != 0)) {
+    return null;
+  }
+  return result.value;
+}
+
+final class _CssNumeric {
+  const _CssNumeric(this.value, {required this.isLength});
+
+  final double value;
+  final bool isLength;
+
+  _CssNumeric? add(_CssNumeric other) {
+    if (isLength == other.isLength) {
+      return _CssNumeric(value + other.value, isLength: isLength);
+    }
+    if (!isLength && value == 0) return other;
+    if (!other.isLength && other.value == 0) return this;
+    return null;
+  }
+
+  _CssNumeric? subtract(_CssNumeric other) {
+    if (isLength == other.isLength) {
+      return _CssNumeric(value - other.value, isLength: isLength);
+    }
+    if (!other.isLength && other.value == 0) return this;
+    if (!isLength && value == 0) {
+      return _CssNumeric(-other.value, isLength: true);
+    }
+    return null;
+  }
+
+  _CssNumeric? multiply(_CssNumeric other) {
+    if (isLength && other.isLength) return null;
+    return _CssNumeric(
+      value * other.value,
+      isLength: isLength || other.isLength,
+    );
+  }
+
+  _CssNumeric? divide(_CssNumeric other) {
+    if (other.isLength || other.value == 0) return null;
+    return _CssNumeric(value / other.value, isLength: isLength);
+  }
+
+  _CssNumeric negate() => _CssNumeric(-value, isLength: isLength);
+}
+
+/// Evaluates the bounded arithmetic accepted by CSS `calc()` for lengths.
+///
+/// A rem/em is converted with Discourse's 16px root size; Flutter logical
+/// pixels have the same unit scale. Percentages and viewport-dependent units
+/// intentionally fall back to the core radius because a dialog size is not
+/// available while the site appearance is parsed.
+final class _CssLengthParser {
+  _CssLengthParser(this.source);
+
+  static const int _maxDepth = 16;
+  static const int _maxOperations = 64;
+  static const double _rootFontSize = 16;
+
+  final String source;
+  var _index = 0;
+  var _operations = 0;
+
+  _CssNumeric? parse() {
+    final result = _sum(0);
+    _skipWhitespace();
+    return result != null && _index == source.length ? result : null;
+  }
+
+  _CssNumeric? _sum(int depth) {
+    final first = _product(depth);
+    if (first == null) return null;
+    var result = first;
+    while (true) {
+      _skipWhitespace();
+      final operator = _peek();
+      if (operator != '+' && operator != '-') return result;
+      _index++;
+      if (!_spendOperation()) return null;
+      final right = _product(depth);
+      if (right == null) return null;
+      final combined = operator == '+'
+          ? result.add(right)
+          : result.subtract(right);
+      if (combined == null) return null;
+      result = combined;
+    }
+  }
+
+  _CssNumeric? _product(int depth) {
+    final first = _factor(depth);
+    if (first == null) return null;
+    var result = first;
+    while (true) {
+      _skipWhitespace();
+      final operator = _peek();
+      if (operator != '*' && operator != '/') return result;
+      _index++;
+      if (!_spendOperation()) return null;
+      final right = _factor(depth);
+      if (right == null) return null;
+      final combined = operator == '*'
+          ? result.multiply(right)
+          : result.divide(right);
+      if (combined == null) return null;
+      result = combined;
+    }
+  }
+
+  _CssNumeric? _factor(int depth) {
+    if (depth >= _maxDepth) return null;
+    _skipWhitespace();
+    if (_consume('+')) return _factor(depth + 1);
+    if (_consume('-')) return _factor(depth + 1)?.negate();
+
+    if (_consume('calc')) {
+      _skipWhitespace();
+      if (!_consume('(')) return null;
+      final result = _sum(depth + 1);
+      _skipWhitespace();
+      return result != null && _consume(')') ? result : null;
+    }
+    if (_consume('(')) {
+      final result = _sum(depth + 1);
+      _skipWhitespace();
+      return result != null && _consume(')') ? result : null;
+    }
+    return _number();
+  }
+
+  _CssNumeric? _number() {
+    final start = _index;
+    var sawDigit = false;
+    while (true) {
+      final character = _peek();
+      if (character == null) break;
+      if (_isDigit(character)) {
+        sawDigit = true;
+        _index++;
+      } else {
+        break;
+      }
+    }
+    if (_peek() == '.') {
+      _index++;
+      while (true) {
+        final character = _peek();
+        if (character == null) break;
+        if (_isDigit(character)) {
+          sawDigit = true;
+          _index++;
+        } else {
+          break;
+        }
+      }
+    }
+    if (!sawDigit) {
+      _index = start;
+      return null;
+    }
+
+    final amount = double.tryParse(source.substring(start, _index));
+    if (amount == null || !amount.isFinite) return null;
+    final unitStart = _index;
+    while (true) {
+      final character = _peek();
+      if (character == null) break;
+      if (_isAsciiLetter(character)) {
+        _index++;
+      } else {
+        break;
+      }
+    }
+    final unit = source.substring(unitStart, _index);
+    return switch (unit) {
+      'px' => _CssNumeric(amount, isLength: true),
+      'rem' || 'em' => _CssNumeric(amount * _rootFontSize, isLength: true),
+      '' => _CssNumeric(amount, isLength: false),
+      _ => null,
+    };
+  }
+
+  bool _spendOperation() => ++_operations <= _maxOperations;
+
+  bool _consume(String token) {
+    if (!source.startsWith(token, _index)) return false;
+    _index += token.length;
+    return true;
+  }
+
+  String? _peek() => _index < source.length ? source[_index] : null;
+
+  void _skipWhitespace() {
+    while (true) {
+      final character = _peek();
+      if (character == null) return;
+      if (character.trim().isEmpty) {
+        _index++;
+      } else {
+        return;
+      }
+    }
+  }
+
+  static bool _isDigit(String character) {
+    final code = character.codeUnitAt(0);
+    return code >= 48 && code <= 57;
+  }
+
+  static bool _isAsciiLetter(String character) {
+    final code = character.codeUnitAt(0);
+    return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+  }
 }
 
 const Map<String, Color> _namedColors = {

@@ -7,7 +7,6 @@ import '../../shell/emoji.dart';
 import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
-import '../../theme/app_theme.dart';
 import 'reaction.dart';
 
 /// Offers the emoji a site allows, so a reader can give one.
@@ -49,7 +48,6 @@ Future<void> showReactionPicker(
   return showDialog<void>(
     context: context,
     builder: (dialogContext) => Dialog(
-      backgroundColor: Theme.of(dialogContext).shell.floating,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 340),
         child: Padding(
