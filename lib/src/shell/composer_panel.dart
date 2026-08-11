@@ -994,6 +994,23 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (identical(oldWidget.composer, widget.composer)) return;
     oldWidget.composer.text.removeListener(_syncSelectionToolbar);
     oldWidget.composer.focus.removeListener(_syncSelectionToolbar);
+    if (_pointerDownImage case final image?) {
+      oldWidget.composer.text.releaseImagePointerEdit(image);
+    }
+    if (_pointerDownPoll case final poll?) {
+      oldWidget.composer.text.releasePollPointerEdit(poll);
+    }
+    if (_pointerDownLocalDate case final date?) {
+      oldWidget.composer.text.releaseLocalDatePointerEdit(date);
+    }
+    if (_selectedImage case final image?) {
+      oldWidget.composer.text.releaseImagePointerEdit(image);
+    }
+    _pointerDownImage = null;
+    _pointerDownPoll = null;
+    _pointerDownLocalDate = null;
+    _pointerDownPosition = null;
+    _selectedImage = null;
     if (identical(oldWidget.composer.text.imageScrollController, _scroll)) {
       oldWidget.composer.text.imageScrollController = null;
     }
@@ -1009,6 +1026,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _imageAlt.dispose();
     widget.composer.text.removeListener(_syncSelectionToolbar);
     widget.composer.focus.removeListener(_syncSelectionToolbar);
+    _releasePointerDownPillCollapse();
+    if (_selectedImage case final image?) {
+      widget.composer.text.releaseImagePointerEdit(image);
+    }
     _scroll.removeListener(_syncSelectionToolbar);
     if (identical(widget.composer.text.imageScrollController, _scroll)) {
       widget.composer.text.imageScrollController = null;
@@ -1165,6 +1186,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _pointerDownLocalDate != null;
 
   void _onEditorPointerDown(PointerDownEvent event) {
+    _releasePointerDownPillCollapse();
     _pointerSequence++;
     final position = event.position;
     _pointerDownPosition = position;
@@ -1191,6 +1213,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
           ? widget.composer.text.collapsedLocalDateAtOffset(offset)
           : null;
     }
+    _holdPointerDownPillCollapsed();
   }
 
   void _onEditorPointerMove(PointerMoveEvent event) {
@@ -1217,7 +1240,32 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _clearPointerDownPill();
   }
 
-  void _clearPointerDownPill() {
+  void _holdPointerDownPillCollapsed() {
+    final text = widget.composer.text;
+    if (_pointerDownImage case final image?) {
+      text.keepImageCollapsedForPointerEdit(image);
+    } else if (_pointerDownPoll case final poll?) {
+      text.keepPollCollapsedForPointerEdit(poll);
+    } else if (_pointerDownLocalDate case final date?) {
+      text.keepLocalDateCollapsedForPointerEdit(date);
+    }
+  }
+
+  void _releasePointerDownPillCollapse() {
+    final text = widget.composer.text;
+    if (_pointerDownImage case final image?) {
+      text.releaseImagePointerEdit(image);
+    }
+    if (_pointerDownPoll case final poll?) {
+      text.releasePollPointerEdit(poll);
+    }
+    if (_pointerDownLocalDate case final date?) {
+      text.releaseLocalDatePointerEdit(date);
+    }
+  }
+
+  void _clearPointerDownPill({bool releaseCollapse = true}) {
+    if (releaseCollapse) _releasePointerDownPillCollapse();
     _pointerDownImage = null;
     _pointerDownPoll = null;
     _pointerDownLocalDate = null;
@@ -1228,28 +1276,62 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final image = _pointerDownImage;
     final poll = _pointerDownPoll;
     final date = _pointerDownLocalDate;
-    _clearPointerDownPill();
+    _clearPointerDownPill(releaseCollapse: false);
     if (image != null) {
       _selectImage(image);
       return;
     }
-    if (_selectedImage != null) setState(() => _selectedImage = null);
+    if (_selectedImage case final selected?) {
+      widget.composer.text.releaseImagePointerEdit(selected);
+      setState(() => _selectedImage = null);
+    }
     if (poll != null) {
-      widget.composer.text.selection = TextSelection.collapsed(
-        offset: poll.end,
-      );
-      unawaited(openPollComposer(context, widget.composer, block: poll));
+      unawaited(_editPoll(poll));
       return;
     }
     if (date != null) {
-      widget.composer.text.selection = TextSelection.collapsed(
-        offset: date.end,
-      );
-      unawaited(openLocalDateComposer(context, widget.composer, block: date));
+      unawaited(_editLocalDate(date));
     }
   }
 
+  Future<void> _editPoll(PollComposerBlock poll) async {
+    final text = widget.composer.text;
+    text.keepPollCollapsedForPointerEdit(poll);
+    text.selection = TextSelection.collapsed(offset: poll.end);
+    try {
+      await openPollComposer(context, widget.composer, block: poll);
+    } finally {
+      if (_stillContains(text.text, poll.start, poll.end, poll.source) &&
+          !text.isPollExpanded(poll)) {
+        text.selection = TextSelection.collapsed(offset: poll.end);
+      }
+      text.releasePollPointerEdit(poll);
+    }
+  }
+
+  Future<void> _editLocalDate(LocalDateComposerBlock date) async {
+    final text = widget.composer.text;
+    text.keepLocalDateCollapsedForPointerEdit(date);
+    text.selection = TextSelection.collapsed(offset: date.end);
+    try {
+      await openLocalDateComposer(context, widget.composer, block: date);
+    } finally {
+      if (_stillContains(text.text, date.start, date.end, date.source) &&
+          !text.isLocalDateExpanded(date)) {
+        text.selection = TextSelection.collapsed(offset: date.end);
+      }
+      text.releaseLocalDatePointerEdit(date);
+    }
+  }
+
+  static bool _stillContains(String text, int start, int end, String source) =>
+      start >= 0 &&
+      end <= text.length &&
+      start <= end &&
+      text.substring(start, end) == source;
+
   void _selectImage(ComposerImageBlock image) {
+    widget.composer.text.keepImageCollapsedForPointerEdit(image);
     widget.composer.text.selection = TextSelection.collapsed(offset: image.end);
     _imageAlt.text = image.alt;
     setState(() => _selectedImage = image);
@@ -1269,6 +1351,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   void _saveImageAlt() {
     final image = _selectedImage;
     if (image == null) return;
+    widget.composer.text.releaseImagePointerEdit(image);
     widget.composer.setImageAlt(image, _imageAlt.text);
     setState(() => _selectedImage = null);
     widget.composer.focus.requestFocus();
@@ -1277,13 +1360,17 @@ class _ComposerEditorState extends State<ComposerEditor> {
   void _scaleImage(int scale) {
     final image = _selectedImage;
     if (image == null) return;
+    widget.composer.text.releaseImagePointerEdit(image);
     widget.composer.setImageScale(image, scale);
     setState(() => _selectedImage = null);
     widget.composer.focus.requestFocus();
   }
 
   void _dismissImage() {
-    if (_selectedImage == null) return;
+    final image = _selectedImage;
+    if (image == null) return;
+    widget.composer.text.selection = TextSelection.collapsed(offset: image.end);
+    widget.composer.text.releaseImagePointerEdit(image);
     setState(() => _selectedImage = null);
     widget.composer.focus.requestFocus();
   }
@@ -1307,7 +1394,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
       if (image.end != caret || !widget.composer.text.isImageCollapsed(image)) {
         continue;
       }
-      if (_selectedImage != null) setState(() => _selectedImage = null);
+      if (_selectedImage case final selected?) {
+        widget.composer.text.releaseImagePointerEdit(selected);
+        setState(() => _selectedImage = null);
+      }
       widget.composer.removeImage(image);
       return KeyEventResult.handled;
     }
