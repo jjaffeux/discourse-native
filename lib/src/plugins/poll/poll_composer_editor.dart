@@ -420,6 +420,110 @@ String _renderPollAttributeValue(String value) {
   throw ArgumentError.value(value, 'value', 'cannot be represented safely');
 }
 
+/// Keeps text inserted at a projected poll's leading boundary on its own line.
+///
+/// The boundary is a real source offset immediately before `[poll]`. Without
+/// the separator, typing or pasting there turns the opener into ordinary text
+/// and makes the pill disappear. Applying this as one text-input transaction
+/// also covers software keyboards and IMEs without disturbing undo history.
+class PollComposerInputFormatter extends TextInputFormatter {
+  const PollComposerInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (oldValue.text == newValue.text) return newValue;
+
+    final oldSelection = oldValue.selection;
+    if (!oldSelection.isValid ||
+        oldSelection.start > oldValue.text.length ||
+        oldSelection.end > oldValue.text.length) {
+      return newValue;
+    }
+    final selectedLength = oldSelection.end - oldSelection.start;
+    final insertedLength =
+        newValue.text.length - (oldValue.text.length - selectedLength);
+    final shiftedStart = oldSelection.start + insertedLength;
+    if (insertedLength < 0 ||
+        shiftedStart > newValue.text.length ||
+        newValue.text.substring(0, oldSelection.start) !=
+            oldValue.text.substring(0, oldSelection.start) ||
+        newValue.text.substring(shiftedStart) !=
+            oldValue.text.substring(oldSelection.end)) {
+      return newValue;
+    }
+
+    PollComposerBlock? poll;
+    for (final block in parsePollComposerBlocks(oldValue.text)) {
+      if (block.start == oldSelection.end && block.canProject) {
+        poll = block;
+        break;
+      }
+    }
+    if (poll == null) return newValue;
+
+    if (shiftedStart == 0 ||
+        newValue.text.codeUnitAt(shiftedStart - 1) == 0x0A) {
+      if (shiftedStart > 0 &&
+          newValue.selection.isCollapsed &&
+          newValue.selection.extentOffset == shiftedStart) {
+        final breakLength =
+            shiftedStart > 1 &&
+                newValue.text.codeUnitAt(shiftedStart - 2) == 0x0D
+            ? 2
+            : 1;
+        return newValue.copyWith(
+          selection: TextSelection.collapsed(
+            offset: shiftedStart - breakLength,
+            affinity: newValue.selection.affinity,
+          ),
+        );
+      }
+      return newValue;
+    }
+
+    var separator = poll.lineEnding;
+    var caretOverride = -1;
+    if (newValue.text.codeUnitAt(shiftedStart - 1) == 0x0D) {
+      separator = '\n';
+      if (newValue.selection.isCollapsed &&
+          newValue.selection.extentOffset == shiftedStart) {
+        caretOverride = shiftedStart - 1;
+      }
+    }
+
+    int shiftedOffset(int offset) =>
+        offset > shiftedStart ? offset + separator.length : offset;
+    final selection = caretOverride >= 0
+        ? TextSelection.collapsed(
+            offset: caretOverride,
+            affinity: newValue.selection.affinity,
+          )
+        : newValue.selection.isValid
+        ? TextSelection(
+            baseOffset: shiftedOffset(newValue.selection.baseOffset),
+            extentOffset: shiftedOffset(newValue.selection.extentOffset),
+            affinity: newValue.selection.affinity,
+            isDirectional: newValue.selection.isDirectional,
+          )
+        : newValue.selection;
+    final composing = newValue.composing.isValid
+        ? TextRange(
+            start: shiftedOffset(newValue.composing.start),
+            end: shiftedOffset(newValue.composing.end),
+          )
+        : newValue.composing;
+
+    return newValue.copyWith(
+      text: newValue.text.replaceRange(shiftedStart, shiftedStart, separator),
+      selection: selection,
+      composing: composing,
+    );
+  }
+}
+
 @immutable
 class PollComposerMutation {
   const PollComposerMutation._({

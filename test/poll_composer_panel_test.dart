@@ -357,6 +357,56 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('typing before a poll creates a preceding caret line', (
+    tester,
+  ) async {
+    const poll = '[poll]\n* Soup\n* Salad\n[/poll]';
+    const source = '$poll\n';
+    const typed = 'Before';
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    final composer = shell.visibleComposer!;
+    composer.text.value = const TextEditingValue(
+      text: source,
+      selection: TextSelection.collapsed(offset: 0),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(body: ComposerPanel(composer: composer)),
+        ),
+      ),
+    );
+    composer.focus.requestFocus();
+    composer.text.selectPillForKeyboard(composer.text.pollBlocks.single);
+    await tester.pump();
+    expect(_composerEditable(tester).showCursor, isFalse);
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: '$typed$source',
+        selection: TextSelection.collapsed(offset: typed.length),
+      ),
+    );
+    await tester.pump();
+
+    expect(composer.text.text, '$typed\n$source');
+    expect(composer.text.selection.extentOffset, typed.length);
+    expect(composer.text.pollBlocks, hasLength(1));
+    expect(composer.text.pollBlocks.single.start, typed.length + 1);
+    expect(
+      composer.text.isPollCollapsed(composer.text.pollBlocks.single),
+      true,
+    );
+    expect(find.byType(PollComposerPill), findsOneWidget);
+    expect(composer.text.keyboardSelectedPoll, isNull);
+    expect(_composerEditable(tester).showCursor, isTrue);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('boundary deletes select an LF or CRLF poll before removing it', (
     tester,
   ) async {

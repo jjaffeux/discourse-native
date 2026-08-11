@@ -402,4 +402,157 @@ void main() {
       expect(result.message, contains('Nothing was changed'));
     });
   });
+
+  group('leading boundary input', () {
+    const formatter = PollComposerInputFormatter();
+    const poll = '[poll]\n* A\n* B\n[/poll]';
+
+    test('keeps typed and pasted text on a preceding line', () {
+      for (final inserted in ['x', '[', ' ', 'pasted text']) {
+        const old = TextEditingValue(
+          text: poll,
+          selection: TextSelection.collapsed(offset: 0),
+        );
+        final result = formatter.formatEditUpdate(
+          old,
+          TextEditingValue(
+            text: '$inserted$poll',
+            selection: TextSelection.collapsed(offset: inserted.length),
+          ),
+        );
+
+        expect(result.text, '$inserted\n$poll');
+        expect(result.selection.extentOffset, inserted.length);
+        expect(parsePollComposerBlocks(result.text), hasLength(1));
+      }
+    });
+
+    test('adds a new separator even when another line precedes the poll', () {
+      const source = 'intro\n$poll';
+      final block = parsePollComposerBlocks(source).single;
+      final result = formatter.formatEditUpdate(
+        TextEditingValue(
+          text: source,
+          selection: TextSelection.collapsed(offset: block.start),
+        ),
+        TextEditingValue(
+          text: source.replaceRange(block.start, block.start, 'x'),
+          selection: TextSelection.collapsed(offset: block.start + 1),
+        ),
+      );
+
+      expect(result.text, 'intro\nx\n$poll');
+      expect(result.selection.extentOffset, 'intro\nx'.length);
+    });
+
+    test('handles inserted text matching an indented poll prefix', () {
+      const indentedPoll = ' [poll]\n* A\n* B\n [/poll]';
+      const old = TextEditingValue(
+        text: indentedPoll,
+        selection: TextSelection.collapsed(offset: 0),
+      );
+      final result = formatter.formatEditUpdate(
+        old,
+        const TextEditingValue(
+          text: '  [poll]\n* A\n* B\n [/poll]',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+
+      expect(result.text, ' \n$indentedPoll');
+      expect(result.selection.extentOffset, 1);
+      expect(parsePollComposerBlocks(result.text), hasLength(1));
+    });
+
+    test('uses the poll CRLF and leaves the caret before both code units', () {
+      const crlfPoll = '[poll]\r\n* A\r\n* B\r\n[/poll]';
+      const source = 'intro\r\n$crlfPoll';
+      final block = parsePollComposerBlocks(source).single;
+      final result = formatter.formatEditUpdate(
+        TextEditingValue(
+          text: source,
+          selection: TextSelection.collapsed(offset: block.start),
+        ),
+        TextEditingValue(
+          text: source.replaceRange(block.start, block.start, 'x'),
+          selection: TextSelection.collapsed(offset: block.start + 1),
+        ),
+      );
+
+      expect(result.text, 'intro\r\nx\r\n$crlfPoll');
+      expect(result.selection.extentOffset, 'intro\r\nx'.length);
+    });
+
+    test('reuses a pasted line ending without adding another', () {
+      for (final inserted in ['pasted\n', 'pasted\r\n']) {
+        const old = TextEditingValue(
+          text: poll,
+          selection: TextSelection.collapsed(offset: 0),
+        );
+        final result = formatter.formatEditUpdate(
+          old,
+          TextEditingValue(
+            text: '$inserted$poll',
+            selection: TextSelection.collapsed(offset: inserted.length),
+          ),
+        );
+
+        expect(result.text, '$inserted$poll');
+        expect(
+          result.selection.extentOffset,
+          inserted.length - (inserted.endsWith('\r\n') ? 2 : 1),
+        );
+      }
+    });
+
+    test(
+      'preserves the first IME composition without adding another break',
+      () {
+        const old = TextEditingValue(
+          text: poll,
+          selection: TextSelection.collapsed(offset: 0),
+        );
+        final first = formatter.formatEditUpdate(
+          old,
+          const TextEditingValue(
+            text: 'k$poll',
+            selection: TextSelection.collapsed(offset: 1),
+            composing: TextRange(start: 0, end: 1),
+          ),
+        );
+        final composed = formatter.formatEditUpdate(
+          first,
+          const TextEditingValue(
+            text: 'か\n$poll',
+            selection: TextSelection.collapsed(offset: 1),
+            composing: TextRange(start: 0, end: 1),
+          ),
+        );
+
+        expect(first.text, 'k\n$poll');
+        expect(first.composing, const TextRange(start: 0, end: 1));
+        expect(composed.text, 'か\n$poll');
+        expect(composed.composing, const TextRange(start: 0, end: 1));
+      },
+    );
+
+    test('keeps replacement text ending at the poll on a separate line', () {
+      const source = '\n$poll';
+      const old = TextEditingValue(
+        text: source,
+        selection: TextSelection(baseOffset: 0, extentOffset: 1),
+      );
+      final result = formatter.formatEditUpdate(
+        old,
+        const TextEditingValue(
+          text: '\n[$poll',
+          selection: TextSelection.collapsed(offset: 2),
+        ),
+      );
+
+      expect(result.text, '\n[\n$poll');
+      expect(result.selection.extentOffset, 2);
+      expect(parsePollComposerBlocks(result.text), hasLength(1));
+    });
+  });
 }
