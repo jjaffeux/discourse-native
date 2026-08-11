@@ -78,6 +78,14 @@ Future<ShellController> _openComposer({
   return shell;
 }
 
+EditableText _composerEditable(WidgetTester tester) =>
+    tester.widget<EditableText>(
+      find.descendant(
+        of: find.byType(ComposerEditor),
+        matching: find.byType(EditableText),
+      ),
+    );
+
 void main() {
   setUpAll(() {
     LocalDateEnvironment.instance.ensureDatabase();
@@ -236,28 +244,33 @@ void main() {
     await tester.pump();
     expect(find.text('Edit poll'), findsNothing);
     expect(tester.widget<PollComposerPill>(pill).highlighted, isFalse);
+    expect(_composerEditable(tester).showCursor, isTrue);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pump();
     expect(composer.text.selection.extentOffset, afterPoll);
     expect(tester.widget<PollComposerPill>(pill).highlighted, isTrue);
+    expect(_composerEditable(tester).showCursor, isFalse);
     expect(find.byType(PollComposerPill), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pump();
     expect(composer.text.selection.extentOffset, block.start);
     expect(tester.widget<PollComposerPill>(pill).highlighted, isFalse);
+    expect(_composerEditable(tester).showCursor, isTrue);
     expect(find.byType(PollComposerPill), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
     expect(composer.text.selection.extentOffset, block.start);
     expect(tester.widget<PollComposerPill>(pill).highlighted, isTrue);
+    expect(_composerEditable(tester).showCursor, isFalse);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
     expect(composer.text.selection.extentOffset, afterPoll);
     expect(tester.widget<PollComposerPill>(pill).highlighted, isFalse);
+    expect(_composerEditable(tester).showCursor, isTrue);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pump();
@@ -384,9 +397,11 @@ void main() {
             .highlighted,
         isTrue,
       );
+      expect(_composerEditable(tester).showCursor, isFalse);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
+      expect(_composerEditable(tester).showCursor, isTrue);
       tester.testTextInput.updateEditingValue(
         TextEditingValue(
           text: '${source}Next line',
