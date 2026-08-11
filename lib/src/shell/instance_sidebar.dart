@@ -606,17 +606,17 @@ class _DestinationTileState extends State<_DestinationTile> {
           siteUrl: siteUrl,
           userId: userId,
           url: url,
-          size: 18,
+          size: 24,
           fallback: ColoredBox(color: theme.shell.floating),
         );
       }
       return ClipOval(
         child: SizedBox(
-          width: 18,
-          height: 18,
+          width: 24,
+          height: 24,
           child: AvatarImage(
             url: url,
-            size: 18,
+            size: 24,
             fallback: ColoredBox(color: theme.shell.floating),
           ),
         ),
@@ -718,8 +718,8 @@ class _DestinationTileState extends State<_DestinationTile> {
           child: Row(
             children: [
               SizedBox(
-                width: 18,
-                height: 18,
+                width: 24,
+                height: 24,
                 child: Center(child: _prefix(context, foreground)),
               ),
               const SizedBox(width: 10),
