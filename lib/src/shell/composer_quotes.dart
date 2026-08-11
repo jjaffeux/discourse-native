@@ -239,24 +239,7 @@ class ComposerQuotePreview extends StatelessWidget {
   final TextStyle baseStyle;
   final Key? removeKey;
 
-  static const int maximumBodyLines = 4;
   static const double _barWidth = 3;
-
-  static double displayHeight(ComposerQuoteBlock block, TextStyle baseStyle) {
-    final lineHeight = (baseStyle.fontSize ?? 14) * (baseStyle.height ?? 1.4);
-    final lines = _bodyLines(block.contents).clamp(1, maximumBodyLines);
-    final header = block.title == null ? 0.0 : 28.0;
-    return 20 + header + lineHeight * lines;
-  }
-
-  static int _bodyLines(String contents) {
-    if (contents.isEmpty) return 1;
-    var lines = 0;
-    for (final line in contents.split(RegExp(r'\r?\n'))) {
-      lines += math.max(1, (line.runes.length / 68).ceil());
-    }
-    return lines;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -272,7 +255,6 @@ class ComposerQuotePreview extends StatelessWidget {
       label: title == null ? 'Quote' : 'Quote from $title',
       hint: 'Read only. Use the remove quote button to delete it.',
       child: Container(
-        height: displayHeight(block, baseStyle),
         margin: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
           color: theme.shell.panel,
@@ -292,6 +274,7 @@ class ComposerQuotePreview extends StatelessWidget {
           child: Stack(
             children: [
               Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (title != null) ...[
@@ -309,14 +292,7 @@ class ComposerQuotePreview extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                   ],
-                  Expanded(
-                    child: Text(
-                      block.contents,
-                      maxLines: maximumBodyLines,
-                      overflow: TextOverflow.ellipsis,
-                      style: bodyStyle,
-                    ),
-                  ),
+                  Text(block.contents, style: bodyStyle),
                 ],
               ),
               Positioned(
