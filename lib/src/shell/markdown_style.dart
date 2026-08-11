@@ -1,0 +1,107 @@
+import 'package:flutter/material.dart';
+
+import '../theme/app_theme.dart';
+import 'code_block.dart';
+import 'markdown_highlight.dart';
+
+/// How a marked-up stretch of source is drawn.
+///
+/// The editable composer and immutable quote previews share this so Markdown
+/// has one visual meaning in both places.
+TextStyle markdownStyle(
+  int mask,
+  String? detail,
+  TextStyle base,
+  ThemeData theme,
+) {
+  var style = base;
+  var scale = 1.0;
+
+  if (mask & Md.codeBlock != 0) {
+    scale *= 0.9;
+    style = style
+        .merge(monospaceTextStyle)
+        .copyWith(
+          color: scopeColor(detail, theme.code) ?? theme.colorScheme.onSurface,
+        );
+  }
+
+  if (mask & Md.heading != 0) {
+    final level = int.tryParse(detail ?? '1') ?? 1;
+    scale *= 1.45 - (level - 1) * 0.09;
+    style = style.copyWith(fontWeight: FontWeight.w700);
+  }
+
+  if (mask & Md.quote != 0) {
+    style = style.copyWith(color: theme.colorScheme.onSurfaceVariant);
+  }
+
+  if (mask & Md.code != 0) {
+    scale *= 0.875;
+    style = style
+        .merge(monospaceTextStyle)
+        .copyWith(backgroundColor: theme.code.inlineBackground);
+  }
+
+  if (mask & Md.bold != 0) style = style.copyWith(fontWeight: FontWeight.w700);
+  if (mask & Md.italic != 0) {
+    style = style.copyWith(fontStyle: FontStyle.italic);
+  }
+  if (mask & Md.strikethrough != 0) {
+    style = style.copyWith(decoration: TextDecoration.lineThrough);
+  }
+
+  if (mask & Md.htmlTag != 0) {
+    for (final tag in (detail ?? '').split(',')) {
+      final (tagStyle, tagScale) = _tagStyle(tag, style, theme);
+      style = tagStyle;
+      scale *= tagScale;
+    }
+  }
+
+  if (mask & (Md.linkText | Md.linkUrl | Md.mention | Md.emoji | Md.hashtag) !=
+      0) {
+    style = style.copyWith(color: theme.colorScheme.primary);
+  }
+  if (mask & (Md.mention | Md.hashtag) != 0) {
+    style = style.copyWith(fontWeight: FontWeight.w600);
+  }
+
+  if (mask & Md.marker != 0) {
+    style = style.copyWith(color: theme.shell.marker);
+  }
+
+  return scale == 1.0
+      ? style
+      : style.copyWith(fontSize: (base.fontSize ?? 14) * scale);
+}
+
+(TextStyle, double) _tagStyle(String tag, TextStyle style, ThemeData theme) =>
+    switch (tag) {
+      'kbd' => (
+        style
+            .merge(monospaceTextStyle)
+            .copyWith(backgroundColor: theme.code.inlineBackground),
+        0.9,
+      ),
+      'mark' => (
+        style.copyWith(
+          backgroundColor: theme.colorScheme.tertiaryContainer,
+          color: theme.colorScheme.onTertiaryContainer,
+        ),
+        1.0,
+      ),
+      'sup' => (
+        style.copyWith(fontFeatures: const [FontFeature.superscripts()]),
+        1.0,
+      ),
+      'sub' => (
+        style.copyWith(fontFeatures: const [FontFeature.subscripts()]),
+        1.0,
+      ),
+      'small' => (style, 0.85),
+      'big' => (style, 1.15),
+      'ins' => (style.copyWith(decoration: TextDecoration.underline), 1.0),
+      'del' => (style.copyWith(decoration: TextDecoration.lineThrough), 1.0),
+      _ => (style, 1.0),
+    };

@@ -208,6 +208,38 @@ void main() {
 
     expect(caretTop, greaterThanOrEqualTo(previewBottom));
   });
+
+  testWidgets('renders quote Markdown without exposing its markers', (
+    tester,
+  ) async {
+    const body = 'First paragraph.\n\nSecond **bold** and *italic* line.';
+    const quote = '[quote="Régis"]\n$body\n[/quote]';
+    final composer = ComposerController(_target);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.text = quote;
+
+    await _pumpPanel(tester, shell, composer);
+    await tester.pump();
+
+    final bodyText = tester.widget<Text>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            widget.textSpan?.toPlainText() ==
+                'First paragraph.\n\nSecond bold and italic line.',
+      ),
+    );
+    final styles = <TextStyle?>[];
+    bodyText.textSpan!.visitChildren((span) {
+      if (span is TextSpan) styles.add(span.style);
+      return true;
+    });
+
+    expect(styles.any((style) => style?.fontWeight == FontWeight.w700), isTrue);
+    expect(styles.any((style) => style?.fontStyle == FontStyle.italic), isTrue);
+  });
 }
 
 Future<ShellController> _shell() async {
