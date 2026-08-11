@@ -1530,7 +1530,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
       return KeyEventResult.handled;
     }
 
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
     final value = widget.composer.text.value;
     final selection = value.selection;
     if (!selection.isValid || !selection.isCollapsed) {
@@ -1554,6 +1556,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _selectPillForKeyboard(pill);
       return KeyEventResult.handled;
     }
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final deletes =
         event.logicalKey == LogicalKeyboardKey.backspace ||
         event.logicalKey == LogicalKeyboardKey.delete;
