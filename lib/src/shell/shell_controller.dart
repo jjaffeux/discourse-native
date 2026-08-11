@@ -1874,6 +1874,7 @@ class ShellController extends FrameSafeNotifier {
         return;
       }
       _trackers[siteUrl] = tracker;
+      chat.attachTracker(siteUrl, tracker);
       resenha.attachTracker(siteUrl);
       final stillSelectedAndVisible =
           _foreground && currentInstance?.url == siteUrl;

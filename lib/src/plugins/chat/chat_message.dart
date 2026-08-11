@@ -241,6 +241,7 @@ class ChatUpload {
 class ChatReplyTo {
   const ChatReplyTo({
     required this.id,
+    required this.userId,
     required this.excerpt,
     required this.username,
     this.avatarUrl,
@@ -250,6 +251,7 @@ class ChatReplyTo {
     final user = jsonObject(json['user']);
     return ChatReplyTo(
       id: jsonInt(json['id']),
+      userId: jsonInt(user['id']),
       excerpt: jsonText(json['excerpt']) ?? '',
       username: jsonString(user['username']),
       avatarUrl: resolveAvatarUrl(jsonText(user['avatar_template']), siteUrl),
@@ -257,6 +259,7 @@ class ChatReplyTo {
   }
 
   final int id;
+  final int userId;
   final String excerpt;
   final String username;
   final String? avatarUrl;
@@ -265,12 +268,13 @@ class ChatReplyTo {
   bool operator ==(Object other) =>
       other is ChatReplyTo &&
       other.id == id &&
+      other.userId == userId &&
       other.excerpt == excerpt &&
       other.username == username &&
       other.avatarUrl == avatarUrl;
 
   @override
-  int get hashCode => Object.hash(id, excerpt, username, avatarUrl);
+  int get hashCode => Object.hash(id, userId, excerpt, username, avatarUrl);
 }
 
 /// What a thread looks like from the message that started it.

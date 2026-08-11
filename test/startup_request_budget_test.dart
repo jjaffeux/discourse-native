@@ -183,7 +183,10 @@ final class _StartupApi extends FakeDiscourseApi {
         totals: const NotificationTotals(),
         siteAppearances: {firstUrl: appearance},
         chatChannelsBySite: {
-          firstUrl: const (public: <ChatChannel>[], direct: <ChatChannel>[]),
+          firstUrl: const ChatChannels(
+            public: <ChatChannel>[],
+            direct: <ChatChannel>[],
+          ),
         },
       );
 

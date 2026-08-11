@@ -23,7 +23,7 @@ ChatMessage at(
   isWebhook: webhook,
   replyTo: replyToId == null
       ? null
-      : ChatReplyTo(id: replyToId, excerpt: '', username: 'u'),
+      : ChatReplyTo(id: replyToId, userId: 2, excerpt: '', username: 'u'),
 );
 
 /// Just the message rows, so a test about chaining is not also a test about

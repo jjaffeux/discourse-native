@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show immutable, listEquals, setEquals;
 import 'package:flutter/material.dart';
 
 import '../../data/store.dart';
@@ -177,11 +177,82 @@ class ChatTracking {
       Object.hash(unreadCount, mentionCount, watchedThreadsUnreadCount);
 }
 
-/// The two lists `/chat/api/me/channels` answers with.
+/// Who the global chat presence channel says is online.
 ///
-/// A record rather than a class because it is a pair with no behaviour, the
-/// shape `TopicPayload` and the reactor page already use.
-typedef ChatChannels = ({List<ChatChannel> public, List<ChatChannel> direct});
+/// Discourse includes this snapshot in `/chat/api/me/channels`, then publishes
+/// joins and leaves on `/presence/chat/online`. Keeping the cursor beside the
+/// ids lets the live subscription begin exactly where the HTTP answer ended.
+@immutable
+class ChatPresence {
+  const ChatPresence({this.userIds = const {}, this.lastMessageId});
+
+  factory ChatPresence.fromJson(Object? value) {
+    if (value is! Map<String, dynamic>) return const ChatPresence();
+    return ChatPresence(
+      userIds: Set.unmodifiable([
+        for (final user in jsonObjects(value['users']))
+          if (jsonIntOrNull(user['id']) case final id? when id > 0) id,
+      ]),
+      lastMessageId: jsonIntOrNull(value['last_message_id']),
+    );
+  }
+
+  final Set<int> userIds;
+  final int? lastMessageId;
+
+  bool contains(int userId) => userIds.contains(userId);
+
+  /// Applies one `PresenceChannel` message.
+  ///
+  /// Entering users carry their basic user objects; leaving users carry only
+  /// ids. An unfamiliar payload leaves the snapshot alone so a future server
+  /// addition cannot make everyone appear offline.
+  ChatPresence withMessage(Object? value) {
+    if (value is! Map<String, dynamic>) return this;
+    final entered = <int>{
+      for (final user in jsonObjects(value['entering_users']))
+        if (jsonIntOrNull(user['id']) case final id? when id > 0) id,
+    };
+    final left = <int>{
+      for (final id in jsonArray(value['leaving_user_ids']))
+        if (jsonIntOrNull(id) case final userId? when userId > 0) userId,
+    };
+    if (entered.isEmpty && left.isEmpty) return this;
+
+    return ChatPresence(
+      userIds: Set.unmodifiable({...userIds, ...entered}..removeAll(left)),
+      lastMessageId: lastMessageId,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is ChatPresence &&
+      setEquals(other.userIds, userIds) &&
+      other.lastMessageId == lastMessageId;
+
+  @override
+  int get hashCode =>
+      Object.hash(Object.hashAllUnordered(userIds), lastMessageId);
+}
+
+/// Everything `/chat/api/me/channels` answers with.
+///
+/// Presence belongs to this snapshot even though it is not a channel: its
+/// `last_message_id` is the cursor from which the live presence subscription
+/// must start, so parsing it in a later request would open a race.
+@immutable
+class ChatChannels {
+  const ChatChannels({
+    this.public = const [],
+    this.direct = const [],
+    this.presence = const ChatPresence(),
+  });
+
+  final List<ChatChannel> public;
+  final List<ChatChannel> direct;
+  final ChatPresence presence;
+}
 
 /// One chat channel this account follows.
 @immutable
@@ -305,9 +376,10 @@ class ChatChannel with Storable<ChatChannel> {
     // unread conversations to the top; nothing here changes tracking between
     // fetches yet, so that sort could never re-run and would only look as
     // though it worked.
-    return (
+    return ChatChannels(
       public: List.unmodifiable(public),
       direct: List.unmodifiable(read(json['direct_message_channels'])),
+      presence: ChatPresence.fromJson(json['global_presence_channel_state']),
     );
   }
 

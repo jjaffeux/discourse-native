@@ -30,6 +30,7 @@ import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
@@ -3997,7 +3998,7 @@ void main() {
       chatNotifications: 1,
       hasChatEnabled: true,
     );
-    const emptyChatChannels = (
+    const emptyChatChannels = ChatChannels(
       public: <ChatChannel>[],
       direct: <ChatChannel>[],
     );
@@ -8813,6 +8814,7 @@ void main() {
       Size size = desktop,
       Completer<void>? channelGate,
       DiscourseUser user = me,
+      ChatPresence presence = const ChatPresence(),
     }) async {
       await pumpShell(
         tester,
@@ -8822,7 +8824,13 @@ void main() {
             FakeDiscourseApi(
               totals: totals,
               user: user,
-              chatChannelsBySite: {site: (public: public, direct: direct)},
+              chatChannelsBySite: {
+                site: ChatChannels(
+                  public: public,
+                  direct: direct,
+                  presence: presence,
+                ),
+              },
               chatChannelGate: channelGate,
               chatMessagesByKey: messages,
             ),
@@ -8998,7 +9006,7 @@ void main() {
         final api = FakeDiscourseApi(
           totals: withoutChat,
           chatChannelsBySite: {
-            site: (public: [channel(9)], direct: const []),
+            site: ChatChannels(public: [channel(9)], direct: const []),
           },
         );
 
@@ -9016,7 +9024,7 @@ void main() {
         final api = FakeDiscourseApi(
           totals: withChat,
           chatChannelsBySite: {
-            site: (public: [channel(9)], direct: const []),
+            site: ChatChannels(public: [channel(9)], direct: const []),
           },
         );
 
@@ -9168,7 +9176,7 @@ void main() {
         debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
         try {
           final channels = <String, ChatChannels>{
-            site: (
+            site: ChatChannels(
               public: [channel(9, emoji: 'bug', color: '0088CC', unread: 42)],
               direct: const [],
             ),
@@ -9200,7 +9208,7 @@ void main() {
           expect(item().emojiUrl, isNotNull);
           expect(item().badge, const SidebarBadge.dot());
 
-          channels[site] = (
+          channels[site] = ChatChannels(
             public: [channel(9, emoji: 'bug', color: '0088CC')],
             direct: const [],
           );
@@ -9263,6 +9271,57 @@ void main() {
         expect(size.width, size.height);
       });
 
+      testWidgets('rings an online user in the site success colour', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          presence: const ChatPresence(userIds: {2}, lastMessageId: 47),
+          messages: {
+            key(9): page([msg(1, author: 2)]),
+          },
+        );
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        final ring = find.byKey(ChatUserAvatar.onlineRingKey(2));
+        expect(ring, findsOneWidget);
+        expect(tester.getSize(ring), const Size.square(28));
+        final decoration =
+            tester
+                    .widget<DecoratedBox>(
+                      find.descendant(
+                        of: ring,
+                        matching: find.byType(DecoratedBox),
+                      ),
+                    )
+                    .decoration
+                as BoxDecoration;
+        final theme = Theme.of(tester.element(ring));
+        expect(
+          (decoration.border! as Border).top.color,
+          theme.discourse.success,
+        );
+        expect((decoration.border! as Border).top.width, 1);
+        expect(decoration.color, theme.shell.content);
+
+        final tracker = FakeSiteTracker.built.single;
+        tracker.deliverPluginMessage('/presence/chat/online', {
+          'leaving_user_ids': [2],
+        });
+        await tester.pump();
+        expect(ring, findsNothing);
+
+        tracker.deliverPluginMessage('/presence/chat/online', {
+          'entering_users': [
+            {'id': 2, 'username': 'sam'},
+          ],
+        });
+        await tester.pump();
+        expect(ring, findsOneWidget);
+      });
+
       testWidgets('opens the channel the sidebar entry names', (tester) async {
         await pumpChat(
           tester,
@@ -9287,7 +9346,7 @@ void main() {
           api: FakeDiscourseApi(
             totals: withChat,
             chatChannelsBySite: {
-              site: (public: [channel(9)], direct: const []),
+              site: ChatChannels(public: [channel(9)], direct: const []),
             },
             chatMessagesByKey: {
               key(9): page([msg(1)]),
@@ -9530,7 +9589,7 @@ void main() {
           final api = FakeDiscourseApi(
             totals: withChat,
             chatChannelsBySite: {
-              site: (public: [channel(9)], direct: const []),
+              site: ChatChannels(public: [channel(9)], direct: const []),
             },
             chatMessagesByKey: {
               key(9): page([msg(5, minute: 5)], canLoadMorePast: true),
@@ -9553,7 +9612,7 @@ void main() {
         final api = FakeDiscourseApi(
           totals: withChat,
           chatChannelsBySite: {
-            site: (public: [channel(9)], direct: const []),
+            site: ChatChannels(public: [channel(9)], direct: const []),
           },
           chatMessagesByKey: {
             key(9): page([msg(5)]),
@@ -9601,7 +9660,7 @@ void main() {
           final api = FakeDiscourseApi(
             totals: withChat,
             chatChannelsBySite: {
-              site: (
+              site: ChatChannels(
                 public: [channel(9, lastRead: 5, unread: 35)],
                 direct: const [],
               ),
@@ -9635,7 +9694,10 @@ void main() {
         final api = FakeDiscourseApi(
           totals: withChat,
           chatChannelsBySite: {
-            site: (public: [channel(9, lastRead: 1)], direct: const []),
+            site: ChatChannels(
+              public: [channel(9, lastRead: 1)],
+              direct: const [],
+            ),
           },
           chatMessagesByKey: {
             key(9): page([
@@ -9667,7 +9729,10 @@ void main() {
         final api = FakeDiscourseApi(
           totals: withChat,
           chatChannelsBySite: {
-            site: (public: [channel(9, lastRead: 1)], direct: const []),
+            site: ChatChannels(
+              public: [channel(9, lastRead: 1)],
+              direct: const [],
+            ),
           },
           chatMessagesByKey: {
             key(9): page([
@@ -9707,7 +9772,10 @@ void main() {
           final api = FakeDiscourseApi(
             totals: withChat,
             chatChannelsBySite: {
-              site: (public: [channel(9, lastRead: 1)], direct: const []),
+              site: ChatChannels(
+                public: [channel(9, lastRead: 1)],
+                direct: const [],
+              ),
             },
             chatMessagesByKey: {
               key(9): page([msg(1), msg(2, minute: 1), msg(3, minute: 2)]),
@@ -9731,7 +9799,7 @@ void main() {
         final api = FakeDiscourseApi(
           totals: withChat,
           chatChannelsBySite: {
-            site: (
+            site: ChatChannels(
               public: [channel(9, unread: 3, lastRead: 1)],
               direct: const [],
             ),
@@ -9759,7 +9827,10 @@ void main() {
         final api = FakeDiscourseApi(
           totals: withChat,
           chatChannelsBySite: {
-            site: (public: [channel(9, unread: 1)], direct: const []),
+            site: ChatChannels(
+              public: [channel(9, unread: 1)],
+              direct: const [],
+            ),
           },
           chatMessagesByKey: {
             key(9): page([msg(1)]),
@@ -9787,7 +9858,10 @@ void main() {
         final api = FakeDiscourseApi(
           totals: withChat,
           chatChannelsBySite: {
-            site: (public: [channel(9, unread: 3)], direct: const []),
+            site: ChatChannels(
+              public: [channel(9, unread: 3)],
+              direct: const [],
+            ),
           },
           chatMessagesByKey: {
             key(9): page([msg(1)]),
