@@ -39,6 +39,7 @@ class DiscourseUser {
     this.canAssignGlobally,
     this.staff = false,
     this.groups = const [],
+    this.ignoredUsernames = const [],
     this.sidebarCategoryIds = const [],
     this.hasChatEnabled,
     this.chatHeaderIndicatorPreference = ChatHeaderIndicatorPreference.allNew,
@@ -65,6 +66,9 @@ class DiscourseUser {
     staff: json['staff'] == true,
     groups: List.unmodifiable(
       jsonArray(json['groups']).map(jsonText).whereType<String>(),
+    ),
+    ignoredUsernames: List.unmodifiable(
+      jsonArray(json['ignoredUsernames']).map(jsonText).whereType<String>(),
     ),
     sidebarCategoryIds: List.unmodifiable([
       for (final value in jsonArray(json['sidebarCategoryIds']))
@@ -107,6 +111,13 @@ class DiscourseUser {
   /// Group names from the freshly loaded current-user payload.
   final List<String> groups;
 
+  /// Usernames this account ignores.
+  ///
+  /// Discourse uses this list to suppress unread state for chat messages from
+  /// ignored users. Persisting it keeps that behavior available between
+  /// current-user refreshes.
+  final List<String> ignoredUsernames;
+
   /// The categories this account chose for its sidebar. Core derives display
   /// order from the site's category ordering rather than this list's order.
   final List<int> sidebarCategoryIds;
@@ -145,6 +156,7 @@ class DiscourseUser {
     'canAssignGlobally': canAssignGlobally,
     'staff': staff,
     'groups': groups,
+    'ignoredUsernames': ignoredUsernames,
     'sidebarCategoryIds': sidebarCategoryIds,
     'hasChatEnabled': hasChatEnabled,
     'chatHeaderIndicatorPreference': chatHeaderIndicatorPreference.wireName,
@@ -169,6 +181,7 @@ class DiscourseUser {
       other.canAssignGlobally == canAssignGlobally &&
       other.staff == staff &&
       listEquals(other.groups, groups) &&
+      listEquals(other.ignoredUsernames, ignoredUsernames) &&
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
       other.hasChatEnabled == hasChatEnabled &&
       other.chatHeaderIndicatorPreference == chatHeaderIndicatorPreference &&
@@ -188,6 +201,7 @@ class DiscourseUser {
     canAssignGlobally,
     staff,
     Object.hashAll(groups),
+    Object.hashAll(ignoredUsernames),
     Object.hashAll(sidebarCategoryIds),
     hasChatEnabled,
     chatHeaderIndicatorPreference,

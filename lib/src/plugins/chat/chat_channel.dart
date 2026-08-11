@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show immutable, listEquals, setEquals;
+import 'package:flutter/foundation.dart'
+    show immutable, listEquals, mapEquals, setEquals;
 import 'package:flutter/material.dart';
 
 import '../../data/store.dart';
@@ -77,6 +78,7 @@ class ChatMembership {
     this.muted = false,
     this.starred = false,
     this.lastReadMessageId,
+    this.lastViewedAt,
   });
 
   /// A channel the reader has no membership row for. `/chat/api/me/channels`
@@ -91,6 +93,7 @@ class ChatMembership {
       muted: value['muted'] == true,
       starred: value['starred'] == true,
       lastReadMessageId: jsonIntOrNull(value['last_read_message_id']),
+      lastViewedAt: jsonDate(value['last_viewed_at']),
     );
   }
 
@@ -113,6 +116,10 @@ class ChatMembership {
   /// some other client.
   final int? lastReadMessageId;
 
+  /// When this channel was last opened, used by core to distinguish newly
+  /// active unread threads from older thread state.
+  final DateTime? lastViewedAt;
+
   /// This membership with the reader credited up to [messageId].
   ///
   /// Deliberately not guarded here: going backwards is a question about
@@ -124,6 +131,16 @@ class ChatMembership {
     muted: muted,
     starred: starred,
     lastReadMessageId: messageId,
+    lastViewedAt: lastViewedAt,
+  );
+
+  /// This membership after the channel pane was in front of the reader.
+  ChatMembership withLastViewedAt(DateTime viewedAt) => ChatMembership(
+    following: following,
+    muted: muted,
+    starred: starred,
+    lastReadMessageId: lastReadMessageId,
+    lastViewedAt: viewedAt,
   );
 
   @override
@@ -132,10 +149,12 @@ class ChatMembership {
       other.following == following &&
       other.muted == muted &&
       other.starred == starred &&
-      other.lastReadMessageId == lastReadMessageId;
+      other.lastReadMessageId == lastReadMessageId &&
+      other.lastViewedAt == lastViewedAt;
 
   @override
-  int get hashCode => Object.hash(following, muted, starred, lastReadMessageId);
+  int get hashCode =>
+      Object.hash(following, muted, starred, lastReadMessageId, lastViewedAt);
 }
 
 /// How much of a channel this account has not seen.
@@ -247,11 +266,25 @@ class ChatChannels {
     this.public = const [],
     this.direct = const [],
     this.presence = const ChatPresence(),
+    this.newMessageBusLastIds = const {},
+    this.newChannelBusLastId,
+    this.userTrackingBusLastId,
   });
 
   final List<ChatChannel> public;
   final List<ChatChannel> direct;
   final ChatPresence presence;
+
+  /// The `/chat/{id}/new-messages` position captured with each channel.
+  ///
+  /// These are transport cursors rather than channel state, so they stay on
+  /// the HTTP envelope and are retained by [ChatController] only while it owns
+  /// the corresponding subscriptions.
+  final Map<int, int?> newMessageBusLastIds;
+
+  /// Envelope-level cursors captured by the same channel-list response.
+  final int? newChannelBusLastId;
+  final int? userTrackingBusLastId;
 }
 
 /// One chat channel this account follows.
@@ -270,8 +303,9 @@ class ChatChannel with Storable<ChatChannel> {
     this.users = const [],
     this.membership = ChatMembership.none,
     this.tracking = ChatTracking.none,
-    this.unreadThreadCount = 0,
+    this.unreadThreadOverview = const {},
     this.threadingEnabled = false,
+    this.lastMessageId,
     this.lastMessageAt,
   });
 
@@ -283,10 +317,11 @@ class ChatChannel with Storable<ChatChannel> {
     Map<String, dynamic> json,
     String siteUrl, {
     ChatTracking tracking = ChatTracking.none,
-    int unreadThreadCount = 0,
+    Map<int, DateTime> unreadThreadOverview = const {},
   }) {
     final chatable = jsonObject(json['chatable']);
     final kind = ChatChannelKind.read(json['chatable_type']);
+    final lastMessage = jsonObject(json['last_message']);
 
     return ChatChannel(
       id: jsonInt(json['id']),
@@ -317,21 +352,22 @@ class ChatChannel with Storable<ChatChannel> {
           : const [],
       membership: ChatMembership.fromJson(json['current_user_membership']),
       tracking: tracking,
-      unreadThreadCount: unreadThreadCount,
+      unreadThreadOverview: Map.unmodifiable(unreadThreadOverview),
       threadingEnabled: json['threading_enabled'] == true,
-      lastMessageAt: jsonDate(jsonObject(json['last_message'])['created_at']),
+      lastMessageId: jsonIntOrNull(lastMessage['id']),
+      lastMessageAt: jsonDate(lastMessage['created_at']),
     );
   }
 
-  /// Reads the whole `/chat/api/me/channels` payload, in the order the sidebar
-  /// draws it.
+  /// Reads the whole `/chat/api/me/channels` payload.
   ///
   /// A `parse` rather than a `fromJson` because the payload yields more than one
   /// instance — the house rule `PostReactors.parse` and `TopicDetail.parse` set.
   ///
-  /// Sorting happens here, once, rather than per build: the answer cannot change
-  /// between fetches in this step, and a comparator run on every frame of a
-  /// scroll would be work for a result that cannot have moved.
+  /// Public channels are sorted here once because their slug order is static.
+  /// Direct messages retain the server's activity order as their snapshot;
+  /// `ChatController` refines the unstarred section from live activity and
+  /// unread state whenever it is read.
   static ChatChannels parse(Map<String, dynamic> json, String siteUrl) {
     // `Chat::TrackingStateReport` is a Ruby hash keyed by integer channel id,
     // and JSON object keys are strings — so `9` is looked up as `'9'`. Getting
@@ -341,6 +377,9 @@ class ChatChannel with Storable<ChatChannel> {
       jsonObject(json['tracking'])['channel_tracking'],
     );
     final unreadThreadOverview = jsonObject(json['unread_thread_overview']);
+    final envelopeLastIds = jsonObject(
+      jsonObject(json['meta'])['message_bus_last_ids'],
+    );
 
     ChatTracking trackingFor(int id) {
       final entry = tracking['$id'];
@@ -349,16 +388,34 @@ class ChatChannel with Storable<ChatChannel> {
           : ChatTracking.none;
     }
 
+    final newMessageBusLastIds = <int, int?>{};
+
+    ChatChannel readChannel(Map<String, dynamic> entry) {
+      final id = jsonInt(entry['id']);
+      final lastIds = jsonObject(
+        jsonObject(entry['meta'])['message_bus_last_ids'],
+      );
+      newMessageBusLastIds[id] = jsonIntOrNull(lastIds['new_messages']);
+      final threadOverview = <int, DateTime>{};
+      for (final overviewEntry in jsonObject(
+        unreadThreadOverview['$id'],
+      ).entries) {
+        final threadId = int.tryParse(overviewEntry.key);
+        final createdAt = jsonDate(overviewEntry.value);
+        if (threadId != null && threadId > 0 && createdAt != null) {
+          threadOverview[threadId] = createdAt;
+        }
+      }
+      return ChatChannel.fromJson(
+        entry,
+        siteUrl,
+        tracking: trackingFor(id),
+        unreadThreadOverview: threadOverview,
+      );
+    }
+
     List<ChatChannel> read(Object? bucket) => [
-      for (final entry in jsonObjects(bucket))
-        ChatChannel.fromJson(
-          entry,
-          siteUrl,
-          tracking: trackingFor(jsonInt(entry['id'])),
-          unreadThreadCount: jsonObject(
-            unreadThreadOverview['${jsonInt(entry['id'])}'],
-          ).length,
-        ),
+      for (final entry in jsonObjects(bucket)) readChannel(entry),
     ];
 
     final public = read(json['public_channels'])
@@ -371,15 +428,18 @@ class ChatChannel with Storable<ChatChannel> {
         ),
       );
 
-    // Direct messages keep the order they arrived in, which is already
-    // `last_message.created_at DESC NULLS LAST`. The web additionally floats
-    // unread conversations to the top; nothing here changes tracking between
-    // fetches yet, so that sort could never re-run and would only look as
-    // though it worked.
+    // Direct messages keep the snapshot order they arrived in, already
+    // `last_message.created_at DESC NULLS LAST`. The controller uses this as a
+    // deterministic fallback when two live sidebar comparisons tie.
     return ChatChannels(
       public: List.unmodifiable(public),
       direct: List.unmodifiable(read(json['direct_message_channels'])),
       presence: ChatPresence.fromJson(json['global_presence_channel_state']),
+      newMessageBusLastIds: Map.unmodifiable(newMessageBusLastIds),
+      newChannelBusLastId: jsonIntOrNull(envelopeLastIds['new_channel']),
+      userTrackingBusLastId: jsonIntOrNull(
+        envelopeLastIds['user_tracking_state'],
+      ),
     );
   }
 
@@ -416,9 +476,32 @@ class ChatChannel with Storable<ChatChannel> {
   final ChatMembership membership;
   final ChatTracking tracking;
 
+  /// Unread thread ids and their most recent reply time. Core uses both the
+  /// membership's last-viewed time and these dates when ordering DMs.
+  final Map<int, DateTime> unreadThreadOverview;
+
   /// Threads with unread replies, including ordinary untracked threads.
   /// Mentions and watched threads remain separately counted in [tracking].
-  final int unreadThreadCount;
+  int get unreadThreadCount => unreadThreadOverview.length;
+
+  int get unreadThreadsCountSinceLastViewed {
+    if (!threadingEnabled) return 0;
+    final viewedAt = membership.lastViewedAt;
+    if (viewedAt == null) return unreadThreadOverview.length;
+    return unreadThreadOverview.values
+        .where((createdAt) => !createdAt.isBefore(viewedAt))
+        .length;
+  }
+
+  DateTime? get lastUnreadThreadAt {
+    // Core currently sorts the overview newest-first and then takes its final
+    // entry, so the oldest outstanding reply is the observed tie-breaker.
+    DateTime? oldest;
+    for (final createdAt in unreadThreadOverview.values) {
+      if (oldest == null || createdAt.isBefore(oldest)) oldest = createdAt;
+    }
+    return oldest;
+  }
 
   /// Whether replies in this channel form threads.
   ///
@@ -428,6 +511,7 @@ class ChatChannel with Storable<ChatChannel> {
   /// own route.
   final bool threadingEnabled;
 
+  final int? lastMessageId;
   final DateTime? lastMessageAt;
 
   bool get isDirectMessage => kind == ChatChannelKind.directMessage;
@@ -463,11 +547,35 @@ class ChatChannel with Storable<ChatChannel> {
         (isDirectMessage && tracking.unreadCount > 0)) {
       return const SidebarBadge.dot(urgent: true);
     }
-    if (tracking.unreadCount > 0 || unreadThreadCount > 0) {
+    if (tracking.unreadCount > 0 || unreadThreadsCountSinceLastViewed > 0) {
       return const SidebarBadge.dot();
     }
     return SidebarBadge.none;
   }
+
+  /// This channel after its pane was in front of the reader.
+  ///
+  /// Core keeps the unread-thread overview intact and advances this timestamp;
+  /// the overview is also used by the thread list, while the sidebar filters
+  /// it through [unreadThreadsCountSinceLastViewed].
+  ChatChannel withLastViewedAt(DateTime viewedAt) => ChatChannel(
+    id: id,
+    title: title,
+    kind: kind,
+    slug: slug,
+    emoji: emoji,
+    description: description,
+    categoryColor: categoryColor,
+    readRestricted: readRestricted,
+    isGroup: isGroup,
+    users: users,
+    membership: membership.withLastViewedAt(viewedAt),
+    tracking: tracking,
+    unreadThreadOverview: unreadThreadOverview,
+    threadingEnabled: threadingEnabled,
+    lastMessageId: lastMessageId,
+    lastMessageAt: lastMessageAt,
+  );
 
   /// This channel with the reader credited up to [messageId].
   ///
@@ -491,11 +599,108 @@ class ChatChannel with Storable<ChatChannel> {
         isGroup: isGroup,
         users: users,
         membership: membership.withLastRead(messageId),
-        tracking: caughtUp ? ChatTracking.none : tracking,
-        unreadThreadCount: caughtUp ? 0 : unreadThreadCount,
+        tracking: caughtUp
+            ? ChatTracking(
+                watchedThreadsUnreadCount: tracking.watchedThreadsUnreadCount,
+              )
+            : tracking,
+        // Reading the channel stream does not read its thread streams. Core
+        // keeps this overview and advances lastViewedAt; the sidebar filters
+        // old entries through unreadThreadsCountSinceLastViewed.
+        unreadThreadOverview: unreadThreadOverview,
         threadingEnabled: threadingEnabled,
+        lastMessageId: lastMessageId,
         lastMessageAt: lastMessageAt,
       );
+
+  /// Applies the authoritative per-user tracking stream. The channel event is
+  /// intentionally eager; this later snapshot corrects counts and reads made
+  /// from another client.
+  ChatChannel withTrackingState({
+    required ChatTracking tracking,
+    int? lastReadMessageId,
+    Map<int, DateTime>? unreadThreadOverview,
+  }) => ChatChannel(
+    id: id,
+    title: title,
+    kind: kind,
+    slug: slug,
+    emoji: emoji,
+    description: description,
+    categoryColor: categoryColor,
+    readRestricted: readRestricted,
+    isGroup: isGroup,
+    users: users,
+    membership: lastReadMessageId == null
+        ? membership
+        : membership.withLastRead(lastReadMessageId),
+    tracking: tracking,
+    unreadThreadOverview: unreadThreadOverview ?? this.unreadThreadOverview,
+    threadingEnabled: threadingEnabled,
+    lastMessageId: lastMessageId,
+    lastMessageAt: lastMessageAt,
+  );
+
+  /// Applies the activity and immediate unread projection from one live
+  /// `/new-messages` event.
+  ///
+  /// The separate user-tracking stream remains authoritative for exact counts;
+  /// this is the same eager increment the web client uses so navigation reacts
+  /// in the turn the message arrives.
+  ChatChannel withNewMessage(
+    int messageId,
+    DateTime createdAt, {
+    required bool markRead,
+    required bool incrementUnread,
+    int? threadId,
+    bool markThreadUnread = false,
+    bool markThreadRead = false,
+  }) {
+    var nextThreadOverview = unreadThreadOverview;
+    if (threadId != null && markThreadRead) {
+      if (unreadThreadOverview.containsKey(threadId)) {
+        nextThreadOverview = Map.unmodifiable(
+          {...unreadThreadOverview}..remove(threadId),
+        );
+      }
+    } else if (threadId != null &&
+        markThreadUnread &&
+        threadingEnabled &&
+        (isDirectMessage || unreadThreadOverview.containsKey(threadId))) {
+      // Every participant in a DM receives a membership for every thread.
+      // Public channels only expose the memberships already represented in
+      // the overview until native has a thread model of its own.
+      nextThreadOverview = Map.unmodifiable({
+        ...unreadThreadOverview,
+        threadId: createdAt,
+      });
+    }
+
+    return ChatChannel(
+      id: id,
+      title: title,
+      kind: kind,
+      slug: slug,
+      emoji: emoji,
+      description: description,
+      categoryColor: categoryColor,
+      readRestricted: readRestricted,
+      isGroup: isGroup,
+      users: users,
+      membership: markRead ? membership.withLastRead(messageId) : membership,
+      tracking: incrementUnread
+          ? ChatTracking(
+              unreadCount: tracking.unreadCount + 1,
+              mentionCount: tracking.mentionCount,
+              watchedThreadsUnreadCount: tracking.watchedThreadsUnreadCount,
+            )
+          : tracking,
+      unreadThreadOverview: nextThreadOverview,
+      threadingEnabled: threadingEnabled,
+      lastMessageId: messageId,
+      lastMessageAt: createdAt,
+    );
+  }
 
   /// The id a channel's sidebar entry carries, and — because
   /// `ContentRoute.fromDestination` copies it — the id of the route it opens.
@@ -544,8 +749,9 @@ class ChatChannel with Storable<ChatChannel> {
           listEquals(other.users, users) &&
           other.membership == membership &&
           other.tracking == tracking &&
-          other.unreadThreadCount == unreadThreadCount &&
+          mapEquals(other.unreadThreadOverview, unreadThreadOverview) &&
           other.threadingEnabled == threadingEnabled &&
+          other.lastMessageId == lastMessageId &&
           other.lastMessageAt == lastMessageAt;
 
   @override
@@ -562,8 +768,13 @@ class ChatChannel with Storable<ChatChannel> {
     Object.hashAll(users),
     membership,
     tracking,
-    unreadThreadCount,
+    Object.hashAllUnordered(
+      unreadThreadOverview.entries.map(
+        (entry) => Object.hash(entry.key, entry.value),
+      ),
+    ),
     threadingEnabled,
+    lastMessageId,
     lastMessageAt,
   ]);
 

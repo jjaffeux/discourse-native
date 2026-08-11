@@ -8744,6 +8744,8 @@ void main() {
       int mentions = 0,
       int watchedThreads = 0,
       bool starred = false,
+      int? lastMessageId,
+      DateTime? lastMessageAt,
     }) => ChatChannel(
       id: id,
       title: title,
@@ -8763,6 +8765,8 @@ void main() {
         mentionCount: mentions,
         watchedThreadsUnreadCount: watchedThreads,
       ),
+      lastMessageId: lastMessageId,
+      lastMessageAt: lastMessageAt,
     );
 
     ChatMessage msg(
@@ -8978,6 +8982,7 @@ void main() {
           tester.element(find.byType(ChatChannelView)),
         );
         expect(shell.currentContent?.id, ChatChannel.routeId(9));
+        expect(shell.chat.channel(site, 9)?.membership.lastViewedAt, isNotNull);
       });
 
       testWidgets('disappears while chat is active on a compact shell', (
@@ -9083,6 +9088,53 @@ void main() {
         expect(chatHeading, lessThan(dmHeading));
         expect(sidebarDestination('Bugs'), findsOneWidget);
         expect(sidebarDestination('hawk'), findsOneWidget);
+      });
+
+      testWidgets('reorders direct messages when a new message arrives', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          direct: [
+            dm(
+              12,
+              title: 'First',
+              lastMessageId: 50,
+              lastMessageAt: DateTime.utc(2026, 8, 8, 12),
+            ),
+            dm(
+              13,
+              title: 'Second',
+              lastMessageId: 40,
+              lastMessageAt: DateTime.utc(2026, 8, 8, 10),
+            ),
+          ],
+        );
+
+        expect(
+          tester.getTopLeft(sidebarDestination('First')).dy,
+          lessThan(tester.getTopLeft(sidebarDestination('Second')).dy),
+        );
+
+        FakeSiteTracker.built.single.deliverPluginMessage(
+          '/chat/13/new-messages',
+          {
+            'type': 'channel',
+            'channel_id': 13,
+            'message': {
+              'id': 60,
+              'chat_channel_id': 13,
+              'created_at': '2026-08-08T13:00:00.000Z',
+              'user': {'id': 2, 'username': 'hawk'},
+            },
+          },
+        );
+        await tester.pump();
+
+        expect(
+          tester.getTopLeft(sidebarDestination('Second')).dy,
+          lessThan(tester.getTopLeft(sidebarDestination('First')).dy),
+        );
       });
 
       testWidgets(

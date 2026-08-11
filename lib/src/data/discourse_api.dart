@@ -320,6 +320,9 @@ class DiscourseApi
         for (final group in jsonObjects(user['groups']))
           ?jsonText(group['name']),
       ]),
+      ignoredUsernames: List.unmodifiable(
+        jsonArray(user['ignored_users']).map(jsonText).whereType<String>(),
+      ),
       sidebarCategoryIds: List.unmodifiable([
         for (final value in jsonArray(user['sidebar_category_ids']))
           ?jsonIntOrNull(value),

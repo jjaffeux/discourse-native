@@ -3395,6 +3395,53 @@ void _writeGroups() {
       expect(() => user.sidebarCategoryIds.add(13), throwsUnsupportedError);
     });
 
+    test('reads the current account ignored usernames safely', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'current_user': {
+                'id': 7,
+                'username': 'sam',
+                'ignored_users': ['hawk', false, 'kris', null],
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final user = await api.currentUser(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+      );
+
+      expect(user.ignoredUsernames, ['hawk', 'kris']);
+      expect(() => user.ignoredUsernames.add('lee'), throwsUnsupportedError);
+    });
+
+    test('ignored usernames survive storage and affect user identity', () {
+      const user = DiscourseUser(
+        username: 'sam',
+        ignoredUsernames: ['hawk', 'kris'],
+      );
+
+      final stored = DiscourseUser.fromJson(user.toJson());
+
+      expect(stored, user);
+      expect(stored.hashCode, user.hashCode);
+      expect(stored.ignoredUsernames, ['hawk', 'kris']);
+      expect(() => stored.ignoredUsernames.add('lee'), throwsUnsupportedError);
+      expect(
+        stored,
+        isNot(const DiscourseUser(username: 'sam', ignoredUsernames: ['hawk'])),
+      );
+      expect(
+        DiscourseUser.fromJson(const {'username': 'old'}).ignoredUsernames,
+        isEmpty,
+      );
+    });
+
     test('sidebar category ids survive storage and affect user identity', () {
       const user = DiscourseUser(username: 'sam', sidebarCategoryIds: [5, 8]);
 
