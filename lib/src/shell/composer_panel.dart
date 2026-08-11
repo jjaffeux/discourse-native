@@ -19,6 +19,7 @@ import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'anchored_layout.dart';
 import 'composer_controller.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
@@ -147,7 +148,7 @@ class ComposerPanel extends StatelessWidget {
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
-                      child: _ComposerEditor(
+                      child: ComposerEditor(
                         composer: composer,
                         hintText: switch (target) {
                           _ when composer.loadingBody => 'Loading that post…',
@@ -167,7 +168,7 @@ class ComposerPanel extends StatelessWidget {
                 ] else
                   const Spacer(),
                 if (composer.uploads.isNotEmpty)
-                  _UploadQueue(composer: composer),
+                  ComposerUploadQueue(composer: composer),
                 _Footer(
                   composer: composer,
                   // Only ever says something when there is something to say.
@@ -933,29 +934,41 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
   }
 }
 
-class _ComposerEditor extends StatefulWidget {
-  const _ComposerEditor({
+/// The shared markdown editor used by topic and chat composers.
+///
+/// The surrounding composer decides its geometry and submission behavior. The
+/// field keeps the writing technology in one place: markdown highlighting,
+/// mention and emoji completion, rich inline pills, image drops, and the
+/// selection formatting toolbar all behave identically wherever it is used.
+class ComposerEditor extends StatefulWidget {
+  const ComposerEditor({
+    super.key,
     required this.composer,
     required this.hintText,
     required this.textStyle,
     required this.hintStyle,
+    this.autofocus = true,
   });
 
   final ComposerController composer;
   final String hintText;
   final TextStyle? textStyle;
   final TextStyle? hintStyle;
+  final bool autofocus;
 
   @override
-  State<_ComposerEditor> createState() => _ComposerEditorState();
+  State<ComposerEditor> createState() => _ComposerEditorState();
 }
 
-class _ComposerEditorState extends State<_ComposerEditor> {
+class _ComposerEditorState extends State<ComposerEditor> {
   static const _menuWidth = 88.0;
   static const _menuHeight = 44.0;
   static const _menuGap = 4.0;
 
   final GlobalKey _stackKey = GlobalKey();
+  final OverlayPortalController _selectionPortal = OverlayPortalController();
+  final ValueNotifier<Rect?> _selectionAnchor = ValueNotifier(null);
+  Object? _selectionSyncToken;
   Offset? _pointerDown;
   PollComposerBlock? _hoveredPoll;
   LocalDateComposerBlock? _hoveredLocalDate;
@@ -971,28 +984,97 @@ class _ComposerEditorState extends State<_ComposerEditor> {
   void initState() {
     super.initState();
     widget.composer.text.imageScrollController = _scroll;
+    widget.composer.text.addListener(_syncSelectionToolbar);
+    widget.composer.focus.addListener(_syncSelectionToolbar);
+    _scroll.addListener(_syncSelectionToolbar);
+    _syncSelectionToolbar();
   }
 
   @override
-  void didUpdateWidget(_ComposerEditor oldWidget) {
+  void didUpdateWidget(ComposerEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (identical(oldWidget.composer, widget.composer)) return;
+    oldWidget.composer.text.removeListener(_syncSelectionToolbar);
+    oldWidget.composer.focus.removeListener(_syncSelectionToolbar);
     if (identical(oldWidget.composer.text.imageScrollController, _scroll)) {
       oldWidget.composer.text.imageScrollController = null;
     }
     widget.composer.text.imageScrollController = _scroll;
+    widget.composer.text.addListener(_syncSelectionToolbar);
+    widget.composer.focus.addListener(_syncSelectionToolbar);
+    _syncSelectionToolbar();
   }
 
   @override
   void dispose() {
+    _selectionSyncToken = null;
     _hideTimer?.cancel();
     _longPressTimer?.cancel();
     _imageAlt.dispose();
+    widget.composer.text.removeListener(_syncSelectionToolbar);
+    widget.composer.focus.removeListener(_syncSelectionToolbar);
+    _scroll.removeListener(_syncSelectionToolbar);
     if (identical(widget.composer.text.imageScrollController, _scroll)) {
       widget.composer.text.imageScrollController = null;
     }
+    _selectionAnchor.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _syncSelectionToolbar() {
+    final selection = widget.composer.text.selection;
+    if (!widget.composer.focus.hasFocus ||
+        !selection.isValid ||
+        selection.isCollapsed) {
+      _selectionSyncToken = null;
+      _selectionAnchor.value = null;
+      if (_selectionPortal.isShowing) _selectionPortal.hide();
+      return;
+    }
+
+    final token = Object();
+    _selectionSyncToken = token;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_selectionSyncToken, token)) return;
+      final current = widget.composer.text.selection;
+      if (!widget.composer.focus.hasFocus ||
+          !current.isValid ||
+          current.isCollapsed) {
+        _selectionAnchor.value = null;
+        if (_selectionPortal.isShowing) _selectionPortal.hide();
+        return;
+      }
+
+      final editable = _renderEditable;
+      final overlay = Overlay.of(context).context.findRenderObject();
+      if (editable == null || overlay is! RenderBox || !overlay.hasSize) {
+        if (_selectionPortal.isShowing) _selectionPortal.hide();
+        return;
+      }
+      final endpoints = editable.getEndpointsForSelection(current);
+      if (endpoints.isEmpty) {
+        if (_selectionPortal.isShowing) _selectionPortal.hide();
+        return;
+      }
+
+      final points = [
+        for (final endpoint in endpoints)
+          editable.localToGlobal(endpoint.point, ancestor: overlay),
+      ];
+      final left = points.map((point) => point.dx).reduce(math.min);
+      final right = points.map((point) => point.dx).reduce(math.max);
+      final bottom = points.map((point) => point.dy).reduce(math.min);
+      final lineHeight = editable.preferredLineHeight;
+      final center = (left + right) / 2;
+      _selectionAnchor.value = Rect.fromLTWH(
+        center - _menuWidth / 2,
+        bottom - lineHeight,
+        _menuWidth,
+        lineHeight,
+      );
+      _selectionPortal.show();
+    });
   }
 
   RenderEditable? get _renderEditable {
@@ -1360,141 +1442,157 @@ class _ComposerEditorState extends State<_ComposerEditor> {
     builder: (context, constraints) {
       final menuPosition = _menuPosition(constraints);
       final imageMenuPosition = _imageMenuPosition(constraints);
-      return DropTarget(
-        enable: !context.isTouch,
-        onDragEntered: (details) {
-          _moveDropCaret(details.globalPosition);
-          if (!_dragging) setState(() => _dragging = true);
-        },
-        onDragUpdated: (details) => _moveDropCaret(details.globalPosition),
-        onDragExited: (_) {
-          if (_dragging) setState(() => _dragging = false);
-        },
-        onDragDone: _dropImages,
-        child: NotificationListener<LocalDateComposerPillHoverNotification>(
-          onNotification: _onDatePillHover,
-          child: NotificationListener<PollComposerPillHoverNotification>(
-            onNotification: _onPillHover,
-            child: MouseRegion(
-              // Retained as a fallback for embedders that do not hit-test inline
-              // children, and to close the menu when the pointer leaves the field.
-              onHover: _onHover,
-              onExit: (_) => _scheduleHide(),
-              child: Stack(
-                key: _stackKey,
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned.fill(
-                    child: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: widget.composer.text,
-                      builder: (context, value, _) => value.text.isEmpty
-                          ? IgnorePointer(
-                              child: Align(
-                                alignment: Alignment.topLeft,
-                                child: Text(
-                                  widget.hintText,
-                                  style: widget.hintStyle,
-                                ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: Listener(
-                      behavior: HitTestBehavior.translucent,
-                      onPointerDown: _onPointerDown,
-                      onPointerMove: _cancelLongPress,
-                      onPointerUp: _cancelLongPress,
-                      onPointerCancel: _cancelLongPress,
-                      child: ComposerSuggestionField(
-                        composer: widget.composer,
-                        field: ClipRect(
-                          child: TextField(
-                            // Not decoration: a new key builds a new editable, and
-                            // with it a new undo stack. It is the only way to stop undo
-                            // reaching back into a reply that has already been sent.
-                            key: ValueKey(widget.composer.fieldGeneration),
-                            controller: widget.composer.text,
-                            scrollController: _scroll,
-                            focusNode: widget.composer.focus,
-                            autofocus: true,
-                            expands: true,
-                            maxLines: null,
-                            minLines: null,
-                            textAlignVertical: TextAlignVertical.top,
-                            keyboardType: TextInputType.multiline,
-                            textCapitalization: TextCapitalization.sentences,
-                            onTapAlwaysCalled: true,
-                            onTap: _onFieldTap,
-                            style: widget.textStyle,
-                            // InputDecorator only gives the editable one text line
-                            // even when the TextField expands. The composer draws
-                            // its hint separately so this viewport fills the editor.
-                            decoration: null,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (menuPosition case (final left, final top))
-                    Positioned(
-                      left: left,
-                      top: top,
-                      child: MouseRegion(
-                        onEnter: (_) {
-                          _hideTimer?.cancel();
-                          _menuHovered = true;
-                        },
-                        onExit: (_) {
-                          _menuHovered = false;
-                          _scheduleHide();
-                        },
-                        child: _PollComposerMenu(
-                          onEdit: _editPoll,
-                          onRemove: _removePoll,
-                          noun: _hoveredLocalDate == null ? 'poll' : 'date',
-                        ),
-                      ),
-                    ),
-                  if (imageMenuPosition case (final left, final top))
-                    Positioned(
-                      left: left,
-                      top: top,
-                      child: _ImageComposerMenu(
-                        image: _selectedImage!,
-                        alt: _imageAlt,
-                        onSaveAlt: _saveImageAlt,
-                        onScale: _scaleImage,
-                        onRemove: _deleteImage,
-                        onDismiss: _dismissImage,
-                      ),
-                    ),
-                  if (_dragging)
+      return OverlayPortal(
+        controller: _selectionPortal,
+        overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
+          valueListenable: _selectionAnchor,
+          builder: (context, anchor, child) => CustomSingleChildLayout(
+            delegate: AnchoredLayout(
+              anchor: anchor,
+              maxWidth: _menuWidth,
+              gap: _menuGap,
+              preferAbove: true,
+            ),
+            child: child!,
+          ),
+          child: _SelectionFormattingMenu(composer: widget.composer),
+        ),
+        child: DropTarget(
+          enable: !context.isTouch,
+          onDragEntered: (details) {
+            _moveDropCaret(details.globalPosition);
+            if (!_dragging) setState(() => _dragging = true);
+          },
+          onDragUpdated: (details) => _moveDropCaret(details.globalPosition),
+          onDragExited: (_) {
+            if (_dragging) setState(() => _dragging = false);
+          },
+          onDragDone: _dropImages,
+          child: NotificationListener<LocalDateComposerPillHoverNotification>(
+            onNotification: _onDatePillHover,
+            child: NotificationListener<PollComposerPillHoverNotification>(
+              onNotification: _onPillHover,
+              child: MouseRegion(
+                // Retained as a fallback for embedders that do not hit-test inline
+                // children, and to close the menu when the pointer leaves the field.
+                onHover: _onHover,
+                onExit: (_) => _scheduleHide(),
+                child: Stack(
+                  key: _stackKey,
+                  clipBehavior: Clip.none,
+                  children: [
                     Positioned.fill(
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withValues(alpha: 0.06),
-                            border: Border.all(
-                              color: Theme.of(context).colorScheme.primary,
-                              width: 2,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Align(
-                            alignment: Alignment.topCenter,
-                            child: Padding(
-                              padding: EdgeInsets.all(8),
-                              child: Text('Drop images to upload'),
+                      child: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: widget.composer.text,
+                        builder: (context, value, _) => value.text.isEmpty
+                            ? IgnorePointer(
+                                child: Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Text(
+                                    widget.hintText,
+                                    style: widget.hintStyle,
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: Listener(
+                        behavior: HitTestBehavior.translucent,
+                        onPointerDown: _onPointerDown,
+                        onPointerMove: _cancelLongPress,
+                        onPointerUp: _cancelLongPress,
+                        onPointerCancel: _cancelLongPress,
+                        child: ComposerSuggestionField(
+                          composer: widget.composer,
+                          field: ClipRect(
+                            child: TextField(
+                              // Not decoration: a new key builds a new editable, and
+                              // with it a new undo stack. It is the only way to stop undo
+                              // reaching back into a reply that has already been sent.
+                              key: ValueKey(widget.composer.fieldGeneration),
+                              controller: widget.composer.text,
+                              scrollController: _scroll,
+                              focusNode: widget.composer.focus,
+                              autofocus: widget.autofocus,
+                              expands: true,
+                              maxLines: null,
+                              minLines: null,
+                              textAlignVertical: TextAlignVertical.top,
+                              keyboardType: TextInputType.multiline,
+                              textCapitalization: TextCapitalization.sentences,
+                              onTapAlwaysCalled: true,
+                              onTap: _onFieldTap,
+                              style: widget.textStyle,
+                              // InputDecorator only gives the editable one text line
+                              // even when the TextField expands. The composer draws
+                              // its hint separately so this viewport fills the editor.
+                              decoration: null,
                             ),
                           ),
                         ),
                       ),
                     ),
-                ],
+                    if (menuPosition case (final left, final top))
+                      Positioned(
+                        left: left,
+                        top: top,
+                        child: MouseRegion(
+                          onEnter: (_) {
+                            _hideTimer?.cancel();
+                            _menuHovered = true;
+                          },
+                          onExit: (_) {
+                            _menuHovered = false;
+                            _scheduleHide();
+                          },
+                          child: _PollComposerMenu(
+                            onEdit: _editPoll,
+                            onRemove: _removePoll,
+                            noun: _hoveredLocalDate == null ? 'poll' : 'date',
+                          ),
+                        ),
+                      ),
+                    if (imageMenuPosition case (final left, final top))
+                      Positioned(
+                        left: left,
+                        top: top,
+                        child: _ImageComposerMenu(
+                          image: _selectedImage!,
+                          alt: _imageAlt,
+                          onSaveAlt: _saveImageAlt,
+                          onScale: _scaleImage,
+                          onRemove: _deleteImage,
+                          onDismiss: _dismissImage,
+                        ),
+                      ),
+                    if (_dragging)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.06),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.primary,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Align(
+                              alignment: Alignment.topCenter,
+                              child: Padding(
+                                padding: EdgeInsets.all(8),
+                                child: Text('Drop images to upload'),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1502,6 +1600,51 @@ class _ComposerEditorState extends State<_ComposerEditor> {
       );
     },
   );
+}
+
+class _SelectionFormattingMenu extends StatelessWidget {
+  const _SelectionFormattingMenu({required this.composer});
+
+  final ComposerController composer;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      key: const ValueKey('composer-selection-toolbar'),
+      color: theme.shell.floating,
+      elevation: 8,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        width: _ComposerEditorState._menuWidth,
+        height: _ComposerEditorState._menuHeight,
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.shell.divider),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (final (mark, icon, label) in const [
+              (ComposerMark.bold, DIcons.bold, 'Bold'),
+              (ComposerMark.italic, DIcons.italic, 'Italic'),
+            ])
+              IconButton(
+                onPressed: () {
+                  composer.toggleMark(mark);
+                  composer.focus.requestFocus();
+                },
+                icon: DIcon(icon, size: 18),
+                tooltip: label,
+                visualDensity: VisualDensity.compact,
+                color: theme.colorScheme.onSurface,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ImageComposerMenu extends StatelessWidget {
@@ -1714,10 +1857,10 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// The formatting actions.
+/// Plugin-contributed composer actions.
 ///
-/// One button per mark. What a mark means — which characters wrap the selection
-/// — belongs in the composer, not in the button.
+/// Bold and italic live beside selected text in [ComposerEditor], keeping this
+/// persistent row for actions that create richer blocks.
 class _Toolbar extends StatelessWidget {
   const _Toolbar({required this.composer});
 
@@ -1737,26 +1880,14 @@ class _Toolbar extends StatelessWidget {
 
   Widget _buildToolbar(BuildContext context) {
     final theme = Theme.of(context);
+    final actions = pluginRegistry.composerToolbar(context, composer);
+    if (actions.isEmpty) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
       child: Row(
         children: [
-          for (final (mark, icon, label) in const [
-            (ComposerMark.bold, DIcons.bold, 'Bold'),
-            (ComposerMark.italic, DIcons.italic, 'Italic'),
-          ])
-            IconButton(
-              onPressed: () => composer.toggleMark(mark),
-              icon: DIcon(icon, size: 18),
-              tooltip: '$label  ${_shortcutHint(label)}',
-              visualDensity: VisualDensity.compact,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          for (final action in pluginRegistry.composerToolbar(
-            context,
-            composer,
-          ))
+          for (final action in actions)
             IconButton(
               onPressed: action.onInvoke,
               icon: DIcon(action.icon, size: 18),
@@ -1768,12 +1899,11 @@ class _Toolbar extends StatelessWidget {
       ),
     );
   }
-
-  static String _shortcutHint(String label) => label == 'Bold' ? '⌘B' : '⌘I';
 }
 
-class _UploadQueue extends StatelessWidget {
-  const _UploadQueue({required this.composer});
+/// Upload progress shared by full-size and compact composers.
+class ComposerUploadQueue extends StatelessWidget {
+  const ComposerUploadQueue({super.key, required this.composer});
 
   final ComposerController composer;
 

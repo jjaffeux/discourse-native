@@ -8,6 +8,7 @@ import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import 'chat_composer.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_message_tile.dart';
@@ -104,27 +105,36 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   }
 
   Widget _buildChannel(ChatStreamState stream) {
+    late final Widget content;
     if (stream.loading && stream.messageIds.isEmpty) {
-      return const Center(child: CircularProgressIndicator.adaptive());
-    }
-    if (stream.error case final error?) {
-      return _Message(icon: DIcons.triangleExclamation, text: error);
-    }
-    if (stream.isEmpty) {
-      return const _Message(
+      content = const Center(child: CircularProgressIndicator.adaptive());
+    } else if (stream.error case final error?) {
+      content = _Message(icon: DIcons.triangleExclamation, text: error);
+    } else if (stream.isEmpty) {
+      content = const _Message(
         icon: DIcons.comment,
         text: 'No messages here yet.',
       );
+    } else {
+      _syncProjection(stream);
+      content = _Stream(
+        siteUrl: widget.siteUrl,
+        channelId: widget.channelId,
+        items: _items,
+        messages: _messages,
+        stream: stream,
+      );
     }
 
-    _syncProjection(stream);
-
-    return _Stream(
-      siteUrl: widget.siteUrl,
-      channelId: widget.channelId,
-      items: _items,
-      messages: _messages,
-      stream: stream,
+    return Column(
+      children: [
+        Expanded(child: content),
+        ChatComposer(
+          key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
+          siteUrl: widget.siteUrl,
+          channelId: widget.channelId,
+        ),
+      ],
     );
   }
 

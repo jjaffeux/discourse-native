@@ -22,7 +22,7 @@ import 'markdown_editing_controller.dart';
 /// comes time to submit. Switching sites while a reply is half written must not
 /// send it to the site the user switched to, and every other cache in the shell
 /// is site-keyed for the same reason.
-enum ComposerMode { reply, newTopic, postEdit, topicEdit, tagsEdit }
+enum ComposerMode { reply, newTopic, postEdit, topicEdit, tagsEdit, chat }
 
 @immutable
 class ComposerTarget {
@@ -36,6 +36,7 @@ class ComposerTarget {
     this.replyToUsername,
     this.editingPostId,
     this.editingPostNumber,
+    this.chatChannelId,
     ComposerMode? mode,
     this.originFeedId,
     this.initialCategoryId,
@@ -50,6 +51,7 @@ class ComposerTarget {
   final String slug;
   final String topicTitle;
   final ComposerMode mode;
+  final int? chatChannelId;
   final String? originFeedId;
   final int? initialCategoryId;
   final List<TopicTag> initialTags;
@@ -75,10 +77,14 @@ class ComposerTarget {
   bool get isNewTopic => mode == ComposerMode.newTopic;
   bool get editsTopicMetadata => mode == ComposerMode.topicEdit;
   bool get isTagsEdit => mode == ComposerMode.tagsEdit;
+  bool get isChat => mode == ComposerMode.chat;
 
   /// What Discourse files a draft for this topic under.
-  String get draftKey =>
-      isNewTopic ? ComposerDraft.newTopicDraftKey : 'topic_$topicId';
+  String get draftKey => isNewTopic
+      ? ComposerDraft.newTopicDraftKey
+      : isChat
+      ? 'chat_$chatChannelId'
+      : 'topic_$topicId';
 
   ComposerTarget replyingTo(int? postNumber, String? username) =>
       ComposerTarget(
@@ -89,6 +95,7 @@ class ComposerTarget {
         topicTitle: topicTitle,
         replyToPostNumber: postNumber,
         replyToUsername: username,
+        chatChannelId: chatChannelId,
         mode: mode,
         originFeedId: originFeedId,
         initialCategoryId: initialCategoryId,
@@ -609,6 +616,26 @@ class ComposerController extends ChangeNotifier {
     text.value = toggleMarkdownMark(text.value, mark.marker);
   }
 
+  /// Inserts [insertion] over the current selection and leaves the caret after
+  /// it.
+  ///
+  /// Chat's compact add-actions use this for mention and emoji triggers. It is
+  /// kept here rather than manipulating the field from the widget so the same
+  /// notification path drives autocomplete, uploads, and undo history.
+  void insertText(String insertion) {
+    if (_disposed || insertion.isEmpty) return;
+    final old = text.value;
+    final selection = old.selection.isValid
+        ? old.selection
+        : TextSelection.collapsed(offset: old.text.length);
+    final start = selection.start;
+    text.value = old.copyWith(
+      text: old.text.replaceRange(start, selection.end, insertion),
+      selection: TextSelection.collapsed(offset: start + insertion.length),
+      composing: TextRange.empty,
+    );
+  }
+
   void setImageAlt(ComposerImageBlock image, String alt) {
     _replaceImage(image, image.toMarkdown(alt: alt.trim()));
   }
@@ -1053,6 +1080,24 @@ class ComposerController extends ChangeNotifier {
     _notify();
   }
 
+  /// Starts a fresh document after a successful non-topic send.
+  ///
+  /// Replacing the keyed editable is intentional: clearing only the controller
+  /// leaves the submitted message in Flutter's undo stack, where one Ctrl+Z
+  /// would put already-sent text back under an enabled send button.
+  void clearDocument() {
+    if (_disposed) return;
+    draftSettled();
+    _state = ComposerState.editing;
+    _error = null;
+    _notice = null;
+    _replaceDocument(TextEditingValue.empty);
+    _typing.reset();
+    _openedAt = _now();
+    _fieldGeneration++;
+    _notify();
+  }
+
   String _lastText = '';
   bool _replacingDocument = false;
 
@@ -1159,6 +1204,7 @@ class ComposerController extends ChangeNotifier {
             (metadataChanged || (raw.isNotEmpty && raw != _originalRaw)),
       ComposerMode.tagsEdit =>
         taxonomyValidationMessage == null && !listEquals(_tags, _originalTags),
+      ComposerMode.chat => raw.isNotEmpty,
     };
     if (next == _canSubmit) return;
     _canSubmit = next;

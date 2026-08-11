@@ -261,6 +261,8 @@ class ChatController extends FrameSafeNotifier {
   _queuedReadReceipts = {};
   final Map<String, Future<void>> _readReceiptTasks = {};
   final Map<String, Object> _readReceiptRuns = {};
+  final Map<String, Future<bool>> _sendRequests = {};
+  final Map<String, Object> _sendRuns = {};
 
   static String _channelsKey(String siteUrl) => '$siteUrl~channels';
   static String _streamKey(String siteUrl, int id) => '$siteUrl~$id';
@@ -422,6 +424,72 @@ class ChatController extends FrameSafeNotifier {
   String? channelsError(String siteUrl) => _errors[_channelsKey(siteUrl)];
 
   // --- writes ------------------------------------------------------------
+
+  /// Sends one message and reconciles the channel against its newest page.
+  ///
+  /// The API answers only with an id, not the message record needed by the
+  /// stream. Fetching the live edge after a successful write gives the view the
+  /// canonical cooked message and positions the reversed list at the present.
+  /// One in-flight send per channel prevents a double Enter from creating two
+  /// copies while credentials or the network are slow.
+  Future<bool> sendMessage(String siteUrl, int channelId, String message) {
+    final text = message.trim();
+    if (text.isEmpty) return Future.value(false);
+    final key = _streamKey(siteUrl, channelId);
+    final active = _sendRequests[key];
+    if (active != null) return Future.value(false);
+
+    final run = Object();
+    _sendRuns[key] = run;
+    late final Future<bool> request;
+    request = _sendMessage(siteUrl, channelId, text, key, run).whenComplete(() {
+      if (identical(_sendRequests[key], request)) {
+        final _ = _sendRequests.remove(key);
+      }
+      if (identical(_sendRuns[key], run)) _sendRuns.remove(key);
+    });
+    _sendRequests[key] = request;
+    return request;
+  }
+
+  Future<bool> _sendMessage(
+    String siteUrl,
+    int channelId,
+    String message,
+    String key,
+    Object run,
+  ) async {
+    final lease = lifecycle.capture(siteUrl);
+    bool ownsRequest() => identical(_sendRuns[key], run);
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_requestIsCurrent(lease, ownsRequest)) return false;
+      if (apiKey == null) {
+        throw const WriteException(WriteFailure.forbidden);
+      }
+      final clientId = await credentials.clientId();
+      if (!_requestIsCurrent(lease, ownsRequest)) return false;
+      await api.sendChatMessage(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: channelId,
+        message: message,
+      );
+      if (!_requestIsCurrent(lease, ownsRequest)) return false;
+
+      // A successful send belongs at the live edge even when the channel was
+      // opened around an older unread marker.
+      await _fetchWindow(siteUrl, channelId, fromLastRead: false);
+      return _requestIsCurrent(lease, ownsRequest);
+    } catch (error, stackTrace) {
+      if (_requestIsCurrent(lease, ownsRequest)) {
+        _report(error, stackTrace, 'chat.sendMessage');
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
 
   /// Fetches the channels this account follows on [siteUrl].
   ///
@@ -999,6 +1067,8 @@ class ChatController extends FrameSafeNotifier {
     _queuedReadReceipts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _readReceiptTasks.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _readReceiptRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _sendRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _sendRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     final forgottenRefs = <FrameSafeValueNotifier<ChatStreamState>>[];
     _streamRefs.removeWhere((key, ref) {
       if (!key.startsWith('$siteUrl~')) return false;
@@ -1058,6 +1128,8 @@ class ChatController extends FrameSafeNotifier {
     _queuedReadReceipts.clear();
     _readReceiptTasks.clear();
     _readReceiptRuns.clear();
+    _sendRequests.clear();
+    _sendRuns.clear();
     for (final ref in _streamRefs.values) {
       ref.dispose();
     }

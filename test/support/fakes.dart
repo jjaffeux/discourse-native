@@ -483,6 +483,9 @@ class FakeDiscourseApi implements DiscourseApi {
     this.chatMessagesByKey = const {},
     this.chatMessageGate,
     this.chatReadFailure,
+    this.chatSendFailure,
+    this.chatSendGate,
+    this.chatSentMessageId = 1,
     this.customSidebarSectionsBySite = const {},
     this.pluginResponses = const {},
     Map<String, WriteException>? pluginWriteFailures,
@@ -814,6 +817,14 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Every [markChatChannelRead] call, in order.
   final List<({int channelId, int messageId})> chatReadsMarked = [];
+
+  /// Chat-message writes, their optional gate, and the id returned by a
+  /// successful fake send.
+  final WriteException? chatSendFailure;
+  final Completer<void>? chatSendGate;
+  final int? chatSentMessageId;
+  final List<({String siteUrl, int channelId, String message, int? threadId})>
+  chatMessagesSent = [];
 
   /// Thrown by [saveDraft] instead of answering.
   final WriteException? draftFailure;
@@ -1631,7 +1642,17 @@ class FakeDiscourseApi implements DiscourseApi {
     required String message,
     int? threadId,
     String? clientId,
-  }) async => 1;
+  }) async {
+    chatMessagesSent.add((
+      siteUrl: siteUrl,
+      channelId: channelId,
+      message: message,
+      threadId: threadId,
+    ));
+    if (chatSendGate != null) await chatSendGate!.future;
+    if (chatSendFailure != null) throw chatSendFailure!;
+    return chatSentMessageId;
+  }
 
   @override
   Future<void> markChatThreadRead({

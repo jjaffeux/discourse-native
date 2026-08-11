@@ -101,7 +101,7 @@ void main() {
     expect(fromBottom.bottom, closeTo(fromTop.bottom - 40, 1));
   });
 
-  testWidgets('puts topic creation and formatting actions on one bottom row', (
+  testWidgets('shows bold and italic only beside selected text', (
     tester,
   ) async {
     final composer = ComposerController(_newTopicTarget);
@@ -110,13 +110,32 @@ void main() {
     addTearDown(shell.dispose);
     await _pumpFloatingPanel(tester, shell, composer);
 
-    final bold = tester.getCenter(find.byTooltip('Bold  ⌘B'));
+    expect(find.byTooltip('Bold'), findsNothing);
+    expect(find.byTooltip('Italic'), findsNothing);
+
+    composer.text.value = const TextEditingValue(
+      text: 'format me',
+      selection: TextSelection(baseOffset: 0, extentOffset: 6),
+    );
+    composer.focus.requestFocus();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('composer-selection-toolbar')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Bold'), findsOneWidget);
+    expect(find.byTooltip('Italic'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Bold'));
+    await tester.pump();
+
+    expect(composer.text.text, '**format** me');
     final create = tester.getCenter(
       find.widgetWithText(FilledButton, 'Create topic'),
     );
     final panel = tester.getRect(find.byType(ComposerPanel));
 
-    expect(bold.dy, closeTo(create.dy, 1));
     expect(create.dy, greaterThan(panel.bottom - 52));
   });
 

@@ -2683,6 +2683,26 @@ class ShellController extends FrameSafeNotifier {
     return composer;
   }
 
+  /// Builds the inline composer for one chat channel with the same markdown,
+  /// completion, artwork, and upload services as the topic composer.
+  ///
+  /// Chat owns where this controller lives and how it is submitted; the shell
+  /// owns the site-scoped services needed while text is being written.
+  ComposerController buildChatComposer({
+    required String siteUrl,
+    required int channelId,
+    required String channelTitle,
+  }) => _buildTextComposer(
+    ComposerTarget(
+      siteUrl: siteUrl,
+      topicId: 0,
+      slug: '',
+      topicTitle: channelTitle,
+      chatChannelId: channelId,
+      mode: ComposerMode.chat,
+    ),
+  );
+
   /// Opens a new-topic composer while leaving the originating list in place.
   Future<void> openNewTopic() async {
     final instance = currentInstance;
@@ -3039,7 +3059,7 @@ class ShellController extends FrameSafeNotifier {
       users: (term) async {
         final found = await searchUsers(
           siteUrl: target.siteUrl,
-          topicId: target.topicId,
+          topicId: target.isChat ? null : target.topicId,
           term: term,
         );
         return [
@@ -4908,7 +4928,13 @@ class ShellController extends FrameSafeNotifier {
       mention: (username) => _mentioned[siteUrl]?[username],
       resolve: (refs, usernames) {
         unawaited(_resolveHashtags(siteUrl, refs));
-        unawaited(_resolveMentions(siteUrl, target.topicId, usernames));
+        unawaited(
+          _resolveMentions(
+            siteUrl,
+            target.isChat ? null : target.topicId,
+            usernames,
+          ),
+        );
       },
     );
   }
@@ -4973,7 +4999,7 @@ class ShellController extends FrameSafeNotifier {
   /// The same for usernames, through `/composer/mentions`.
   Future<void> _resolveMentions(
     String siteUrl,
-    int topicId,
+    int? topicId,
     Set<String> usernames,
   ) async {
     final known = _mentioned.putIfAbsent(siteUrl, () => {});
@@ -5030,7 +5056,7 @@ class ShellController extends FrameSafeNotifier {
   /// still be typed out by hand.
   Future<List<FoundUser>> searchUsers({
     required String siteUrl,
-    required int topicId,
+    required int? topicId,
     required String term,
   }) async {
     final lease = lifecycle.capture(siteUrl);

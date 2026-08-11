@@ -60,6 +60,8 @@ ChatChannel channel(
   Completer<void>? channelGate,
   Completer<void>? messageGate,
   WriteException? readFailure,
+  WriteException? sendFailure,
+  Completer<void>? sendGate,
   Duration minimumWindowRefreshInterval = const Duration(seconds: 30),
   DateTime Function()? clock,
 }) {
@@ -69,6 +71,8 @@ ChatChannel channel(
     chatMessagesByKey: messages,
     chatMessageGate: messageGate,
     chatReadFailure: readFailure,
+    chatSendFailure: sendFailure,
+    chatSendGate: sendGate,
   );
   final credentials = FakeApiCredentialReader()..keys[site] = 'key';
   final store = Store();
@@ -676,6 +680,49 @@ void main() {
         expect(subject.chat.stream(site, 9).fetchedOnce, isTrue);
       },
     );
+  });
+
+  group('sending a message', () {
+    test('trims, serializes, and reconciles against the live edge', () async {
+      final gate = Completer<void>();
+      final subject = build(
+        messages: {
+          latestKey(9): page([message(2, minute: 2)]),
+        },
+        sendGate: gate,
+      );
+
+      final first = subject.chat.sendMessage(site, 9, '  hello chat  ');
+      final duplicate = subject.chat.sendMessage(site, 9, 'hello again');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(subject.api.chatMessagesSent, [
+        (siteUrl: site, channelId: 9, message: 'hello chat', threadId: null),
+      ]);
+
+      gate.complete();
+      expect(await first, isTrue);
+      expect(await duplicate, isFalse);
+      expect(subject.chat.stream(site, 9).messageIds, [2]);
+      expect(subject.api.chatMessagesRequested.single.fromLastRead, isFalse);
+    });
+
+    test('surfaces a refusal without replacing the held stream', () async {
+      const refusal = WriteException(
+        WriteFailure.validation,
+        errors: ['That message is not allowed.'],
+      );
+      final subject = build(sendFailure: refusal);
+      subject.store.putAll(site, [message(1)]);
+
+      await expectLater(
+        subject.chat.sendMessage(site, 9, 'hello'),
+        throwsA(same(refusal)),
+      );
+
+      expect(subject.api.chatMessagesSent, hasLength(1));
+      expect(subject.api.chatMessagesRequested, isEmpty);
+    });
   });
 
   group('paging towards the present', () {
