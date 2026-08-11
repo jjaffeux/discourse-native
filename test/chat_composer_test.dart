@@ -49,6 +49,50 @@ void main() {
     expect(before.bottom, closeTo(588, 1));
   });
 
+  testWidgets('focuses the field from any non-button composer space', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    final fieldFinder = find.byType(TextField);
+    final sendFinder = find.byKey(const ValueKey('chat-composer-send'));
+    final field = tester.widget<TextField>(fieldFinder);
+    field.focusNode!.unfocus();
+    await tester.pump();
+
+    final bar = tester.getRect(find.byKey(const ValueKey('chat-composer')));
+    final chromeTarget = bar.topLeft + const Offset(8, 8);
+    expect(tester.getRect(fieldFinder).contains(chromeTarget), isFalse);
+    expect(tester.getRect(sendFinder).contains(chromeTarget), isFalse);
+    await tester.tapAt(chromeTarget);
+    await tester.pump();
+
+    expect(field.focusNode!.hasFocus, isTrue);
+
+    field.focusNode!.unfocus();
+    await tester.pump();
+    final trailingTarget = Offset(bar.right - 2, bar.center.dy);
+    expect(tester.getRect(fieldFinder).contains(trailingTarget), isFalse);
+    expect(tester.getRect(sendFinder).contains(trailingTarget), isFalse);
+    await tester.tapAt(trailingTarget);
+    await tester.pump();
+
+    expect(field.focusNode!.hasFocus, isTrue);
+
+    field.focusNode!.unfocus();
+    await tester.pump();
+    expect(tester.widget<IconButton>(sendFinder).onPressed, isNull);
+    await tester.tap(sendFinder);
+    await tester.pump();
+
+    expect(field.focusNode!.hasFocus, isFalse);
+  });
+
   testWidgets('sends markdown and starts a clean, focused document', (
     tester,
   ) async {

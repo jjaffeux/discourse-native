@@ -178,16 +178,22 @@ class _ChatComposerState extends State<ChatComposer> {
           border: Border.all(color: theme.shell.divider),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 15, 0, 15),
-                child: ComposerEditor(
-                  composer: composer,
-                  hintText: hint,
-                  textStyle: theme.textTheme.bodyMedium,
-                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                excludeFromSemantics: true,
+                onTap: composer.focus.requestFocus,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 15, 0, 15),
+                  child: ComposerEditor(
+                    composer: composer,
+                    hintText: hint,
+                    textStyle: theme.textTheme.bodyMedium,
+                    hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
@@ -215,7 +221,12 @@ class _ChatComposerState extends State<ChatComposer> {
                 color: theme.colorScheme.primary,
               ),
             ),
-            const SizedBox(width: 4),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTap: composer.focus.requestFocus,
+              child: const SizedBox(width: 4),
+            ),
           ],
         ),
       ),
