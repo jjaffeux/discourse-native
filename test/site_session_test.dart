@@ -762,6 +762,53 @@ void main() {
   );
 
   test(
+    'a failed private connection never retries appearance anonymously',
+    () async {
+      final stored = instance(
+        'meta.discourse.org',
+      ).copyWith(loginRequired: true);
+      final store = FakeInstanceStore([stored]);
+      final authenticator = FakeAuthenticator(
+        credentials: const UserApiCredentials(
+          key: 'discarded-account-key',
+          apiVersion: 4,
+          push: false,
+        ),
+      );
+      final api = _RollbackAppearanceApi(
+        authenticator: authenticator,
+        signedOutAppearance: siteAppearance(),
+        accountAppearance: siteAppearance(accent: const Color(0xFFAA2200)),
+      );
+      addTearDown(() {
+        if (!api.finishRevocation.isCompleted) api.finishRevocation.complete();
+      });
+      final shell = ShellController(
+        instanceStore: store,
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(shell.dispose);
+
+      await shell.load();
+      await Future<void>.delayed(Duration.zero);
+      expect(api.appearanceRequests, isEmpty);
+
+      final connecting = shell.connectCurrentInstance();
+      await api.revocationStarted.future;
+      api.finishRevocation.complete();
+      await connecting;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(authenticator.keys[_siteUrl], isNull);
+      expect(api.appearanceRequests, isEmpty);
+      expect(shell.connectError, isNotNull);
+    },
+  );
+
+  test(
     'a failed key deletion cannot authenticate a signed-out appearance',
     () async {
       final signedOutAppearance = siteAppearance();

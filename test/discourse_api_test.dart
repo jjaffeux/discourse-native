@@ -165,6 +165,19 @@ void main() {
       expect(site.loginRequired, isFalse);
     });
 
+    test('preserves a login-only site from basic-info', () async {
+      final api = DiscourseApi(
+        client: discourseServing(
+          basicInfo: {'title': 'Discourse Meetup', 'login_required': true},
+        ),
+      );
+
+      final site = await api.lookup('meetup.discourse.org');
+
+      expect(site.title, 'Discourse Meetup');
+      expect(site.loginRequired, isTrue);
+    });
+
     test('resolves a relative icon against the site', () async {
       final api = DiscourseApi(client: discourseServing());
       final site = await api.lookup('meta.discourse.org');

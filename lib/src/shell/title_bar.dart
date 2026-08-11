@@ -17,10 +17,13 @@ import 'user_menu_button.dart';
 /// phones the status bar already plays this role, so the height is zero there
 /// and the columns carry the avatar in their own headers instead.
 class ShellTitleBar extends StatelessWidget {
-  const ShellTitleBar({super.key});
+  const ShellTitleBar({super.key, this.showControls = true});
+
+  /// Whether search, chat and account actions are drawn in the reserved strip.
+  final bool showControls;
 
   /// Enough room for the traffic lights plus a little breathing space.
-  static const double _height = 38;
+  static const double height = 38;
 
   static bool get isSupported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
@@ -37,29 +40,31 @@ class ShellTitleBar extends StatelessWidget {
     final surface = Theme.of(context).scaffoldBackgroundColor;
 
     return SizedBox(
-      height: _height,
+      height: height,
       child: ColoredBox(
         color: surface,
-        child: Row(
-          children: [
-            // The traffic lights own the left end. Keeping their width in the
-            // row also leaves draggable window background around the field.
-            const SizedBox(width: 88),
-            Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: const ForumSearch(dense: true),
-                ),
-              ),
-            ),
-            ChatHeaderButton(ringColor: surface),
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: UserMenuButton(size: 26, ringColor: surface),
-            ),
-          ],
-        ),
+        child: showControls
+            ? Row(
+                children: [
+                  // The traffic lights own the left end. Keeping their width in the
+                  // row also leaves draggable window background around the field.
+                  const SizedBox(width: 88),
+                  Expanded(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 520),
+                        child: const ForumSearch(dense: true),
+                      ),
+                    ),
+                  ),
+                  ChatHeaderButton(ringColor: surface),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: UserMenuButton(size: 26, ringColor: surface),
+                  ),
+                ],
+              )
+            : null,
       ),
     );
   }

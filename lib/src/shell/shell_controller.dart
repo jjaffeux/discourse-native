@@ -978,7 +978,8 @@ class ShellController extends FrameSafeNotifier {
       ]);
       if (isDisposed || !contains(instance.url)) return;
       await _presentation.ensureAppearance(instance.url);
-    } else if (initialInstance case final instance?) {
+    } else if (initialInstance case final instance?
+        when !instance.loginRequired) {
       if (isDisposed || !contains(instance.url)) return;
       // Anonymous appearance is public and may have been populated by lookup
       // moments ago. Refresh it normally; the warm-start suppression is for a
@@ -1321,6 +1322,11 @@ class ShellController extends FrameSafeNotifier {
   Future<void> loadFeed(String destinationId, {bool force = false}) async {
     final instance = currentInstance;
     if (instance == null) return;
+
+    // Lookup has already established that an anonymous request cannot read
+    // this forum. The shell shows its sign-in action until connecting gives
+    // this request a user API key.
+    if (instance.loginRequired && !instance.isConnected) return;
 
     final path = _feedPath(destinationId, instance);
     if (path == null) return;
@@ -2288,6 +2294,7 @@ class ShellController extends FrameSafeNotifier {
   }) async {
     final instance = currentInstance;
     if (instance == null) return;
+    if (instance.loginRequired && !instance.isConnected) return;
 
     // Before the guards below, not after: both of them return early on the
     // ordinary path — a topic already in the store, or one already being
@@ -5174,6 +5181,8 @@ class ShellController extends FrameSafeNotifier {
   }
 
   Future<void> _ensureCategoriesFor(DiscourseInstance instance) async {
+    if (instance.loginRequired && !instance.isConnected) return;
+
     final lease = lifecycle.capture(instance.url);
     try {
       final apiKey = instance.isConnected
@@ -5570,7 +5579,8 @@ class ShellController extends FrameSafeNotifier {
     }
     if (credentialsDiscarded &&
         rollbackLease.isCurrent &&
-        currentInstance?.url == instance.url) {
+        currentInstance?.url == instance.url &&
+        !instance.loginRequired) {
       // This read is now necessarily anonymous. If deleting the local key
       // failed, retaining native colors is safer than presenting another
       // account-derived palette on a signed-out instance.
@@ -5829,19 +5839,22 @@ class ShellController extends FrameSafeNotifier {
   }) {
     assert(currentInstance?.url == instance.url);
 
+    final canRead = !instance.loginRequired || instance.isConnected;
     search.selectSite(
-      instance.url,
+      canRead ? instance.url : null,
       minimumLength: instance.config.minSearchTermLength,
     );
-    if (refreshAppearance) {
+    if (refreshAppearance && canRead) {
       unawaited(_presentation.ensureAppearance(instance.url));
     }
     // Category navigation is first-class shell state. It cannot depend on the
     // default topic feed succeeding, and its ordering/defaults live in the
     // client settings payload.
-    unawaited(_presentation.ensureConfig(instance.url));
-    unawaited(_presentation.ensureCustomEmojis(instance.url));
-    unawaited(_ensureCategoriesFor(instance));
+    if (canRead) {
+      unawaited(_presentation.ensureConfig(instance.url));
+      unawaited(_presentation.ensureCustomEmojis(instance.url));
+      unawaited(_ensureCategoriesFor(instance));
+    }
     if (instance.isConnected) unawaited(resenha.ensureLoaded(instance.url));
     _syncTracking();
     _syncTopicChannels();
@@ -5850,7 +5863,7 @@ class ShellController extends FrameSafeNotifier {
     // so activation itself must apply its chat capability instead of relying
     // on a callback which only runs after network responses.
     _hydrateSelectedChat(instance);
-    _hydrateActiveTab(instance);
+    if (canRead) _hydrateActiveTab(instance);
   }
 
   void _hydrateActiveTab(DiscourseInstance instance) {

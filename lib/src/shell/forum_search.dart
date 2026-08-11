@@ -181,6 +181,8 @@ class _ForumSearchState extends State<ForumSearch> {
   @override
   Widget build(BuildContext context) {
     final search = _search!;
+    if (search.siteUrl == null) return const SizedBox.shrink();
+
     final theme = Theme.of(context);
     final shortcut = defaultTargetPlatform == TargetPlatform.macOS
         ? '⌘K'

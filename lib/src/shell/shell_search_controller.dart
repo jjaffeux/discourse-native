@@ -328,6 +328,7 @@ class ShellSearchController extends ChangeNotifier {
   }
 
   void requestFocus() {
+    if (_siteUrl == null) return;
     _focusField?.call();
     openPanel();
   }

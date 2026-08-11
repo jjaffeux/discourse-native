@@ -45,8 +45,15 @@ enum ShellLayout {
   bool get isCompact => this == ShellLayout.compact;
 }
 
-/// The application frame. The rail is present at every size; everything to the
-/// right of it is what changes.
+typedef _PrivateForumSnapshot = ({
+  String? siteTitle,
+  bool connecting,
+  String? error,
+});
+
+/// The application frame. A signed-out private forum replaces it with one
+/// account boundary; once a forum is readable, the rail is present at every
+/// size and everything to its right adapts to the available width.
 class AdaptiveShell extends StatefulWidget {
   const AdaptiveShell({super.key});
 
@@ -109,16 +116,42 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   @override
   Widget build(BuildContext context) {
-    final diagnostics = DiagnosticsScope.maybeRead(context);
-    if (diagnostics == null) return _buildScaffold(null, false);
+    return ShellSelector<_PrivateForumSnapshot>(
+      select: (controller) {
+        final instance = controller.currentInstance;
+        final privateForum =
+            controller.loadStatus == InstanceLoadStatus.ready &&
+            instance?.loginRequired == true &&
+            instance?.isConnected == false;
+        return (
+          siteTitle: privateForum ? instance!.title : null,
+          connecting: privateForum && controller.connecting,
+          error: privateForum ? controller.connectError : null,
+        );
+      },
+      builder: (context, privateForum, _) {
+        if (privateForum.siteTitle case final siteTitle?) {
+          return Scaffold(
+            body: _PrivateForumShell(
+              siteTitle: siteTitle,
+              connecting: privateForum.connecting,
+              error: privateForum.error,
+            ),
+          );
+        }
 
-    // Panel visibility is the only diagnostics-controller state that rebuilds
-    // this frame. HTTP traffic is listened to by DiagnosticsPanel itself,
-    // below the shell chrome, so it cannot rebuild the rail, sidebar, topic
-    // list, or chat stream.
-    return ValueListenableBuilder<bool>(
-      valueListenable: diagnostics.panelListenable,
-      builder: (context, open, _) => _buildScaffold(diagnostics, open),
+        final diagnostics = DiagnosticsScope.maybeRead(context);
+        if (diagnostics == null) return _buildScaffold(null, false);
+
+        // Panel visibility is the only diagnostics-controller state that
+        // rebuilds this frame. HTTP traffic is listened to by DiagnosticsPanel
+        // itself, below the shell chrome, so it cannot rebuild the rail,
+        // sidebar, topic list, or chat stream.
+        return ValueListenableBuilder<bool>(
+          valueListenable: diagnostics.panelListenable,
+          builder: (context, open, _) => _buildScaffold(diagnostics, open),
+        );
+      },
     );
   }
 
@@ -281,6 +314,165 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         if (!didPop && diagnostics.isPanelOpen) diagnostics.closePanel();
       },
       child: child,
+    );
+  }
+}
+
+/// Keeps app-level forum switching available while one forum is locked.
+class _PrivateForumShell extends StatelessWidget {
+  const _PrivateForumShell({
+    required this.siteTitle,
+    required this.connecting,
+    required this.error,
+  });
+
+  final String siteTitle;
+  final bool connecting;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const ShellTitleBar(showControls: false),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final layout = ShellLayout.forWidth(constraints.maxWidth);
+              final railWidth = layout.isCompact
+                  ? AdaptiveShell.compactRailWidth
+                  : AdaptiveShell.railWidth;
+              return Row(
+                children: [
+                  SizedBox(width: railWidth, child: const InstanceRail()),
+                  Expanded(
+                    child: ShellPanel(
+                      child: _PrivateForumSignIn(
+                        siteTitle: siteTitle,
+                        connecting: connecting,
+                        error: error,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The full-shell account boundary for a forum whose content is private.
+///
+/// Lookup has already established that anonymous requests cannot read this
+/// forum. Keep its forum-specific chrome out of view until authentication
+/// succeeds, while [_PrivateForumShell] preserves app-level forum switching.
+class _PrivateForumSignIn extends StatelessWidget {
+  const _PrivateForumSignIn({
+    required this.siteTitle,
+    required this.connecting,
+    required this.error,
+  });
+
+  final String siteTitle;
+  final bool connecting;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final controller = ShellScope.read(context);
+
+    return ColoredBox(
+      key: const ValueKey('private-forum-gate'),
+      color: theme.shell.content,
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DIcon(
+                    DIcons.lock,
+                    size: 48,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Sign in to continue',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '$siteTitle is a private forum. Sign in to view its topics '
+                    'and conversations.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (error case final message?) ...[
+                    const SizedBox(height: 16),
+                    Semantics(
+                      liveRegion: true,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.errorContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DIcon(
+                              DIcons.triangleExclamation,
+                              size: 18,
+                              color: theme.colorScheme.onErrorContainer,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                message,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onErrorContainer,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                    key: const ValueKey('private-forum-sign-in'),
+                    onPressed: connecting
+                        ? null
+                        : () => unawaited(controller.connectCurrentInstance()),
+                    icon: connecting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator.adaptive(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const DIcon(DIcons.upRightFromSquare, size: 18),
+                    label: Text(connecting ? 'Signing in…' : 'Sign in'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

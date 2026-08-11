@@ -212,6 +212,18 @@ final class _GatedUserCardApi extends FakeDiscourseApi {
   }
 }
 
+final class _GatedConnectAuthenticator extends FakeAuthenticator {
+  final gate = Completer<void>();
+  final started = Completer<void>();
+
+  @override
+  Future<UserApiCredentials> connect(String siteUrl) async {
+    started.complete();
+    await gate.future;
+    return super.connect(siteUrl);
+  }
+}
+
 /// The account avatar in the top right, wherever the layout has put it.
 final Finder userMenu = find.byKey(UserMenuButton.avatarKey);
 
@@ -1826,6 +1838,109 @@ void main() {
       expect(find.byType(InstanceSidebar), findsOneWidget);
       expect(find.text('Discourse Meta'), findsOneWidget);
       expect(store.saveCount, 1);
+    });
+
+    testWidgets('a private site asks for sign-in before requesting content', (
+      tester,
+    ) async {
+      final store = FakeInstanceStore(const []);
+      final authenticator = _GatedConnectAuthenticator();
+      final privateSite = instance(
+        'meetup.discourse.org',
+        title: 'Discourse Meetup',
+      ).copyWith(loginRequired: true);
+      final api = FakeDiscourseApi(
+        results: {'meetup.discourse.org': privateSite},
+        feeds: {
+          '/latest.json': const [
+            Topic(id: 7, title: 'Welcome inside', slug: 'welcome-inside'),
+          ],
+        },
+      );
+
+      await pumpShell(
+        tester,
+        desktop,
+        store: store,
+        api: api,
+        authenticator: authenticator,
+      );
+
+      await tester.tap(find.text('Add a site'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'meetup.discourse.org');
+      await tester.tap(find.text('Connect'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sign in to continue'), findsOneWidget);
+      expect(
+        find.text(
+          'Discourse Meetup is a private forum. Sign in to view its topics '
+          'and conversations.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.dIcon(DIcons.lock), findsOneWidget);
+      expect(find.byType(MainContent), findsNothing);
+      expect(find.byType(InstanceRail), findsOneWidget);
+      expect(find.byType(InstanceSidebar), findsNothing);
+      expect(find.byType(ForumTabsBar), findsNothing);
+      expect(find.byType(ShellTitleBar), findsOneWidget);
+      expect(find.byKey(ForumSearch.inputKey), findsNothing);
+      expect(userMenu, findsNothing);
+      final railBounds = tester.getRect(find.byType(InstanceRail));
+      final gateBounds = tester.getRect(
+        find.byKey(const ValueKey('private-forum-gate')),
+      );
+      expect(railBounds.left, 0);
+      expect(railBounds.right, gateBounds.left);
+      expect(railBounds.top, gateBounds.top);
+      expect(
+        find.byKey(const ValueKey('private-forum-chrome-placeholder')),
+        findsNothing,
+      );
+      expect(gateBounds.right, desktop.width);
+      expect(gateBounds.bottom, desktop.height);
+      expect(api.feedPaths, isEmpty);
+      expect(api.appearancesRequested, isEmpty);
+      expect(api.siteConfigsRequested, isEmpty);
+      expect(api.customEmojisRequired, isEmpty);
+      expect(api.categoryRequests, isEmpty);
+      expect(api.searchesRequested, isEmpty);
+      expect(find.textContaining('Not allowed'), findsNothing);
+      final controller = ShellScope.read(
+        tester.element(find.byKey(const ValueKey('private-forum-sign-in'))),
+      );
+      expect(controller.search.siteUrl, isNull);
+      expect(find.byKey(ForumSearch.inputKey), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('private-forum-sign-in')));
+      await tester.pump();
+      await authenticator.started.future;
+      await tester.pump();
+
+      expect(find.text('Signing in…'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('private-forum-sign-in')),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      authenticator.gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(authenticator.connected, ['https://meetup.discourse.org']);
+      expect(api.feedPaths, ['/latest.json']);
+      expect(find.text('Welcome inside'), findsOneWidget);
+      expect(find.text('Sign in to continue'), findsNothing);
+      expect(find.byType(MainContent), findsOneWidget);
+      expect(find.byType(InstanceRail), findsOneWidget);
+      expect(find.byType(InstanceSidebar), findsOneWidget);
+      expect(controller.search.siteUrl, 'https://meetup.discourse.org');
+      expect(find.byKey(ForumSearch.inputKey), findsWidgets);
     });
 
     testWidgets('a failed lookup reports why and adds nothing', (tester) async {
@@ -3657,6 +3772,66 @@ void main() {
       // a cancellation it cannot pass silently.
       expect(find.byType(SnackBar), findsOneWidget);
       expect(find.textContaining('Could not open'), findsOneWidget);
+    });
+
+    testWidgets('a private-site sign-in failure stays actionable in the gate', (
+      tester,
+    ) async {
+      final auth = FakeAuthenticator(failure: UserApiAuthFailure.launchFailed);
+      final api = FakeDiscourseApi();
+      final privateSite = instance(
+        'meetup.discourse.org',
+        title: 'Discourse Meetup',
+      ).copyWith(loginRequired: true);
+      final publicSite = instance(
+        'meta.discourse.org',
+        title: 'Discourse Meta',
+      );
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [privateSite, publicSite],
+        api: api,
+        authenticator: auth,
+      );
+
+      expect(api.feedPaths, isEmpty);
+      expect(api.appearancesRequested, isEmpty);
+      expect(api.siteConfigsRequested, isEmpty);
+      expect(api.customEmojisRequired, isEmpty);
+      expect(api.categoryRequests, isEmpty);
+
+      expect(find.byType(MainContent), findsNothing);
+      expect(find.byType(InstanceRail), findsOneWidget);
+      expect(find.byType(InstanceSidebar), findsNothing);
+      expect(find.byType(ForumTabsBar), findsNothing);
+      expect(find.byType(ShellTitleBar), findsOneWidget);
+      expect(find.byKey(ForumSearch.inputKey), findsNothing);
+      expect(userMenu, findsNothing);
+      expect(find.byKey(ValueKey(privateSite.url)), findsOneWidget);
+      expect(find.byKey(ValueKey(publicSite.url)), findsOneWidget);
+
+      await tester.tap(find.byKey(ValueKey(publicSite.url)));
+      await tester.pumpAndSettle();
+      expect(find.byType(MainContent), findsOneWidget);
+      expect(find.byType(InstanceSidebar), findsOneWidget);
+
+      await tester.tap(find.byKey(ValueKey(privateSite.url)));
+      await tester.pumpAndSettle();
+      expect(find.text('Sign in to continue'), findsOneWidget);
+      expect(find.byType(MainContent), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('private-forum-sign-in')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sign in to continue'), findsOneWidget);
+      expect(find.textContaining('Could not open'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('private-forum-sign-in')),
+        findsOneWidget,
+      );
+      expect(find.byType(SnackBar), findsNothing);
     });
 
     testWidgets('counters appear once connected', (tester) async {
