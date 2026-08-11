@@ -98,8 +98,16 @@ class _ChatComposerState extends State<ChatComposer> {
       // can make the composer feel busy. In particular, never clear from the
       // async completion path: the reader may already be writing their next
       // message by then.
+      //
+      // `clearDocument` replaces the keyed editor to reset its undo history.
+      // Drop focus first so the replacement opens a fresh input connection.
+      composer.focus.unfocus();
       composer.clearDocument();
-      composer.focus.requestFocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && identical(_composer, composer)) {
+          composer.focus.requestFocus();
+        }
+      });
       await sending;
     } catch (_) {
       // The optimistic row owns delivery errors and retry. Keeping the same
