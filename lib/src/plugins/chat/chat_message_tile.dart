@@ -27,7 +27,6 @@ class ChatMessageTile extends StatelessWidget {
     required this.siteUrl,
     required this.messageId,
     required this.chained,
-    this.replyTo,
   });
 
   final String siteUrl;
@@ -37,11 +36,6 @@ class ChatMessageTile extends StatelessWidget {
   /// name and no time. Decided by `buildChatStream` over the whole list, since
   /// it is a fact about two messages rather than about one.
   final bool chained;
-
-  /// Passed in rather than read off the record because the reply indicator is
-  /// suppressed when the message being answered is the row directly above,
-  /// which only the list knows.
-  final ChatReplyTo? replyTo;
 
   /// Width of the avatar plus its gutter, so a chained row's body lines up with
   /// the one above it.

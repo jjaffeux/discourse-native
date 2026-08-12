@@ -1855,10 +1855,10 @@ class ChatController extends FrameSafeNotifier {
         }
         store.putAll(siteUrl, page.messages);
         final current = _streams[key] ?? const ChatStreamState();
-        final merged = _sortedIds(
-          siteUrl,
+        final merged = _mergePageIds(
           page.messages,
           held: current.messageIds,
+          prepend: true,
         );
 
         _setStream(
@@ -1958,10 +1958,10 @@ class ChatController extends FrameSafeNotifier {
         }
         store.putAll(siteUrl, page.messages);
         final current = _streams[key] ?? const ChatStreamState();
-        final merged = _sortedIds(
-          siteUrl,
+        final merged = _mergePageIds(
           page.messages,
           held: current.messageIds,
+          prepend: false,
         );
 
         _setStream(
@@ -2241,6 +2241,36 @@ class ChatController extends FrameSafeNotifier {
       final byDate = dates[a]!.compareTo(dates[b]!);
       return byDate != 0 ? byDate : a.compareTo(b);
     });
+  }
+
+  /// Adds one directional page without sorting the whole accumulated window.
+  ///
+  /// The API contract says a past page precedes the held cursor and a future
+  /// page follows it. Sorting and deduplicating the at-most-50 arrivals is
+  /// therefore sufficient; re-reading and sorting every older message made
+  /// each trip back through a channel progressively more expensive.
+  List<int> _mergePageIds(
+    Iterable<ChatMessage> arrived, {
+    required List<int> held,
+    required bool prepend,
+  }) {
+    final heldIds = held.toSet();
+    final dates = <int, DateTime>{
+      for (final message in arrived)
+        if (!heldIds.contains(message.id))
+          message.id:
+              message.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+    };
+    final fresh = dates.keys.toList()
+      ..sort((a, b) {
+        final byDate = dates[a]!.compareTo(dates[b]!);
+        return byDate != 0 ? byDate : a.compareTo(b);
+      });
+    if (fresh.isEmpty) return held;
+
+    return List.unmodifiable(
+      prepend ? [...fresh, ...held] : [...held, ...fresh],
+    );
   }
 
   @override

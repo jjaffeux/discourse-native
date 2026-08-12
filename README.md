@@ -655,12 +655,14 @@ marks anything read.
 The stream is one flat list, oldest first, **contiguous** — that is the
 invariant paging depends on, since `loadOlder` pages before the first message
 held and a hole above it could never be filled. So a re-open *replaces* rather
-than merges. Ids are deduped and sorted by `(created_at, id)`, the site's own
-`ORDER BY`; the tiebreak is load-bearing rather than tidy, because iso8601
-carries seconds and Dart's sort is unstable, so two messages written in the same
-second would swap places on every merge and the list would reshuffle under the
-reader. A page that arrives with no new ids in it also ends the paging, whatever
-the site said, so a cursor answering the same page forever cannot spin.
+than merges. Ids in each response are deduped and sorted by `(created_at, id)`,
+the site's own `ORDER BY`; a directional page is then joined at the edge its
+cursor contract names instead of re-reading and sorting the whole accumulated
+history. The tiebreak is load-bearing rather than tidy, because iso8601 carries
+seconds and Dart's sort is unstable, so two messages written in the same second
+would otherwise swap places and reshuffle the list under the reader. A page
+that arrives with no new ids in it also ends the paging, whatever the site said,
+so a cursor answering the same page forever cannot spin.
 
 **The list is reversed, not the array.** Index 0 is the newest message. Older
 messages take higher scroll offsets, the viewport lays out from offset 0 outward

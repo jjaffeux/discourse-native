@@ -95,6 +95,7 @@ const Duration chatChainWindow = Duration(minutes: 5);
 List<ChatStreamItem> buildChatStream(
   List<ChatMessage> messages, {
   int? lastReadMessageId,
+  int? newestMessageId,
 }) {
   final items = <ChatStreamItem>[];
 
@@ -108,7 +109,8 @@ List<ChatStreamItem> buildChatStream(
             .map((message) => message.id)
             .firstOrNull;
   final showDivider =
-      firstUnreadId != null && firstUnreadId != messages.lastOrNull?.id;
+      firstUnreadId != null &&
+      firstUnreadId != (newestMessageId ?? messages.lastOrNull?.id);
 
   ChatMessage? previous;
   var deletedRun = 0;
@@ -161,6 +163,43 @@ List<ChatStreamItem> buildChatStream(
 
   flushDeleted();
   return items;
+}
+
+/// Extends an existing projection with a page immediately before it.
+///
+/// Only the new page and the seam need projecting again. [existingLeading]
+/// starts at the old window's first message and ends at its first non-deleted
+/// message. That last row is a safe splice point: it flushes any deleted run,
+/// and every later row depends only on messages that have not changed.
+///
+/// Null means the supplied projection has no safe seam and the caller should
+/// rebuild the whole stream. This is rare (an existing window made entirely of
+/// moderator-visible deleted messages), but correctness is worth the fallback.
+List<ChatStreamItem>? prependChatStream({
+  required List<ChatStreamItem> existingItems,
+  required List<ChatMessage> prepended,
+  required List<ChatMessage> existingLeading,
+  int? lastReadMessageId,
+  int? newestMessageId,
+}) {
+  if (prepended.isEmpty || existingLeading.isEmpty) return null;
+
+  final boundary = existingLeading.last;
+  if (boundary.isDeleted) return null;
+
+  final boundaryRow = existingItems.indexWhere(
+    (item) => item is ChatStreamMessage && item.id == boundary.id,
+  );
+  if (boundaryRow < 0) return null;
+
+  return [
+    ...buildChatStream(
+      [...prepended, ...existingLeading],
+      lastReadMessageId: lastReadMessageId,
+      newestMessageId: newestMessageId,
+    ),
+    ...existingItems.skip(boundaryRow + 1),
+  ];
 }
 
 /// Whether [message] belongs to the run [previous] is part of.

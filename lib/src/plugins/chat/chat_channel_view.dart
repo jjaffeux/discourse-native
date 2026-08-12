@@ -87,7 +87,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   List<int>? _projectedMessageIds;
   List<int>? _projectedLocalMessageIds;
   int? _projectedLastRead;
-  List<ChatMessage> _messages = const [];
   List<ChatStreamItem> _items = const [];
 
   @override
@@ -130,7 +129,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         siteUrl: widget.siteUrl,
         channelId: widget.channelId,
         items: _items,
-        messages: _messages,
         stream: stream,
       );
     } else if (stream.loading) {
@@ -171,18 +169,76 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       return;
     }
 
+    final extended = _extendProjectionIntoPast(stream);
+    if (!extended) {
+      final messages = widget.chat.messages(widget.siteUrl, widget.channelId);
+      // The stream's snapshot rather than the membership's live answer:
+      // reading moves the membership under the reader, and a divider that
+      // followed it would slide away as they scrolled. See
+      // `ChatStreamState.lastReadOnOpen`.
+      _items = buildChatStream(
+        messages,
+        lastReadMessageId: stream.lastReadOnOpen,
+      );
+    }
+
     _projectedMessageIds = stream.messageIds;
     _projectedLocalMessageIds = stream.localMessageIds;
     _projectedLastRead = stream.lastReadOnOpen;
-    _messages = widget.chat.messages(widget.siteUrl, widget.channelId);
-    // The stream's snapshot rather than the membership's live answer: reading
-    // moves the membership under the reader, and a divider that followed it
-    // would slide away as they scrolled. See `ChatStreamState.lastReadOnOpen`.
-    _items = buildChatStream(
-      _messages,
-      lastReadMessageId: stream.lastReadOnOpen,
-    );
   }
+
+  /// Projects an older page without walking the accumulated history again.
+  ///
+  /// A past page is a prefix of the canonical id list. Grouping only needs the
+  /// page and the first old non-deleted message: that row closes a deleted run
+  /// and gives the projection a stable seam. Other changes (a fresh window,
+  /// live message, forward page, or optimistic row) take the full fallback in
+  /// [_syncProjection].
+  bool _extendProjectionIntoPast(ChatStreamState stream) {
+    final previous = _projectedMessageIds;
+    if (previous == null || previous.isEmpty) return false;
+    if (!identical(_projectedLocalMessageIds, stream.localMessageIds) ||
+        _projectedLastRead != stream.lastReadOnOpen) {
+      return false;
+    }
+
+    final added = stream.messageIds.length - previous.length;
+    if (added <= 0 ||
+        stream.messageIds[added] != previous.first ||
+        stream.messageIds.last != previous.last) {
+      return false;
+    }
+
+    final prepended = <ChatMessage>[];
+    for (var index = 0; index < added; index++) {
+      final message = _message(stream.messageIds[index]);
+      if (message == null) return false;
+      prepended.add(message);
+    }
+
+    final existingLeading = <ChatMessage>[];
+    for (final id in previous) {
+      final message = _message(id);
+      if (message == null) return false;
+      existingLeading.add(message);
+      if (!message.isDeleted) break;
+    }
+
+    final projected = prependChatStream(
+      existingItems: _items,
+      prepended: prepended,
+      existingLeading: existingLeading,
+      lastReadMessageId: stream.lastReadOnOpen,
+      newestMessageId:
+          stream.localMessageIds.lastOrNull ?? stream.messageIds.lastOrNull,
+    );
+    if (projected == null) return false;
+    _items = projected;
+    return true;
+  }
+
+  ChatMessage? _message(int id) =>
+      widget.chat.messageRef(widget.siteUrl, id).value;
 }
 
 /// The list itself.
@@ -199,14 +255,12 @@ class _Stream extends StatefulWidget {
     required this.siteUrl,
     required this.channelId,
     required this.items,
-    required this.messages,
     required this.stream,
   });
 
   final String siteUrl;
   final int channelId;
   final List<ChatStreamItem> items;
-  final List<ChatMessage> messages;
   final ChatStreamState stream;
 
   @override
@@ -649,10 +703,6 @@ class _StreamState extends State<_Stream> {
     final stream = widget.stream;
     final chat = ShellScope.read(context).chat;
 
-    // Messages by id, so a row can reach its own record without walking the
-    // list. Built once per build rather than per row.
-    final byId = {for (final message in widget.messages) message.id: message};
-
     final leading = _leadingRows;
     final lastRow = leading + items.length - 1;
 
@@ -730,7 +780,6 @@ class _StreamState extends State<_Stream> {
                   siteUrl: siteUrl,
                   messageId: id,
                   chained: chained,
-                  replyTo: byId[id]?.replyTo,
                 ),
                 ChatStreamDay(:final day) => _DaySeparator(day: day),
                 ChatStreamDeleted(:final count) => _DeletedRun(count: count),
