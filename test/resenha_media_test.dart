@@ -604,7 +604,7 @@ void main() {
       },
     );
 
-    test('the lower-id peer rolls back a fallback-offer collision', () async {
+    test('the lower-id peer keeps its offer during a collision', () async {
       final peer = _FakePeerConnection();
       final media = _meshSession(peer: peer, audioPublishingAllowed: false);
       await media.connect();
@@ -612,8 +612,10 @@ void main() {
 
       await media.handleSignal(20, {'type': 'offer', 'sdp': 'fallback-offer'});
 
-      expect(peer.rollbackCount, 1);
-      expect(peer.createdAnswers, 1);
+      expect(peer.rollbackCount, 0);
+      expect(peer.createdAnswers, 0);
+      expect((await peer.getLocalDescription())?.type, 'offer');
+      expect(await peer.getRemoteDescription(), isNull);
       await media.dispose();
     });
 

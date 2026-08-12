@@ -1337,12 +1337,23 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
         final collision =
             _makingOffer.contains(senderId) ||
             signalingState != rtc.RTCSignalingState.RTCSignalingStateStable;
-        final polite = localUserId < senderId;
-        if (collision && !polite) return;
         if (collision) {
-          await peer.setLocalDescription(
-            rtc.RTCSessionDescription('', 'rollback'),
+          // Mesh creation deterministically assigns the lower user ID as the
+          // offerer. Keep that negotiation when both clients briefly offer:
+          // flutter_webrtc's Darwin bridge cannot represent a rollback
+          // description because the native SDK rejects its required empty SDP.
+          _recordDiagnostic(
+            diagnostics,
+            'mesh.signaling.offer_ignored',
+            component: 'webrtc',
+            correlationId: correlationId,
+            data: {
+              'peerAlias': _peerDiagnosticAlias(senderId),
+              'makingOffer': _makingOffer.contains(senderId),
+              'signalingState': _diagnosticEnumName(signalingState),
+            },
           );
+          return;
         }
         await peer.setRemoteDescription(
           rtc.RTCSessionDescription(sdp, 'offer'),
