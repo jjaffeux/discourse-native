@@ -679,6 +679,13 @@ static __weak id<RTCAudioDeviceModuleDelegate> gAudioDeviceModuleObserver = nil;
     NSString* peerConnectionId = argsMap[@"peerConnectionId"];
     NSDictionary* candMap = argsMap[@"candidate"];
     NSString* sdp = candMap[@"candidate"];
+    if (![sdp isKindOfClass:[NSString class]] || sdp.length == 0) {
+      // An empty candidate is the standard end-of-candidates marker. The
+      // Darwin RTCIceCandidate initializer asserts on empty SDP, so completing
+      // this optional marker without constructing a native candidate is safer.
+      result(nil);
+      return;
+    }
     id sdpMLineIndexValue = candMap[@"sdpMLineIndex"];
     int sdpMLineIndex = 0;
     if (![sdpMLineIndexValue isKindOfClass:[NSNull class]]) {

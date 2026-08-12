@@ -551,6 +551,13 @@ void main() {
 
       expect(peer.addedCandidates, hasLength(1));
       expect(peer.addedCandidates.single.sdpMLineIndex, 0);
+
+      await media.handleSignal(10, {
+        'type': 'candidate',
+        'candidate': {'candidate': '', 'sdpMid': '0', 'sdpMLineIndex': '0'},
+      });
+
+      expect(peer.addedCandidates, hasLength(1));
       await media.dispose();
     });
 

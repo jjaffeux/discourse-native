@@ -358,6 +358,10 @@ final class _MeshCandidateSignal extends _MeshInboundSignal {
   final int? sdpMLineIndex;
 }
 
+final class _MeshEndOfCandidatesSignal extends _MeshInboundSignal {
+  const _MeshEndOfCandidatesSignal();
+}
+
 _MeshInboundSignal? _parseMeshInboundSignal(Map<String, dynamic> data) {
   switch (data['type']) {
     case 'offer' || 'answer':
@@ -375,6 +379,9 @@ _MeshInboundSignal? _parseMeshInboundSignal(Map<String, dynamic> data) {
       if (candidate is String &&
           candidate.length > _maxMeshCandidateCodeUnits) {
         return null;
+      }
+      if (candidate == null || (candidate is String && candidate.isEmpty)) {
+        return const _MeshEndOfCandidatesSignal();
       }
       final sdpMid = raw['sdpMid'];
       if (sdpMid != null && sdpMid is! String) return null;
@@ -1401,6 +1408,14 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
             data: {'peerAlias': _peerDiagnosticAlias(senderId)},
           );
         }
+      case _MeshEndOfCandidatesSignal():
+        _recordDiagnostic(
+          diagnostics,
+          'mesh.ice.end_of_candidates.received',
+          component: 'webrtc',
+          correlationId: correlationId,
+          data: {'peerAlias': _peerDiagnosticAlias(senderId)},
+        );
     }
   }
 
