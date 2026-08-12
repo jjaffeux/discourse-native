@@ -245,6 +245,10 @@ void main() {
           .last;
       expect(tester.getSize(target), const Size.square(44));
       expect(
+        tester.getCenter(target).dx,
+        tester.getCenter(find.byType(ChatChannelView)).dx,
+      );
+      expect(
         tester.getSemantics(target),
         isSemantics(
           label: 'Jump to latest messages',
