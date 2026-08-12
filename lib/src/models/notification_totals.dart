@@ -107,6 +107,19 @@ class NotificationTotals {
     );
   }
 
+  /// Applies one exact change from chat's per-channel tracking state.
+  ///
+  /// `/notifications/totals.json` is only a snapshot. Chat reads and live
+  /// messages move the same count through their own MessageBus channels, so
+  /// folding their delta here keeps the rail and user menu in step without an
+  /// extra totals request after every viewport read. A replayed or otherwise
+  /// inconsistent negative delta is floored rather than producing an
+  /// impossible badge.
+  NotificationTotals withChatNotificationsDelta(int delta) {
+    final updated = chatNotifications + delta;
+    return copyWith(chatNotifications: updated < 0 ? 0 : updated);
+  }
+
   final int unreadNotifications;
   final int unreadPersonalMessages;
   final int unseenReviewables;

@@ -366,6 +366,12 @@ class ShellController extends FrameSafeNotifier {
     currentUserFor: (siteUrl) => _instanceAt(siteUrl)?.user,
     siteConfigFor: siteConfigFor,
     previewEngine: pluginRegistry.chatPreviewEngine,
+    onChatNotificationsDelta: (siteUrl, delta) {
+      accountActivity.applyCounts(
+        siteUrl,
+        (held) => held.withChatNotificationsDelta(delta),
+      );
+    },
   );
 
   /// One-shot scroll/fetch intent for the Chat screen selected by navigation.

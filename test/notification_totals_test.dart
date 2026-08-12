@@ -48,6 +48,24 @@ void main() {
     expect(totals.hasChatEnabled, isTrue);
   });
 
+  test('chat tracking deltas preserve the snapshot and never go negative', () {
+    const held = NotificationTotals(
+      unreadNotifications: 2,
+      chatNotifications: 6,
+      topicTrackingUnread: 4,
+      hasChatEnabled: true,
+    );
+
+    final read = held.withChatNotificationsDelta(-6);
+    final replayed = read.withChatNotificationsDelta(-1);
+
+    expect(read.chatNotifications, 0);
+    expect(read.unreadNotifications, 2);
+    expect(read.topicTrackingUnread, 4);
+    expect(read.hasChatEnabled, isTrue);
+    expect(replayed.chatNotifications, 0);
+  });
+
   group('withNotification', () {
     test('derives the notification count the way the endpoint does', () {
       // `UserNotificationTotalSerializer` reports

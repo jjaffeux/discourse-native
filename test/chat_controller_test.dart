@@ -99,6 +99,7 @@ ChatChannel channel(
   Completer<void>? reactionGate,
   FakeApiCredentialReader? credentialReader,
   DiscourseUser? currentUser,
+  ChatNotificationsDelta? onChatNotificationsDelta,
   Duration minimumWindowRefreshInterval = const Duration(seconds: 30),
   DateTime Function()? clock,
 }) {
@@ -123,6 +124,7 @@ ChatChannel channel(
       credentials: credentials,
       store: store,
       currentUserFor: (_) => currentUser,
+      onChatNotificationsDelta: onChatNotificationsDelta,
       minimumWindowRefreshInterval: minimumWindowRefreshInterval,
       clock: clock,
     ),
@@ -474,8 +476,10 @@ void main() {
     );
 
     test('reorders direct messages when a new-message event arrives', () async {
+      final deltas = <int>[];
       final subject = build(
         currentUser: currentUser,
+        onChatNotificationsDelta: (_, delta) => deltas.add(delta),
         channels: {
           site: ChatChannels(
             direct: [
@@ -520,6 +524,7 @@ void main() {
       ]);
       expect(subject.chat.channel(site, 13)?.tracking.unreadCount, 1);
       expect(subject.chat.channel(site, 13)?.lastMessageId, 60);
+      expect(deltas, [1]);
 
       // MessageBus replay and out-of-order delivery must not double-count.
       tracker.deliverPluginMessage(
@@ -532,6 +537,7 @@ void main() {
         ),
       );
       expect(subject.chat.channel(site, 13)?.tracking.unreadCount, 1);
+      expect(deltas, [1]);
 
       // A message sent from another client updates activity without becoming
       // unread. The older urgent conversation therefore remains above it;
@@ -551,6 +557,7 @@ void main() {
       ]);
       expect(subject.chat.channel(site, 12)?.tracking.unreadCount, 0);
       expect(subject.chat.channel(site, 12)?.membership.lastReadMessageId, 70);
+      expect(deltas, [1]);
 
       subject.chat.forget(site);
       expect(tracker.pluginChannelCallbacks['/chat/12/new-messages'], isEmpty);
@@ -985,8 +992,10 @@ void main() {
     );
 
     test('reconciles single and bulk user tracking snapshots', () async {
+      final deltas = <int>[];
       final subject = build(
         currentUser: currentUser,
+        onChatNotificationsDelta: (_, delta) => deltas.add(delta),
         channels: {
           site: ChatChannels(
             direct: [
@@ -1035,7 +1044,38 @@ void main() {
       expect(subject.chat.channel(site, 12)?.tracking, ChatTracking.none);
       expect(subject.chat.channel(site, 13)?.membership.lastReadMessageId, 51);
       expect(subject.chat.channel(site, 13)?.tracking, ChatTracking.none);
+      expect(deltas, [-2, -3]);
     });
+
+    test(
+      'reconciles notification totals on a forced channel refresh',
+      () async {
+        final deltas = <int>[];
+        final channels = <String, ChatChannels>{
+          site: ChatChannels(
+            public: [channel(9, unread: 8, mentions: 2)],
+            direct: [
+              channel(12, kind: ChatChannelKind.directMessage, unread: 3),
+            ],
+          ),
+        };
+        final subject = build(
+          channels: channels,
+          onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+        );
+        await subject.chat.loadChannels(site);
+
+        channels[site] = ChatChannels(
+          public: [channel(9, unread: 8, mentions: 1)],
+          direct: [channel(12, kind: ChatChannelKind.directMessage)],
+        );
+        await subject.chat.loadChannels(site, force: true);
+
+        // Public chat contributes mentions; direct messages contribute unread
+        // messages, matching Chat::ChannelFetcher#unreads_total.
+        expect(deltas, [-4]);
+      },
+    );
 
     test('asks a site once rather than once per caller', () async {
       final subject = build(
@@ -2920,6 +2960,68 @@ void main() {
 
         expect(held(subject.store)?.tracking, ChatTracking.none);
         expect(held(subject.store)?.badge.isVisible, isFalse);
+      },
+    );
+
+    test(
+      'clears a DM when a newer thread reply is absent from the root stream',
+      () async {
+        final deltas = <(String, int)>[];
+        final subject = build(
+          onChatNotificationsDelta: (siteUrl, delta) {
+            deltas.add((siteUrl, delta));
+          },
+          channels: {
+            site: ChatChannels(
+              direct: [
+                channel(
+                  9,
+                  kind: ChatChannelKind.directMessage,
+                  lastRead: 1,
+                  unread: 6,
+                  threadingEnabled: true,
+                  // The channel serializer includes thread replies here, but
+                  // the root message endpoint intentionally does not.
+                  lastMessageId: 40,
+                ),
+              ],
+            ),
+          },
+          messages: {
+            key(9): page([
+              message(1),
+              message(2, minute: 1),
+              message(3, minute: 2),
+            ]),
+          },
+        );
+
+        await subject.chat.loadChannels(site);
+        await subject.chat.openChannel(site, 9);
+        expect(
+          subject.chat
+              .headerIndicator(
+                site,
+                ChatHeaderIndicatorPreference.directMessagesAndMentions,
+              )
+              .urgentCount,
+          6,
+        );
+
+        await subject.chat.markRead(site, 9, 3);
+
+        expect(subject.chat.channel(site, 9)?.tracking, ChatTracking.none);
+        expect(
+          subject.chat
+              .headerIndicator(
+                site,
+                ChatHeaderIndicatorPreference.directMessagesAndMentions,
+              )
+              .isVisible,
+          isFalse,
+        );
+        expect(deltas, [(site, -6)]);
+        expect(subject.api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
       },
     );
 
