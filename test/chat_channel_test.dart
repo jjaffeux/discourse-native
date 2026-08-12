@@ -18,6 +18,8 @@ Map<String, dynamic> categoryChannel({
   int? lastReadMessageId,
   String? lastViewedAt,
   bool threading = false,
+  String? status,
+  bool userSilenced = false,
 }) => {
   'id': id,
   'title': title,
@@ -33,6 +35,8 @@ Map<String, dynamic> categoryChannel({
     'read_restricted': readRestricted,
   },
   'threading_enabled': threading,
+  'status': ?status,
+  'meta': {if (userSilenced) 'user_silenced': true},
   'current_user_membership': {
     'following': true,
     'muted': muted,
@@ -51,6 +55,7 @@ Map<String, dynamic> directChannel({
   int lastMessageId = 40,
   String? lastMessageAt,
   int? newMessagesLastId,
+  int? channelMessageBusLastId,
   bool? starred,
 }) => {
   'id': id,
@@ -72,7 +77,10 @@ Map<String, dynamic> directChannel({
   },
   'last_message': {'id': lastMessageId, 'created_at': ?lastMessageAt},
   'meta': {
-    'message_bus_last_ids': {'new_messages': ?newMessagesLastId},
+    'message_bus_last_ids': {
+      'new_messages': ?newMessagesLastId,
+      'channel_message_bus_last_id': ?channelMessageBusLastId,
+    },
   },
   'current_user_membership': {
     'following': true,
@@ -167,6 +175,21 @@ void main() {
 
     test('reads no colour at all from something that is not one', () {
       expect(channelFrom(categoryChannel(color: 'nope')).categoryColor, isNull);
+    });
+
+    test('status and account silence gate message creation', () {
+      final open = channelFrom(categoryChannel());
+      final closed = channelFrom(categoryChannel(status: 'closed'));
+      final readOnly = channelFrom(categoryChannel(status: 'read_only'));
+      final archived = channelFrom(categoryChannel(status: 'archived'));
+      final silenced = channelFrom(categoryChannel(userSilenced: true));
+
+      expect(open.canModifyMessages(isStaff: false), isTrue);
+      expect(closed.canModifyMessages(isStaff: false), isFalse);
+      expect(closed.canModifyMessages(isStaff: true), isTrue);
+      expect(readOnly.canModifyMessages(isStaff: true), isFalse);
+      expect(archived.canModifyMessages(isStaff: true), isFalse);
+      expect(silenced.canModifyMessages(isStaff: true), isFalse);
     });
 
     test(
@@ -458,6 +481,7 @@ void main() {
               lastMessageId: 51,
               lastMessageAt: '2026-08-08T12:00:00.000Z',
               newMessagesLastId: 73,
+              channelMessageBusLastId: 74,
             ),
           ],
         ),
@@ -466,6 +490,7 @@ void main() {
 
       expect(channels.direct.single.lastMessageId, 51);
       expect(channels.newMessageBusLastIds, {12: 73});
+      expect(channels.channelMessageBusLastIds, {12: 74});
     });
 
     test('keeps the global chat cursors from the same snapshot', () {

@@ -65,15 +65,22 @@ class _BookmarkSectionView extends StatefulWidget {
 class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   /// Follows a bookmark to whatever it was put on.
   ///
-  /// A topic on a site in the rail is something this app has a view for, so it
-  /// opens here. Everything else a bookmark can be on — a chat message, a
-  /// profile, whatever a plugin made bookmarkable — is a page this app does not
-  /// have, and belongs in the browser rather than nowhere.
+  /// A topic or Chat target on a connected site is something this app has a
+  /// view for, so it opens here. Everything else a bookmark can be on — a
+  /// profile, whatever a plugin made bookmarkable, or Chat the native client
+  /// cannot hydrate — belongs in the browser rather than nowhere.
   Future<void> _open(String? path) async {
     if (path == null) return;
 
     final controller = widget.controller;
     final absolute = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
+    if (await controller.openChatUrl(absolute)) {
+      if (mounted) widget.onOpened();
+      return;
+    }
+    // The Chat access check above can cross a credential and network boundary.
+    // Do not navigate or dismiss a replacement section after this one has gone.
+    if (!mounted) return;
     if (controller.openTopicUrl(absolute)) {
       widget.onOpened();
       return;

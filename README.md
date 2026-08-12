@@ -118,8 +118,9 @@ a shared notification read is reconciled across every cached feed.
 The tab follows the same account-level gate as the rest of Chat: the totals
 payload must expose `chat_notifications`, and an explicit
 `has_chat_enabled: false` on the current user keeps it hidden. Notification
-links preserve their exact web destination, including a particular message or
-thread, until the native Chat view can target those locations itself.
+links preserve their exact message destination and open connected
+channel/thread routes natively; disconnected or unclaimable destinations keep
+the browser fallback.
 
 ### Bookmarks
 
@@ -572,10 +573,11 @@ rather than decorating a record, so it contributes the sidebar and content
 capabilities to [`PluginRegistry`](lib/src/plugins/site_plugin.dart) without
 special-casing chat in the shell.
 
-Today it reads and nothing else: channels and direct messages in the sidebar, a
-channel you can open and scroll backwards through. No composing, replying,
-reacting, marking read, searching, threads, or live updates — the list at the
-end says what each of those will press on.
+The native workflow covers followed channels, direct messages, composing,
+uploads/GIFs, read state, live updates, and first-class message threads. A
+thread can be opened from its latest-reply summary or created with a message's
+Reply action. At 1200 logical pixels and above Chat owns a resizable
+channel/thread workspace; narrower shells push the thread as the next screen.
 
 **It cannot use the enablement rule the rest of that interface turns on.** A
 post arrives whether or not you care about reactions, so its payload can be the
@@ -625,32 +627,28 @@ message in a direct channel, which is addressed to them by construction — and
 the quieter colour for an unread public channel they merely follow. A muted
 channel says nothing at all, which is what muting means.
 
-**Paging goes backwards only.** Opening a channel asks for
-`?page_size=50`, the newest page; scrolling up asks
-`?page_size=50&direction=past&target_message_id=<oldest held>`. `page_size` is
-capped at 50 server side and sent explicitly so the number in the code is the
-number that applies, and an absent `target_message_id` is *omitted* rather than
-sent empty. That last one matters more than it looks: an empty
-`target_message_id=` casts to nil and is treated as **absent**, so
-`direction=past` with one answers with the newest page again instead of the page
-before it — a load-older that quietly returns what the reader already has,
-forever. A target that does not exist answers 404 and `page_size=0` answers 400;
-those are the loud ones.
+**Channel and thread timelines are separate state.** `ChatStreamTarget` is
+either a channel or a `(channel, thread)` pair, and the site plus that target
+keys the message window, pagination, optimistic FIFO queue, composer, read
+receipt and MessageBus subscription. A reply carrying `thread_id` is accepted
+only by its thread stream; it can update the original message's summary but can
+never enter the channel's message ids.
 
-`fetch_from_last_read` is deliberately unused: with no direction it takes the
-query's around-target branch — 25 messages either side of where the reader left
-off — which anchors the stream somewhere that is not the end and then needs a
-way to page forward to escape. Nothing here marks anything read either, so that
-anchor would never move. `can_load_more_future` is never read for the same
-reason, which is just as well: Ruby leaves the flag for the direction it did not
-paginate unassigned, so a `direction=past` response carries it as `null`.
-`can_load_more_past` is read as `== true` so that null is a non-event by
-construction.
+Both directions page with explicit 50-message windows. A normal open anchors at
+the server-selected last-read message; a summary targets its `last_reply_id`,
+and a native notification or `/chat/c/-/...` link targets the exact message.
+Older and newer pages use the oldest/newest persisted id and preserve viewport
+position. The stream remains contiguous: a live reply beyond an historical
+window is deduplicated into a pending count and “Jump to latest” replaces that
+window with the live edge instead of creating an unfillable hole.
 
-One thing to know rather than discover: `GET .../messages` **writes**. The
-controller runs `update_membership_last_viewed_at`, so opening a channel touches
-`last_viewed_at`. It does not touch `last_read_message_id`, so nothing here
-marks anything read.
+Read state follows the same boundary. After a persisted message stays visible
+for 500 ms, the viewport advances a monotonic receipt for its own target. A
+channel read never reads thread replies, a thread without
+`current_user_membership` draws no unread divider and sends no receipt, and a
+channel pane hidden by compact thread navigation cannot read anything. Creating
+membership by replying or changing the thread notification level enables the
+thread path after detail reconciliation.
 
 The stream is one flat list, oldest first, **contiguous** — that is the
 invariant paging depends on, since `loadOlder` pages before the first message
@@ -692,10 +690,12 @@ same viewer a post's do — `LightboxImage` is a plain value object and
 `LightboxGallery` takes a list of them, so nothing about the cooked-HTML path is
 in the way. Everything else is a row with a filename and a size.
 
-Reactions are drawn and not tappable, and the thread indicator says how many
-replies there are without leading anywhere. Both are deliberate: writing is not
-in this step, and an affordance that looks live and is not is worse than a plain
-label.
+Reactions are drawn and their incremental live events update the held message.
+A threaded root draws one accessible latest-reply card — author, time, excerpt,
+total replies and representative participants — which opens at the latest
+reply. The complete root also appears inside the thread, where that card is
+suppressed to avoid recursive navigation. Reply actions use hover/context-menu
+and keyboard access on desktop and a long-press sheet on touch platforms.
 
 Sidebar activity follows each channel's `/chat/{id}/new-messages` stream from
 the cursor captured with the channel-list response. That updates last-message
@@ -703,10 +703,22 @@ and immediate unread state in the same turn, and the direct-message section
 uses the web client's urgent/thread/activity ordering rather than blindly
 moving an event to the front. `/chat/new-channel` brings in conversations first
 followed on another client, while the single and bulk user-tracking streams
-reconcile reads and counts from the account's other sessions.
+reconcile reads and counts from the account's other sessions. A mounted channel
+or thread also reference-counts `/chat/{id}` from the cursor in the same HTTP
+snapshot; an active thread additionally follows
+`/chat/{id}/thread/{thread_id}` from its detail cursor. Sent, processed, edit,
+refresh, reaction, delete, bulk-delete and restore events are deduplicated
+across replay/reconnect. `update_thread_original_message` is authoritative for
+reply count, latest reply and participants; the active detail is coalesced and
+refetched because core's event does not carry cross-client title changes.
 
-Still to come: `/chat/{id}` events for messages authored elsewhere while a
-channel is open. Threads also need their own route and notification levels.
+Chat routes persist only stable channel/thread identity. Exact message anchors
+and composer-focus requests are one-shot destinations, so selecting another
+message in an already-open thread reveals it without stacking duplicate routes.
+Connected-site channel and thread links from notifications, bookmarks and
+internal navigation are offered to native Chat before browser fallback.
+Thread notification settings expose core's Normal, Tracking and Watching
+levels; Muted, thread lists, “My Threads” and title editing remain out of scope.
 
 ### GIFs
 

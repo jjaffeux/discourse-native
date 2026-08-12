@@ -127,6 +127,7 @@ Future<void> _pump(
         messages: const <ChatMessage>[],
         canLoadMorePast: false,
         canLoadMoreFuture: false,
+        targetMessageId: null,
       ),
     },
   );

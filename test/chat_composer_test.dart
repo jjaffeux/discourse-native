@@ -39,6 +39,7 @@ void main() {
           messages: messages,
           canLoadMorePast: false,
           canLoadMoreFuture: false,
+          targetMessageId: null,
         ),
       },
     );
@@ -575,6 +576,26 @@ void main() {
     expect(find.text('Retry'), findsNothing);
   });
 
+  testWidgets('replaces the composer when the channel is read-only', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      channelStatus: ChatChannelStatus.readOnly,
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('chat-composer-read-only')),
+      findsOneWidget,
+    );
+    expect(find.text('This chat is read-only.'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    expect(fixture.api.chatMessagesSent, isEmpty);
+  });
+
   testWidgets('shares the selection formatting menu with topics', (
     tester,
   ) async {
@@ -611,6 +632,7 @@ const ChatMessagePage _emptyPage = (
   messages: [],
   canLoadMorePast: false,
   canLoadMoreFuture: false,
+  targetMessageId: null,
 );
 
 ChatMessage _message(int id) => ChatMessage(
@@ -628,6 +650,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   Completer<void>? sendGate,
   WriteException? sendFailure,
   int? sentMessageId,
+  ChatChannelStatus channelStatus = ChatChannelStatus.open,
 }) async {
   final api = FakeDiscourseApi(
     user: sessionUser,
@@ -655,10 +678,11 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   await shell.load();
   shell.store.put(
     _site,
-    const ChatChannel(
+    ChatChannel(
       id: 9,
       title: 'design',
       kind: ChatChannelKind.category,
+      status: channelStatus,
       membership: ChatMembership(following: true),
     ),
   );

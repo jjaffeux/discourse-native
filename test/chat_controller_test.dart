@@ -31,6 +31,7 @@ ChatMessagePage page(
   messages: messages,
   canLoadMorePast: canLoadMorePast,
   canLoadMoreFuture: canLoadMoreFuture,
+  targetMessageId: null,
 );
 
 /// Followed by default, which is the only kind `/chat/api/me/channels` returns.
@@ -2962,6 +2963,7 @@ final class _PagingRaceApi extends FakeDiscourseApi {
     required int channelId,
     int? before,
     int? after,
+    int? targetMessageId,
     bool fromLastRead = false,
     int pageSize = 50,
     String? apiKey,

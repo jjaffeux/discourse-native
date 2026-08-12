@@ -30,7 +30,7 @@ typedef SiteTrackerFactory =
 abstract interface class SiteMessageBusSession {
   SiteMessageBusSubscription subscribe(
     String channel,
-    void Function(Object? data) onMessage, {
+    void Function(Object? data, int messageId) onMessage, {
     int? lastId,
   });
 
@@ -221,16 +221,24 @@ class SiteTracker {
     // `/latest` is public, so it works signed out. `/new` is not subscribed to
     // without a key — core gates it on there being a current user, and a
     // reader with no account has no "new".
-    _bus.subscribe('/latest', _onTopicMessage);
-    if (_signedIn) _bus.subscribe('/new', _onTopicMessage);
+    _bus.subscribe('/latest', (data, _) => _onTopicMessage(data));
+    if (_signedIn) {
+      _bus.subscribe('/new', (data, _) => _onTopicMessage(data));
+    }
 
     // The counts behind the rail badge, the user menu tabs and the dot on the
     // avatar. Named after the user because that is how Discourse scopes them,
     // and published with `user_ids: [id]` on top of that — so a channel name
     // is not what keeps one account's counts away from another's.
     if ((_signedIn, userId) case (true, final userId?)) {
-      _bus.subscribe('/notification/$userId', _onNotification);
-      _bus.subscribe('/reviewable_counts/$userId', _onReviewableCounts);
+      _bus.subscribe(
+        '/notification/$userId',
+        (data, _) => _onNotification(data),
+      );
+      _bus.subscribe(
+        '/reviewable_counts/$userId',
+        (data, _) => _onReviewableCounts(data),
+      );
     }
   }
 
@@ -264,7 +272,7 @@ class SiteTracker {
     try {
       for (final channel in channels.toSet()) {
         _topicSubscriptions.add(
-          _bus.subscribe(channel, (data) {
+          _bus.subscribe(channel, (data, _) {
             if (_disposed || revision != _topicWatchRevision) return;
             onMessage(channel, data);
           }),
@@ -308,15 +316,29 @@ class SiteTracker {
     String channel,
     void Function(Object? data) onMessage, {
     int? lastId,
+  }) => watchPluginChannelWithPosition(
+    channel,
+    (data, _) => onMessage(data),
+    lastId: lastId,
+  );
+
+  /// A plugin-owned channel whose callback also receives the channel-local
+  /// MessageBus id. Plugins that retain a snapshot cursor can advance it after
+  /// each delivery, so replacing the site's tracker or remounting a view does
+  /// not replay incremental events from the original HTTP position.
+  SiteMessageBusSubscription watchPluginChannelWithPosition(
+    String channel,
+    void Function(Object? data, int messageId) onMessage, {
+    int? lastId,
   }) {
     _ensureActive();
     final gate = _MessageBusCallbackGate();
-    final subscription = _bus.subscribe(channel, (data) {
+    final subscription = _bus.subscribe(channel, (data, messageId) {
       // A transport can already have copied this callback into its delivery
       // queue when the channel is cancelled or the site is forgotten. Keep
       // the tracker as the lifecycle boundary instead of requiring every
       // plugin to independently defend against a retained message.
-      if (!_disposed && gate.isOpen) onMessage(data);
+      if (!_disposed && gate.isOpen) onMessage(data, messageId);
     }, lastId: lastId);
     return _LifecycleBoundMessageBusSubscription(subscription, gate);
   }
@@ -475,12 +497,12 @@ final class _MessageBusSession
   @override
   SiteMessageBusSubscription subscribe(
     String channel,
-    void Function(Object? data) onMessage, {
+    void Function(Object? data, int messageId) onMessage, {
     int? lastId,
   }) => _MessageBusSubscription(
     _client.subscribe(
       channel,
-      (data, globalId, messageId) => onMessage(data),
+      (data, globalId, messageId) => onMessage(data, messageId),
       lastId: lastId ?? MessageBusPosition.newMessages,
     ),
   );

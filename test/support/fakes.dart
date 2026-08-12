@@ -36,6 +36,7 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
@@ -373,12 +374,30 @@ class FakeSiteTracker implements SiteTracker {
     });
   }
 
-  void deliverPluginMessage(String channel, Object? data) {
+  int _deliveredPluginMessageId = 1;
+
+  @override
+  SiteMessageBusSubscription watchPluginChannelWithPosition(
+    String channel,
+    void Function(Object? data, int messageId) onMessage, {
+    int? lastId,
+  }) {
+    pluginChannelLastIds[channel] = lastId;
+    void callback(Object? data) => onMessage(data, _deliveredPluginMessageId);
+    (pluginChannelCallbacks[channel] ??= []).add(callback);
+    return _FakeSiteMessageBusSubscription(() {
+      pluginChannelCallbacks[channel]?.remove(callback);
+    });
+  }
+
+  void deliverPluginMessage(String channel, Object? data, {int messageId = 1}) {
+    _deliveredPluginMessageId = messageId;
     for (final callback in List.of(
       pluginChannelCallbacks[channel] ?? const [],
     )) {
       callback(data);
     }
+    _deliveredPluginMessageId = 1;
   }
 
   @override
@@ -487,6 +506,9 @@ class FakeDiscourseApi implements DiscourseApi {
     this.chatChannelsBySite = const {},
     this.chatChannelGate,
     this.chatMessagesByKey = const {},
+    this.chatThreadsByKey = const {},
+    this.createdChatThreadsByKey = const {},
+    this.chatThreadMembershipsByKey = const {},
     this.chatMessageGate,
     this.chatReadFailure,
     this.chatSendFailure,
@@ -813,14 +835,29 @@ class FakeDiscourseApi implements DiscourseApi {
   /// fails, so a test only has to name the pages it expects to be asked for.
   final Map<String, ChatMessagePage> chatMessagesByKey;
 
+  /// Thread detail and write answers keyed by the helpers below.
+  final Map<String, ChatThread> chatThreadsByKey;
+  final Map<String, ChatThread> createdChatThreadsByKey;
+  final Map<String, ChatThreadMembership> chatThreadMembershipsByKey;
+
+  static String chatThreadKey(int channelId, int threadId) =>
+      '$channelId~$threadId';
+  static String createdChatThreadKey(int channelId, int originalMessageId) =>
+      '$channelId~original~$originalMessageId';
+
   /// The window a channel opens on is keyed by the channel alone; a page by
   /// the message and the direction it was asked to page from.
-  static String chatMessagesKey(int channelId, {int? before, int? after}) =>
-      switch ((before, after)) {
-        (final int target, _) => '$channelId~past~$target',
-        (_, final int target) => '$channelId~future~$target',
-        _ => '$channelId',
-      };
+  static String chatMessagesKey(
+    int channelId, {
+    int? before,
+    int? after,
+    int? targetMessageId,
+  }) => switch ((before, after, targetMessageId)) {
+    (final int target, _, _) => '$channelId~past~$target',
+    (_, final int target, _) => '$channelId~future~$target',
+    (_, _, final int target) => '$channelId~target~$target',
+    _ => '$channelId',
+  };
 
   /// What a jump to the present is answered with, when a test names it.
   ///
@@ -831,8 +868,40 @@ class FakeDiscourseApi implements DiscourseApi {
   static String chatMessagesLatestKey(int channelId) => '$channelId~latest';
 
   /// Every ask passed to [chatMessages], in order and in the shape it was made.
-  final List<({int channelId, int? before, int? after, bool fromLastRead})>
+  final List<
+    ({
+      int channelId,
+      int? before,
+      int? after,
+      int? targetMessageId,
+      bool fromLastRead,
+      int pageSize,
+    })
+  >
   chatMessagesRequested = [];
+
+  final List<({int channelId, int threadId})> chatThreadsRequested = [];
+  final List<({int channelId, int originalMessageId, String? title})>
+  chatThreadsCreated = [];
+  final List<
+    ({
+      int channelId,
+      int threadId,
+      ChatThreadNotificationLevel notificationLevel,
+    })
+  >
+  chatThreadNotificationLevelsUpdated = [];
+  final List<
+    ({
+      int channelId,
+      int threadId,
+      int? before,
+      int? after,
+      int? targetMessageId,
+      int pageSize,
+    })
+  >
+  chatThreadMessagesRequested = [];
 
   /// When set, [chatMessages] waits on it, so a test can look at a channel
   /// while its first page is still on the way.
@@ -1644,6 +1713,7 @@ class FakeDiscourseApi implements DiscourseApi {
     required int channelId,
     int? before,
     int? after,
+    int? targetMessageId,
     bool fromLastRead = false,
     int pageSize = 50,
     String? apiKey,
@@ -1653,10 +1723,16 @@ class FakeDiscourseApi implements DiscourseApi {
       channelId: channelId,
       before: before,
       after: after,
+      targetMessageId: targetMessageId,
       fromLastRead: fromLastRead,
+      pageSize: pageSize,
     ));
     if (chatMessageGate != null) await chatMessageGate!.future;
-    final asksForLatest = !fromLastRead && before == null && after == null;
+    final asksForLatest =
+        !fromLastRead &&
+        before == null &&
+        after == null &&
+        targetMessageId == null;
     final found =
         (asksForLatest
             ? chatMessagesByKey[chatMessagesLatestKey(channelId)]
@@ -1665,6 +1741,7 @@ class FakeDiscourseApi implements DiscourseApi {
           channelId,
           before: before,
           after: after,
+          targetMessageId: targetMessageId,
         )];
     if (found == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
@@ -1691,20 +1768,94 @@ class FakeDiscourseApi implements DiscourseApi {
     required int threadId,
     int? before,
     int? after,
+    int? targetMessageId,
+    int pageSize = 50,
     String? apiKey,
     String? clientId,
   }) async {
     final base = 'thread-$channelId-$threadId';
+    chatThreadMessagesRequested.add((
+      channelId: channelId,
+      threadId: threadId,
+      before: before,
+      after: after,
+      targetMessageId: targetMessageId,
+      pageSize: pageSize,
+    ));
     final directional = before != null
         ? '$base~past~$before'
         : after != null
         ? '$base~future~$after'
+        : targetMessageId != null
+        ? '$base~target~$targetMessageId'
         : base;
     final found = chatMessagesByKey[directional] ?? chatMessagesByKey[base];
     if (found == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return found;
+  }
+
+  @override
+  Future<ChatThread> chatThread({
+    required String siteUrl,
+    required int channelId,
+    required int threadId,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    chatThreadsRequested.add((channelId: channelId, threadId: threadId));
+    final found = chatThreadsByKey[chatThreadKey(channelId, threadId)];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
+  }
+
+  @override
+  Future<ChatThread> createChatThread({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int originalMessageId,
+    String? title,
+    String? clientId,
+  }) async {
+    chatThreadsCreated.add((
+      channelId: channelId,
+      originalMessageId: originalMessageId,
+      title: title,
+    ));
+    final found =
+        createdChatThreadsByKey[createdChatThreadKey(
+          channelId,
+          originalMessageId,
+        )];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
+  }
+
+  @override
+  Future<ChatThreadMembership> updateChatThreadNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required ChatThreadNotificationLevel notificationLevel,
+    String? clientId,
+  }) async {
+    chatThreadNotificationLevelsUpdated.add((
+      channelId: channelId,
+      threadId: threadId,
+      notificationLevel: notificationLevel,
+    ));
+    return chatThreadMembershipsByKey[chatThreadKey(channelId, threadId)] ??
+        ChatThreadMembership(
+          threadId: threadId,
+          notificationLevel: notificationLevel,
+        );
   }
 
   @override

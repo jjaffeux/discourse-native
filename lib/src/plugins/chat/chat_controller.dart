@@ -16,6 +16,8 @@ import '../../models/site_config.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
 import 'chat_preview.dart';
+import 'chat_stream_target.dart';
+import 'chat_thread.dart';
 
 /// What Discourse's chat shortcut paints over its comment icon.
 @immutable
@@ -56,10 +58,14 @@ class ChatStreamState {
     this.loadingNewer = false,
     this.canLoadMorePast = false,
     this.canLoadMoreFuture = false,
+    this.pendingNewMessages = 0,
     this.fetchedOnce = false,
     this.fetches = 0,
     this.lastReadOnOpen,
+    this.anchorMessageId,
+    this.notice,
     this.error,
+    this.threadUnavailable = false,
   });
 
   /// Oldest first, and **contiguous** — there is never a hole in the middle.
@@ -95,6 +101,10 @@ class ChatStreamState {
   /// the reason [ChatController.loadNewer] exists at all.
   final bool canLoadMoreFuture;
 
+  /// Live replies received beyond an anchored window. They are deliberately
+  /// not inserted into [messageIds], whose contiguity paging depends on.
+  final int pendingNewMessages;
+
   /// Whether the site has answered at all, which is what tells an empty channel
   /// apart from one that has not been read yet.
   final bool fetchedOnce;
@@ -119,7 +129,22 @@ class ChatStreamState {
   /// when the stream is replaced — a re-open — and not before.
   final int? lastReadOnOpen;
 
+  /// The message a freshly replaced window should reveal. Usually the same as
+  /// [lastReadOnOpen], but a summary card or notification may target an exact
+  /// reply without moving the pinned unread divider.
+  final int? anchorMessageId;
+
+  /// A short-lived, non-fatal explanation for a successful fallback.
+  final String? notice;
+
   final String? error;
+
+  /// The thread detail endpoint authoritatively rejected this target.
+  ///
+  /// Only a current 403/404 response sets this. Transport failures remain the
+  /// ordinary retryable [error] state, so the route can distinguish a thread
+  /// that disappeared from a temporarily unavailable site.
+  final bool threadUnavailable;
 
   bool get isEmpty =>
       fetchedOnce &&
@@ -136,7 +161,7 @@ class ChatStreamState {
   int? get newestId => messageIds.lastOrNull;
 
   /// Whether the newest message held is the newest there is.
-  bool get atPresent => !canLoadMoreFuture;
+  bool get atPresent => !canLoadMoreFuture && pendingNewMessages == 0;
 
   ChatStreamState copyWith({
     List<int>? messageIds,
@@ -146,9 +171,13 @@ class ChatStreamState {
     bool? loadingNewer,
     bool? canLoadMorePast,
     bool? canLoadMoreFuture,
+    int? pendingNewMessages,
     bool? fetchedOnce,
     String? error,
     bool clearError = false,
+    String? notice,
+    bool clearNotice = false,
+    bool? threadUnavailable,
   }) => ChatStreamState(
     messageIds: messageIds ?? this.messageIds,
     localMessageIds: localMessageIds ?? this.localMessageIds,
@@ -157,12 +186,16 @@ class ChatStreamState {
     loadingNewer: loadingNewer ?? this.loadingNewer,
     canLoadMorePast: canLoadMorePast ?? this.canLoadMorePast,
     canLoadMoreFuture: canLoadMoreFuture ?? this.canLoadMoreFuture,
+    pendingNewMessages: pendingNewMessages ?? this.pendingNewMessages,
     fetchedOnce: fetchedOnce ?? this.fetchedOnce,
     // Carried rather than settable: both belong to the fetch that built this
     // window, and every copy of one is the same window still.
     fetches: fetches,
     lastReadOnOpen: lastReadOnOpen,
+    anchorMessageId: anchorMessageId,
+    notice: clearNotice ? null : (notice ?? this.notice),
     error: clearError ? null : (error ?? this.error),
+    threadUnavailable: threadUnavailable ?? this.threadUnavailable,
   );
 
   @override
@@ -176,10 +209,14 @@ class ChatStreamState {
           other.loadingNewer == loadingNewer &&
           other.canLoadMorePast == canLoadMorePast &&
           other.canLoadMoreFuture == canLoadMoreFuture &&
+          other.pendingNewMessages == pendingNewMessages &&
           other.fetchedOnce == fetchedOnce &&
           other.fetches == fetches &&
           other.lastReadOnOpen == lastReadOnOpen &&
-          other.error == error;
+          other.anchorMessageId == anchorMessageId &&
+          other.notice == notice &&
+          other.error == error &&
+          other.threadUnavailable == threadUnavailable;
 
   @override
   int get hashCode => Object.hash(
@@ -190,12 +227,18 @@ class ChatStreamState {
     loadingNewer,
     canLoadMorePast,
     canLoadMoreFuture,
+    pendingNewMessages,
     fetchedOnce,
     fetches,
     lastReadOnOpen,
+    anchorMessageId,
+    notice,
     error,
+    threadUnavailable,
   );
 }
+
+enum _ChatWindowFetchResult { loaded, missingTarget, failed, cancelled }
 
 /// Which channels a site has, and which messages are in the one on screen.
 ///
@@ -288,6 +331,18 @@ class ChatController extends FrameSafeNotifier {
   /// of an older overlapping pane cannot deactivate its replacement.
   final Map<String, Object> _activeChannelViews = {};
 
+  /// Root-channel subscriptions are shared by the channel pane and every
+  /// thread pane mounted beside/instead of it. One token per mounted owner
+  /// prevents a compact thread from dropping the subscription its expanded
+  /// sibling still needs.
+  final Map<String, Set<Object>> _rootViewTokens = {};
+  final Map<String, SiteMessageBusSubscription> _rootSubscriptions = {};
+  final Map<String, Set<Object>> _threadViewTokens = {};
+  final Map<String, SiteMessageBusSubscription> _threadSubscriptions = {};
+  final Map<String, int?> _threadMessageCursors = {};
+  final Map<String, Future<ChatThread?>> _threadDetailRequests = {};
+  final Set<String> _threadDetailDirty = {};
+
   /// The HTTP presence snapshot, its row-scoped listenable and the live
   /// subscription that advances it. A tracker can arrive before or after the
   /// channel list, so both halves are retained and [_syncPresence] joins them
@@ -301,6 +356,7 @@ class ChatController extends FrameSafeNotifier {
   /// snapshot. Separate from [_sendSubscriptions], which temporarily watches
   /// `/chat/{id}` only to reconcile this client's staged sends.
   final Map<String, Map<int, int?>> _newMessageCursors = {};
+  final Map<String, Map<int, int?>> _rootMessageCursors = {};
   final Map<String, SiteMessageBusSubscription> _newMessageSubscriptions = {};
   final Map<String, int?> _newChannelCursors = {};
   final Map<String, SiteMessageBusSubscription> _newChannelSubscriptions = {};
@@ -315,23 +371,40 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, Object> _streamGenerations = {};
   final Map<String, DateTime> _windowAttemptedAt = {};
   final Map<String, Object> _pageRequests = {};
+  final Map<String, Set<int>> _pendingLiveMessageIds = {};
+  final Map<String, Timer> _streamNoticeTimers = {};
   final Map<
     String,
-    ({String siteUrl, int channelId, int messageId, SiteLease lease})
+    ({String siteUrl, ChatStreamTarget target, int messageId, SiteLease lease})
   >
   _queuedReadReceipts = {};
   final Map<String, Future<void>> _readReceiptTasks = {};
   final Map<String, Object> _readReceiptRuns = {};
+  final Map<String, int> _threadNotificationRevisions = {};
+  final Map<String, Future<void>> _threadNotificationTails = {};
+  final Map<String, ChatThreadMembership?> _threadNotificationConfirmed = {};
   final Map<String, _ChatSendQueue> _sendQueues = {};
   final Map<String, SiteMessageBusSubscription> _sendSubscriptions = {};
-  final Set<({String siteUrl, int channelId})> _sendSubscriptionChannels = {};
+  final Set<({String siteUrl, ChatStreamTarget target})>
+  _sendSubscriptionTargets = {};
   int _nextLocalMessageId = -1;
   int _nextStagedSequence = 0;
 
   static String _channelsKey(String siteUrl) => '$siteUrl~channels';
-  static String _streamKey(String siteUrl, int id) => '$siteUrl~$id';
-  static String _olderKey(String siteUrl, int id) => '$siteUrl~$id~past';
-  static String _newerKey(String siteUrl, int id) => '$siteUrl~$id~future';
+  static String _targetKey(String siteUrl, ChatStreamTarget target) =>
+      '$siteUrl~${target.storageKey}';
+  static String _streamKey(String siteUrl, int id) =>
+      _targetKey(siteUrl, ChatChannelTarget(id));
+  static String _olderTargetKey(String siteUrl, ChatStreamTarget target) =>
+      '${_targetKey(siteUrl, target)}~past';
+  static String _newerTargetKey(String siteUrl, ChatStreamTarget target) =>
+      '${_targetKey(siteUrl, target)}~future';
+
+  static int? _newerCursor(int? current, int? incoming) {
+    if (incoming == null) return current;
+    if (current == null || incoming > current) return incoming;
+    return current;
+  }
 
   /// Whether an asynchronous operation still belongs to this controller, site
   /// session, and request generation.
@@ -520,6 +593,12 @@ class ChatController extends FrameSafeNotifier {
   ChatChannel? channel(String siteUrl, int channelId) =>
       store.read<ChatChannel>(siteUrl, channelId);
 
+  ChatThread? thread(String siteUrl, int threadId) =>
+      store.read<ChatThread>(siteUrl, threadId);
+
+  Ref<ChatThread> threadRef(String siteUrl, int threadId) =>
+      store.ref<ChatThread>(siteUrl, threadId);
+
   /// Marks one mounted channel pane active and returns its generation token.
   ///
   /// Core advances `lastViewedAt` when the pane opens. That timestamp filters
@@ -529,6 +608,7 @@ class ChatController extends FrameSafeNotifier {
     if (isDisposed) return token;
     final key = _streamKey(siteUrl, channelId);
     _activeChannelViews[key] = token;
+    _retainRootSubscription(siteUrl, channelId, token);
     _advanceLastViewedAt(siteUrl, channelId);
     return token;
   }
@@ -538,6 +618,31 @@ class ChatController extends FrameSafeNotifier {
     final key = _streamKey(siteUrl, channelId);
     if (identical(_activeChannelViews[key], token)) {
       _activeChannelViews.remove(key);
+    }
+    _releaseRootSubscription(siteUrl, channelId, token);
+  }
+
+  Object beginViewingThread(String siteUrl, ChatThreadTarget target) {
+    final token = Object();
+    if (isDisposed) return token;
+    _retainRootSubscription(siteUrl, target.channelId, token);
+    final key = _targetKey(siteUrl, target);
+    (_threadViewTokens[key] ??= {}).add(token);
+    _ensureThreadSubscription(siteUrl, target);
+    return token;
+  }
+
+  void endViewingThread(String siteUrl, ChatThreadTarget target, Object token) {
+    _releaseRootSubscription(siteUrl, target.channelId, token);
+    final key = _targetKey(siteUrl, target);
+    final tokens = _threadViewTokens[key];
+    tokens?.remove(token);
+    if (tokens != null && tokens.isEmpty) {
+      _threadViewTokens.remove(key);
+      _cancelSubscription(
+        _threadSubscriptions.remove(key),
+        'chat.thread.unsubscribe',
+      );
     }
   }
 
@@ -564,13 +669,21 @@ class ChatController extends FrameSafeNotifier {
       store.ref<ChatMessage>(siteUrl, messageId);
 
   ChatStreamState stream(String siteUrl, int channelId) =>
-      _streams[_streamKey(siteUrl, channelId)] ?? const ChatStreamState();
+      streamFor(siteUrl, ChatChannelTarget(channelId));
+
+  ChatStreamState streamFor(String siteUrl, ChatStreamTarget target) =>
+      _streams[_targetKey(siteUrl, target)] ?? const ChatStreamState();
 
   ValueListenable<ChatStreamState> streamListenable(
     String siteUrl,
     int channelId,
+  ) => streamListenableFor(siteUrl, ChatChannelTarget(channelId));
+
+  ValueListenable<ChatStreamState> streamListenableFor(
+    String siteUrl,
+    ChatStreamTarget target,
   ) {
-    final key = _streamKey(siteUrl, channelId);
+    final key = _targetKey(siteUrl, target);
     return _streamRefs.putIfAbsent(
       key,
       () => FrameSafeValueNotifier(_streams[key] ?? const ChatStreamState()),
@@ -601,15 +714,165 @@ class ChatController extends FrameSafeNotifier {
       _cancelPresence(siteUrl);
       _cancelLiveChatSubscriptions(siteUrl);
       _cancelSendSubscriptions(siteUrl, forgetTargets: false);
+      _cancelActiveStreamSubscriptions(siteUrl);
     }
     _presenceTrackers[siteUrl] = tracker;
     _syncPresence(siteUrl);
     _syncNewMessageSubscriptions(siteUrl);
-    for (final target in _sendSubscriptionChannels) {
+    for (final target in _sendSubscriptionTargets) {
       if (target.siteUrl == siteUrl) {
-        _ensureSendSubscription(target.siteUrl, target.channelId);
+        _ensureSendSubscription(target.siteUrl, target.target);
       }
     }
+    for (final key in _rootViewTokens.keys.where(
+      (key) => key.startsWith('$siteUrl~'),
+    )) {
+      final channelId = _channelIdFromTargetKey(key);
+      if (channelId != null) _ensureRootSubscription(siteUrl, channelId);
+    }
+    for (final key in _threadViewTokens.keys.where(
+      (key) => key.startsWith('$siteUrl~'),
+    )) {
+      final target = _threadTargetFromKey(key);
+      if (target != null) _ensureThreadSubscription(siteUrl, target);
+    }
+  }
+
+  void _retainRootSubscription(String siteUrl, int channelId, Object token) {
+    final key = _streamKey(siteUrl, channelId);
+    (_rootViewTokens[key] ??= {}).add(token);
+    _ensureRootSubscription(siteUrl, channelId);
+  }
+
+  void _releaseRootSubscription(String siteUrl, int channelId, Object token) {
+    final key = _streamKey(siteUrl, channelId);
+    final tokens = _rootViewTokens[key];
+    tokens?.remove(token);
+    if (tokens != null && tokens.isEmpty) {
+      _rootViewTokens.remove(key);
+      _cancelSubscription(
+        _rootSubscriptions.remove(key),
+        'chat.channel.unsubscribe',
+      );
+    }
+  }
+
+  void _ensureRootSubscription(String siteUrl, int channelId) {
+    final key = _streamKey(siteUrl, channelId);
+    if (_rootSubscriptions.containsKey(key) ||
+        !(_rootViewTokens[key]?.isNotEmpty ?? false)) {
+      return;
+    }
+    final tracker = _presenceTrackers[siteUrl];
+    if (tracker == null) return;
+    try {
+      _rootSubscriptions[key] = tracker.watchPluginChannelWithPosition(
+        '/chat/$channelId',
+        (data, messageId) {
+          try {
+            _applyRootChannelEvent(siteUrl, channelId, data);
+          } finally {
+            final cursors = _rootMessageCursors[siteUrl] ??= {};
+            cursors[channelId] = _newerCursor(cursors[channelId], messageId);
+          }
+        },
+        lastId: _rootMessageCursors[siteUrl]?[channelId],
+      );
+    } catch (error, stackTrace) {
+      _report(
+        error,
+        stackTrace,
+        'chat.channel.subscribe',
+        severity: DiagnosticSeverity.warning,
+      );
+    }
+  }
+
+  void _ensureThreadSubscription(String siteUrl, ChatThreadTarget target) {
+    final key = _targetKey(siteUrl, target);
+    if (_threadSubscriptions.containsKey(key) ||
+        !(_threadViewTokens[key]?.isNotEmpty ?? false)) {
+      return;
+    }
+    final tracker = _presenceTrackers[siteUrl];
+    final detail = thread(siteUrl, target.threadId);
+    if (tracker == null || detail == null) return;
+    try {
+      final cursor = _threadMessageCursors.putIfAbsent(
+        key,
+        () => detail.messageBusLastId,
+      );
+      _threadSubscriptions[key] = tracker.watchPluginChannelWithPosition(
+        '/chat/${target.channelId}/thread/${target.threadId}',
+        (data, messageId) {
+          try {
+            _applyThreadEvent(siteUrl, target, data);
+          } finally {
+            _threadMessageCursors[key] = _newerCursor(
+              _threadMessageCursors[key],
+              messageId,
+            );
+          }
+        },
+        lastId: cursor,
+      );
+    } catch (error, stackTrace) {
+      _report(
+        error,
+        stackTrace,
+        'chat.thread.subscribe',
+        severity: DiagnosticSeverity.warning,
+      );
+    }
+  }
+
+  void _cancelActiveStreamSubscriptions(String siteUrl) {
+    final cancelled = <SiteMessageBusSubscription>[];
+    _rootSubscriptions.removeWhere((key, subscription) {
+      if (!key.startsWith('$siteUrl~')) return false;
+      cancelled.add(subscription);
+      return true;
+    });
+    _threadSubscriptions.removeWhere((key, subscription) {
+      if (!key.startsWith('$siteUrl~')) return false;
+      cancelled.add(subscription);
+      return true;
+    });
+    for (final subscription in cancelled) {
+      _cancelSubscription(subscription, 'chat.stream.unsubscribe');
+    }
+  }
+
+  void _cancelSubscription(
+    SiteMessageBusSubscription? subscription,
+    String operation,
+  ) {
+    if (subscription == null) return;
+    try {
+      subscription.cancel();
+    } catch (error, stackTrace) {
+      _report(
+        error,
+        stackTrace,
+        operation,
+        severity: DiagnosticSeverity.warning,
+      );
+    }
+  }
+
+  static int? _channelIdFromTargetKey(String key) {
+    final match = RegExp(r'~channel-(\d+)$').firstMatch(key);
+    return match == null ? null : int.tryParse(match.group(1)!);
+  }
+
+  static ChatThreadTarget? _threadTargetFromKey(String key) {
+    final match = RegExp(r'~channel-(\d+)-thread-(\d+)$').firstMatch(key);
+    if (match == null) return null;
+    final channelId = int.tryParse(match.group(1)!);
+    final threadId = int.tryParse(match.group(2)!);
+    return channelId == null || threadId == null
+        ? null
+        : ChatThreadTarget(channelId: channelId, threadId: threadId);
   }
 
   void _syncPresence(String siteUrl) {
@@ -664,7 +927,7 @@ class ChatController extends FrameSafeNotifier {
       return true;
     });
     if (forgetTargets) {
-      _sendSubscriptionChannels.removeWhere(
+      _sendSubscriptionTargets.removeWhere(
         (target) => target.siteUrl == siteUrl,
       );
     }
@@ -684,13 +947,28 @@ class ChatController extends FrameSafeNotifier {
 
   void _replaceLiveChatChannels(String siteUrl, ChatChannels channels) {
     _cancelLiveChatSubscriptions(siteUrl);
+    final previousNewMessages = _newMessageCursors[siteUrl] ?? const {};
     _newMessageCursors[siteUrl] = {
       for (final channel in [...channels.public, ...channels.direct])
         if (!channel.membership.muted)
-          channel.id: channels.newMessageBusLastIds[channel.id],
+          channel.id: _newerCursor(
+            previousNewMessages[channel.id],
+            channels.newMessageBusLastIds[channel.id],
+          ),
     };
-    _newChannelCursors[siteUrl] = channels.newChannelBusLastId;
-    _userTrackingCursors[siteUrl] = channels.userTrackingBusLastId;
+    final previousRoots = _rootMessageCursors[siteUrl] ?? const {};
+    _rootMessageCursors[siteUrl] = {
+      for (final entry in channels.channelMessageBusLastIds.entries)
+        entry.key: _newerCursor(previousRoots[entry.key], entry.value),
+    };
+    _newChannelCursors[siteUrl] = _newerCursor(
+      _newChannelCursors[siteUrl],
+      channels.newChannelBusLastId,
+    );
+    _userTrackingCursors[siteUrl] = _newerCursor(
+      _userTrackingCursors[siteUrl],
+      channels.userTrackingBusLastId,
+    );
     _newChannelsAwaitingFirstMessage.removeWhere(
       (key) => key.startsWith('$siteUrl~'),
     );
@@ -707,11 +985,20 @@ class ChatController extends FrameSafeNotifier {
         _newChannelCursors.containsKey(siteUrl) &&
         !_newChannelSubscriptions.containsKey(siteUrl)) {
       try {
-        _newChannelSubscriptions[siteUrl] = tracker.watchPluginChannel(
-          '/chat/new-channel',
-          (data) => _applyNewChannel(siteUrl, data),
-          lastId: _newChannelCursors[siteUrl],
-        );
+        _newChannelSubscriptions[siteUrl] = tracker
+            .watchPluginChannelWithPosition('/chat/new-channel', (
+              data,
+              messageId,
+            ) {
+              try {
+                _applyNewChannel(siteUrl, data);
+              } finally {
+                _newChannelCursors[siteUrl] = _newerCursor(
+                  _newChannelCursors[siteUrl],
+                  messageId,
+                );
+              }
+            }, lastId: _newChannelCursors[siteUrl]);
       } catch (error, stackTrace) {
         _report(
           error,
@@ -729,16 +1016,34 @@ class ChatController extends FrameSafeNotifier {
       try {
         final cursor = _userTrackingCursors[siteUrl];
         subscriptions.add(
-          tracker.watchPluginChannel(
+          tracker.watchPluginChannelWithPosition(
             '/chat/user-tracking-state/$currentUserId',
-            (data) => _applyUserTrackingState(siteUrl, data),
+            (data, messageId) {
+              try {
+                _applyUserTrackingState(siteUrl, data);
+              } finally {
+                _userTrackingCursors[siteUrl] = _newerCursor(
+                  _userTrackingCursors[siteUrl],
+                  messageId,
+                );
+              }
+            },
             lastId: cursor,
           ),
         );
         subscriptions.add(
-          tracker.watchPluginChannel(
+          tracker.watchPluginChannelWithPosition(
             '/chat/bulk-user-tracking-state/$currentUserId',
-            (data) => _applyBulkUserTrackingState(siteUrl, data),
+            (data, messageId) {
+              try {
+                _applyBulkUserTrackingState(siteUrl, data);
+              } finally {
+                _userTrackingCursors[siteUrl] = _newerCursor(
+                  _userTrackingCursors[siteUrl],
+                  messageId,
+                );
+              }
+            },
             lastId: cursor,
           ),
         );
@@ -764,9 +1069,18 @@ class ChatController extends FrameSafeNotifier {
       final key = _streamKey(siteUrl, entry.key);
       if (_newMessageSubscriptions.containsKey(key)) continue;
       try {
-        _newMessageSubscriptions[key] = tracker.watchPluginChannel(
+        _newMessageSubscriptions[key] = tracker.watchPluginChannelWithPosition(
           '/chat/${entry.key}/new-messages',
-          (data) => _applyNewMessage(siteUrl, entry.key, data),
+          (data, messageId) {
+            try {
+              _applyNewMessage(siteUrl, entry.key, data);
+            } finally {
+              final latest = _newMessageCursors[siteUrl];
+              if (latest != null) {
+                latest[entry.key] = _newerCursor(latest[entry.key], messageId);
+              }
+            }
+          },
           lastId: entry.value,
         );
       } catch (error, stackTrace) {
@@ -863,7 +1177,20 @@ class ChatController extends FrameSafeNotifier {
     if (data is! Map<String, dynamic>) return;
     final channelId = jsonIntOrNull(data['channel_id']);
     if (channelId == null) return;
+    // Channel counts and thread counts deliberately share field names in two
+    // nested reports. Applying the inner map to the channel silently replaces
+    // the sidebar aggregate with one thread's numbers.
     _applyTrackingState(siteUrl, channelId, data);
+    final threadId = jsonIntOrNull(data['thread_id']);
+    final threadTracking = data['thread_tracking'];
+    if (threadId != null && threadTracking is Map<String, dynamic>) {
+      store.update<ChatThread>(
+        siteUrl,
+        threadId,
+        (current) =>
+            current.copyWith(tracking: ChatTracking.fromJson(threadTracking)),
+      );
+    }
   }
 
   void _applyBulkUserTrackingState(String siteUrl, Object? data) {
@@ -886,6 +1213,7 @@ class ChatController extends FrameSafeNotifier {
   }) {
     final held = channel(siteUrl, channelId);
     if (held == null) return;
+    final threadId = jsonIntOrNull(data['thread_id']);
 
     Map<int, DateTime>? threadOverview;
     if (data.containsKey('unread_thread_overview')) {
@@ -908,14 +1236,31 @@ class ChatController extends FrameSafeNotifier {
           data['watched_threads_unread_count'],
         ),
       ),
-      lastReadMessageId: jsonIntOrNull(data['thread_id']) == null
+      lastReadMessageId: threadId == null
           ? jsonIntOrNull(data['last_read_message_id'])
           : null,
       unreadThreadOverview: threadOverview,
     );
-    if (updated == held) return;
-    store.put(siteUrl, updated);
-    if (notify) notifySafely();
+    var changed = updated != held;
+    if (changed) store.put(siteUrl, updated);
+    if (threadId != null) {
+      final heldThread = thread(siteUrl, threadId);
+      final membership = heldThread?.membership;
+      final lastReadMessageId = jsonIntOrNull(data['last_read_message_id']);
+      if (heldThread != null &&
+          membership != null &&
+          lastReadMessageId != null &&
+          lastReadMessageId > (membership.lastReadMessageId ?? 0)) {
+        store.put(
+          siteUrl,
+          heldThread.copyWith(
+            membership: membership.withLastReadMessageId(lastReadMessageId),
+          ),
+        );
+        changed = true;
+      }
+    }
+    if (changed && notify) notifySafely();
   }
 
   void _applyNewMessage(String siteUrl, int channelId, Object? data) {
@@ -937,6 +1282,11 @@ class ChatController extends FrameSafeNotifier {
 
     final held = channel(siteUrl, channelId);
     if (held == null) return;
+    if (data['type'] == 'thread' &&
+        !held.threadingEnabled &&
+        data['force_thread'] != true) {
+      return;
+    }
     final key = _streamKey(siteUrl, channelId);
     final awaitingFirst = _newChannelsAwaitingFirstMessage.contains(key);
     final repeatsSnapshot = awaitingFirst && held.lastMessageId == messageId;
@@ -969,11 +1319,58 @@ class ChatController extends FrameSafeNotifier {
     // channel-shaped event carrying a thread id when it cannot publish to the
     // thread stream. Both paths update the unread-thread projection.
     final threadId = jsonIntOrNull(data['thread_id']);
+    final foundThread = threadId == null ? null : thread(siteUrl, threadId);
+    final heldThread = foundThread?.channelId == channelId ? foundThread : null;
+    final threadMembership = heldThread?.membership;
+    final notificationLevel = threadMembership?.notificationLevel;
+    final threadIsQuiet =
+        notificationLevel == ChatThreadNotificationLevel.normal ||
+        notificationLevel == ChatThreadNotificationLevel.muted;
+    final canProjectWithoutHeldDetail =
+        heldThread == null &&
+        threadId != null &&
+        (held.isDirectMessage ||
+            held.unreadThreadOverview.containsKey(threadId));
     final markThreadUnread =
         threadId != null &&
         currentUser?.id != null &&
         !fromSelf &&
-        !fromIgnored;
+        !fromIgnored &&
+        (canProjectWithoutHeldDetail ||
+            threadMembership != null &&
+                messageId > (threadMembership.lastReadMessageId ?? 0) &&
+                !threadIsQuiet);
+    final markThreadRead =
+        threadId != null &&
+        (threadMembership != null || canProjectWithoutHeldDetail) &&
+        (fromSelf || fromIgnored);
+    final watchedThreadUnread =
+        markThreadUnread &&
+        notificationLevel == ChatThreadNotificationLevel.watching;
+
+    if (heldThread != null) {
+      store.update<ChatThread>(siteUrl, heldThread.id, (current) {
+        var membership = current.membership;
+        if (markThreadRead && membership != null) {
+          membership = membership.withLastReadMessageId(messageId);
+        }
+        var tracking = current.tracking;
+        if (markThreadUnread) {
+          tracking = ChatTracking(
+            unreadCount: tracking.unreadCount + (watchedThreadUnread ? 0 : 1),
+            mentionCount: tracking.mentionCount,
+            watchedThreadsUnreadCount:
+                tracking.watchedThreadsUnreadCount +
+                (watchedThreadUnread ? 1 : 0),
+          );
+        }
+        return current.copyWith(
+          lastMessageId: messageId,
+          membership: membership,
+          tracking: tracking,
+        );
+      });
+    }
 
     var updated = held.withNewMessage(
       messageId,
@@ -982,7 +1379,10 @@ class ChatController extends FrameSafeNotifier {
       incrementUnread: incrementUnread,
       threadId: threadId,
       markThreadUnread: markThreadUnread,
-      markThreadRead: threadId != null && (fromSelf || fromIgnored),
+      markThreadRead: markThreadRead,
+      threadMembershipKnown: threadMembership != null,
+      forceThread: data['force_thread'] == true,
+      incrementWatchedThreadUnread: watchedThreadUnread,
     );
     if (markThreadUnread && _activeChannelViews.containsKey(key)) {
       final viewedAt = _clock().toUtc();
@@ -1005,9 +1405,310 @@ class ChatController extends FrameSafeNotifier {
     _presenceRefs[siteUrl]?.value = updated.userIds;
   }
 
+  void _applyRootChannelEvent(String siteUrl, int channelId, Object? data) {
+    if (data is! Map<String, dynamic>) return;
+    switch (data['type']) {
+      case 'sent' || 'processed' || 'edit' || 'refresh' || 'restore':
+        final payload = data['chat_message'];
+        if (payload is! Map<String, dynamic>) return;
+        final message = ChatMessage.fromJson(payload, siteUrl);
+        if (message.id <= 0 ||
+            message.channelId != channelId ||
+            message.threadId != null &&
+                message.thread?.threadId != message.threadId) {
+          return;
+        }
+        // Thread replies are deliberately absent from the channel timeline.
+        // A root original may carry its thread id and nested preview, while a
+        // reply carries a thread id without that nested root summary.
+        if (message.threadId != null && message.thread == null) return;
+        store.put(siteUrl, message);
+        final target = ChatChannelTarget(channelId);
+        final key = _targetKey(siteUrl, target);
+        final window = streamFor(siteUrl, target);
+        if (data['type'] == 'sent' && !window.messageIds.contains(message.id)) {
+          _applyLiveMessage(siteUrl, key, window, message);
+        }
+        if (data['staged_id'] is String) {
+          _applySendMessage(siteUrl, target, data);
+        }
+        break;
+      case 'thread_created':
+        final payload = data['chat_message'];
+        if (payload is! Map<String, dynamic>) return;
+        final message = ChatMessage.fromJson(payload, siteUrl);
+        if (message.channelId == channelId && message.thread != null) {
+          store.put(siteUrl, message);
+        }
+        break;
+      case 'update_thread_original_message':
+        final originalId = jsonIntOrNull(data['original_message_id']);
+        final threadId = jsonIntOrNull(data['thread_id']);
+        final preview = data['preview'];
+        if (originalId == null ||
+            threadId == null ||
+            preview is! Map<String, dynamic>) {
+          return;
+        }
+        final current = store.read<ChatMessage>(siteUrl, originalId);
+        final heldThread = thread(siteUrl, threadId);
+        if (current != null && current.channelId != channelId) return;
+        if (heldThread != null && heldThread.channelId != channelId) return;
+        if (current == null && heldThread == null) return;
+        final parsed = ChatThreadPreview.fromJson({
+          'id': threadId,
+          'reply_count': jsonInt(preview['reply_count']),
+          // Title is omitted from this incremental event. Keep the latest
+          // held title until the coordinated detail refresh below supplies the
+          // authoritative value.
+          'title': heldThread?.title ?? current?.thread?.title,
+          'preview': preview,
+        }, siteUrl);
+        if (parsed == null) return;
+        if (current != null) {
+          store.put(siteUrl, current.withThreadPreview(parsed));
+        }
+        if (heldThread != null) {
+          store.put(
+            siteUrl,
+            heldThread.copyWith(
+              replyCount: parsed.replyCount,
+              preview: parsed,
+              lastMessageId: parsed.lastReplyId,
+            ),
+          );
+        }
+        // The event intentionally omits the title. A visible root preview is
+        // enough reason to load detail even when this thread has never been
+        // opened; otherwise a remote title edit would preserve its stale text
+        // forever in the channel summary card.
+        _scheduleThreadDetailRefresh(
+          siteUrl,
+          ChatThreadTarget(channelId: channelId, threadId: threadId),
+        );
+        break;
+      case 'delete':
+        _applyDeleteEvent(siteUrl, data);
+        break;
+      case 'bulk_delete':
+        _applyBulkDeleteEvent(siteUrl, data);
+        break;
+      case 'reaction':
+        _applyReactionEvent(siteUrl, data);
+        break;
+    }
+  }
+
+  void _applyThreadEvent(
+    String siteUrl,
+    ChatThreadTarget target,
+    Object? data,
+  ) {
+    if (data is! Map<String, dynamic>) return;
+    final key = _targetKey(siteUrl, target);
+    final window = streamFor(siteUrl, target);
+    final heldThread = thread(siteUrl, target.threadId);
+    final originalId = heldThread?.originalMessage?.id;
+    switch (data['type']) {
+      case 'sent' || 'processed' || 'edit' || 'refresh' || 'restore':
+        final payload = data['chat_message'];
+        if (payload is! Map<String, dynamic>) return;
+        final message = ChatMessage.fromJson(payload, siteUrl);
+        if (message.id <= 0 ||
+            message.channelId != target.channelId ||
+            message.threadId != target.threadId && message.id != originalId) {
+          return;
+        }
+        // Core deliberately publishes a thread original to both the retained
+        // root channel and the thread channel. The root path owns that record;
+        // applying either incremental copy here would double reactions and
+        // other non-idempotent updates while both panes are mounted.
+        if (message.id == originalId) return;
+        store.put(siteUrl, message);
+        if (data['type'] == 'sent' && !window.messageIds.contains(message.id)) {
+          _applyLiveMessage(siteUrl, key, window, message);
+        }
+        if (data['staged_id'] is String) {
+          _applySendMessage(siteUrl, target, data);
+        }
+        break;
+      case 'delete':
+        if (jsonIntOrNull(data['deleted_id']) == originalId) return;
+        _applyDeleteEvent(siteUrl, data, thread: heldThread);
+        break;
+      case 'bulk_delete':
+        _applyBulkDeleteEvent(siteUrl, data, skipMessageId: originalId);
+        break;
+      case 'reaction':
+        if (jsonIntOrNull(data['chat_message_id']) == originalId) return;
+        _applyReactionEvent(siteUrl, data);
+        break;
+    }
+  }
+
+  void _applyDeleteEvent(
+    String siteUrl,
+    Map<String, dynamic> data, {
+    ChatThread? thread,
+  }) {
+    final deletedId = jsonIntOrNull(data['deleted_id']);
+    if (deletedId == null) return;
+    final message = store.read<ChatMessage>(siteUrl, deletedId);
+    if (message != null) {
+      store.put(
+        siteUrl,
+        message.withDeletedAt(jsonDate(data['deleted_at']) ?? _clock().toUtc()),
+      );
+    }
+    if (thread == null) return;
+
+    final latest = jsonIntOrNull(data['latest_not_deleted_message_id']);
+    final membership = thread.membership;
+    final movesReadCursor = membership?.lastReadMessageId == deletedId;
+    final movesLastMessage = thread.lastMessageId == deletedId;
+    if (!movesReadCursor && !movesLastMessage) return;
+    store.update<ChatThread>(siteUrl, thread.id, (current) {
+      final currentMembership = current.membership;
+      return current.copyWith(
+        lastMessageId: movesLastMessage ? latest : current.lastMessageId,
+        clearLastMessageId: movesLastMessage && latest == null,
+        membership: movesReadCursor && currentMembership != null
+            ? currentMembership.copyWith(
+                lastReadMessageId: latest,
+                clearLastReadMessageId: latest == null,
+              )
+            : currentMembership,
+      );
+    });
+  }
+
+  void _applyBulkDeleteEvent(
+    String siteUrl,
+    Map<String, dynamic> data, {
+    int? skipMessageId,
+  }) {
+    for (final value
+        in data['deleted_ids'] is List
+            ? data['deleted_ids'] as List
+            : const []) {
+      final deletedId = jsonIntOrNull(value);
+      if (deletedId == null || deletedId == skipMessageId) continue;
+      final message = store.read<ChatMessage>(siteUrl, deletedId);
+      if (message != null) {
+        store.put(
+          siteUrl,
+          message.withDeletedAt(
+            jsonDate(data['deleted_at']) ?? _clock().toUtc(),
+          ),
+        );
+      }
+    }
+  }
+
+  void _applyReactionEvent(String siteUrl, Map<String, dynamic> data) {
+    final messageId = jsonIntOrNull(data['chat_message_id']);
+    final emoji = jsonText(data['emoji']);
+    final action = jsonText(data['action']);
+    if (messageId == null || emoji == null || action == null) return;
+    final message = store.read<ChatMessage>(siteUrl, messageId);
+    if (message == null) return;
+
+    final reactions = message.reactions.toList();
+    final index = reactions.indexWhere((reaction) => reaction.emoji == emoji);
+    final existing = index < 0 ? null : reactions[index];
+    final actorId = jsonIntOrNull(jsonObject(data['user'])['id']);
+    final isCurrentUser =
+        actorId != null && actorId == _currentUserFor(siteUrl)?.id;
+    if (action == 'add') {
+      final next = ChatReaction(
+        emoji: emoji,
+        count: (existing?.count ?? 0) + 1,
+        reacted: (existing?.reacted ?? false) || isCurrentUser,
+      );
+      if (index < 0) {
+        if (reactions.length >= ChatMessage.maximumReactionsPerMessage) return;
+        reactions.add(next);
+      } else {
+        reactions[index] = next;
+      }
+    } else if (action == 'remove' && existing != null) {
+      if (existing.count <= 1) {
+        reactions.removeAt(index);
+      } else {
+        reactions[index] = ChatReaction(
+          emoji: emoji,
+          count: existing.count - 1,
+          reacted: isCurrentUser ? false : existing.reacted,
+        );
+      }
+    } else {
+      return;
+    }
+    store.put(siteUrl, message.withReactions(reactions));
+  }
+
+  void _applyLiveMessage(
+    String siteUrl,
+    String key,
+    ChatStreamState window,
+    ChatMessage message,
+  ) {
+    if (window.canLoadMoreFuture) {
+      // Merging a live edge into a window anchored in history would introduce
+      // a hole that neither paging direction could fill. Keep the window
+      // contiguous and let Jump to latest replace it with the present.
+      final pending = _pendingLiveMessageIds.putIfAbsent(key, () => {});
+      if (!pending.add(message.id)) return;
+      _setStream(
+        key,
+        window.copyWith(pendingNewMessages: pending.length, clearError: true),
+      );
+      return;
+    }
+    _pendingLiveMessageIds[key]?.remove(message.id);
+    _setStream(
+      key,
+      window.copyWith(
+        messageIds: _sortedIds(siteUrl, [message], held: window.messageIds),
+        localMessageIds: _retireCanonicalLocals(siteUrl, window, [message]),
+        clearError: true,
+      ),
+    );
+  }
+
+  void _scheduleThreadDetailRefresh(String siteUrl, ChatThreadTarget target) {
+    // refreshThreadDetail is a per-target drain. Calling it again while its
+    // HTTP request is in flight marks that answer dirty; the stale response is
+    // discarded and the drain fetches once more before any caller completes.
+    unawaited(refreshThreadDetail(siteUrl, target));
+  }
+
   void _setStream(String key, ChatStreamState stream) {
     _streams[key] = stream;
     _streamRefs[key]?.value = stream;
+  }
+
+  void _showStreamNotice(
+    String siteUrl,
+    ChatStreamTarget target,
+    String notice,
+  ) {
+    final key = _targetKey(siteUrl, target);
+    _streamNoticeTimers.remove(key)?.cancel();
+    _setStream(key, streamFor(siteUrl, target).copyWith(notice: notice));
+
+    final lease = lifecycle.capture(siteUrl);
+    late final Timer timer;
+    timer = Timer(const Duration(seconds: 4), () {
+      if (!identical(_streamNoticeTimers[key], timer)) return;
+      _streamNoticeTimers.remove(key);
+      if (!lease.isCurrent || isDisposed) return;
+      final current = _streams[key];
+      if (current?.notice == notice) {
+        _setStream(key, current!.copyWith(clearNotice: true));
+      }
+    });
+    _streamNoticeTimers[key] = timer;
   }
 
   /// Drops optimistic overlays once an ordinary page contains their server id.
@@ -1042,7 +1743,11 @@ class ChatController extends FrameSafeNotifier {
 
   /// The messages of one channel, oldest first, as far as they are held.
   List<ChatMessage> messages(String siteUrl, int channelId) {
-    final held = stream(siteUrl, channelId);
+    return messagesFor(siteUrl, ChatChannelTarget(channelId));
+  }
+
+  List<ChatMessage> messagesFor(String siteUrl, ChatStreamTarget target) {
+    final held = streamFor(siteUrl, target);
     return [
       for (final id in [...held.messageIds, ...held.localMessageIds])
         ?store.read<ChatMessage>(siteUrl, id),
@@ -1057,7 +1762,42 @@ class ChatController extends FrameSafeNotifier {
   ///
   /// Network serialization happens below the optimistic boundary, so an
   /// in-flight message never makes the composer busy.
-  bool canSendMessage(String siteUrl, int channelId) => !isDisposed;
+  bool canSendMessage(String siteUrl, int channelId) =>
+      canSendMessageTo(siteUrl, ChatChannelTarget(channelId));
+
+  bool canSendMessageTo(String siteUrl, ChatStreamTarget target) {
+    if (isDisposed || target.channelId <= 0 || (target.threadId ?? 1) <= 0) {
+      return false;
+    }
+    final heldChannel = channel(siteUrl, target.channelId);
+    final canModify =
+        heldChannel?.canModifyMessages(
+          isStaff: _currentUserFor(siteUrl)?.staff ?? false,
+        ) ??
+        true;
+    if (target is! ChatThreadTarget) return canModify;
+
+    final heldThread = thread(siteUrl, target.threadId);
+    return heldChannel != null &&
+        heldChannel.membership.following &&
+        canModify &&
+        heldThread != null &&
+        heldThread.channelId == target.channelId &&
+        heldThread.status == 'open' &&
+        (heldChannel.threadingEnabled || heldThread.force) &&
+        !streamFor(siteUrl, target).threadUnavailable;
+  }
+
+  bool _canCreateThread(String siteUrl, int channelId) {
+    final held = channel(siteUrl, channelId);
+    return !isDisposed &&
+        held != null &&
+        held.membership.following &&
+        held.threadingEnabled &&
+        held.canModifyMessages(
+          isStaff: _currentUserFor(siteUrl)?.staff ?? false,
+        );
+  }
 
   /// Stages and sends one message.
   ///
@@ -1071,10 +1811,16 @@ class ChatController extends FrameSafeNotifier {
     String siteUrl,
     int channelId,
     OutgoingChatMessage message,
+  ) => sendMessageTo(siteUrl, ChatChannelTarget(channelId), message);
+
+  ChatSendHandle? sendMessageTo(
+    String siteUrl,
+    ChatStreamTarget target,
+    OutgoingChatMessage message,
   ) {
     final text = message.raw;
-    if (text.trim().isEmpty || isDisposed) return null;
-    final key = _streamKey(siteUrl, channelId);
+    if (text.trim().isEmpty || !canSendMessageTo(siteUrl, target)) return null;
+    final key = _targetKey(siteUrl, target);
 
     final createdAt = _clock().toUtc();
     final stagedId =
@@ -1083,7 +1829,8 @@ class ChatController extends FrameSafeNotifier {
     final preview = _projectPreview(siteUrl, message);
     final local = ChatMessage.optimistic(
       id: _nextLocalMessageId--,
-      channelId: channelId,
+      channelId: target.channelId,
+      threadId: target.threadId,
       raw: text,
       stagedId: stagedId,
       preview: preview,
@@ -1097,7 +1844,7 @@ class ChatController extends FrameSafeNotifier {
       createdAt: createdAt,
     );
     store.put(siteUrl, local);
-    final held = stream(siteUrl, channelId);
+    final held = streamFor(siteUrl, target);
     _setStream(
       key,
       held.copyWith(
@@ -1106,9 +1853,9 @@ class ChatController extends FrameSafeNotifier {
       ),
     );
 
-    final target = (siteUrl: siteUrl, channelId: channelId);
-    _sendSubscriptionChannels.add(target);
-    _ensureSendSubscription(siteUrl, channelId);
+    final subscriptionTarget = (siteUrl: siteUrl, target: target);
+    _sendSubscriptionTargets.add(subscriptionTarget);
+    _ensureSendSubscription(siteUrl, target);
 
     final settlement = Completer<ChatSendResult>();
     final handle = ChatSendHandle.internal(
@@ -1118,7 +1865,7 @@ class ChatController extends FrameSafeNotifier {
     );
     final queue = _sendQueues.putIfAbsent(
       key,
-      () => _ChatSendQueue(siteUrl: siteUrl, channelId: channelId, key: key),
+      () => _ChatSendQueue(siteUrl: siteUrl, target: target, key: key),
     );
     queue.pending.add(
       _QueuedChatSend(
@@ -1209,7 +1956,8 @@ class ChatController extends FrameSafeNotifier {
 
   Future<void> _sendQueued(_ChatSendQueue queue, _QueuedChatSend item) async {
     final siteUrl = queue.siteUrl;
-    final channelId = queue.channelId;
+    final target = queue.target;
+    final channelId = target.channelId;
     final local = item.local;
     bool ownsRequest() => _ownsSend(queue, item);
 
@@ -1227,11 +1975,15 @@ class ChatController extends FrameSafeNotifier {
         item.complete(ChatSendResult.cancelled);
         return;
       }
+      if (!canSendMessageTo(siteUrl, target)) {
+        throw const WriteException(WriteFailure.forbidden);
+      }
       final serverId = await api.sendChatMessage(
         siteUrl: siteUrl,
         apiKey: apiKey,
         clientId: clientId,
         channelId: channelId,
+        threadId: target.threadId,
         message: local.optimisticRaw!,
         stagedId: local.stagedId,
         clientCreatedAt: local.createdAt,
@@ -1243,7 +1995,7 @@ class ChatController extends FrameSafeNotifier {
       item.lease.commit(() {
         final localId = _updateOutgoing(
           siteUrl,
-          channelId,
+          target,
           local.stagedId!,
           (held) => held.withSendState(
             delivery: ChatMessageDelivery.sent,
@@ -1252,10 +2004,13 @@ class ChatController extends FrameSafeNotifier {
         );
         if (serverId != null &&
             localId != null &&
-            stream(siteUrl, channelId).messageIds.contains(serverId)) {
-          _removeLocalMessage(siteUrl, channelId, localId);
+            streamFor(siteUrl, target).messageIds.contains(serverId)) {
+          _removeLocalMessage(siteUrl, target, localId);
         }
       });
+      if (target is ChatThreadTarget) {
+        _scheduleThreadDetailRefresh(siteUrl, target);
+      }
       item.complete(ChatSendResult.sent);
     } catch (error, stackTrace) {
       if (_requestIsCurrent(item.lease, ownsRequest)) {
@@ -1264,7 +2019,7 @@ class ChatController extends FrameSafeNotifier {
             : const WriteException(WriteFailure.unreachable);
         var canonicalAlreadyArrived = false;
         item.lease.commit(
-          () => _updateOutgoing(siteUrl, channelId, local.stagedId!, (held) {
+          () => _updateOutgoing(siteUrl, target, local.stagedId!, (held) {
             canonicalAlreadyArrived = held.serverId != null;
             return canonicalAlreadyArrived
                 ? held
@@ -1277,7 +2032,7 @@ class ChatController extends FrameSafeNotifier {
           }),
         );
         item.lease.commit(
-          () => _releaseSendSubscriptionIfSettled(siteUrl, channelId),
+          () => _releaseSendSubscriptionIfSettled(siteUrl, target),
         );
         _report(error, stackTrace, 'chat.sendMessage');
         item.complete(
@@ -1310,11 +2065,11 @@ class ChatController extends FrameSafeNotifier {
 
   int? _updateOutgoing(
     String siteUrl,
-    int channelId,
+    ChatStreamTarget target,
     String stagedId,
     ChatMessage Function(ChatMessage held) update,
   ) {
-    final window = stream(siteUrl, channelId);
+    final window = streamFor(siteUrl, target);
     for (final id in window.localMessageIds) {
       final held = store.read<ChatMessage>(siteUrl, id);
       if (held?.stagedId != stagedId) continue;
@@ -1324,8 +2079,12 @@ class ChatController extends FrameSafeNotifier {
     return null;
   }
 
-  void _removeLocalMessage(String siteUrl, int channelId, int localId) {
-    final key = _streamKey(siteUrl, channelId);
+  void _removeLocalMessage(
+    String siteUrl,
+    ChatStreamTarget target,
+    int localId,
+  ) {
+    final key = _targetKey(siteUrl, target);
     final window = _streams[key];
     if (window == null || !window.localMessageIds.contains(localId)) return;
     _setStream(
@@ -1337,11 +2096,14 @@ class ChatController extends FrameSafeNotifier {
       ),
     );
     store.remove<ChatMessage>(siteUrl, localId);
-    _releaseSendSubscriptionIfSettled(siteUrl, channelId);
+    _releaseSendSubscriptionIfSettled(siteUrl, target);
   }
 
-  void _releaseSendSubscriptionIfSettled(String siteUrl, int channelId) {
-    final window = stream(siteUrl, channelId);
+  void _releaseSendSubscriptionIfSettled(
+    String siteUrl,
+    ChatStreamTarget target,
+  ) {
+    final window = streamFor(siteUrl, target);
     for (final id in window.localMessageIds) {
       final local = store.read<ChatMessage>(siteUrl, id);
       if (local == null) continue;
@@ -1353,8 +2115,8 @@ class ChatController extends FrameSafeNotifier {
       }
     }
 
-    final key = _streamKey(siteUrl, channelId);
-    _sendSubscriptionChannels.remove((siteUrl: siteUrl, channelId: channelId));
+    final key = _targetKey(siteUrl, target);
+    _sendSubscriptionTargets.remove((siteUrl: siteUrl, target: target));
     final subscription = _sendSubscriptions.remove(key);
     if (subscription == null) return;
     try {
@@ -1369,16 +2131,18 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  void _ensureSendSubscription(String siteUrl, int channelId) {
-    final key = _streamKey(siteUrl, channelId);
+  void _ensureSendSubscription(String siteUrl, ChatStreamTarget target) {
+    final key = _targetKey(siteUrl, target);
     if (_sendSubscriptions.containsKey(key)) return;
     final tracker = _presenceTrackers[siteUrl];
     if (tracker == null) return;
 
     try {
       _sendSubscriptions[key] = tracker.watchPluginChannel(
-        '/chat/$channelId',
-        (data) => _applySendMessage(siteUrl, channelId, data),
+        target.threadId == null
+            ? '/chat/${target.channelId}'
+            : '/chat/${target.channelId}/thread/${target.threadId}',
+        (data) => _applySendMessage(siteUrl, target, data),
       );
     } catch (error, stackTrace) {
       _report(
@@ -1392,11 +2156,15 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  void _applySendMessage(String siteUrl, int channelId, Object? data) {
+  void _applySendMessage(
+    String siteUrl,
+    ChatStreamTarget target,
+    Object? data,
+  ) {
     if (data is! Map<String, dynamic>) return;
     if (data['type'] != 'sent' || data['staged_id'] is! String) return;
     final stagedId = data['staged_id'] as String;
-    final window = stream(siteUrl, channelId);
+    final window = streamFor(siteUrl, target);
     for (final id in window.localMessageIds) {
       final local = store.read<ChatMessage>(siteUrl, id);
       if (local?.stagedId != stagedId) continue;
@@ -1406,16 +2174,20 @@ class ChatController extends FrameSafeNotifier {
       final payload = data['chat_message'];
       if (payload is! Map<String, dynamic>) return;
       final canonical = ChatMessage.fromJson(payload, siteUrl);
-      if (canonical.id <= 0 || canonical.channelId != channelId) return;
+      if (canonical.id <= 0 ||
+          canonical.channelId != target.channelId ||
+          canonical.threadId != target.threadId) {
+        return;
+      }
       final currentUserId = _currentUserFor(siteUrl)?.id;
       if (currentUserId != null && canonical.author.id != currentUserId) return;
 
       store.put(siteUrl, canonical);
       if (window.messageIds.contains(canonical.id)) {
-        _removeLocalMessage(siteUrl, channelId, id);
+        _removeLocalMessage(siteUrl, target, id);
       } else {
         store.put(siteUrl, local!.withCanonical(canonical));
-        _releaseSendSubscriptionIfSettled(siteUrl, channelId);
+        _releaseSendSubscriptionIfSettled(siteUrl, target);
       }
       return;
     }
@@ -1546,14 +2318,23 @@ class ChatController extends FrameSafeNotifier {
     String siteUrl,
     int channelId, {
     bool force = false,
-  }) {
-    if (isDisposed || channelId <= 0) return Future.value();
+    int? targetMessageId,
+  }) async {
+    if (isDisposed || channelId <= 0) return;
     _lastOpenedChannelIds[siteUrl] = channelId;
-    final key = _streamKey(siteUrl, channelId);
-    if (!force && _windowAttemptedRecently(key)) return Future.value();
-    return DiagnosticsSink.runOperation(
+    final target = ChatChannelTarget(channelId);
+    final key = _targetKey(siteUrl, target);
+    if (!force && targetMessageId == null && _windowAttemptedRecently(key)) {
+      return;
+    }
+    await DiagnosticsSink.runOperation(
       'chat.loadWindow',
-      () => _fetchWindow(siteUrl, channelId, fromLastRead: true),
+      () => _fetchWindow(
+        siteUrl,
+        target,
+        fromLastRead: targetMessageId == null,
+        targetMessageId: targetMessageId,
+      ),
     );
   }
 
@@ -1563,6 +2344,374 @@ class ChatController extends FrameSafeNotifier {
         _clock().difference(attemptedAt) < minimumWindowRefreshInterval;
   }
 
+  Future<void> openThread(
+    String siteUrl,
+    ChatThreadTarget target, {
+    int? targetMessageId,
+    bool force = false,
+  }) async {
+    if (isDisposed || target.channelId <= 0 || target.threadId <= 0) return;
+    final key = _targetKey(siteUrl, target);
+    if (!force && targetMessageId == null && _windowAttemptedRecently(key)) {
+      return;
+    }
+    final detail = await refreshThreadDetail(siteUrl, target);
+    if (detail == null || isDisposed) return;
+    _ensureThreadSubscription(siteUrl, target);
+    final result = await DiagnosticsSink.runOperation(
+      'chat.loadThreadWindow',
+      () => _fetchWindow(
+        siteUrl,
+        target,
+        fromLastRead: false,
+        targetMessageId: targetMessageId,
+      ),
+    );
+    if (result == _ChatWindowFetchResult.missingTarget &&
+        targetMessageId != null) {
+      final fallback = await DiagnosticsSink.runOperation(
+        'chat.loadThreadWindowFallback',
+        () => _fetchWindow(siteUrl, target, fromLastRead: false),
+      );
+      if (fallback == _ChatWindowFetchResult.loaded) {
+        _showStreamNotice(
+          siteUrl,
+          target,
+          'That message is unavailable. Showing the thread instead.',
+        );
+      }
+    }
+  }
+
+  Future<ChatThread?> refreshThreadDetail(
+    String siteUrl,
+    ChatThreadTarget target,
+  ) {
+    if (isDisposed || target.channelId <= 0 || target.threadId <= 0) {
+      return Future.value();
+    }
+    final key = _targetKey(siteUrl, target);
+    _threadDetailDirty.add(key);
+    final current = _threadDetailRequests[key];
+    if (current != null) return current;
+
+    late final Future<ChatThread?> request;
+    request = _drainThreadDetail(siteUrl, target, key).whenComplete(() {
+      if (identical(_threadDetailRequests[key], request)) {
+        final _ = _threadDetailRequests.remove(key);
+        _threadDetailDirty.remove(key);
+      }
+    });
+    _threadDetailRequests[key] = request;
+    return request;
+  }
+
+  Future<ChatThread?> _drainThreadDetail(
+    String siteUrl,
+    ChatThreadTarget target,
+    String key,
+  ) async {
+    final lease = lifecycle.capture(siteUrl);
+    _setStream(
+      key,
+      streamFor(
+        siteUrl,
+        target,
+      ).copyWith(clearError: true, threadUnavailable: false),
+    );
+    while (_threadDetailDirty.remove(key)) {
+      try {
+        final apiKey = await credentials.apiKeyFor(siteUrl);
+        if (!lease.isCurrent || isDisposed) return null;
+        final clientId = await credentials.clientId();
+        if (!lease.isCurrent || isDisposed) return null;
+        final detail = await api.chatThread(
+          siteUrl: siteUrl,
+          channelId: target.channelId,
+          threadId: target.threadId,
+          apiKey: apiKey,
+          clientId: clientId,
+        );
+        if (!lease.isCurrent || isDisposed) return null;
+        if (detail.id != target.threadId ||
+            detail.channelId != target.channelId) {
+          throw StateError('Thread detail did not match its requested target.');
+        }
+        // An authoritative preview event arrived during this GET. Its
+        // metadata is newer than the response, so never commit the response;
+        // loop once more and return the stable answer to every waiter.
+        if (_threadDetailDirty.contains(key)) continue;
+
+        ChatThread? stored;
+        lease.commit(() {
+          final held = thread(siteUrl, detail.id);
+          if (held == null) {
+            stored = store.put(siteUrl, detail);
+          } else {
+            store.update<ChatThread>(
+              siteUrl,
+              detail.id,
+              (current) => current.withDetail(detail),
+            );
+            stored = thread(siteUrl, detail.id);
+          }
+          final merged = stored!;
+          _threadMessageCursors[key] = _newerCursor(
+            _threadMessageCursors[key],
+            merged.messageBusLastId,
+          );
+          _syncThreadOriginalPreview(siteUrl, merged);
+          _setStream(
+            key,
+            streamFor(
+              siteUrl,
+              target,
+            ).copyWith(clearError: true, threadUnavailable: false),
+          );
+        });
+        _ensureThreadSubscription(siteUrl, target);
+        return stored;
+      } catch (error, stackTrace) {
+        if (!lease.isCurrent || isDisposed) return null;
+        if (_threadDetailDirty.contains(key)) continue;
+
+        final terminal =
+            error is SiteLookupException &&
+            (error.statusCode == 403 || error.statusCode == 404);
+        _report(error, stackTrace, 'chat.loadThreadDetail', degraded: false);
+        lease.commit(() {
+          if (terminal) store.remove<ChatThread>(siteUrl, target.threadId);
+          final window = streamFor(siteUrl, target);
+          _setStream(
+            key,
+            window.copyWith(
+              fetchedOnce: true,
+              error: window.messageIds.isEmpty
+                  ? terminal
+                        ? 'This thread is no longer available.'
+                        : 'Could not load this thread.'
+                  : null,
+              threadUnavailable: terminal,
+            ),
+          );
+        });
+        return null;
+      }
+    }
+    return thread(siteUrl, target.threadId);
+  }
+
+  void _syncThreadOriginalPreview(String siteUrl, ChatThread detail) {
+    final originalId = detail.originalMessage?.id;
+    final preview = detail.preview;
+    if (originalId == null || preview == null) return;
+    final original = store.read<ChatMessage>(siteUrl, originalId);
+    if (original == null || original.channelId != detail.channelId) return;
+    store.put(siteUrl, original.withThreadPreview(preview));
+  }
+
+  Future<ChatThread?> createThread(
+    String siteUrl, {
+    required int channelId,
+    required int originalMessageId,
+  }) async {
+    if (originalMessageId <= 0 || !_canCreateThread(siteUrl, channelId)) {
+      return null;
+    }
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!lease.isCurrent || isDisposed || apiKey == null) return null;
+      final clientId = await credentials.clientId();
+      if (!lease.isCurrent || !_canCreateThread(siteUrl, channelId)) {
+        return null;
+      }
+      final created = await api.createChatThread(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        channelId: channelId,
+        originalMessageId: originalMessageId,
+        clientId: clientId,
+      );
+      if (!lease.isCurrent || !_canCreateThread(siteUrl, channelId)) {
+        return null;
+      }
+      lease.commit(() {
+        store.put(siteUrl, created);
+        final original = store.read<ChatMessage>(siteUrl, originalMessageId);
+        if (original != null && created.preview != null) {
+          store.put(siteUrl, original.withThreadPreview(created.preview));
+        }
+      });
+      return created;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent && !isDisposed) {
+        _report(error, stackTrace, 'chat.createThread');
+      }
+      return null;
+    }
+  }
+
+  Future<bool> updateThreadNotificationLevel(
+    String siteUrl,
+    ChatThreadTarget target,
+    ChatThreadNotificationLevel level,
+  ) {
+    if (isDisposed || target.channelId <= 0 || target.threadId <= 0) {
+      return Future.value(false);
+    }
+    final held = thread(siteUrl, target.threadId);
+    if (held == null || held.channelId != target.channelId) {
+      return Future.value(false);
+    }
+    final key = _targetKey(siteUrl, target);
+    if (!_threadNotificationConfirmed.containsKey(key)) {
+      _threadNotificationConfirmed[key] = held.membership;
+    }
+    final revision = (_threadNotificationRevisions[key] ?? 0) + 1;
+    _threadNotificationRevisions[key] = revision;
+
+    final previous = held.membership;
+    final optimistic =
+        (previous ?? ChatThreadMembership(threadId: target.threadId))
+            .withNotificationLevel(level);
+    store.update<ChatThread>(
+      siteUrl,
+      target.threadId,
+      (current) => current.copyWith(membership: optimistic),
+    );
+
+    final write = _QueuedThreadNotification(
+      siteUrl: siteUrl,
+      target: target,
+      level: level,
+      revision: revision,
+      lease: lifecycle.capture(siteUrl),
+    );
+    final previousTail = _threadNotificationTails[key] ?? Future.value();
+    late final Future<void> tail;
+    tail = previousTail
+        .catchError((_) {
+          // Every write settles internally. A defensive catch keeps one
+          // unexpected failure from stranding later selections in the queue.
+        })
+        .then((_) => _performThreadNotificationWrite(key, write))
+        .whenComplete(() {
+          if (!identical(_threadNotificationTails[key], tail)) return;
+          final _ = _threadNotificationTails.remove(key);
+          _threadNotificationRevisions.remove(key);
+          _threadNotificationConfirmed.remove(key);
+        });
+    _threadNotificationTails[key] = tail;
+    unawaited(tail);
+    return write.result.future;
+  }
+
+  Future<void> _performThreadNotificationWrite(
+    String key,
+    _QueuedThreadNotification write,
+  ) async {
+    bool isLatest() =>
+        _threadNotificationRevisions[key] == write.revision &&
+        write.lease.isCurrent &&
+        !isDisposed;
+
+    // A newer selection superseded this one before it reached the server. It
+    // is safe (and preferable) to collapse it out of the serialized queue.
+    if (!isLatest()) {
+      write.complete(false);
+      return;
+    }
+
+    try {
+      final apiKey = await credentials.apiKeyFor(write.siteUrl);
+      if (!isLatest()) {
+        write.complete(false);
+        return;
+      }
+      if (apiKey == null) {
+        _rollbackThreadNotification(key, write);
+        write.complete(false);
+        return;
+      }
+      final clientId = await credentials.clientId();
+      if (!isLatest()) {
+        write.complete(false);
+        return;
+      }
+      final membership = await api.updateChatThreadNotificationLevel(
+        siteUrl: write.siteUrl,
+        apiKey: apiKey,
+        channelId: write.target.channelId,
+        threadId: write.target.threadId,
+        notificationLevel: write.level,
+        clientId: clientId,
+      );
+      if (!write.lease.isCurrent || isDisposed) {
+        write.complete(false);
+        return;
+      }
+      final currentRead = thread(
+        write.siteUrl,
+        write.target.threadId,
+      )?.membership?.lastReadMessageId;
+      final responseRead = membership.lastReadMessageId;
+      final confirmed = membership.copyWith(
+        lastReadMessageId:
+            currentRead != null &&
+                (responseRead == null || currentRead > responseRead)
+            ? currentRead
+            : responseRead,
+      );
+      _threadNotificationConfirmed[key] = confirmed;
+      if (isLatest()) {
+        write.lease.commit(() {
+          final current = thread(write.siteUrl, write.target.threadId);
+          if (current != null) {
+            store.update<ChatThread>(
+              write.siteUrl,
+              current.id,
+              (held) => held.copyWith(membership: confirmed),
+            );
+          }
+        });
+      }
+      write.complete(true);
+    } catch (error, stackTrace) {
+      if (write.lease.isCurrent && !isDisposed) {
+        _report(
+          error,
+          stackTrace,
+          'chat.updateThreadNotificationLevel',
+          severity: DiagnosticSeverity.warning,
+        );
+        if (isLatest()) _rollbackThreadNotification(key, write);
+      }
+      write.complete(false);
+    }
+  }
+
+  void _rollbackThreadNotification(
+    String key,
+    _QueuedThreadNotification write,
+  ) {
+    if (!write.lease.isCurrent || isDisposed) return;
+    final previous = _threadNotificationConfirmed[key];
+    write.lease.commit(() {
+      final current = thread(write.siteUrl, write.target.threadId);
+      if (current != null) {
+        store.update<ChatThread>(
+          write.siteUrl,
+          current.id,
+          (held) => held.copyWith(
+            membership: previous,
+            clearMembership: previous == null,
+          ),
+        );
+      }
+    });
+  }
+
   /// Puts the newest page on screen, wherever the reader was.
   ///
   /// The way out of an anchored stream, and the same two-step Discourse's
@@ -1570,30 +2719,40 @@ class ChatController extends FrameSafeNotifier {
   /// held, the present is already on screen and this is a scroll rather than a
   /// fetch — which is the view's half of it, so this simply does nothing.
   Future<void> showLatest(String siteUrl, int channelId) {
-    if (isDisposed || channelId <= 0) return Future.value();
-    if (stream(siteUrl, channelId).atPresent) return Future.value();
-    return DiagnosticsSink.runOperation(
+    return showLatestFor(siteUrl, ChatChannelTarget(channelId));
+  }
+
+  Future<void> showLatestFor(String siteUrl, ChatStreamTarget target) async {
+    if (isDisposed || target.channelId <= 0) return;
+    if (streamFor(siteUrl, target).atPresent) return;
+    await DiagnosticsSink.runOperation(
       'chat.loadLatest',
-      () => _fetchWindow(siteUrl, channelId, fromLastRead: false),
+      () => _fetchWindow(siteUrl, target, fromLastRead: false),
     );
   }
 
-  Future<void> _fetchWindow(
+  Future<_ChatWindowFetchResult> _fetchWindow(
     String siteUrl,
-    int channelId, {
+    ChatStreamTarget target, {
     required bool fromLastRead,
+    int? targetMessageId,
   }) async {
-    final key = _streamKey(siteUrl, channelId);
-    if (!_loading.add(key)) return;
+    final key = _targetKey(siteUrl, target);
+    // Replacement fetches are latest-wins, including two exact notification
+    // targets opened before the first HTTP response returns. Each request gets
+    // a generation below; stale answers cancel themselves instead of making a
+    // newer intent wait behind the old target.
+    _loading.add(key);
+    _streamNoticeTimers.remove(key)?.cancel();
     _windowAttemptedAt[key] = _clock();
 
     final lease = lifecycle.capture(siteUrl);
     final generation = Object();
     _streamGenerations[key] = generation;
     bool ownsRequest() => identical(_streamGenerations[key], generation);
-    _pageRequests.remove(_olderKey(siteUrl, channelId));
-    _pageRequests.remove(_newerKey(siteUrl, channelId));
-    final held = stream(siteUrl, channelId);
+    _pageRequests.remove(_olderTargetKey(siteUrl, target));
+    _pageRequests.remove(_newerTargetKey(siteUrl, target));
+    final held = streamFor(siteUrl, target);
     _setStream(
       key,
       held.copyWith(
@@ -1604,32 +2763,69 @@ class ChatController extends FrameSafeNotifier {
         loadingOlder: false,
         loadingNewer: false,
         clearError: true,
+        clearNotice: true,
       ),
     );
 
     try {
       final apiKey = await credentials.apiKeyFor(siteUrl);
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      if (!_requestIsCurrent(lease, ownsRequest)) {
+        return _ChatWindowFetchResult.cancelled;
+      }
       final clientId = await credentials.clientId();
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      if (!_requestIsCurrent(lease, ownsRequest)) {
+        return _ChatWindowFetchResult.cancelled;
+      }
 
-      final page = await api.chatMessages(
-        siteUrl: siteUrl,
-        channelId: channelId,
-        fromLastRead: fromLastRead,
-        pageSize: pageSize,
-        apiKey: apiKey,
-        clientId: clientId,
-      );
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      final page = target.threadId == null
+          ? await api.chatMessages(
+              siteUrl: siteUrl,
+              channelId: target.channelId,
+              targetMessageId: targetMessageId,
+              fromLastRead: fromLastRead,
+              pageSize: pageSize,
+              apiKey: apiKey,
+              clientId: clientId,
+            )
+          : await api.chatThreadMessages(
+              siteUrl: siteUrl,
+              channelId: target.channelId,
+              threadId: target.threadId!,
+              targetMessageId: targetMessageId,
+              pageSize: pageSize,
+              apiKey: apiKey,
+              clientId: clientId,
+            );
+      if (!_requestIsCurrent(lease, ownsRequest)) {
+        return _ChatWindowFetchResult.cancelled;
+      }
       lease.commit(() {
         if (!identical(_streamGenerations[key], generation)) return;
-        store.putAll(siteUrl, page.messages);
         final current = _streams[key] ?? held;
+        final heldIds = held.messageIds.toSet();
+        final pageIds = {for (final message in page.messages) message.id};
+        final arrivedWhileLoading = [
+          for (final id in current.messageIds)
+            if (!heldIds.contains(id) && !pageIds.contains(id))
+              ?store.read<ChatMessage>(siteUrl, id),
+        ];
+        store.putAll(siteUrl, page.messages);
+        final messageIds = page.canLoadMoreFuture
+            ? _sortedIds(siteUrl, page.messages)
+            : _sortedIds(siteUrl, [...page.messages, ...arrivedWhileLoading]);
+        final pendingIds = _pendingLiveMessageIds.putIfAbsent(key, () => {});
+        if (page.canLoadMoreFuture) {
+          pendingIds.addAll(arrivedWhileLoading.map((message) => message.id));
+        } else {
+          pendingIds.clear();
+        }
+        final lastReadOnOpen = target.threadId == null
+            ? channel(siteUrl, target.channelId)?.membership.lastReadMessageId
+            : thread(siteUrl, target.threadId!)?.membership?.lastReadMessageId;
         _setStream(
           key,
           ChatStreamState(
-            messageIds: _sortedIds(siteUrl, page.messages),
+            messageIds: messageIds,
             localMessageIds: _retireCanonicalLocals(
               siteUrl,
               current,
@@ -1637,19 +2833,20 @@ class ChatController extends FrameSafeNotifier {
             ),
             canLoadMorePast: page.canLoadMorePast,
             canLoadMoreFuture: page.canLoadMoreFuture,
+            pendingNewMessages: pendingIds.length,
             fetchedOnce: true,
             fetches: held.fetches + 1,
-            lastReadOnOpen: channel(
-              siteUrl,
-              channelId,
-            )?.membership.lastReadMessageId,
+            lastReadOnOpen: lastReadOnOpen,
+            anchorMessageId:
+                targetMessageId ?? page.targetMessageId ?? lastReadOnOpen,
           ),
         );
-        _releaseSendSubscriptionIfSettled(siteUrl, channelId);
+        _releaseSendSubscriptionIfSettled(siteUrl, target);
       });
+      return _ChatWindowFetchResult.loaded;
     } catch (error, stackTrace) {
       if (!_requestIsCurrent(lease, ownsRequest)) {
-        return;
+        return _ChatWindowFetchResult.cancelled;
       }
       _report(error, stackTrace, 'chat.loadWindow', degraded: false);
       lease.commit(() {
@@ -1660,11 +2857,18 @@ class ChatController extends FrameSafeNotifier {
           current.copyWith(
             fetchedOnce: true,
             error: current.messageIds.isEmpty && current.localMessageIds.isEmpty
-                ? 'Could not load this channel.'
+                ? target.threadId == null
+                      ? 'Could not load this channel.'
+                      : 'Could not load this thread.'
                 : null,
           ),
         );
       });
+      return targetMessageId != null &&
+              error is SiteLookupException &&
+              error.statusCode == 404
+          ? _ChatWindowFetchResult.missingTarget
+          : _ChatWindowFetchResult.failed;
     } finally {
       if (_requestIsCurrent(lease, ownsRequest)) {
         lease.commit(() {
@@ -1686,13 +2890,17 @@ class ChatController extends FrameSafeNotifier {
   /// each of which the view can and does ask for anyway, because the cheapest
   /// place to answer "no" is here.
   Future<void> loadOlder(String siteUrl, int channelId) async {
-    if (isDisposed || channelId <= 0) return;
-    final key = _streamKey(siteUrl, channelId);
-    final held = stream(siteUrl, channelId);
+    return loadOlderFor(siteUrl, ChatChannelTarget(channelId));
+  }
+
+  Future<void> loadOlderFor(String siteUrl, ChatStreamTarget target) async {
+    if (isDisposed || target.channelId <= 0) return;
+    final key = _targetKey(siteUrl, target);
+    final held = streamFor(siteUrl, target);
     final before = held.oldestId;
     if (!held.canLoadMorePast || before == null) return;
 
-    final guard = _olderKey(siteUrl, channelId);
+    final guard = _olderTargetKey(siteUrl, target);
     if (_loading.contains(key) || _pageRequests.containsKey(guard)) return;
 
     final lease = lifecycle.capture(siteUrl);
@@ -1710,14 +2918,24 @@ class ChatController extends FrameSafeNotifier {
       final clientId = await credentials.clientId();
       if (!_requestIsCurrent(lease, ownsRequest)) return;
 
-      final page = await api.chatMessages(
-        siteUrl: siteUrl,
-        channelId: channelId,
-        before: before,
-        pageSize: pageSize,
-        apiKey: apiKey,
-        clientId: clientId,
-      );
+      final page = target.threadId == null
+          ? await api.chatMessages(
+              siteUrl: siteUrl,
+              channelId: target.channelId,
+              before: before,
+              pageSize: pageSize,
+              apiKey: apiKey,
+              clientId: clientId,
+            )
+          : await api.chatThreadMessages(
+              siteUrl: siteUrl,
+              channelId: target.channelId,
+              threadId: target.threadId!,
+              before: before,
+              pageSize: pageSize,
+              apiKey: apiKey,
+              clientId: clientId,
+            );
       if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
         if (!identical(_streamGenerations[key], generation) ||
@@ -1731,7 +2949,6 @@ class ChatController extends FrameSafeNotifier {
           page.messages,
           held: current.messageIds,
         );
-
         _setStream(
           key,
           current.copyWith(
@@ -1747,7 +2964,7 @@ class ChatController extends FrameSafeNotifier {
             fetchedOnce: true,
           ),
         );
-        _releaseSendSubscriptionIfSettled(siteUrl, channelId);
+        _releaseSendSubscriptionIfSettled(siteUrl, target);
       });
     } catch (error, stackTrace) {
       if (!_requestIsCurrent(lease, ownsRequest)) {
@@ -1789,13 +3006,17 @@ class ChatController extends FrameSafeNotifier {
   /// present. On a stream fetched at the live edge `canLoadMoreFuture` is
   /// false, and this is the cheapest place to say so.
   Future<void> loadNewer(String siteUrl, int channelId) async {
-    if (isDisposed || channelId <= 0) return;
-    final key = _streamKey(siteUrl, channelId);
-    final held = stream(siteUrl, channelId);
+    return loadNewerFor(siteUrl, ChatChannelTarget(channelId));
+  }
+
+  Future<void> loadNewerFor(String siteUrl, ChatStreamTarget target) async {
+    if (isDisposed || target.channelId <= 0) return;
+    final key = _targetKey(siteUrl, target);
+    final held = streamFor(siteUrl, target);
     final after = held.newestId;
     if (!held.canLoadMoreFuture || after == null) return;
 
-    final guard = _newerKey(siteUrl, channelId);
+    final guard = _newerTargetKey(siteUrl, target);
     if (_loading.contains(key) || _pageRequests.containsKey(guard)) return;
 
     final lease = lifecycle.capture(siteUrl);
@@ -1813,14 +3034,24 @@ class ChatController extends FrameSafeNotifier {
       final clientId = await credentials.clientId();
       if (!_requestIsCurrent(lease, ownsRequest)) return;
 
-      final page = await api.chatMessages(
-        siteUrl: siteUrl,
-        channelId: channelId,
-        after: after,
-        pageSize: pageSize,
-        apiKey: apiKey,
-        clientId: clientId,
-      );
+      final page = target.threadId == null
+          ? await api.chatMessages(
+              siteUrl: siteUrl,
+              channelId: target.channelId,
+              after: after,
+              pageSize: pageSize,
+              apiKey: apiKey,
+              clientId: clientId,
+            )
+          : await api.chatThreadMessages(
+              siteUrl: siteUrl,
+              channelId: target.channelId,
+              threadId: target.threadId!,
+              after: after,
+              pageSize: pageSize,
+              apiKey: apiKey,
+              clientId: clientId,
+            );
       if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
         if (!identical(_streamGenerations[key], generation) ||
@@ -1834,6 +3065,13 @@ class ChatController extends FrameSafeNotifier {
           page.messages,
           held: current.messageIds,
         );
+        final canLoadMoreFuture =
+            merged.length > current.messageIds.length && page.canLoadMoreFuture;
+        final pendingIds = _pendingLiveMessageIds[key];
+        if (pendingIds != null) {
+          pendingIds.removeAll(page.messages.map((message) => message.id));
+          if (!canLoadMoreFuture) pendingIds.clear();
+        }
 
         _setStream(
           key,
@@ -1844,13 +3082,14 @@ class ChatController extends FrameSafeNotifier {
               current,
               page.messages,
             ),
-            canLoadMoreFuture:
-                merged.length > current.messageIds.length &&
-                page.canLoadMoreFuture,
+            canLoadMoreFuture: canLoadMoreFuture,
+            pendingNewMessages: canLoadMoreFuture
+                ? pendingIds?.length ?? current.pendingNewMessages
+                : 0,
             fetchedOnce: true,
           ),
         );
-        _releaseSendSubscriptionIfSettled(siteUrl, channelId);
+        _releaseSendSubscriptionIfSettled(siteUrl, target);
       });
     } catch (error, stackTrace) {
       if (!_requestIsCurrent(lease, ownsRequest)) {
@@ -1894,11 +3133,17 @@ class ChatController extends FrameSafeNotifier {
   /// its answer, which corrects anything this got wrong. Putting a badge back
   /// under a reader who has visibly read the messages would be the worse lie.
   Future<void> markRead(String siteUrl, int channelId, int messageId) {
+    return markReadFor(siteUrl, ChatChannelTarget(channelId), messageId);
+  }
+
+  Future<void> markReadFor(
+    String siteUrl,
+    ChatStreamTarget target,
+    int messageId,
+  ) {
     if (isDisposed) return Future.value();
-    final held = channel(siteUrl, channelId);
-    if (held == null) return Future.value();
     final lease = lifecycle.capture(siteUrl);
-    final window = stream(siteUrl, channelId);
+    final window = streamFor(siteUrl, target);
 
     // Optimistic rows are an outgoing overlay, not part of the contiguous
     // server window. In particular a first-ever local id is negative and must
@@ -1910,12 +3155,24 @@ class ChatController extends FrameSafeNotifier {
     // Only a followed channel has a membership row to move. The site is blunt
     // about the rest — `find_for_user(following: true)` misses, and the answer
     // is a 404 — and this app only ever draws followed channels anyway.
-    if (!held.membership.following) return Future.value();
+    final channelHeld = channel(siteUrl, target.channelId);
+    final threadHeld = target.threadId == null
+        ? null
+        : thread(siteUrl, target.threadId!);
+    if (target.threadId == null &&
+        (channelHeld == null || !channelHeld.membership.following)) {
+      return Future.value();
+    }
+    if (target.threadId != null && threadHeld?.membership == null) {
+      return Future.value();
+    }
 
     // Never backwards, which is both the site's rule and the reader's: paging
     // into the past must not undo what they have already seen. This also
     // de-duplicates the common second viewport tick for the same message.
-    final lastRead = held.membership.lastReadMessageId;
+    final lastRead = target.threadId == null
+        ? channelHeld!.membership.lastReadMessageId
+        : threadHeld!.membership!.lastReadMessageId;
     if (lastRead != null && lastRead >= messageId) return Future.value();
 
     // Both halves are load-bearing since the stream can be anchored behind the
@@ -1925,25 +3182,42 @@ class ChatController extends FrameSafeNotifier {
     final caughtUp =
         window.atPresent &&
         window.newestId == messageId &&
-        (held.lastMessageId == null || held.lastMessageId! <= messageId);
+        (target.threadId == null
+            ? channelHeld!.lastMessageId == null ||
+                  channelHeld.lastMessageId! <= messageId
+            : threadHeld!.lastMessageId == null ||
+                  threadHeld.lastMessageId! <= messageId);
 
     // Before credential storage, not after: the await below is a gap two scroll
     // ticks can both arrive in, and the guard above is only a guard once the
     // answer it reads has been written.
     final viewedAt = _clock().toUtc();
-    store.update<ChatChannel>(siteUrl, channelId, (current) {
-      var updated = current.withLastRead(messageId, caughtUp: caughtUp);
-      final previous = updated.membership.lastViewedAt;
-      if (previous == null || viewedAt.isAfter(previous)) {
-        updated = updated.withLastViewedAt(viewedAt);
-      }
-      return updated;
-    });
+    if (target.threadId == null) {
+      store.update<ChatChannel>(siteUrl, target.channelId, (current) {
+        var updated = current.withLastRead(messageId, caughtUp: caughtUp);
+        final previous = updated.membership.lastViewedAt;
+        if (previous == null || viewedAt.isAfter(previous)) {
+          updated = updated.withLastViewedAt(viewedAt);
+        }
+        return updated;
+      });
+    } else {
+      store.update<ChatThread>(siteUrl, target.threadId!, (current) {
+        final membership = current.membership;
+        if (membership == null ||
+            (membership.lastReadMessageId ?? 0) >= messageId) {
+          return current;
+        }
+        return current.copyWith(
+          membership: membership.withLastReadMessageId(messageId),
+        );
+      });
+    }
     notifySafely();
 
     return _queueReadReceipt(
       siteUrl: siteUrl,
-      channelId: channelId,
+      target: target,
       messageId: messageId,
       lease: lease,
     );
@@ -1951,17 +3225,17 @@ class ChatController extends FrameSafeNotifier {
 
   Future<void> _queueReadReceipt({
     required String siteUrl,
-    required int channelId,
+    required ChatStreamTarget target,
     required int messageId,
     required SiteLease lease,
   }) {
-    final key = _streamKey(siteUrl, channelId);
+    final key = _targetKey(siteUrl, target);
     // Only one write per channel runs at once. While it does, every viewport
     // tick supersedes the previous queued position: sending an intermediate
     // read marker has no value once the reader is already farther ahead.
     _queuedReadReceipts[key] = (
       siteUrl: siteUrl,
-      channelId: channelId,
+      target: target,
       messageId: messageId,
       lease: lease,
     );
@@ -2004,13 +3278,24 @@ class ChatController extends FrameSafeNotifier {
 
         final clientId = await credentials.clientId();
         if (!_requestIsCurrent(receipt.lease, ownsRequest)) continue;
-        await api.markChatChannelRead(
-          siteUrl: receipt.siteUrl,
-          apiKey: apiKey,
-          channelId: receipt.channelId,
-          messageId: receipt.messageId,
-          clientId: clientId,
-        );
+        if (receipt.target.threadId == null) {
+          await api.markChatChannelRead(
+            siteUrl: receipt.siteUrl,
+            apiKey: apiKey,
+            channelId: receipt.target.channelId,
+            messageId: receipt.messageId,
+            clientId: clientId,
+          );
+        } else {
+          await api.markChatThreadRead(
+            siteUrl: receipt.siteUrl,
+            apiKey: apiKey,
+            channelId: receipt.target.channelId,
+            threadId: receipt.target.threadId!,
+            messageId: receipt.messageId,
+            clientId: clientId,
+          );
+        }
       } catch (error, stackTrace) {
         if (_requestIsCurrent(receipt.lease, ownsRequest)) {
           _report(
@@ -2037,15 +3322,22 @@ class ChatController extends FrameSafeNotifier {
     _cancelPresence(siteUrl);
     _cancelSendSubscriptions(siteUrl);
     _cancelLiveChatSubscriptions(siteUrl);
+    _cancelActiveStreamSubscriptions(siteUrl);
     _presenceTrackers.remove(siteUrl);
     _presence.remove(siteUrl);
     _newMessageCursors.remove(siteUrl);
+    _rootMessageCursors.remove(siteUrl);
     _newChannelCursors.remove(siteUrl);
     _userTrackingCursors.remove(siteUrl);
     _newChannelsAwaitingFirstMessage.removeWhere(
       (key) => key.startsWith('$siteUrl~'),
     );
     _activeChannelViews.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _rootViewTokens.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _threadViewTokens.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _threadMessageCursors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _threadDetailRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _threadDetailDirty.removeWhere((key) => key.startsWith('$siteUrl~'));
     final presenceRef = _presenceRefs.remove(siteUrl);
     if (presenceRef != null) presenceRef.value = const {};
     _loading.removeWhere((key) => key.startsWith('$siteUrl~'));
@@ -2057,9 +3349,25 @@ class ChatController extends FrameSafeNotifier {
     _streamGenerations.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _windowAttemptedAt.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _pageRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _pendingLiveMessageIds.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    for (final key
+        in _streamNoticeTimers.keys
+            .where((key) => key.startsWith('$siteUrl~'))
+            .toList()) {
+      _streamNoticeTimers.remove(key)?.cancel();
+    }
     _queuedReadReceipts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _readReceiptTasks.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _readReceiptRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _threadNotificationRevisions.removeWhere(
+      (key, _) => key.startsWith('$siteUrl~'),
+    );
+    _threadNotificationTails.removeWhere(
+      (key, _) => key.startsWith('$siteUrl~'),
+    );
+    _threadNotificationConfirmed.removeWhere(
+      (key, _) => key.startsWith('$siteUrl~'),
+    );
     final forgottenRefs = <FrameSafeValueNotifier<ChatStreamState>>[];
     _streamRefs.removeWhere((key, ref) {
       if (!key.startsWith('$siteUrl~')) return false;
@@ -2130,6 +3438,7 @@ class ChatController extends FrameSafeNotifier {
     }
     _newMessageSubscriptions.clear();
     _newMessageCursors.clear();
+    _rootMessageCursors.clear();
     for (final subscription in _newChannelSubscriptions.values) {
       try {
         subscription.cancel();
@@ -2152,14 +3461,35 @@ class ChatController extends FrameSafeNotifier {
     _userTrackingCursors.clear();
     _newChannelsAwaitingFirstMessage.clear();
     _activeChannelViews.clear();
+    for (final subscription in _rootSubscriptions.values) {
+      _cancelSubscription(subscription, 'chat.channel.unsubscribe');
+    }
+    for (final subscription in _threadSubscriptions.values) {
+      _cancelSubscription(subscription, 'chat.thread.unsubscribe');
+    }
+    _rootSubscriptions.clear();
+    _threadSubscriptions.clear();
+    _rootViewTokens.clear();
+    _threadViewTokens.clear();
+    _threadMessageCursors.clear();
+    _threadDetailRequests.clear();
+    _threadDetailDirty.clear();
     for (final ref in _presenceRefs.values) {
       ref.dispose();
     }
     _presenceRefs.clear();
     _windowAttemptedAt.clear();
+    _pendingLiveMessageIds.clear();
+    for (final timer in _streamNoticeTimers.values) {
+      timer.cancel();
+    }
+    _streamNoticeTimers.clear();
     _queuedReadReceipts.clear();
     _readReceiptTasks.clear();
     _readReceiptRuns.clear();
+    _threadNotificationRevisions.clear();
+    _threadNotificationTails.clear();
+    _threadNotificationConfirmed.clear();
     for (final subscription in _sendSubscriptions.values) {
       try {
         subscription.cancel();
@@ -2169,7 +3499,7 @@ class ChatController extends FrameSafeNotifier {
       }
     }
     _sendSubscriptions.clear();
-    _sendSubscriptionChannels.clear();
+    _sendSubscriptionTargets.clear();
     for (final ref in _streamRefs.values) {
       ref.dispose();
     }
@@ -2181,12 +3511,12 @@ class ChatController extends FrameSafeNotifier {
 final class _ChatSendQueue {
   _ChatSendQueue({
     required this.siteUrl,
-    required this.channelId,
+    required this.target,
     required this.key,
   });
 
   final String siteUrl;
-  final int channelId;
+  final ChatStreamTarget target;
   final String key;
   final ListQueue<_QueuedChatSend> pending = ListQueue<_QueuedChatSend>();
   _QueuedChatSend? active;
@@ -2207,5 +3537,26 @@ final class _QueuedChatSend {
 
   void complete(ChatSendResult result) {
     if (!settlement.isCompleted) settlement.complete(result);
+  }
+}
+
+final class _QueuedThreadNotification {
+  _QueuedThreadNotification({
+    required this.siteUrl,
+    required this.target,
+    required this.level,
+    required this.revision,
+    required this.lease,
+  });
+
+  final String siteUrl;
+  final ChatThreadTarget target;
+  final ChatThreadNotificationLevel level;
+  final int revision;
+  final SiteLease lease;
+  final Completer<bool> result = Completer<bool>();
+
+  void complete(bool succeeded) {
+    if (!result.isCompleted) result.complete(succeeded);
   }
 }

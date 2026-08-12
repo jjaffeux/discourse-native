@@ -24,6 +24,21 @@ enum ChatChannelKind {
   };
 }
 
+/// Whether the channel accepts new messages from this account.
+enum ChatChannelStatus {
+  open,
+  readOnly,
+  closed,
+  archived;
+
+  static ChatChannelStatus read(Object? value) => switch (value) {
+    'read_only' => readOnly,
+    'closed' => closed,
+    'archived' => archived,
+    _ => open,
+  };
+}
+
 /// One account in a direct message channel.
 ///
 /// Thin, like `PostReactor`: this is a name and a face beside a sidebar row,
@@ -267,6 +282,7 @@ class ChatChannels {
     this.direct = const [],
     this.presence = const ChatPresence(),
     this.newMessageBusLastIds = const {},
+    this.channelMessageBusLastIds = const {},
     this.newChannelBusLastId,
     this.userTrackingBusLastId,
   });
@@ -281,6 +297,13 @@ class ChatChannels {
   /// the HTTP envelope and are retained by [ChatController] only while it owns
   /// the corresponding subscriptions.
   final Map<int, int?> newMessageBusLastIds;
+
+  /// The `/chat/{id}` position captured with each channel.
+  ///
+  /// A mounted channel or thread consumes this root stream for channel
+  /// messages and authoritative thread-preview updates. Retaining the cursor
+  /// closes the gap between the HTTP snapshot and the subscription.
+  final Map<int, int?> channelMessageBusLastIds;
 
   /// Envelope-level cursors captured by the same channel-list response.
   final int? newChannelBusLastId;
@@ -299,6 +322,8 @@ class ChatChannel with Storable<ChatChannel> {
     this.description,
     this.categoryColor,
     this.readRestricted = false,
+    this.status = ChatChannelStatus.open,
+    this.userSilenced = false,
     this.isGroup = false,
     this.users = const [],
     this.membership = ChatMembership.none,
@@ -334,6 +359,7 @@ class ChatChannel with Storable<ChatChannel> {
     final chatable = jsonObject(json['chatable']);
     final kind = ChatChannelKind.read(json['chatable_type']);
     final lastMessage = jsonObject(json['last_message']);
+    final metadata = jsonObject(json['meta']);
 
     return ChatChannel(
       id: jsonInt(json['id']),
@@ -355,6 +381,8 @@ class ChatChannel with Storable<ChatChannel> {
           ? _hexColor(chatable['color'])
           : null,
       readRestricted: chatable['read_restricted'] == true,
+      status: ChatChannelStatus.read(json['status']),
+      userSilenced: metadata['user_silenced'] == true,
       isGroup: chatable['group'] == true,
       users: kind == ChatChannelKind.directMessage
           ? List.unmodifiable([
@@ -403,6 +431,7 @@ class ChatChannel with Storable<ChatChannel> {
     }
 
     final newMessageBusLastIds = <int, int?>{};
+    final channelMessageBusLastIds = <int, int?>{};
 
     ChatChannel readChannel(Map<String, dynamic> entry) {
       final id = jsonInt(entry['id']);
@@ -410,6 +439,9 @@ class ChatChannel with Storable<ChatChannel> {
         jsonObject(entry['meta'])['message_bus_last_ids'],
       );
       newMessageBusLastIds[id] = jsonIntOrNull(lastIds['new_messages']);
+      channelMessageBusLastIds[id] = jsonIntOrNull(
+        lastIds['channel_message_bus_last_id'],
+      );
       final threadOverview = <int, DateTime>{};
       for (final overviewEntry in jsonObject(
         unreadThreadOverview['$id'],
@@ -455,6 +487,7 @@ class ChatChannel with Storable<ChatChannel> {
       ),
       presence: ChatPresence.fromJson(json['global_presence_channel_state']),
       newMessageBusLastIds: Map.unmodifiable(newMessageBusLastIds),
+      channelMessageBusLastIds: Map.unmodifiable(channelMessageBusLastIds),
       newChannelBusLastId: jsonIntOrNull(envelopeLastIds['new_channel']),
       userTrackingBusLastId: jsonIntOrNull(
         envelopeLastIds['user_tracking_state'],
@@ -482,6 +515,14 @@ class ChatChannel with Storable<ChatChannel> {
   final Color? categoryColor;
 
   final bool readRestricted;
+  final ChatChannelStatus status;
+  final bool userSilenced;
+
+  bool canModifyMessages({required bool isStaff}) =>
+      !userSilenced &&
+      status != ChatChannelStatus.readOnly &&
+      status != ChatChannelStatus.archived &&
+      (isStaff || status != ChatChannelStatus.closed);
 
   /// Whether a direct channel was opened as a group rather than one to one.
   /// True even when only one other person is in it.
@@ -504,7 +545,6 @@ class ChatChannel with Storable<ChatChannel> {
   int get unreadThreadCount => unreadThreadOverview.length;
 
   int get unreadThreadsCountSinceLastViewed {
-    if (!threadingEnabled) return 0;
     final viewedAt = membership.lastViewedAt;
     if (viewedAt == null) return unreadThreadOverview.length;
     return unreadThreadOverview.values
@@ -586,6 +626,8 @@ class ChatChannel with Storable<ChatChannel> {
     description: description,
     categoryColor: categoryColor,
     readRestricted: readRestricted,
+    status: status,
+    userSilenced: userSilenced,
     isGroup: isGroup,
     users: users,
     membership: membership.withLastViewedAt(viewedAt),
@@ -615,6 +657,8 @@ class ChatChannel with Storable<ChatChannel> {
         description: description,
         categoryColor: categoryColor,
         readRestricted: readRestricted,
+        status: status,
+        userSilenced: userSilenced,
         isGroup: isGroup,
         users: users,
         membership: membership.withLastRead(messageId),
@@ -648,6 +692,8 @@ class ChatChannel with Storable<ChatChannel> {
     description: description,
     categoryColor: categoryColor,
     readRestricted: readRestricted,
+    status: status,
+    userSilenced: userSilenced,
     isGroup: isGroup,
     users: users,
     membership: lastReadMessageId == null
@@ -674,6 +720,9 @@ class ChatChannel with Storable<ChatChannel> {
     int? threadId,
     bool markThreadUnread = false,
     bool markThreadRead = false,
+    bool threadMembershipKnown = false,
+    bool forceThread = false,
+    bool incrementWatchedThreadUnread = false,
   }) {
     var nextThreadOverview = unreadThreadOverview;
     if (threadId != null && markThreadRead) {
@@ -684,8 +733,10 @@ class ChatChannel with Storable<ChatChannel> {
       }
     } else if (threadId != null &&
         markThreadUnread &&
-        threadingEnabled &&
-        (isDirectMessage || unreadThreadOverview.containsKey(threadId))) {
+        (threadingEnabled || forceThread) &&
+        (isDirectMessage ||
+            threadMembershipKnown ||
+            unreadThreadOverview.containsKey(threadId))) {
       // Every participant in a DM receives a membership for every thread.
       // Public channels only expose the memberships already represented in
       // the overview until native has a thread model of its own.
@@ -704,14 +755,18 @@ class ChatChannel with Storable<ChatChannel> {
       description: description,
       categoryColor: categoryColor,
       readRestricted: readRestricted,
+      status: status,
+      userSilenced: userSilenced,
       isGroup: isGroup,
       users: users,
       membership: markRead ? membership.withLastRead(messageId) : membership,
-      tracking: incrementUnread
+      tracking: incrementUnread || incrementWatchedThreadUnread
           ? ChatTracking(
-              unreadCount: tracking.unreadCount + 1,
+              unreadCount: tracking.unreadCount + (incrementUnread ? 1 : 0),
               mentionCount: tracking.mentionCount,
-              watchedThreadsUnreadCount: tracking.watchedThreadsUnreadCount,
+              watchedThreadsUnreadCount:
+                  tracking.watchedThreadsUnreadCount +
+                  (incrementWatchedThreadUnread ? 1 : 0),
             )
           : tracking,
       unreadThreadOverview: nextThreadOverview,
@@ -764,6 +819,8 @@ class ChatChannel with Storable<ChatChannel> {
           other.description == description &&
           other.categoryColor == categoryColor &&
           other.readRestricted == readRestricted &&
+          other.status == status &&
+          other.userSilenced == userSilenced &&
           other.isGroup == isGroup &&
           listEquals(other.users, users) &&
           other.membership == membership &&
@@ -783,6 +840,8 @@ class ChatChannel with Storable<ChatChannel> {
     description,
     categoryColor,
     readRestricted,
+    status,
+    userSilenced,
     isGroup,
     Object.hashAll(users),
     membership,

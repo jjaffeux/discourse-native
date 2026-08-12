@@ -265,10 +265,9 @@ class _NotificationSectionView extends StatefulWidget {
 class _NotificationSectionViewState extends State<_NotificationSectionView> {
   /// Marks the notification read, then follows it.
   ///
-  /// A topic on a site in the rail is something this app has a view for, so it
-  /// opens here. Everything else a notification points at — a badge, a group,
-  /// a chat channel, the admin dashboard — is a page this app does not have,
-  /// and belongs in the browser rather than nowhere.
+  /// A topic or Chat target on a site in the rail is something this app has a
+  /// view for, so it opens here. Everything else a notification points at — a
+  /// badge, a group, the admin dashboard — belongs in the browser.
   Future<void> _open(DiscourseNotification notification) async {
     final controller = widget.controller;
     controller.readNotification(widget.siteUrl, notification);
@@ -277,6 +276,11 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
     if (path == null) return;
 
     final url = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
+    if (await controller.openChatUrl(url)) {
+      if (mounted) widget.onOpened();
+      return;
+    }
+    if (!mounted) return;
     if (controller.openTopicUrl(url)) {
       widget.onOpened();
       return;

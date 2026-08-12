@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -2926,6 +2927,38 @@ void _feedGroups() {
       },
     );
 
+    test('asks for a directionless page around an explicit message', () async {
+      late Uri seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request.url;
+          return http.Response(
+            jsonEncode({
+              'messages': <Object?>[],
+              'meta': {
+                'target_message_id': 40,
+                'can_load_more_past': true,
+                'can_load_more_future': true,
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final page = await api.chatMessages(
+        siteUrl: 'https://example.com',
+        channelId: 9,
+        targetMessageId: 40,
+        pageSize: 20,
+      );
+
+      expect(seen.queryParameters['target_message_id'], '40');
+      expect(seen.queryParameters['page_size'], '20');
+      expect(seen.queryParameters, isNot(contains('direction')));
+      expect(page.targetMessageId, 40);
+    });
+
     test(
       'never asks to fetch from last read, there being no way to page forward',
       () async {
@@ -2984,6 +3017,40 @@ void _feedGroups() {
   });
 
   group('chatThreadMessages', () {
+    test('requests an explicit target and bounded page size', () async {
+      late Uri seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request.url;
+          return http.Response(
+            jsonEncode({
+              'messages': <Object?>[],
+              'meta': {
+                'target_message_id': 44,
+                'can_load_more_past': true,
+                'can_load_more_future': true,
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final page = await api.chatThreadMessages(
+        siteUrl: 'https://example.com',
+        channelId: 9,
+        threadId: 22,
+        targetMessageId: 44,
+        pageSize: 20,
+      );
+
+      expect(seen.path, '/chat/api/channels/9/threads/22/messages.json');
+      expect(seen.queryParameters['target_message_id'], '44');
+      expect(seen.queryParameters['page_size'], '20');
+      expect(seen.queryParameters, isNot(contains('direction')));
+      expect(page.targetMessageId, 44);
+    });
+
     test('rejects invalid identities and direction before transport', () async {
       var requests = 0;
       final api = DiscourseApi(
@@ -3016,12 +3083,156 @@ void _feedGroups() {
           threadId: 2,
           after: -1,
         ),
+        () => api.chatThreadMessages(
+          siteUrl: 'https://example.com',
+          channelId: 1,
+          threadId: 2,
+          targetMessageId: 3,
+          before: 4,
+        ),
+        () => api.chatThreadMessages(
+          siteUrl: 'https://example.com',
+          channelId: 1,
+          threadId: 2,
+          pageSize: 51,
+        ),
       ];
 
       for (final call in invalidCalls) {
         await expectLater(call(), throwsArgumentError);
       }
       expect(requests, 0);
+    });
+  });
+
+  group('chat thread detail and settings', () {
+    Map<String, dynamic> serializedThread({bool membership = true}) => {
+      'id': 22,
+      'channel_id': 9,
+      'status': 'open',
+      'reply_count': 4,
+      'last_message_id': 108,
+      'force': false,
+      'meta': {
+        'message_bus_last_ids': {'thread_message_bus_last_id': 456},
+      },
+      if (membership)
+        'current_user_membership': {
+          'thread_id': 22,
+          'notification_level': 2,
+          'last_read_message_id': 105,
+          'thread_title_prompt_seen': false,
+        },
+      'original_message': {
+        'id': 100,
+        'chat_channel_id': 9,
+        'message': 'Deploy?',
+        'cooked': '<p>Deploy?</p>',
+        'excerpt': 'Deploy?',
+        'user': {'id': 2, 'username': 'sam'},
+      },
+      'preview': {
+        'last_reply_id': 108,
+        'last_reply_user': {'id': 3, 'username': 'lee'},
+        'participant_count': 2,
+        'participant_users': [
+          {'id': 2, 'username': 'sam'},
+          {'id': 3, 'username': 'lee'},
+        ],
+      },
+    };
+
+    test('fetches rooted thread detail', () async {
+      late http.Request seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(jsonEncode({'thread': serializedThread()}), 200);
+        }),
+      );
+
+      final thread = await api.chatThread(
+        siteUrl: 'https://example.com',
+        channelId: 9,
+        threadId: 22,
+        apiKey: 'key',
+      );
+
+      expect(seen.method, 'GET');
+      expect(seen.url.path, '/chat/api/channels/9/threads/22.json');
+      expect(thread.messageBusLastId, 456);
+      expect(thread.membership?.lastReadMessageId, 105);
+      expect(thread.originalMessage?.id, 100);
+      expect(thread.preview?.lastReplyId, 108);
+    });
+
+    test('creates an unrooted thread from an original message', () async {
+      late http.Request seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(
+            jsonEncode(serializedThread(membership: false)),
+            200,
+          );
+        }),
+      );
+
+      final thread = await api.createChatThread(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        originalMessageId: 100,
+        title: 'Deploy plan',
+      );
+
+      expect(seen.method, 'POST');
+      expect(seen.url.path, '/chat/api/channels/9/threads.json');
+      expect(jsonDecode(seen.body), {
+        'original_message_id': 100,
+        'title': 'Deploy plan',
+      });
+      expect(thread.id, 22);
+      expect(thread.membership, isNull);
+    });
+
+    test('updates and returns the current thread membership', () async {
+      late http.Request seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(
+            jsonEncode({
+              'membership': {
+                'thread_id': 22,
+                'notification_level': 3,
+                'last_read_message_id': 105,
+                'thread_title_prompt_seen': false,
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final membership = await api.updateChatThreadNotificationLevel(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        threadId: 22,
+        notificationLevel: ChatThreadNotificationLevel.watching,
+      );
+
+      expect(seen.method, 'PUT');
+      expect(
+        seen.url.path,
+        '/chat/api/channels/9/threads/22/notifications-settings/me.json',
+      );
+      expect(jsonDecode(seen.body), {'notification_level': 3});
+      expect(
+        membership.notificationLevel,
+        ChatThreadNotificationLevel.watching,
+      );
     });
   });
 

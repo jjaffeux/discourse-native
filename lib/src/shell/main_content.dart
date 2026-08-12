@@ -34,25 +34,35 @@ import 'user_menu_button.dart';
 /// The main region. There is only ever one of these on screen; navigating
 /// deeper replaces what it shows rather than opening beside it.
 class MainContent extends StatelessWidget {
-  const MainContent({super.key, required this.layout});
+  const MainContent({
+    super.key,
+    required this.layout,
+    this.registry = pluginRegistry,
+  });
 
   final ShellLayout layout;
+  final PluginRegistry registry;
 
   @override
   Widget build(BuildContext context) {
     return ShellSelector<_MainContentSnapshot>(
       select: _MainContentSnapshot.from,
       builder: (context, state, _) =>
-          _MainContentBody(layout: layout, state: state),
+          _MainContentBody(layout: layout, state: state, registry: registry),
     );
   }
 }
 
 class _MainContentBody extends StatelessWidget {
-  const _MainContentBody({required this.layout, required this.state});
+  const _MainContentBody({
+    required this.layout,
+    required this.state,
+    required this.registry,
+  });
 
   final ShellLayout layout;
   final _MainContentSnapshot state;
+  final PluginRegistry registry;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +71,8 @@ class _MainContentBody extends StatelessWidget {
 
     final route = state.route;
     if (route == null) return ColoredBox(color: theme.shell.content);
-    final pluginContent = _pluginContent(context, route);
+    final pluginContent = registry.content(context, route);
+    final pluginOwnsChrome = registry.ownsContentChrome(context, route);
     final contentKey = ValueKey((
       state.siteUrl,
       state.activeTabId,
@@ -76,16 +87,18 @@ class _MainContentBody extends StatelessWidget {
         child: Column(
           children: [
             if (forumTabsEnabled) const CurrentForumTabsBar(),
-            _ContentHeader(
-              layout: layout,
-              route: route,
-              siteUrl: state.siteUrl,
-              topic: state.topic,
-              canPop: state.canPop,
-              canReply: state.canReply,
-              canCreateTopic: state.canCreateTopic && pluginContent == null,
-              isConnected: state.isConnected,
-            ),
+            if (!pluginOwnsChrome)
+              _ContentHeader(
+                layout: layout,
+                route: route,
+                siteUrl: state.siteUrl,
+                topic: state.topic,
+                canPop: state.canPop,
+                canReply: state.canReply,
+                canCreateTopic: state.canCreateTopic && pluginContent == null,
+                isConnected: state.isConnected,
+                registry: registry,
+              ),
             Expanded(
               child: Stack(
                 children: [
@@ -155,16 +168,6 @@ class _MainContentBody extends StatelessWidget {
   }
 }
 
-/// The screen an optional feature draws for this route, or null when none of
-/// them claims it.
-///
-/// The body of [PostFooter] with a route in place of a post, and asked before
-/// core for the same reason it is there: the first plugin with something to say
-/// wins, and core's answer is what is left when none of them do.
-Widget? _pluginContent(BuildContext context, ContentRoute route) {
-  return pluginRegistry.content(context, route);
-}
-
 class _ContentHeader extends StatelessWidget {
   const _ContentHeader({
     required this.layout,
@@ -175,6 +178,7 @@ class _ContentHeader extends StatelessWidget {
     required this.canReply,
     required this.canCreateTopic,
     required this.isConnected,
+    required this.registry,
   });
 
   final ShellLayout layout;
@@ -185,13 +189,14 @@ class _ContentHeader extends StatelessWidget {
   final bool canReply;
   final bool canCreateTopic;
   final bool isConnected;
+  final PluginRegistry registry;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
     final topicHeader = switch ((siteUrl, topic)) {
-      (final siteUrl?, final topic?) => pluginRegistry.topicHeader(
+      (final siteUrl?, final topic?) => registry.topicHeader(
         context,
         siteUrl,
         topic,

@@ -12,7 +12,9 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../gifs/gif.dart';
 import '../gifs/gif_picker.dart';
+import 'chat_channel.dart';
 import 'chat_message.dart';
+import 'chat_stream_target.dart';
 
 /// A compact composer pinned underneath one chat stream.
 ///
@@ -25,10 +27,19 @@ class ChatComposer extends StatefulWidget {
     super.key,
     required this.siteUrl,
     required this.channelId,
+    this.threadId,
+    this.focusRequest = 0,
   });
 
   final String siteUrl;
   final int channelId;
+  final int? threadId;
+
+  /// A monotonically increasing request to focus this composer.
+  ///
+  /// A counter, rather than a boolean, lets repeatedly choosing Reply on an
+  /// already-open thread focus it again without rebuilding the route.
+  final int focusRequest;
 
   @override
   State<ChatComposer> createState() => _ChatComposerState();
@@ -47,7 +58,8 @@ class _ChatComposerState extends State<ChatComposer> {
   }
 
   void _useComposer(ShellController shell) {
-    final sourceKey = '${widget.siteUrl}~${widget.channelId}';
+    final sourceKey =
+        '${widget.siteUrl}~${widget.channelId}~${widget.threadId ?? 'channel'}';
     if (identical(_shell, shell) && _sourceKey == sourceKey) return;
 
     _composer?.dispose();
@@ -58,14 +70,31 @@ class _ChatComposerState extends State<ChatComposer> {
       siteUrl: widget.siteUrl,
       channelId: widget.channelId,
       channelTitle: channel?.title ?? 'Chat',
+      threadId: widget.threadId,
     );
+    if (widget.focusRequest > 0) _requestFocus(sourceKey);
+  }
+
+  void _requestFocus(String sourceKey) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _sourceKey == sourceKey) {
+        _composer?.focus.requestFocus();
+      }
+    });
   }
 
   @override
   void didUpdateWidget(ChatComposer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.siteUrl == widget.siteUrl &&
-        oldWidget.channelId == widget.channelId) {
+    final sameTarget =
+        oldWidget.siteUrl == widget.siteUrl &&
+        oldWidget.channelId == widget.channelId &&
+        oldWidget.threadId == widget.threadId;
+    if (sameTarget) {
+      if (oldWidget.focusRequest != widget.focusRequest &&
+          widget.focusRequest > 0) {
+        _requestFocus(_sourceKey!);
+      }
       return;
     }
     _useComposer(_shell ?? ShellScope.read(context));
@@ -85,9 +114,9 @@ class _ChatComposerState extends State<ChatComposer> {
         composer.hasActiveUploads) {
       return;
     }
-    final accepted = shell.chat.sendMessage(
+    final accepted = shell.chat.sendMessageTo(
       widget.siteUrl,
-      widget.channelId,
+      _target,
       OutgoingChatMessage.text(composer.raw),
     );
     if (accepted == null) return;
@@ -113,7 +142,7 @@ class _ChatComposerState extends State<ChatComposer> {
         sourceKey == null ||
         _pickingGif ||
         !shell.siteConfigFor(widget.siteUrl).gifsEnabled ||
-        !shell.chat.canSendMessage(widget.siteUrl, widget.channelId)) {
+        !shell.chat.canSendMessageTo(widget.siteUrl, _target)) {
       return;
     }
 
@@ -144,13 +173,13 @@ class _ChatComposerState extends State<ChatComposer> {
     GifResult result,
   ) {
     if (!_ownsComposer(shell, composer, sourceKey) ||
-        !shell.chat.canSendMessage(widget.siteUrl, widget.channelId)) {
+        !shell.chat.canSendMessageTo(widget.siteUrl, _target)) {
       return;
     }
 
-    shell.chat.sendMessage(
+    shell.chat.sendMessageTo(
       widget.siteUrl,
-      widget.channelId,
+      _target,
       OutgoingChatMessage.trustedGif(
         raw: result.markdown,
         url: result.url,
@@ -162,6 +191,14 @@ class _ChatComposerState extends State<ChatComposer> {
     // A picked GIF is its own outgoing message. Text already in the composer
     // is unrelated and remains untouched on both success and failure.
   }
+
+  ChatStreamTarget get _target => switch (widget.threadId) {
+    final threadId? => ChatThreadTarget(
+      channelId: widget.channelId,
+      threadId: threadId,
+    ),
+    null => ChatChannelTarget(widget.channelId),
+  };
 
   bool _ownsComposer(
     ShellController shell,
@@ -191,33 +228,66 @@ class _ChatComposerState extends State<ChatComposer> {
     final composer = _composer;
     if (composer == null) return const SizedBox.shrink();
 
-    return ListenableBuilder(
-      listenable: composer,
-      builder: (context, _) => SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (composer.uploads.isNotEmpty)
-              ComposerUploadQueue(composer: composer),
-            if (composer.notice case final message?)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    message,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+    return ValueListenableBuilder<ChatChannel?>(
+      valueListenable: ShellScope.read(
+        context,
+      ).chat.channelRef(widget.siteUrl, widget.channelId),
+      builder: (context, channel, _) {
+        if (channel != null &&
+            !(_shell?.chat.canSendMessageTo(widget.siteUrl, _target) ??
+                false)) {
+          return SafeArea(
+            top: false,
+            minimum: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+            child: Container(
+              key: const ValueKey('chat-composer-read-only'),
+              height: 58,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Theme.of(context).shell.divider),
+              ),
+              child: Text(
+                channel.userSilenced
+                    ? 'You cannot send chat messages.'
+                    : 'This chat is read-only.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-            _bar(context, composer),
-          ],
-        ),
-      ),
+            ),
+          );
+        }
+        return ListenableBuilder(
+          listenable: composer,
+          builder: (context, _) => SafeArea(
+            top: false,
+            minimum: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (composer.uploads.isNotEmpty)
+                  ComposerUploadQueue(composer: composer),
+                if (composer.notice case final message?)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        message,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                _bar(context, composer),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -293,7 +363,12 @@ class _ChatComposerState extends State<ChatComposer> {
                 onPressed:
                     _pickingGif ||
                         value.text.trim().isEmpty ||
-                        composer.hasActiveUploads
+                        composer.hasActiveUploads ||
+                        !(_shell?.chat.canSendMessageTo(
+                              widget.siteUrl,
+                              _target,
+                            ) ??
+                            false)
                     ? null
                     : () => _send(composer),
                 icon: const DIcon(DIcons.paperPlane, size: 18),

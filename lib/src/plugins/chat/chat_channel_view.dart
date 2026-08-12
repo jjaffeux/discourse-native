@@ -13,7 +13,9 @@ import 'chat_composer.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_message_tile.dart';
+import 'chat_route.dart';
 import 'chat_stream.dart';
+import 'chat_stream_target.dart';
 
 /// One channel's messages, newest at the bottom.
 class ChatChannelView extends StatelessWidget {
@@ -83,41 +85,114 @@ class _ChatChannelBody extends StatefulWidget {
 }
 
 class _ChatChannelBodyState extends State<_ChatChannelBody> {
-  late final Object _viewToken;
+  Object? _viewToken;
+  Listenable? _navigation;
+  bool _opened = false;
   List<int>? _projectedMessageIds;
   List<int>? _projectedLocalMessageIds;
   int? _projectedLastRead;
   List<ChatMessage> _messages = const [];
   List<ChatStreamItem> _items = const [];
+  int? _highlightMessageId;
+  int _highlightRequest = 0;
 
   @override
   void initState() {
     super.initState();
-    _viewToken = widget.chat.beginViewingChannel(
-      widget.siteUrl,
-      widget.channelId,
+    // In the expanded thread workspace the channel header is an earlier
+    // sibling and already listens to this channel record. Starting the visit
+    // synchronously would advance lastViewedAt while that sibling is still
+    // building. Register the visible visit after the first frame so every
+    // channel-record listener sees that change at a legal frame boundary.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _viewToken = widget.chat.beginViewingChannel(
+        widget.siteUrl,
+        widget.channelId,
+      );
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final navigation = ShellScope.read(context).chatNavigation;
+    if (identical(navigation, _navigation)) return;
+    _navigation?.removeListener(_consumeNavigation);
+    _navigation = navigation;
+    navigation.addListener(_consumeNavigation);
+    if (!_consumeNavigation() && !_opened) {
+      _opened = true;
+      unawaited(widget.chat.openChannel(widget.siteUrl, widget.channelId));
+    }
+  }
+
+  bool _consumeNavigation() {
+    if (!mounted) return false;
+    final pending = ShellScope.read(context).chatNavigation.take(
+      siteUrl: widget.siteUrl,
+      route: ChatRoute.channel(widget.channelId),
     );
-    unawaited(widget.chat.openChannel(widget.siteUrl, widget.channelId));
+    if (pending == null) return false;
+
+    _opened = true;
+    if (pending.messageId case final messageId?) {
+      setState(() {
+        _highlightMessageId = messageId;
+        _highlightRequest++;
+      });
+    }
+    unawaited(
+      widget.chat.openChannel(
+        widget.siteUrl,
+        widget.channelId,
+        targetMessageId: pending.messageId,
+        force: true,
+      ),
+    );
+    return true;
   }
 
   @override
   void dispose() {
-    widget.chat.endViewingChannel(widget.siteUrl, widget.channelId, _viewToken);
+    _navigation?.removeListener(_consumeNavigation);
+    final viewToken = _viewToken;
+    if (viewToken != null) {
+      widget.chat.endViewingChannel(
+        widget.siteUrl,
+        widget.channelId,
+        viewToken,
+      );
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ChatStreamState>(
-      valueListenable: widget.chat.streamListenable(
-        widget.siteUrl,
-        widget.channelId,
+    return ValueListenableBuilder(
+      valueListenable: widget.chat.channelRef(widget.siteUrl, widget.channelId),
+      builder: (context, channel, _) => ValueListenableBuilder<ChatStreamState>(
+        valueListenable: widget.chat.streamListenable(
+          widget.siteUrl,
+          widget.channelId,
+        ),
+        builder: (context, stream, _) => _buildChannel(
+          stream,
+          canCreateThread:
+              channel?.threadingEnabled == true &&
+              widget.chat.canSendMessageTo(
+                widget.siteUrl,
+                ChatChannelTarget(widget.channelId),
+              ),
+        ),
       ),
-      builder: (context, stream, _) => _buildChannel(stream),
     );
   }
 
-  Widget _buildChannel(ChatStreamState stream) {
+  Widget _buildChannel(
+    ChatStreamState stream, {
+    required bool canCreateThread,
+  }) {
     late final Widget content;
     final hasMessages =
         stream.messageIds.isNotEmpty || stream.localMessageIds.isNotEmpty;
@@ -126,12 +201,19 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       // that page failed. The local row is useful state in either case and
       // must not be hidden behind the page-level loading/error state.
       _syncProjection(stream);
-      content = _Stream(
+      content = ChatMessageStream(
         siteUrl: widget.siteUrl,
-        channelId: widget.channelId,
+        target: ChatChannelTarget(widget.channelId),
         items: _items,
         messages: _messages,
         stream: stream,
+        highlightMessageId: _highlightMessageId,
+        highlightRequest: _highlightRequest,
+        onHighlightComplete: _clearHighlight,
+        onOpenThread: (preview) =>
+            _openThread(context, widget.siteUrl, widget.channelId, preview),
+        canCreateThread: canCreateThread,
+        onReplyInThread: (message) => _replyInThread(context, message),
       );
     } else if (stream.loading) {
       content = const _ChatLoadingSkeleton(
@@ -157,6 +239,76 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
           channelId: widget.channelId,
         ),
       ],
+    );
+  }
+
+  void _clearHighlight(int request) {
+    if (!mounted || request != _highlightRequest) return;
+    setState(() => _highlightMessageId = null);
+  }
+
+  Future<void> _replyInThread(BuildContext context, ChatMessage message) async {
+    final shell = ShellScope.read(context);
+    final existing = message.thread;
+    if (existing != null) {
+      shell.openChatThread(
+        siteUrl: widget.siteUrl,
+        channelId: widget.channelId,
+        threadId: existing.threadId,
+        messageId: existing.lastReplyId,
+        focusComposer: true,
+      );
+      return;
+    }
+
+    final channel = widget.chat.channel(widget.siteUrl, widget.channelId);
+    if (channel?.threadingEnabled != true ||
+        !widget.chat.canSendMessageTo(
+          widget.siteUrl,
+          ChatChannelTarget(widget.channelId),
+        )) {
+      if (context.mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(content: Text('You cannot start a thread here.')),
+        );
+      }
+      return;
+    }
+
+    final created = await widget.chat.createThread(
+      widget.siteUrl,
+      channelId: widget.channelId,
+      originalMessageId: message.id,
+    );
+    if (!mounted || !context.mounted) return;
+    if (created == null) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Could not start this thread. Try again.'),
+        ),
+      );
+      return;
+    }
+    shell.openChatThread(
+      siteUrl: widget.siteUrl,
+      channelId: widget.channelId,
+      threadId: created.id,
+      focusComposer: true,
+    );
+  }
+
+  void _openThread(
+    BuildContext context,
+    String siteUrl,
+    int channelId,
+    ChatThreadPreview preview,
+  ) {
+    final shell = ShellScope.read(context);
+    shell.openChatThread(
+      siteUrl: siteUrl,
+      channelId: channelId,
+      threadId: preview.threadId,
+      messageId: preview.lastReplyId,
     );
   }
 
@@ -194,26 +346,46 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 /// Stateful for one reason: reading is a thing the viewport does, so "what has
 /// the reader seen" can only be answered from here. That answer, debounced, is
 /// what `ChatController.markRead` is given.
-class _Stream extends StatefulWidget {
-  const _Stream({
+class ChatMessageStream extends StatefulWidget {
+  const ChatMessageStream({
+    super.key,
     required this.siteUrl,
-    required this.channelId,
+    required this.target,
     required this.items,
     required this.messages,
     required this.stream,
+    this.highlightMessageId,
+    this.highlightRequest = 0,
+    this.onHighlightComplete,
+    this.onOpenThread,
+    this.onReplyInThread,
+    this.canCreateThread = false,
+    this.showThreadSummaries = true,
   });
 
   final String siteUrl;
-  final int channelId;
+  final ChatStreamTarget target;
   final List<ChatStreamItem> items;
   final List<ChatMessage> messages;
   final ChatStreamState stream;
+  final int? highlightMessageId;
+
+  /// A new explicit navigation request, even when it targets the same message.
+  final int highlightRequest;
+  final ValueChanged<int>? onHighlightComplete;
+  final ValueChanged<ChatThreadPreview>? onOpenThread;
+  final ValueChanged<ChatMessage>? onReplyInThread;
+  final bool canCreateThread;
+  final bool showThreadSummaries;
+
+  int get channelId => target.channelId;
 
   @override
-  State<_Stream> createState() => _StreamState();
+  State<ChatMessageStream> createState() => _StreamState();
 }
 
-class _StreamState extends State<_Stream> {
+class _StreamState extends State<ChatMessageStream>
+    with WidgetsBindingObserver {
   /// How long the viewport has to hold still before the reader is credited
   /// with what is on it. Discourse's own `READ_INTERVAL_MS`, and the number
   /// matters in both directions: a scroll that fires a write per frame would
@@ -229,21 +401,29 @@ class _StreamState extends State<_Stream> {
   final ScrollController _scroll = ScrollController();
 
   Timer? _readTimer;
+  DateTime? _readTimerStartedAt;
+  Duration _readTimeRemaining = _readInterval;
+  bool _readDwellPending = false;
 
   /// The newest message the reader has had on screen since the last write,
   /// with the channel it belongs to — which the reader can leave before the
   /// timer fires, and a message id means nothing without it.
-  ({String siteUrl, int channelId, int messageId})? _seen;
+  ({String siteUrl, ChatStreamTarget target, int messageId})? _seen;
 
   /// The window this has already positioned itself against, as
   /// `(site, channel, ChatStreamState.fetches)`. Null means the next frame has
   /// to land somewhere deliberate.
-  ({String siteUrl, int channelId, int fetches})? _anchored;
+  ({String siteUrl, ChatStreamTarget target, int fetches})? _anchored;
 
   /// Whether the reader has scrolled away from the present, which is what puts
   /// the jump-to-now button on screen. Held rather than read from the position
   /// on every build because it changes far less often than a scroll does.
   bool _awayFromPresent = false;
+  int _unseenLiveMessages = 0;
+  int? _highlightMessageId;
+  int? _pendingHighlightMessageId;
+  int? _handledHighlightRequest;
+  Timer? _highlightTimer;
 
   /// True from the moment an anchor starts moving the list until the frame
   /// that lays the result out.
@@ -260,27 +440,47 @@ class _StreamState extends State<_Stream> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _acceptHighlightRequest();
     _scheduleLook();
   }
 
   @override
-  void didUpdateWidget(_Stream oldWidget) {
+  void didUpdateWidget(ChatMessageStream oldWidget) {
     super.didUpdateWidget(oldWidget);
 
     final changedStream =
-        oldWidget.channelId != widget.channelId ||
+        oldWidget.target != widget.target ||
         oldWidget.siteUrl != widget.siteUrl;
 
-    // Leaving a channel is Discourse's `teardown`, which credits the reader
-    // before it goes. The pending id already names the channel being left, so
-    // it is the old one that gets the write.
+    // A route/pane transition before the dwell completes is not a read. Clear
+    // the old target rather than flushing it during teardown.
     if (changedStream) {
-      _creditReaderNow();
+      _cancelReadDwell();
       _seen = null;
       _anchored = null;
       _filled = null;
       _anchoring = false;
       _awayFromPresent = false;
+      _unseenLiveMessages = 0;
+      _clearHighlight(notify: false);
+    }
+
+    if (changedStream ||
+        oldWidget.highlightRequest != widget.highlightRequest) {
+      _acceptHighlightRequest();
+    }
+
+    if (!changedStream &&
+        _awayFromPresent &&
+        oldWidget.stream.fetches == widget.stream.fetches &&
+        oldWidget.stream.atPresent &&
+        widget.stream.atPresent &&
+        oldWidget.stream.newestId != widget.stream.newestId) {
+      final previous = oldWidget.stream.messageIds.toSet();
+      _unseenLiveMessages += widget.stream.messageIds
+          .where((id) => !previous.contains(id))
+          .length;
     }
 
     _holdStillThroughForwardPage(oldWidget);
@@ -297,9 +497,9 @@ class _StreamState extends State<_Stream> {
   /// forward past messages they have not read. Discourse pins the same way —
   /// it remembers the last message it held and scrolls back to it with
   /// `position: "end"` once the page is in.
-  void _holdStillThroughForwardPage(_Stream oldWidget) {
+  void _holdStillThroughForwardPage(ChatMessageStream oldWidget) {
     if (oldWidget.siteUrl != widget.siteUrl ||
-        oldWidget.channelId != widget.channelId) {
+        oldWidget.target != widget.target) {
       return;
     }
     final was = oldWidget.stream.newestId;
@@ -311,7 +511,7 @@ class _StreamState extends State<_Stream> {
     final row = _rowOf(was);
     if (row == null) return;
 
-    final identity = (siteUrl: widget.siteUrl, channelId: widget.channelId);
+    final identity = (siteUrl: widget.siteUrl, target: widget.target);
     final stream = widget.stream;
     _anchoring = true;
     // After the frame that lays the new rows out, because until then they have
@@ -319,7 +519,7 @@ class _StreamState extends State<_Stream> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
           widget.siteUrl != identity.siteUrl ||
-          widget.channelId != identity.channelId ||
+          widget.target != identity.target ||
           !identical(widget.stream, stream)) {
         return;
       }
@@ -331,10 +531,43 @@ class _StreamState extends State<_Stream> {
 
   @override
   void dispose() {
-    _creditReaderNow();
+    WidgetsBinding.instance.removeObserver(this);
+    _cancelReadDwell();
+    _highlightTimer?.cancel();
     _list.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _acceptHighlightRequest() {
+    if (widget.highlightMessageId case final messageId?) {
+      _pendingHighlightMessageId = messageId;
+    }
+  }
+
+  void _startHighlightIfReady() {
+    final messageId = _pendingHighlightMessageId;
+    if (messageId == null ||
+        _handledHighlightRequest == widget.highlightRequest ||
+        _rowOf(messageId) == null) {
+      return;
+    }
+    _highlightTimer?.cancel();
+    _pendingHighlightMessageId = null;
+    _handledHighlightRequest = widget.highlightRequest;
+    _highlightMessageId = messageId;
+    _highlightTimer = Timer(const Duration(seconds: 2), _clearHighlight);
+  }
+
+  void _clearHighlight({bool notify = true}) {
+    _highlightTimer?.cancel();
+    _highlightTimer = null;
+    if (_highlightMessageId == null) return;
+    _highlightMessageId = null;
+    if (notify && mounted) {
+      setState(() {});
+      widget.onHighlightComplete?.call(widget.highlightRequest);
+    }
   }
 
   /// Positions and then measures, once the frame that laid the list out is
@@ -379,17 +612,18 @@ class _StreamState extends State<_Stream> {
     // per frame for as long as the channel is open.
     final asked = (
       siteUrl: widget.siteUrl,
-      channelId: widget.channelId,
+      target: widget.target,
       fetches: stream.fetches,
       newestId: stream.newestId,
     );
     if (_filled == asked) return;
     _filled = asked;
 
-    unawaited(_chat?.loadNewer(widget.siteUrl, widget.channelId));
+    unawaited(_chat?.loadNewerFor(widget.siteUrl, widget.target));
   }
 
-  ({String siteUrl, int channelId, int fetches, int? newestId})? _filled;
+  ({String siteUrl, ChatStreamTarget target, int fetches, int? newestId})?
+  _filled;
 
   /// Lands the reader where a freshly fetched window says they should be, and
   /// answers whether it did.
@@ -404,14 +638,14 @@ class _StreamState extends State<_Stream> {
     final stream = widget.stream;
     final token = (
       siteUrl: widget.siteUrl,
-      channelId: widget.channelId,
+      target: widget.target,
       fetches: stream.fetches,
     );
     if (_anchored == token) return false;
     if (!_list.isAttached || !_scroll.hasClients) return false;
     _anchored = token;
 
-    final target = stream.lastReadOnOpen;
+    final target = stream.anchorMessageId ?? stream.lastReadOnOpen;
     final index = target == null || target == stream.newestId
         ? null
         : _rowOf(target);
@@ -437,11 +671,12 @@ class _StreamState extends State<_Stream> {
     // is the one moment the honest answer is known without looking: the reader
     // is at the message they were put on.
     final canonicalId = target ?? stream.newestId;
+    _cancelReadDwell();
     _seen = canonicalId == null
         ? null
         : (
             siteUrl: widget.siteUrl,
-            channelId: widget.channelId,
+            target: widget.target,
             messageId: canonicalId,
           );
     _syncAwayFromPresent();
@@ -467,8 +702,8 @@ class _StreamState extends State<_Stream> {
     WidgetsBinding.instance.scheduleFrame();
   }
 
-  /// Lets go once the landing has been laid out, and credits the reader with
-  /// what it put in front of them.
+  /// Lets go once the landing has been laid out, and starts the dwell for what
+  /// it put in front of the reader.
   ///
   /// Discourse does the same at the end of its own `fetchMessages` — a window
   /// opened half a screen from the end has been read to the bottom of that
@@ -479,6 +714,7 @@ class _StreamState extends State<_Stream> {
       if (!mounted || _anchored != token) return;
       _anchoring = false;
       _fillTowardsPresent();
+      if (_seen != null) _startReadDwell(_readInterval);
       _noteWhatIsOnScreen();
     });
     // Asked for rather than assumed. A post-frame callback does not schedule a
@@ -514,14 +750,55 @@ class _StreamState extends State<_Stream> {
 
     final seen = (
       siteUrl: widget.siteUrl,
-      channelId: widget.channelId,
+      target: widget.target,
       messageId: messageId,
     );
     if (seen == _seen) return;
     _seen = seen;
+    _startReadDwell(_readInterval);
+  }
 
+  void _startReadDwell(Duration duration) {
     _readTimer?.cancel();
-    _readTimer = Timer(_readInterval, _creditReaderNow);
+    _readTimer = null;
+    _readTimerStartedAt = null;
+    _readTimeRemaining = duration;
+    _readDwellPending = true;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
+    _readTimerStartedAt = DateTime.now();
+    _readTimer = Timer(duration, _creditReaderNow);
+  }
+
+  void _pauseReadDwell() {
+    final timer = _readTimer;
+    final startedAt = _readTimerStartedAt;
+    if (timer == null || startedAt == null) return;
+    final elapsed = DateTime.now().difference(startedAt);
+    final remaining = _readTimeRemaining - elapsed;
+    _readTimeRemaining = remaining > Duration.zero ? remaining : Duration.zero;
+    timer.cancel();
+    _readTimer = null;
+    _readTimerStartedAt = null;
+  }
+
+  void _cancelReadDwell() {
+    _readTimer?.cancel();
+    _readTimer = null;
+    _readTimerStartedAt = null;
+    _readTimeRemaining = _readInterval;
+    _readDwellPending = false;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_readDwellPending && _seen != null && _readTimer == null) {
+        _startReadDwell(_readTimeRemaining);
+      }
+      return;
+    }
+    _pauseReadDwell();
   }
 
   /// Tells the controller what the reader has seen, now rather than on the
@@ -530,6 +807,8 @@ class _StreamState extends State<_Stream> {
   void _creditReaderNow() {
     _readTimer?.cancel();
     _readTimer = null;
+    _readTimerStartedAt = null;
+    _readDwellPending = false;
 
     final seen = _seen;
     if (seen == null) return;
@@ -540,9 +819,13 @@ class _StreamState extends State<_Stream> {
     // credit a reader who is not looking at anything. Null is a launch that
     // has had no lifecycle message yet, and a test, and both mean "in front".
     final lifecycle = WidgetsBinding.instance.lifecycleState;
-    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
+      _readTimeRemaining = _readInterval;
+      return;
+    }
 
-    unawaited(_chat?.markRead(seen.siteUrl, seen.channelId, seen.messageId));
+    _readTimeRemaining = _readInterval;
+    unawaited(_chat?.markReadFor(seen.siteUrl, widget.target, seen.messageId));
   }
 
   /// How many rows sit before the newest item. The forward-paging spinner,
@@ -606,10 +889,11 @@ class _StreamState extends State<_Stream> {
   /// anchored behind it with messages the site has not been asked for yet.
   void _syncAwayFromPresent() {
     final away =
-        widget.stream.canLoadMoreFuture ||
+        !widget.stream.atPresent ||
         (_scroll.hasClients && _scroll.position.pixels > _presentSlack);
     if (away == _awayFromPresent) return;
     _awayFromPresent = away;
+    if (!away) _unseenLiveMessages = 0;
 
     // Deferred when it lands mid-frame, which is the deferral
     // `ChatController._notify` explains: a viewport correcting an overshoot
@@ -648,6 +932,7 @@ class _StreamState extends State<_Stream> {
     final items = widget.items;
     final stream = widget.stream;
     final chat = ShellScope.read(context).chat;
+    _startHighlightIfReady();
 
     // Messages by id, so a row can reach its own record without walking the
     // list. Built once per build rather than per row.
@@ -670,11 +955,11 @@ class _StreamState extends State<_Stream> {
             // write backwards, hence the note.
             if (notification.metrics.extentAfter <
                 ChatChannelView._loadOlderThreshold) {
-              unawaited(chat.loadOlder(siteUrl, channelId));
+              unawaited(chat.loadOlderFor(siteUrl, widget.target));
             }
             if (notification.metrics.extentBefore <
                 ChatChannelView._loadNewerThreshold) {
-              unawaited(chat.loadNewer(siteUrl, channelId));
+              unawaited(chat.loadNewerFor(siteUrl, widget.target));
             }
             _noteWhatIsOnScreen();
             _syncAwayFromPresent();
@@ -726,12 +1011,22 @@ class _StreamState extends State<_Stream> {
               }
 
               return switch (_itemAt(row)) {
-                ChatStreamMessage(:final id, :final chained) => ChatMessageTile(
-                  siteUrl: siteUrl,
-                  messageId: id,
-                  chained: chained,
-                  replyTo: byId[id]?.replyTo,
-                ),
+                ChatStreamMessage(:final id, :final chained) =>
+                  _HighlightedChatMessage(
+                    highlighted: id == _highlightMessageId,
+                    child: ChatMessageTile(
+                      siteUrl: siteUrl,
+                      messageId: id,
+                      chained: chained,
+                      replyTo: byId[id]?.replyTo,
+                      onOpenThread: widget.onOpenThread,
+                      onReplyInThread:
+                          byId[id]?.thread != null || widget.canCreateThread
+                          ? widget.onReplyInThread
+                          : null,
+                      showThreadSummary: widget.showThreadSummaries,
+                    ),
+                  ),
                 ChatStreamDay(:final day) => _DaySeparator(day: day),
                 ChatStreamDeleted(:final count) => _DeletedRun(count: count),
                 ChatStreamNewDivider() => const _NewDivider(),
@@ -745,6 +1040,8 @@ class _StreamState extends State<_Stream> {
             right: 16,
             bottom: 16,
             child: _JumpToPresent(
+              pendingCount:
+                  widget.stream.pendingNewMessages + _unseenLiveMessages,
               onTap: () => _jumpToPresent(chat, siteUrl, channelId),
             ),
           ),
@@ -768,10 +1065,10 @@ class _StreamState extends State<_Stream> {
           widget.siteUrl != siteUrl ||
           widget.channelId != channelId ||
           !identical(widget.stream, stream) ||
-          !identical(chat.stream(siteUrl, channelId), stream)) {
+          !identical(chat.streamFor(siteUrl, widget.target), stream)) {
         return;
       }
-      unawaited(chat.loadOlder(siteUrl, channelId));
+      unawaited(chat.loadOlderFor(siteUrl, widget.target));
     });
   }
 
@@ -788,8 +1085,9 @@ class _StreamState extends State<_Stream> {
     String siteUrl,
     int channelId,
   ) async {
-    if (widget.stream.canLoadMoreFuture) {
-      await chat.showLatest(siteUrl, channelId);
+    if (!widget.stream.atPresent) {
+      await chat.showLatestFor(siteUrl, widget.target);
+      _unseenLiveMessages = 0;
       return;
     }
     if (_scroll.hasClients) _scroll.jumpTo(0);
@@ -798,20 +1096,43 @@ class _StreamState extends State<_Stream> {
   }
 }
 
+class _HighlightedChatMessage extends StatelessWidget {
+  const _HighlightedChatMessage({
+    required this.highlighted,
+    required this.child,
+  });
+
+  final bool highlighted;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+    key: highlighted ? const ValueKey('chat-message-highlight') : null,
+    duration: const Duration(milliseconds: 180),
+    color: highlighted
+        ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.45)
+        : Colors.transparent,
+    child: child,
+  );
+}
+
 /// The button back to the present.
 class _JumpToPresent extends StatelessWidget {
-  const _JumpToPresent({required this.onTap});
+  const _JumpToPresent({required this.onTap, this.pendingCount = 0});
 
   static const double _targetSize = 44;
   static const double _visualSize = 36;
 
   final VoidCallback onTap;
+  final int pendingCount;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    const label = 'Jump to latest messages';
+    final label = pendingCount > 0
+        ? 'Jump to latest messages, $pendingCount new'
+        : 'Jump to latest messages';
     return Semantics(
       container: true,
       button: true,
@@ -826,24 +1147,56 @@ class _JumpToPresent extends StatelessWidget {
             onTap: onTap,
             child: SizedBox.square(
               dimension: _targetSize,
-              child: Center(
-                child: Material(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  shape: const CircleBorder(),
-                  elevation: 2,
-                  child: SizedBox.square(
-                    dimension: _visualSize,
-                    child: Center(
-                      child: ExcludeSemantics(
-                        child: DIcon(
-                          DIcons.chevronDown,
-                          size: 16,
-                          color: theme.colorScheme.onSurface,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Material(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    shape: const CircleBorder(),
+                    elevation: 2,
+                    child: SizedBox.square(
+                      dimension: _visualSize,
+                      child: Center(
+                        child: ExcludeSemantics(
+                          child: DIcon(
+                            DIcons.chevronDown,
+                            size: 16,
+                            color: theme.colorScheme.onSurface,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
+                  if (pendingCount > 0)
+                    Positioned(
+                      key: const ValueKey('chat-jump-pending-count'),
+                      right: 0,
+                      top: 0,
+                      child: ExcludeSemantics(
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            pendingCount > 99 ? '99+' : '$pendingCount',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onPrimary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
