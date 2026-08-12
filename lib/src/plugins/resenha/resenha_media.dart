@@ -382,15 +382,18 @@ _MeshInboundSignal? _parseMeshInboundSignal(Map<String, dynamic> data) {
         return null;
       }
       final rawIndex = raw['sdpMLineIndex'];
+      final parsedIndex = rawIndex is String
+          ? int.tryParse(rawIndex)
+          : rawIndex;
       final int? sdpMLineIndex;
-      if (rawIndex == null) {
+      if (parsedIndex == null && rawIndex == null) {
         sdpMLineIndex = null;
-      } else if (rawIndex is num &&
-          rawIndex.isFinite &&
-          rawIndex == rawIndex.truncate() &&
-          rawIndex >= 0 &&
-          rawIndex <= 65535) {
-        sdpMLineIndex = rawIndex.toInt();
+      } else if (parsedIndex is num &&
+          parsedIndex.isFinite &&
+          parsedIndex == parsedIndex.truncate() &&
+          parsedIndex >= 0 &&
+          parsedIndex <= 65535) {
+        sdpMLineIndex = parsedIndex.toInt();
       } else {
         return null;
       }

@@ -528,6 +528,32 @@ void main() {
       await media.dispose();
     });
 
+    test('accepts string SDP m-line indexes from remote candidates', () async {
+      final peer = _FakePeerConnection();
+      final media = _meshSession(
+        peer: peer,
+        localUserId: 20,
+        remoteUserId: 10,
+        audioPublishingAllowed: false,
+      );
+      await media.connect();
+      await media.handleSignal(10, {'type': 'offer', 'sdp': 'remote-offer'});
+
+      await media.handleSignal(10, {
+        'type': 'candidate',
+        'candidate': {
+          'candidate':
+              'candidate:1 1 UDP 2122260223 2001:db8::1 54321 typ host',
+          'sdpMid': '0',
+          'sdpMLineIndex': '0',
+        },
+      });
+
+      expect(peer.addedCandidates, hasLength(1));
+      expect(peer.addedCandidates.single.sdpMLineIndex, 0);
+      await media.dispose();
+    });
+
     test('adopts offered source slots before creating an answer', () async {
       final microphone = _FakeTrack('mic', 'audio');
       final peer = _FakePeerConnection();
