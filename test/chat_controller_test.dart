@@ -2122,6 +2122,49 @@ void main() {
     );
 
     test(
+      'does not count the current user live echo after an optimistic add',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(
+          currentUser: currentUser,
+          messages: {
+            key(9): page([
+              message(
+                1,
+                reactions: const [ChatReaction(emoji: 'clap', count: 1)],
+              ),
+            ]),
+          },
+          reactionGate: gate,
+        );
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        final writing = subject.chat.toggleMessageReaction(site, 1, 'clap');
+        await Future<void>.delayed(Duration.zero);
+        tracker.deliverPluginMessage('/chat/9', {
+          'type': 'reaction',
+          'chat_message_id': 1,
+          'emoji': 'clap',
+          'action': 'add',
+          'user': {
+            'id': currentUser.id,
+            'username': currentUser.username,
+          },
+        });
+        gate.complete();
+        await writing;
+
+        expect(
+          subject.store.read<ChatMessage>(site, 1)!.reactions.single,
+          const ChatReaction(emoji: 'clap', count: 2, reacted: true),
+        );
+      },
+    );
+
+    test(
       'removes this reader and drops the row when its count reaches zero',
       () async {
         final subject = build(
