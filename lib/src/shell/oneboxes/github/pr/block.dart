@@ -30,9 +30,9 @@ class GithubPullRequestOnebox extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: githubIconSize + 4,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 2),
+              width: githubIconColumnWidth,
+              child: Align(
+                alignment: Alignment.topCenter,
                 child: DIcon(
                   data.icon,
                   size: githubIconSize,
@@ -41,7 +41,7 @@ class GithubPullRequestOnebox extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: githubIconGap),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

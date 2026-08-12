@@ -183,6 +183,11 @@ void main() {
           .where((icon) => icon.icon == githubPrMergedIcon);
       expect(icon, hasLength(1));
       expect(icon.single.color, GithubPrStatus.merged.color);
+      expect(icon.single.size, closeTo(28.8, 0.001));
+      expect(
+        tester.getSize(find.byWidget(icon.single)),
+        const Size.square(28.8),
+      );
     });
   });
 }

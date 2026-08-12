@@ -27,9 +27,9 @@ class GithubCommitOnebox extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: githubIconSize + 4,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 2),
+              width: githubIconColumnWidth,
+              child: Align(
+                alignment: Alignment.topCenter,
                 child: DIcon(
                   githubCommitIcon,
                   size: githubIconSize,
@@ -37,7 +37,7 @@ class GithubCommitOnebox extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: githubIconGap),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
