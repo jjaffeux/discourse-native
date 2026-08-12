@@ -84,6 +84,7 @@ class _MainContentBody extends StatelessWidget {
               canPop: state.canPop,
               canReply: state.canReply,
               canCreateTopic: state.canCreateTopic && pluginContent == null,
+              isConnected: state.isConnected,
             ),
             Expanded(
               child: Stack(
@@ -173,6 +174,7 @@ class _ContentHeader extends StatelessWidget {
     required this.canPop,
     required this.canReply,
     required this.canCreateTopic,
+    required this.isConnected,
   });
 
   final ShellLayout layout;
@@ -182,6 +184,7 @@ class _ContentHeader extends StatelessWidget {
   final bool canPop;
   final bool canReply;
   final bool canCreateTopic;
+  final bool isConnected;
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +211,11 @@ class _ContentHeader extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final carriesSearch = !ShellTitleBar.isSupported;
+          // On a signed-out phone the two explicit account actions need the
+          // header width. Search remains one Back away in the sidebar's own
+          // dedicated row; connected phones keep the field here as before.
+          final carriesSearch =
+              !ShellTitleBar.isSupported && !(layout.isCompact && !isConnected);
           final showRouteIdentity =
               !carriesSearch || constraints.maxWidth >= 620;
           final searchWidth = constraints.maxWidth >= 800 ? 360.0 : 260.0;
@@ -414,6 +421,7 @@ class _MainContentSnapshot {
     required this.canPop,
     required this.canReply,
     required this.canCreateTopic,
+    required this.isConnected,
     required this.canAssignLegacyTargets,
     required this.filterCategories,
     required this.categoryFeed,
@@ -430,6 +438,7 @@ class _MainContentSnapshot {
         canPop: controller.canPopContent,
         canReply: controller.canReplyHere,
         canCreateTopic: controller.canCreateTopicHere,
+        isConnected: controller.currentInstance?.isConnected == true,
         canAssignLegacyTargets: switch (controller.currentInstance?.url) {
           final siteUrl? => controller.canAssignForTarget(siteUrl, null),
           null => false,
@@ -461,6 +470,7 @@ class _MainContentSnapshot {
   final bool canPop;
   final bool canReply;
   final bool canCreateTopic;
+  final bool isConnected;
   final bool canAssignLegacyTargets;
   final List<TopicCategory> filterCategories;
   final CategoryFeed? categoryFeed;
@@ -477,6 +487,7 @@ class _MainContentSnapshot {
       canPop == other.canPop &&
       canReply == other.canReply &&
       canCreateTopic == other.canCreateTopic &&
+      isConnected == other.isConnected &&
       canAssignLegacyTargets == other.canAssignLegacyTargets &&
       identical(filterCategories, other.filterCategories) &&
       identical(categoryFeed, other.categoryFeed);
@@ -492,6 +503,7 @@ class _MainContentSnapshot {
     canPop,
     canReply,
     canCreateTopic,
+    isConnected,
     canAssignLegacyTargets,
     identityHashCode(filterCategories),
     identityHashCode(categoryFeed),
