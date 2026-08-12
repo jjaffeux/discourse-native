@@ -20,6 +20,7 @@ import 'chat_stream_target.dart';
 import 'chat_thread.dart';
 
 typedef _ChatReactionWriteKey = ({String siteUrl, int messageId, String emoji});
+typedef ChatNotificationsDelta = void Function(String siteUrl, int delta);
 
 /// What Discourse's chat shortcut paints over its comment icon.
 @immutable
@@ -262,6 +263,7 @@ class ChatController extends FrameSafeNotifier {
     DiscourseUser? Function(String siteUrl)? currentUserFor,
     SiteConfig Function(String siteUrl)? siteConfigFor,
     ChatPreviewEngine? previewEngine,
+    this.onChatNotificationsDelta,
     this.minimumWindowRefreshInterval = const Duration(seconds: 30),
     DateTime Function()? clock,
   }) : assert(minimumWindowRefreshInterval >= Duration.zero),
@@ -279,6 +281,7 @@ class ChatController extends FrameSafeNotifier {
   final DiscourseUser? Function(String siteUrl) _currentUserFor;
   final SiteConfig Function(String siteUrl) _siteConfigFor;
   final ChatPreviewEngine _previewEngine;
+  final ChatNotificationsDelta? onChatNotificationsDelta;
   final DateTime Function() _clock;
 
   static DiscourseUser? _noCurrentUser(String _) => null;
@@ -431,6 +434,26 @@ class ChatController extends FrameSafeNotifier {
 
   List<ChatChannel> directChannels(String siteUrl) =>
       _resolve(siteUrl, _directIds[siteUrl]);
+
+  static int _notificationContribution(ChatChannel channel) =>
+      channel.isDirectMessage
+      ? channel.tracking.unreadCount
+      : channel.tracking.mentionCount;
+
+  int _chatNotifications(String siteUrl) => [
+    ...publicChannels(siteUrl),
+    ...directChannels(siteUrl),
+  ].fold(0, (count, channel) => count + _notificationContribution(channel));
+
+  void _publishNotificationChange(
+    String siteUrl,
+    ChatChannel before,
+    ChatChannel after,
+  ) {
+    final delta =
+        _notificationContribution(after) - _notificationContribution(before);
+    if (delta != 0) onChatNotificationsDelta?.call(siteUrl, delta);
+  }
 
   /// Starred public channels followed by starred direct messages, matching
   /// Discourse's desktop sidebar. Public channels already arrive slug-sorted;
@@ -1349,7 +1372,10 @@ class ChatController extends FrameSafeNotifier {
       unreadThreadOverview: threadOverview,
     );
     var changed = updated != held;
-    if (changed) store.put(siteUrl, updated);
+    if (changed) {
+      store.put(siteUrl, updated);
+      _publishNotificationChange(siteUrl, held, updated);
+    }
     if (threadId != null) {
       final heldThread = thread(siteUrl, threadId);
       final membership = heldThread?.membership;
@@ -1500,6 +1526,7 @@ class ChatController extends FrameSafeNotifier {
     }
 
     store.put(siteUrl, updated);
+    _publishNotificationChange(siteUrl, held, updated);
 
     // The per-channel event is also the live message transport. Keeping only
     // its tracking half leaves an open pane one row behind its own sidebar:
@@ -2452,6 +2479,10 @@ class ChatController extends FrameSafeNotifier {
       );
       if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
+        final replacingSnapshot = _publicIds.containsKey(siteUrl);
+        final previousNotifications = replacingSnapshot
+            ? _chatNotifications(siteUrl)
+            : 0;
         store.putAll(siteUrl, channels.public);
         store.putAll(siteUrl, channels.direct);
         for (final channel in [...channels.public, ...channels.direct]) {
@@ -2463,6 +2494,10 @@ class ChatController extends FrameSafeNotifier {
         }
         _publicIds[siteUrl] = [for (final c in channels.public) c.id];
         _directIds[siteUrl] = [for (final c in channels.direct) c.id];
+        if (replacingSnapshot) {
+          final delta = _chatNotifications(siteUrl) - previousNotifications;
+          if (delta != 0) onChatNotificationsDelta?.call(siteUrl, delta);
+        }
         _replaceLiveChatChannels(siteUrl, channels);
         _replacePresence(siteUrl, channels.presence);
         _errors.remove(key);
@@ -3372,32 +3407,30 @@ class ChatController extends FrameSafeNotifier {
         : threadHeld!.membership!.lastReadMessageId;
     if (lastRead != null && lastRead >= messageId) return Future.value();
 
-    // Both halves are load-bearing since the stream can be anchored behind the
-    // present: the reader is caught up only if this is the last message held
-    // *and* there is nothing in front of it. Discourse asks its loader the same
-    // two questions — `!canLoadMoreFuture && firstMessage.id === last.id`.
-    final caughtUp =
-        window.atPresent &&
-        window.newestId == messageId &&
-        (target.threadId == null
-            ? channelHeld!.lastMessageId == null ||
-                  channelHeld.lastMessageId! <= messageId
-            : threadHeld!.lastMessageId == null ||
-                  threadHeld.lastMessageId! <= messageId);
-
     // Before credential storage, not after: the await below is a gap two scroll
     // ticks can both arrive in, and the guard above is only a guard once the
     // answer it reads has been written.
     final viewedAt = _clock().toUtc();
     if (target.threadId == null) {
+      // The root stream is caught up when it has no future page and its newest
+      // visible message is being credited. Do not compare this with the
+      // channel's overall `last_message_id`: on a threaded channel that id may
+      // name a newer reply which is deliberately absent from the root stream.
+      // Core's ChatChannel component asks only these two stream questions.
+      final caughtUp = window.atPresent && window.newestId == messageId;
+      ChatChannel? updatedChannel;
       store.update<ChatChannel>(siteUrl, target.channelId, (current) {
         var updated = current.withLastRead(messageId, caughtUp: caughtUp);
         final previous = updated.membership.lastViewedAt;
         if (previous == null || viewedAt.isAfter(previous)) {
           updated = updated.withLastViewedAt(viewedAt);
         }
+        updatedChannel = updated;
         return updated;
       });
+      if (updatedChannel case final updated?) {
+        _publishNotificationChange(siteUrl, channelHeld!, updated);
+      }
     } else {
       store.update<ChatThread>(siteUrl, target.threadId!, (current) {
         final membership = current.membership;
