@@ -8,11 +8,11 @@ import '../../shell/cooked_html.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
-import '../../shell/site_emoji_image.dart';
 import '../../shell/user_card.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../reactions/reaction_pill.dart';
 import 'chat_message.dart';
 import 'chat_preview.dart';
 import 'chat_preview_body.dart';
@@ -482,136 +482,94 @@ class _Reactions extends StatelessWidget {
   final String siteUrl;
   final ChatMessage message;
 
-  void _toggle(BuildContext context, ChatReaction reaction) {
-    final controller = ShellScope.read(context);
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    unawaited(
-      controller.chat
-          .toggleMessageReaction(siteUrl, message.id, reaction.emoji)
-          .then((error) {
-            if (error == null || messenger == null || !messenger.mounted) {
-              return;
-            }
-            if (!identical(
-              ShellScope.maybeRead(messenger.context),
-              controller,
-            )) {
-              return;
-            }
-            messenger.showSnackBar(SnackBar(content: Text(error)));
-          }),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final controller = ShellScope.identityOf(context);
+    return ReactionPills(
       key: const ValueKey('chat-reactions'),
-      // Core gives the list 0.25em above it and every chip a 1px vertical
-      // margin. Keeping both parts preserves the space below the text and the
-      // breathing room after the final chip.
-      padding: const EdgeInsets.only(top: 5, bottom: 1),
-      child: Wrap(
-        spacing: 3,
-        runSpacing: 2,
-        children: [
-          for (final reaction in message.reactions)
-            _ChatReactionChip(
-              siteUrl: siteUrl,
-              reaction: reaction,
-              onTap: () => _toggle(context, reaction),
+      children: [
+        for (final reaction in message.reactions)
+          ReactionPill(
+            siteUrl: siteUrl,
+            reaction: reaction.emoji,
+            count: reaction.count,
+            selected: reaction.reacted,
+            onTapHint: reaction.reacted
+                ? 'remove your reaction'
+                : 'add this reaction',
+            interactionOwner: controller,
+            onToggle: () => controller.chat.toggleMessageReaction(
+              siteUrl,
+              message.id,
+              reaction.emoji,
             ),
-        ],
-      ),
+            loadReactors: () => controller.chat.loadMessageReactors(
+              siteUrl: siteUrl,
+              channelId: message.channelId,
+              messageId: message.id,
+              filter: reaction.emoji,
+            ),
+            reactorsBuilder: (_) => _ChatReactorList(
+              siteUrl: siteUrl,
+              message: message,
+              filter: reaction.emoji,
+            ),
+            visualKey: ValueKey('chat-reaction-${reaction.emoji}'),
+          ),
+      ],
     );
   }
 }
 
-class _ChatReactionChip extends StatelessWidget {
-  const _ChatReactionChip({
+/// Chat's API adapter into the same reactor list topic posts use.
+class _ChatReactorList extends StatelessWidget {
+  const _ChatReactorList({
     required this.siteUrl,
-    required this.reaction,
-    required this.onTap,
+    required this.message,
+    required this.filter,
   });
 
   final String siteUrl;
-  final ChatReaction reaction;
-  final VoidCallback onTap;
+  final ChatMessage message;
+  final String filter;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final label = reaction.count == 1
-        ? '1 ${reaction.emoji} reaction'
-        : '${reaction.count} ${reaction.emoji} reactions';
-
-    return Semantics(
-      button: true,
-      selected: reaction.reacted,
-      label: label,
-      onTapHint: reaction.reacted
-          ? 'remove your reaction'
-          : 'add this reaction',
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-        child: Center(
-          widthFactor: 1,
-          heightFactor: 1,
-          child: Material(
-            type: MaterialType.transparency,
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(4),
-              child: ExcludeSemantics(
-                child: Container(
-                  key: ValueKey('chat-reaction-${reaction.emoji}'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7.25,
-                    vertical: 3.5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: reaction.reacted
-                        ? Color.alphaBlend(
-                            theme.colorScheme.primary.withValues(alpha: 0.08),
-                            theme.colorScheme.surface,
-                          )
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: reaction.reacted
-                          ? theme.colorScheme.primary.withValues(alpha: 0.5)
-                          : theme.colorScheme.outline,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SiteEmojiImage(
-                        siteUrl: siteUrl,
-                        name: reaction.emoji,
-                        size: 15,
-                        alt: ':${reaction.emoji}:',
-                        style: theme.textTheme.labelMedium,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${reaction.count}',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: reaction.reacted
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+  Widget build(BuildContext context) => ShellSelector<Object>(
+    select: (controller) => controller.chat,
+    builder: (context, _, child) {
+      final chat = ShellScope.read(context).chat;
+      return ReactionUsersList(
+        siteUrl: siteUrl,
+        source: chat,
+        query: (
+          siteUrl: siteUrl,
+          channelId: message.channelId,
+          messageId: message.id,
+          filter: filter,
+        ),
+        select: () => (
+          reactors: chat.messageReactors(
+            siteUrl,
+            message.channelId,
+            message.id,
+            filter: filter,
+          ),
+          error: chat.messageReactorsError(
+            siteUrl,
+            message.channelId,
+            message.id,
+            filter: filter,
           ),
         ),
-      ),
-    );
-  }
+        load: () => chat.loadMessageReactors(
+          siteUrl: siteUrl,
+          channelId: message.channelId,
+          messageId: message.id,
+          filter: filter,
+        ),
+      );
+    },
+  );
 }
 
 /// The latest activity behind a message that started a thread.

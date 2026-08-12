@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -3543,6 +3544,88 @@ void _feedGroups() {
           ),
         ),
       );
+    });
+  });
+
+  group('chatMessageReactors', () {
+    test('asks chat for one emoji and reads its users', () async {
+      late http.Request seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(
+            jsonEncode({
+              'users': [
+                {
+                  'id': 3,
+                  'username': 'sam',
+                  'name': 'Sam Saffron',
+                  'reaction': 'clap',
+                },
+              ],
+              'total_rows': 2,
+            }),
+            200,
+          );
+        }),
+      );
+
+      final page = await api.chatMessageReactors(
+        siteUrl: 'https://example.com',
+        apiKey: 'the-key',
+        channelId: 9,
+        messageId: 44,
+        reaction: '+1',
+      );
+
+      expect(seen.method, 'GET');
+      expect(seen.url.path, '/chat/9/44/reactions-users.json');
+      expect(seen.url.queryParameters, {
+        'page': '0',
+        'limit': '${ChatMessageReactors.maximumPageSize}',
+        'emoji': '+1',
+      });
+      expect(page.channelId, 9);
+      expect(page.messageId, 44);
+      expect(page.filter, '+1');
+      expect(page.total, 2);
+      expect(page.reactors.single.displayName, 'Sam Saffron');
+    });
+
+    test('rejects invalid identities, filters and page sizes', () async {
+      var requests = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requests++;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      Future<void> load({
+        int channelId = 9,
+        int messageId = 44,
+        String? reaction,
+        int limit = ChatMessageReactors.maximumPageSize,
+      }) async {
+        await api.chatMessageReactors(
+          siteUrl: 'https://example.com',
+          apiKey: 'the-key',
+          channelId: channelId,
+          messageId: messageId,
+          reaction: reaction,
+          limit: limit,
+        );
+      }
+
+      await expectLater(load(channelId: 0), throwsArgumentError);
+      await expectLater(load(messageId: 0), throwsArgumentError);
+      await expectLater(load(reaction: ''), throwsArgumentError);
+      await expectLater(load(limit: 0), throwsRangeError);
+      await expectLater(
+        load(limit: ChatMessageReactors.maximumPageSize + 1),
+        throwsRangeError,
+      );
+      expect(requests, 0);
     });
   });
 

@@ -6,6 +6,7 @@ import '../models/topic.dart';
 import '../models/user_draft.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
+import '../plugins/chat/chat_reactors.dart';
 import '../plugins/chat/chat_thread.dart';
 import '../plugins/gifs/gif.dart';
 import '../plugins/poll/poll.dart';
@@ -282,6 +283,16 @@ abstract interface class ChatApi {
     required int messageId,
     required String emoji,
     required ChatReactionAction action,
+    String? clientId,
+  });
+
+  Future<ChatMessageReactors> chatMessageReactors({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? reaction,
+    int limit = ChatMessageReactors.maximumPageSize,
     String? clientId,
   });
 

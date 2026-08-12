@@ -3,6 +3,17 @@ import 'package:flutter/foundation.dart';
 import '../../data/store.dart';
 import '../../models/json.dart';
 
+/// The common result drawn behind a reaction, regardless of whether the
+/// reaction belongs to a topic post or a chat message.
+///
+/// Both Discourse endpoints answer with the same user rows and total. Their
+/// target ids and cache keys differ, so the concrete result records remain in
+/// their owning features while the presentation consumes this small shape.
+abstract interface class ReactorsPage {
+  List<PostReactor> get reactors;
+  int get total;
+}
+
 /// One account that reacted to a post, and what with.
 ///
 /// The sibling of `PostLiker`, and thin for the same reason: this is a row in a
@@ -62,7 +73,7 @@ class PostReactor {
 /// `PostLikers` is: it is fetched separately and only when asked for. The
 /// stream carries how many reacted, never who.
 @immutable
-class PostReactors with Storable<PostReactors> {
+class PostReactors with Storable<PostReactors> implements ReactorsPage {
   const PostReactors({
     required this.postId,
     required this.reactors,
@@ -100,6 +111,7 @@ class PostReactors with Storable<PostReactors> {
   /// The emoji this list was narrowed to, or null for everyone who reacted.
   final String? filter;
 
+  @override
   final List<PostReactor> reactors;
 
   /// How many there are in total, of which [reactors] is the first page.
@@ -108,6 +120,7 @@ class PostReactors with Storable<PostReactors> {
   /// `Reactions.userCount`: it comes from the same query as the rows, so "and N
   /// others" adds up. The other one counts reactions whose emoji has since been
   /// deleted, and provably exceeds what is on screen.
+  @override
   final int total;
 
   /// Composite, so the unfiltered list and each per-emoji one are separate

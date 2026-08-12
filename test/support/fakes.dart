@@ -37,6 +37,7 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
@@ -521,6 +522,8 @@ class FakeDiscourseApi implements DiscourseApi {
     this.chatSentMessageId = 1,
     this.chatReactionFailure,
     this.chatReactionGate,
+    this.chatReactorsById = const {},
+    this.chatReactorGate,
     this.customSidebarSectionsBySite = const {},
     this.pluginResponses = const {},
     Map<String, WriteException>? pluginWriteFailures,
@@ -964,6 +967,12 @@ class FakeDiscourseApi implements DiscourseApi {
     })
   >
   chatReactionsSet = [];
+
+  /// Chat reactor pages and calls, kept separate from topic's plugin route.
+  final Map<String, ChatMessageReactors> chatReactorsById;
+  final Completer<void>? chatReactorGate;
+  final List<({int channelId, int messageId, String? filter})>
+  chatReactorsRequested = [];
 
   /// Thrown by [saveDraft] instead of answering.
   final WriteException? draftFailure;
@@ -1998,6 +2007,34 @@ class FakeDiscourseApi implements DiscourseApi {
     ));
     if (chatReactionGate != null) await chatReactionGate!.future;
     if (chatReactionFailure != null) throw chatReactionFailure!;
+  }
+
+  @override
+  Future<ChatMessageReactors> chatMessageReactors({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? reaction,
+    int limit = ChatMessageReactors.maximumPageSize,
+    String? clientId,
+  }) async {
+    chatReactorsRequested.add((
+      channelId: channelId,
+      messageId: messageId,
+      filter: reaction,
+    ));
+    if (chatReactorGate != null) await chatReactorGate!.future;
+    final found =
+        chatReactorsById[ChatMessageReactors.key(
+          channelId,
+          messageId,
+          reaction,
+        )];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
   }
 
   @override

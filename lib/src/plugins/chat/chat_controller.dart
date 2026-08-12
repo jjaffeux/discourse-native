@@ -16,10 +16,17 @@ import '../../models/site_config.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
 import 'chat_preview.dart';
+import 'chat_reactors.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
 
 typedef _ChatReactionWriteKey = ({String siteUrl, int messageId, String emoji});
+typedef _ChatReactorsKey = ({
+  String siteUrl,
+  int channelId,
+  int messageId,
+  String? filter,
+});
 typedef ChatNotificationsDelta = void Function(String siteUrl, int delta);
 
 /// What Discourse's chat shortcut paints over its comment icon.
@@ -393,6 +400,8 @@ class ChatController extends FrameSafeNotifier {
   final Set<({String siteUrl, ChatStreamTarget target})>
   _sendSubscriptionTargets = {};
   final Map<_ChatReactionWriteKey, Object> _reactionWrites = {};
+  final Map<_ChatReactorsKey, Object> _reactorRequests = {};
+  final Map<_ChatReactorsKey, String> _reactorErrors = {};
   int _nextLocalMessageId = -1;
   int _nextStagedSequence = 0;
 
@@ -781,6 +790,100 @@ class ChatController extends FrameSafeNotifier {
     } finally {
       if (identical(_reactionWrites[key], request)) {
         _reactionWrites.remove(key);
+      }
+    }
+  }
+
+  /// Who gave a chat message one particular emoji, if they have been fetched.
+  ChatMessageReactors? messageReactors(
+    String siteUrl,
+    int channelId,
+    int messageId, {
+    String? filter,
+  }) => store.read<ChatMessageReactors>(
+    siteUrl,
+    ChatMessageReactors.key(channelId, messageId, filter),
+  );
+
+  String? messageReactorsError(
+    String siteUrl,
+    int channelId,
+    int messageId, {
+    String? filter,
+  }) =>
+      _reactorErrors[(
+        siteUrl: siteUrl,
+        channelId: channelId,
+        messageId: messageId,
+        filter: filter,
+      )];
+
+  /// Refreshes the lazy reactor list through chat's own endpoint.
+  ///
+  /// The presentation is shared with topic reactions, but chat access is
+  /// authenticated and channel-scoped. One request per exact filter may be in
+  /// flight; a previously fetched page stays visible while it refreshes.
+  Future<void> loadMessageReactors({
+    required String siteUrl,
+    required int channelId,
+    required int messageId,
+    String? filter,
+  }) async {
+    if (isDisposed) return;
+    final key = (
+      siteUrl: siteUrl,
+      channelId: channelId,
+      messageId: messageId,
+      filter: filter,
+    );
+    if (_reactorRequests.containsKey(key)) return;
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _reactorRequests[key] = request;
+    notifySafely();
+
+    bool ownsRequest() => identical(_reactorRequests[key], request);
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      if (apiKey == null) {
+        throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+      }
+
+      final clientId = await credentials.clientId();
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      final fetched = await api.chatMessageReactors(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: channelId,
+        messageId: messageId,
+        reaction: filter,
+      );
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      lease.commit(() {
+        store.put(siteUrl, fetched);
+        _reactorErrors.remove(key);
+      });
+    } catch (error, stackTrace) {
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      _report(
+        error,
+        stackTrace,
+        'chat.loadReactionUsers',
+        severity: DiagnosticSeverity.warning,
+      );
+      lease.commit(() {
+        if (messageReactors(siteUrl, channelId, messageId, filter: filter) ==
+            null) {
+          _reactorErrors[key] = 'Could not find out who reacted.';
+        }
+      });
+    } finally {
+      if (!isDisposed && identical(_reactorRequests[key], request)) {
+        _reactorRequests.remove(key);
+        notifySafely();
       }
     }
   }
@@ -3563,6 +3666,8 @@ class ChatController extends FrameSafeNotifier {
       (key) => key.startsWith('$siteUrl~'),
     );
     _reactionWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _reactorRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _reactorErrors.removeWhere((key, _) => key.siteUrl == siteUrl);
     _activeChannelViews.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _rootViewTokens.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _threadViewTokens.removeWhere((key, _) => key.startsWith('$siteUrl~'));
@@ -3762,6 +3867,8 @@ class ChatController extends FrameSafeNotifier {
     _sendSubscriptions.clear();
     _sendSubscriptionTargets.clear();
     _reactionWrites.clear();
+    _reactorRequests.clear();
+    _reactorErrors.clear();
     for (final ref in _streamRefs.values) {
       ref.dispose();
     }

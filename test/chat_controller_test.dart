@@ -8,6 +8,8 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
+import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
+import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -97,6 +99,8 @@ ChatChannel channel(
   int? sentMessageId = 1,
   WriteException? reactionFailure,
   Completer<void>? reactionGate,
+  Map<String, ChatMessageReactors> chatReactors = const {},
+  Completer<void>? reactorReadGate,
   FakeApiCredentialReader? credentialReader,
   DiscourseUser? currentUser,
   ChatNotificationsDelta? onChatNotificationsDelta,
@@ -114,6 +118,8 @@ ChatChannel channel(
     chatSentMessageId: sentMessageId,
     chatReactionFailure: reactionFailure,
     chatReactionGate: reactionGate,
+    chatReactorsById: chatReactors,
+    chatReactorGate: reactorReadGate,
   );
   final credentials = credentialReader ?? FakeApiCredentialReader();
   credentials.keys[site] = 'key';
@@ -2177,6 +2183,91 @@ void main() {
   });
 
   group('reacting to a message', () {
+    test('loads the people behind one emoji through chat', () async {
+      final subject = build(
+        chatReactors: {
+          ChatMessageReactors.key(9, 1, 'clap'): const ChatMessageReactors(
+            channelId: 9,
+            messageId: 1,
+            filter: 'clap',
+            total: 2,
+            reactors: [
+              PostReactor(id: 3, username: 'sam', reaction: 'clap'),
+              PostReactor(id: 4, username: 'ada', reaction: 'clap'),
+            ],
+          ),
+        },
+      );
+
+      await subject.chat.loadMessageReactors(
+        siteUrl: site,
+        channelId: 9,
+        messageId: 1,
+        filter: 'clap',
+      );
+
+      expect(subject.api.chatReactorsRequested, [
+        (channelId: 9, messageId: 1, filter: 'clap'),
+      ]);
+      expect(
+        subject.chat
+            .messageReactors(site, 9, 1, filter: 'clap')
+            ?.reactors
+            .map((reactor) => reactor.username),
+        ['sam', 'ada'],
+      );
+      expect(
+        subject.chat.messageReactorsError(site, 9, 1, filter: 'clap'),
+        isNull,
+      );
+    });
+
+    test(
+      'a reactor read failure is retained for the shared retry UI',
+      () async {
+        final subject = build();
+
+        await subject.chat.loadMessageReactors(
+          siteUrl: site,
+          channelId: 9,
+          messageId: 1,
+          filter: 'clap',
+        );
+
+        expect(
+          subject.chat.messageReactorsError(site, 9, 1, filter: 'clap'),
+          'Could not find out who reacted.',
+        );
+      },
+    );
+
+    test(
+      'forgetting a credential-gated reactor read sends no API call',
+      () async {
+        final credentialGate = Completer<void>();
+        final credentials = _GatedCredentials(credentialGate)
+          ..keys[site] = 'key';
+        final subject = build(credentialReader: credentials);
+
+        final loading = subject.chat.loadMessageReactors(
+          siteUrl: site,
+          channelId: 9,
+          messageId: 1,
+          filter: 'clap',
+        );
+        await credentials.started.future;
+        subject.chat.forget(site);
+        credentialGate.complete();
+        await loading;
+
+        expect(subject.api.chatReactorsRequested, isEmpty);
+        expect(
+          subject.chat.messageReactorsError(site, 9, 1, filter: 'clap'),
+          isNull,
+        );
+      },
+    );
+
     test(
       'optimistically adds an independent reaction and keeps it on success',
       () async {
