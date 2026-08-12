@@ -1748,6 +1748,16 @@ class ChatController extends FrameSafeNotifier {
     final actorId = jsonIntOrNull(jsonObject(data['user'])['id']);
     final isCurrentUser =
         actorId != null && actorId == _currentUserFor(siteUrl)?.id;
+    // The write path has already projected this reader's action into the
+    // stored message. Its MessageBus echo may arrive before or after the HTTP
+    // response, so keying deduplication only to an in-flight request is racy.
+    // The personalized `reacted` bit makes the current user's add/remove
+    // idempotent while still letting every other user's event move the count.
+    if (isCurrentUser &&
+        ((action == 'add' && existing?.reacted == true) ||
+            (action == 'remove' && existing?.reacted != true))) {
+      return;
+    }
     if (action == 'add') {
       final next = ChatReaction(
         emoji: emoji,
