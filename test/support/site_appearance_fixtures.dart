@@ -11,6 +11,7 @@ ResolvedSitePalette sitePalette({
   primary: foreground,
   secondary: background,
   tertiary: accent,
+  accentSubtle: accent,
   quaternary: const Color(0xFFEE7722),
   headerBackground: const Color(0xFF102040),
   headerPrimary: const Color(0xFFF8F8F8),

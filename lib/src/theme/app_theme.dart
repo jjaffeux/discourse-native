@@ -301,11 +301,17 @@ class CodeColors extends ThemeExtension<CodeColors> {
 class DiscourseColors extends ThemeExtension<DiscourseColors> {
   const DiscourseColors({
     required this.success,
+    required this.unreadIndicator,
     required this.love,
     required this.whisper,
   });
 
   final Color success;
+
+  /// An ordinary unread dot, matching core's
+  /// `--token-color-background-accent-subtle` role.
+  final Color unreadIndicator;
+
   final Color love;
 
   /// Whisper body text, mirroring Discourse's `--primary-medium` role.
@@ -313,29 +319,37 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
 
   static const DiscourseColors light = DiscourseColors(
     success: discourseSuccess,
+    unreadIndicator: Color(0xFF66CCFF),
     love: discourseLove,
     whisper: Color(0xFF919191),
   );
 
   static const DiscourseColors dark = DiscourseColors(
     success: Color(0xFF1CA551),
+    unreadIndicator: discourseBlue,
     love: discourseLove,
     whisper: Color(0xFF909090),
   );
 
   @override
-  DiscourseColors copyWith({Color? success, Color? love, Color? whisper}) =>
-      DiscourseColors(
-        success: success ?? this.success,
-        love: love ?? this.love,
-        whisper: whisper ?? this.whisper,
-      );
+  DiscourseColors copyWith({
+    Color? success,
+    Color? unreadIndicator,
+    Color? love,
+    Color? whisper,
+  }) => DiscourseColors(
+    success: success ?? this.success,
+    unreadIndicator: unreadIndicator ?? this.unreadIndicator,
+    love: love ?? this.love,
+    whisper: whisper ?? this.whisper,
+  );
 
   @override
   DiscourseColors lerp(ThemeExtension<DiscourseColors>? other, double t) {
     if (other is! DiscourseColors) return this;
     return DiscourseColors(
       success: Color.lerp(success, other.success, t)!,
+      unreadIndicator: Color.lerp(unreadIndicator, other.unreadIndicator, t)!,
       love: Color.lerp(love, other.love, t)!,
       whisper: Color.lerp(whisper, other.whisper, t)!,
     );
@@ -405,6 +419,7 @@ abstract final class AppTheme {
     );
     final discourse = DiscourseColors(
       success: palette.success,
+      unreadIndicator: palette.accentSubtle,
       love: palette.love,
       whisper: palette.primaryMedium,
     );

@@ -10179,6 +10179,27 @@ void main() {
         expect(sidebarDestination('Bugs'), findsOneWidget);
       });
 
+      testWidgets('uses core sidebar colors for unread and urgent dots', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9, unread: 1)],
+          direct: [dm(12, unread: 1)],
+        );
+
+        const unreadKey = ValueKey('sidebar-badge-chat-c-9');
+        const urgentKey = ValueKey('sidebar-badge-chat-c-12');
+        final theme = Theme.of(tester.element(find.byKey(urgentKey)));
+        Color? dotColor(Key key) =>
+            (tester.widget<Container>(find.byKey(key)).decoration!
+                    as BoxDecoration)
+                .color;
+
+        expect(dotColor(unreadKey), theme.discourse.unreadIndicator);
+        expect(dotColor(urgentKey), theme.discourse.success);
+      });
+
       testWidgets('an open channel tab mirrors live channel presentation', (
         tester,
       ) async {

@@ -590,11 +590,11 @@ class ChatChannel with Storable<ChatChannel> {
   /// in a busy channel moves faster than it is worth reading, and "someone
   /// spoke" is the whole message.
   ///
-  /// Urgent — red — for anything addressed to the reader. A mention is; so is
-  /// every message in a direct channel, by construction. An unread message in a
+  /// Urgent for anything addressed to the reader. A mention is; so is every
+  /// message in a direct channel, by construction. An unread message in a
   /// public channel the reader merely follows is not, and gets the quieter
-  /// colour. That is the same distinction `NotificationTotals.badge` already
-  /// draws for the rail.
+  /// accent. The renderer maps urgent to core's success colour and ordinary
+  /// unread to its subtle accent token.
   SidebarBadge get badge {
     // Muting is the reader saying they do not want to be told. Discourse dims
     // the row and keeps the dot; this sidebar has no dimmed state, so the

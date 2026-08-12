@@ -95,6 +95,7 @@ class ResolvedSitePalette {
     required this.primary,
     required this.secondary,
     required this.tertiary,
+    required this.accentSubtle,
     required this.quaternary,
     required this.headerBackground,
     required this.headerPrimary,
@@ -159,6 +160,7 @@ class ResolvedSitePalette {
       primary: primary,
       secondary: secondary,
       tertiary: tertiary,
+      accentSubtle: _color(json['accentSubtle']) ?? tertiary,
       quaternary: _color(json['quaternary']) ?? tertiary,
       headerBackground: _color(json['headerBackground']) ?? secondary,
       headerPrimary: _color(json['headerPrimary']) ?? primary,
@@ -202,6 +204,11 @@ class ResolvedSitePalette {
   final Color primary;
   final Color secondary;
   final Color tertiary;
+
+  /// Core's `--token-color-background-accent-subtle`, used for an ordinary
+  /// unread dot in the sidebar.
+  final Color accentSubtle;
+
   final Color quaternary;
   final Color headerBackground;
   final Color headerPrimary;
@@ -241,6 +248,7 @@ class ResolvedSitePalette {
     'primary': primary.toARGB32(),
     'secondary': secondary.toARGB32(),
     'tertiary': tertiary.toARGB32(),
+    'accentSubtle': accentSubtle.toARGB32(),
     'quaternary': quaternary.toARGB32(),
     'headerBackground': headerBackground.toARGB32(),
     'headerPrimary': headerPrimary.toARGB32(),
@@ -283,6 +291,7 @@ class ResolvedSitePalette {
       other.primary == primary &&
       other.secondary == secondary &&
       other.tertiary == tertiary &&
+      other.accentSubtle == accentSubtle &&
       other.quaternary == quaternary &&
       other.headerBackground == headerBackground &&
       other.headerPrimary == headerPrimary &&
@@ -323,6 +332,7 @@ class ResolvedSitePalette {
     primary,
     secondary,
     tertiary,
+    accentSubtle,
     quaternary,
     headerBackground,
     headerPrimary,

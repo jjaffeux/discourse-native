@@ -179,7 +179,7 @@ void main() {
     expect(find.text('3'), findsOneWidget);
     expect(tester.getSize(countBadge).height, 18);
     expect(tester.getSize(urgentDot), const Size(8, 8));
-    expect(_decoration(tester, urgentDot).color, theme.colorScheme.error);
+    expect(_decoration(tester, urgentDot).color, theme.discourse.success);
 
     final urgentIcon = tester.widget<DIcon>(
       find.descendant(

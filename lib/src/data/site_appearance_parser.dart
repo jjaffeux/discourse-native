@@ -305,11 +305,20 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
   final tertiary = color('--tertiary');
   if (primary == null || secondary == null || tertiary == null) return null;
 
+  // `--token-color-background-accent-subtle` is `--tertiary-600` in a
+  // light scheme and the unmodified tertiary in a dark scheme. The common
+  // token stylesheet is not among the site-specific stylesheets fetched by
+  // the app, so resolve that light-dark choice here from its source colors.
+  final accentSubtle = brightness == Brightness.light
+      ? color('--tertiary-600') ?? tertiary
+      : tertiary;
+
   final json = <String, dynamic>{
     'brightness': brightness.name,
     'primary': primary.toARGB32(),
     'secondary': secondary.toARGB32(),
     'tertiary': tertiary.toARGB32(),
+    'accentSubtle': accentSubtle.toARGB32(),
     'borderRadius': ?length('--d-border-radius'),
   };
   void add(String field, String variable) {

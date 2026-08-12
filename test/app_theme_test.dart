@@ -13,6 +13,7 @@ ResolvedSitePalette palette({
   primary: const Color(0xFF111111),
   secondary: const Color(0xFFFDFDFD),
   tertiary: const Color(0xFF1256A0),
+  accentSubtle: const Color(0xFF6E9BCB),
   quaternary: const Color(0xFF9A3412),
   headerBackground: const Color(0xFF010203),
   headerPrimary: const Color(0xFFF0F1F2),
@@ -203,6 +204,7 @@ void main() {
       expect(theme.code.meta, source.codeMeta);
 
       expect(theme.discourse.success, source.success);
+      expect(theme.discourse.unreadIndicator, source.accentSubtle);
       expect(theme.discourse.love, source.love);
       expect(theme.discourse.whisper, source.primaryMedium);
     });
