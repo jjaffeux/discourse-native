@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/diagnostics_panel_width_store.dart';
+import '../data/sidebar_width_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/diagnostics_scope.dart';
 import '../plugins/resenha/resenha_call_widget.dart';
@@ -60,6 +61,9 @@ class AdaptiveShell extends StatefulWidget {
   static const double railWidth = 72;
   static const double compactRailWidth = 64;
   static const double sidebarWidth = 240;
+  static const double sidebarMinWidth = 200;
+  static const double sidebarMaxWidth = 480;
+  static const double mainContentMinWidth = 320;
 
   @override
   State<AdaptiveShell> createState() => _AdaptiveShellState();
@@ -80,14 +84,18 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   final DiagnosticsPanelWidthStore _diagnosticsWidthStore =
       DiagnosticsPanelWidthStore();
+  final SidebarWidthStore _sidebarWidthStore = SidebarWidthStore();
   double _diagnosticsWidth = diagnosticsPanelWidth;
+  double _sidebarWidth = AdaptiveShell.sidebarWidth;
   bool _diagnosticsWidthChanged = false;
+  bool _sidebarWidthChanged = false;
 
   @override
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_handleShortcut);
     unawaited(_restoreDiagnosticsWidth());
+    unawaited(_restoreSidebarWidth());
   }
 
   @override
@@ -145,6 +153,22 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     });
   }
 
+  Future<void> _restoreSidebarWidth() async {
+    final stored = await _sidebarWidthStore.read();
+    if (!mounted ||
+        _sidebarWidthChanged ||
+        stored == null ||
+        !stored.isFinite) {
+      return;
+    }
+    setState(() {
+      _sidebarWidth = stored.clamp(
+        AdaptiveShell.sidebarMinWidth,
+        AdaptiveShell.sidebarMaxWidth,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return ShellSelector<_PrivateForumSnapshot>(
@@ -196,7 +220,12 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           final layout = ShellLayout.forWidth(constraints.maxWidth);
           final shell = layout.isCompact
               ? const _CompactShell()
-              : _WideShell(layout: layout);
+              : _WideShell(
+                  layout: layout,
+                  sidebarWidth: _sidebarWidth,
+                  onResizeSidebar: _resizeSidebar,
+                  onResizeSidebarEnd: _persistSidebarWidth,
+                );
 
           Widget framedShell(Widget body) => Stack(
             children: [
@@ -328,6 +357,20 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   void _persistDiagnosticsWidth() {
     unawaited(_diagnosticsWidthStore.write(_diagnosticsWidth));
+  }
+
+  void _resizeSidebar(double width) {
+    setState(() {
+      _sidebarWidthChanged = true;
+      _sidebarWidth = width.clamp(
+        AdaptiveShell.sidebarMinWidth,
+        AdaptiveShell.sidebarMaxWidth,
+      );
+    });
+  }
+
+  void _persistSidebarWidth() {
+    unawaited(_sidebarWidthStore.write(_sidebarWidth));
   }
 
   Widget _withDiagnosticsBackHandling({
@@ -728,46 +771,212 @@ class _CompactShell extends StatelessWidget {
   }
 }
 
-/// Rail + sidebar + content, optionally with the right sidebar.
-class _WideShell extends StatelessWidget {
-  const _WideShell({required this.layout});
+class _ResizableSidebar extends StatefulWidget {
+  const _ResizableSidebar({
+    required this.width,
+    required this.onResize,
+    required this.onResizeEnd,
+    required this.child,
+  });
 
-  final ShellLayout layout;
+  final double width;
+  final ValueChanged<double> onResize;
+  final VoidCallback onResizeEnd;
+  final Widget child;
+
+  @override
+  State<_ResizableSidebar> createState() => _ResizableSidebarState();
+}
+
+class _ResizableSidebarState extends State<_ResizableSidebar> {
+  static const double _handleWidth = 16;
+  static const double _keyboardStep = 16;
+
+  final FocusNode _focus = FocusNode(debugLabel: 'sidebar resize');
+  bool _focused = false;
+  bool _keyboardResizePending = false;
+
+  @override
+  void dispose() {
+    if (_keyboardResizePending) widget.onResizeEnd();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _resizeOnce(double delta) {
+    widget.onResize(widget.width + delta);
+    widget.onResizeEnd();
+  }
+
+  KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
+    final delta = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowLeft => -_keyboardStep,
+      LogicalKeyboardKey.arrowRight => _keyboardStep,
+      _ => null,
+    };
+    if (delta == null) return KeyEventResult.ignored;
+
+    if (event is KeyDownEvent || event is KeyRepeatEvent) {
+      widget.onResize(widget.width + delta);
+      _keyboardResizePending = true;
+    } else if (event is KeyUpEvent && _keyboardResizePending) {
+      _keyboardResizePending = false;
+      widget.onResizeEnd();
+    }
+    return KeyEventResult.handled;
+  }
+
+  void _focusChanged(bool focused) {
+    if (_focused == focused) return;
+    if (!focused && _keyboardResizePending) {
+      _keyboardResizePending = false;
+      widget.onResizeEnd();
+    }
+    setState(() => _focused = focused);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final theme = Theme.of(context);
+    final divider = _focused ? theme.colorScheme.primary : theme.shell.divider;
+    final increasedWidth = (widget.width + _keyboardStep).clamp(
+      AdaptiveShell.sidebarMinWidth,
+      AdaptiveShell.sidebarMaxWidth,
+    );
+    final decreasedWidth = (widget.width - _keyboardStep).clamp(
+      AdaptiveShell.sidebarMinWidth,
+      AdaptiveShell.sidebarMaxWidth,
+    );
+
+    return Stack(
       children: [
-        // The rail sits directly on the backdrop, with no panel of its own.
-        const SizedBox(width: AdaptiveShell.railWidth, child: InstanceRail()),
-        Expanded(
-          child: ShellPanel(
-            child:
-                ShellSelector<
-                  ({InstanceLoadStatus loadStatus, bool hasInstances})
-                >(
-                  select: (controller) => (
-                    loadStatus: controller.loadStatus,
-                    hasInstances: controller.hasInstances,
-                  ),
-                  builder: (context, state, _) => switch (state.loadStatus) {
-                    InstanceLoadStatus.loading => const _ShellLoadProgress(),
-                    InstanceLoadStatus.failed => const _ShellLoadFailure(),
-                    InstanceLoadStatus.ready when state.hasInstances => Row(
-                      children: [
-                        const SizedBox(
-                          width: AdaptiveShell.sidebarWidth,
-                          child: InstanceSidebar(),
-                        ),
-                        Expanded(child: MainContent(layout: layout)),
-                      ],
+        Positioned.fill(child: widget.child),
+        Positioned(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: _handleWidth,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeLeftRight,
+            child: Focus(
+              key: const ValueKey('sidebar-resize-focus'),
+              focusNode: _focus,
+              onFocusChange: _focusChanged,
+              onKeyEvent: _handleKey,
+              child: Semantics(
+                key: const ValueKey('sidebar-resize-semantics'),
+                container: true,
+                focusable: true,
+                focused: _focused,
+                label: 'Resize sidebar',
+                value: '${widget.width.round()} pixels wide',
+                increasedValue: '${increasedWidth.round()} pixels wide',
+                decreasedValue: '${decreasedWidth.round()} pixels wide',
+                onIncrease: () => _resizeOnce(_keyboardStep),
+                onDecrease: () => _resizeOnce(-_keyboardStep),
+                child: GestureDetector(
+                  key: const ValueKey('sidebar-resize-handle'),
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragStart: (_) => _focus.requestFocus(),
+                  onHorizontalDragUpdate: (details) =>
+                      widget.onResize(widget.width + details.delta.dx),
+                  onHorizontalDragEnd: (_) => widget.onResizeEnd(),
+                  onHorizontalDragCancel: widget.onResizeEnd,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: ColoredBox(
+                      color: divider,
+                      child: SizedBox(
+                        width: _focused ? 3 : 1,
+                        height: double.infinity,
+                      ),
                     ),
-                    InstanceLoadStatus.ready => const EmptyState(),
-                  },
+                  ),
                 ),
+              ),
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Rail + resizable sidebar + content, optionally with the right sidebar.
+class _WideShell extends StatelessWidget {
+  const _WideShell({
+    required this.layout,
+    required this.sidebarWidth,
+    required this.onResizeSidebar,
+    required this.onResizeSidebarEnd,
+  });
+
+  final ShellLayout layout;
+  final double sidebarWidth;
+  final ValueChanged<double> onResizeSidebar;
+  final VoidCallback onResizeSidebarEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final windowMaximum = math.max(
+          AdaptiveShell.sidebarMinWidth,
+          constraints.maxWidth -
+              AdaptiveShell.railWidth -
+              AdaptiveShell.mainContentMinWidth,
+        );
+        final effectiveSidebarWidth = sidebarWidth
+            .clamp(
+              AdaptiveShell.sidebarMinWidth,
+              math.min(AdaptiveShell.sidebarMaxWidth, windowMaximum),
+            )
+            .toDouble();
+
+        return Row(
+          children: [
+            // The rail sits directly on the backdrop, with no panel of its own.
+            const SizedBox(
+              width: AdaptiveShell.railWidth,
+              child: InstanceRail(),
+            ),
+            Expanded(
+              child: ShellPanel(
+                child:
+                    ShellSelector<
+                      ({InstanceLoadStatus loadStatus, bool hasInstances})
+                    >(
+                      select: (controller) => (
+                        loadStatus: controller.loadStatus,
+                        hasInstances: controller.hasInstances,
+                      ),
+                      builder: (context, state, _) => switch (state
+                          .loadStatus) {
+                        InstanceLoadStatus.loading =>
+                          const _ShellLoadProgress(),
+                        InstanceLoadStatus.failed => const _ShellLoadFailure(),
+                        InstanceLoadStatus.ready when state.hasInstances => Row(
+                          children: [
+                            SizedBox(
+                              width: effectiveSidebarWidth,
+                              child: _ResizableSidebar(
+                                width: effectiveSidebarWidth,
+                                onResize: onResizeSidebar,
+                                onResizeEnd: onResizeSidebarEnd,
+                                child: const InstanceSidebar(),
+                              ),
+                            ),
+                            Expanded(child: MainContent(layout: layout)),
+                          ],
+                        ),
+                        InstanceLoadStatus.ready => const EmptyState(),
+                      },
+                    ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

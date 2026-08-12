@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/composer_geometry_store.dart';
 import 'package:discourse_native/src/data/diagnostics_panel_width_store.dart';
 import 'package:discourse_native/src/data/sidebar_section_store.dart';
+import 'package:discourse_native/src/data/sidebar_width_store.dart';
 import 'package:discourse_native/src/data/topic_recommendations_panel_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,6 +54,18 @@ void main() {
     expect(
       diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
       _isRejectedStorageWrite('diagnosticsPanel.writeWidth'),
+    );
+  });
+
+  test('reports a rejected sidebar width write without failing', () async {
+    final persistence = _RejectingSidebarWidthPersistence();
+
+    await SidebarWidthStore(persistence: persistence).write(360);
+
+    expect(persistence.width, 360);
+    expect(
+      diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
+      _isRejectedStorageWrite('sidebar.writeWidth'),
     );
   });
 
@@ -157,6 +170,20 @@ final class _RejectingComposerGeometryPersistence
 
 final class _RejectingDiagnosticsPanelWidthPersistence
     implements DiagnosticsPanelWidthPersistence {
+  double? width;
+
+  @override
+  Future<double?> readWidth() async => null;
+
+  @override
+  Future<bool> writeWidth(double width) async {
+    this.width = width;
+    return false;
+  }
+}
+
+final class _RejectingSidebarWidthPersistence
+    implements SidebarWidthPersistence {
   double? width;
 
   @override

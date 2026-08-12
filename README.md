@@ -1174,6 +1174,12 @@ with the available width.
 | `medium`   | 768–1199 | rail + sidebar + content                       |
 | `expanded` | ≥ 1200   | rail + sidebar + content + right sidebar       |
 
+On medium and expanded layouts, drag the sidebar's right edge to resize it.
+The preferred width is stored once for the app, so it follows the reader when
+they switch forums and is restored after a relaunch. Narrow windows temporarily
+constrain it to preserve room for the main content without replacing the saved
+preference.
+
 Three ways to show something, and they are not interchangeable:
 
 - **Replace the main content** — navigating deeper, e.g. a topic list to a
