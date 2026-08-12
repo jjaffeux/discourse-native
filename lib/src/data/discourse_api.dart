@@ -29,6 +29,7 @@ import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
+import '../plugins/chat/chat_reactors.dart';
 import '../plugins/chat/chat_thread.dart';
 import '../plugins/gifs/gif.dart';
 import '../plugins/poll/poll.dart';
@@ -2915,6 +2916,54 @@ class DiscourseApi
       apiKey: apiKey,
       clientId: clientId,
       body: {'emoji': emoji, 'react_action': action.name},
+    );
+  }
+
+  /// Who gave a chat message one reaction, from chat's own lazy user route.
+  ///
+  /// This endpoint paginates differently from post reactions (`page` rather
+  /// than an offset) and calls its filter `emoji`. The UI asks for the largest
+  /// legal first page, matching the bounded eager list used for topic posts.
+  @override
+  Future<ChatMessageReactors> chatMessageReactors({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? reaction,
+    int limit = ChatMessageReactors.maximumPageSize,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(messageId, 'messageId');
+    if (limit < 1 || limit > ChatMessageReactors.maximumPageSize) {
+      throw RangeError.range(
+        limit,
+        1,
+        ChatMessageReactors.maximumPageSize,
+        'limit',
+      );
+    }
+    if (reaction != null) _validateReactionName(reaction);
+
+    final uri =
+        Uri.parse(
+          '$siteUrl/chat/$channelId/$messageId/reactions-users.json',
+        ).replace(
+          queryParameters: {'page': '0', 'limit': '$limit', 'emoji': ?reaction},
+        );
+    final body = await _getObject(
+      uri,
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return ChatMessageReactors.parse(
+      body,
+      channelId: channelId,
+      messageId: messageId,
+      siteUrl: siteUrl,
+      filter: reaction,
     );
   }
 

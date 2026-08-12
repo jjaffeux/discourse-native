@@ -30,11 +30,13 @@ import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
@@ -10645,22 +10647,23 @@ void main() {
         );
         final mineDecoration = mine.decoration! as BoxDecoration;
         final otherDecoration = other.decoration! as BoxDecoration;
+        expect(find.byType(ReactionPill), findsNWidgets(2));
         expect(
           tester
               .widget<Padding>(find.byKey(const ValueKey('chat-reactions')))
               .padding,
-          const EdgeInsets.only(top: 5, bottom: 1),
+          const EdgeInsets.only(top: 10),
         );
-        expect(
-          mine.padding,
-          const EdgeInsets.symmetric(horizontal: 7.25, vertical: 3.5),
-        );
-        expect(mineDecoration.borderRadius, BorderRadius.circular(4));
+        expect(mine.padding, const EdgeInsets.fromLTRB(8, 4, 9, 4));
+        expect(mineDecoration.borderRadius, BorderRadius.circular(14));
         expect(mineDecoration.border, isNotNull);
-        expect(mineDecoration.color, isNot(Colors.transparent));
-        expect(otherDecoration.borderRadius, BorderRadius.circular(4));
+        expect(mineDecoration.color, otherDecoration.color);
+        expect(otherDecoration.borderRadius, BorderRadius.circular(14));
         expect(otherDecoration.border, isNotNull);
-        expect(otherDecoration.color, Colors.transparent);
+        expect(
+          (mineDecoration.border! as Border).top.color,
+          isNot((otherDecoration.border! as Border).top.color),
+        );
 
         final heart = find.bySemanticsLabel('3 heart reactions');
         final clap = find.bySemanticsLabel('2 clap reactions');
@@ -10698,6 +10701,62 @@ void main() {
         ]);
         expect(find.bySemanticsLabel('2 heart reactions'), findsOneWidget);
         expect(find.bySemanticsLabel('3 clap reactions'), findsOneWidget);
+      });
+
+      testWidgets('hovering a message reaction uses chat reactor data', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)], direct: const []),
+          },
+          chatMessagesByKey: {
+            key(9): page([
+              msg(1, reactions: const [ChatReaction(emoji: 'clap', count: 2)]),
+            ]),
+          },
+          chatReactorsById: {
+            ChatMessageReactors.key(9, 1, 'clap'): const ChatMessageReactors(
+              channelId: 9,
+              messageId: 1,
+              filter: 'clap',
+              total: 2,
+              reactors: [
+                PostReactor(
+                  id: 3,
+                  username: 'sam',
+                  name: 'Sam Saffron',
+                  reaction: 'clap',
+                ),
+                PostReactor(id: 4, username: 'codinghorror', reaction: 'clap'),
+              ],
+            ),
+          },
+        );
+        await pumpChat(tester, api: api);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        final gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await gesture.addPointer(location: Offset.zero);
+        addTearDown(gesture.removePointer);
+        await gesture.moveTo(
+          tester.getCenter(find.bySemanticsLabel('2 clap reactions')),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pumpAndSettle();
+
+        expect(api.chatReactorsRequested, [
+          (channelId: 9, messageId: 1, filter: 'clap'),
+        ]);
+        expect(find.byType(ReactionUsersList), findsOneWidget);
+        expect(find.text('Sam Saffron'), findsOneWidget);
+        expect(find.text('codinghorror'), findsOneWidget);
+        expect(api.reactorsRequested, isEmpty);
       });
 
       testWidgets('rolls back a refused message reaction and reports it', (
