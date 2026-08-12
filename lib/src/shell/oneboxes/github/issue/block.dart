@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../../../theme/app_theme.dart';
-import '../../../../theme/d_icon.dart';
 import '../../../relative_time.dart';
 import '../../onebox.dart';
 import '../github.dart';
@@ -27,16 +26,9 @@ class GithubIssueOnebox extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: githubIconColumnWidth,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: DIcon(
-                  githubIssueIcon,
-                  size: githubIconSize,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
+            GithubOneboxIcon(
+              icon: githubIssueIcon,
+              color: theme.discourse.primaryHigh,
             ),
             const SizedBox(width: githubIconGap),
             Expanded(

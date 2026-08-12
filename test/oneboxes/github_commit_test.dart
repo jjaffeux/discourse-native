@@ -5,6 +5,7 @@ import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
@@ -135,6 +136,13 @@ void main() {
         ),
         findsOneWidget,
       );
+
+      final icon = tester.widget<GithubOneboxIcon>(
+        find.byType(GithubOneboxIcon),
+      );
+      expect(icon.icon, githubCommitIcon);
+      expect(icon.color, theme.discourse.primaryHigh);
+      expect(tester.getSize(find.byType(SvgPicture)), githubLegacyIconSize);
     });
 
     testWidgets('metadata links are named and keyboard operable', (

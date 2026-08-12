@@ -1,10 +1,13 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/src/shell/oneboxes/github/github.dart';
 import 'package:discourse_native/src/shell/oneboxes/github/pr/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
@@ -178,16 +181,95 @@ void main() {
       expect(find.text('This adds the thing we talked about.'), findsOneWidget);
 
       // The status glyph, in GitHub's color for merged.
-      final icon = tester
-          .widgetList<DIcon>(find.byType(DIcon))
-          .where((icon) => icon.icon == githubPrMergedIcon);
-      expect(icon, hasLength(1));
-      expect(icon.single.color, GithubPrStatus.merged.color);
-      expect(icon.single.size, closeTo(28.8, 0.001));
-      expect(
-        tester.getSize(find.byWidget(icon.single)),
-        const Size.square(28.8),
+      final icon = tester.widget<GithubOneboxIcon>(
+        find.byType(GithubOneboxIcon),
       );
+      expect(icon.icon, githubPrMergedIcon);
+      expect(icon.color, GithubPrStatus.merged.color);
+      expect(icon.isPrStatus, isTrue);
+      expect(tester.getSize(find.byType(SvgPicture)), githubPrStatusIconSize);
+    });
+
+    testWidgets('uses core legacy size and primary-high without a status', (
+      tester,
+    ) async {
+      final aside = html
+          .parse(prOnebox.replaceFirst(' --gh-status-merged', ''))
+          .querySelector('aside.onebox')!;
+      final theme = AppTheme.dark;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(body: oneboxWidgetBuilder(aside)!),
+        ),
+      );
+      await tester.pump();
+
+      final icon = tester.widget<GithubOneboxIcon>(
+        find.byType(GithubOneboxIcon),
+      );
+      expect(icon.icon, githubPullRequestIcon);
+      expect(icon.color, theme.discourse.primaryHigh);
+      expect(icon.isPrStatus, isFalse);
+      expect(tester.getSize(find.byType(SvgPicture)), githubLegacyIconSize);
+    });
+
+    testWidgets('paints the requested GitHub SVG color', (tester) async {
+      const boundaryKey = ValueKey('github-icon-paint');
+      const color = Color(0xFF2A6CD6);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Center(
+            child: RepaintBoundary(
+              key: boundaryKey,
+              child: GithubOneboxIcon(
+                icon: githubPullRequestIcon,
+                color: color,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(boundaryKey),
+      );
+      final pixels = (await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        try {
+          final data = await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          );
+          return data!.buffer.asUint8List();
+        } finally {
+          image.dispose();
+        }
+      }))!;
+
+      var foundTint = false;
+      var foundBlack = false;
+      final argb = color.toARGB32();
+      final expectedRed = (argb >> 16) & 0xFF;
+      final expectedGreen = (argb >> 8) & 0xFF;
+      final expectedBlue = argb & 0xFF;
+      for (var offset = 0; offset < pixels.length; offset += 4) {
+        final alpha = pixels[offset + 3];
+        if (alpha == 0) continue;
+        final red = pixels[offset];
+        final green = pixels[offset + 1];
+        final blue = pixels[offset + 2];
+        foundTint |=
+            red == expectedRed &&
+            green == expectedGreen &&
+            blue == expectedBlue;
+        foundBlack |= red == 0 && green == 0 && blue == 0;
+      }
+
+      expect(foundTint, isTrue);
+      expect(foundBlack, isFalse);
     });
   });
 }
