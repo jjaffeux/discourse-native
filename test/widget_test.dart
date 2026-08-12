@@ -333,6 +333,10 @@ void main() {
         final titleBar = tester.getRect(find.byType(ShellTitleBar));
         final macField = tester.getRect(find.byKey(ForumSearch.inputKey));
         expect(titleBar.contains(macField.center), isTrue);
+        expect(
+          tester.getSize(find.byType(ForumSearch)).height,
+          lessThan(ShellTitleBar.height),
+        );
       } finally {
         debugDefaultTargetPlatformOverride = previous;
       }

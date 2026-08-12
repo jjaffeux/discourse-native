@@ -389,10 +389,7 @@ class _ForumSearchState extends State<ForumSearch> {
                         key: const ValueKey('forum-search-advanced'),
                         tooltip: 'Advanced search',
                         onPressed: () => _openFullSearch(expanded: true),
-                        constraints: const BoxConstraints.tightFor(
-                          width: 44,
-                          height: 44,
-                        ),
+                        constraints: const BoxConstraints.tightFor(width: 44),
                         style: const ButtonStyle(
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
