@@ -742,10 +742,13 @@ class _StreamState extends State<_Stream> {
         ),
         if (_awayFromPresent)
           Positioned(
-            right: 16,
+            left: 0,
+            right: 0,
             bottom: 16,
-            child: _JumpToPresent(
-              onTap: () => _jumpToPresent(chat, siteUrl, channelId),
+            child: Center(
+              child: _JumpToPresent(
+                onTap: () => _jumpToPresent(chat, siteUrl, channelId),
+              ),
             ),
           ),
       ],
