@@ -46,6 +46,8 @@ class TopicView extends StatefulWidget {
   State<TopicView> createState() => _TopicViewState();
 }
 
+typedef _TopicDayStart = ({DateTime day, int postIndex});
+
 class _TopicViewState extends State<TopicView> {
   static const Duration _readInterval = Duration(milliseconds: 500);
 
@@ -69,6 +71,10 @@ class _TopicViewState extends State<TopicView> {
   String? _recommendationsPanelSiteUrl;
   bool _recommendationsPanelCollapsed = false;
   int _recommendationsPanelRestoreGeneration = 0;
+  List<_TopicDayStart> _laidOutDayStarts = const [];
+  DateTime? _floatingDay;
+  double _floatingDayOffset = 0;
+  Object? _dayJumpToken;
   Timer? _readTimer;
   ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _seen;
 
@@ -99,6 +105,10 @@ class _TopicViewState extends State<TopicView> {
     _lookScheduled = false;
     _saveAnchorAfterLook = false;
     _savedAnchorPostNumber = null;
+    _laidOutDayStarts = const [];
+    _floatingDay = null;
+    _floatingDayOffset = 0;
+    _dayJumpToken = null;
     _seen = null;
     _scroll = ScrollController();
     _list = ListController();
@@ -207,6 +217,7 @@ class _TopicViewState extends State<TopicView> {
   @override
   void dispose() {
     _recommendationsPanelRestoreGeneration++;
+    _dayJumpToken = null;
     _creditReaderNow();
     _disposeControllers();
     super.dispose();
@@ -261,11 +272,175 @@ class _TopicViewState extends State<TopicView> {
       final identity = _topicIdentity;
       if (controller == null || identity == null) return;
       if (!_isCurrent(controller, identity)) return;
-      _noteWhatIsOnScreen(
-        controller,
-        _TopicViewSnapshot.from(controller),
-        saveAnchor: saveAnchor,
+      final snapshot = _TopicViewSnapshot.from(controller);
+      _syncFloatingDay(snapshot);
+      _noteWhatIsOnScreen(controller, snapshot, saveAnchor: saveAnchor);
+    });
+  }
+
+  /// Pins the last date boundary that has passed the top of the viewport.
+  ///
+  /// Core chat gives every date marker a sticky span that lasts until the next
+  /// marker. Topic rows must keep their post-based indices for paging and
+  /// restoration, so the equivalent here is one overlay driven by those same
+  /// two boundaries. As the next date approaches it pushes the old one out.
+  void _syncFloatingDay(_TopicViewSnapshot snapshot) {
+    final list = _list;
+    final scroll = _scroll;
+    if (list == null || scroll == null) return;
+    if (!list.isAttached || !scroll.hasClients) return;
+    final range = list.visibleRange;
+    if (range == null || _laidOutDayStarts.isEmpty) {
+      _setFloatingDay(null, 0);
+      return;
+    }
+
+    final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
+    int? firstVisiblePostIndex;
+    for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
+      if (childIndex.isOdd) continue;
+      final postIndex = childIndex ~/ 2 - leading;
+      if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
+      firstVisiblePostIndex = postIndex;
+      break;
+    }
+    if (firstVisiblePostIndex == null) {
+      _setFloatingDay(null, 0);
+      return;
+    }
+
+    var candidateIndex = -1;
+    for (var index = 0; index < _laidOutDayStarts.length; index++) {
+      if (_laidOutDayStarts[index].postIndex > firstVisiblePostIndex) break;
+      candidateIndex = index;
+    }
+    if (candidateIndex < 0) {
+      _setFloatingDay(null, 0);
+      return;
+    }
+
+    double topOf(_TopicDayStart start) {
+      final childIndex = (start.postIndex + leading) * 2;
+      return _offsetBeforeChild(list, childIndex) - scroll.position.pixels;
+    }
+
+    // The first visible post can itself begin a day while its marker is still
+    // below the viewport edge. Until it crosses, the preceding day remains the
+    // sticky one.
+    if (topOf(_laidOutDayStarts[candidateIndex]) >= 0) candidateIndex--;
+    if (candidateIndex < 0) {
+      _setFloatingDay(null, 0);
+      return;
+    }
+
+    final current = _laidOutDayStarts[candidateIndex];
+    final nextIndex = candidateIndex + 1;
+    var offset = 0.0;
+    if (nextIndex < _laidOutDayStarts.length) {
+      final nextTop = topOf(_laidOutDayStarts[nextIndex]);
+      if (nextTop < _TopicDaySeparator.height) {
+        offset = nextTop - _TopicDaySeparator.height;
+      }
+    }
+    _setFloatingDay(current.day, offset);
+  }
+
+  void _setFloatingDay(DateTime? day, double offset) {
+    if (_floatingDay == day && (_floatingDayOffset - offset).abs() < 0.1) {
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _floatingDay = day;
+      _floatingDayOffset = offset;
+    });
+  }
+
+  List<_TopicDayStart> _dayStarts(
+    ShellController controller,
+    String siteUrl,
+    List<int> postIds,
+  ) {
+    final starts = <_TopicDayStart>[];
+    DateTime? previousDay;
+    for (var index = 0; index < postIds.length; index++) {
+      final post = controller.store.read<Post>(siteUrl, postIds[index]);
+      final day = _calendarDay(post?.createdAt);
+      if (day != null && day != previousDay) {
+        starts.add((day: day, postIndex: index));
+      }
+      previousDay = day;
+    }
+    return starts;
+  }
+
+  /// Loads enough of an around-post window to know where [day] really began,
+  /// then places that day's first post at the top. This is the topic analogue
+  /// of chat's `fetchMessagesByDate(startOfDay)` click.
+  Future<void> _jumpToDayStart(DateTime day) async {
+    final controller = _controller;
+    final identity = _topicIdentity;
+    if (controller == null || identity == null) return;
+
+    final token = Object();
+    _dayJumpToken = token;
+    _anchorRestoreToken = null;
+    _restoring = true;
+
+    bool isCurrent() =>
+        identical(_dayJumpToken, token) && _isCurrent(controller, identity);
+
+    while (isCurrent()) {
+      final snapshot = _TopicViewSnapshot.from(controller);
+      if (!snapshot.hasEarlier || snapshot.postIds.isEmpty) break;
+      final first = controller.store.read<Post>(
+        snapshot.siteUrl!,
+        snapshot.postIds.first,
       );
+      if (_calendarDay(first?.createdAt) != day) break;
+
+      final before = List<int>.of(snapshot.postIds);
+      await controller.loadEarlierPosts();
+      if (!isCurrent()) return;
+      if (listEquals(before, _TopicViewSnapshot.from(controller).postIds)) {
+        // A refused page should still land on the earliest copy in hand rather
+        // than retrying forever from one click.
+        break;
+      }
+    }
+    if (!isCurrent()) return;
+
+    void finish() {
+      if (!isCurrent()) return;
+      _dayJumpToken = null;
+      _restoring = false;
+      _scheduleLook(saveAnchor: true);
+      _scheduleLoadEarlier(controller, _TopicViewSnapshot.from(controller));
+    }
+
+    void jump() {
+      if (!isCurrent()) return;
+      final snapshot = _TopicViewSnapshot.from(controller);
+      final postIndex = snapshot.postIds.indexWhere((id) {
+        final post = controller.store.read<Post>(snapshot.siteUrl!, id);
+        return _calendarDay(post?.createdAt) == day;
+      });
+      if (postIndex < 0) return;
+      final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
+      _jumpTo(postIndex + leading);
+    }
+
+    // A preceding page changes the list in the same event turn. Let it lay
+    // out before addressing its rows, then repeat once measured just like the
+    // reader's normal post restoration.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!isCurrent()) return;
+      jump();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!isCurrent()) return;
+        jump();
+        finish();
+      });
     });
   }
 
@@ -613,6 +788,11 @@ class _TopicViewState extends State<TopicView> {
     _syncRecommendationsPanelSite(siteUrl);
     final topicIdentity = (siteUrl, snapshot.topicId!);
     _syncControllers(controller, topicIdentity);
+    final dayStarts = _dayStarts(controller, siteUrl, postIds);
+    _laidOutDayStarts = dayStarts;
+    final dayByPostIndex = {
+      for (final start in dayStarts) start.postIndex: start.day,
+    };
     _restoreInitialPost(controller, snapshot);
     _restoreViewportAfterPrepend(controller, snapshot, hasHeader: showHeader);
     _scheduleLook();
@@ -680,8 +860,15 @@ class _TopicViewState extends State<TopicView> {
             (showHeader ? 1 : 0) +
             (showFooter ? 1 : 0) +
             (showRecommendations && !showRecommendationsPanel ? 1 : 0),
-        separatorBuilder: (context, _) =>
-            Divider(height: 1, color: theme.shell.divider),
+        separatorBuilder: (context, index) {
+          final nextPostIndex = index + 1 - (showHeader ? 1 : 0);
+          if (dayByPostIndex.containsKey(nextPostIndex)) {
+            // The calendar marker is the boundary; a second rule immediately
+            // above it would make the separation look doubled.
+            return const SizedBox.shrink();
+          }
+          return Divider(height: 1, color: theme.shell.divider);
+        },
         itemBuilder: (context, index) {
           if (showHeader && index == 0) {
             _scheduleLoadEarlier(controller, snapshot);
@@ -707,19 +894,45 @@ class _TopicViewState extends State<TopicView> {
             _scheduleLoadMore(controller, snapshot);
           }
           final postId = postIds[postIndex];
-          return _StoredPost(
+          final day = dayByPostIndex[postIndex];
+          return _TopicPostItem(
             key: ValueKey(postId),
-            siteUrl: siteUrl,
-            topic: snapshot.topic!,
-            postId: postId,
+            day: day,
+            hideDay: day != null && day == _floatingDay,
+            onDayTap: day == null ? null : () => _jumpToDayStart(day),
+            child: _StoredPost(
+              siteUrl: siteUrl,
+              topic: snapshot.topic!,
+              postId: postId,
+            ),
           );
         },
       ),
     );
 
+    final floatingDay = _floatingDay;
     return Row(
       children: [
-        Expanded(child: postStream),
+        Expanded(
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              Positioned.fill(child: postStream),
+              if (floatingDay != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: _floatingDayOffset,
+                  child: _TopicDaySeparator(
+                    key: ValueKey(('topic-floating-day', floatingDay)),
+                    day: floatingDay,
+                    floating: true,
+                    onTap: () => _jumpToDayStart(floatingDay),
+                  ),
+                ),
+            ],
+          ),
+        ),
         if (showRecommendationsPanel)
           _TopicRecommendationsPanel(
             collapsed: _recommendationsPanelCollapsed,
@@ -1189,6 +1402,168 @@ class _MoreTopicsTabButton extends StatelessWidget {
   }
 }
 
+DateTime? _calendarDay(DateTime? value) {
+  if (value == null) return null;
+  final local = value.toLocal();
+  return DateTime(local.year, local.month, local.day);
+}
+
+/// A post together with the calendar boundary immediately above it.
+///
+/// Keeping both in one logical list item is important: all topic paging,
+/// viewport receipts, and restoration address posts, not decorative rows.
+class _TopicPostItem extends StatelessWidget {
+  const _TopicPostItem({
+    super.key,
+    required this.day,
+    required this.hideDay,
+    required this.onDayTap,
+    required this.child,
+  });
+
+  final DateTime? day;
+  final bool hideDay;
+  final VoidCallback? onDayTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final day = this.day;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (day != null)
+          IgnorePointer(
+            ignoring: hideDay,
+            child: Opacity(
+              opacity: hideDay ? 0 : 1,
+              child: _TopicDaySeparator(
+                key: ValueKey(('topic-day', day)),
+                day: day,
+                onTap: onDayTap!,
+              ),
+            ),
+          ),
+        child,
+      ],
+    );
+  }
+}
+
+/// The date line in the stream and the bordered pill it becomes once pinned.
+class _TopicDaySeparator extends StatelessWidget {
+  const _TopicDaySeparator({
+    super.key,
+    required this.day,
+    required this.onTap,
+    this.floating = false,
+  });
+
+  static const double height = 44;
+
+  final DateTime day;
+  final VoidCallback onTap;
+  final bool floating;
+
+  static const List<String> _months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  String get _label {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final delta = today.difference(day).inDays;
+    if (delta == 0) return 'Today';
+    if (delta == 1) return 'Yesterday';
+    return '${day.day} ${_months[day.month - 1]} ${day.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final label = _label;
+    final background = floating ? theme.shell.floating : theme.shell.content;
+
+    return SizedBox(
+      height: height,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (!floating)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(height: 1, color: theme.shell.divider),
+            ),
+          Semantics(
+            button: true,
+            label: 'Go to start of $label',
+            onTap: onTap,
+            excludeSemantics: true,
+            child: Tooltip(
+              message: 'Go to start of $label',
+              excludeFromSemantics: true,
+              child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(4),
+                  onTap: onTap,
+                  child: SizedBox(
+                    height: height,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: background,
+                          border: Border.all(
+                            color: floating
+                                ? theme.shell.divider
+                                : Colors.transparent,
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: floating
+                              ? const [
+                                  BoxShadow(
+                                    color: Color(0x1F000000),
+                                    blurRadius: 3,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Text(
+                          label,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EarlierPostsRow extends StatelessWidget {
   const _EarlierPostsRow({required this.loading});
 
@@ -1216,7 +1591,6 @@ class _EarlierPostsRow extends StatelessWidget {
 /// that record is rebuilt.
 class _StoredPost extends StatelessWidget {
   const _StoredPost({
-    super.key,
     required this.siteUrl,
     required this.topic,
     required this.postId,

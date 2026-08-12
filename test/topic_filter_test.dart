@@ -380,6 +380,38 @@ void main() {
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
   });
 
+  testWidgets('the filter page keeps its field over a topic-row skeleton', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': [], '/filter.json': []},
+      feedGates: {'/filter.json': gate},
+    );
+
+    await _pump(tester, api);
+    final semantics = tester.ensureSemantics();
+    await tester.tap(find.text('Filter'));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('topic-filter-input')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topic-list-loading-skeleton')),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('Loading filtered topics'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('topic-list-loading-skeleton')),
+      findsNothing,
+    );
+    semantics.dispose();
+  });
+
   testWidgets(
     'filter suggestions support keyboard selection and pointer hover',
     (tester) async {
