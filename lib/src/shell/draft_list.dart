@@ -144,54 +144,73 @@ class _DraftListViewState extends State<DraftListView> {
 }
 
 /// A faithful outline of the full drafts list while its first page arrives.
+/// The row pattern repeats until the clipped viewport is covered.
 class _DraftListLoadingSkeleton extends StatelessWidget {
   const _DraftListLoadingSkeleton({super.key});
+
+  static const _outerVerticalPadding = 36.0;
+  static const _compactRowHeight = 101.0;
+  static const _wideRowHeight = 113.0;
+  static const _patternLength = 3;
 
   @override
   Widget build(BuildContext context) {
     return LoadingSkeleton(
       semanticsLabel: 'Loading drafts',
-      child: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.topCenter,
-          maxHeight: double.infinity,
-          child: SizedBox(
-            width: double.infinity,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1200),
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _DraftSkeletonRow(
-                        titleWidth: 0.42,
-                        excerptWidths: [0.88, 0.62],
-                      ),
-                      Divider(height: 1),
-                      _DraftSkeletonRow(
-                        titleWidth: 0.58,
-                        excerptWidths: [0.72, 0.46],
-                      ),
-                      Divider(height: 1),
-                      Opacity(
-                        opacity: 0.72,
-                        child: _DraftSkeletonRow(
-                          titleWidth: 0.34,
-                          excerptWidths: [0.82, 0.54],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth - 32 < 520;
+          final rowHeight = compact ? _compactRowHeight : _wideRowHeight;
+          final availableHeight = constraints.hasBoundedHeight
+              ? constraints.maxHeight - _outerVerticalPadding
+              : double.infinity;
+          final visibleRowCount = constraints.hasBoundedHeight
+              ? (availableHeight / rowHeight).ceil()
+              : _patternLength;
+          final rowCount = visibleRowCount < 1 ? 1 : visibleRowCount;
+
+          return ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              maxHeight: double.infinity,
+              child: SizedBox(
+                width: double.infinity,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1200),
+                      child: Column(
+                        key: const ValueKey(
+                          'draft-list-loading-skeleton-content',
                         ),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (var index = 0; index < rowCount; index++) ...[
+                            if (index > 0) const Divider(height: 1),
+                            _rowAt(index),
+                          ],
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
+
+  Widget _rowAt(int index) => switch (index % _patternLength) {
+    0 => const _DraftSkeletonRow(titleWidth: 0.42, excerptWidths: [0.88, 0.62]),
+    1 => const _DraftSkeletonRow(titleWidth: 0.58, excerptWidths: [0.72, 0.46]),
+    _ => const Opacity(
+      opacity: 0.72,
+      child: _DraftSkeletonRow(titleWidth: 0.34, excerptWidths: [0.82, 0.54]),
+    ),
+  };
 }
 
 class _DraftSkeletonRow extends StatelessWidget {

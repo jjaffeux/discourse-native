@@ -6,6 +6,48 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/site_appearance_fixtures.dart';
 
 void main() {
+  testWidgets('takes all available bounded space', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        const Align(
+          child: LoadingSkeleton(
+            key: ValueKey('full-size-skeleton'),
+            semanticsLabel: 'Loading content',
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [LoadingSkeletonBlock(width: 120, height: 9)],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('full-size-skeleton'))),
+      const Size(800, 600),
+    );
+  });
+
+  testWidgets('keeps its natural size on an unbounded axis', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        const SingleChildScrollView(
+          child: LoadingSkeleton(
+            key: ValueKey('scroll-skeleton'),
+            semanticsLabel: 'Loading content',
+            child: SizedBox(height: 40),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('scroll-skeleton'))),
+      const Size(800, 40),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('pulses every block together through the approved cycle', (
     tester,
   ) async {
