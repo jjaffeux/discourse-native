@@ -234,4 +234,56 @@ void main() {
       expect(chainedAt(items, 3), isTrue);
     });
   });
+
+  group('prepending a projected page', () {
+    test('matches a full projection across a chained page seam', () {
+      final older = [at(1), at(2, minute: 1)];
+      final held = [at(3, minute: 2), at(4, minute: 3)];
+
+      final incremental = prependChatStream(
+        existingItems: buildChatStream(held),
+        prepended: older,
+        existingLeading: [held.first],
+        newestMessageId: held.last.id,
+      );
+
+      expect(incremental, buildChatStream([...older, ...held]));
+    });
+
+    test('joins a deleted run that crosses the page seam', () {
+      final older = [at(1, deleted: true)];
+      final held = [
+        at(2, minute: 1, deleted: true),
+        at(3, minute: 2),
+        at(4, minute: 3),
+      ];
+
+      final incremental = prependChatStream(
+        existingItems: buildChatStream(held),
+        prepended: older,
+        existingLeading: held.take(2).toList(),
+        newestMessageId: held.last.id,
+      );
+
+      expect(incremental, buildChatStream([...older, ...held]));
+    });
+
+    test('moves the unread divider into the older page', () {
+      final older = [at(2), at(3, minute: 1)];
+      final held = [at(4, minute: 2), at(5, minute: 3)];
+
+      final incremental = prependChatStream(
+        existingItems: buildChatStream(held, lastReadMessageId: 1),
+        prepended: older,
+        existingLeading: [held.first],
+        lastReadMessageId: 1,
+        newestMessageId: held.last.id,
+      );
+
+      expect(
+        incremental,
+        buildChatStream([...older, ...held], lastReadMessageId: 1),
+      );
+    });
+  });
 }

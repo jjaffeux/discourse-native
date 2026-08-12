@@ -214,6 +214,11 @@ void main() {
     older.complete(_messagesPage(-1, 1));
     await request;
     await tester.pump();
+
+    // The page seam is resolved through the rows' stable refs; the fifty-message
+    // window already projected is never scanned again. This is the bound that
+    // keeps repeated backscrolling from becoming progressively more expensive.
+    expect(store.messageReads, 0);
   });
 
   testWidgets('jump to latest is a named 44 pixel keyboard target', (
