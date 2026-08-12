@@ -505,6 +505,7 @@ class FakeDiscourseApi implements DiscourseApi {
     ({String siteUrl, String method, String path, Map<String, Object?> body})
   >
   pluginWrites = [];
+  final List<String> pluginReadPaths = [];
   final SiteLookupFailure? failure;
 
   /// Returned by [currentUser]; defaults to a plausible account.
@@ -1747,6 +1748,7 @@ class FakeDiscourseApi implements DiscourseApi {
     required String apiKey,
     String? clientId,
   }) async {
+    pluginReadPaths.add(path);
     final response = pluginResponses['GET $path'];
     if (response == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);

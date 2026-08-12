@@ -370,6 +370,8 @@ class ShellController extends FrameSafeNotifier {
     credentials: authenticator,
     trackerFor: (siteUrl) => _trackers[siteUrl],
     userIdFor: (siteUrl) => _instanceAt(siteUrl)?.user?.id,
+    capabilityEnabledFor: (siteUrl) async =>
+        (await _presentation.resolveConfig(siteUrl))?.resenha.enabled,
     onCallSiteChanged: _syncTracking,
     diagnostics: resenhaDiagnostics,
   );

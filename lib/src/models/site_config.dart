@@ -5,11 +5,11 @@ import 'json.dart';
 /// The handful of a site's client settings that decide how something is
 /// *drawn*, or what may be *offered*.
 ///
-/// Deliberately not a capability layer, and the distinction is the whole point.
-/// Nothing here may decide whether a feature exists — that is the payload's
-/// job, because this arrives asynchronously and can be refused, and a gate that
-/// is wrong for a frame produces a wrong *write* rather than a missing button.
-/// See `SitePlugin`.
+/// Usually not a capability layer: when a post or topic payload can mention a
+/// feature, that record is the authoritative enablement signal. A standalone
+/// optional surface with no containing record may use a resolved client
+/// setting to avoid probing a route the server says is disabled. Resenha's
+/// top-level room directory is one such exception. See `SitePlugin`.
 ///
 /// So every field has a default, every default is core's own, and a site that
 /// will not answer is simply drawn as core. There is no loading state and no

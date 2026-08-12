@@ -1487,6 +1487,9 @@ void main() {
     ).copyWith(user: me);
     final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
     final api = FakeDiscourseApi(
+      siteConfigs: {
+        site.url: const SiteConfig(resenha: ResenhaClientConfig(enabled: true)),
+      },
       pluginResponses: {
         'GET /resenha/rooms.json': {
           'rooms': [
@@ -1523,6 +1526,7 @@ void main() {
     final chevron = find.byTooltip('Collapse Voice rooms');
     expect(action, findsOneWidget);
     expect(chevron, findsOneWidget);
+    expect(api.pluginReadPaths, ['/resenha/rooms.json']);
     expect(tester.getCenter(action).dx, lessThan(tester.getCenter(chevron).dx));
     // A larger action would make this header taller than adjacent sections.
     expect(tester.getSize(action), tester.getSize(chevron));
@@ -1563,6 +1567,35 @@ void main() {
     await gesture.moveTo(Offset.zero);
     await tester.pumpAndSettle();
     expect(iconColor(chevron), theme.colorScheme.onSurfaceVariant);
+  });
+
+  testWidgets('known disabled Resenha does not probe its room directory', (
+    tester,
+  ) async {
+    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Discourse Meta',
+    ).copyWith(user: me);
+    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
+    final api = FakeDiscourseApi(
+      siteConfigs: {site.url: const SiteConfig()},
+      pluginResponses: {
+        'GET /resenha/rooms.json': {'rooms': <Object?>[]},
+      },
+    );
+
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [site],
+      api: api,
+      authenticator: auth,
+    );
+
+    expect(api.siteConfigsRequested, [site.url]);
+    expect(api.pluginReadPaths, isEmpty);
+    expect(find.text('VOICE ROOMS'), findsNothing);
   });
 
   testWidgets('sidebar destinations show a background when hovered', (

@@ -145,6 +145,9 @@ class ResenhaCallSnapshot {
 
 typedef ResenhaTrackerLookup = SiteTracker? Function(String siteUrl);
 typedef ResenhaUserIdLookup = int? Function(String siteUrl);
+typedef ResenhaCapabilityResolver = Future<bool?> Function(String siteUrl);
+
+Future<bool?> _unknownResenhaCapability(String _) async => null;
 
 /// App-global Resenha state. Directories belong to sites; media belongs to the
 /// one call, which deliberately survives selection of another site.
@@ -156,12 +159,14 @@ final class ResenhaController extends ChangeNotifier {
     required this.trackerFor,
     required this.userIdFor,
     required this.onCallSiteChanged,
+    ResenhaCapabilityResolver? capabilityEnabledFor,
     this.mediaFactory = const NativeResenhaMediaFactory(),
     ResenhaSystemCall? systemCall,
     ResenhaDiagnosticsRecorder? diagnostics,
     ResenhaPreferences? preferences,
     this.heartbeatInterval = const Duration(seconds: 10),
-  }) : diagnostics = diagnostics ?? const NoopResenhaDiagnosticsRecorder(),
+  }) : capabilityEnabledFor = capabilityEnabledFor ?? _unknownResenhaCapability,
+       diagnostics = diagnostics ?? const NoopResenhaDiagnosticsRecorder(),
        systemCall =
            systemCall ??
            NativeResenhaSystemCall(
@@ -178,6 +183,7 @@ final class ResenhaController extends ChangeNotifier {
   final ApiCredentialReader credentials;
   final ResenhaTrackerLookup trackerFor;
   final ResenhaUserIdLookup userIdFor;
+  final ResenhaCapabilityResolver capabilityEnabledFor;
   final VoidCallback onCallSiteChanged;
   final ResenhaMediaFactory mediaFactory;
   final ResenhaSystemCall systemCall;
@@ -287,6 +293,9 @@ final class ResenhaController extends ChangeNotifier {
       );
 
   Future<ResenhaRoom?> _resolveRoom(String siteUrl, String slug) async {
+    if (_unavailableSites.contains(siteUrl)) return null;
+    final capabilityEnabled = await capabilityEnabledFor(siteUrl);
+    if (capabilityEnabled == false) return null;
     final directory = _directories[siteUrl];
     for (final room in directory?.rooms ?? const <ResenhaRoom>[]) {
       if (room.slug == slug) return room;
@@ -347,6 +356,15 @@ final class ResenhaController extends ChangeNotifier {
     bool isCurrent() =>
         _isCurrentSiteSession(siteUrl, siteSession) &&
         identical(_directoryRequests[siteUrl], request);
+    final capabilityEnabled = await capabilityEnabledFor(siteUrl);
+    if (!isCurrent()) return;
+    if (capabilityEnabled == false) {
+      _directories.remove(siteUrl);
+      _directoryRequests.remove(siteUrl);
+      _record('room.directory.skipped', component: 'room');
+      notifyListeners();
+      return;
+    }
     final apiKey = await credentials.apiKeyFor(siteUrl);
     if (!isCurrent()) return;
     if (apiKey == null) {

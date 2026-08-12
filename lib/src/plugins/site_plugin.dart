@@ -38,10 +38,10 @@ import 'resenha/resenha_plugin.dart';
 ///
 /// Site config — [SiteConfig], from `/site/settings.json` — answers the other
 /// question, the one no record can: what may be *offered* that has not happened
-/// yet. A picker's emoji list has no record behind it. Config must never gate
-/// whether an affordance exists, because it arrives late and can be refused,
-/// and a gate that is wrong for one frame produces a wrong *write* rather than
-/// merely a missing button.
+/// yet. A picker's emoji list has no record behind it. It also gates a rare
+/// standalone optional surface which has no containing record, such as the
+/// Resenha room directory, but only after settings are actually resolved. A
+/// refused settings request is not evidence that the feature is absent.
 ///
 /// ## Adding one
 ///

@@ -174,6 +174,31 @@ void main() {
     controller.dispose();
   });
 
+  test('resolves fetched all-default config as known', () async {
+    final api = _PresentationApi()..config = const SiteConfig();
+    final controller = _controller(api);
+
+    final resolved = await Future.wait([
+      controller.resolveConfig(site),
+      controller.resolveConfig(site),
+    ]);
+
+    expect(api.configCalls, 1);
+    expect(resolved, everyElement(const SiteConfig()));
+    controller.dispose();
+  });
+
+  test('does not present fallback defaults as resolved config', () async {
+    final api = _PresentationApi()..configError = StateError('offline');
+    final controller = _controller(api);
+
+    final resolved = await controller.resolveConfig(site);
+
+    expect(resolved, isNull);
+    expect(controller.configFor(site), const SiteConfig.unknown());
+    controller.dispose();
+  });
+
   test(
     'warm persisted presentation makes no request until freshness expires',
     () async {

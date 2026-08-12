@@ -548,7 +548,10 @@ void main() {
   late FakeSiteTracker secondTracker;
   late ResenhaController controller;
 
-  void useTransport(FakeDiscourseApi value) {
+  void useTransport(
+    FakeDiscourseApi value, {
+    ResenhaCapabilityResolver? capabilityEnabledFor,
+  }) {
     controller.dispose();
     transport = value;
     mediaFactory = FakeResenhaMediaFactory();
@@ -563,6 +566,7 @@ void main() {
           ? secondTracker
           : null,
       userIdFor: (_) => 1,
+      capabilityEnabledFor: capabilityEnabledFor,
       onCallSiteChanged: () {},
       mediaFactory: mediaFactory,
       systemCall: systemCall,
@@ -710,6 +714,39 @@ void main() {
       }
     },
   );
+
+  test(
+    'does not probe room routes when site settings disable Resenha',
+    () async {
+      final controlled = _ControlledResenhaTransport(
+        pluginResponses: {'GET /resenha/rooms.json': fixture('directory')},
+      );
+      useTransport(controlled, capabilityEnabledFor: (_) async => false);
+
+      await controller.ensureLoaded(firstSite);
+      final linkedRoom = await controller.resolveRoom(firstSite, 'conf-room-1');
+
+      expect(controlled.pluginGets, isEmpty);
+      expect(linkedRoom, isNull);
+      expect(controller.directory(firstSite), isNull);
+      expect(
+        diagnostics.records.map((record) => record.event),
+        contains('room.directory.skipped'),
+      );
+    },
+  );
+
+  test('still probes when site settings could not be resolved', () async {
+    final controlled = _ControlledResenhaTransport(
+      pluginResponses: {'GET /resenha/rooms.json': fixture('directory')},
+    );
+    useTransport(controlled, capabilityEnabledFor: (_) async => null);
+
+    await controller.ensureLoaded(firstSite);
+
+    expect(controlled.pluginGets, ['/resenha/rooms.json']);
+    expect(controller.directory(firstSite), isNotNull);
+  });
 
   test('an unreachable directory remains retryable', () async {
     final controlled =

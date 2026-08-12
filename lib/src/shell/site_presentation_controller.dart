@@ -103,6 +103,7 @@ final class SitePresentationController extends FrameSafeNotifier {
   }
 
   final _configs = _RetryingSiteCache<SiteConfig>();
+  final Map<String, Future<void>> _configRequests = {};
   final _customEmojis = _RetryingSiteCache<Map<String, String>>();
   final _emojis = _RetryingSiteCache<List<SiteEmoji>>();
   static final Object _unchangedPresentation = Object();
@@ -182,7 +183,20 @@ final class SitePresentationController extends FrameSafeNotifier {
   }
 
   Future<void> ensureConfig(String siteUrl) =>
-      _ensureConfig(siteUrl, refresh: false);
+      _configRequest(siteUrl, refresh: false);
+
+  /// Resolves a settings payload the server actually answered with.
+  ///
+  /// Unlike [configFor], this returns null when the optional settings request
+  /// failed and only defaults are available. Callers which use a client
+  /// setting to avoid probing an optional server route need that distinction.
+  Future<SiteConfig?> resolveConfig(String siteUrl) async {
+    await ensureConfig(siteUrl);
+    if (isDisposed) return null;
+    final fetched = _configs[siteUrl];
+    if (fetched != null) return fetched;
+    return _warmPersistedConfig(siteUrl) ? readPersistedConfig(siteUrl) : null;
+  }
 
   /// Revalidates persisted or already-fetched client settings immediately.
   ///
@@ -190,7 +204,22 @@ final class SitePresentationController extends FrameSafeNotifier {
   /// retry budget for a user-initiated refresh without discarding the value the
   /// UI is currently using.
   Future<void> refreshConfig(String siteUrl) =>
-      _ensureConfig(siteUrl, refresh: true);
+      _configRequest(siteUrl, refresh: true);
+
+  Future<void> _configRequest(String siteUrl, {required bool refresh}) {
+    final active = _configRequests[siteUrl];
+    if (active != null) return active;
+
+    late final Future<void> request;
+    request = _ensureConfig(siteUrl, refresh: refresh).whenComplete(() {
+      if (identical(_configRequests[siteUrl], request)) {
+        final removed = _configRequests.remove(siteUrl);
+        assert(identical(removed, request));
+      }
+    });
+    _configRequests[siteUrl] = request;
+    return request;
+  }
 
   Future<void> _ensureConfig(String siteUrl, {required bool refresh}) async {
     if (isDisposed || (!refresh && _warmPersistedConfig(siteUrl))) return;
@@ -353,6 +382,8 @@ final class SitePresentationController extends FrameSafeNotifier {
     // just disconnected, so it must not regain warm-start status.
     _invalidatedPersistedAppearances.add(siteUrl);
     _invalidatedPersistedConfigs.add(siteUrl);
+    final configRequest = _configRequests.remove(siteUrl);
+    configRequest?.ignore();
     final oldAppearance = appearanceFor(siteUrl);
     final oldConfig = configFor(siteUrl);
     final customChanged = _customEmojis[siteUrl]?.isNotEmpty ?? false;
