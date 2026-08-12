@@ -15,12 +15,18 @@ import 'support/fakes.dart';
 const String site = 'https://meta.discourse.org';
 const String other = 'https://other.example';
 
-ChatMessage message(int id, {int second = 0, int minute = 0}) => ChatMessage(
+ChatMessage message(
+  int id, {
+  int second = 0,
+  int minute = 0,
+  List<ChatReaction> reactions = const [],
+}) => ChatMessage(
   id: id,
   channelId: 9,
   cooked: '<p>$id</p>',
   author: const ChatMessageAuthor(id: 2, username: 'sam'),
   createdAt: DateTime.utc(2026, 5, 5, 10, minute, second),
+  reactions: reactions,
 );
 
 ChatMessagePage page(
@@ -88,6 +94,8 @@ ChatChannel channel(
   WriteException? sendFailure,
   Completer<void>? sendGate,
   int? sentMessageId = 1,
+  WriteException? reactionFailure,
+  Completer<void>? reactionGate,
   FakeApiCredentialReader? credentialReader,
   DiscourseUser? currentUser,
   Duration minimumWindowRefreshInterval = const Duration(seconds: 30),
@@ -102,6 +110,8 @@ ChatChannel channel(
     chatSendFailure: sendFailure,
     chatSendGate: sendGate,
     chatSentMessageId: sentMessageId,
+    chatReactionFailure: reactionFailure,
+    chatReactionGate: reactionGate,
   );
   final credentials = credentialReader ?? FakeApiCredentialReader();
   credentials.keys[site] = 'key';
@@ -2071,6 +2081,179 @@ void main() {
           42,
         ]);
         expect(subject.api.chatMessagesRequested, hasLength(1));
+      },
+    );
+  });
+
+  group('reacting to a message', () {
+    test(
+      'optimistically adds an independent reaction and keeps it on success',
+      () async {
+        final subject = build(
+          messages: {
+            key(9): page([
+              message(
+                1,
+                reactions: const [
+                  ChatReaction(emoji: 'heart', count: 2, reacted: true),
+                  ChatReaction(emoji: 'clap', count: 1),
+                ],
+              ),
+            ]),
+          },
+        );
+        await subject.chat.openChannel(site, 9);
+
+        final writing = subject.chat.toggleMessageReaction(site, 1, 'clap');
+        final optimistic = subject.store.read<ChatMessage>(site, 1)!;
+
+        expect(optimistic.reactions, const [
+          ChatReaction(emoji: 'heart', count: 2, reacted: true),
+          ChatReaction(emoji: 'clap', count: 2, reacted: true),
+        ]);
+        expect(await writing, isNull);
+        expect(
+          subject.api.chatReactionsSet.single.action,
+          ChatReactionAction.add,
+        );
+        expect(subject.store.read<ChatMessage>(site, 1), optimistic);
+      },
+    );
+
+    test(
+      'removes this reader and drops the row when its count reaches zero',
+      () async {
+        final subject = build(
+          messages: {
+            key(9): page([
+              message(
+                1,
+                reactions: const [
+                  ChatReaction(emoji: 'heart', count: 1, reacted: true),
+                ],
+              ),
+            ]),
+          },
+        );
+        await subject.chat.openChannel(site, 9);
+
+        expect(
+          await subject.chat.toggleMessageReaction(site, 1, 'heart'),
+          isNull,
+        );
+
+        expect(subject.store.read<ChatMessage>(site, 1)!.reactions, isEmpty);
+        expect(
+          subject.api.chatReactionsSet.single.action,
+          ChatReactionAction.remove,
+        );
+      },
+    );
+
+    test('rolls a refused write back and returns the site message', () async {
+      final subject = build(
+        messages: {
+          key(9): page([
+            message(
+              1,
+              reactions: const [ChatReaction(emoji: 'clap', count: 2)],
+            ),
+          ]),
+        },
+        reactionFailure: const WriteException(
+          WriteFailure.validation,
+          errors: ['That emoji is unavailable.'],
+        ),
+      );
+      await subject.chat.openChannel(site, 9);
+
+      final error = await subject.chat.toggleMessageReaction(site, 1, 'clap');
+
+      expect(error, 'That emoji is unavailable.');
+      expect(
+        subject.store.read<ChatMessage>(site, 1)!.reactions.single,
+        const ChatReaction(emoji: 'clap', count: 2),
+      );
+    });
+
+    test(
+      'suppresses a conflicting second tap while the first is unresolved',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(
+          messages: {
+            key(9): page([
+              message(
+                1,
+                reactions: const [ChatReaction(emoji: 'clap', count: 2)],
+              ),
+            ]),
+          },
+          reactionGate: gate,
+        );
+        await subject.chat.openChannel(site, 9);
+
+        final first = subject.chat.toggleMessageReaction(site, 1, 'clap');
+        await Future<void>.delayed(Duration.zero);
+        final second = subject.chat.toggleMessageReaction(site, 1, 'clap');
+        gate.complete();
+
+        await Future.wait([first, second]);
+        expect(subject.api.chatReactionsSet, hasLength(1));
+        expect(
+          subject.store.read<ChatMessage>(site, 1)!.reactions.single,
+          const ChatReaction(emoji: 'clap', count: 3, reacted: true),
+        );
+      },
+    );
+
+    test(
+      'successful write reapplies the reader state over a concurrent refresh',
+      () async {
+        final gate = Completer<void>();
+        final original = message(
+          1,
+          reactions: const [ChatReaction(emoji: 'clap', count: 2)],
+        );
+        final subject = build(
+          messages: {
+            key(9): page([original]),
+          },
+          reactionGate: gate,
+        );
+        await subject.chat.openChannel(site, 9);
+
+        final writing = subject.chat.toggleMessageReaction(site, 1, 'clap');
+        subject.store.put(site, original);
+        gate.complete();
+        await writing;
+
+        expect(
+          subject.store.read<ChatMessage>(site, 1)!.reactions.single,
+          const ChatReaction(emoji: 'clap', count: 3, reacted: true),
+        );
+      },
+    );
+
+    test(
+      'a forgotten credential-gated reaction never reaches the API',
+      () async {
+        final credentialGate = Completer<void>();
+        final credentials = _GatedCredentials(credentialGate)
+          ..keys[site] = 'key';
+        final subject = build(credentialReader: credentials);
+        subject.store.put(
+          site,
+          message(1, reactions: const [ChatReaction(emoji: 'clap', count: 2)]),
+        );
+
+        final writing = subject.chat.toggleMessageReaction(site, 1, 'clap');
+        await credentials.started.future;
+        subject.chat.forget(site);
+        credentialGate.complete();
+        await writing;
+
+        expect(subject.api.chatReactionsSet, isEmpty);
       },
     );
   });

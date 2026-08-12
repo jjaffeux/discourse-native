@@ -122,6 +122,25 @@ class _ReactionPillState extends State<ReactionPill> {
     );
   }
 
+  /// Gives, changes or removes the reader's reaction through the post's
+  /// existing optimistic write path.
+  Future<void> _toggle() async {
+    final controller = ShellScope.read(context);
+    final error = await controller.toggleReaction(
+      widget.post,
+      widget.reaction.id,
+      siteUrl: widget.siteUrl,
+    );
+    if (!mounted || !identical(ShellScope.read(context), controller)) return;
+
+    if (_panel.currentState?.isShowing ?? false) _load();
+    if (error != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -129,6 +148,15 @@ class _ReactionPillState extends State<ReactionPill> {
     final label = widget.reaction.count == 1
         ? '1 ${widget.reaction.id} reaction'
         : '${widget.reaction.count} ${widget.reaction.id} reactions';
+    final held = widget.post.reactions?.mine?.id;
+    final canToggle = widget.post.canReact;
+    final tapHint = canToggle
+        ? switch (held) {
+            final id when id == widget.reaction.id => 'remove your reaction',
+            null => 'add this reaction',
+            _ => 'change your reaction to ${widget.reaction.id}',
+          }
+        : 'show who reacted';
 
     return HoverPanel(
       key: _panel,
@@ -142,8 +170,9 @@ class _ReactionPillState extends State<ReactionPill> {
       child: Semantics(
         container: true,
         button: true,
+        selected: widget.mine,
         label: label,
-        onTapHint: 'show who reacted',
+        onTapHint: tapHint,
         child: ConstrainedBox(
           constraints: const BoxConstraints(
             minWidth: ReactionPill.minTarget,
@@ -154,43 +183,46 @@ class _ReactionPillState extends State<ReactionPill> {
             heightFactor: 1,
             child: Material(
               type: MaterialType.transparency,
-              child: InkWell(
-                onTap: _openSheet,
-                onLongPress: context.isTouch ? _openSheet : null,
-                borderRadius: BorderRadius.circular(14),
-                child: ExcludeSemantics(
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 9, 4),
-                    decoration: BoxDecoration(
-                      color: theme.shell.floating,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: widget.mine
-                            ? theme.colorScheme.primary
-                            : theme.shell.divider,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: InkWell(
+                  onTap: canToggle ? _toggle : _openSheet,
+                  onLongPress: context.isTouch ? _openSheet : null,
+                  borderRadius: BorderRadius.circular(14),
+                  child: ExcludeSemantics(
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(8, 4, 9, 4),
+                      decoration: BoxDecoration(
+                        color: theme.shell.floating,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: widget.mine
+                              ? theme.colorScheme.primary
+                              : theme.shell.divider,
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SiteEmojiImage(
-                          siteUrl: widget.siteUrl,
-                          name: widget.reaction.id,
-                          size: 16,
-                          alt: ':${widget.reaction.id}:',
-                          style: theme.textTheme.labelSmall,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          '${widget.reaction.count}',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: widget.mine
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SiteEmojiImage(
+                            siteUrl: widget.siteUrl,
+                            name: widget.reaction.id,
+                            size: 16,
+                            alt: ':${widget.reaction.id}:',
+                            style: theme.textTheme.labelSmall,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 5),
+                          Text(
+                            '${widget.reaction.count}',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: widget.mine
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

@@ -64,6 +64,62 @@ ChatMessage messageFrom(Map<String, dynamic> json) =>
     ChatMessage.fromJson(json, site);
 
 void main() {
+  group('changing this reader’s reactions', () {
+    const author = ChatMessageAuthor(id: 2, username: 'sam');
+    const message = ChatMessage(
+      id: 1,
+      channelId: 9,
+      cooked: '<p>hello</p>',
+      author: author,
+      reactions: [
+        ChatReaction(emoji: 'heart', count: 2, reacted: true),
+        ChatReaction(emoji: 'clap', count: 1),
+      ],
+    );
+
+    test('adds another reaction without replacing the one already held', () {
+      final changed = message.withReaction('clap', reacted: true);
+
+      expect(changed.reactions, const [
+        ChatReaction(emoji: 'heart', count: 2, reacted: true),
+        ChatReaction(emoji: 'clap', count: 2, reacted: true),
+      ]);
+    });
+
+    test('removes only this reader and drops an empty reaction row', () {
+      final decremented = message.withReaction('heart', reacted: false);
+      final dropped = const ChatMessage(
+        id: 1,
+        channelId: 9,
+        cooked: '<p>hello</p>',
+        author: author,
+        reactions: [ChatReaction(emoji: 'heart', count: 1, reacted: true)],
+      ).withReaction('heart', reacted: false);
+
+      expect(decremented.reactions, const [
+        ChatReaction(emoji: 'heart', count: 1),
+        ChatReaction(emoji: 'clap', count: 1),
+      ]);
+      expect(dropped.reactions, isEmpty);
+    });
+
+    test(
+      'appends a reaction absent from the server record and is idempotent',
+      () {
+        final added = message.withReaction('tada', reacted: true);
+
+        expect(
+          added.reactions.last,
+          const ChatReaction(emoji: 'tada', count: 1, reacted: true),
+        );
+        expect(
+          identical(added.withReaction('tada', reacted: true), added),
+          isTrue,
+        );
+      },
+    );
+  });
+
   group('reading a message', () {
     test('reads the author, the cooked body and when it was written', () {
       final read = messageFrom(message());

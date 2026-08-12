@@ -17,6 +17,8 @@ import 'chat_channel.dart';
 import 'chat_message.dart';
 import 'chat_preview.dart';
 
+typedef _ChatReactionWriteKey = ({String siteUrl, int messageId, String emoji});
+
 /// What Discourse's chat shortcut paints over its comment icon.
 @immutable
 class ChatHeaderIndicator {
@@ -325,6 +327,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, _ChatSendQueue> _sendQueues = {};
   final Map<String, SiteMessageBusSubscription> _sendSubscriptions = {};
   final Set<({String siteUrl, int channelId})> _sendSubscriptionChannels = {};
+  final Map<_ChatReactionWriteKey, Object> _reactionWrites = {};
   int _nextLocalMessageId = -1;
   int _nextStagedSequence = 0;
 
@@ -562,6 +565,97 @@ class ChatController extends FrameSafeNotifier {
 
   Ref<ChatMessage> messageRef(String siteUrl, int messageId) =>
       store.ref<ChatMessage>(siteUrl, messageId);
+
+  /// Adds or removes this reader from one existing chat reaction.
+  ///
+  /// The message record is changed before credentials or the network are
+  /// awaited, matching post reactions: a tap should answer immediately. One
+  /// write per message/emoji may be active, so a second tap cannot send the
+  /// inverse action while the first is unresolved. A refusal restores only
+  /// this reader's participation in that emoji and leaves every other reaction
+  /// on the latest stored message untouched.
+  Future<String?> toggleMessageReaction(
+    String siteUrl,
+    int messageId,
+    String emoji,
+  ) async {
+    if (isDisposed) return null;
+    final message = store.read<ChatMessage>(siteUrl, messageId);
+    if (message == null ||
+        message.id <= 0 ||
+        message.isDeleted ||
+        message.isOptimistic ||
+        emoji.isEmpty) {
+      return null;
+    }
+
+    final key = (siteUrl: siteUrl, messageId: messageId, emoji: emoji);
+    if (_reactionWrites.containsKey(key)) return null;
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _reactionWrites[key] = request;
+
+    final held = message.reactions
+        .where((reaction) => reaction.emoji == emoji)
+        .firstOrNull;
+    final adding = !(held?.reacted ?? false);
+    store.put(siteUrl, message.withReaction(emoji, reacted: adding));
+
+    bool ownsRequest() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_reactionWrites[key], request);
+
+    void rollback() {
+      if (!ownsRequest()) return;
+      lease.commit(() {
+        final latest = store.read<ChatMessage>(siteUrl, messageId);
+        if (latest != null) {
+          store.put(siteUrl, latest.withReaction(emoji, reacted: !adding));
+        }
+      });
+    }
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!ownsRequest()) return null;
+      if (apiKey == null) {
+        throw const WriteException(WriteFailure.forbidden);
+      }
+      final clientId = await credentials.clientId();
+      if (!ownsRequest()) return null;
+      await api.setChatMessageReaction(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: message.channelId,
+        messageId: message.id,
+        emoji: emoji,
+        action: adding ? ChatReactionAction.add : ChatReactionAction.remove,
+      );
+      if (!ownsRequest()) return null;
+      lease.commit(() {
+        final latest = store.read<ChatMessage>(siteUrl, messageId);
+        if (latest != null) {
+          store.put(siteUrl, latest.withReaction(emoji, reacted: adding));
+        }
+      });
+      return null;
+    } on WriteException catch (error) {
+      rollback();
+      return error.message;
+    } catch (error, stackTrace) {
+      if (ownsRequest()) {
+        _report(error, stackTrace, 'chat.toggleReaction');
+      }
+      rollback();
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      if (identical(_reactionWrites[key], request)) {
+        _reactionWrites.remove(key);
+      }
+    }
+  }
 
   ChatStreamState stream(String siteUrl, int channelId) =>
       _streams[_streamKey(siteUrl, channelId)] ?? const ChatStreamState();
@@ -2080,6 +2174,7 @@ class ChatController extends FrameSafeNotifier {
     _newChannelsAwaitingFirstMessage.removeWhere(
       (key) => key.startsWith('$siteUrl~'),
     );
+    _reactionWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
     _activeChannelViews.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     final presenceRef = _presenceRefs.remove(siteUrl);
     if (presenceRef != null) presenceRef.value = const {};
@@ -2205,6 +2300,7 @@ class ChatController extends FrameSafeNotifier {
     }
     _sendSubscriptions.clear();
     _sendSubscriptionChannels.clear();
+    _reactionWrites.clear();
     for (final ref in _streamRefs.values) {
       ref.dispose();
     }

@@ -492,6 +492,8 @@ class FakeDiscourseApi implements DiscourseApi {
     this.chatSendFailure,
     this.chatSendGate,
     this.chatSentMessageId = 1,
+    this.chatReactionFailure,
+    this.chatReactionGate,
     this.customSidebarSectionsBySite = const {},
     this.pluginResponses = const {},
     Map<String, WriteException>? pluginWriteFailures,
@@ -860,6 +862,20 @@ class FakeDiscourseApi implements DiscourseApi {
     })
   >
   chatMessagesSent = [];
+
+  /// Chat reaction writes, their optional gate, and an injected refusal.
+  final WriteException? chatReactionFailure;
+  final Completer<void>? chatReactionGate;
+  final List<
+    ({
+      String siteUrl,
+      int channelId,
+      int messageId,
+      String emoji,
+      ChatReactionAction action,
+    })
+  >
+  chatReactionsSet = [];
 
   /// Thrown by [saveDraft] instead of answering.
   final WriteException? draftFailure;
@@ -1729,6 +1745,27 @@ class FakeDiscourseApi implements DiscourseApi {
     if (chatSendGate != null) await chatSendGate!.future;
     if (chatSendFailure != null) throw chatSendFailure!;
     return chatSentMessageId;
+  }
+
+  @override
+  Future<void> setChatMessageReaction({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required String emoji,
+    required ChatReactionAction action,
+    String? clientId,
+  }) async {
+    chatReactionsSet.add((
+      siteUrl: siteUrl,
+      channelId: channelId,
+      messageId: messageId,
+      emoji: emoji,
+      action: action,
+    ));
+    if (chatReactionGate != null) await chatReactionGate!.future;
+    if (chatReactionFailure != null) throw chatReactionFailure!;
   }
 
   @override

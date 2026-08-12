@@ -3068,6 +3068,104 @@ void _feedGroups() {
     });
   });
 
+  group('setChatMessageReaction', () {
+    test('puts the explicit add or remove action on the chat route', () async {
+      final requests = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.setChatMessageReaction(
+        siteUrl: 'https://example.com',
+        apiKey: 'the-key',
+        channelId: 9,
+        messageId: 44,
+        emoji: '+1',
+        action: ChatReactionAction.add,
+      );
+      await api.setChatMessageReaction(
+        siteUrl: 'https://example.com',
+        apiKey: 'the-key',
+        channelId: 9,
+        messageId: 44,
+        emoji: '+1',
+        action: ChatReactionAction.remove,
+      );
+
+      expect(requests.map((request) => request.method), everyElement('PUT'));
+      expect(
+        requests.map((request) => request.url.path),
+        everyElement('/chat/9/react/44.json'),
+      );
+      expect(jsonDecode(requests.first.body), {
+        'emoji': '+1',
+        'react_action': 'add',
+      });
+      expect(jsonDecode(requests.last.body), {
+        'emoji': '+1',
+        'react_action': 'remove',
+      });
+    });
+
+    test('rejects invalid identities and emoji before transport', () async {
+      var requests = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requests++;
+          return http.Response('{}', 200);
+        }),
+      );
+      Future<void> react(int channelId, int messageId, String emoji) =>
+          api.setChatMessageReaction(
+            siteUrl: 'https://example.com',
+            apiKey: 'the-key',
+            channelId: channelId,
+            messageId: messageId,
+            emoji: emoji,
+            action: ChatReactionAction.add,
+          );
+
+      await expectLater(react(0, 44, 'heart'), throwsArgumentError);
+      await expectLater(react(9, 0, 'heart'), throwsArgumentError);
+      await expectLater(react(9, 44, ''), throwsArgumentError);
+      expect(requests, 0);
+    });
+
+    test('maps a server refusal to the shared write failure', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'errors': ['You cannot react right now.'],
+            }),
+            403,
+          ),
+        ),
+      );
+
+      await expectLater(
+        api.setChatMessageReaction(
+          siteUrl: 'https://example.com',
+          apiKey: 'the-key',
+          channelId: 9,
+          messageId: 44,
+          emoji: 'heart',
+          action: ChatReactionAction.add,
+        ),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.message,
+            'message',
+            contains('cannot react'),
+          ),
+        ),
+      );
+    });
+  });
+
   group('topic', () {
     /// Answers any topic route with a single-post topic.
     MockClient serving(List<String> paths) => MockClient((request) async {

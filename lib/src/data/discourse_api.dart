@@ -2644,6 +2644,36 @@ class DiscourseApi
     return jsonIntOrNull(body['message_id']);
   }
 
+  /// Adds or removes one emoji reaction from a chat message for this reader.
+  ///
+  /// Unlike post reactions, chat reactions are independent: adding one does
+  /// not replace another. The route therefore takes an explicit action rather
+  /// than behaving as a toggle. Its success response carries no message state;
+  /// the controller projects the change immediately and keeps that projection
+  /// when this write succeeds.
+  @override
+  Future<void> setChatMessageReaction({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required String emoji,
+    required ChatReactionAction action,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(messageId, 'messageId');
+    _validateReactionName(emoji);
+    await _write(
+      Uri.parse('$siteUrl/chat/$channelId/react/$messageId.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'emoji': emoji, 'react_action': action.name},
+    );
+  }
+
   @override
   Future<void> markChatThreadRead({
     required String siteUrl,

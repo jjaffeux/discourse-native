@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../shell/cooked_html.dart';
@@ -164,10 +166,7 @@ class _Tile extends StatelessWidget {
                     if (message.uploads.isNotEmpty)
                       ChatUploads(siteUrl: siteUrl, uploads: message.uploads),
                     if (message.reactions.isNotEmpty)
-                      _Reactions(
-                        siteUrl: siteUrl,
-                        reactions: message.reactions,
-                      ),
+                      _Reactions(siteUrl: siteUrl, message: message),
                     if (message.thread case final thread?
                         when thread.replyCount > 0)
                       _ThreadRow(thread: thread),
@@ -319,21 +318,35 @@ class _ReplyIndicator extends StatelessWidget {
   }
 }
 
-/// The emoji a message already has.
-///
-/// Deliberately not tappable. Reacting is a write, and this step makes none; an
-/// affordance that looks live and is not is worse than one that is plainly a
-/// label.
 class _Reactions extends StatelessWidget {
-  const _Reactions({required this.siteUrl, required this.reactions});
+  const _Reactions({required this.siteUrl, required this.message});
 
   final String siteUrl;
-  final List<ChatReaction> reactions;
+  final ChatMessage message;
+
+  void _toggle(BuildContext context, ChatReaction reaction) {
+    final controller = ShellScope.read(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    unawaited(
+      controller.chat
+          .toggleMessageReaction(siteUrl, message.id, reaction.emoji)
+          .then((error) {
+            if (error == null || messenger == null || !messenger.mounted) {
+              return;
+            }
+            if (!identical(
+              ShellScope.maybeRead(messenger.context),
+              controller,
+            )) {
+              return;
+            }
+            messenger.showSnackBar(SnackBar(content: Text(error)));
+          }),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Padding(
       key: const ValueKey('chat-reactions'),
       // Core gives the list 0.25em above it and every chip a 1px vertical
@@ -344,50 +357,100 @@ class _Reactions extends StatelessWidget {
         spacing: 3,
         runSpacing: 2,
         children: [
-          for (final reaction in reactions)
-            Container(
-              key: ValueKey('chat-reaction-${reaction.emoji}'),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 7.25,
-                vertical: 3.5,
-              ),
-              decoration: BoxDecoration(
-                color: reaction.reacted
-                    ? Color.alphaBlend(
-                        theme.colorScheme.primary.withValues(alpha: 0.08),
-                        theme.colorScheme.surface,
-                      )
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: reaction.reacted
-                      ? theme.colorScheme.primary.withValues(alpha: 0.5)
-                      : theme.colorScheme.outline,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SiteEmojiImage(
-                    siteUrl: siteUrl,
-                    name: reaction.emoji,
-                    size: 15,
-                    alt: ':${reaction.emoji}:',
-                    style: theme.textTheme.labelMedium,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${reaction.count}',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: reaction.reacted
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
+          for (final reaction in message.reactions)
+            _ChatReactionChip(
+              siteUrl: siteUrl,
+              reaction: reaction,
+              onTap: () => _toggle(context, reaction),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _ChatReactionChip extends StatelessWidget {
+  const _ChatReactionChip({
+    required this.siteUrl,
+    required this.reaction,
+    required this.onTap,
+  });
+
+  final String siteUrl;
+  final ChatReaction reaction;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final label = reaction.count == 1
+        ? '1 ${reaction.emoji} reaction'
+        : '${reaction.count} ${reaction.emoji} reactions';
+
+    return Semantics(
+      button: true,
+      selected: reaction.reacted,
+      label: label,
+      onTapHint: reaction.reacted
+          ? 'remove your reaction'
+          : 'add this reaction',
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        child: Center(
+          widthFactor: 1,
+          heightFactor: 1,
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(4),
+              child: ExcludeSemantics(
+                child: Container(
+                  key: ValueKey('chat-reaction-${reaction.emoji}'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7.25,
+                    vertical: 3.5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: reaction.reacted
+                        ? Color.alphaBlend(
+                            theme.colorScheme.primary.withValues(alpha: 0.08),
+                            theme.colorScheme.surface,
+                          )
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: reaction.reacted
+                          ? theme.colorScheme.primary.withValues(alpha: 0.5)
+                          : theme.colorScheme.outline,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SiteEmojiImage(
+                        siteUrl: siteUrl,
+                        name: reaction.emoji,
+                        size: 15,
+                        alt: ':${reaction.emoji}:',
+                        style: theme.textTheme.labelMedium,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${reaction.count}',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: reaction.reacted
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

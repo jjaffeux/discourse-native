@@ -196,6 +196,8 @@ abstract interface class TopicReadsApi {
   });
 }
 
+enum ChatReactionAction { add, remove }
+
 abstract interface class ChatApi {
   Future<ChatChannels> chatChannels({
     required String siteUrl,
@@ -240,6 +242,16 @@ abstract interface class ChatApi {
     int? threadId,
     String? stagedId,
     DateTime? clientCreatedAt,
+    String? clientId,
+  });
+
+  Future<void> setChatMessageReaction({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required String emoji,
+    required ChatReactionAction action,
     String? clientId,
   });
 
