@@ -474,6 +474,8 @@ class FakeDiscourseApi implements DiscourseApi {
     this.hashtagLookupGate,
     this.realUsernames = const {},
     this.mentionCheckGate,
+    this.emojiCatalogsBySite = const {},
+    this.emojiSearchAliasesBySite = const {},
     this.emojisBySite = const {},
     this.reactorsById = const {},
     this.reactorGate,
@@ -744,12 +746,19 @@ class FakeDiscourseApi implements DiscourseApi {
 
   final Completer<void>? mentionCheckGate;
 
-  /// Returned by [emojis], keyed by site url.
+  /// Ordered picker catalogs returned by [emojiCatalog].
+  final Map<String, SiteEmojiCatalog> emojiCatalogsBySite;
+
+  /// Localized aliases returned by [emojiSearchAliases].
+  final Map<String, Map<String, List<String>>> emojiSearchAliasesBySite;
+
+  /// Legacy flat fixture shorthand, placed into one `default` group.
   final Map<String, List<SiteEmoji>> emojisBySite;
 
-  /// Site urls passed to [emojis], in order — so a test can show the list is
+  /// Site urls passed to [emojiCatalog], in order — so a test can show the list is
   /// fetched once and not per keystroke.
   final List<String> emojisRequested = [];
+  final List<String> emojiSearchAliasesRequested = [];
 
   /// Returned by [postReactors], keyed by `PostReactors.key(postId, filter)`;
   /// a missing one fails.
@@ -1333,13 +1342,29 @@ class FakeDiscourseApi implements DiscourseApi {
   }
 
   @override
-  Future<List<SiteEmoji>> emojis({
+  Future<SiteEmojiCatalog> emojiCatalog({
     required String siteUrl,
     String? apiKey,
     String? clientId,
   }) async {
     emojisRequested.add(siteUrl);
-    return emojisBySite[siteUrl] ?? const [];
+    final catalog = emojiCatalogsBySite[siteUrl];
+    if (catalog != null) return catalog;
+    final flat = emojisBySite[siteUrl];
+    if (flat == null) return SiteEmojiCatalog.empty;
+    return SiteEmojiCatalog(
+      groups: [SiteEmojiGroup(id: 'default', emojis: flat)],
+    );
+  }
+
+  @override
+  Future<Map<String, List<String>>> emojiSearchAliases({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    emojiSearchAliasesRequested.add(siteUrl);
+    return emojiSearchAliasesBySite[siteUrl] ?? const {};
   }
 
   @override

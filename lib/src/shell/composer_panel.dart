@@ -20,11 +20,14 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
+import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
 import 'composer_quotes.dart';
 import 'composer_suggestions.dart';
+import 'emoji_composer.dart';
+import 'emoji_picker.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
@@ -155,6 +158,26 @@ class ComposerPanel extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
                       child: ComposerEditor(
                         composer: composer,
+                        onSuggestionAction:
+                            ({
+                              required context,
+                              required composer,
+                              required suggestion,
+                              anchor,
+                            }) async {
+                              if (suggestion.action !=
+                                  ComposerSuggestionAction.openEmojiPicker) {
+                                return;
+                              }
+                              await openEmojiPickerForTopicComposer(
+                                context: context,
+                                composer: composer,
+                                initialQuery:
+                                    composer.autocomplete.trigger?.query ??
+                                    suggestion.value,
+                                anchor: anchor,
+                              );
+                            },
                         hintText: switch (target) {
                           _ when composer.loadingBody => 'Loading that post…',
                           _ when target.isNewTopic => 'Write your topic…',
@@ -966,6 +989,7 @@ class ComposerEditor extends StatefulWidget {
     required this.textStyle,
     required this.hintStyle,
     this.autofocus = true,
+    this.onSuggestionAction,
   });
 
   final ComposerController composer;
@@ -973,6 +997,7 @@ class ComposerEditor extends StatefulWidget {
   final TextStyle? textStyle;
   final TextStyle? hintStyle;
   final bool autofocus;
+  final ComposerSuggestionActionHandler? onSuggestionAction;
 
   @override
   State<ComposerEditor> createState() => _ComposerEditorState();
@@ -1813,6 +1838,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                   onPointerCancel: (_) => _cancelEditorPointer(),
                   child: ComposerSuggestionField(
                     composer: widget.composer,
+                    onAction: widget.onSuggestionAction,
                     field: ClipRect(
                       child: Focus(
                         onKeyEvent: _onEditorKeyEvent,
@@ -2127,7 +2153,7 @@ class _Toolbar extends StatelessWidget {
   final ComposerController composer;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<(bool, bool, bool)>(
+  Widget build(BuildContext context) => ShellSelector<(bool, bool, bool, bool)>(
     // Plugin creation capabilities arrive independently of composer text, so
     // select every input that can add or remove an action while this composer
     // is already open.
@@ -2135,6 +2161,7 @@ class _Toolbar extends StatelessWidget {
       controller.canCreatePollFor(composer.target.siteUrl),
       controller.siteConfigFor(composer.target.siteUrl).localDatesEnabled,
       controller.siteConfigFor(composer.target.siteUrl).gifsEnabled,
+      controller.siteConfigFor(composer.target.siteUrl).emojiEnabled,
     ),
     builder: (context, _, _) => _buildToolbar(context),
   );
@@ -2142,12 +2169,37 @@ class _Toolbar extends StatelessWidget {
   Widget _buildToolbar(BuildContext context) {
     final theme = Theme.of(context);
     final actions = pluginRegistry.composerToolbar(context, composer);
-    if (actions.isEmpty) return const SizedBox.shrink();
+    final emojiEnabled =
+        !composer.target.isTagsEdit &&
+        ShellScope.read(
+          context,
+        ).siteConfigFor(composer.target.siteUrl).emojiEnabled;
+    if (!emojiEnabled && actions.isEmpty) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
       child: Row(
         children: [
+          if (emojiEnabled)
+            EmojiPickerAnchor(
+              child: Builder(
+                builder: (buttonContext) => IconButton(
+                  key: const ValueKey('composer-emoji-picker'),
+                  onPressed: composer.loadingBody
+                      ? null
+                      : () => unawaited(
+                          openEmojiPickerForTopicComposer(
+                            context: buttonContext,
+                            composer: composer,
+                          ),
+                        ),
+                  icon: const DIcon(DIcons.discourseEmojis, size: 18),
+                  tooltip: 'Add emoji',
+                  visualDensity: VisualDensity.compact,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
           for (final action in actions)
             IconButton(
               onPressed: action.onInvoke,

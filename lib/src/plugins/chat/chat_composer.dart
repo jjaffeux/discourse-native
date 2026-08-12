@@ -3,8 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../data/emoji_picker_store.dart';
+import '../../shell/composer_autocomplete.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/composer_panel.dart';
+import '../../shell/emoji_composer.dart';
+import '../../shell/emoji_picker.dart';
 import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
@@ -39,6 +43,18 @@ class _ChatComposerState extends State<ChatComposer> {
   ComposerController? _composer;
   String? _sourceKey;
   bool _pickingGif = false;
+  bool _pickingEmoji = false;
+
+  void _closeDisabledEmojiAutocomplete(bool emojiEnabled) {
+    final composer = _composer;
+    if (emojiEnabled || composer == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          !(_shell?.siteConfigFor(widget.siteUrl).emojiEnabled ?? true)) {
+        composer.closeEmojiAutocomplete();
+      }
+    });
+  }
 
   @override
   void didChangeDependencies() {
@@ -81,6 +97,7 @@ class _ChatComposerState extends State<ChatComposer> {
     final shell = _shell;
     if (shell == null ||
         _pickingGif ||
+        _pickingEmoji ||
         composer.raw.trim().isEmpty ||
         composer.hasActiveUploads) {
       return;
@@ -112,6 +129,7 @@ class _ChatComposerState extends State<ChatComposer> {
         composer == null ||
         sourceKey == null ||
         _pickingGif ||
+        _pickingEmoji ||
         !shell.siteConfigFor(widget.siteUrl).gifsEnabled ||
         !shell.chat.canSendMessage(widget.siteUrl, widget.channelId)) {
       return;
@@ -134,6 +152,40 @@ class _ChatComposerState extends State<ChatComposer> {
     } finally {
       if (mounted) setState(() => _pickingGif = false);
       _refocus(shell, composer, sourceKey);
+    }
+  }
+
+  Future<void> _pickEmoji({
+    required BuildContext pickerContext,
+    String initialQuery = '',
+    Rect? anchor,
+  }) async {
+    final shell = _shell;
+    final composer = _composer;
+    final sourceKey = _sourceKey;
+    if (shell == null ||
+        composer == null ||
+        sourceKey == null ||
+        _pickingGif ||
+        _pickingEmoji ||
+        !shell.siteConfigFor(widget.siteUrl).emojiEnabled ||
+        !shell.chat.canSendMessage(widget.siteUrl, widget.channelId)) {
+      return;
+    }
+
+    setState(() => _pickingEmoji = true);
+    try {
+      await openEmojiPickerForComposer(
+        context: pickerContext,
+        shell: shell,
+        composer: composer,
+        pickerContext: EmojiPickerContext.chat,
+        stillOwns: () => _ownsComposer(shell, composer, sourceKey),
+        initialQuery: initialQuery,
+        anchor: anchor,
+      );
+    } finally {
+      if (mounted) setState(() => _pickingEmoji = false);
     }
   }
 
@@ -256,6 +308,25 @@ class _ChatComposerState extends State<ChatComposer> {
                   padding: const EdgeInsets.fromLTRB(16, 15, 0, 15),
                   child: ComposerEditor(
                     composer: composer,
+                    onSuggestionAction:
+                        ({
+                          required context,
+                          required composer,
+                          required suggestion,
+                          anchor,
+                        }) async {
+                          if (suggestion.action !=
+                              ComposerSuggestionAction.openEmojiPicker) {
+                            return;
+                          }
+                          await _pickEmoji(
+                            pickerContext: context,
+                            initialQuery:
+                                composer.autocomplete.trigger?.query ??
+                                suggestion.value,
+                            anchor: anchor,
+                          );
+                        },
                     hintText: hint,
                     textStyle: theme.textTheme.bodyMedium,
                     hintStyle: theme.textTheme.bodyMedium?.copyWith(
@@ -267,12 +338,44 @@ class _ChatComposerState extends State<ChatComposer> {
             ),
             ShellSelector<bool>(
               select: (shell) =>
+                  shell.siteConfigFor(composer.target.siteUrl).emojiEnabled,
+              builder: (context, emojiEnabled, _) {
+                _closeDisabledEmojiAutocomplete(emojiEnabled);
+                return emojiEnabled
+                    ? EmojiPickerAnchor(
+                        child: Builder(
+                          builder: (buttonContext) => IconButton(
+                            key: const ValueKey('chat-composer-emoji'),
+                            onPressed:
+                                _pickingGif ||
+                                    _pickingEmoji ||
+                                    !(_shell?.chat.canSendMessage(
+                                          widget.siteUrl,
+                                          widget.channelId,
+                                        ) ??
+                                        false)
+                                ? null
+                                : () => unawaited(
+                                    _pickEmoji(pickerContext: buttonContext),
+                                  ),
+                            icon: const DIcon(DIcons.discourseEmojis, size: 18),
+                            tooltip: 'Add emoji',
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink();
+              },
+            ),
+            ShellSelector<bool>(
+              select: (shell) =>
                   shell.siteConfigFor(composer.target.siteUrl).gifsEnabled,
               builder: (context, gifsEnabled, _) => gifsEnabled
                   ? IconButton(
                       key: const ValueKey('chat-composer-gif'),
                       onPressed:
                           _pickingGif ||
+                              _pickingEmoji ||
                               !(_shell?.chat.canSendMessage(
                                     widget.siteUrl,
                                     widget.channelId,
@@ -292,6 +395,7 @@ class _ChatComposerState extends State<ChatComposer> {
                 key: const ValueKey('chat-composer-send'),
                 onPressed:
                     _pickingGif ||
+                        _pickingEmoji ||
                         value.text.trim().isEmpty ||
                         composer.hasActiveUploads
                     ? null

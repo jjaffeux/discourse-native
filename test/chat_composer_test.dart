@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
@@ -48,7 +49,8 @@ void main() {
 
     final bar = find.byKey(const ValueKey('chat-composer'));
     expect(find.byTooltip('Add to message'), findsNothing);
-    expect(find.byTooltip('Add emoji'), findsNothing);
+    expect(find.byTooltip('Add emoji'), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-composer-emoji')), findsOneWidget);
     expect(find.byKey(const ValueKey('chat-composer-gif')), findsNothing);
     expect(find.byKey(const ValueKey('chat-composer-send')), findsOneWidget);
     final before = tester.getRect(bar);
@@ -128,7 +130,7 @@ void main() {
     expect(find.byTooltip('Add poll'), findsNothing);
     expect(find.byTooltip('Insert date/time  ⇧.'), findsNothing);
     expect(find.byTooltip('Add to message'), findsNothing);
-    expect(find.byTooltip('Add emoji'), findsNothing);
+    expect(find.byTooltip('Add emoji'), findsOneWidget);
     expect(
       tester.getSize(find.byKey(const ValueKey('chat-composer'))).height,
       58,
@@ -161,6 +163,41 @@ void main() {
     expect(fixture.api.chatMessagesSent, isEmpty);
     expect(_button(tester, 'chat-composer-gif').onPressed, isNotNull);
     expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
+  });
+
+  testWidgets('inserts a picked emoji into the draft without sending it', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      emojiCatalog: SiteEmojiCatalog(
+        groups: [
+          SiteEmojiGroup(
+            id: 'smileys_&_emotion',
+            emojis: const [
+              SiteEmoji(
+                name: 'wave',
+                url: 'https://cdn.example/wave.png',
+                tonable: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+    await tester.enterText(_composerField(), 'hello');
+
+    await tester.tap(find.byKey(const ValueKey('chat-composer-emoji')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip(':wave:'));
+    await tester.pumpAndSettle();
+
+    expect(_text(tester), 'hello :wave:');
+    expect(fixture.api.chatMessagesSent, isEmpty);
+    expect(_field(tester).focusNode!.hasFocus, isTrue);
   });
 
   testWidgets('sends a selected GIF immediately without consuming the draft', (
@@ -657,6 +694,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   Completer<void>? sendGate,
   WriteException? sendFailure,
   int? sentMessageId,
+  SiteEmojiCatalog? emojiCatalog,
 }) async {
   final api = FakeDiscourseApi(
     user: sessionUser,
@@ -664,6 +702,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     chatSendGate: sendGate,
     chatSendFailure: sendFailure,
     chatSentMessageId: sentMessageId ?? 1,
+    emojiCatalogsBySite: {_site: ?emojiCatalog},
   );
   final authenticator = FakeAuthenticator()..keys[_site] = 'key';
   final shell = ShellController(

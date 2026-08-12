@@ -383,44 +383,37 @@ void main() {
     controller.dispose();
   });
 
-  test(
-    'emoji index refreshes autocomplete without presentation churn',
-    () async {
-      final api = _PresentationApi();
-      final gate = Completer<List<SiteEmoji>>();
-      api.emojiGate = gate;
-      var presentationNotifications = 0;
-      var autocompleteRefreshes = 0;
-      final controller = _controller(
-        api,
-        onEmojiIndexChanged: () => autocompleteRefreshes++,
-      );
-      controller.addListener(() => presentationNotifications++);
+  test('emoji index shares its request without presentation churn', () async {
+    final api = _PresentationApi();
+    final gate = Completer<List<SiteEmoji>>();
+    api.emojiGate = gate;
+    var presentationNotifications = 0;
+    final controller = _controller(api);
+    controller.addListener(() => presentationNotifications++);
 
-      final first = controller.ensureEmojis(site);
-      final second = controller.ensureEmojis(site);
-      await api.emojiRequestStarted.future;
-      gate.complete(const [
-        SiteEmoji(name: 'smiley', url: 'smiley.png'),
-        SiteEmoji(name: 'xsmile', url: 'xsmile.png'),
-        SiteEmoji(name: 'smile', url: 'smile.png'),
-        SiteEmoji(name: 'small', url: 'small.png'),
-      ]);
-      await Future.wait([first, second]);
+    final first = controller.ensureEmojiCatalog(site);
+    final second = controller.ensureEmojiCatalog(site);
+    expect(second, same(first));
+    await api.emojiRequestStarted.future;
+    gate.complete(const [
+      SiteEmoji(name: 'smiley', url: 'smiley.png'),
+      SiteEmoji(name: 'xsmile', url: 'xsmile.png'),
+      SiteEmoji(name: 'smile', url: 'smile.png'),
+      SiteEmoji(name: 'small', url: 'small.png'),
+    ]);
+    await Future.wait([first, second]);
 
-      expect(api.emojiCalls, 1);
-      expect(presentationNotifications, 0);
-      expect(autocompleteRefreshes, 1);
-      expect(controller.searchEmojis(site, 'smile'), const [
-        SiteEmoji(name: 'smile', url: 'smile.png'),
-        SiteEmoji(name: 'smiley', url: 'smiley.png'),
-        SiteEmoji(name: 'xsmile', url: 'xsmile.png'),
-      ]);
-      expect(controller.searchEmojis(site, 'sm', limit: 2).length, 2);
-      expect(controller.searchEmojis(site, 'sm', limit: 0), isEmpty);
-      controller.dispose();
-    },
-  );
+    expect(api.emojiCalls, 1);
+    expect(presentationNotifications, 0);
+    expect(controller.searchEmojis(site, 'smile'), const [
+      SiteEmoji(name: 'smile', url: 'smile.png'),
+      SiteEmoji(name: 'smiley', url: 'smiley.png'),
+      SiteEmoji(name: 'xsmile', url: 'xsmile.png'),
+    ]);
+    expect(controller.searchEmojis(site, 'sm', limit: 2).length, 2);
+    expect(controller.searchEmojis(site, 'sm', limit: 0), isEmpty);
+    controller.dispose();
+  });
 
   test('emoji autocomplete retains only the best ordered matches', () async {
     final api = _PresentationApi()
@@ -434,14 +427,129 @@ void main() {
         SiteEmoji(name: 'x_spark', url: '/uploads/x-spark.png'),
       ];
     final controller = _controller(api);
-    await controller.ensureEmojis(site);
+    await controller.ensureEmojiCatalog(site);
 
     expect(controller.searchEmojis(site, 'spark', limit: 4), const [
       SiteEmoji(name: 'spark', url: '/uploads/spark.png'),
-      SiteEmoji(name: 'sparks', url: '/images/emoji/sparks.png'),
       SiteEmoji(name: 'sparkle', url: '/images/emoji/sparkle.png'),
       SiteEmoji(name: 'sparkler', url: '/uploads/sparkler.png'),
+      SiteEmoji(name: 'sparkling', url: '/images/emoji/sparkling.png'),
     ]);
+    controller.dispose();
+  });
+
+  test('emoji search never returns more than the picker ceiling', () async {
+    final api = _PresentationApi()
+      ..emojis = [
+        for (var index = 0; index < 60; index++)
+          SiteEmoji(
+            name: 'match_${index.toString().padLeft(2, '0')}',
+            url: '$index.png',
+          ),
+      ];
+    final controller = _controller(api);
+    await controller.ensureEmojiCatalog(site);
+
+    expect(controller.searchEmojis(site, 'match', limit: 500), hasLength(50));
+    controller.dispose();
+  });
+
+  test(
+    'emoji aliases load independently and follow web search ranking',
+    () async {
+      final api = _PresentationApi()
+        ..emojis = const [
+          SiteEmoji(name: 'glove', url: 'glove.png'),
+          SiteEmoji(name: 'heart', url: 'heart.png'),
+          SiteEmoji(name: 'love_letter', url: 'love-letter.png'),
+        ];
+      final aliasGate = Completer<Map<String, List<String>>>();
+      api.emojiAliasGate = aliasGate;
+      final controller = _controller(api);
+
+      await controller.ensureEmojiCatalog(site);
+      final first = controller.ensureEmojiSearchAliases(site);
+      final second = controller.ensureEmojiSearchAliases(site);
+      expect(second, same(first));
+      aliasGate.complete({
+        'heart': ['love'],
+        // An alias cannot make an emoji absent from the catalog searchable.
+        'missing': ['love'],
+      });
+      await Future.wait([first, second]);
+
+      expect(api.emojiCalls, 1);
+      expect(api.emojiAliasCalls, 1);
+      expect(controller.searchEmojis(site, 'love', limit: 50), const [
+        SiteEmoji(name: 'love_letter', url: 'love-letter.png'),
+        SiteEmoji(name: 'heart', url: 'heart.png'),
+        SiteEmoji(name: 'glove', url: 'glove.png'),
+      ]);
+      controller.dispose();
+    },
+  );
+
+  test(
+    'failed emoji metadata returns null and explicit refresh can recover',
+    () async {
+      await _installDiagnostics('emoji-metadata-retry');
+      final api = _PresentationApi()
+        ..emojiError = StateError('catalog unavailable')
+        ..emojiAliasError = StateError('aliases unavailable');
+      final controller = _controller(api);
+
+      expect(await controller.ensureEmojiCatalog(site), isNull);
+      expect(await controller.ensureEmojiSearchAliases(site), isNull);
+      expect(controller.emojiCatalogFor(site), isNull);
+      expect(controller.emojiSearchAliasesFor(site), isNull);
+
+      api
+        ..emojiError = null
+        ..emojiAliasError = null
+        ..emojis = const [SiteEmoji(name: 'wave', url: 'wave.png')]
+        ..emojiAliases = const {
+          'wave': ['hello'],
+        };
+      // A normal ensure call is cache hydration, not an implicit retry loop.
+      // Recovery is user-driven through the picker's explicit retry action.
+      expect(await controller.ensureEmojiCatalog(site), isNull);
+      expect(await controller.ensureEmojiSearchAliases(site), isNull);
+      expect(api.emojiCalls, 1);
+      expect(api.emojiAliasCalls, 1);
+
+      expect(await controller.refreshEmojiCatalog(site), isNotNull);
+      expect(await controller.refreshEmojiSearchAliases(site), isNotNull);
+      expect(controller.searchEmojis(site, 'hello').single.name, 'wave');
+      controller.dispose();
+    },
+  );
+
+  test('site invalidation rejects late catalog and alias responses', () async {
+    final catalogGate = Completer<List<SiteEmoji>>();
+    final aliasGate = Completer<Map<String, List<String>>>();
+    final api = _PresentationApi()
+      ..emojiGate = catalogGate
+      ..emojiAliasGate = aliasGate;
+    final lifecycle = SiteLifecycle();
+    final controller = _controller(api, lifecycle: lifecycle);
+
+    final catalog = controller.ensureEmojiCatalog(site);
+    final aliases = controller.ensureEmojiSearchAliases(site);
+    await Future.wait([
+      api.emojiRequestStarted.future,
+      api.emojiAliasRequestStarted.future,
+    ]);
+    lifecycle.invalidate(site);
+    controller.forget(site);
+    catalogGate.complete(const [SiteEmoji(name: 'wave', url: 'wave.png')]);
+    aliasGate.complete(const {
+      'wave': ['hello'],
+    });
+
+    expect(await catalog, isNull);
+    expect(await aliases, isNull);
+    expect(controller.emojiCatalogFor(site), isNull);
+    expect(controller.emojiSearchAliasesFor(site), isNull);
     controller.dispose();
   });
 
@@ -532,15 +640,11 @@ void main() {
     final api = _PresentationApi()
       ..custom = {'party': '/uploads/party.png'}
       ..emojis = const [SiteEmoji(name: 'party', url: 'party.png')];
-    var autocompleteRefreshes = 0;
-    final controller = _controller(
-      api,
-      onEmojiIndexChanged: () => autocompleteRefreshes++,
-    );
+    final controller = _controller(api);
     final initialPresentation = controller.presentationTokenFor(site);
     await controller.ensureCustomEmojis(site);
     final customPresentation = controller.presentationTokenFor(site);
-    await controller.ensureEmojis(site);
+    await controller.ensureEmojiCatalog(site);
     expect(customPresentation, isNot(same(initialPresentation)));
     expect(controller.presentationTokenFor(site), same(customPresentation));
     expect(controller.searchEmojis(site, 'party'), isNotEmpty);
@@ -553,7 +657,6 @@ void main() {
       'https://meta.example/images/emoji/twitter/party.png',
     );
     expect(controller.presentationTokenFor(site), same(initialPresentation));
-    expect(autocompleteRefreshes, 2);
     controller.dispose();
   });
 }
@@ -586,7 +689,6 @@ SitePresentationController _controller(
   Map<String, SiteAppearance> persistedAppearances = const {},
   SiteAppearanceLoaded? onAppearanceLoaded,
   SiteConfigLoaded? onConfigLoaded,
-  void Function()? onEmojiIndexChanged,
   Duration persistedFreshness =
       SitePresentationController.defaultPersistedFreshness,
   DateTime Function()? clock,
@@ -595,14 +697,14 @@ SitePresentationController _controller(
     loadAppearance: api.loadAppearance,
     loadConfig: api.loadConfig,
     loadCustomEmojis: api.loadCustomEmojis,
-    loadEmojis: api.loadEmojis,
+    loadEmojiCatalog: api.loadEmojiCatalog,
+    loadEmojiSearchAliases: api.loadEmojiSearchAliases,
     credentials: credentials ?? _Credentials(),
     lifecycle: lifecycle ?? SiteLifecycle(),
     readPersistedAppearance: (siteUrl) => persistedAppearances[siteUrl],
     readPersistedConfig: (siteUrl) => persisted[siteUrl],
     onAppearanceLoaded: onAppearanceLoaded ?? (_, _) async {},
     onConfigLoaded: onConfigLoaded ?? (_, _) async {},
-    onEmojiIndexChanged: onEmojiIndexChanged ?? () {},
     persistedFreshness: persistedFreshness,
     clock: clock,
   );
@@ -642,9 +744,15 @@ final class _PresentationApi {
   int customCalls = 0;
 
   List<SiteEmoji> emojis = const [];
+  Object? emojiError;
   Completer<List<SiteEmoji>>? emojiGate;
   Completer<void> emojiRequestStarted = Completer<void>();
   int emojiCalls = 0;
+  Map<String, List<String>> emojiAliases = const {};
+  Object? emojiAliasError;
+  Completer<Map<String, List<String>>>? emojiAliasGate;
+  Completer<void> emojiAliasRequestStarted = Completer<void>();
+  int emojiAliasCalls = 0;
 
   Future<SiteAppearance?> loadAppearance({
     required String siteUrl,
@@ -681,13 +789,30 @@ final class _PresentationApi {
     return custom;
   }
 
-  Future<List<SiteEmoji>> loadEmojis({
+  Future<SiteEmojiCatalog> loadEmojiCatalog({
     required String siteUrl,
     String? apiKey,
     String? clientId,
   }) async {
     emojiCalls++;
     if (!emojiRequestStarted.isCompleted) emojiRequestStarted.complete();
-    return emojiGate?.future ?? emojis;
+    if (emojiError case final error?) throw error;
+    final flat = await (emojiGate?.future ?? Future.value(emojis));
+    return SiteEmojiCatalog(
+      groups: [SiteEmojiGroup(id: 'default', emojis: flat)],
+    );
+  }
+
+  Future<Map<String, List<String>>> loadEmojiSearchAliases({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    emojiAliasCalls++;
+    if (!emojiAliasRequestStarted.isCompleted) {
+      emojiAliasRequestStarted.complete();
+    }
+    if (emojiAliasError case final error?) throw error;
+    return emojiAliasGate?.future ?? emojiAliases;
   }
 }
