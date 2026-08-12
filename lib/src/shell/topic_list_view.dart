@@ -799,20 +799,47 @@ class _TopicRowBody extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Wrap(
-                    spacing: 10,
                     runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       if (category case final category?)
-                        _CategoryBadge(category: category),
-                      if (topic.tags.isNotEmpty) _TopicTags(tags: topic.tags),
-                      ...pluginRegistry.topicListMetadata(
+                        Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: _CategoryBadge(category: category),
+                        ),
+                      for (var index = 0; index < topic.tags.length; index++)
+                        _TopicTag(
+                          tag: topic.tags[index],
+                          hasComma: index < topic.tags.length - 1,
+                          trailingSpacing: index < topic.tags.length - 1
+                              ? 3
+                              : 10,
+                          semanticsLabel: index == 0
+                              ? 'Tags: ${topic.tags.map((tag) => tag.name).join(', ')}'
+                              : null,
+                        ),
+                      for (final metadata in pluginRegistry.topicListMetadata(
                         context,
                         siteUrl,
                         topic,
+                      ))
+                        Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: metadata,
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: _Stat(
+                          icon: DIcons.reply,
+                          value: topic.replyCount,
+                        ),
                       ),
-                      _Stat(icon: DIcons.reply, value: topic.replyCount),
-                      _Stat(icon: DIcons.farEye, value: topic.views),
+                      Padding(
+                        padding: EdgeInsets.only(
+                          right: topic.bumpedAt == null ? 0 : 10,
+                        ),
+                        child: _Stat(icon: DIcons.farEye, value: topic.views),
+                      ),
                       if (topic.bumpedAt case final bumpedAt?)
                         Text(
                           relativeTime(bumpedAt),
@@ -868,13 +895,25 @@ class _CategoryBadge extends StatelessWidget {
 
 /// Core's default `simple` tag style: names separated by commas.
 ///
-/// Each tag is its own wrapping unit, so a list breaks between tags instead of
-/// through a name. Core caps a tag at 18em for the same reason this caps it at
-/// 200 logical pixels: a pathological name must not make the row overflow.
-class _TopicTags extends StatelessWidget {
-  const _TopicTags({required this.tags});
+/// One tag in the topic metadata wrap.
+///
+/// Tags must be direct children of the row's wrap. Nesting them in a second
+/// wrap makes the whole list one outer item, so it cannot share the remaining
+/// space after a category and its continuation lines inherit that indent.
+/// Core caps a tag at 18em for the same reason this caps it at 200 logical
+/// pixels: a pathological name must not make the row overflow.
+class _TopicTag extends StatelessWidget {
+  const _TopicTag({
+    required this.tag,
+    required this.hasComma,
+    required this.trailingSpacing,
+    this.semanticsLabel,
+  });
 
-  final List<TopicTag> tags;
+  final TopicTag tag;
+  final bool hasComma;
+  final double trailingSpacing;
+  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -883,28 +922,30 @@ class _TopicTags extends StatelessWidget {
       color: theme.colorScheme.onSurfaceVariant,
     );
 
-    return Semantics(
-      container: true,
-      label: 'Tags: ${tags.map((tag) => tag.name).join(', ')}',
-      excludeSemantics: true,
-      child: Wrap(
-        spacing: 3,
-        runSpacing: 2,
-        children: [
-          for (var index = 0; index < tags.length; index++)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 200),
-              child: Text(
-                '${tags[index].name}${index == tags.length - 1 ? '' : ','}',
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-                style: style,
-              ),
-            ),
-        ],
+    final child = Padding(
+      padding: EdgeInsets.only(right: trailingSpacing),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 200),
+        child: Text(
+          '${tag.name}${hasComma ? ',' : ''}',
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
       ),
     );
+
+    if (semanticsLabel case final semanticsLabel?) {
+      return Semantics(
+        container: true,
+        label: semanticsLabel,
+        excludeSemantics: true,
+        child: child,
+      );
+    }
+
+    return ExcludeSemantics(child: child);
   }
 }
 

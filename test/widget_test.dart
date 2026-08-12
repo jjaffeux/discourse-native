@@ -3094,6 +3094,69 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('many topic tags stay inline and wrap from the row edge', (
+      tester,
+    ) async {
+      const tags = [
+        TopicTag(name: 'sea2'),
+        TopicTag(name: 'sea1'),
+        TopicTag(name: 'dub1'),
+        TopicTag(name: 'blz-prod-eu'),
+        TopicTag(name: 'blz-prod-us'),
+        TopicTag(name: 'dub2'),
+        TopicTag(name: 'sjc6'),
+        TopicTag(name: 'dev-alert'),
+        TopicTag(name: 'cdck-prod-meta'),
+        TopicTag(name: 'yyz2'),
+        TopicTag(name: 'agc-prod-us'),
+        TopicTag(name: 'sea3'),
+        TopicTag(name: 'yyz1'),
+        TopicTag(name: 'epic-prod-us2'),
+      ];
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            const Topic(
+              id: 3,
+              title: 'A heavily tagged topic',
+              slug: 'a-heavily-tagged-topic',
+              categoryId: 5,
+              tags: tags,
+            ),
+          ],
+        },
+        categoryList: const [
+          TopicCategory(id: 5, name: 'Alerts', color: 'E45735'),
+        ],
+      );
+
+      await pumpShell(tester, phone, api: api);
+      await tester.tap(sidebarDestination('Topics'));
+      await tester.pumpAndSettle();
+
+      final category = tester.getTopLeft(find.text('Alerts'));
+      final tagPositions = [
+        for (var index = 0; index < tags.length; index++)
+          tester.getTopLeft(
+            find.text(
+              '${tags[index].name}${index == tags.length - 1 ? '' : ','}',
+            ),
+          ),
+      ];
+
+      expect(tagPositions.first.dy, closeTo(category.dy, 0.01));
+      final nextRunTop = tagPositions
+          .map((position) => position.dy)
+          .firstWhere((top) => top > tagPositions.first.dy);
+      final nextRunLeft = tagPositions
+          .where((position) => position.dy == nextRunTop)
+          .map((position) => position.dx)
+          .reduce((left, right) => left < right ? left : right);
+      final rowLeft = tester.getTopLeft(find.text('A heavily tagged topic')).dx;
+      expect(nextRunLeft, closeTo(rowLeft, 0.01));
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('a failing list reports it instead of crashing', (
       tester,
     ) async {
