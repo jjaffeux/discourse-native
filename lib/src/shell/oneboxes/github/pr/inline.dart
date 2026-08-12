@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../../../theme/d_icon.dart';
-import '../../inline.dart';
 import '../github.dart';
 
 /// An inline onebox pointing at a GitHub pull request.
@@ -10,7 +9,8 @@ import '../github.dart';
 /// With `github_pr_status_enabled`, the server stamps the PR's state onto
 /// the anchor as a `--gh-status-*` class; the web answers with a small
 /// status-colored glyph ahead of the title (`github-pr-status.scss`), and so
-/// does this.
+/// does this. The title itself stays ordinary anchor text so it can wrap with
+/// the prose around it.
 class GithubPullRequestInlineOnebox {
   static bool matches(dom.Element anchor) {
     final uri = Uri.tryParse(anchor.attributes['href'] ?? '');
@@ -23,24 +23,11 @@ class GithubPullRequestInlineOnebox {
     return segments.length >= 4 && segments[2] == 'pull';
   }
 
-  static Widget from(dom.Element anchor, {String? siteUrl}) {
-    final status = GithubPrStatus.fromClasses(anchor.classes);
-
-    return InlineOneboxChip(
-      href: anchor.attributes['href']!,
-      siteUrl: siteUrl,
-      child: TextSpan(
-        children: [
-          if (status != null) _statusIcon(status),
-          TextSpan(text: anchor.text.trim()),
-        ],
-      ),
-    );
-  }
+  static GithubPrStatus? status(dom.Element anchor) =>
+      matches(anchor) ? GithubPrStatus.fromClasses(anchor.classes) : null;
 
   /// 1.2em, the size the web gives the glyph next to the title.
-  static WidgetSpan _statusIcon(GithubPrStatus status) => WidgetSpan(
-    alignment: PlaceholderAlignment.middle,
+  static Widget statusIcon(GithubPrStatus status) => ExcludeSemantics(
     child: Padding(
       padding: const EdgeInsets.only(right: 3),
       child: Builder(

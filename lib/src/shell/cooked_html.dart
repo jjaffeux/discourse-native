@@ -73,7 +73,6 @@ class CookedHtml extends StatelessWidget {
           imageGridWidgetBuilder(element, siteUrl: siteUrl) ??
           lightboxWidgetBuilder(element, siteUrl: siteUrl) ??
           oneboxWidgetBuilder(element, siteUrl: siteUrl) ??
-          inlineOneboxWidgetBuilder(element, siteUrl: siteUrl) ??
           quoteWidgetBuilder(element, siteUrl: siteUrl) ??
           codeBlockWidgetBuilder(element) ??
           inlineCodeWidgetBuilder(element, textStyle);
@@ -131,6 +130,7 @@ class CookedHtml extends StatelessWidget {
       baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
       textStyle: style,
       renderMode: RenderMode.column,
+      factoryBuilder: InlineOneboxWidgetFactory.new,
       customWidgetBuilder: _customWidget(style, resolvedSiteUrl, post),
       customStylesBuilder: (element) =>
           _customStyles(element, compactParagraphs),

@@ -907,17 +907,15 @@ per onebox, laid out by what the onebox is:
 ```
 oneboxes/
   onebox.dart                  the envelope, the generic card, the dispatch
-  inline.dart                  a.inline-onebox, and the chip it becomes
+  inline.dart                  a.inline-onebox stays text; PR glyph injection
   github/
     github.dart                octicons, status colors, shared body parts
     pr/block.dart              aside.onebox.githubpullrequest
     pr/inline.dart             an inline PR link, with its status glyph
     issue/block.dart           aside.onebox.githubissue
-    issue/inline.dart          an inline issue link
     commit/block.dart          aside.onebox.githubcommit
   discourse/
     topic/block.dart           aside.onebox.discoursetopic, a topic elsewhere
-    topic/inline.dart          an inline link to a topic
     user/block.dart            a profile on the site the post was written on
     category/block.dart        a category on the site the post was written on
 ```
@@ -952,9 +950,9 @@ and a same-site profile or category. A same-site *topic* link arrives as an
 
 Inline oneboxes are the other shape: a link that did not sit alone on its line
 keeps its anchor and gets its title fetched instead —
-`<a class="inline-onebox">`. Those read as ordinary links, which is what the
-web shows, so only the ones with something to add are claimed: a pull request
-gets its status glyph ahead of the title.
+`<a class="inline-onebox">`. The title remains ordinary anchor text so it can
+share a line with the prose around it and wrap at word boundaries. A custom
+widget factory injects the pull request's status glyph ahead of that text.
 
 The parsers never mutate the DOM they are handed; a body remainder is
 serialized back to a string. The document belongs to the caller's `HtmlWidget`.

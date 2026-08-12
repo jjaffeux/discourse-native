@@ -1,186 +1,173 @@
-import 'dart:ui' show SemanticsAction;
-
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/oneboxes/github/github.dart';
-import 'package:discourse_native/src/shell/oneboxes/inline.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:html/dom.dart' as dom;
-import 'package:html/parser.dart' as html;
 
 /// What `InlineOneboxer` leaves in the cooked HTML once it has fetched a
 /// title for a link that did not sit alone on its line.
+const String prTitle =
+    'Add the thing - Pull Request #30604 - discourse/discourse - GitHub';
+const String prUrl = 'https://github.com/discourse/discourse/pull/30604';
 const String prInline =
-    '<a class="inline-onebox --gh-status-merged" '
-    'href="https://github.com/discourse/discourse/pull/30604">'
-    'Add the thing - Pull Request #30604 - discourse/discourse - GitHub</a>';
+    '<a class="inline-onebox --gh-status-merged" href="$prUrl">'
+    '$prTitle</a>';
 
+const String issueTitle =
+    'Bug: the thing breaks - Issue #12345 - discourse/discourse - GitHub';
 const String issueInline =
     '<a class="inline-onebox" '
     'href="https://github.com/discourse/discourse/issues/12345">'
-    'Bug: the thing breaks - Issue #12345 - discourse/discourse - GitHub</a>';
+    '$issueTitle</a>';
 
+const String topicTitle = 'Some topic - post 4 by martin';
 const String topicInline =
     '<a class="inline-onebox" href="/t/some-topic/123/4">'
-    'Some topic - post 4 by martin</a>';
+    '$topicTitle</a>';
 
-const String genericInline =
-    '<a class="inline-onebox" href="https://example.com/page">Example</a>';
+Future<void> pumpCooked(WidgetTester tester, String html) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.dark,
+      home: Scaffold(
+        body: SingleChildScrollView(child: CookedHtml(html: html)),
+      ),
+    ),
+  );
+  await tester.pump();
+}
 
-dom.Element anchor(String source) => html.parse(source).querySelector('a')!;
+RichText paragraphContaining(WidgetTester tester, String text) => tester
+    .widgetList<RichText>(find.byType(RichText))
+    .singleWhere((widget) => widget.text.toPlainText().contains(text));
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('inlineOneboxWidgetBuilder', () {
-    test('claims only a.inline-onebox anchors', () {
-      expect(inlineOneboxWidgetBuilder(anchor(prInline)), isNotNull);
-      expect(
-        inlineOneboxWidgetBuilder(anchor('<a href="/t/x/1">x</a>')),
-        isNull,
-      );
-      expect(
-        inlineOneboxWidgetBuilder(anchor('<a class="inline-onebox">x</a>')),
-        isNull, // no href
-      );
-      expect(
-        inlineOneboxWidgetBuilder(
-          html.parse('<p>text</p>').querySelector('p')!,
-        ),
-        isNull,
-      );
-    });
+  testWidgets('ordinary inline oneboxes remain flowing anchor text', (
+    tester,
+  ) async {
+    await pumpCooked(
+      tester,
+      '<p>Before $issueInline and $topicInline after.</p>',
+    );
 
-    test('a pull request gets its status glyph, an issue does not', () {
-      final pr =
-          inlineOneboxWidgetBuilder(anchor(prInline))! as InlineOneboxChip;
-      final issue =
-          inlineOneboxWidgetBuilder(anchor(issueInline))! as InlineOneboxChip;
-
-      final prSpans = (pr.child as TextSpan).children!;
-      expect(prSpans, hasLength(2));
-      expect(prSpans.first, isA<WidgetSpan>());
-      expect((prSpans.last as TextSpan).text, contains('Add the thing'));
-
-      expect((issue.child as TextSpan).children, isNull);
-      expect((issue.child as TextSpan).text, contains('Bug: the thing'));
-    });
-
-    test('internal topic links and other domains stay chips and links', () {
-      expect(
-        inlineOneboxWidgetBuilder(anchor(topicInline)),
-        isA<InlineOneboxChip>(),
-      );
-      // An inline onebox of some other domain is a link with its title —
-      // exactly what the default anchor rendering already shows.
-      expect(inlineOneboxWidgetBuilder(anchor(genericInline)), isNull);
-    });
+    final paragraph = paragraphContaining(tester, 'Before');
+    expect(
+      paragraph.text.toPlainText(),
+      'Before $issueTitle and $topicTitle after.',
+    );
   });
 
-  group('InlineOneboxChip', () {
-    testWidgets('shows the glyph in the status color', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark,
-          home: Scaffold(body: inlineOneboxWidgetBuilder(anchor(prInline))!),
-        ),
-      );
-      await tester.pump();
+  testWidgets('a pull request adds only its status glyph as a widget', (
+    tester,
+  ) async {
+    await pumpCooked(tester, '<p>$prInline</p>');
 
-      final icon = tester.widget<DIcon>(
-        find.byWidgetPredicate(
-          (widget) => widget is DIcon && widget.icon == githubPrMergedIcon,
-        ),
-      );
-      expect(icon.color, GithubPrStatus.merged.color);
-      expect(
-        find.textContaining('Add the thing', findRichText: true),
-        findsOneWidget,
-      );
-    });
+    final icon = tester.widget<DIcon>(
+      find.byWidgetPredicate(
+        (widget) => widget is DIcon && widget.icon == githubPrMergedIcon,
+      ),
+    );
+    expect(icon.color, GithubPrStatus.merged.color);
 
-    testWidgets('renders inside a paragraph of cooked HTML', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark,
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: CookedHtml(html: '<p>See $prInline for the details.</p>'),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
+    final paragraph = paragraphContaining(tester, prTitle);
+    expect(paragraph.text.toPlainText(), '\u{fffc}$prTitle');
+  });
 
-      expect(find.byType(InlineOneboxChip), findsOneWidget);
-      expect(
-        find.textContaining('for the details', findRichText: true),
-        findsOneWidget,
-      );
-    });
+  testWidgets('starts on the preceding prose line and wraps by words', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(350, 500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
-    testWidgets('is one named link without announcing its icon twice', (
+    await pumpCooked(
       tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark,
-          home: Scaffold(body: inlineOneboxWidgetBuilder(anchor(prInline))!),
-        ),
-      );
-      await tester.pump();
+      '<p>but this one $prInline is too big for now</p>',
+    );
 
-      final target = find.bySemanticsLabel(
-        'Add the thing - Pull Request #30604 - discourse/discourse - GitHub',
-      );
-      final data = tester.getSemantics(target).getSemanticsData();
-      expect(target, findsOneWidget);
-      expect(data.flagsCollection.isLink, isTrue);
-      expect(data.flagsCollection.isButton, isFalse);
-      expect(data.hasAction(SemanticsAction.tap), isTrue);
-      expect(data.label, isNot(contains('\u{fffc}')));
-      semantics.dispose();
-    });
+    final paragraph = paragraphContaining(tester, 'but this one');
+    final plainText = paragraph.text.toPlainText();
+    expect(plainText, 'but this one \u{fffc}$prTitle is too big for now');
 
-    testWidgets('activates from the keyboard with Enter and Space', (
-      tester,
-    ) async {
-      const channel = MethodChannel('plugins.flutter.io/url_launcher');
-      final messenger =
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      final launched = <String>[];
-      messenger.setMockMethodCallHandler(channel, (call) async {
-        if (call.method == 'launch') {
-          launched.add((call.arguments as Map)['url'] as String);
-        }
-        return true;
-      });
-      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final render = tester.renderObject<RenderParagraph>(
+      find.byWidget(paragraph),
+    );
+    TextBox wordBox(String word) {
+      final start = plainText.indexOf(word);
+      return render
+          .getBoxesForSelection(
+            TextSelection(baseOffset: start, extentOffset: start + word.length),
+          )
+          .first;
+    }
 
-      for (final key in [LogicalKeyboardKey.enter, LogicalKeyboardKey.space]) {
-        launched.clear();
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.dark,
-            home: Scaffold(body: inlineOneboxWidgetBuilder(anchor(prInline))!),
-          ),
-        );
-        await tester.pump();
+    expect(wordBox('Add').top, wordBox('one').top);
+    expect(wordBox('GitHub').top, greaterThan(wordBox('Add').top));
+  });
 
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
-        expect(FocusManager.instance.primaryFocus, isNotNull);
-        await tester.sendKeyEvent(key);
-        await tester.pumpAndSettle();
-
-        expect(launched, [
-          'https://github.com/discourse/discourse/pull/30604',
-        ], reason: '$key');
+  testWidgets('the flowing title and status glyph activate the same link', (
+    tester,
+  ) async {
+    const channel = MethodChannel('plugins.flutter.io/url_launcher');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final launched = <String>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'launch') {
+        launched.add((call.arguments as Map)['url'] as String);
       }
+      return true;
     });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+    await pumpCooked(tester, '<p>$prInline</p>');
+
+    final paragraph = paragraphContaining(tester, prTitle);
+    final plainText = paragraph.text.toPlainText();
+    final titleStart = plainText.indexOf('Add');
+    final render = tester.renderObject<RenderParagraph>(
+      find.byWidget(paragraph),
+    );
+    final titleBox = render
+        .getBoxesForSelection(
+          TextSelection(baseOffset: titleStart, extentOffset: titleStart + 3),
+        )
+        .first;
+    await tester.tapAt(render.localToGlobal(titleBox.toRect().center));
+    await tester.pumpAndSettle();
+    expect(launched, [prUrl]);
+
+    launched.clear();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) => widget is DIcon && widget.icon == githubPrMergedIcon,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(launched, [prUrl]);
+  });
+
+  testWidgets('the flowing title remains a named semantic link', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await pumpCooked(tester, '<p>$prInline</p>');
+
+    // RenderParagraph may put newlines in the semantics label where the title
+    // wrapped visually.
+    final target = find.semantics.byLabel(
+      RegExp(r'Add the thing.*discourse/discourse.*GitHub', dotAll: true),
+    );
+    expect(target, findsOneWidget);
+    final data = target.evaluate().single.getSemanticsData();
+    expect(data.flagsCollection.isLink, isTrue);
+    expect(data.hasAction(SemanticsAction.tap), isTrue);
+    semantics.dispose();
   });
 }
