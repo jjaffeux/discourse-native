@@ -2084,6 +2084,56 @@ void main() {
         expect(subject.api.chatMessagesRequested, hasLength(1));
       },
     );
+
+    test(
+      'a re-entry page that beats the send response retires the local row',
+      () async {
+        final sendGate = Completer<void>();
+        final createdAt = DateTime.utc(2026, 5, 5, 10, 1, 0, 123, 456);
+        final canonical = ChatMessage(
+          id: 42,
+          channelId: 9,
+          cooked: '<p>hello</p>',
+          author: const ChatMessageAuthor(id: 7, username: 'reader'),
+          // Discourse serializes dates to milliseconds even though the client
+          // timestamp sent with the message can contain microseconds.
+          createdAt: DateTime.utc(2026, 5, 5, 10, 1, 0, 123),
+        );
+        final pages = <String, ChatMessagePage>{key(9): page([])};
+        final subject = build(
+          messages: pages,
+          sendGate: sendGate,
+          sentMessageId: 42,
+          currentUser: currentUser,
+          clock: () => createdAt,
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.openChannel(site, 9);
+
+        final sending = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('hello'),
+        )!;
+        await Future<void>.delayed(Duration.zero);
+        expect(subject.chat.stream(site, 9).localMessageIds, [-1]);
+
+        // Returning to the channel can finish its GET after the server has
+        // committed the POST but before this client's POST response arrives.
+        pages[key(9)] = page([canonical]);
+        await subject.chat.openChannel(site, 9, force: true);
+
+        final window = subject.chat.stream(site, 9);
+        expect(window.messageIds, [42]);
+        expect(window.localMessageIds, isEmpty);
+        expect(subject.store.read<ChatMessage>(site, -1), isNull);
+        expect(subject.chat.messages(site, 9), [canonical]);
+
+        sendGate.complete();
+        expect(await sending.settled, ChatSendResult.sent);
+        expect(subject.chat.messages(site, 9), [canonical]);
+      },
+    );
   });
 
   group('reacting to a message', () {
