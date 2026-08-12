@@ -2498,6 +2498,39 @@ void main() {
       expect(find.text('A private message'), findsOneWidget);
     });
 
+    testWidgets('messages uses a topic-row skeleton while loading', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': latest,
+          inbox: [const Topic(id: 9, title: 'A private message', slug: 'a-pm')],
+        },
+        feedGates: {inbox: gate},
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(userMenu);
+      await tester.pumpAndSettle();
+      final semantics = tester.ensureSemantics();
+      await tester.tap(sidebarDestination('Messages'));
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('topic-list-loading-skeleton')),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Loading messages'), findsOneWidget);
+      expect(activityIndicators, findsNothing);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.text('A private message'), findsOneWidget);
+      semantics.dispose();
+    });
+
     testWidgets(
       'messages never offers New Topic even if its feed says it can',
       (tester) async {

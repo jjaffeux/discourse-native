@@ -17,6 +17,34 @@ import 'support/fakes.dart';
 void main() {
   final sites = [instance('one.example'), instance('two.example')];
 
+  testWidgets('first load uses a faithful topic-list skeleton', (tester) async {
+    final api = _ControlledPagingApi();
+    final controller = await _controlledShell(api, sites.first);
+    addTearDown(controller.dispose);
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(_LiveTestList(controller: controller));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('topic-list-loading-skeleton')),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('Loading topics'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    api.requests.single.response.complete(_page(1));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('topic-list-loading-skeleton')),
+      findsNothing,
+    );
+    expect(find.text('Topic 1'), findsOneWidget);
+    semantics.dispose();
+  });
+
   testWidgets('failed first load retries once from the empty state', (
     tester,
   ) async {
@@ -41,7 +69,10 @@ void main() {
     expect(api.requests, hasLength(2));
 
     await tester.pump();
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topic-list-loading-skeleton')),
+      findsOneWidget,
+    );
     expect(retry, findsNothing);
 
     api.requests.last.response.complete(_page(1));
