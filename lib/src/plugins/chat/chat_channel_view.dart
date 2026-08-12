@@ -1400,36 +1400,59 @@ class _LoadingOlderRow extends StatelessWidget {
 ///
 /// The rows mirror the real chat gutter and grouping closely enough that the
 /// loaded messages do not make the pane jump from an unrelated shape. The
-/// oversized column is clipped from the top on exceptionally short panes,
-/// keeping the newest-looking rows attached to the composer without making
+/// pattern repeats until it covers the viewport, then is clipped from the top
+/// to keep the newest-looking rows attached to the composer without making
 /// this loading state scrollable.
 class _ChatLoadingSkeleton extends StatelessWidget {
   const _ChatLoadingSkeleton({super.key});
+
+  static const _patternHeight = 190.0;
 
   @override
   Widget build(BuildContext context) {
     return LoadingSkeleton(
       semanticsLabel: 'Loading chat channel',
-      child: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.bottomCenter,
-          minHeight: 0,
-          maxHeight: double.infinity,
-          child: SizedBox(
-            width: double.infinity,
-            child: const Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ChatSkeletonMessage(nameWidth: 0.22, lineWidths: [0.68, 0.42]),
-                _ChatSkeletonChainedMessage(lineWidth: 0.26),
-                _ChatSkeletonMessage(nameWidth: 0.30, lineWidths: [0.90]),
-                _ChatSkeletonChainedMessage(lineWidth: 0.44),
-                _ChatSkeletonChainedMessage(lineWidth: 0.64),
-                _ChatSkeletonMessage(nameWidth: 0.24, lineWidths: [0.66, 0.30]),
-              ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final patternCount = constraints.hasBoundedHeight
+              ? (constraints.maxHeight / _patternHeight).ceil()
+              : 1;
+
+          return ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.bottomCenter,
+              minHeight: 0,
+              maxHeight: double.infinity,
+              child: SizedBox(
+                width: double.infinity,
+                child: Column(
+                  key: const ValueKey('chat-loading-skeleton-content'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (
+                      var index = 0;
+                      index < patternCount;
+                      index++
+                    ) ...const [
+                      _ChatSkeletonMessage(
+                        nameWidth: 0.22,
+                        lineWidths: [0.68, 0.42],
+                      ),
+                      _ChatSkeletonChainedMessage(lineWidth: 0.26),
+                      _ChatSkeletonMessage(nameWidth: 0.30, lineWidths: [0.90]),
+                      _ChatSkeletonChainedMessage(lineWidth: 0.44),
+                      _ChatSkeletonChainedMessage(lineWidth: 0.64),
+                      _ChatSkeletonMessage(
+                        nameWidth: 0.24,
+                        lineWidths: [0.66, 0.30],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
