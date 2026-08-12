@@ -118,9 +118,13 @@ const Color githubDeletionColor = Color(0xFFF85149);
 
 // --- Shared body parts, drawn the same by issues, PRs and commits.
 
-/// The icon column's width on the web is 2.5em of the onebox font; the app
-/// draws oneboxes at body size, so 14pt lands in the same place.
-const double githubIconSize = 20;
+/// Core sizes the raw GitHub SVG to 1.8em inside a 2.5em column, with a 0.75em
+/// gap. Native onebox text is 14pt. [DIcon] applies its own optical scaling,
+/// so its box must be enlarged to leave the visible SVG at core's 25.2pt.
+const double _githubOneboxFontSize = 14;
+const double githubIconSize = _githubOneboxFontSize * 1.8 / DIcon.glyphScale;
+const double githubIconColumnWidth = _githubOneboxFontSize * 2.5;
+const double githubIconGap = _githubOneboxFontSize * 0.75;
 
 /// The avatar the info row carries, 20px with 2px corners as on the web.
 class GithubUser extends StatelessWidget {
