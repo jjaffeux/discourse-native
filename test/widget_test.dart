@@ -9234,6 +9234,7 @@ void main() {
       int mentions = 0,
       bool muted = false,
       bool starred = false,
+      bool readRestricted = false,
       int? lastRead,
     }) => ChatChannel(
       id: id,
@@ -9244,6 +9245,7 @@ void main() {
       categoryColor: color == null
           ? null
           : Color(int.parse('FF$color', radix: 16)),
+      readRestricted: readRestricted,
       membership: ChatMembership(
         following: true,
         muted: muted,
@@ -9706,6 +9708,20 @@ void main() {
           );
         },
       );
+
+      testWidgets('marks a channel linked to a private category', (
+        tester,
+      ) async {
+        await pumpChat(tester, public: [channel(9, readRestricted: true)]);
+
+        expect(
+          find.descendant(
+            of: find.byType(InstanceSidebar),
+            matching: find.dIcon(DIcons.lock),
+          ),
+          findsOneWidget,
+        );
+      });
 
       testWidgets('draws the other person’s face on a one-to-one conversation', (
         tester,

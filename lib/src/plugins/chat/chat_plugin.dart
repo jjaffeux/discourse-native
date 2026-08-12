@@ -119,6 +119,9 @@ class ChatPlugin
             ? channel.users.first.id
             : null,
         iconColor: channel.categoryColor,
+        prefixBadgeIcon: channel.isCategoryChannel && channel.readRestricted
+            ? DIcons.lock
+            : null,
         badge: channel.badge,
       );
 }
