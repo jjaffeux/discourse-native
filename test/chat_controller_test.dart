@@ -546,6 +546,54 @@ void main() {
       expect(tracker.pluginChannelCallbacks['/chat/13/new-messages'], isEmpty);
     });
 
+    test('adds a live message to a channel window at the present', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(
+            public: [
+              channel(
+                9,
+                lastRead: 3,
+                lastMessageId: 3,
+                lastMessageAt: DateTime.utc(2026, 8, 8, 12),
+              ),
+            ],
+            newMessageBusLastIds: const {9: 70},
+          ),
+        },
+        messages: {
+          key(9): page([
+            message(1),
+            message(2, minute: 1),
+            message(3, minute: 2),
+          ]),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      await subject.chat.openChannel(site, 9);
+
+      tracker.deliverPluginMessage(
+        '/chat/9/new-messages',
+        newMessageEvent(
+          channelId: 9,
+          messageId: 4,
+          authorId: 2,
+          createdAt: '2026-08-08T13:00:00.000Z',
+        ),
+      );
+
+      expect(subject.chat.stream(site, 9).messageIds, [1, 2, 3, 4]);
+      expect(subject.chat.messages(site, 9).last.id, 4);
+      expect(subject.chat.channel(site, 9)?.badge.dot, isTrue);
+
+      await subject.chat.markRead(site, 9, 4);
+
+      expect(subject.chat.channel(site, 9)?.badge.isVisible, isFalse);
+      expect(subject.api.chatReadsMarked, [(channelId: 9, messageId: 4)]);
+    });
+
     test(
       'subscribes after either half arrives and skips muted channels',
       () async {
@@ -2593,6 +2641,44 @@ void main() {
 
         await subject.chat.markRead(site, 9, 3);
 
+        expect(held(subject.store)?.tracking, ChatTracking.none);
+        expect(held(subject.store)?.badge.isVisible, isFalse);
+      },
+    );
+
+    test(
+      'does not restore unread state from an older tracking event',
+      () async {
+        final subject = build(
+          currentUser: currentUser,
+          channels: {
+            site: ChatChannels(
+              public: [channel(9, lastRead: 1, unread: 2, mentions: 1)],
+              userTrackingBusLastId: 90,
+            ),
+          },
+          messages: {
+            key(9): page([
+              message(1),
+              message(2, minute: 1),
+              message(3, minute: 2),
+            ]),
+          },
+        );
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        await subject.chat.openChannel(site, 9);
+
+        await subject.chat.markRead(site, 9, 3);
+        tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+          'channel_id': 9,
+          'last_read_message_id': 1,
+          'unread_count': 2,
+          'mention_count': 1,
+          'watched_threads_unread_count': 0,
+        });
+
+        expect(held(subject.store)?.membership.lastReadMessageId, 3);
         expect(held(subject.store)?.tracking, ChatTracking.none);
         expect(held(subject.store)?.badge.isVisible, isFalse);
       },

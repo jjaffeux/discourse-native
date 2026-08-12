@@ -887,6 +887,19 @@ class ChatController extends FrameSafeNotifier {
     final held = channel(siteUrl, channelId);
     if (held == null) return;
 
+    // A read is projected locally before its request crosses the network. The
+    // unread event which prompted it can still be waiting in MessageBus and
+    // must not move that projection backwards when it finally arrives. Newer
+    // unread state remains safe: its last-read position is at least the one
+    // already held, and the eager /new-messages path has accounted for it too.
+    final isChannelState = jsonIntOrNull(data['thread_id']) == null;
+    final hasLastRead = data.containsKey('last_read_message_id');
+    final incomingLastRead = jsonIntOrNull(data['last_read_message_id']) ?? 0;
+    final heldLastRead = held.membership.lastReadMessageId ?? 0;
+    if (isChannelState && hasLastRead && incomingLastRead < heldLastRead) {
+      return;
+    }
+
     Map<int, DateTime>? threadOverview;
     if (data.containsKey('unread_thread_overview')) {
       threadOverview = {};
@@ -908,7 +921,7 @@ class ChatController extends FrameSafeNotifier {
           data['watched_threads_unread_count'],
         ),
       ),
-      lastReadMessageId: jsonIntOrNull(data['thread_id']) == null
+      lastReadMessageId: isChannelState
           ? jsonIntOrNull(data['last_read_message_id'])
           : null,
       unreadThreadOverview: threadOverview,
@@ -993,6 +1006,28 @@ class ChatController extends FrameSafeNotifier {
     }
 
     store.put(siteUrl, updated);
+
+    // The per-channel event is also the live message transport. Keeping only
+    // its tracking half leaves an open pane one row behind its own sidebar:
+    // the row says unread, but scrolling to the visible bottom can never reach
+    // the message that would clear it. A window already at the present can
+    // extend contiguously; an anchored window keeps its gap and will obtain the
+    // message through forward paging instead.
+    final window = stream(siteUrl, channelId);
+    if (data['type'] == 'channel' &&
+        window.fetchedOnce &&
+        window.atPresent &&
+        !window.messageIds.contains(messageId)) {
+      final canonical = ChatMessage.fromJson(payload, siteUrl);
+      store.put(siteUrl, canonical);
+      _setStream(
+        key,
+        window.copyWith(
+          messageIds: List.unmodifiable([...window.messageIds, messageId]),
+          localMessageIds: _retireCanonicalLocals(siteUrl, window, [canonical]),
+        ),
+      );
+    }
     notifySafely();
   }
 
