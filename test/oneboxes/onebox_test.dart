@@ -202,6 +202,15 @@ void main() {
       await tester.pump();
 
       expect(find.text('AduForum'), findsNWidgets(2)); // header and title
+      final labels = tester.widgetList<Text>(find.text('AduForum')).toList();
+      expect(
+        labels.map((label) => label.style?.fontSize),
+        containsAll([DiscourseTypography.base, DiscourseTypography.fontUp1]),
+      );
+      expect(
+        labels.map((label) => label.style?.color),
+        contains(AppTheme.light.colorScheme.primary),
+      );
       // The leftover body goes through HtmlWidget, which paints RichText.
       expect(
         find.textContaining('Il network P2P', findRichText: true),

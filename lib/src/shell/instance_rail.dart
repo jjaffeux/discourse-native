@@ -865,7 +865,7 @@ class _RailTooltipCallout extends StatelessWidget {
                         instance.monogram,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: iconForeground,
-                          fontSize: 10,
+                          fontSize: DiscourseTypography.fontDown3,
                           fontWeight: FontWeight.w800,
                           height: 1,
                         ),

@@ -1296,20 +1296,24 @@ class _MoreTopicsState extends State<_MoreTopics> {
               ),
               child: Row(
                 children: [
-                  _MoreTopicsTabButton(
-                    key: const ValueKey('suggested-topics-tab'),
-                    label: 'Suggested',
-                    selected: selection == _MoreTopicsTab.suggested,
-                    onPressed: () =>
-                        setState(() => _selected = _MoreTopicsTab.suggested),
+                  Expanded(
+                    child: _MoreTopicsTabButton(
+                      key: const ValueKey('suggested-topics-tab'),
+                      label: 'Suggested',
+                      selected: selection == _MoreTopicsTab.suggested,
+                      onPressed: () =>
+                          setState(() => _selected = _MoreTopicsTab.suggested),
+                    ),
                   ),
-                  _MoreTopicsTabButton(
-                    key: const ValueKey('related-topics-tab'),
-                    label: 'Related',
-                    icon: DIcons.discourseSparkles,
-                    selected: selection == _MoreTopicsTab.related,
-                    onPressed: () =>
-                        setState(() => _selected = _MoreTopicsTab.related),
+                  Expanded(
+                    child: _MoreTopicsTabButton(
+                      key: const ValueKey('related-topics-tab'),
+                      label: 'Related',
+                      icon: DIcons.discourseSparkles,
+                      selected: selection == _MoreTopicsTab.related,
+                      onPressed: () =>
+                          setState(() => _selected = _MoreTopicsTab.related),
+                    ),
                   ),
                 ],
               ),
@@ -1384,15 +1388,20 @@ class _MoreTopicsTabButton extends StatelessWidget {
             ),
           ),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon case final icon?) ...[
                 DIcon(icon, size: 13, color: color),
                 const SizedBox(width: 6),
               ],
-              Text(
-                label,
-                style: theme.textTheme.labelLarge?.copyWith(color: color),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(color: color),
+                ),
               ),
             ],
           ),
@@ -1712,7 +1721,7 @@ class _PostTileState extends State<_PostTile> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
@@ -1730,7 +1739,7 @@ class _PostTileState extends State<_PostTile> {
                                 title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelSmall?.copyWith(
+                                style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
@@ -1763,7 +1772,7 @@ class _PostTileState extends State<_PostTile> {
                     if (post.createdAt case final createdAt?)
                       Text(
                         relativeTime(createdAt),
-                        style: theme.textTheme.labelSmall?.copyWith(
+                        style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -1779,8 +1788,11 @@ class _PostTileState extends State<_PostTile> {
                         ? theme.textTheme.bodyMedium?.copyWith(
                             color: theme.discourse.whisper,
                             fontStyle: FontStyle.italic,
+                            height: DiscourseTypography.lineHeightCooked,
                           )
-                        : theme.textTheme.bodyMedium,
+                        : theme.textTheme.bodyMedium?.copyWith(
+                            height: DiscourseTypography.lineHeightCooked,
+                          ),
                     siteUrl: widget.siteUrl,
                     post: post,
                   ),

@@ -2858,14 +2858,14 @@ void main() {
       await pumpShell(tester, desktop, api: api);
 
       final context = tester.element(find.text('Caught up'));
-      final colors = Theme.of(context).colorScheme;
+      final theme = Theme.of(context);
       expect(
         tester.widget<Text>(find.text('Caught up')).style?.color,
-        colors.onSurfaceVariant,
+        theme.discourse.whisper,
       );
       expect(
         tester.widget<Text>(find.text('Not caught up')).style?.color,
-        colors.onSurface,
+        theme.colorScheme.onSurface,
       );
     });
 
@@ -6652,9 +6652,7 @@ void main() {
         tester,
         desktop,
         api: api,
-        instances: [
-          instance('meta.discourse.org', title: 'Discourse Meta'),
-        ],
+        instances: [instance('meta.discourse.org', title: 'Discourse Meta')],
       );
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();

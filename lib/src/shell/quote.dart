@@ -154,7 +154,7 @@ class QuoteBlock extends StatelessWidget {
             html: data.bodyHtml,
             siteUrl: siteUrl,
             textStyle: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              height: DiscourseTypography.lineHeightCooked,
             ),
           ),
         ],

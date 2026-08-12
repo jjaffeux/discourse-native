@@ -762,8 +762,6 @@ class _TopicRowBody extends StatelessWidget {
                         child: TopicTitle(
                           topic.title,
                           siteUrl: siteUrl,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                           trailing: [
                             if (topic.showUnreadCount) ...[
                               const SizedBox(width: 8),
@@ -784,12 +782,12 @@ class _TopicRowBody extends StatelessWidget {
                               ),
                             ],
                           ],
-                          style: theme.textTheme.bodyLarge?.copyWith(
+                          style: theme.textTheme.titleMedium?.copyWith(
                             // Core dims only rows whose last visible post has
                             // been read. Tracking level controls the badge, not
                             // the title treatment.
                             color: topic.visited
-                                ? theme.colorScheme.onSurfaceVariant
+                                ? theme.discourse.whisper
                                 : theme.colorScheme.onSurface,
                             fontWeight: FontWeight.w400,
                           ),
@@ -843,7 +841,7 @@ class _TopicRowBody extends StatelessWidget {
                       if (topic.bumpedAt case final bumpedAt?)
                         Text(
                           relativeTime(bumpedAt),
-                          style: theme.textTheme.labelSmall?.copyWith(
+                          style: theme.textTheme.labelMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
@@ -884,7 +882,7 @@ class _CategoryBadge extends StatelessWidget {
         const SizedBox(width: 5),
         Text(
           category.name,
-          style: theme.textTheme.labelSmall?.copyWith(
+          style: theme.textTheme.labelMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
@@ -918,7 +916,7 @@ class _TopicTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = theme.textTheme.labelSmall?.copyWith(
+    final style = theme.textTheme.labelMedium?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
 
@@ -967,7 +965,7 @@ class _Stat extends StatelessWidget {
         const SizedBox(width: 3),
         Text(
           _short(value),
-          style: theme.textTheme.labelSmall?.copyWith(color: color),
+          style: theme.textTheme.labelMedium?.copyWith(color: color),
         ),
       ],
     );

@@ -198,6 +198,20 @@ void main() {
       expect(_topicIcon(tester, 101), DIcons.thumbtack);
       expect(_topicIcon(tester, 102), DIcons.lock);
       expect(_topicIcon(tester, 103), DIcons.farFileLines);
+
+      final categoryTitle = tester.widget<Text>(
+        find.descendant(of: _card(30), matching: find.text('Alerts')),
+      );
+      final featuredTitle = tester.widget<Text>(
+        find.descendant(
+          of: _featuredTopic(103),
+          matching: find.text('Ordinary topic'),
+        ),
+      );
+      expect(categoryTitle.style?.fontSize, DiscourseTypography.fontUp2);
+      expect(categoryTitle.style?.fontWeight, FontWeight.w700);
+      expect(featuredTitle.style?.fontSize, DiscourseTypography.fontUp1);
+      expect(featuredTitle.style?.color, AppTheme.light.colorScheme.onSurface);
     },
   );
 

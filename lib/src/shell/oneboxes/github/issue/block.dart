@@ -37,7 +37,7 @@ class GithubIssueOnebox extends StatelessWidget {
                 children: [
                   Text(
                     data.title,
-                    style: theme.textTheme.titleSmall?.copyWith(
+                    style: theme.textTheme.titleMedium?.copyWith(
                       color: theme.colorScheme.primary,
                     ),
                   ),

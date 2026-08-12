@@ -594,7 +594,9 @@ class _Chrome extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
                   '${index + 1} / $total',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.white70),
                 ),
               ),
             const Spacer(),
@@ -627,14 +629,18 @@ class _Chrome extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.white),
               ),
             if (title != null && details != null) const SizedBox(height: 2),
             if (details != null)
               Text(
                 details,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white60, fontSize: 12),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: Colors.white60),
               ),
           ],
         ),

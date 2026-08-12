@@ -41,8 +41,8 @@ class DiscourseUserOnebox extends StatelessWidget {
             children: [
               Text(
                 data.username,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.tertiary,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.primary,
                 ),
               ),
               if (data.name != null ||
@@ -90,7 +90,7 @@ class DiscourseUserOnebox extends StatelessWidget {
                   data.bio!,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                  style: theme.textTheme.bodyMedium?.copyWith(color: muted),
                 ),
               ],
               if (data.joined != null) ...[

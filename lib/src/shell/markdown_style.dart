@@ -18,7 +18,7 @@ TextStyle markdownStyle(
   var scale = 1.0;
 
   if (mask & Md.codeBlock != 0) {
-    scale *= 0.9;
+    scale *= 0.875;
     style = style
         .merge(monospaceTextStyle)
         .copyWith(
@@ -28,12 +28,11 @@ TextStyle markdownStyle(
 
   if (mask & Md.heading != 0) {
     final level = int.tryParse(detail ?? '1') ?? 1;
-    scale *= 1.45 - (level - 1) * 0.09;
-    style = style.copyWith(fontWeight: FontWeight.w700);
-  }
-
-  if (mask & Md.quote != 0) {
-    style = style.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    scale *= _headingScale(level);
+    style = style.copyWith(
+      fontWeight: FontWeight.w700,
+      height: DiscourseTypography.lineHeightMedium,
+    );
   }
 
   if (mask & Md.code != 0) {
@@ -73,7 +72,9 @@ TextStyle markdownStyle(
 
   return scale == 1.0
       ? style
-      : style.copyWith(fontSize: (base.fontSize ?? 14) * scale);
+      : style.copyWith(
+          fontSize: (base.fontSize ?? DiscourseTypography.base) * scale,
+        );
 }
 
 (TextStyle, double) _tagStyle(String tag, TextStyle style, ThemeData theme) =>
@@ -99,9 +100,19 @@ TextStyle markdownStyle(
         style.copyWith(fontFeatures: const [FontFeature.subscripts()]),
         1.0,
       ),
-      'small' => (style, 0.85),
-      'big' => (style, 1.15),
+      'small' => (style, 0.75),
+      'big' => (style, 1.5),
       'ins' => (style.copyWith(decoration: TextDecoration.underline), 1.0),
       'del' => (style.copyWith(decoration: TextDecoration.lineThrough), 1.0),
       _ => (style, 1.0),
     };
+
+double _headingScale(int level) => switch (level.clamp(1, 6)) {
+  1 => DiscourseTypography.fontUp3 / DiscourseTypography.base,
+  2 => DiscourseTypography.fontUp2 / DiscourseTypography.base,
+  3 => DiscourseTypography.fontUp1 / DiscourseTypography.base,
+  4 => 1,
+  5 => DiscourseTypography.fontDown1 / DiscourseTypography.base,
+  6 => DiscourseTypography.fontDown2 / DiscourseTypography.base,
+  _ => 1,
+};

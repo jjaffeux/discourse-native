@@ -7,6 +7,9 @@ import 'color_contrast.dart';
 /// The tertiary color of Discourse's default light scheme.
 const Color discourseBlue = Color(0xFF0088CC);
 
+/// The tertiary color of Discourse's built-in dark scheme.
+const Color discourseDarkBlue = Color(0xFF099DD7);
+
 /// What Discourse paints a like — `$love` in its stylesheets.
 ///
 /// The fallback used until a site supplies its own `$love` value.
@@ -17,6 +20,29 @@ const Color discourseSuccess = Color(0xFF009900);
 
 /// Core Discourse's modal backdrop: black animated to 60% opacity.
 const Color discourseModalBarrier = Color(0x99000000);
+
+/// Discourse's 16px modular type scale, resolved from `font-variables.scss`.
+///
+/// Keeping the values here avoids silently falling back to Material's smaller
+/// 14px body and title styles when a widget only chooses a semantic text role.
+abstract final class DiscourseTypography {
+  static const double base = 16;
+  static const double fontUp1 = 18.3792;
+  static const double fontUp2 = 21.112;
+  static const double fontUp3 = 24.2512;
+  static const double fontUp4 = 28.0176;
+  static const double fontUp5 = 32;
+  static const double fontUp6 = 36.736;
+  static const double fontDown1 = 13.9296;
+  static const double fontDown2 = 12.1264;
+  static const double fontDown3 = 10.5584;
+  static const double code = 14;
+  static const double codeLineHeight = 17 / 13;
+
+  static const double lineHeightMedium = 1.2;
+  static const double lineHeightLarge = 1.4;
+  static const double lineHeightCooked = 1.5;
+}
 
 Color _readableOn(
   Color background,
@@ -305,6 +331,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     required this.love,
     required this.primaryHigh,
     required this.whisper,
+    required this.primaryVeryHigh,
   });
 
   final Color success;
@@ -322,12 +349,16 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
   /// Whisper body text, mirroring Discourse's `--primary-medium` role.
   final Color whisper;
 
+  /// Strong secondary copy, mirroring `--primary-very-high`.
+  final Color primaryVeryHigh;
+
   static const DiscourseColors light = DiscourseColors(
     success: discourseSuccess,
     unreadIndicator: Color(0xFF66CCFF),
     love: discourseLove,
     primaryHigh: Color(0xFF646464),
     whisper: Color(0xFF919191),
+    primaryVeryHigh: Color(0xFF414141),
   );
 
   static const DiscourseColors dark = DiscourseColors(
@@ -336,6 +367,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     love: discourseLove,
     primaryHigh: Color(0xFFA6A6A6),
     whisper: Color(0xFF909090),
+    primaryVeryHigh: Color(0xFFC7C7C7),
   );
 
   @override
@@ -345,12 +377,14 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     Color? love,
     Color? primaryHigh,
     Color? whisper,
+    Color? primaryVeryHigh,
   }) => DiscourseColors(
     success: success ?? this.success,
     unreadIndicator: unreadIndicator ?? this.unreadIndicator,
     love: love ?? this.love,
     primaryHigh: primaryHigh ?? this.primaryHigh,
     whisper: whisper ?? this.whisper,
+    primaryVeryHigh: primaryVeryHigh ?? this.primaryVeryHigh,
   );
 
   @override
@@ -362,6 +396,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
       love: Color.lerp(love, other.love, t)!,
       primaryHigh: Color.lerp(primaryHigh, other.primaryHigh, t)!,
       whisper: Color.lerp(whisper, other.whisper, t)!,
+      primaryVeryHigh: Color.lerp(primaryVeryHigh, other.primaryVeryHigh, t)!,
     );
   }
 }
@@ -433,6 +468,7 @@ abstract final class AppTheme {
       love: palette.love,
       primaryHigh: palette.primaryHigh,
       whisper: palette.primaryMedium,
+      primaryVeryHigh: palette.primaryVeryHigh,
     );
     final materialBackdrop = opaqueColorOnCanvas(
       palette.secondary,
@@ -536,11 +572,13 @@ abstract final class AppTheme {
     double borderRadius = defaultDiscourseBorderRadius,
   }) {
     final resolvedColorScheme =
-        colorScheme ??
-        ColorScheme.fromSeed(seedColor: discourseBlue, brightness: brightness);
+        colorScheme ?? _fallbackColorScheme(brightness, shell, discourse);
 
     final modalShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(borderRadius),
+    );
+    final textTheme = _discourseTextTheme(
+      ThemeData(colorScheme: resolvedColorScheme).textTheme,
     );
     final buttonShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(borderRadius),
@@ -563,6 +601,7 @@ abstract final class AppTheme {
 
     return ThemeData(
       colorScheme: resolvedColorScheme,
+      textTheme: textTheme,
       // MaterialApp remains the common application shell, but Flutter's
       // adaptive widgets read CupertinoTheme on Apple platforms. Keep that
       // theme on the same Discourse palette rather than falling back to the
@@ -588,6 +627,13 @@ abstract final class AppTheme {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: shell.content,
+        titleTextStyle: textTheme.headlineSmall?.copyWith(
+          color: resolvedColorScheme.onSurface,
+          fontWeight: FontWeight.w700,
+        ),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: resolvedColorScheme.onSurface,
+        ),
         elevation: 24,
         shadowColor: modalShadow,
         surfaceTintColor: Colors.transparent,
@@ -612,6 +658,157 @@ abstract final class AppTheme {
         ),
         clipBehavior: Clip.antiAlias,
       ),
+    );
+  }
+
+  static TextTheme _discourseTextTheme(TextTheme base) => TextTheme(
+    displayLarge: _textStyle(
+      base.displayLarge,
+      DiscourseTypography.fontUp6,
+      DiscourseTypography.lineHeightMedium,
+    ),
+    displayMedium: _textStyle(
+      base.displayMedium,
+      DiscourseTypography.fontUp5,
+      DiscourseTypography.lineHeightMedium,
+    ),
+    displaySmall: _textStyle(
+      base.displaySmall,
+      DiscourseTypography.fontUp4,
+      DiscourseTypography.lineHeightMedium,
+    ),
+    headlineLarge: _textStyle(
+      base.headlineLarge,
+      DiscourseTypography.fontUp4,
+      DiscourseTypography.lineHeightMedium,
+    ),
+    headlineMedium: _textStyle(
+      base.headlineMedium,
+      DiscourseTypography.fontUp3,
+      DiscourseTypography.lineHeightMedium,
+    ),
+    headlineSmall: _textStyle(
+      base.headlineSmall,
+      DiscourseTypography.fontUp3,
+      DiscourseTypography.lineHeightMedium,
+    ),
+    titleLarge: _textStyle(
+      base.titleLarge,
+      DiscourseTypography.fontUp2,
+      DiscourseTypography.lineHeightMedium,
+    ),
+    titleMedium: _textStyle(
+      base.titleMedium,
+      DiscourseTypography.fontUp1,
+      DiscourseTypography.lineHeightMedium,
+    ),
+    titleSmall: _textStyle(
+      base.titleSmall,
+      DiscourseTypography.base,
+      DiscourseTypography.lineHeightMedium,
+    ),
+    bodyLarge: _textStyle(
+      base.bodyLarge,
+      DiscourseTypography.base,
+      DiscourseTypography.lineHeightLarge,
+    ),
+    bodyMedium: _textStyle(
+      base.bodyMedium,
+      DiscourseTypography.base,
+      DiscourseTypography.lineHeightLarge,
+    ),
+    bodySmall: _textStyle(
+      base.bodySmall,
+      DiscourseTypography.fontDown1,
+      DiscourseTypography.lineHeightLarge,
+    ),
+    labelLarge: _textStyle(
+      base.labelLarge,
+      DiscourseTypography.base,
+      DiscourseTypography.lineHeightMedium,
+    ),
+    labelMedium: _textStyle(
+      base.labelMedium,
+      DiscourseTypography.fontDown1,
+      DiscourseTypography.lineHeightLarge,
+    ),
+    labelSmall: _textStyle(
+      base.labelSmall,
+      DiscourseTypography.fontDown2,
+      DiscourseTypography.lineHeightMedium,
+    ),
+  );
+
+  static TextStyle? _textStyle(
+    TextStyle? base,
+    double fontSize,
+    double height,
+  ) => base?.copyWith(
+    fontSize: fontSize,
+    fontWeight: FontWeight.normal,
+    height: height,
+    letterSpacing: 0,
+  );
+
+  static ColorScheme _fallbackColorScheme(
+    Brightness brightness,
+    ShellColors shell,
+    DiscourseColors discourse,
+  ) {
+    final isDark = brightness == Brightness.dark;
+    final primary = isDark ? discourseDarkBlue : discourseBlue;
+    final quaternary = isDark
+        ? const Color(0xFFC14924)
+        : const Color(0xFFE45735);
+    final highlight = isDark
+        ? const Color(0xFFA87137)
+        : const Color(0xFFFFFF4D);
+    final danger = isDark ? const Color(0xFFE45735) : const Color(0xFFC80001);
+    final backdrop = opaqueColorOnCanvas(shell.content, brightness);
+
+    return ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: brightness,
+    ).copyWith(
+      primary: primary,
+      onPrimary: _readableOn(
+        primary,
+        shell.content,
+        backdrop: backdrop,
+        alternative: shell.railForeground,
+      ),
+      secondary: quaternary,
+      onSecondary: _readableOn(
+        quaternary,
+        shell.content,
+        backdrop: backdrop,
+        alternative: shell.railForeground,
+      ),
+      tertiary: highlight,
+      onTertiary: _readableOn(
+        highlight,
+        shell.railForeground,
+        backdrop: backdrop,
+        alternative: shell.content,
+      ),
+      error: danger,
+      onError: _readableOn(
+        danger,
+        shell.content,
+        backdrop: backdrop,
+        alternative: shell.railForeground,
+      ),
+      surface: shell.content,
+      onSurface: shell.railForeground,
+      onSurfaceVariant: discourse.primaryHigh,
+      surfaceContainerLowest: shell.content,
+      surfaceContainerLow: shell.sidebar,
+      surfaceContainer: shell.panel,
+      surfaceContainerHigh: shell.floating,
+      surfaceContainerHighest: shell.floating,
+      outline: shell.divider,
+      outlineVariant: shell.divider,
+      surfaceTint: primary,
     );
   }
 }

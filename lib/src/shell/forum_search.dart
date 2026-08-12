@@ -660,7 +660,8 @@ class _CompactSuggestionRow extends StatelessWidget {
                         suggestion.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.discourse.primaryHigh,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -669,8 +670,8 @@ class _CompactSuggestionRow extends StatelessWidget {
                           detail,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.discourse.primaryHigh,
                           ),
                         ),
                     ],
@@ -1137,17 +1138,19 @@ class _CompactSearchResultRow extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style:
+                            (result.kind == SearchResultKind.user
+                                    ? theme.textTheme.bodySmall
+                                    : theme.textTheme.bodyMedium)
+                                ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                       if (subtitle case final value?)
                         Text(
                           value,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.discourse.primaryHigh,
                           ),
                         ),
                     ],
@@ -1341,8 +1344,9 @@ class _SearchHitRow extends StatelessWidget {
                         siteUrl: siteUrl,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ),
@@ -1371,7 +1375,7 @@ class _SearchHitRow extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                      color: theme.discourse.primaryHigh,
                     ),
                   ),
                 ],
@@ -1452,7 +1456,7 @@ class _SearchTopicMetadata extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = theme.textTheme.labelSmall?.copyWith(
+    final style = theme.textTheme.labelMedium?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
     return Wrap(

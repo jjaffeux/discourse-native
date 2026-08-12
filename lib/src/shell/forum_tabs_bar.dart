@@ -421,7 +421,7 @@ class _ForumTabState extends State<_ForumTab> {
           color: badge.urgent
               ? theme.colorScheme.onError
               : theme.colorScheme.primary,
-          fontSize: 10,
+          fontSize: DiscourseTypography.fontDown3,
           fontWeight: FontWeight.w700,
           height: 1,
         ),
@@ -507,7 +507,8 @@ class _ForumTabState extends State<_ForumTab> {
                                     style: theme.textTheme.labelMedium
                                         ?.copyWith(
                                           color: foreground,
-                                          fontSize: 12,
+                                          fontSize:
+                                              DiscourseTypography.fontDown2,
                                           fontWeight: FontWeight.w400,
                                         ),
                                   ),

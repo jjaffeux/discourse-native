@@ -44,7 +44,7 @@ class GithubPullRequestOnebox extends StatelessWidget {
                 children: [
                   Text(
                     data.title,
-                    style: theme.textTheme.titleSmall?.copyWith(
+                    style: theme.textTheme.titleMedium?.copyWith(
                       color: theme.colorScheme.primary,
                     ),
                   ),
@@ -75,9 +75,9 @@ class _Branches extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = theme.textTheme.labelSmall
+    final style = theme.textTheme.labelMedium
         ?.merge(monospaceTextStyle)
-        .copyWith(fontSize: 12, color: theme.colorScheme.onSurfaceVariant);
+        .copyWith(color: theme.colorScheme.onSurfaceVariant);
 
     return Text.rich(
       TextSpan(

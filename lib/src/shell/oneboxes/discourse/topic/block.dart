@@ -47,8 +47,8 @@ class DiscourseTopicOnebox extends StatelessWidget {
       children: [
         Text(
           data.title,
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: theme.colorScheme.tertiary,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.primary,
           ),
         ),
         if (data.categories.isNotEmpty || data.tags.isNotEmpty) ...[
@@ -106,7 +106,7 @@ class DiscourseTopicOnebox extends StatelessWidget {
             data.description!,
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(color: muted),
+            style: theme.textTheme.bodyMedium?.copyWith(color: muted),
           ),
         ],
       ],

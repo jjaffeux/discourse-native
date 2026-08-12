@@ -333,7 +333,7 @@ class _CategoryCard extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
-                            style: theme.textTheme.titleMedium?.copyWith(
+                            style: theme.textTheme.titleLarge?.copyWith(
                               color: foreground,
                               fontWeight: FontWeight.w700,
                             ),
@@ -443,8 +443,8 @@ class _FeaturedTopicRow extends StatelessWidget {
                   siteUrl: siteUrl,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.primary,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
               ),

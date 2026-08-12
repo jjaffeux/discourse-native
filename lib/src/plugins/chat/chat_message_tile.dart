@@ -405,15 +405,18 @@ class _Header extends StatelessWidget {
         ],
         if (message.isWebhook) ...[
           const SizedBox(width: 4),
-          _Tag(label: 'bot', color: theme.colorScheme.tertiary),
+          _Tag(
+            label: 'bot',
+            color: theme.discourse.primaryVeryHigh,
+            isBot: true,
+          ),
         ],
         if (message.createdAt case final at?) ...[
           const SizedBox(width: 4),
           Text(
             relativeTime(at),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              height: 1.4,
-              color: theme.colorScheme.onSurfaceVariant,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.discourse.primaryHigh,
             ),
           ),
         ],
@@ -421,8 +424,8 @@ class _Header extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             '(edited)',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.discourse.whisper,
             ),
           ),
         ],
@@ -719,8 +722,8 @@ class _ThreadSummaryContents extends StatelessWidget {
                   if (thread.lastReplyAt case final at?)
                     Text(
                       relativeTime(at),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.discourse.primaryHigh,
                       ),
                     ),
                   const Spacer(),
@@ -870,22 +873,33 @@ List<ChatMessageAuthor> _visibleParticipants(
 
 /// The same shape `TopicView` gives a post's staff tag.
 class _Tag extends StatelessWidget {
-  const _Tag({required this.label, required this.color});
+  const _Tag({required this.label, required this.color, this.isBot = false});
 
   final String label;
   final Color color;
+  final bool isBot;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
+        color: isBot
+            ? Theme.of(context).colorScheme.surfaceContainerHigh
+            : color.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
+        isBot ? label.toUpperCase() : label,
+        style: isBot
+            ? TextStyle(
+                color: color,
+                fontSize: DiscourseTypography.fontDown3,
+                height: DiscourseTypography.lineHeightMedium,
+                fontWeight: FontWeight.w700,
+                letterSpacing: DiscourseTypography.fontDown3 * 0.1,
+              )
+            : Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
       ),
     );
   }
