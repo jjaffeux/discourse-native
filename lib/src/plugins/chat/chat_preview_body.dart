@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../foundation/diagnostic_errors.dart';
@@ -138,13 +140,16 @@ class _OptimisticGif extends StatelessWidget {
   final TextStyle? textStyle;
 
   static const double _maxWidth = 420;
-  static const double _maxHeight = 320;
+  static const double _maxHeight = 150;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final width = node.width.toDouble().clamp(1, _maxWidth).toDouble();
     final ratio = node.width / node.height;
+    final width = math.min(
+      node.width.toDouble().clamp(1, _maxWidth).toDouble(),
+      _maxHeight * ratio,
+    );
     final fallback = node.title.trim().isEmpty ? node.fallbackText : node.title;
 
     return Semantics(
@@ -152,37 +157,34 @@ class _OptimisticGif extends StatelessWidget {
       label: fallback,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: width, maxHeight: _maxHeight),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: ColoredBox(
-            color: theme.shell.floating,
-            child: AspectRatio(
-              aspectRatio: ratio,
-              child: Image.network(
-                node.url.toString(),
-                key: const ValueKey('chat-preview-gif'),
-                width: double.infinity,
-                fit: BoxFit.cover,
-                cacheWidth: imagePhysicalPixels(context, width),
-                errorBuilder: (context, error, stackTrace) {
-                  reportImageError(
-                    error,
-                    stackTrace,
-                    operation: 'chat.optimisticGif',
-                  );
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(
-                        fallback,
-                        key: const ValueKey('chat-preview-gif-fallback'),
-                        style: textStyle,
-                        textAlign: TextAlign.center,
-                      ),
+        child: ColoredBox(
+          color: theme.shell.floating,
+          child: AspectRatio(
+            aspectRatio: ratio,
+            child: Image.network(
+              node.url.toString(),
+              key: const ValueKey('chat-preview-gif'),
+              width: double.infinity,
+              fit: BoxFit.contain,
+              cacheWidth: imagePhysicalPixels(context, width),
+              errorBuilder: (context, error, stackTrace) {
+                reportImageError(
+                  error,
+                  stackTrace,
+                  operation: 'chat.optimisticGif',
+                );
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      fallback,
+                      key: const ValueKey('chat-preview-gif-fallback'),
+                      style: textStyle,
+                      textAlign: TextAlign.center,
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ),
