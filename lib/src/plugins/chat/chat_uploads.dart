@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -24,11 +25,11 @@ class ChatUploads extends StatelessWidget {
   final String siteUrl;
   final List<ChatUpload> uploads;
 
-  /// Never wider than this, however large the image was. Roughly what
-  /// Discourse's `max_image_width` gives a chat pane, and it keeps a portrait
-  /// photo from taking the whole screen.
+  /// Never wider than this, however large the image was. Core additionally
+  /// caps every chat image at 150px high, regardless of the site's general
+  /// upload dimensions.
   static const double maxWidth = 420;
-  static const double maxHeight = 320;
+  static const double maxHeight = 150;
 
   @override
   Widget build(BuildContext context) {
@@ -84,15 +85,18 @@ class _Image extends StatelessWidget {
 
     final ratio = upload.aspectRatio;
     // Shrink to fit, never blow a small image up — Discourse's own rule.
-    final width = switch (upload.width) {
+    final sourceWidth = switch (upload.width) {
       final w? when w > 0 => w.toDouble().clamp(0.0, ChatUploads.maxWidth),
       _ => ChatUploads.maxWidth,
     };
+    final width = ratio == null
+        ? sourceWidth
+        : math.min(sourceWidth, ChatUploads.maxHeight * ratio);
     void open() => _open(context, absolute);
 
     Widget picture = Image.network(
       absolute(upload.thumbnailUrl ?? upload.url),
-      fit: BoxFit.cover,
+      fit: BoxFit.contain,
       width: double.infinity,
       cacheWidth: imagePhysicalPixels(context, width),
       errorBuilder: (context, error, stackTrace) {
@@ -115,12 +119,9 @@ class _Image extends StatelessWidget {
             maxWidth: width,
             maxHeight: ChatUploads.maxHeight,
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Material(
-              color: _placeholder ?? theme.shell.floating,
-              child: InkWell(onTap: open, child: picture),
-            ),
+          child: Material(
+            color: _placeholder ?? theme.shell.floating,
+            child: InkWell(onTap: open, child: picture),
           ),
         ),
       ),

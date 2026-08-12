@@ -43,7 +43,7 @@ class ChatMessageTile extends StatelessWidget {
 
   /// Width of the avatar plus its gutter, so a chained row's body lines up with
   /// the one above it.
-  static const double gutter = 38;
+  static const double gutter = 42;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +78,10 @@ class _Tile extends StatelessWidget {
     final messageTextStyle = theme.textTheme.bodyLarge?.copyWith(height: 1.4);
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, chained ? 1 : 8, 16, 2),
+      key: ValueKey('chat-message-${message.id}'),
+      // Core's desktop chat uses 0.65rem above a new speaker and 0.15rem
+      // around a chained message, with 1rem at either side.
+      padding: EdgeInsets.fromLTRB(16, chained ? 2.4 : 10.4, 16, 2.4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -222,53 +225,51 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Row(
-        children: [
-          Flexible(
-            child: UserCardTarget(
-              username: message.author.username,
-              siteUrl: siteUrl,
-              child: Text(
-                message.author.displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  height: 1.4,
-                  fontWeight: FontWeight.w700,
-                ),
+    return Row(
+      children: [
+        Flexible(
+          child: UserCardTarget(
+            username: message.author.username,
+            siteUrl: siteUrl,
+            child: Text(
+              message.author.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                height: 1.4,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          if (message.author.isStaff) ...[
-            const SizedBox(width: 6),
-            _Tag(label: 'staff', color: theme.colorScheme.primary),
-          ],
-          if (message.isWebhook) ...[
-            const SizedBox(width: 6),
-            _Tag(label: 'bot', color: theme.colorScheme.tertiary),
-          ],
-          const SizedBox(width: 8),
-          if (message.createdAt case final at?)
-            Text(
-              relativeTime(at),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                height: 1.4,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          if (message.edited) ...[
-            const SizedBox(width: 6),
-            Text(
-              '(edited)',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
+        ),
+        if (message.author.isStaff) ...[
+          const SizedBox(width: 4),
+          _Tag(label: 'staff', color: theme.colorScheme.primary),
         ],
-      ),
+        if (message.isWebhook) ...[
+          const SizedBox(width: 4),
+          _Tag(label: 'bot', color: theme.colorScheme.tertiary),
+        ],
+        if (message.createdAt case final at?) ...[
+          const SizedBox(width: 4),
+          Text(
+            relativeTime(at),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              height: 1.4,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        if (message.edited) ...[
+          const SizedBox(width: 4),
+          Text(
+            '(edited)',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -334,20 +335,35 @@ class _Reactions extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      key: const ValueKey('chat-reactions'),
+      // Core gives the list 0.25em above it and every chip a 1px vertical
+      // margin. Keeping both parts preserves the space below the text and the
+      // breathing room after the final chip.
+      padding: const EdgeInsets.only(top: 5, bottom: 1),
       child: Wrap(
-        spacing: 4,
-        runSpacing: 4,
+        spacing: 3,
+        runSpacing: 2,
         children: [
           for (final reaction in reactions)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              key: ValueKey('chat-reaction-${reaction.emoji}'),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 7.25,
+                vertical: 3.5,
+              ),
               decoration: BoxDecoration(
-                color: theme.shell.floating,
-                borderRadius: BorderRadius.circular(10),
-                border: reaction.reacted
-                    ? Border.all(color: theme.colorScheme.primary)
-                    : null,
+                color: reaction.reacted
+                    ? Color.alphaBlend(
+                        theme.colorScheme.primary.withValues(alpha: 0.08),
+                        theme.colorScheme.surface,
+                      )
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: reaction.reacted
+                      ? theme.colorScheme.primary.withValues(alpha: 0.5)
+                      : theme.colorScheme.outline,
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -363,8 +379,9 @@ class _Reactions extends StatelessWidget {
                   Text(
                     '${reaction.count}',
                     style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
+                      color: reaction.reacted
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface,
                     ),
                   ),
                 ],

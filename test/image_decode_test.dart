@@ -109,7 +109,8 @@ void main() {
         .map((image) => image.image)
         .cast<ResizeImage>()
         .toList();
-    expect(providers.map((provider) => provider.width), [840, 200]);
+    expect(providers.map((provider) => provider.width), [600, 200]);
+    expect(tester.getSize(find.byType(Image).first).height, 150);
     expect(
       providers.map((provider) => provider.allowUpscaling),
       everyElement(isFalse),

@@ -9733,6 +9733,20 @@ void main() {
 
         // Two messages, one name: the second belongs to the first's run.
         expect(find.text('sam'), findsOneWidget);
+
+        expect(ChatMessageTile.gutter, 42);
+        expect(
+          tester
+              .widget<Padding>(find.byKey(const ValueKey('chat-message-1')))
+              .padding,
+          const EdgeInsets.fromLTRB(16, 10.4, 16, 2.4),
+        );
+        expect(
+          tester
+              .widget<Padding>(find.byKey(const ValueKey('chat-message-2')))
+              .padding,
+          const EdgeInsets.fromLTRB(16, 2.4, 16, 2.4),
+        );
       });
 
       testWidgets('shows the name again once somebody else speaks', (
@@ -9835,6 +9849,7 @@ void main() {
                   1,
                   reactions: const [
                     ChatReaction(emoji: 'heart', count: 3, reacted: true),
+                    ChatReaction(emoji: 'clap', count: 2),
                   ],
                 ),
               ]),
@@ -9845,6 +9860,32 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(find.text('3'), findsOneWidget);
+          expect(find.text('2'), findsOneWidget);
+
+          final mine = tester.widget<Container>(
+            find.byKey(const ValueKey('chat-reaction-heart')),
+          );
+          final other = tester.widget<Container>(
+            find.byKey(const ValueKey('chat-reaction-clap')),
+          );
+          final mineDecoration = mine.decoration! as BoxDecoration;
+          final otherDecoration = other.decoration! as BoxDecoration;
+          expect(
+            tester
+                .widget<Padding>(find.byKey(const ValueKey('chat-reactions')))
+                .padding,
+            const EdgeInsets.only(top: 5, bottom: 1),
+          );
+          expect(
+            mine.padding,
+            const EdgeInsets.symmetric(horizontal: 7.25, vertical: 3.5),
+          );
+          expect(mineDecoration.borderRadius, BorderRadius.circular(4));
+          expect(mineDecoration.border, isNotNull);
+          expect(mineDecoration.color, isNot(Colors.transparent));
+          expect(otherDecoration.borderRadius, BorderRadius.circular(4));
+          expect(otherDecoration.border, isNotNull);
+          expect(otherDecoration.color, Colors.transparent);
           // Reacting is a write, and this step makes none.
           expect(find.byType(ReactionPill), findsNothing);
         },

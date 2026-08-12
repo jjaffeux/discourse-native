@@ -190,6 +190,10 @@ void main() {
     expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
     expect(find.byKey(const ValueKey('chat-preview-gif')), findsOneWidget);
     expect(
+      tester.getSize(find.byKey(const ValueKey('chat-preview-gif'))).height,
+      150,
+    );
+    expect(
       find.byKey(const ValueKey('chat-preview-gif-fallback')),
       findsOneWidget,
     );
