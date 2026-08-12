@@ -3795,6 +3795,17 @@ void main() {
       expect(find.byKey(UserMenuButton.signUpKey), findsOneWidget);
       expect(find.byKey(UserMenuButton.signInKey), findsOneWidget);
       expect(find.byKey(UserMenuButton.avatarKey), findsNothing);
+
+      final signUp = tester.getRect(find.byKey(UserMenuButton.signUpKey));
+      final signUpLabel = tester.getRect(find.text('Sign up'));
+      expect(signUpLabel.left - signUp.left, 9);
+      expect(signUp.right - signUpLabel.right, 9);
+
+      final signIn = tester.getRect(find.byKey(UserMenuButton.signInKey));
+      final signInIcon = tester.getRect(find.dIcon(DIcons.user));
+      final signInLabel = tester.getRect(find.text('Sign in'));
+      expect(signInIcon.left - signIn.left, 9);
+      expect(signIn.right - signInLabel.right, 9);
     });
 
     testWidgets('sign-up opens the selected forum registration page', (

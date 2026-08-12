@@ -197,7 +197,6 @@ class _SignedOutAccountActions extends StatelessWidget {
     final height = size + 6;
     final style = FilledButton.styleFrom(
       minimumSize: Size(0, height),
-      padding: EdgeInsets.zero,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );
