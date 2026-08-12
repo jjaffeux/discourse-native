@@ -860,16 +860,15 @@ class _DestinationTileState extends State<_DestinationTile> {
                 ),
               if (badge.isVisible)
                 if (badge.dot)
-                  // Red for what is addressed to the reader, the quieter colour
-                  // for what merely happened near them.
                   Container(
+                    key: ValueKey('sidebar-badge-${destination.id}'),
                     width: 8,
                     height: 8,
                     margin: const EdgeInsets.symmetric(horizontal: 3),
                     decoration: BoxDecoration(
                       color: badge.urgent
-                          ? theme.colorScheme.error
-                          : theme.colorScheme.primary,
+                          ? theme.discourse.success
+                          : theme.discourse.unreadIndicator,
                       shape: BoxShape.circle,
                     ),
                   )

@@ -69,6 +69,7 @@ void main() {
     expect(palette.brightness, Brightness.light);
     expect(palette.borderRadius, defaultDiscourseBorderRadius);
     expect(palette.quaternary, const Color(0xFF0088CC));
+    expect(palette.accentSubtle, palette.tertiary);
     expect(palette.headerBackground, const Color(0xFFFFFFFF));
     expect(palette.primaryLow, const Color(0xFFFFFFFF));
     expect(palette.metadataColor, palette.primaryHigh);
@@ -161,5 +162,6 @@ ResolvedSitePalette palette({
     codeNumber: color(33),
     codeName: color(34),
     codeMeta: color(35),
+    accentSubtle: color(36),
   );
 }

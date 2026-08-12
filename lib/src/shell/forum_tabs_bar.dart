@@ -398,8 +398,8 @@ class _ForumTabState extends State<_ForumTab> {
         height: 8,
         decoration: BoxDecoration(
           color: badge.urgent
-              ? theme.colorScheme.error
-              : theme.colorScheme.primary,
+              ? theme.discourse.success
+              : theme.discourse.unreadIndicator,
           shape: BoxShape.circle,
         ),
       );

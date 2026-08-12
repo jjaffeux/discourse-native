@@ -171,6 +171,7 @@ void main() {
       expect(palette?.primary, const Color(0xFF111111));
       expect(palette?.secondary, const Color(0xFFFFFFFF));
       expect(palette?.tertiary, const Color(0xFF0088CC));
+      expect(palette?.accentSubtle, const Color(0xFF66CCFF));
       expect(palette?.metadataColor, const Color(0xFF666666));
       expect(palette?.contentBorderColor, const Color(0xFFE1E1E1));
       expect(palette?.selectedForeground, const Color(0xFF0A0A0A));
@@ -178,6 +179,14 @@ void main() {
       expect(palette?.codeNumber, const Color(0xFFAA11AA));
       expect(palette?.codeName, const Color(0xFFAA11AA));
       expect(palette?.codeMeta, const Color(0xFF113355));
+    });
+
+    test('uses the unmodified accent for the dark unread token', () {
+      final palette = parseSiteAppearanceStylesheet(
+        _stylesheet({'--scheme-type': 'dark'}),
+      );
+
+      expect(palette?.accentSubtle, palette?.tertiary);
     });
 
     test('applies later global root declarations but not scoped rules', () {
@@ -465,6 +474,7 @@ String _stylesheet([Map<String, String> overrides = const {}]) {
     '--primary': '#111111',
     '--secondary': '#FFFFFF',
     '--tertiary': '#0088CC',
+    '--tertiary-600': '#66CCFF',
     '--quaternary': '#E45735',
     '--header_background': '#FFFFFF',
     '--header_primary': '#333333',
