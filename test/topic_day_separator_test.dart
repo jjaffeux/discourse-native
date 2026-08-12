@@ -40,7 +40,8 @@ void main() {
       ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
     );
 
-    await tester.pumpWidget(_topicView(controller));
+    final theme = AppTheme.dark;
+    await tester.pumpWidget(_topicView(controller, theme: theme));
     await tester.pumpAndSettle();
 
     expect(find.byKey(ValueKey(('topic-day', firstDay))), findsOneWidget);
@@ -62,6 +63,18 @@ void main() {
     );
     expect(floatingFirst, findsOneWidget);
     expect(tester.getSize(floatingFirst).height, 44);
+    final floatingDecoration = tester
+        .widgetList<Container>(
+          find.descendant(of: floatingFirst, matching: find.byType(Container)),
+        )
+        .map((container) => container.decoration)
+        .whereType<BoxDecoration>()
+        .single;
+    expect(floatingDecoration.color, theme.colorScheme.surfaceContainerLow);
+    expect(
+      floatingDecoration.border,
+      Border.all(color: theme.colorScheme.surfaceContainerHigh),
+    );
     final floatingFirstSemantics = find.bySemanticsLabel(
       'Go to start of 2 January 2020',
     );
@@ -170,10 +183,10 @@ ShellController _controller(DiscourseInstance site, {FakeDiscourseApi? api}) {
   );
 }
 
-Widget _topicView(ShellController controller) => ShellScope(
+Widget _topicView(ShellController controller, {ThemeData? theme}) => ShellScope(
   controller: controller,
   child: MaterialApp(
-    theme: AppTheme.light,
+    theme: theme ?? AppTheme.light,
     home: const Scaffold(body: TopicView()),
   ),
 );

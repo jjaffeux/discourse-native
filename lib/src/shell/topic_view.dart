@@ -1493,7 +1493,11 @@ class _TopicDaySeparator extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final label = _label;
-    final background = floating ? theme.shell.floating : theme.shell.content;
+    // Core's pinned date uses primary-50 against a primary-200 border. The
+    // matching Material roles preserve that contrast for each site palette.
+    final background = floating
+        ? theme.colorScheme.surfaceContainerLow
+        : theme.shell.content;
 
     return SizedBox(
       height: height,
@@ -1530,7 +1534,7 @@ class _TopicDaySeparator extends StatelessWidget {
                           color: background,
                           border: Border.all(
                             color: floating
-                                ? theme.shell.divider
+                                ? theme.colorScheme.surfaceContainerHigh
                                 : Colors.transparent,
                           ),
                           borderRadius: BorderRadius.circular(4),
