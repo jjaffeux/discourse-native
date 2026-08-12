@@ -837,8 +837,6 @@ class _ResizableSidebarState extends State<_ResizableSidebar> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final divider = _focused ? theme.colorScheme.primary : theme.shell.divider;
     final increasedWidth = (widget.width + _keyboardStep).clamp(
       AdaptiveShell.sidebarMinWidth,
       AdaptiveShell.sidebarMaxWidth,
@@ -882,16 +880,7 @@ class _ResizableSidebarState extends State<_ResizableSidebar> {
                       widget.onResize(widget.width + details.delta.dx),
                   onHorizontalDragEnd: (_) => widget.onResizeEnd(),
                   onHorizontalDragCancel: widget.onResizeEnd,
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: ColoredBox(
-                      color: divider,
-                      child: SizedBox(
-                        width: _focused ? 3 : 1,
-                        height: double.infinity,
-                      ),
-                    ),
-                  ),
+                  child: const SizedBox.expand(),
                 ),
               ),
             ),

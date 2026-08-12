@@ -60,6 +60,10 @@ void main() {
 
     final handle = find.byKey(const ValueKey('sidebar-resize-handle'));
     expect(tester.getSize(handle).width, 16);
+    expect(
+      find.descendant(of: handle, matching: find.byType(ColoredBox)),
+      findsNothing,
+    );
     final data = tester.getSemantics(handle).getSemanticsData();
     expect(data.label, 'Resize sidebar');
     expect(data.value, '240 pixels wide');
