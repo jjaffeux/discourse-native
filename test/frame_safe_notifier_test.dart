@@ -35,6 +35,34 @@ void main() {
     expect(notifications, 1);
   });
 
+  testWidgets('does not dirty an ancestor during a descendant build', (
+    tester,
+  ) async {
+    final notifier = FrameSafeValueNotifier(0);
+    addTearDown(notifier.dispose);
+    var builds = 0;
+
+    await tester.pumpWidget(
+      ListenableBuilder(
+        listenable: notifier,
+        builder: (context, child) {
+          builds += 1;
+          return Builder(
+            builder: (context) {
+              if (notifier.value == 0) notifier.value = 1;
+              return const SizedBox.shrink();
+            },
+          );
+        },
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(notifier.value, 1);
+    expect(builds, 2);
+  });
+
   testWidgets('drops a deferred notification after disposal', (tester) async {
     final notifier = FrameSafeValueNotifier(0);
     var notifications = 0;
