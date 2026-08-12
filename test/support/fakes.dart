@@ -453,8 +453,10 @@ class FakeDiscourseApi implements DiscourseApi {
     this.topicTagSearches = const {},
     this.serverDrafts = const {},
     this.userDraftList = const [],
+    this.userDraftGate,
     this.nextPages = const {},
     this.gate,
+    this.feedGates = const {},
     this.topics = const {},
     this.topicGate,
     this.postsById = const {},
@@ -588,6 +590,7 @@ class FakeDiscourseApi implements DiscourseApi {
   final Map<String, TopicTagSearch> topicTagSearches;
   final Map<String, ComposerDraft> serverDrafts;
   final List<UserDraft> userDraftList;
+  final Completer<void>? userDraftGate;
   final List<({String siteUrl, int offset, int limit})> userDraftRequests = [];
   final List<({String siteUrl, String draftKey, int sequence})>
   userDraftsDeleted = [];
@@ -598,6 +601,10 @@ class FakeDiscourseApi implements DiscourseApi {
   /// When set, [topicList] waits on it — lets a test control exactly when a
   /// response lands.
   final Completer<void>? gate;
+
+  /// Per-path alternative to [gate], for holding one destination without
+  /// stalling the initial topic list used to navigate to it.
+  final Map<String, Completer<void>> feedGates;
 
   /// Returned by [topic], keyed by topic id.
   final Map<int, TopicPayload> topics;
@@ -1098,6 +1105,7 @@ class FakeDiscourseApi implements DiscourseApi {
   }) async {
     feedPaths.add(path);
     if (gate != null) await gate!.future;
+    await feedGates[path]?.future;
     final topics = feeds[path];
     if (topics == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
@@ -2079,6 +2087,7 @@ class FakeDiscourseApi implements DiscourseApi {
     String? clientId,
   }) async {
     userDraftRequests.add((siteUrl: siteUrl, offset: offset, limit: limit));
+    await userDraftGate?.future;
     return userDraftList.skip(offset).take(limit).toList(growable: false);
   }
 

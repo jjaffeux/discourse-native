@@ -11,6 +11,7 @@ import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
 import 'adaptive_dialog_action.dart';
 import 'external_link.dart';
+import 'loading_skeleton.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -109,7 +110,9 @@ class _DraftListViewState extends State<DraftListView> {
 
         final feed = controller.draftList.feedFor(widget.siteUrl);
         if (!feed.loaded && feed.drafts.isEmpty) {
-          return const Center(child: CircularProgressIndicator.adaptive());
+          return const _DraftListLoadingSkeleton(
+            key: ValueKey('draft-list-loading-skeleton'),
+          );
         }
         if (feed.isEmpty) {
           return const _DraftState(
@@ -138,6 +141,140 @@ class _DraftListViewState extends State<DraftListView> {
       },
     );
   }
+}
+
+/// A faithful outline of the full drafts list while its first page arrives.
+class _DraftListLoadingSkeleton extends StatelessWidget {
+  const _DraftListLoadingSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return LoadingSkeleton(
+      semanticsLabel: 'Loading drafts',
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topCenter,
+          maxHeight: double.infinity,
+          child: SizedBox(
+            width: double.infinity,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _DraftSkeletonRow(
+                        titleWidth: 0.42,
+                        excerptWidths: [0.88, 0.62],
+                      ),
+                      Divider(height: 1),
+                      _DraftSkeletonRow(
+                        titleWidth: 0.58,
+                        excerptWidths: [0.72, 0.46],
+                      ),
+                      Divider(height: 1),
+                      Opacity(
+                        opacity: 0.72,
+                        child: _DraftSkeletonRow(
+                          titleWidth: 0.34,
+                          excerptWidths: [0.82, 0.54],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DraftSkeletonRow extends StatelessWidget {
+  const _DraftSkeletonRow({
+    required this.titleWidth,
+    required this.excerptWidths,
+  });
+
+  final double titleWidth;
+  final List<double> excerptWidths;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 520;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            compact ? 8 : 16,
+            compact ? 14 : 20,
+            compact ? 8 : 12,
+            compact ? 14 : 20,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _DraftSkeletonLine(widthFactor: titleWidth, height: 11),
+                    const SizedBox(height: 8),
+                    const LoadingSkeletonBlock(width: 112, height: 8),
+                    const SizedBox(height: 18),
+                    for (
+                      var index = 0;
+                      index < excerptWidths.length;
+                      index++
+                    ) ...[
+                      _DraftSkeletonLine(
+                        widthFactor: excerptWidths[index],
+                        height: 10,
+                      ),
+                      if (index < excerptWidths.length - 1)
+                        const SizedBox(height: 8),
+                    ],
+                  ],
+                ),
+              ),
+              SizedBox(width: compact ? 8 : 16),
+              const LoadingSkeletonBlock(
+                width: 44,
+                height: 44,
+                borderRadius: BorderRadius.all(Radius.circular(6)),
+              ),
+              SizedBox(width: compact ? 6 : 10),
+              const LoadingSkeletonBlock(
+                width: 44,
+                height: 44,
+                borderRadius: BorderRadius.all(Radius.circular(6)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DraftSkeletonLine extends StatelessWidget {
+  const _DraftSkeletonLine({required this.widthFactor, required this.height});
+
+  final double widthFactor;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.centerStart,
+    child: FractionallySizedBox(
+      widthFactor: widthFactor,
+      child: LoadingSkeletonBlock(height: height),
+    ),
+  );
 }
 
 class _Drafts extends StatelessWidget {

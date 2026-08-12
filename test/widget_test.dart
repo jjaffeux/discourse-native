@@ -185,6 +185,22 @@ List<String> watchBrowser(WidgetTester tester) {
   return launched;
 }
 
+/// Catches text that would have been handed to the platform clipboard.
+List<String> watchClipboard(WidgetTester tester) {
+  final copied = <String>[];
+  final messenger = tester.binding.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method == 'Clipboard.setData') {
+      copied.add((call.arguments as Map)['text'] as String);
+    }
+    return null;
+  });
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+  );
+  return copied;
+}
+
 final class _GatedUserCardApi extends FakeDiscourseApi {
   _GatedUserCardApi({
     required this.cardGate,
@@ -337,7 +353,6 @@ void main() {
           .first;
       expect(field.top, greaterThanOrEqualTo(title.bottom));
       expect(searchTarget, findsOneWidget);
-      expect(tester.getSize(searchTarget).height, greaterThanOrEqualTo(44));
       expect(tester.getSize(searchTarget).width, greaterThanOrEqualTo(44));
       expect(find.byType(InstanceSidebar), findsOneWidget);
 
@@ -941,7 +956,7 @@ void main() {
       final target = find
           .ancestor(of: messages, matching: find.byType(InkWell))
           .first;
-      expect(tester.getSize(target).height, greaterThanOrEqualTo(44));
+      expect(tester.getSize(target).height, closeTo(38.4, 0.01));
       expect(tester.getSize(target).width, greaterThanOrEqualTo(44));
 
       await tester.tap(target);
@@ -1154,7 +1169,7 @@ void main() {
         .first;
     expect(
       tester.getRect(projectsHeader).top - tester.getRect(filterTile).bottom,
-      lessThanOrEqualTo(2),
+      closeTo(9, 0.01),
     );
     final roadmapTile = find
         .ancestor(
@@ -1167,8 +1182,10 @@ void main() {
         .first;
     expect(
       tester.getRect(categoriesHeader).top - tester.getRect(roadmapTile).bottom,
-      lessThanOrEqualTo(2),
+      closeTo(9, 0.01),
     );
+    expect(tester.getSize(projectsHeader).height, closeTo(35.2, 0.01));
+    expect(tester.getSize(roadmapTile).height, closeTo(35.2, 0.01));
 
     await tester.tap(find.byTooltip('Collapse Projects'));
     await tester.pumpAndSettle();
@@ -1681,11 +1698,13 @@ void main() {
     final topicsTile = find
         .ancestor(of: topics, matching: find.byType(InkWell))
         .first;
-    final sidebarTop = tester.getTopLeft(find.byType(InstanceSidebar)).dy;
-    expect(
-      tester.getTopLeft(topicsTile).dy - sidebarTop - shellHeaderHeight,
-      greaterThanOrEqualTo(8),
-    );
+    final sidebar = tester.getRect(find.byType(InstanceSidebar));
+    final tile = tester.getRect(topicsTile);
+    expect(tile.top - sidebar.top - shellHeaderHeight, closeTo(16, 0.01));
+    expect(tile.left - sidebar.left, closeTo(8, 0.01));
+    expect(sidebar.right - tile.right, closeTo(8, 0.01));
+    expect(tile.height, closeTo(35.2, 0.01));
+    expect(tester.getRect(topics).left - sidebar.left, closeTo(44, 0.01));
   });
 
   testWidgets('sidebar section header controls align and highlight on hover', (
@@ -1740,10 +1759,10 @@ void main() {
     expect(api.pluginReadPaths, ['/resenha/rooms.json']);
     expect(tester.getCenter(action).dx, lessThan(tester.getCenter(chevron).dx));
     expect(tester.getSize(action), tester.getSize(chevron));
-    expect(tester.getSize(action), const Size.square(44));
+    expect(tester.getSize(action), const Size.square(24));
     final roomAction = find.byTooltip('Open Conf Room 1');
     expect(roomAction, findsOneWidget);
-    expect(tester.getSize(roomAction), const Size.square(44));
+    expect(tester.getSize(roomAction), const Size(24, 35.2));
 
     final title = find.text('VOICE ROOMS');
     final theme = Theme.of(tester.element(title));
@@ -2678,6 +2697,39 @@ void main() {
 
       expect(api.feedPaths, contains(inbox));
       expect(find.text('A private message'), findsOneWidget);
+    });
+
+    testWidgets('messages uses a topic-row skeleton while loading', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': latest,
+          inbox: [const Topic(id: 9, title: 'A private message', slug: 'a-pm')],
+        },
+        feedGates: {inbox: gate},
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(userMenu);
+      await tester.pumpAndSettle();
+      final semantics = tester.ensureSemantics();
+      await tester.tap(sidebarDestination('Messages'));
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('topic-list-loading-skeleton')),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Loading messages'), findsOneWidget);
+      expect(activityIndicators, findsNothing);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.text('A private message'), findsOneWidget);
+      semantics.dispose();
     });
 
     testWidgets(
@@ -6467,6 +6519,85 @@ void main() {
       expect(find.byTooltip('Reply to this post'), findsNothing);
     });
 
+    testWidgets('copy link writes core post URLs to the clipboard', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                username: 'sam',
+                cooked: '<p>First post body</p>',
+              ),
+              Post(
+                id: 2,
+                postNumber: 2,
+                username: 'sam',
+                cooked: '<p>Second post body</p>',
+              ),
+            ],
+            stream: const [1, 2],
+            postsCount: 2,
+            canCreatePost: true,
+          ),
+        },
+      );
+      final copied = watchClipboard(tester);
+
+      await openTopic(tester, api);
+      final gesture = await hoverPost(tester);
+
+      await tester.tap(find.byTooltip('Copy a link to this post to clipboard'));
+      await tester.pumpAndSettle();
+
+      expect(copied, [
+        'https://meta.discourse.org/t/a-real-topic/7?u=joffreyj',
+      ]);
+      expect(find.text('Link copied!'), findsOneWidget);
+
+      await gesture.moveTo(tester.getCenter(renderedText('Second post body')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Copy a link to this post to clipboard'));
+      await tester.pumpAndSettle();
+
+      expect(copied, [
+        'https://meta.discourse.org/t/a-real-topic/7?u=joffreyj',
+        'https://meta.discourse.org/t/a-real-topic/7/2?u=joffreyj',
+      ]);
+    });
+
+    testWidgets('copy link is available to anonymous readers', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(canCreatePost: false)},
+      );
+      final copied = watchClipboard(tester);
+
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Discourse Meta'),
+        ],
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+      await hoverPost(tester);
+
+      expect(find.byTooltip('Reply to this post'), findsNothing);
+      await tester.tap(find.byTooltip('Copy a link to this post to clipboard'));
+      await tester.pumpAndSettle();
+
+      expect(copied, ['https://meta.discourse.org/t/a-real-topic/7']);
+    });
+
     testWidgets('the menu follows its post, and stays in the viewport', (
       tester,
     ) async {
@@ -9917,29 +10048,29 @@ void main() {
         );
       });
 
-      testWidgets('draws the other person’s face on a one-to-one conversation', (
-        tester,
-      ) async {
-        await pumpChat(tester, direct: [dm(12)]);
+      testWidgets(
+        'draws the other person’s face on a one-to-one conversation',
+        (tester) async {
+          await pumpChat(tester, direct: [dm(12)]);
 
-        final avatar = find.descendant(
-          of: find.byType(InstanceSidebar),
-          matching: find.byType(AvatarImage),
-        );
-        expect(avatar, findsOneWidget);
-        expect(
-          find.descendant(
+          final avatar = find.descendant(
             of: find.byType(InstanceSidebar),
-            matching: find.byType(ChatUserAvatar),
-          ),
-          findsOneWidget,
-        );
-        // Round, not an ellipse: the row's prefix slot is a fixed width, and a
-        // fixed width is a tight constraint that a SizedBox inside it cannot
-        // shrink below. See the message tile's own version of this.
-        final size = tester.getSize(avatar);
-        expect(size, const Size.square(24));
-      });
+            matching: find.byType(AvatarImage),
+          );
+          expect(avatar, findsOneWidget);
+          expect(
+            find.descendant(
+              of: find.byType(InstanceSidebar),
+              matching: find.byType(ChatUserAvatar),
+            ),
+            findsOneWidget,
+          );
+          // Core leaves one pixel around each side of a round avatar inside its
+          // 24-pixel prefix slot.
+          final size = tester.getSize(avatar);
+          expect(size, const Size.square(22));
+        },
+      );
 
       testWidgets('rings an online direct-message user in the sidebar', (
         tester,
@@ -9955,7 +10086,7 @@ void main() {
           matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
         );
         expect(ring, findsOneWidget);
-        expect(tester.getSize(ring), const Size.square(24));
+        expect(tester.getSize(ring), const Size.square(22));
 
         final tracker = FakeSiteTracker.built.single;
         tracker.deliverPluginMessage('/presence/chat/online', {

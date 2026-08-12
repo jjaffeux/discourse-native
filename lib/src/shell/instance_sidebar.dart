@@ -66,6 +66,33 @@ final class _SidebarSnapshot {
   );
 }
 
+/// Native equivalents of the spacing tokens in core's sidebar stylesheets.
+///
+/// Keep these values in sync with `sidebar.scss`, `sidebar-section.scss`, and
+/// `sidebar-section-link.scss` in discourse/discourse.
+abstract final class _SidebarSpacing {
+  static const double compactBreakpoint = 640;
+  static const double wrapperVerticalPadding = 16;
+  static const double wrapperHorizontalPadding = 8;
+  static const double sectionVerticalPadding = 4;
+  static const double rowHorizontalPadding = 4;
+  static const double rowGap = 2;
+  static const double prefixWidth = 24;
+  static const double prefixGap = 8;
+  static const double desktopRowHeight = 35.2;
+  static const double compactRowHeight = 38.4;
+  static const double sectionHeaderFontSize = 12.1264;
+
+  static bool isCompact(BuildContext context) =>
+      MediaQuery.sizeOf(context).width <= compactBreakpoint;
+
+  static double rowHeight(BuildContext context) =>
+      isCompact(context) ? compactRowHeight : desktopRowHeight;
+
+  static double sectionPadding(BuildContext context) =>
+      isCompact(context) ? 0 : sectionVerticalPadding;
+}
+
 /// Navigation within the selected instance. On compact layouts this fills the
 /// whole area next to the rail; on wider ones it sits between the rail and the
 /// main content.
@@ -129,6 +156,11 @@ class InstanceSidebar extends StatelessWidget {
                   ),
                   child: CustomScrollView(
                     slivers: [
+                      const SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: _SidebarSpacing.wrapperVerticalPadding,
+                        ),
+                      ),
                       ListenableBuilder(
                         listenable: Listenable.merge([
                           controller.accountActivity.totalsListenable,
@@ -136,11 +168,13 @@ class InstanceSidebar extends StatelessWidget {
                         ]),
                         builder: (context, _) => SliverMainAxisGroup(
                           slivers: [
-                            for (final section in sidebar.sections)
+                            for (final (index, section)
+                                in sidebar.sections.indexed)
                               _Section(
                                 key: ValueKey((sidebar.siteUrl, section.id)),
                                 siteUrl: sidebar.siteUrl!,
                                 section: section,
+                                first: index == 0,
                                 store: sectionStore,
                                 selectedId: sidebar.destinationId,
                                 badgeFor: controller.sidebarBadgeFor,
@@ -167,25 +201,35 @@ class InstanceSidebar extends StatelessWidget {
                         listenable: Listenable.merge(
                           pluginRegistry.sidebarListenables(context),
                         ),
-                        builder: (context, _) => SliverMainAxisGroup(
-                          slivers: [
-                            // Optional features contribute below the routes every
-                            // site has, in the order `sitePlugins` lists them.
-                            for (final section
-                                in pluginRegistry.sidebarSections(context))
-                              _Section(
-                                key: ValueKey((sidebar.siteUrl, section.id)),
-                                siteUrl: sidebar.siteUrl!,
-                                section: section,
-                                store: sectionStore,
-                                selectedId: sidebar.destinationId,
-                                badgeFor: controller.sidebarBadgeFor,
-                                onSelect: controller.selectDestination,
-                              ),
-                          ],
+                        builder: (context, _) {
+                          final sections = pluginRegistry.sidebarSections(
+                            context,
+                          );
+                          return SliverMainAxisGroup(
+                            slivers: [
+                              // Optional features contribute below the routes
+                              // every site has, in the order `sitePlugins`
+                              // lists them.
+                              for (final (index, section) in sections.indexed)
+                                _Section(
+                                  key: ValueKey((sidebar.siteUrl, section.id)),
+                                  siteUrl: sidebar.siteUrl!,
+                                  section: section,
+                                  first: sidebar.sections.isEmpty && index == 0,
+                                  store: sectionStore,
+                                  selectedId: sidebar.destinationId,
+                                  badgeFor: controller.sidebarBadgeFor,
+                                  onSelect: controller.selectDestination,
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: _SidebarSpacing.wrapperVerticalPadding,
                         ),
                       ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 8)),
                     ],
                   ),
                 ),
@@ -201,16 +245,13 @@ class InstanceSidebar extends StatelessWidget {
 class _SidebarSearchRow extends StatelessWidget {
   const _SidebarSearchRow();
 
-  static const double _minimumTargetExtent = 44;
   static const EdgeInsets _padding = EdgeInsets.fromLTRB(8, 6, 8, 5);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      // MenuAnchor's anchor is one logical pixel shorter than its incoming
-      // constraint, so reserve that pixel outside the 44-pixel hit region.
-      height: _minimumTargetExtent + _padding.vertical + 1,
+      height: 44,
       padding: _padding,
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.shell.divider)),
@@ -308,6 +349,7 @@ class _Section extends StatefulWidget {
     super.key,
     required this.siteUrl,
     required this.section,
+    required this.first,
     required this.store,
     required this.selectedId,
     required this.badgeFor,
@@ -316,6 +358,7 @@ class _Section extends StatefulWidget {
 
   final String siteUrl;
   final SidebarSection section;
+  final bool first;
   final SidebarSectionStore store;
   final String? selectedId;
   final int Function(String destinationId) badgeFor;
@@ -374,6 +417,8 @@ class _SectionState extends State<_Section> {
   @override
   Widget build(BuildContext context) {
     final section = widget.section;
+    final rowHeight = _SidebarSpacing.rowHeight(context);
+    final sectionPadding = _SidebarSpacing.sectionPadding(context);
     final rows = <({SidebarDestination destination, bool child})>[];
     if (!section.collapsible || !_collapsed) {
       for (final destination in section.destinations) {
@@ -388,22 +433,41 @@ class _SectionState extends State<_Section> {
         rows[index].destination.id: index,
     };
 
+    final bottomSectionPadding = rows.isEmpty
+        ? sectionPadding
+        : sectionPadding > _SidebarSpacing.rowGap
+        ? sectionPadding - _SidebarSpacing.rowGap
+        : 0.0;
+
     // Section shells remain eager so their persisted collapse state is restored
     // before scrolling. Only the fixed-height destination rows are lazy.
     return SliverMainAxisGroup(
       slivers: [
+        if (!widget.first && sectionPadding > 0) ...[
+          SliverToBoxAdapter(
+            child: Container(
+              height: 1,
+              margin: const EdgeInsets.symmetric(
+                horizontal: _SidebarSpacing.wrapperHorizontalPadding,
+              ),
+              color: Theme.of(context).shell.divider,
+            ),
+          ),
+          SliverToBoxAdapter(child: SizedBox(height: sectionPadding)),
+        ],
         SliverToBoxAdapter(
           child: section.showHeader
               ? _SectionHeader(
                   section: section,
                   collapsed: _collapsed,
                   onToggle: section.collapsible ? _toggle : null,
+                  rowHeight: rowHeight,
                 )
-              : const SizedBox(height: 8),
+              : const SizedBox.shrink(),
         ),
         if (rows.isNotEmpty)
           SliverFixedExtentList.builder(
-            itemExtent: _DestinationTile.extent,
+            itemExtent: rowHeight + _SidebarSpacing.rowGap,
             itemCount: rows.length,
             // Separate section delegates would otherwise restart at zero.
             addSemanticIndexes: false,
@@ -417,12 +481,16 @@ class _SectionState extends State<_Section> {
                 destination: destination,
                 selected: !row.child && destination.id == widget.selectedId,
                 badgeCount: row.child ? 0 : widget.badgeFor(destination.id),
+                rowHeight: rowHeight,
+                gapAfter: _SidebarSpacing.rowGap,
                 onTap:
                     destination.onTap ??
                     (row.child ? () {} : () => widget.onSelect(destination)),
               );
             },
           ),
+        if (bottomSectionPadding > 0)
+          SliverToBoxAdapter(child: SizedBox(height: bottomSectionPadding)),
       ],
     );
   }
@@ -433,18 +501,20 @@ class _SectionHeader extends StatefulWidget {
     required this.section,
     required this.collapsed,
     required this.onToggle,
+    required this.rowHeight,
   });
 
   final SidebarSection section;
   final bool collapsed;
   final VoidCallback? onToggle;
+  final double rowHeight;
 
   @override
   State<_SectionHeader> createState() => _SectionHeaderState();
 }
 
 class _SectionHeaderState extends State<_SectionHeader> {
-  static const double _minimumActionTarget = 44;
+  static const double _actionExtent = 24;
 
   bool _titleHovered = false;
   bool _chevronHovered = false;
@@ -475,6 +545,7 @@ class _SectionHeaderState extends State<_SectionHeader> {
     final toggle = widget.onToggle;
     final title = _SectionTitle(
       section: section,
+      rowHeight: widget.rowHeight,
       color: _titleHovered
           ? theme.colorScheme.onSurface
           : theme.colorScheme.onSurfaceVariant,
@@ -488,7 +559,11 @@ class _SectionHeaderState extends State<_SectionHeader> {
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+      padding: const EdgeInsets.symmetric(
+        horizontal:
+            _SidebarSpacing.wrapperHorizontalPadding +
+            _SidebarSpacing.rowHorizontalPadding,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -505,8 +580,8 @@ class _SectionHeaderState extends State<_SectionHeader> {
           if (section.onAction case final action?)
             IconButton(
               constraints: const BoxConstraints.tightFor(
-                width: _minimumActionTarget,
-                height: _minimumActionTarget,
+                width: _actionExtent,
+                height: _actionExtent,
               ),
               padding: EdgeInsets.zero,
               style: iconStyle,
@@ -526,7 +601,7 @@ class _SectionHeaderState extends State<_SectionHeader> {
                   onHover: _setChevronHovered,
                   onTap: toggle,
                   child: SizedBox.square(
-                    dimension: _minimumActionTarget,
+                    dimension: _actionExtent,
                     child: Center(
                       child: DIcon(
                         widget.collapsed
@@ -549,9 +624,14 @@ class _SectionHeaderState extends State<_SectionHeader> {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.section, required this.color});
+  const _SectionTitle({
+    required this.section,
+    required this.rowHeight,
+    required this.color,
+  });
 
   final SidebarSection section;
+  final double rowHeight;
   final Color color;
 
   @override
@@ -559,13 +639,14 @@ class _SectionTitle extends StatelessWidget {
     final theme = Theme.of(context);
 
     return SizedBox(
-      height: _SectionHeaderState._minimumActionTarget,
+      height: rowHeight,
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
           section.title.toUpperCase(),
           style: theme.textTheme.labelSmall?.copyWith(
             color: color,
+            fontSize: _SidebarSpacing.sectionHeaderFontSize,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.6,
           ),
@@ -581,17 +662,17 @@ class _DestinationTile extends StatefulWidget {
     required this.destination,
     required this.selected,
     required this.badgeCount,
+    required this.rowHeight,
+    required this.gapAfter,
     required this.onTap,
   });
 
   final SidebarDestination destination;
   final bool selected;
   final int badgeCount;
+  final double rowHeight;
+  final double gapAfter;
   final VoidCallback onTap;
-
-  // Keep the one-pixel row spacing outside the minimum interactive target.
-  static const double _minimumTargetExtent = 44;
-  static const double extent = _minimumTargetExtent + 2;
 
   @override
   State<_DestinationTile> createState() => _DestinationTileState();
@@ -624,17 +705,17 @@ class _DestinationTileState extends State<_DestinationTile> {
           siteUrl: siteUrl,
           userId: userId,
           url: url,
-          size: 24,
+          size: 22,
           fallback: ColoredBox(color: theme.shell.floating),
         );
       }
       return ClipOval(
         child: SizedBox(
-          width: 24,
-          height: 24,
+          width: 22,
+          height: 22,
           child: AvatarImage(
             url: url,
-            size: 24,
+            size: 22,
             fallback: ColoredBox(color: theme.shell.floating),
           ),
         ),
@@ -675,7 +756,7 @@ class _DestinationTileState extends State<_DestinationTile> {
 
     return DIcon(
       destination.icon,
-      size: 18,
+      size: 16,
       color: destination.iconColor ?? foreground,
     );
   }
@@ -713,34 +794,36 @@ class _DestinationTileState extends State<_DestinationTile> {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 8.0 + destination.indent * 20,
-        right: 8,
-        top: 1,
-        bottom: 1,
+        left:
+            _SidebarSpacing.wrapperHorizontalPadding + destination.indent * 20,
+        right: _SidebarSpacing.wrapperHorizontalPadding,
+        bottom: widget.gapAfter,
       ),
       child: InkWell(
         onTap: destination.enabled ? onTap : null,
         onHover: destination.enabled ? _setHovered : null,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(4),
         child: Container(
-          height: _DestinationTile.extent - 2,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          height: widget.rowHeight,
+          padding: const EdgeInsets.symmetric(
+            horizontal: _SidebarSpacing.rowHorizontalPadding,
+          ),
           decoration: BoxDecoration(
             color: _hovered
                 ? theme.shell.hover
                 : selected
                 ? theme.shell.selected
                 : null,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
             children: [
               SizedBox(
-                width: 24,
-                height: 24,
+                width: _SidebarSpacing.prefixWidth,
+                height: _SidebarSpacing.prefixWidth,
                 child: Center(child: _prefix(context, foreground)),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: _SidebarSpacing.prefixGap),
               Expanded(
                 child: Text(
                   destination.label,
@@ -748,6 +831,7 @@ class _DestinationTileState extends State<_DestinationTile> {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: foreground,
+                    fontSize: 16,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
@@ -761,9 +845,9 @@ class _DestinationTileState extends State<_DestinationTile> {
                 ),
               if (destination.onSecondaryTap case final action?)
                 IconButton(
-                  constraints: const BoxConstraints.tightFor(
-                    width: _DestinationTile._minimumTargetExtent,
-                    height: _DestinationTile._minimumTargetExtent,
+                  constraints: BoxConstraints.tightFor(
+                    width: _SidebarSpacing.prefixWidth,
+                    height: widget.rowHeight,
                   ),
                   padding: EdgeInsets.zero,
                   tooltip: 'Open ${destination.label}',

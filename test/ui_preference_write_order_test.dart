@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/composer_geometry_store.dart';
 import 'package:discourse_native/src/data/diagnostics_panel_width_store.dart';
 import 'package:discourse_native/src/data/serial_operation_queue.dart';
 import 'package:discourse_native/src/data/sidebar_section_store.dart';
+import 'package:discourse_native/src/data/sidebar_width_store.dart';
 import 'package:discourse_native/src/data/topic_recommendations_panel_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -96,6 +97,29 @@ void main() {
     expect(persistence.attemptedWidths, [480, 560]);
     expect(persistence.persistedWidth, 560);
     expect(await replacementRead, 560);
+    expect(persistence.reads, 1);
+  });
+
+  test('sidebar width persists across replacement in order', () async {
+    final persistence = _ControlledSidebarWidthPersistence();
+    final firstStore = SidebarWidthStore(persistence: persistence);
+    final replacementStore = SidebarWidthStore(persistence: persistence);
+
+    final firstWrite = firstStore.write(320);
+    await persistence.firstWriteStarted.future;
+    final secondWrite = replacementStore.write(360);
+    final replacementRead = replacementStore.read();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(persistence.attemptedWidths, [320]);
+    expect(persistence.reads, 0);
+
+    persistence.finishFirstWrite.complete();
+    await Future.wait([firstWrite, secondWrite]);
+
+    expect(persistence.attemptedWidths, [320, 360]);
+    expect(persistence.persistedWidth, 360);
+    expect(await replacementRead, 360);
     expect(persistence.reads, 1);
   });
 
@@ -207,6 +231,32 @@ final class _ControlledComposerGeometryPersistence
 
 final class _ControlledDiagnosticsWidthPersistence
     implements DiagnosticsPanelWidthPersistence {
+  final firstWriteStarted = Completer<void>();
+  final finishFirstWrite = Completer<void>();
+  final List<double> attemptedWidths = [];
+  double? persistedWidth;
+  int reads = 0;
+
+  @override
+  Future<double?> readWidth() async {
+    reads++;
+    return persistedWidth;
+  }
+
+  @override
+  Future<bool> writeWidth(double width) async {
+    attemptedWidths.add(width);
+    if (attemptedWidths.length == 1) {
+      firstWriteStarted.complete();
+      await finishFirstWrite.future;
+    }
+    persistedWidth = width;
+    return true;
+  }
+}
+
+final class _ControlledSidebarWidthPersistence
+    implements SidebarWidthPersistence {
   final firstWriteStarted = Completer<void>();
   final finishFirstWrite = Completer<void>();
   final List<double> attemptedWidths = [];
