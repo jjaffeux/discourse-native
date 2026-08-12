@@ -1311,7 +1311,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
   void _onEditorPointerUp(PointerUpEvent _) {
     if (!_hasPointerDownPill) return;
     final sequence = _pointerSequence;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Defer until the editable's own pointer-up handlers have settled, but do
+    // not wait for another frame: an idle desktop click may not produce one.
+    scheduleMicrotask(() {
       if (!mounted || sequence != _pointerSequence || !_hasPointerDownPill) {
         return;
       }

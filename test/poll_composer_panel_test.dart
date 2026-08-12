@@ -44,6 +44,15 @@ final class _GatedCurrentUserApi extends FakeDiscourseApi {
   }) => response.future;
 }
 
+final class _RecordingNavigatorObserver extends NavigatorObserver {
+  final List<Route<dynamic>> pushedRoutes = [];
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushedRoutes.add(route);
+  }
+}
+
 Future<ShellController> _openComposer({
   FakeDiscourseApi? api,
   DiscourseUser storedUser = const DiscourseUser(id: 7, username: 'reader'),
@@ -466,6 +475,52 @@ void main() {
       source: _source,
       dialogTitle: 'Edit poll',
     );
+  });
+
+  testWidgets('a desktop mouse click opens the poll editor', (tester) async {
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    final navigatorObserver = _RecordingNavigatorObserver();
+    final composer = shell.visibleComposer!;
+    composer.text.value = const TextEditingValue(
+      text: _source,
+      selection: TextSelection.collapsed(offset: _source.length),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        navigatorObservers: [navigatorObserver],
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(body: ComposerPanel(composer: composer)),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(navigatorObserver.pushedRoutes, hasLength(1));
+
+    final pill = find.byType(PollComposerPill);
+    final poll = composer.text.pollBlocks.single;
+    composer.text.selection = TextSelection.collapsed(
+      offset: composer.text.pollCaretAfter(poll),
+    );
+    await tester.pump();
+    final position = tester.getCenter(pill);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: position);
+    addTearDown(mouse.removePointer);
+    await tester.pump();
+    await mouse.down(position);
+    await tester.pump();
+    await mouse.up();
+    await Future<void>.value();
+    expect(navigatorObserver.pushedRoutes, hasLength(2));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Edit poll'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets(
