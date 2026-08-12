@@ -1850,7 +1850,16 @@ class ChatController extends FrameSafeNotifier {
     _streamNoticeTimers[key] = timer;
   }
 
-  /// Drops optimistic overlays once an ordinary page contains their server id.
+  /// Drops optimistic overlays once an ordinary page contains their canonical
+  /// message.
+  ///
+  /// The server id is the ordinary correlation. A channel re-entry can race
+  /// it: the GET may observe a committed message before either the POST
+  /// response or its MessageBus echo reaches this client. Every optimistic
+  /// send also supplies `client_created_at`, which Discourse adopts when the
+  /// clock is reasonable, so the author, target and timestamp provide a
+  /// one-to-one fallback for that window. Wire dates have millisecond
+  /// precision, hence the deliberate comparison at that precision.
   ///
   /// Returning the held list when nothing landed preserves its identity, which
   /// lets the view skip an otherwise unnecessary whole-window projection.
@@ -1860,14 +1869,63 @@ class ChatController extends FrameSafeNotifier {
     Iterable<ChatMessage> canonical,
   ) {
     if (stream.localMessageIds.isEmpty) return stream.localMessageIds;
-    final arrived = {for (final message in canonical) message.id};
+    final canonicalMessages = canonical.toList(growable: false);
+    final arrived = {for (final message in canonicalMessages) message.id};
     if (arrived.isEmpty) return stream.localMessageIds;
+
+    // Reserve explicit server-id correlations before considering the fallback
+    // so two local messages accepted in the same millisecond cannot both claim
+    // a canonical row already owned by one of them.
+    final explicitlyClaimed = <int>{};
+    for (final id in stream.localMessageIds) {
+      final serverId = store.read<ChatMessage>(siteUrl, id)?.serverId;
+      if (serverId != null && arrived.contains(serverId)) {
+        explicitlyClaimed.add(serverId);
+      }
+    }
+    final unclaimedBySend =
+        <({int authorId, int createdAtMs, int? threadId}), Queue<int>>{};
+    for (final message in canonicalMessages) {
+      final createdAt = message.createdAt;
+      if (createdAt == null || explicitlyClaimed.contains(message.id)) {
+        continue;
+      }
+      final correlation = (
+        authorId: message.author.id,
+        createdAtMs: createdAt.toUtc().millisecondsSinceEpoch,
+        threadId: message.threadId,
+      );
+      (unclaimedBySend[correlation] ??= Queue<int>()).add(message.id);
+    }
 
     List<int>? remaining;
     for (var index = 0; index < stream.localMessageIds.length; index++) {
       final id = stream.localMessageIds[index];
       final local = store.read<ChatMessage>(siteUrl, id);
-      if (local?.serverId == null || !arrived.contains(local!.serverId)) {
+      var matched =
+          local?.serverId != null && arrived.contains(local!.serverId);
+      final createdAt = local?.createdAt;
+      final canUseClientTimestamp =
+          !matched &&
+          local != null &&
+          local.serverId == null &&
+          local.author.id > 0 &&
+          createdAt != null &&
+          !(local.delivery == ChatMessageDelivery.failed &&
+              !local.deliveryUncertain);
+      if (canUseClientTimestamp) {
+        final correlation = (
+          authorId: local.author.id,
+          createdAtMs: createdAt.toUtc().millisecondsSinceEpoch,
+          threadId: local.threadId,
+        );
+        final candidates = unclaimedBySend[correlation];
+        if (candidates != null && candidates.isNotEmpty) {
+          candidates.removeFirst();
+          matched = true;
+        }
+      }
+      if (!matched) {
         remaining?.add(id);
         continue;
       }
