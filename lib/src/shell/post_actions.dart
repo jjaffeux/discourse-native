@@ -177,6 +177,13 @@ class _PostActionsState extends State<PostActions> {
             controller.toggleLike(post, siteUrl: widget.siteUrl),
           ),
         ),
+      if (_postShareUrl(controller) case final url?)
+        PostAction(
+          icon: DIcons.link,
+          label: 'Copy link',
+          tooltip: 'Copy a link to this post to clipboard',
+          onInvoke: () => _copyLink(controller, url),
+        ),
       if (controller.canReplyHere)
         PostAction(
           icon: DIcons.reply,
@@ -223,6 +230,41 @@ class _PostActionsState extends State<PostActions> {
           onInvoke: () => _report(controller, controller.deletePost(post)),
         ),
     ];
+  }
+
+  /// Core's canonical post URL. The opening post names the topic itself;
+  /// numbered replies append their post number.
+  String? _postShareUrl(ShellController controller) {
+    final instance = controller.currentInstance;
+    final topic = controller.currentTopic;
+    final route = controller.currentContent;
+    if (instance?.url != widget.siteUrl ||
+        topic == null ||
+        route?.topicId != topic.id) {
+      return null;
+    }
+
+    final slug = route?.slug?.isNotEmpty == true ? route!.slug! : 'topic';
+    final postNumber = widget.post.postNumber > 1
+        ? '/${widget.post.postNumber}'
+        : '';
+    final url = '${widget.siteUrl}/t/$slug/${topic.id}$postNumber';
+    return instance!.config.shareUrl(url, username: instance.user?.username);
+  }
+
+  Future<void> _copyLink(ShellController controller, String url) async {
+    String message;
+    try {
+      await Clipboard.setData(ClipboardData(text: url));
+      message = 'Link copied!';
+    } catch (_) {
+      message = "Couldn't copy link.";
+    }
+    if (!mounted || !identical(ShellScope.maybeRead(context), controller)) {
+      return;
+    }
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Surfaces a refusal. Success says nothing — the post itself changes, which

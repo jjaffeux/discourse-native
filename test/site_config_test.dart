@@ -22,6 +22,8 @@ Map<String, dynamic> settings({
   bool? fixedCategoryPositions,
   bool? allowUncategorizedTopics,
   Object? defaultNavigationMenuCategories,
+  bool? badgesEnabled,
+  bool? allowUsernameInShareLinks,
   bool? enableAssignStatus,
   String? assignStatuses,
   bool? localDatesEnabled,
@@ -49,6 +51,8 @@ Map<String, dynamic> settings({
   'fixed_category_positions': ?fixedCategoryPositions,
   'allow_uncategorized_topics': ?allowUncategorizedTopics,
   'default_navigation_menu_categories': ?defaultNavigationMenuCategories,
+  'enable_badges': ?badgesEnabled,
+  'allow_username_in_share_links': ?allowUsernameInShareLinks,
   'enable_assign_status': ?enableAssignStatus,
   'assign_statuses': ?assignStatuses,
   'discourse_local_dates_enabled': ?localDatesEnabled,
@@ -390,6 +394,27 @@ void main() {
     });
   });
 
+  group('shareUrl', () {
+    const url = 'https://meta.discourse.org/t/a-topic/7/2';
+
+    test('matches core referral links for a signed-in reader', () {
+      expect(
+        const SiteConfig.unknown().shareUrl(url, username: 'JoffreyJ'),
+        '$url?u=joffreyj',
+      );
+    });
+
+    test('omits the referral when either site setting disables it', () {
+      for (final config in [
+        SiteConfig.fromSettings(settings(badgesEnabled: false)),
+        SiteConfig.fromSettings(settings(allowUsernameInShareLinks: false)),
+      ]) {
+        expect(config.shareUrl(url, username: 'joffreyj'), url);
+      }
+      expect(const SiteConfig.unknown().shareUrl(url), url);
+    });
+  });
+
   group('storage', () {
     final full = SiteConfig.fromSettings(
       settings(
@@ -405,6 +430,8 @@ void main() {
         fixedCategoryPositions: true,
         allowUncategorizedTopics: true,
         defaultNavigationMenuCategories: '7|3',
+        badgesEnabled: false,
+        allowUsernameInShareLinks: false,
         localDatesEnabled: true,
         localDateFormats: 'LLL|YYYY',
         localDateTimezones: 'Etc/UTC|Asia/Tokyo',

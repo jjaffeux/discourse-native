@@ -185,6 +185,22 @@ List<String> watchBrowser(WidgetTester tester) {
   return launched;
 }
 
+/// Catches text that would have been handed to the platform clipboard.
+List<String> watchClipboard(WidgetTester tester) {
+  final copied = <String>[];
+  final messenger = tester.binding.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method == 'Clipboard.setData') {
+      copied.add((call.arguments as Map)['text'] as String);
+    }
+    return null;
+  });
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+  );
+  return copied;
+}
+
 final class _GatedUserCardApi extends FakeDiscourseApi {
   _GatedUserCardApi({
     required this.cardGate,
@@ -6271,6 +6287,85 @@ void main() {
       await gesture.moveTo(Offset.zero);
       await tester.pump();
       expect(find.byTooltip('Reply to this post'), findsNothing);
+    });
+
+    testWidgets('copy link writes core post URLs to the clipboard', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                username: 'sam',
+                cooked: '<p>First post body</p>',
+              ),
+              Post(
+                id: 2,
+                postNumber: 2,
+                username: 'sam',
+                cooked: '<p>Second post body</p>',
+              ),
+            ],
+            stream: const [1, 2],
+            postsCount: 2,
+            canCreatePost: true,
+          ),
+        },
+      );
+      final copied = watchClipboard(tester);
+
+      await openTopic(tester, api);
+      final gesture = await hoverPost(tester);
+
+      await tester.tap(find.byTooltip('Copy a link to this post to clipboard'));
+      await tester.pumpAndSettle();
+
+      expect(copied, [
+        'https://meta.discourse.org/t/a-real-topic/7?u=joffreyj',
+      ]);
+      expect(find.text('Link copied!'), findsOneWidget);
+
+      await gesture.moveTo(tester.getCenter(renderedText('Second post body')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Copy a link to this post to clipboard'));
+      await tester.pumpAndSettle();
+
+      expect(copied, [
+        'https://meta.discourse.org/t/a-real-topic/7?u=joffreyj',
+        'https://meta.discourse.org/t/a-real-topic/7/2?u=joffreyj',
+      ]);
+    });
+
+    testWidgets('copy link is available to anonymous readers', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(canCreatePost: false)},
+      );
+      final copied = watchClipboard(tester);
+
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Discourse Meta'),
+        ],
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+      await hoverPost(tester);
+
+      expect(find.byTooltip('Reply to this post'), findsNothing);
+      await tester.tap(find.byTooltip('Copy a link to this post to clipboard'));
+      await tester.pumpAndSettle();
+
+      expect(copied, ['https://meta.discourse.org/t/a-real-topic/7']);
     });
 
     testWidgets('the menu follows its post, and stays in the viewport', (
