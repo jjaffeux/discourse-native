@@ -4,7 +4,6 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/mention.dart';
-import 'package:discourse_native/src/shell/oneboxes/inline.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -204,10 +203,6 @@ data-slug="bug" data-id="5" data-style-type="square">
       sourceSite,
     );
     expect(
-      tester.widget<InlineOneboxChip>(find.byType(InlineOneboxChip)).siteUrl,
-      sourceSite,
-    );
-    expect(
       tester.widget<MentionPill>(find.byType(MentionPill)).siteUrl,
       sourceSite,
     );
@@ -216,6 +211,12 @@ data-slug="bug" data-id="5" data-style-type="square">
           .widgetList<CookedHtml>(find.byType(CookedHtml))
           .map((w) => w.siteUrl),
       everyElement(sourceSite),
+    );
+    expect(
+      tester
+          .widgetList<HtmlWidget>(find.byType(HtmlWidget))
+          .map((w) => w.baseUrl),
+      everyElement(Uri.parse(sourceSite)),
     );
   });
 }
