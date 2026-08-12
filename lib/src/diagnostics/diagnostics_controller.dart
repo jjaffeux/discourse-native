@@ -7,6 +7,7 @@ import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_redactor.dart';
 import 'package:discourse_native/src/diagnostics/recording_http.dart';
+import 'package:discourse_native/src/foundation/frame_safe_notifier.dart';
 import 'package:flutter/foundation.dart';
 
 export 'diagnostic_event.dart' show DiagnosticSeverity;
@@ -211,10 +212,10 @@ final class DiagnosticsController
     required List<DiagnosticEvent> events,
   }) : _sequence = initialSequence,
        _events = events.toList(),
-       _eventsNotifier = ValueNotifier(List.unmodifiable(events)),
-       _panelStateNotifier = ValueNotifier(DiagnosticsPanelState()),
-       _panelOpenNotifier = ValueNotifier(false),
-       _unseenErrorCountNotifier = ValueNotifier(0) {
+       _eventsNotifier = FrameSafeValueNotifier(List.unmodifiable(events)),
+       _panelStateNotifier = FrameSafeValueNotifier(DiagnosticsPanelState()),
+       _panelOpenNotifier = FrameSafeValueNotifier(false),
+       _unseenErrorCountNotifier = FrameSafeValueNotifier(0) {
     _rebuildEventSizes();
   }
 
@@ -225,10 +226,10 @@ final class DiagnosticsController
   final DateTime Function() _clock;
   final DiagnosticsTimerFactory _timerFactory;
   final List<DiagnosticEvent> _events;
-  final ValueNotifier<List<DiagnosticEvent>> _eventsNotifier;
-  final ValueNotifier<DiagnosticsPanelState> _panelStateNotifier;
-  final ValueNotifier<bool> _panelOpenNotifier;
-  final ValueNotifier<int> _unseenErrorCountNotifier;
+  final FrameSafeValueNotifier<List<DiagnosticEvent>> _eventsNotifier;
+  final FrameSafeValueNotifier<DiagnosticsPanelState> _panelStateNotifier;
+  final FrameSafeValueNotifier<bool> _panelOpenNotifier;
+  final FrameSafeValueNotifier<int> _unseenErrorCountNotifier;
   final Map<String, int> _httpGenerations = {};
   final Map<String, int> _eventBytes = {};
   final List<(DiagnosticEvent, int)> _pendingWrites = [];
