@@ -406,6 +406,12 @@ class TopicDetail with Storable<TopicDetail> {
     this.plugins = PluginData.none,
   });
 
+  /// The fixed first-window size served by core's `TopicView`.
+  ///
+  /// The complete post-id stream is retained separately, so bounding eager
+  /// post construction here never makes a later post unreachable.
+  static const int maximumInitialPosts = 20;
+
   /// Reads a topic payload into the topic and its posts.
   static TopicPayload parse(Map<String, dynamic> json, String siteUrl) {
     final postStream = jsonObject(json['post_stream']);
@@ -444,7 +450,9 @@ class TopicDetail with Storable<TopicDetail> {
         plugins: PluginData.forTopic(json, siteUrl),
       ),
       posts: List.unmodifiable([
-        for (final post in jsonObjects(postStream['posts']))
+        for (final post in jsonObjects(
+          postStream['posts'],
+        ).take(maximumInitialPosts))
           Post.fromJson(post, siteUrl),
       ]),
     );

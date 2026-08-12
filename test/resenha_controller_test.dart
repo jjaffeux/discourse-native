@@ -75,6 +75,7 @@ final class FakeResenhaMediaSession extends ChangeNotifier
   Object? muteFailure;
   Object? participantSyncFailure;
   Object? disposeFailure;
+  Completer<void>? muteGate;
   String? selectedAudioInput;
   String? selectedAudioOutput;
   String? selectedCamera;
@@ -135,6 +136,7 @@ final class FakeResenhaMediaSession extends ChangeNotifier
   @override
   Future<void> setMuted(bool enabled) async {
     muted = enabled;
+    await muteGate?.future;
     if (muteFailure case final failure?) throw failure;
   }
 
@@ -164,6 +166,8 @@ final class FakeResenhaPreferences implements ResenhaPreferences {
   ResenhaDevicePreferences devices = const ResenhaDevicePreferences();
   bool rejectWrites = false;
   bool rejectVolumeReads = false;
+  Completer<void>? deviceWriteStarted;
+  Completer<void>? deviceWriteGate;
   final List<String> writes = [];
   final Map<(String, int, int), double> volumes = {};
 
@@ -186,6 +190,8 @@ final class FakeResenhaPreferences implements ResenhaPreferences {
     String value,
   ) async {
     writes.add('device:${preference.name}:$value');
+    deviceWriteStarted?.complete();
+    await deviceWriteGate?.future;
     if (rejectWrites) throw StateError('device write rejected');
   }
 
@@ -240,6 +246,23 @@ final class _NextGatedCredentialReader implements ApiCredentialReader {
 
   @override
   Future<String> clientId() async => 'client';
+}
+
+final class _CountingCredentialReader implements ApiCredentialReader {
+  int apiKeyCalls = 0;
+  int clientIdCalls = 0;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async {
+    apiKeyCalls++;
+    return 'key';
+  }
+
+  @override
+  Future<String> clientId() async {
+    clientIdCalls++;
+    return 'client';
+  }
 }
 
 final class FakeResenhaSystemCall implements ResenhaSystemCall {
@@ -602,6 +625,27 @@ void main() {
   });
 
   test(
+    'directory publication rechecks ownership before credential work',
+    () async {
+      final counting = _CountingCredentialReader();
+      final controlled = _ControlledResenhaTransport(
+        pluginResponses: {'GET /resenha/rooms.json': fixture('directory')},
+      );
+      credentials = counting;
+      useTransport(controlled);
+      controller.addListener(() {
+        if (controller.isLoading(firstSite)) controller.forget(firstSite);
+      });
+
+      await controller.ensureLoaded(firstSite);
+
+      expect(counting.apiKeyCalls, 1);
+      expect(counting.clientIdCalls, 0);
+      expect(controlled.pluginGets, isEmpty);
+    },
+  );
+
+  test(
     'forget prevents a credential-gated join from reaching the server',
     () async {
       final gate = Completer<void>();
@@ -650,6 +694,27 @@ void main() {
       expect(controller.call, isNull);
       expect(mediaFactory.sessions, isEmpty);
       expect(systemCall.starts, 0);
+    },
+  );
+
+  test(
+    'joining publication rechecks ownership before the system call',
+    () async {
+      controller.addListener(() {
+        if (controller.call?.status == ResenhaCallStatus.joining) {
+          controller.forget(firstSite);
+        }
+      });
+
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: ResenhaRoom.fromJson(fixture('room')),
+      );
+      await pumpEventQueue();
+
+      expect(systemCall.starts, 0);
+      expect(mediaFactory.sessions.single.disposeCount, 1);
     },
   );
 
@@ -833,6 +898,36 @@ void main() {
       }),
     );
   });
+
+  test(
+    'device selection stops at a pending preference write after disposal',
+    () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final media = mediaFactory.sessions.single;
+      final writeStarted = Completer<void>();
+      final writeGate = Completer<void>();
+      preferences
+        ..deviceWriteStarted = writeStarted
+        ..deviceWriteGate = writeGate;
+
+      final selection = controller.selectAudioInput('late-microphone');
+      await writeStarted.future;
+      controller.dispose();
+      writeGate.complete();
+      await selection;
+
+      expect(media.selectedAudioInput, isNull);
+      final writesAfterDispose = preferences.writes.length;
+      await controller.selectAudioOutput('late-speakers');
+      expect(preferences.writes, hasLength(writesAfterDispose));
+      expect(await controller.mediaDevices(), isEmpty);
+    },
+  );
 
   test(
     'a forgotten site cannot be restored by a late directory response',
@@ -1284,6 +1379,40 @@ void main() {
 
     expect(media.disposeCount, 1);
   });
+
+  test(
+    'dispose during a media setting skips roster and system synchronization',
+    () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final media = mediaFactory.sessions.single;
+      final muteGate = Completer<void>();
+      media.muteGate = muteGate;
+      systemCall.systemMuted = null;
+      final stateWritesBefore = transport.pluginWrites
+          .where((write) => write.path.endsWith('/state.json'))
+          .length;
+
+      final muting = controller.setMuted(true);
+      controller.dispose();
+      muteGate.complete();
+      await muting;
+      await pumpEventQueue();
+
+      expect(media.disposeCount, 1);
+      expect(systemCall.systemMuted, isNull);
+      expect(
+        transport.pluginWrites.where(
+          (write) => write.path.endsWith('/state.json'),
+        ),
+        hasLength(stateWritesBefore),
+      );
+    },
+  );
 
   test('switches rooms when the old room echoes the explicit leave', () async {
     final secondJoinPayload = fixture('join_mesh');

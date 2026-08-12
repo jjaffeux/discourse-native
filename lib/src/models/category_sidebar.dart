@@ -111,12 +111,24 @@ List<TopicCategory> _hierarchical(
   final result = <TopicCategory>[];
   final visited = <int>{};
 
-  void append(List<TopicCategory> siblings) {
-    for (final category in siblings) {
+  void append(List<TopicCategory> roots) {
+    // Category nesting is site-controlled. Preserve recursive preorder with
+    // an explicit stack so a malformed very deep parent chain cannot exhaust
+    // the UI isolate's call stack while the sidebar is being rebuilt.
+    final pending = <TopicCategory>[];
+    void pushReversed(List<TopicCategory> values) {
+      for (var index = values.length - 1; index >= 0; index--) {
+        pending.add(values[index]);
+      }
+    }
+
+    pushReversed(roots);
+    while (pending.isNotEmpty) {
+      final category = pending.removeLast();
       // A malformed parent cycle must not recurse forever.
       if (!visited.add(category.id)) continue;
       result.add(category);
-      append(children[category.id] ?? const []);
+      pushReversed(children[category.id] ?? const []);
     }
   }
 

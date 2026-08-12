@@ -104,6 +104,21 @@ void main() {
   tearDown(() => controller.dispose());
 
   test(
+    'invalid topic coordinates are ignored without mutating shared state',
+    () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'key';
+      store.put(siteUrl, _topic());
+
+      await controller.mark(siteUrl, 0, 1, caughtUp: true);
+      await controller.mark(siteUrl, 1, 0, caughtUp: true);
+
+      expect(api.requests, isEmpty);
+      expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 0);
+    },
+  );
+
+  test(
     'updates the shared topic optimistically without clearing newer unread',
     () async {
       const siteUrl = 'https://one.example';

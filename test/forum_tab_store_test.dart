@@ -45,6 +45,47 @@ void main() {
     expect(persistence.writeCount, 2);
     expect(await store.load(), [latest]);
   });
+
+  test('replacement stores preserve request order', () async {
+    final gate = Completer<void>();
+    final persistence = _ControlledPersistence(firstWriteGate: gate);
+    final oldStore = ForumTabStore(persistence: persistence);
+    final replacementStore = ForumTabStore(persistence: persistence);
+
+    final oldSave = oldStore.save([_workspace('old')]);
+    await persistence.firstWriteStarted.future;
+    final replacementSave = replacementStore.save([_workspace('latest')]);
+
+    await Future<void>.delayed(Duration.zero);
+    expect(persistence.writeCount, 1);
+
+    gate.complete();
+    await Future.wait([oldSave, replacementSave]);
+
+    expect(persistence.writeCount, 2);
+    expect(await replacementStore.load(), [_workspace('latest')]);
+  });
+
+  test('replacement load waits for an in-flight save', () async {
+    final gate = Completer<void>();
+    final persistence = _ControlledPersistence(firstWriteGate: gate);
+    final oldStore = ForumTabStore(persistence: persistence);
+    final replacementStore = ForumTabStore(persistence: persistence);
+    final latest = _workspace('latest');
+
+    final saving = oldStore.save([latest]);
+    await persistence.firstWriteStarted.future;
+    final loading = replacementStore.load();
+
+    await Future<void>.delayed(Duration.zero);
+    expect(persistence.readCount, 0);
+
+    gate.complete();
+    await saving;
+
+    expect(await loading, [latest]);
+    expect(persistence.readCount, 1);
+  });
 }
 
 ForumWorkspace _workspace(String name) => ForumWorkspace(
@@ -73,10 +114,14 @@ final class _ControlledPersistence implements ForumTabPersistence {
   final Completer<void> firstWriteStarted = Completer<void>();
 
   String? stored;
+  int readCount = 0;
   int writeCount = 0;
 
   @override
-  Future<String?> read() async => stored;
+  Future<String?> read() async {
+    readCount++;
+    return stored;
+  }
 
   @override
   Future<bool> write(String value) async {

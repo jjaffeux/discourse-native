@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/diagnostics_panel_width_store.dart';
@@ -11,6 +12,7 @@ import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -161,6 +163,53 @@ void main() {
       tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
       560,
     );
+  });
+
+  testWidgets('resize handle is keyboard and semantics adjustable', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final diagnostics = await _controller();
+    await _pumpApp(tester, const Size(1440, 900), diagnostics);
+    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+    await tester.pumpAndSettle();
+
+    final handle = find.byKey(const ValueKey('diagnostics-resize-handle'));
+    expect(tester.getSize(handle).width, 44);
+    final node = tester.getSemantics(handle);
+    final data = node.getSemanticsData();
+    expect(data.label, 'Resize diagnostics panel');
+    expect(data.value, '440 pixels wide');
+    expect(data.hasAction(SemanticsAction.increase), isTrue);
+    expect(data.hasAction(SemanticsAction.decrease), isTrue);
+
+    final focus = tester.widget<Focus>(
+      find.byKey(const ValueKey('diagnostics-resize-focus')),
+    );
+    focus.focusNode!.requestFocus();
+    await tester.pump();
+    expect(focus.focusNode!.hasFocus, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
+      456,
+    );
+    expect(
+      (await SharedPreferences.getInstance()).getDouble(
+        DiagnosticsPanelWidthStore.storageKey,
+      ),
+      456,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
+      440,
+    );
+    semantics.dispose();
   });
 
   testWidgets(
@@ -467,6 +516,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(diagnostics.isPanelOpen, isFalse);
     expect(find.byKey(const ValueKey('diagnostics-panel')), findsNothing);
+  });
+
+  testWidgets('an old clear dialog cannot clear replacement diagnostics', (
+    tester,
+  ) async {
+    final oldDiagnostics = await _controller();
+    final replacement = await _controller();
+    _recordRequest(oldDiagnostics);
+    _recordRequest(replacement);
+    final current = ValueNotifier<DiagnosticsController>(oldDiagnostics);
+
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: ValueListenableBuilder<DiagnosticsController>(
+            valueListenable: current,
+            builder: (context, controller, _) =>
+                DiagnosticsPanel(controller: controller, onClose: () {}),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('diagnostics-clear')));
+      await tester.pumpAndSettle();
+      expect(find.text('Clear diagnostics history?'), findsOneWidget);
+
+      current.value = replacement;
+      await tester.pump();
+      expect(find.text('Clear diagnostics history?'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Clear history'));
+      await tester.pumpAndSettle();
+
+      expect(replacement.events.whereType<HttpDiagnosticEvent>(), isNotEmpty);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      current.dispose();
+      await oldDiagnostics.close();
+      await replacement.close();
+    }
   });
 
   testWidgets('system Back closes diagnostics at every shell width', (

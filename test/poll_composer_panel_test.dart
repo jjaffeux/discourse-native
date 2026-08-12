@@ -98,6 +98,72 @@ BoxDecoration _pollPillDecoration(WidgetTester tester) =>
             .decoration!
         as BoxDecoration;
 
+Future<void> _closeComposerDuringProjectedEdit(
+  WidgetTester tester, {
+  required bool poll,
+  required String source,
+  required String dialogTitle,
+}) async {
+  final shell = await _openComposer();
+  addTearDown(shell.dispose);
+  final composer = shell.visibleComposer!;
+  composer.text.value = TextEditingValue(
+    text: source,
+    selection: TextSelection.collapsed(offset: source.length),
+  );
+
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.dark,
+      home: ShellScope(
+        controller: shell,
+        child: Scaffold(
+          body: ListenableBuilder(
+            listenable: shell,
+            builder: (context, _) {
+              final visible = shell.visibleComposer;
+              return visible == null
+                  ? const SizedBox.shrink()
+                  : ComposerPanel(composer: visible);
+            },
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+
+  final pill = poll
+      ? find.byType(PollComposerPill)
+      : find.byType(LocalDateComposerPill);
+  final (start, end) = poll
+      ? () {
+          final block = composer.text.pollBlocks.single;
+          return (block.start, block.end);
+        }()
+      : () {
+          final block = composer.text.localDateBlocks.single;
+          return (block.start, block.end);
+        }();
+  final gesture = await tester.startGesture(tester.getCenter(pill));
+  composer.text.selection = TextSelection.collapsed(offset: start + 1);
+  await tester.pump();
+  await gesture.up();
+  await tester.pump();
+  composer.text.selection = TextSelection.collapsed(offset: end - 1);
+  await tester.pump(const Duration(milliseconds: 500));
+  expect(find.text(dialogTitle), findsOneWidget);
+
+  shell.closeComposer();
+  await tester.pump();
+  expect(find.byType(ComposerPanel), findsNothing);
+  expect(find.text(dialogTitle), findsOneWidget);
+
+  await tester.tap(find.byTooltip('Close'));
+  await tester.pumpAndSettle();
+  expect(tester.takeException(), isNull);
+}
+
 void main() {
   setUpAll(() {
     LocalDateEnvironment.instance.ensureDatabase();
@@ -390,6 +456,29 @@ void main() {
     expect(_composerEditable(tester).showCursor, isFalse);
     await tester.pump(const Duration(seconds: 3));
   });
+
+  testWidgets('closing the composer during a poll edit is disposal-safe', (
+    tester,
+  ) async {
+    await _closeComposerDuringProjectedEdit(
+      tester,
+      poll: true,
+      source: _source,
+      dialogTitle: 'Edit poll',
+    );
+  });
+
+  testWidgets(
+    'closing the composer during a local-date edit is disposal-safe',
+    (tester) async {
+      await _closeComposerDuringProjectedEdit(
+        tester,
+        poll: false,
+        source: 'Before [date=2026-08-11 time=09:00:00 timezone=UTC] after',
+        dialogTitle: 'Edit date and time',
+      );
+    },
+  );
 
   testWidgets('tapping immediately after the pill moves to the next line', (
     tester,

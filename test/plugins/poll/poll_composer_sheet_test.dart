@@ -129,16 +129,26 @@ void main() {
   });
 
   testWidgets('shows validation without closing the sheet', (tester) async {
-    await openSheet(
-      tester,
-      PollComposerDraft.newPoll(name: 'poll', defaultPublic: false),
-    );
-    await tester.enterText(field('Option 1'), 'Same');
-    await tester.enterText(field('Option 2'), 'Same');
-    await tapSheetAction(tester, 'Apply');
+    final semantics = tester.ensureSemantics();
+    try {
+      await openSheet(
+        tester,
+        PollComposerDraft.newPoll(name: 'poll', defaultPublic: false),
+      );
+      await tester.enterText(field('Option 1'), 'Same');
+      await tester.enterText(field('Option 2'), 'Same');
+      await tapSheetAction(tester, 'Apply');
 
-    expect(find.text('Poll options must be unique.'), findsOneWidget);
-    expect(find.text('Add poll'), findsOneWidget);
+      final error = find.byKey(const ValueKey('poll-sheet-error'));
+      expect(error, findsOneWidget);
+      expect(
+        tester.getSemantics(error),
+        isSemantics(label: 'Poll options must be unique.', isLiveRegion: true),
+      );
+      expect(find.text('Add poll'), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('automatic close requires a date and time', (tester) async {

@@ -3,6 +3,7 @@ import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/dom.dart' as dom;
@@ -97,6 +98,7 @@ void main() {
       final image = parse(singleImage);
 
       expect(image.title, 'screenshot.png');
+      expect(image.description, 'screenshot');
       expect(image.details, '1920×1080 234 KB');
       expect(
         image.downloadHref,
@@ -110,6 +112,36 @@ void main() {
       expect(image.width, 690);
       expect(image.height, 388);
       expect(image.aspectRatio, closeTo(690 / 388, 0.0001));
+    });
+
+    test('bounds hostile dimensions before they reach layout constraints', () {
+      LightboxImage dimensions(String width, String height) => parse(
+        '<a class="lightbox" href="full.png">'
+        '<img src="thumb.png" width="$width" height="$height"></a>',
+      );
+
+      for (final pair in const [
+        ('0', '1'),
+        ('-1', '1'),
+        ('1', '0'),
+        ('1', '-1'),
+        ('NaN', '1'),
+        ('1', 'NaN'),
+        ('Infinity', '1'),
+        ('1', 'Infinity'),
+      ]) {
+        final image = dimensions(pair.$1, pair.$2);
+        expect(image.width, isNull, reason: '${pair.$1}x${pair.$2}');
+        expect(image.height, isNull, reason: '${pair.$1}x${pair.$2}');
+        expect(image.aspectRatio, isNull, reason: '${pair.$1}x${pair.$2}');
+      }
+
+      final tooWide = dimensions('1e308', '1');
+      expect(tooWide.width, 10000);
+      expect(tooWide.aspectRatio, 4);
+      final tooTall = dimensions('1', '1e308');
+      expect(tooTall.width, 1);
+      expect(tooTall.aspectRatio, 0.25);
     });
 
     test('prefers data-large-src over href, the way lib/lightbox.js does', () {
@@ -219,6 +251,38 @@ void main() {
       expect(find.byType(LightboxThumbnail), findsOneWidget);
       expect(renderedText('Before.'), findsOneWidget);
       expect(renderedText('After.'), findsOneWidget);
+    });
+
+    testWidgets('names the thumbnail as an image-opening action', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await pumpCooked(tester, singleImage);
+
+      final node = tester.getSemantics(
+        find.bySemanticsLabel('Open image: screenshot'),
+      );
+      expect(node.getSemanticsData().flagsCollection.isButton, isTrue);
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      semantics.dispose();
+    });
+
+    testWidgets('bounds thumbnail decoding to its physical layout width', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      await pumpCooked(tester, singleImage);
+
+      final image = tester.widget<Image>(
+        find.descendant(
+          of: find.byType(LightboxThumbnail),
+          matching: find.byType(Image),
+        ),
+      );
+      final provider = image.image as ResizeImage;
+      expect(provider.width, 1380);
+      expect(provider.allowUpscaling, isFalse);
     });
 
     testWidgets('lays out an image whose markup declared no size', (

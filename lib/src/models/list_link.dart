@@ -44,10 +44,15 @@ class ListLink {
   /// `/tag/{name}` form, which is still what older posts contain.
   final int? id;
 
+  /// Keeps cooked/custom links within the app's site-relative feed-path
+  /// boundary before URI parsing and route construction.
+  static const int maximumUrlLength = 2048;
+
   /// The list [url] points at, or null for anything else.
   static ListLink? parse(String url) {
+    if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);
-    if (uri == null) return null;
+    if (uri == null || uri.userInfo.isNotEmpty) return null;
 
     // A trailing slash leaves an empty last segment, which would otherwise
     // read as "not an id" and refuse a perfectly ordinary link.

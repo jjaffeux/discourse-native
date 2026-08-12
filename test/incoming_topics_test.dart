@@ -104,6 +104,21 @@ void main() {
 
       expect(incoming.topicIds('latest'), [3, 1, 2]);
     });
+
+    test('returns a bounded view without consuming later arrivals', () {
+      final incoming = IncomingTopics();
+      for (var id = 1; id <= 32; id++) {
+        incoming.notify(newTopic(id));
+      }
+
+      expect(incoming.topicIds('latest', limit: 30), [
+        for (var id = 1; id <= 30; id++) id,
+      ]);
+      expect(incoming.count('latest'), 32);
+      expect(incoming.topicIds('latest'), [
+        for (var id = 1; id <= 32; id++) id,
+      ]);
+    });
   });
 
   group('clear', () {

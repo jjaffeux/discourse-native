@@ -65,22 +65,8 @@ dependencies:
     git:
       url: https://github.com/jjaffeux/dart-message-bus.git
       ref: e58531ff04c855e25da27b266cf83c85cc7db7bf
-  # Sparkle-style in-app updates: a signed app-archive.json -> release.json ->
-  # app.zip chain, verified against pinned Ed25519 keys.
-  #
-  # Pinned exactly, no caret. 3.0.0, 3.1.0 and
-  # 3.1.1 shipped inside 41 hours with breaking release-signing changes in two
-  # of them, and this is the code that replaces the binary — re-read the
-  # changelog before any bump rather than treating it as routine.
-  #
-  # Its own docs call the Linux path preview, candidate-only, direct-ZIP only,
-  # with AppImage and deb/rpm explicitly out of scope. That is why everything
-  # reaches it through the Updater interface in lib/src/data/updater.dart, and
-  # why lib/src/data/desktop_updater_adapter.dart is the only file allowed to
-  # import it.
-  desktop_updater: 3.1.1
-  # Only for the updater's recovery marker, which has to live somewhere the
-  # app can find again after the bundle has been replaced underneath it.
+  # Persistent drafts, private storage, cached media and diagnostics all live
+  # in platform-appropriate application data directories.
   path_provider: ^2.1.6
   # Native media transports for the Resenha voice-room plugin. Pinned exactly:
   # both packages expose a native ABI and must be upgraded together after

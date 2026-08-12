@@ -62,6 +62,36 @@ void main() {
     );
   });
 
+  test('restores deeply nested cooked formatting without recursion', () {
+    const depth = 1000;
+    final cooked =
+        '${List.filled(depth, '<strong>').join()}'
+        'selected'
+        '${List.filled(depth, '</strong>').join()}';
+
+    final contents = postQuoteContentsFromSelection(cooked, 'selected');
+
+    expect(
+      contents,
+      '${List.filled(depth, '**').join()}selected'
+      '${List.filled(depth, '**').join()}',
+    );
+  });
+
+  test('one cooked resolver handles repeated selection adjustments', () {
+    final resolver = PostQuoteSelectionResolver(
+      '<p>First <strong>bold</strong> thought.</p>'
+      '<p>Second <em>formatted</em> line.</p>',
+    );
+
+    expect(resolver.contentsFor('bold'), '**bold**');
+    expect(
+      resolver.contentsFor('First bold thought.Second formatted line.'),
+      'First **bold** thought.\n\nSecond *formatted* line.',
+    );
+    expect(resolver.contentsFor('missing selection'), 'missing selection');
+  });
+
   testWidgets('selection shows quote actions and copies portable markup', (
     tester,
   ) async {

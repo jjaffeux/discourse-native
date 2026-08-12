@@ -61,6 +61,35 @@ void main() {
     _expectTopicsRoot(controller);
   });
 
+  test('tab creation stops at the bounded eager workspace capacity', () {
+    expect(controller.canCreateTab, isTrue);
+    while (controller.canCreateTab) {
+      controller.createTab();
+    }
+    final active = controller.activeTabId;
+
+    expect(
+      controller.tabsForCurrentForum,
+      hasLength(ForumWorkspace.maximumTabs),
+    );
+    expect(controller.canCreateTab, isFalse);
+
+    controller.createTab();
+    expect(controller.tabsForCurrentForum, hasLength(20));
+    expect(controller.activeTabId, active);
+  });
+
+  test('content history keeps its root and most recent bounded routes', () {
+    for (var id = 1; id <= ForumTab.maximumContentRoutes + 5; id++) {
+      controller.pushContent(_topic(id, 'Topic $id'));
+    }
+
+    expect(controller.contentStack, hasLength(ForumTab.maximumContentRoutes));
+    expect(controller.contentStack.first.id, 'latest');
+    expect(controller.contentStack[1].topicId, 7);
+    expect(controller.contentStack.last.topicId, 69);
+  });
+
   test('each forum keeps an independent active content stack', () {
     final firstForumTabId = controller.activeTabId;
     controller.pushContent(_topic(101, 'First forum topic'));

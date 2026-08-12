@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/search_results.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -124,6 +125,53 @@ void main() {
         expect(sections.single.destinations.first.url, '/c/roadmap/4');
       },
     );
+
+    test('bounds custom links to the server section limit', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'sidebar_sections': [
+                {
+                  'id': 2,
+                  'title': 'Projects',
+                  'links': [
+                    false,
+                    for (
+                      var id = 1;
+                      id <= SidebarSection.maximumCustomLinks;
+                      id += 1
+                    )
+                      {'id': id, 'name': 'Link $id', 'value': '/link-$id'},
+                  ],
+                },
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final section = (await api.customSidebarSections(
+        siteUrl: 'https://forum.example',
+        apiKey: 'secret',
+      )).single;
+
+      expect(
+        section.destinations,
+        hasLength(SidebarSection.maximumCustomLinks - 1),
+      );
+      expect(section.destinations.first.label, 'Link 1');
+      expect(section.destinations.last.label, 'Link 49');
+      expect(
+        section.destinations.map((destination) => destination.label),
+        isNot(contains('Link 50')),
+      );
+      expect(
+        () => section.destinations.add(section.destinations.first),
+        throwsUnsupportedError,
+      );
+    });
   });
 
   group('normalize', () {
@@ -150,6 +198,67 @@ void main() {
         DiscourseApi.normalize('  https://example.com///  ').toString(),
         'https://example.com',
       );
+    });
+
+    test('does not retain secrets from a rejected URL', () {
+      SiteLookupException? failure;
+      try {
+        DiscourseApi.normalize(
+          'https://reader:password@forum.example/path?api_key=secret#private',
+        );
+      } on SiteLookupException catch (error) {
+        failure = error;
+      }
+
+      expect(failure, isNotNull);
+      expect(failure!.term, 'https://forum.example/path?api_key');
+      expect(failure.message, isNot(contains('reader')));
+      expect(failure.message, isNot(contains('password')));
+      expect(failure.message, isNot(contains('secret')));
+      expect(failure.message, isNot(contains('private')));
+    });
+
+    test('maps a malformed URL without retaining its source', () {
+      const secret = 'must-not-survive';
+      SiteLookupException? failure;
+      try {
+        DiscourseApi.normalize(
+          'https://reader:password@[invalid?api_key=$secret#private',
+        );
+      } on SiteLookupException catch (error) {
+        failure = error;
+      }
+
+      expect(failure, isNotNull);
+      expect(failure!.cause, const FormatException('Invalid forum URL.'));
+      expect(failure.term, isNot(contains('reader')));
+      expect(failure.term, isNot(contains('password')));
+      expect(failure.term, isNot(contains(secret)));
+      expect(failure.term, isNot(contains('private')));
+      expect('$failure ${failure.cause}', isNot(contains(secret)));
+    });
+
+    test('bounds forum addresses without retaining oversized input', () {
+      const secret = 'oversized-secret-must-not-survive';
+      final oversized =
+          'https://reader:$secret@forum.example/'
+          "${'x' * DiscourseApi.maximumForumAddressLength}";
+
+      SiteLookupException? failure;
+      try {
+        DiscourseApi.normalize(oversized);
+      } on SiteLookupException catch (error) {
+        failure = error;
+      }
+
+      expect(failure, isNotNull);
+      expect(failure!.term, 'that forum address');
+      expect(
+        failure.cause,
+        const FormatException('Forum address is too long.'),
+      );
+      expect(failure.message, isNot(contains(secret)));
+      expect('$failure ${failure.cause}', isNot(contains(secret)));
     });
   });
 
@@ -1117,6 +1226,31 @@ void _authGroups() {
 
 void _feedGroups() {
   group('searchPosts', () {
+    test('rejects an oversized private query before transport', () async {
+      var requestCount = 0;
+      final secret = 'private-search-marker';
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requestCount += 1;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      Object? failure;
+      try {
+        await api.searchPosts(
+          siteUrl: 'https://example.com',
+          term: '$secret${'x' * DiscourseApi.maximumSearchTermLength}',
+        );
+      } catch (error) {
+        failure = error;
+      }
+
+      expect(failure, isA<ArgumentError>());
+      expect('$failure', isNot(contains(secret)));
+      expect(requestCount, 0);
+    });
+
     test("asks for facet suggestions with core's topic exclusion", () async {
       late http.Request sent;
       final api = DiscourseApi(
@@ -1293,6 +1427,28 @@ void _feedGroups() {
   });
 
   group('categories', () {
+    test('flattens a deeply nested category tree without recursion', () async {
+      const depth = 2048;
+      final payload = StringBuffer('{"category_list":{"categories":[');
+      for (var id = 1; id <= depth; id++) {
+        payload.write('{"id":$id,"name":"Category $id","subcategory_list":[');
+      }
+      for (var id = 1; id <= depth; id++) {
+        payload.write(']}');
+      }
+      payload.write(']}}');
+
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response(payload.toString(), 200)),
+      );
+
+      final categories = await api.categories(siteUrl: 'https://example.com');
+
+      expect(categories, hasLength(depth));
+      expect(categories.first.id, 1);
+      expect(categories.last.id, depth);
+    });
+
     test(
       'requests featured topics and flattens every category level in preorder',
       () async {
@@ -2991,6 +3147,31 @@ void _feedGroups() {
 
       expect(asked.path, '/t/12.json');
       expect(asked.queryParameters['post_number'], '37');
+    });
+
+    test('rejects invalid topic coordinates before transport', () async {
+      var requests = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requests++;
+          return http.Response('', 500);
+        }),
+      );
+
+      await expectLater(
+        api.topic(siteUrl: 'https://example.com', slug: '', id: 0),
+        throwsRangeError,
+      );
+      await expectLater(
+        api.topic(
+          siteUrl: 'https://example.com',
+          slug: 'topic',
+          id: 12,
+          postNumber: -1,
+        ),
+        throwsRangeError,
+      );
+      expect(requests, 0);
     });
 
     test('records the post a reader had on screen as a topic timing', () async {

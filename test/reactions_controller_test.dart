@@ -266,4 +266,21 @@ void main() {
 
     expect(api.requests, 0);
   });
+
+  test('load after dispose completes without reading credentials', () async {
+    final credentials = _GatedCredentials();
+    final api = _SequencedReactorsApi([]);
+    final controller = ReactionsController(
+      api: api,
+      credentials: credentials,
+      store: Store(),
+    );
+    controller.dispose();
+
+    await controller.load(siteUrl: _siteUrl, postId: 7);
+
+    expect(credentials.apiKeyStarted.isCompleted, isFalse);
+    expect(credentials.clientIdStarted.isCompleted, isFalse);
+    expect(api.requests, 0);
+  });
 }

@@ -9,6 +9,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -285,6 +286,81 @@ void main() {
     expect(controller.currentContent?.id, 'all-categories');
     expect(find.byType(CategoriesPage), findsOneWidget);
     expect(_featuredTopic(101), findsOneWidget);
+  });
+
+  testWidgets('a featured topic is a 44 pixel named keyboard target', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      categoryList: const [
+        TopicCategory(
+          id: 30,
+          name: 'Alerts',
+          color: 'F15A24',
+          slug: 'alerts',
+          featuredTopics: [
+            CategoryFeaturedTopic(
+              id: 101,
+              title: 'Ordinary topic',
+              slug: 'ordinary-topic',
+            ),
+          ],
+        ),
+      ],
+      topics: {
+        101: topicPayload(
+          id: 101,
+          title: 'Ordinary topic',
+          posts: const [
+            Post(
+              id: 1001,
+              postNumber: 1,
+              username: 'sam',
+              cooked: '<p>First post</p>',
+            ),
+          ],
+        ),
+      },
+    );
+    final controller = await _loadCategories(api);
+    final semantics = tester.ensureSemantics();
+    try {
+      await _pumpPage(tester, controller);
+
+      final topic = _featuredTopic(101);
+      expect(tester.getSize(topic).height, greaterThanOrEqualTo(44));
+      expect(
+        tester.getSemantics(topic),
+        isSemantics(
+          label: 'Ordinary topic',
+          isButton: true,
+          isFocusable: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+        ),
+      );
+
+      final focusChild = find
+          .descendant(of: topic, matching: find.byType(MouseRegion))
+          .first;
+      final focus = Focus.of(tester.element(focusChild));
+      focus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(focus.hasPrimaryFocus, isTrue);
+      expect(
+        tester.getSemantics(topic),
+        isSemantics(isFocusable: true, isFocused: true),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(controller.currentContent?.topicId, 101);
+      expect(api.topicsOpened, [101]);
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('adapts category cards from three columns to two and one', (

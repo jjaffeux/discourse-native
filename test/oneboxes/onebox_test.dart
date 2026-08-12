@@ -7,6 +7,7 @@ import 'package:discourse_native/src/shell/oneboxes/github/pr/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
@@ -66,6 +67,39 @@ void main() {
       expect(thumbnail.src, 'https://cdn.example.com/thumb.png');
       expect(thumbnail.aspectRatio, closeTo(136 / 66, 0.001));
       expect(thumbnail.isAvatar, isFalse);
+    });
+
+    test('bounds hostile thumbnail dimensions before layout', () {
+      OneboxThumbnail thumbnail(String width, String height) {
+        final image = html
+            .parseFragment(
+              '<img src="https://cdn.example.com/image.png" '
+              'width="$width" height="$height">',
+            )
+            .querySelector('img')!;
+        return OneboxThumbnail.from(image)!;
+      }
+
+      for (final dimensions in const [
+        ('0', '1'),
+        ('-1', '1'),
+        ('1', '0'),
+        ('1', '-1'),
+        ('NaN', '1'),
+        ('1', 'NaN'),
+        ('Infinity', '1'),
+        ('1', 'Infinity'),
+      ]) {
+        expect(
+          thumbnail(dimensions.$1, dimensions.$2).aspectRatio,
+          isNull,
+          reason: '${dimensions.$1}x${dimensions.$2}',
+        );
+      }
+
+      expect(thumbnail('1e308', '1e-308').aspectRatio, 4);
+      expect(thumbnail('1e-308', '1e308').aspectRatio, 0.25);
+      expect(thumbnail('16', '9').aspectRatio, closeTo(16 / 9, 0.001));
     });
 
     test('leaves the body it did not claim for HtmlWidget', () {
@@ -200,8 +234,80 @@ void main() {
         everyElement(isFalse),
       );
     });
+
+    testWidgets('generic destination is one named keyboard link', (
+      tester,
+    ) async {
+      const channel = MethodChannel('plugins.flutter.io/url_launcher');
+      final messenger = tester.binding.defaultBinaryMessenger;
+      final launched = <String>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'launch') {
+          launched.add((call.arguments as Map)['url'] as String);
+        }
+        return true;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+      const destination = 'https://example.com/article';
+      const data = OneboxData(
+        url: destination,
+        siteIcon: null,
+        siteName: 'Example',
+        title: 'Example',
+        titleUrl: destination,
+        thumbnail: null,
+        bodyHtml: '<p>Article description</p>',
+      );
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: const Scaffold(body: OneboxCard(data: data)),
+          ),
+        );
+        await tester.pump();
+
+        // Both visual labels remain, while the matching header and title are
+        // announced only once as part of the composite link name.
+        expect(find.text('Example'), findsNWidgets(2));
+        final target = find.bySemanticsLabel(
+          RegExp(r'Example.*Article description', dotAll: true),
+        );
+        expect(target, findsOneWidget);
+        final node = tester.getSemantics(target);
+        expect(_occurrences(node.label, 'Example'), 1);
+        expect(
+          node,
+          isSemantics(
+            isLink: true,
+            isButton: false,
+            isFocusable: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+          ),
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          tester.getSemantics(target),
+          isSemantics(isFocusable: true, isFocused: true),
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(launched, [destination]);
+      } finally {
+        semantics.dispose();
+      }
+    });
   });
 }
+
+int _occurrences(String source, String pattern) =>
+    pattern.allMatches(source).length;
 
 /// Minimal asides for the dispatch test; the full shapes live in each
 /// engine's own test.

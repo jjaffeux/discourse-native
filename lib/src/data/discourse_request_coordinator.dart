@@ -36,11 +36,20 @@ final class DiscourseGetRequestKey {
 final class DiscourseRequestCoordinator {
   DiscourseRequestCoordinator({
     this.maxConcurrentPerOrigin = 4,
+    this.maxQueuedPerOrigin = 64,
     this.defaultRateLimitCooldown = const Duration(seconds: 15),
   }) : assert(maxConcurrentPerOrigin > 0),
+       assert(maxQueuedPerOrigin > 0),
        assert(defaultRateLimitCooldown >= Duration.zero);
 
   final int maxConcurrentPerOrigin;
+
+  /// Maximum work retained behind the active slots for one origin.
+  ///
+  /// A slow or rate-limited site must not let refreshes and navigation retain
+  /// an unlimited number of request closures, bodies, and completers. Active
+  /// requests do not count toward this backlog limit.
+  final int maxQueuedPerOrigin;
   final Duration defaultRateLimitCooldown;
 
   final Map<String, _OriginQueue> _origins = {};
@@ -80,6 +89,11 @@ final class DiscourseRequestCoordinator {
   ) {
     final origin = url.origin;
     final queue = _origins.putIfAbsent(origin, _OriginQueue.new);
+    if (queue.waiting.length >= maxQueuedPerOrigin) {
+      return Future.error(
+        DiscourseRequestOverloadException(origin, maxQueuedPerOrigin),
+      );
+    }
     final pending = _PendingRequest(send);
     queue.waiting.add(pending);
     _drain(origin, queue);
@@ -192,6 +206,18 @@ final class DiscourseRequestCoordinator {
     if (seconds == null || seconds < 0) return null;
     return Duration(seconds: seconds.clamp(0, maximumRetryAfter.inSeconds));
   }
+}
+
+/// A request rejected before delegation because an origin's backlog is full.
+final class DiscourseRequestOverloadException implements Exception {
+  const DiscourseRequestOverloadException(this.origin, this.maxQueued);
+
+  final String origin;
+  final int maxQueued;
+
+  @override
+  String toString() =>
+      'Request backlog for $origin already contains $maxQueued operations.';
 }
 
 final class _OriginQueue {

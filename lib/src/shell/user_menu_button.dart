@@ -103,6 +103,13 @@ class _UserMenuButtonState extends State<UserMenuButton> {
           final unread =
               (controller.accountActivity.totalsFor(siteUrl)?.badge ?? 0) > 0;
 
+          final tooltip = connecting
+              ? 'Connecting…'
+              : account.displayName ?? 'Not signed in';
+          final semanticLabel = unread && !connecting
+              ? '$tooltip, unread activity'
+              : tooltip;
+
           final avatar = Padding(
             padding: const EdgeInsets.all(5),
             child: Stack(
@@ -140,17 +147,32 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               padding: WidgetStatePropertyAll(EdgeInsets.zero),
             ),
             menuChildren: [UserMenuPanel(onDismiss: _menu.close)],
-            child: Tooltip(
-              message: connecting
-                  ? 'Connecting…'
-                  : account.displayName ?? 'Not signed in',
-              child: InkWell(
-                key: UserMenuButton.avatarKey,
-                onTap: connecting
-                    ? null
-                    : (account.username == null ? _connect : _openMenu),
-                borderRadius: BorderRadius.circular(20),
-                child: avatar,
+            child: Semantics(
+              container: true,
+              button: !connecting,
+              enabled: !connecting,
+              label: semanticLabel,
+              child: Tooltip(
+                message: tooltip,
+                excludeFromSemantics: true,
+                child: InkWell(
+                  key: UserMenuButton.avatarKey,
+                  onTap: connecting
+                      ? null
+                      : (account.username == null ? _connect : _openMenu),
+                  borderRadius: BorderRadius.circular(22),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    child: Center(
+                      widthFactor: 1,
+                      heightFactor: 1,
+                      child: ExcludeSemantics(child: avatar),
+                    ),
+                  ),
+                ),
               ),
             ),
           );

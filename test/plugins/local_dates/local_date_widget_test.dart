@@ -1,8 +1,11 @@
+import 'dart:ui' show SemanticsAction;
+
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:relative_time/relative_time.dart';
 
@@ -108,6 +111,39 @@ void main() {
     expect(find.textContaining('Tokyo'), findsWidgets);
     expect(find.textContaining('Device'), findsOneWidget);
     expect(find.textContaining('Source'), findsOneWidget);
+  });
+
+  testWidgets('is a named button that activates with Enter and Space', (
+    tester,
+  ) async {
+    const html =
+        '<p><span class="discourse-local-date" data-date="2026-08-09" '
+        'data-time="13:05:00" data-timezone="America/New_York" '
+        'data-timezones="Asia/Tokyo" data-calendar="off">server</span></p>';
+    final semantics = tester.ensureSemantics();
+
+    for (final key in [LogicalKeyboardKey.enter, LogicalKeyboardKey.space]) {
+      await pump(tester, html);
+
+      final target = find.bySemanticsLabel(RegExp('New York:'));
+      final data = tester.getSemantics(target).getSemanticsData();
+      expect(data.label, contains('New York:'));
+      expect(data.flagsCollection.isButton, isTrue);
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      expect(target, findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus, isNotNull);
+      await tester.sendKeyEvent(key);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Device'), findsOneWidget, reason: '$key');
+      await tester.tapAt(const Offset(1, 1));
+      await tester.pumpAndSettle();
+    }
+
+    semantics.dispose();
   });
 
   testWidgets('nested cooked content uses the same date renderer', (

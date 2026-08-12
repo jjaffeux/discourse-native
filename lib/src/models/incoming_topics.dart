@@ -30,8 +30,17 @@ class IncomingTopics {
   final Map<String, Set<int>> _incoming = {};
 
   /// The ids to ask the site for, oldest first.
-  List<int> topicIds(String list) =>
-      List.unmodifiable(_incoming[list] ?? const <int>{});
+  ///
+  /// [limit] returns a bounded view without consuming anything. The caller
+  /// clears exactly that view only after the matching request succeeds, so a
+  /// later page remains announced rather than disappearing behind the site's
+  /// own response limit.
+  List<int> topicIds(String list, {int? limit}) {
+    final held = _incoming[list] ?? const <int>{};
+    if (limit == null || limit >= held.length) return List.unmodifiable(held);
+    if (limit <= 0) return const [];
+    return List.unmodifiable(held.take(limit));
+  }
 
   int count(String list) => _incoming[list]?.length ?? 0;
 

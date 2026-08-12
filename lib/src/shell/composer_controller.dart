@@ -849,6 +849,12 @@ class ComposerController extends ChangeNotifier {
   bool get draftPending =>
       (_draftTimer?.isActive ?? false) || _queuedDraft != null;
 
+  /// Whether local persistence is still waiting or running for this draft.
+  ///
+  /// Shell teardown needs the running case too: an operation may be waiting on
+  /// platform storage without still being present in the debounce queue.
+  bool get draftPersistencePending => draftPending || _draftSaveTask != null;
+
   /// This composer's contents, in the shape Discourse stores drafts in.
   ComposerDraft get draft => ComposerDraft(
     reply: text.text,

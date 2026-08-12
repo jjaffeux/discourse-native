@@ -159,16 +159,23 @@ final class SitePresentationController extends FrameSafeNotifier {
         _appearances.complete(siteUrl, appearance);
         if (changed) _notifyPresentationChanged(siteUrl);
       });
-      if (!accepted || !lease.isCurrent) return;
+      // Publishing can synchronously dispose this owner through a listener.
+      // Persistence belongs to the live controller just as much as the fetch,
+      // so do not let that reentrant teardown enqueue a stale write.
+      if (!accepted || !lease.isCurrent || isDisposed) return;
       if (!changed) return;
 
       try {
         await onAppearanceLoaded(siteUrl, appearance);
-      } catch (_) {
+      } catch (error, stackTrace) {
+        if (isDisposed || !lease.isCurrent) return;
+        _report(error, stackTrace, 'siteAppearance.persist');
         // The in-memory palette is still useful. A later rail write can retry
         // persisting it with the rest of the instance snapshot.
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _report(error, stackTrace, 'siteAppearance.load');
       // Appearance is optional; persisted or native colors remain in place.
     } finally {
       if (!isDisposed) lease.commit(() => _appearances.finish(siteUrl));
@@ -212,7 +219,7 @@ final class SitePresentationController extends FrameSafeNotifier {
         if (changed) _notifyPresentationChanged(siteUrl);
       });
       // A notification listener can synchronously rotate the site's session.
-      if (!accepted || !lease.isCurrent) return;
+      if (!accepted || !lease.isCurrent || isDisposed) return;
 
       try {
         await onConfigLoaded(siteUrl, config);

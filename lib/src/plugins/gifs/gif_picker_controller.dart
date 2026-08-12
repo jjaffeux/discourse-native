@@ -267,9 +267,9 @@ final class GifPickerController extends ChangeNotifier {
 
   Future<_GifSession?> _session(SiteLease lease) async {
     final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (apiKey == null || !lease.isCurrent) return null;
+    if (_disposed || apiKey == null || !lease.isCurrent) return null;
     final clientId = await credentials.clientId();
-    if (!lease.isCurrent) return null;
+    if (_disposed || !lease.isCurrent) return null;
     return _GifSession(apiKey: apiKey, clientId: clientId);
   }
 

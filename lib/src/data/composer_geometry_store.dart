@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
+import 'serial_operation_queue.dart';
 
 /// Encoded composer geometry persistence.
 ///
@@ -102,10 +103,14 @@ final class ComposerGeometryStore {
           persistence ?? const SharedPreferencesComposerGeometryPersistence();
 
   static const String storageKey = 'discourse_native.composer_geometry';
+  static final SerialOperationQueue _operations = SerialOperationQueue();
 
   final ComposerGeometryPersistence _persistence;
 
-  Future<ComposerGeometryPreference?> read() async {
+  Future<ComposerGeometryPreference?> read() =>
+      _operations.run(owner: _persistence, key: storageKey, operation: _read);
+
+  Future<ComposerGeometryPreference?> _read() async {
     try {
       final encoded = await _persistence.readGeometry();
       if (encoded == null) return null;
@@ -118,6 +123,14 @@ final class ComposerGeometryStore {
 
   Future<void> write(ComposerGeometryPreference preference) async {
     if (!preference.isValid) return;
+    await _operations.run<void>(
+      owner: _persistence,
+      key: storageKey,
+      operation: () => _persist(preference),
+    );
+  }
+
+  Future<void> _persist(ComposerGeometryPreference preference) async {
     try {
       final saved = await _persistence.writeGeometry(
         jsonEncode(preference.toJson()),

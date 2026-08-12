@@ -1,4 +1,4 @@
-import 'dart:ui' show SemanticsRole, Tristate;
+import 'dart:ui' show SemanticsAction, SemanticsRole, Tristate;
 
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -42,7 +42,10 @@ void main() {
 
     expect(ForumTabsBar.height, shellHeaderHeight);
     expect(tester.getSize(bar).height, shellHeaderHeight);
-    expect(tester.getSize(add), const Size(34, 30));
+    expect(
+      tester.getSize(add),
+      const Size.square(ForumTabsBar.minimumActionTarget),
+    );
     expect(tester.getSize(selected).width, 205);
     expect(tester.getSize(ordinary).width, 205);
 
@@ -80,6 +83,16 @@ void main() {
     expect(
       addRect.center.dy,
       barRect.top + 4 + (shellHeaderHeight - 4 - bottomDivider.width) / 2,
+    );
+
+    final close = find.byKey(const ValueKey('forum-tab-close-topic-1'));
+    expect(
+      tester.getSize(close).width,
+      greaterThanOrEqualTo(ForumTabsBar.minimumActionTarget),
+    );
+    expect(
+      tester.getSize(close).height,
+      greaterThanOrEqualTo(ForumTabsBar.minimumActionTarget),
     );
   });
 
@@ -148,7 +161,7 @@ void main() {
       tester,
       items: items,
       selectedId: items.first.id,
-      width: 220,
+      width: 280,
     );
 
     final swatch = tester.widget<Container>(
@@ -309,6 +322,27 @@ void main() {
 
     semantics.dispose();
   });
+
+  testWidgets('announces and disables add at tab capacity', (tester) async {
+    final semantics = tester.ensureSemantics();
+
+    await _pumpBar(
+      tester,
+      items: const [
+        ForumTabItem(id: 'one', title: 'One', icon: DIcons.comments),
+      ],
+      selectedId: 'one',
+      addEnabled: false,
+    );
+
+    final target = find.byKey(const ValueKey('forum-tabs-add'));
+    final data = tester.getSemantics(target).getSemanticsData();
+    expect(data.label, 'Close a tab before opening another');
+    expect(data.flagsCollection.isButton, isTrue);
+    expect(data.flagsCollection.isEnabled, Tristate.isFalse);
+    expect(data.hasAction(SemanticsAction.tap), isFalse);
+    semantics.dispose();
+  });
 }
 
 BoxDecoration _decoration(WidgetTester tester, Finder finder) =>
@@ -327,6 +361,7 @@ Future<void> _pumpBar(
   required List<ForumTabItem> items,
   required String selectedId,
   VoidCallback? onAdd,
+  bool addEnabled = true,
   ValueChanged<String>? onSelect,
   ValueChanged<String>? onClose,
   double width = 500,
@@ -343,7 +378,7 @@ Future<void> _pumpBar(
               forumName: 'Discourse Meta',
               items: items,
               selectedId: selectedId,
-              onAdd: onAdd ?? () {},
+              onAdd: addEnabled ? (onAdd ?? () {}) : null,
               onSelect: onSelect ?? (_) {},
               onClose: onClose ?? (_) {},
             ),

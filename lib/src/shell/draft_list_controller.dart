@@ -50,6 +50,9 @@ final class DraftListController extends FrameSafeNotifier {
     _requests[siteUrl] = request;
     _feeds[siteUrl] = held.loadingMore();
     notifySafely();
+    // Publishing can synchronously dispose this owner through a listener.
+    // Do not let that replacement boundary cross into credential storage.
+    if (!_isCurrentLoad(lease, siteUrl, request)) return;
 
     try {
       final apiKey = await credentials.apiKeyFor(siteUrl);
@@ -100,6 +103,7 @@ final class DraftListController extends FrameSafeNotifier {
     final lease = lifecycle.capture(instance.url);
     _deletions[identity] = request;
     notifySafely();
+    if (!_isCurrentDeletion(lease, identity, request)) return false;
 
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);

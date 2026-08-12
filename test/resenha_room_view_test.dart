@@ -376,6 +376,45 @@ void main() {
     expect(find.text('Leave room'), findsOneWidget);
   });
 
+  testWidgets('dismissed members dialog ignores a pending member write', (
+    tester,
+  ) async {
+    final transport = _GatedMembershipTransport();
+    final harness = _Harness(discourseApi: transport);
+    addTearDown(harness.dispose);
+    final room = _room(
+      canManage: true,
+      participants: const [
+        ResenhaParticipant(id: 1, username: 'sam', role: ResenhaRole.moderator),
+      ],
+    );
+
+    await tester.pumpWidget(
+      _app(
+        harness.controller,
+        room: room,
+        call: _call(room, harness.media.createSession()),
+      ),
+    );
+    await tester.tap(find.byTooltip('Manage members'));
+    await tester.pumpAndSettle();
+    expect(transport.membershipReads, 1);
+
+    await tester.enterText(find.byType(TextField), 'lee');
+    await tester.tap(find.byTooltip('Add member'));
+    await tester.pump();
+    expect(transport.writeStarted.isCompleted, isTrue);
+
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    transport.writeGate.complete();
+    await tester.pump();
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(transport.membershipReads, 1);
+  });
+
   for (final role in [ResenhaRole.speaker, ResenhaRole.moderator]) {
     testWidgets('stage ${role.name}s retain publishing controls', (
       tester,
@@ -409,6 +448,7 @@ void main() {
   testWidgets('room editor validates its name as the user types', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     final harness = _Harness();
     addTearDown(harness.dispose);
     final room = _room(
@@ -423,20 +463,34 @@ void main() {
     await tester.tap(find.byTooltip('Edit room'));
     await tester.pumpAndSettle();
 
+    final nameField = find.byType(TextField).first;
+    expect(find.text('Required'), findsOneWidget);
+    expect(
+      tester.getSemantics(nameField),
+      isSemantics(
+        label: 'Name',
+        value: 'Lounge',
+        isTextField: true,
+        isRequired: true,
+      ),
+    );
+
     final save = find.widgetWithText(FilledButton, 'Save');
     expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
 
-    await tester.enterText(find.byType(TextField).first, '   ');
+    await tester.enterText(nameField, '   ');
     await tester.pump();
     expect(tester.widget<FilledButton>(save).onPressed, isNull);
 
-    await tester.enterText(find.byType(TextField).first, 'Renamed lounge');
+    await tester.showKeyboard(nameField);
+    tester.testTextInput.enterText('Renamed lounge');
     await tester.pump();
     expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
 
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(harness.transport.pluginWrites, isEmpty);
+    semantics.dispose();
   });
 
   testWidgets('room editor resolves a replacement controller when saving', (
@@ -717,25 +771,28 @@ final class _Harness {
     ResenhaRoom? joinRoom,
     ResenhaTransport joinTransport = ResenhaTransport.mesh,
     Set<int> speakingIds = const {},
-  }) : transport = FakeDiscourseApi(
-         pluginResponses: {
-           if (joinRoom != null)
-             'POST /resenha/rooms/7/join.json': _joinPayload(
-               joinRoom,
-               transport: joinTransport,
-             ),
-           'POST /resenha/rooms/7/state.json': const {},
-           'DELETE /resenha/rooms/7/kick.json': const {},
-           'DELETE /resenha/rooms/7/leave.json': const {},
-           'GET /site.json': const {
-             'post_action_types': [
-               {'name_key': 'notify_moderators', 'id': 3},
-             ],
-           },
-           'POST /resenha/rooms/7/flag.json': const {},
-           'POST /resenha/rooms/7/recording.json': const {},
-         },
-       ),
+    FakeDiscourseApi? discourseApi,
+  }) : transport =
+           discourseApi ??
+           FakeDiscourseApi(
+             pluginResponses: {
+               if (joinRoom != null)
+                 'POST /resenha/rooms/7/join.json': _joinPayload(
+                   joinRoom,
+                   transport: joinTransport,
+                 ),
+               'POST /resenha/rooms/7/state.json': const {},
+               'DELETE /resenha/rooms/7/kick.json': const {},
+               'DELETE /resenha/rooms/7/leave.json': const {},
+               'GET /site.json': const {
+                 'post_action_types': [
+                   {'name_key': 'notify_moderators', 'id': 3},
+                 ],
+               },
+               'POST /resenha/rooms/7/flag.json': const {},
+               'POST /resenha/rooms/7/recording.json': const {},
+             },
+           ),
        media = _MediaFactory(speakingIds) {
     final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
     controller = ResenhaController(
@@ -757,6 +814,59 @@ final class _Harness {
   late final ResenhaController controller;
 
   void dispose() => controller.dispose();
+}
+
+final class _GatedMembershipTransport extends FakeDiscourseApi {
+  _GatedMembershipTransport()
+    : super(
+        pluginResponses: const {
+          'GET /resenha/rooms/7/memberships.json': {'memberships': <Object>[]},
+          'POST /resenha/rooms/7/memberships.json': <String, Object?>{},
+        },
+      );
+
+  final Completer<void> writeStarted = Completer<void>();
+  final Completer<void> writeGate = Completer<void>();
+  int membershipReads = 0;
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String apiKey,
+    String? clientId,
+  }) {
+    if (path == '/resenha/rooms/7/memberships.json') membershipReads++;
+    return super.pluginGetJson(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> pluginWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  }) async {
+    if (method == 'POST' && path == '/resenha/rooms/7/memberships.json') {
+      writeStarted.complete();
+      await writeGate.future;
+    }
+    return super.pluginWriteJson(
+      siteUrl: siteUrl,
+      path: path,
+      method: method,
+      apiKey: apiKey,
+      body: body,
+      clientId: clientId,
+    );
+  }
 }
 
 final class _MediaFactory implements ResenhaMediaFactory {

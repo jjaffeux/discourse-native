@@ -9,9 +9,18 @@ import 'package:timezone/timezone.dart' as tz;
 /// device. Keeping detection here means every cooked fragment observes one
 /// answer and a resume-time timezone change redraws all of them together.
 class LocalDateEnvironment extends ChangeNotifier {
-  LocalDateEnvironment._();
+  LocalDateEnvironment._({Future<String?> Function()? detectDeviceTimezone})
+    : _detectDeviceTimezone =
+          detectDeviceTimezone ?? _readPlatformDeviceTimezone;
+
+  @visibleForTesting
+  factory LocalDateEnvironment.forTesting({
+    required Future<String?> Function() detectDeviceTimezone,
+  }) => LocalDateEnvironment._(detectDeviceTimezone: detectDeviceTimezone);
 
   static final LocalDateEnvironment instance = LocalDateEnvironment._();
+
+  final Future<String?> Function() _detectDeviceTimezone;
 
   static const Map<String, String> aliases = {
     'UTC': 'Etc/UTC',
@@ -23,6 +32,7 @@ class LocalDateEnvironment extends ChangeNotifier {
 
   bool _databaseReady = false;
   String? _deviceTimezone;
+  int _refreshGeneration = 0;
 
   String? get deviceTimezone => _deviceTimezone;
 
@@ -43,14 +53,16 @@ class LocalDateEnvironment extends ChangeNotifier {
   }
 
   Future<void> refreshDeviceTimezone({bool forceNotify = false}) async {
+    final generation = ++_refreshGeneration;
     ensureDatabase();
     String? detected;
     try {
-      detected = (await FlutterTimezone.getLocalTimezone()).identifier;
+      detected = await _detectDeviceTimezone();
     } catch (_) {
       // A platform without the plugin still renders in the account timezone,
       // then UTC. Rendering content must not make application startup fail.
     }
+    if (generation != _refreshGeneration) return;
     final canonical = canonicalTimezone(detected);
     if (_deviceTimezone == canonical) {
       if (forceNotify) notifyListeners();
@@ -59,6 +71,9 @@ class LocalDateEnvironment extends ChangeNotifier {
     _deviceTimezone = canonical;
     notifyListeners();
   }
+
+  static Future<String?> _readPlatformDeviceTimezone() async =>
+      (await FlutterTimezone.getLocalTimezone()).identifier;
 
   /// Reader-zone precedence agreed with the web-compatible contract.
   String readerTimezone([String? accountTimezone]) =>

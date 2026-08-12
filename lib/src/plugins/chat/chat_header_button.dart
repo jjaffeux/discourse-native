@@ -86,31 +86,39 @@ class ChatHeaderButton extends StatelessWidget {
                       siteUrl,
                       user.chatHeaderIndicatorPreference,
                     );
+              final urgentCount = indicator.urgentCount;
+              final tooltip = urgentCount != null
+                  ? 'Chat, $urgentCount urgent ${urgentCount == 1 ? 'message' : 'messages'}'
+                  : indicator.unread
+                  ? 'Chat, unread messages'
+                  : 'Chat';
 
               return IconButton(
                 key: buttonKey,
-                tooltip: 'Chat',
+                tooltip: tooltip,
                 onPressed: () => unawaited(controller.openChat()),
-                icon: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const DIcon(DIcons.comment, size: 22),
-                    if (indicator.urgentCount != null)
-                      Positioned(
-                        top: -8,
-                        right: -12,
-                        child: _UrgentBadge(
-                          label: indicator.label!,
-                          ringColor: ringColor,
+                icon: ExcludeSemantics(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const DIcon(DIcons.comment, size: 22),
+                      if (urgentCount != null)
+                        Positioned(
+                          top: -8,
+                          right: -12,
+                          child: _UrgentBadge(
+                            label: indicator.label!,
+                            ringColor: ringColor,
+                          ),
+                        )
+                      else if (indicator.unread)
+                        Positioned(
+                          top: -5,
+                          right: -6,
+                          child: _UnreadDot(ringColor: ringColor),
                         ),
-                      )
-                    else if (indicator.unread)
-                      Positioned(
-                        top: -5,
-                        right: -6,
-                        child: _UnreadDot(ringColor: ringColor),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },

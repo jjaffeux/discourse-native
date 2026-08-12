@@ -30,6 +30,24 @@ void main() {
     );
   });
 
+  test('floors impossible initial counts while preserving capability', () {
+    final totals = NotificationTotals.fromJson(const {
+      'unread_notifications': -1,
+      'unread_personal_messages': '-2',
+      'unseen_reviewables': -3,
+      'chat_notifications': -4,
+      'topic_tracking': {'unread': -5, 'new': 7},
+    });
+
+    expect(totals.unreadNotifications, 0);
+    expect(totals.unreadPersonalMessages, 0);
+    expect(totals.unseenReviewables, 0);
+    expect(totals.chatNotifications, 0);
+    expect(totals.topicTrackingUnread, 0);
+    expect(totals.topicTrackingNew, 7);
+    expect(totals.hasChatEnabled, isTrue);
+  });
+
   group('withNotification', () {
     test('derives the notification count the way the endpoint does', () {
       // `UserNotificationTotalSerializer` reports
@@ -92,6 +110,13 @@ void main() {
       expect(held.withNotification(const {'seen_notification_id': 3}), held);
       expect(held.withNotification(null), held);
       expect(held.withNotification('nonsense'), held);
+      expect(
+        held.withNotification(const {
+          'all_unread_notifications_count': 'not a count',
+          'new_personal_messages_notifications_count': Object(),
+        }),
+        held,
+      );
     });
 
     test('never reports a negative count', () {
@@ -105,6 +130,25 @@ void main() {
 
       expect(updated.unreadNotifications, 0);
       expect(updated.unreadPersonalMessages, 3);
+    });
+
+    test('floors negative live counts before deriving the badge', () {
+      const held = NotificationTotals(
+        unreadNotifications: 4,
+        unreadPersonalMessages: 2,
+      );
+
+      final negativeAll = held.withNotification(
+        published(all: -1, personalMessages: 2),
+      );
+      final negativePersonal = held.withNotification(
+        published(all: 5, personalMessages: -3),
+      );
+
+      expect(negativeAll.unreadNotifications, 0);
+      expect(negativeAll.unreadPersonalMessages, 2);
+      expect(negativePersonal.unreadNotifications, 5);
+      expect(negativePersonal.unreadPersonalMessages, 0);
     });
   });
 
@@ -127,7 +171,23 @@ void main() {
       const held = NotificationTotals(unseenReviewables: 3);
 
       expect(held.withReviewableCounts(const {'reviewable_count': 12}), held);
+      expect(
+        held.withReviewableCounts(const {
+          'unseen_reviewable_count': 'not a count',
+        }),
+        held,
+      );
       expect(held.withReviewableCounts(null), held);
+    });
+
+    test('floors a negative live reviewable count', () {
+      const held = NotificationTotals(unseenReviewables: 3);
+
+      final updated = held.withReviewableCounts(const {
+        'unseen_reviewable_count': -1,
+      });
+
+      expect(updated.unseenReviewables, 0);
     });
   });
 }

@@ -309,6 +309,18 @@ class ChatChannel with Storable<ChatChannel> {
     this.lastMessageAt,
   });
 
+  /// Enough resolved users to distinguish a one-to-one direct message from a
+  /// group. No current presentation reads a third person: the server-computed
+  /// title already names the group, while the row only needs one face or the
+  /// group glyph.
+  static const int maximumResolvedUsers = 2;
+
+  /// The largest public-channel bucket returned by the channels endpoint.
+  static const int maximumPublicChannels = 100;
+
+  /// The largest direct-message bucket returned by the channels endpoint.
+  static const int maximumDirectMessageChannels = 75;
+
   /// Reads one channel out of `Chat::ChannelSerializer`.
   ///
   /// [tracking] comes from a sibling map in the same payload rather than from
@@ -346,7 +358,9 @@ class ChatChannel with Storable<ChatChannel> {
       isGroup: chatable['group'] == true,
       users: kind == ChatChannelKind.directMessage
           ? List.unmodifiable([
-              for (final entry in jsonObjects(chatable['users']))
+              for (final entry in jsonObjects(
+                chatable['users'],
+              ).take(maximumResolvedUsers))
                 ChatUser.fromJson(entry, siteUrl),
             ])
           : const [],
@@ -414,11 +428,11 @@ class ChatChannel with Storable<ChatChannel> {
       );
     }
 
-    List<ChatChannel> read(Object? bucket) => [
-      for (final entry in jsonObjects(bucket)) readChannel(entry),
+    List<ChatChannel> read(Object? bucket, {required int maximum}) => [
+      for (final entry in jsonObjects(bucket).take(maximum)) readChannel(entry),
     ];
 
-    final public = read(json['public_channels'])
+    final public = read(json['public_channels'], maximum: maximumPublicChannels)
       // By slug rather than by title, which is what Discourse's own sidebar
       // sorts on. The server orders these by `LOWER(name)`, and a channel's
       // name and its slug differ often enough that the two disagree.
@@ -433,7 +447,12 @@ class ChatChannel with Storable<ChatChannel> {
     // deterministic fallback when two live sidebar comparisons tie.
     return ChatChannels(
       public: List.unmodifiable(public),
-      direct: List.unmodifiable(read(json['direct_message_channels'])),
+      direct: List.unmodifiable(
+        read(
+          json['direct_message_channels'],
+          maximum: maximumDirectMessageChannels,
+        ),
+      ),
       presence: ChatPresence.fromJson(json['global_presence_channel_state']),
       newMessageBusLastIds: Map.unmodifiable(newMessageBusLastIds),
       newChannelBusLastId: jsonIntOrNull(envelopeLastIds['new_channel']),

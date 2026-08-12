@@ -57,7 +57,7 @@ class ForumTabItem {
 /// The horizontal, forum-scoped tab bar shown above the main content header.
 ///
 /// The caller owns the lifecycle. Tabs share the available width between the
-/// experiment's 70px and 205px bounds, then scroll horizontally when they no
+/// experiment's 88px and 205px bounds, then scroll horizontally when they no
 /// longer fit. The add action stays fixed and reachable at the trailing edge.
 class ForumTabsBar extends StatefulWidget {
   ForumTabsBar({
@@ -73,10 +73,16 @@ class ForumTabsBar extends StatefulWidget {
 
   static const double height = shellHeaderHeight;
 
+  /// Compact visuals still need an unambiguous finger and switch target.
+  static const double minimumActionTarget = 44;
+
+  /// Leaves a useful selection target beside the 44px close action.
+  static const double minimumTabWidth = 88;
+
   final String forumName;
   final List<ForumTabItem> items;
   final String selectedId;
-  final VoidCallback onAdd;
+  final VoidCallback? onAdd;
   final ValueChanged<String> onSelect;
   final ValueChanged<String> onClose;
 
@@ -146,7 +152,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
             _lastViewportWidth = constraints.maxWidth;
             _scheduleRevealSelected();
           }
-          const addWidth = 34.0;
+          const addWidth = ForumTabsBar.minimumActionTarget;
           const gap = 1.0;
           final tabViewportWidth = math.max(
             0.0,
@@ -156,7 +162,10 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
           final equalShare = widget.items.isEmpty
               ? 70.0
               : (tabViewportWidth - gapsWidth) / widget.items.length;
-          final tabWidth = equalShare.clamp(70.0, 205.0);
+          final tabWidth = equalShare.clamp(
+            ForumTabsBar.minimumTabWidth,
+            205.0,
+          );
 
           return Row(
             children: [
@@ -215,16 +224,19 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
 class _NewTabButton extends StatelessWidget {
   const _NewTabButton({required this.onPressed});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const label = 'Open a new tab';
+    final label = onPressed == null
+        ? 'Close a tab before opening another'
+        : 'Open a new tab';
     return Semantics(
       key: const ValueKey('forum-tabs-add'),
       container: true,
       button: true,
+      enabled: onPressed != null,
       label: label,
       onTap: onPressed,
       child: ExcludeSemantics(
@@ -232,13 +244,12 @@ class _NewTabButton extends StatelessWidget {
           message: label,
           excludeFromSemantics: true,
           child: SizedBox(
-            width: 34,
-            height: 30,
+            width: ForumTabsBar.minimumActionTarget,
+            height: ForumTabsBar.minimumActionTarget,
             child: IconButton(
               constraints: const BoxConstraints.expand(),
               padding: EdgeInsets.zero,
               style: ButtonStyle(
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: WidgetStatePropertyAll(
                   RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(7),
@@ -521,14 +532,12 @@ class _ForumTabState extends State<_ForumTab> {
                         message: closeLabel,
                         excludeFromSemantics: true,
                         child: SizedBox(
-                          width: 26,
+                          width: ForumTabsBar.minimumActionTarget,
                           height: double.infinity,
                           child: IconButton(
                             constraints: const BoxConstraints.expand(),
                             padding: EdgeInsets.zero,
-                            visualDensity: VisualDensity.compact,
                             style: ButtonStyle(
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               shape: WidgetStatePropertyAll(
                                 RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(6),
@@ -687,7 +696,7 @@ class CurrentForumTabsBar extends StatelessWidget {
                 forumName: forumName,
                 items: [for (final tab in state.tabs) itemFor(tab)],
                 selectedId: activeTabId,
-                onAdd: controller.createTab,
+                onAdd: controller.canCreateTab ? controller.createTab : null,
                 onSelect: controller.selectTab,
                 onClose: controller.closeTab,
               );

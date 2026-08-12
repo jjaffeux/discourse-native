@@ -63,6 +63,13 @@ class PostLiker {
 class PostLikers with Storable<PostLikers> {
   const PostLikers({required this.postId, required this.likers});
 
+  /// Largest page requested by the native likes panel.
+  ///
+  /// Keep this parser boundary even though the query sends the same limit: a
+  /// nonconforming response must not create an arbitrary eager column of user
+  /// models and avatar loads.
+  static const int maximumPageSize = 25;
+
   static PostLikers parse(
     Map<String, dynamic> json, {
     required int postId,
@@ -70,7 +77,9 @@ class PostLikers with Storable<PostLikers> {
   }) => PostLikers(
     postId: postId,
     likers: List.unmodifiable([
-      for (final entry in jsonObjects(json['post_action_users']))
+      for (final entry in jsonObjects(
+        json['post_action_users'],
+      ).take(maximumPageSize))
         PostLiker.fromJson(entry, siteUrl),
     ]),
   );

@@ -3,6 +3,13 @@ import 'package:flutter/foundation.dart';
 import '../../shell/markdown_highlight.dart';
 import 'local_date_environment.dart';
 
+final RegExp _unquotedValuePattern = RegExp(r'[\s\]]');
+final RegExp _datePattern = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
+final RegExp _recurringPattern = RegExp(
+  r'^[1-9]\d*\.(years?|quarters?|months?|weeks?|days?|hours?|minutes?|seconds?)$',
+);
+final RegExp _timePattern = RegExp(r'^(\d{1,2}):(\d{2})(?::(\d{2}))?$');
+
 @immutable
 class LocalDateMarkupAttribute {
   const LocalDateMarkupAttribute({
@@ -56,7 +63,7 @@ class LocalDateMarkupAttribute {
   }
 
   static bool _needsQuote(String value) =>
-      value.isEmpty || value.contains(RegExp(r'[\s\]]'));
+      value.isEmpty || value.contains(_unquotedValuePattern);
 }
 
 enum LocalDateComposerKind { date, range }
@@ -121,10 +128,16 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(String source) {
   ];
   final blocks = <LocalDateComposerBlock>[];
   var offset = 0;
+  var codeRangeIndex = 0;
   while (offset < source.length) {
     final opening = source.indexOf('[', offset);
     if (opening == -1) break;
-    if (_insideAny(opening, codeRanges)) {
+    while (codeRangeIndex < codeRanges.length &&
+        codeRanges[codeRangeIndex].$2 <= opening) {
+      codeRangeIndex += 1;
+    }
+    if (codeRangeIndex < codeRanges.length &&
+        opening >= codeRanges[codeRangeIndex].$1) {
       offset = opening + 1;
       continue;
     }
@@ -134,7 +147,9 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(String source) {
       continue;
     }
     final close = _closingBracket(source, header.contentStart);
-    if (close == null || _overlapsAny(opening, close + 1, codeRanges)) {
+    if (close == null ||
+        (codeRangeIndex < codeRanges.length &&
+            codeRanges[codeRangeIndex].$1 < close + 1)) {
       offset = opening + 1;
       continue;
     }
@@ -267,9 +282,9 @@ _ParsedAttributes? _parseAttributes(
     }
     if (leading.isEmpty) return null;
     final nameStart = offset;
-    if (!_nameStart(source[offset])) return null;
+    if (!_nameStart(source.codeUnitAt(offset))) return null;
     offset++;
-    while (offset < source.length && _namePart(source[offset])) {
+    while (offset < source.length && _namePart(source.codeUnitAt(offset))) {
       offset++;
     }
     final name = source.substring(nameStart, offset);
@@ -368,7 +383,7 @@ _ParsedValue? _parseValue(String source, int start) {
 
 bool _validDate(String? value) {
   if (value == null) return false;
-  final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value);
+  final match = _datePattern.firstMatch(value);
   if (match == null) return false;
   final year = int.parse(match.group(1)!);
   final month = int.parse(match.group(2)!);
@@ -383,10 +398,7 @@ bool _supportedOptions(LocalDateComposerBlock block) {
   final calendar = block.attribute('calendar');
   if (calendar != null && calendar != 'on' && calendar != 'off') return false;
   final recurring = block.attribute('recurring');
-  if (recurring != null &&
-      !RegExp(
-        r'^[1-9]\d*\.(years?|quarters?|months?|weeks?|days?|hours?|minutes?|seconds?)$',
-      ).hasMatch(recurring)) {
+  if (recurring != null && !_recurringPattern.hasMatch(recurring)) {
     return false;
   }
   final environment = LocalDateEnvironment.instance;
@@ -408,22 +420,20 @@ bool _validDateTime(String? value) {
   final pieces = value.split('T');
   if (pieces.length > 2 || !_validDate(pieces.first)) return false;
   if (pieces.length == 1) return true;
-  final match = RegExp(
-    r'^(\d{1,2}):(\d{2})(?::(\d{2}))?$',
-  ).firstMatch(pieces[1]);
+  final match = _timePattern.firstMatch(pieces[1]);
   if (match == null) return false;
   return int.parse(match.group(1)!) <= 23 &&
       int.parse(match.group(2)!) <= 59 &&
       int.parse(match.group(3) ?? '0') <= 59;
 }
 
-bool _insideAny(int offset, Iterable<(int, int)> ranges) =>
-    ranges.any((range) => offset >= range.$1 && offset < range.$2);
-
-bool _overlapsAny(int start, int end, Iterable<(int, int)> ranges) =>
-    ranges.any((range) => start < range.$2 && range.$1 < end);
-
 bool _space(String character) => character == ' ' || character == '\t';
-bool _nameStart(String character) => RegExp(r'[A-Za-z_]').hasMatch(character);
-bool _namePart(String character) =>
-    RegExp(r'[A-Za-z0-9_-]').hasMatch(character);
+bool _nameStart(int codeUnit) =>
+    (codeUnit >= 0x41 && codeUnit <= 0x5A) ||
+    codeUnit == 0x5F ||
+    (codeUnit >= 0x61 && codeUnit <= 0x7A);
+
+bool _namePart(int codeUnit) =>
+    _nameStart(codeUnit) ||
+    codeUnit == 0x2D ||
+    (codeUnit >= 0x30 && codeUnit <= 0x39);

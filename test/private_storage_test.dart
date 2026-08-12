@@ -60,6 +60,28 @@ void main() {
     });
   });
 
+  test('serializes complete-file updates across storage instances', () async {
+    await storage.write('seed', 'kept');
+    final first = LinuxFileStorage(directory: directory);
+    final second = LinuxFileStorage(directory: directory);
+
+    await Future.wait([
+      first.write('first', 'one'),
+      second.write('second', 'two'),
+    ]);
+
+    expect(await storage.readAll(), {
+      'seed': 'kept',
+      'first': 'one',
+      'second': 'two',
+    });
+    expect(
+      (await File('${directory.path}/private-storage.json.lock').stat()).mode &
+          0x1ff,
+      0x180,
+    ); // 0600
+  });
+
   test('deletes one value without disturbing the rest', () async {
     await storage.write('first', 'one');
     await storage.write('second', 'two');

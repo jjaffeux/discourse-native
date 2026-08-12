@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
+import 'serial_operation_queue.dart';
 
 /// Diagnostics panel width persistence.
 ///
@@ -41,10 +42,14 @@ final class DiagnosticsPanelWidthStore {
            const SharedPreferencesDiagnosticsPanelWidthPersistence();
 
   static const String storageKey = 'discourse_native.diagnostics_panel_width';
+  static final SerialOperationQueue _operations = SerialOperationQueue();
 
   final DiagnosticsPanelWidthPersistence _persistence;
 
-  Future<double?> read() async {
+  Future<double?> read() =>
+      _operations.run(owner: _persistence, key: storageKey, operation: _read);
+
+  Future<double?> _read() async {
     try {
       return await _persistence.readWidth();
     } catch (error, stackTrace) {
@@ -53,7 +58,13 @@ final class DiagnosticsPanelWidthStore {
     }
   }
 
-  Future<void> write(double width) async {
+  Future<void> write(double width) => _operations.run<void>(
+    owner: _persistence,
+    key: storageKey,
+    operation: () => _persist(width),
+  );
+
+  Future<void> _persist(double width) async {
     try {
       if (!await _persistence.writeWidth(width)) {
         throw StateError('Could not persist the diagnostics panel width.');

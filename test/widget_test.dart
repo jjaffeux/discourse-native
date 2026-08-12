@@ -5,6 +5,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/emoji_cache.dart';
+import 'package:discourse_native/src/data/topic_recommendations_panel_store.dart';
 import 'package:discourse_native/src/data/updater.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
@@ -322,8 +323,23 @@ void main() {
 
       final title = tester.getRect(find.text('Discourse Meta'));
       final field = tester.getRect(find.byKey(ForumSearch.inputKey));
+      final searchTarget = find.descendant(
+        of: find.byKey(const ValueKey('instance-sidebar-search-target')),
+        matching: find.byType(GestureDetector),
+      );
       expect(field.top, greaterThanOrEqualTo(title.bottom));
+      expect(searchTarget, findsOneWidget);
+      expect(tester.getSize(searchTarget).height, greaterThanOrEqualTo(44));
+      expect(tester.getSize(searchTarget).width, greaterThanOrEqualTo(44));
       expect(find.byType(InstanceSidebar), findsOneWidget);
+
+      await tester.tap(searchTarget);
+      await tester.pump();
+
+      final focusNode = tester
+          .widget<EditableText>(find.byKey(ForumSearch.inputKey))
+          .focusNode;
+      expect(focusNode.hasFocus, isTrue);
     });
 
     testWidgets('searches live without navigating and opens the matched post', (
@@ -755,7 +771,14 @@ void main() {
     ) async {
       await pumpShell(tester, phone);
 
-      await tester.tap(find.text('Messages'));
+      final messages = sidebarDestination('Messages');
+      final target = find
+          .ancestor(of: messages, matching: find.byType(InkWell))
+          .first;
+      expect(tester.getSize(target).height, greaterThanOrEqualTo(44));
+      expect(tester.getSize(target).width, greaterThanOrEqualTo(44));
+
+      await tester.tap(target);
       await tester.pumpAndSettle();
 
       expect(find.byType(MainContent), findsOneWidget);
@@ -1524,8 +1547,11 @@ void main() {
     expect(action, findsOneWidget);
     expect(chevron, findsOneWidget);
     expect(tester.getCenter(action).dx, lessThan(tester.getCenter(chevron).dx));
-    // A larger action would make this header taller than adjacent sections.
     expect(tester.getSize(action), tester.getSize(chevron));
+    expect(tester.getSize(action), const Size.square(44));
+    final roomAction = find.byTooltip('Open Conf Room 1');
+    expect(roomAction, findsOneWidget);
+    expect(tester.getSize(roomAction), const Size.square(44));
 
     final title = find.text('VOICE ROOMS');
     final theme = Theme.of(tester.element(title));
@@ -3600,6 +3626,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byTooltip('Show more topics'), findsOneWidget);
       expect(find.text('Remembered suggestion'), findsNothing);
+      // The UI intentionally fires this optional preference write without
+      // blocking. Read through the same serialized store boundary so the
+      // replacement below cannot overtake that write.
+      expect(
+        await const TopicRecommendationsPanelStore().read(
+          siteUrl: 'https://meta.discourse.org',
+        ),
+        isTrue,
+      );
 
       await pumpShell(
         tester,
@@ -5037,12 +5072,23 @@ void main() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(
-        find.descendant(
-          of: find.byType(TopicView),
-          matching: find.byType(AvatarImage),
-        ),
+      final semantics = tester.ensureSemantics();
+      final profileTargets = find.bySemanticsLabel(
+        'View profile for @joffreyj',
       );
+      final profileSemantics = find.semantics.byLabel(
+        'View profile for @joffreyj',
+      );
+      expect(profileTargets, findsNWidgets(2));
+      expect(
+        tester
+            .getSemantics(profileTargets.first)
+            .getSemanticsData()
+            .flagsCollection
+            .isButton,
+        isTrue,
+      );
+      tester.semantics.tap(profileSemantics.first);
       await tester.pumpAndSettle();
 
       expect(api.cardsRequested, ['joffreyj']);
@@ -5050,6 +5096,7 @@ void main() {
       expect(find.text('Team member'), findsOneWidget);
       expect(renderedText('Builds the thing.'), findsOneWidget);
       expect(find.text('Mar 2015'), findsOneWidget);
+      semantics.dispose();
     });
 
     testWidgets('tapping the name opens the same card, already held', (
@@ -7100,6 +7147,43 @@ void main() {
 
       expect(find.byType(ReactionsRow), findsOneWidget);
       expect(pill('0'), findsNothing);
+    });
+
+    testWidgets('a reaction pill is an action that opens its reactor list', (
+      tester,
+    ) async {
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(reactions: [(id: 'clap', count: 2)], userCount: 2),
+        ],
+        reactorsById: {
+          '1:clap': const PostReactors(
+            postId: 1,
+            filter: 'clap',
+            total: 2,
+            reactors: [
+              PostReactor(id: 3, username: 'sam', reaction: 'clap'),
+              PostReactor(id: 4, username: 'ada', reaction: 'clap'),
+            ],
+          ),
+        },
+      );
+      final semantics = tester.ensureSemantics();
+      final target = find.bySemanticsLabel('2 clap reactions');
+      final semanticTarget = find.semantics.byLabel('2 clap reactions');
+
+      expect(
+        tester.getSemantics(target).getSemanticsData().flagsCollection.isButton,
+        isTrue,
+      );
+      tester.semantics.tap(semanticTarget);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReactorList), findsOneWidget);
+      expect(api.reactorsRequested, [(postId: 1, filter: 'clap')]);
+      semantics.dispose();
     });
 
     testWidgets('a post on a site without the plugin keeps its likes', (

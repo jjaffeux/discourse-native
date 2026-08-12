@@ -28,13 +28,17 @@ final class ForumTabAnchor {
     final kind = json['kind'];
     final itemId = json['item_id'];
     final offset = json['offset'];
-    if (kind is! String || kind.isEmpty || itemId is! int) {
+    if (kind is! String || kind.isEmpty || itemId is! int || itemId < 0) {
       throw const FormatException('Invalid forum tab anchor');
     }
+    final restoredOffset = offset is num ? offset.toDouble() : 0.0;
     return ForumTabAnchor(
       kind: kind,
       itemId: itemId,
-      offset: offset is num ? offset.toDouble() : 0,
+      // A corrupt exponent such as `1e999` can decode to infinity. Retain the
+      // useful item anchor, but never let non-finite local state reach a
+      // ScrollController jump.
+      offset: restoredOffset.isFinite ? restoredOffset : 0,
     );
   }
 
@@ -60,8 +64,16 @@ final class ForumTab {
   }) : assert(id.isNotEmpty),
        assert(rootDestinationId.isNotEmpty),
        assert(contentStack.isNotEmpty),
+       assert(contentStack.length <= maximumContentRoutes),
        contentStack = List.unmodifiable(contentStack),
        anchors = Map.unmodifiable(anchors);
+
+  /// Root route plus the most recent navigation history retained per tab.
+  ///
+  /// Navigation is presentation state and is restored eagerly. A finite
+  /// browser-like history prevents a long session or corrupt local snapshot
+  /// from growing every later workspace serialization without limit.
+  static const int maximumContentRoutes = 64;
 
   final String id;
   final String rootDestinationId;
@@ -82,6 +94,26 @@ final class ForumTab {
     contentStack: contentStack ?? this.contentStack,
     anchors: anchors ?? this.anchors,
   );
+
+  ForumTab push(ContentRoute route) {
+    if (contentStack.length < maximumContentRoutes) {
+      return copyWith(contentStack: [...contentStack, route]);
+    }
+    final routes = [
+      contentStack.first,
+      ...contentStack.skip(contentStack.length - maximumContentRoutes + 2),
+      route,
+    ];
+    return copyWith(
+      contentStack: routes,
+      anchors: _retainAnchors({for (final item in routes) item.id}),
+    );
+  }
+
+  Map<String, ForumTabAnchor> _retainAnchors(Set<String> routeIds) => {
+    for (final entry in anchors.entries)
+      if (routeIds.contains(entry.key)) entry.key: entry.value,
+  };
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -107,24 +139,39 @@ final class ForumTab {
       return null;
     }
 
-    final stack = <ContentRoute>[];
+    ContentRoute? rootRoute;
+    final recent = <ContentRoute>[];
     for (final rawRoute in rawStack) {
       try {
         if (rawRoute is Map) {
-          stack.add(ContentRoute.fromJson(Map<String, dynamic>.from(rawRoute)));
+          final route = ContentRoute.fromJson(
+            Map<String, dynamic>.from(rawRoute),
+          );
+          if (rootRoute == null) {
+            rootRoute = route;
+          } else {
+            recent.add(route);
+            if (recent.length >= maximumContentRoutes) recent.removeAt(0);
+          }
         }
       } on FormatException {
         // A broken route cannot be left in the middle of a back stack. The tab
         // is discarded below when no valid route remains.
       }
     }
-    if (stack.isEmpty) return null;
+    if (rootRoute == null) return null;
+    final stack = <ContentRoute>[rootRoute, ...recent];
 
+    final routeIds = {for (final route in stack) route.id};
     final anchors = <String, ForumTabAnchor>{};
     final rawAnchors = json['anchors'];
     if (rawAnchors is Map) {
       for (final entry in rawAnchors.entries) {
-        if (entry.key is! String || entry.value is! Map) continue;
+        if (entry.key is! String ||
+            !routeIds.contains(entry.key) ||
+            entry.value is! Map) {
+          continue;
+        }
         try {
           anchors[entry.key as String] = ForumTabAnchor.fromJson(
             Map<String, dynamic>.from(entry.value as Map),
@@ -170,9 +217,13 @@ final class ForumWorkspace {
   }) : assert(siteUrl.isNotEmpty),
        assert(accountIdentity.isNotEmpty),
        assert(tabs.isNotEmpty),
+       assert(tabs.length <= maximumTabs),
        assert(tabs.map((tab) => tab.id).toSet().length == tabs.length),
        assert(tabs.any((tab) => tab.id == activeTabId)),
        tabs = List.unmodifiable(tabs);
+
+  /// Maximum eager work contexts one forum restores and renders.
+  static const int maximumTabs = 20;
 
   final String siteUrl;
   final String accountIdentity;
@@ -220,8 +271,20 @@ final class ForumWorkspace {
     final tabs = <ForumTab>[];
     final seen = <String>{};
     for (final rawTab in rawTabs) {
+      final rawId = rawTab is Map ? rawTab['id'] : null;
+      final isPersistedActive = rawId == json['active_tab_id'];
+      if (tabs.length >= maximumTabs && !isPersistedActive) continue;
+
       final tab = ForumTab.tryFromJson(rawTab);
-      if (tab != null && seen.add(tab.id)) tabs.add(tab);
+      if (tab == null || !seen.add(tab.id)) continue;
+      if (tabs.length < maximumTabs) {
+        tabs.add(tab);
+      } else {
+        // Keep the restored active context reachable even when a snapshot
+        // predates the cap. The oldest inactive overflow context is dropped.
+        seen.remove(tabs.last.id);
+        tabs[tabs.length - 1] = tab;
+      }
     }
     if (tabs.isEmpty) return null;
 

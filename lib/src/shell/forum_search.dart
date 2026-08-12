@@ -135,19 +135,11 @@ class _ForumSearchState extends State<ForumSearch> {
     if (event is KeyDownEvent &&
         (event.logicalKey == LogicalKeyboardKey.enter ||
             event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
-      if (_focus.hasFocus) {
-        _submitFromField();
-      } else {
-        _openSelected();
-      }
+      if (!_focus.hasFocus) return KeyEventResult.ignored;
+      _submitFromField();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
-  }
-
-  void _openSelected() {
-    final result = _search?.selectedResult;
-    if (result != null) _openResult(result);
   }
 
   void _submitFromField() {
@@ -233,7 +225,7 @@ class _ForumSearchState extends State<ForumSearch> {
                 child: Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: 8,
-                    vertical: widget.dense ? 5 : 8,
+                    vertical: search.query.isEmpty ? (widget.dense ? 5 : 8) : 0,
                   ),
                   decoration: BoxDecoration(
                     color: theme.shell.floating,
@@ -304,10 +296,12 @@ class _ForumSearchState extends State<ForumSearch> {
                           key: const ValueKey('forum-search-clear'),
                           tooltip: 'Clear search',
                           onPressed: search.clear,
-                          visualDensity: VisualDensity.compact,
                           constraints: const BoxConstraints.tightFor(
-                            width: 24,
-                            height: 24,
+                            width: 44,
+                            height: 44,
+                          ),
+                          style: const ButtonStyle(
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           padding: EdgeInsets.zero,
                           icon: const DIcon(DIcons.xmark, size: 14),

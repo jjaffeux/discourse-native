@@ -416,36 +416,40 @@ class _FeaturedTopicRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkWell(
-      key: ValueKey('category-featured-topic-${topic.id}'),
-      onTap: () => ShellScope.read(context).openFeaturedTopic(topic),
-      borderRadius: BorderRadius.circular(5),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 3),
-              child: DIcon(
-                _icon,
-                size: 13,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(width: 7),
-            Expanded(
-              child: TopicTitle(
-                topic.title,
-                siteUrl: siteUrl,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.primary,
+    return Semantics(
+      button: true,
+      child: InkWell(
+        key: ValueKey('category-featured-topic-${topic.id}'),
+        onTap: () => ShellScope.read(context).openFeaturedTopic(topic),
+        borderRadius: BorderRadius.circular(5),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: DIcon(
+                  _icon,
+                  size: 13,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 7),
+              Expanded(
+                child: TopicTitle(
+                  topic.title,
+                  siteUrl: siteUrl,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

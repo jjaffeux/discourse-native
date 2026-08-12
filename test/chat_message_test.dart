@@ -204,6 +204,62 @@ void main() {
       expect(upload.humanFilesize, '234 KB');
     });
 
+    test('bounds per-message reactions and uploads in server order', () {
+      final read = messageFrom(
+        message(
+          reactions: List.generate(
+            ChatMessage.maximumReactionsPerMessage + 1,
+            (index) => {
+              'emoji': 'emoji-$index',
+              'count': index + 1,
+              'reacted': index.isEven,
+            },
+          ),
+          uploads: List.generate(
+            ChatMessage.maximumUploadsPerMessage + 1,
+            (index) => {
+              'url': '/uploads/image-$index.png',
+              'original_filename': 'image-$index.png',
+              'extension': 'png',
+            },
+          ),
+        ),
+      );
+
+      expect(
+        read.reactions.map((reaction) => reaction.emoji).toList(),
+        List.generate(
+          ChatMessage.maximumReactionsPerMessage,
+          (index) => 'emoji-$index',
+        ),
+      );
+      expect(
+        read.uploads.map((upload) => upload.originalFilename).toList(),
+        List.generate(
+          ChatMessage.maximumUploadsPerMessage,
+          (index) => 'image-$index.png',
+        ),
+      );
+    });
+
+    test('bounds hostile upload dimensions before chat layout', () {
+      ChatUpload upload(int? width, int? height) => ChatUpload(
+        url: '/uploads/image.png',
+        originalFilename: 'image.png',
+        kind: ChatUploadKind.image,
+        width: width,
+        height: height,
+      );
+
+      expect(upload(null, 1).aspectRatio, isNull);
+      expect(upload(0, 1).aspectRatio, isNull);
+      expect(upload(-1, 1).aspectRatio, isNull);
+      expect(upload(1, 0).aspectRatio, isNull);
+      expect(upload(1000000000, 1).aspectRatio, 4);
+      expect(upload(1, 1000000000).aspectRatio, 0.25);
+      expect(upload(16, 9).aspectRatio, closeTo(16 / 9, 0.0001));
+    });
+
     test(
       'sorts an upload by its filename when the site named no extension',
       () {
@@ -315,6 +371,68 @@ void main() {
 
     test('reads a channel with nothing in it as an empty page', () {
       expect(ChatMessage.parsePage(page([]), site).messages, isEmpty);
+    });
+
+    test('bounds oversized pages at the edge the caller is paging toward', () {
+      final oversized = page([
+        for (var id = 1; id <= 60; id++) message(id: id),
+      ]);
+
+      final newest = ChatMessage.parsePage(
+        oversized,
+        site,
+        maximumMessages: 10,
+      );
+      expect(newest.messages.map((entry) => entry.id), [
+        for (var id = 51; id <= 60; id++) id,
+      ]);
+      expect(newest.canLoadMorePast, isTrue);
+      expect(newest.canLoadMoreFuture, isFalse);
+
+      final oldest = ChatMessage.parsePage(
+        oversized,
+        site,
+        window: ChatMessagePageWindow.retainOldest,
+        maximumMessages: 10,
+      );
+      expect(oldest.messages.map((entry) => entry.id), [
+        for (var id = 1; id <= 10; id++) id,
+      ]);
+      expect(oldest.canLoadMorePast, isFalse);
+      expect(oldest.canLoadMoreFuture, isTrue);
+    });
+
+    test('centers an oversized last-read page on the server target', () {
+      final read = ChatMessage.parsePage(
+        page([
+          for (var id = 1; id <= 80; id++) message(id: id),
+        ], targetMessageId: 40),
+        site,
+        window: ChatMessagePageWindow.aroundTarget,
+        maximumMessages: 10,
+      );
+
+      expect(read.messages.map((entry) => entry.id), [
+        for (var id = 35; id <= 44; id++) id,
+      ]);
+      expect(read.canLoadMorePast, isTrue);
+      expect(read.canLoadMoreFuture, isTrue);
+      expect(() => read.messages.clear(), throwsUnsupportedError);
+    });
+
+    test('rejects page limits outside the server contract', () {
+      expect(
+        () => ChatMessage.parsePage(page([]), site, maximumMessages: 0),
+        throwsRangeError,
+      );
+      expect(
+        () => ChatMessage.parsePage(
+          page([]),
+          site,
+          maximumMessages: ChatMessage.maximumPageSize + 1,
+        ),
+        throwsRangeError,
+      );
     });
   });
 }

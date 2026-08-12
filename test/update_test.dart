@@ -1,10 +1,8 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/app_release.dart';
-import 'package:discourse_native/src/data/desktop_updater_adapter.dart';
 import 'package:discourse_native/src/data/updater.dart';
 import 'package:discourse_native/src/shell/update_controller.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -37,6 +35,16 @@ final class _FailingUpdateStore extends FakeUpdateStore {
       throw StateError('write failed');
 }
 
+final class _CountingUpdateStore extends FakeUpdateStore {
+  int channelReads = 0;
+
+  @override
+  Future<UpdateChannel?> readChannel() async {
+    channelReads++;
+    return super.readChannel();
+  }
+}
+
 void main() {
   // UpdateController defers a notification raised mid-frame to a post-frame
   // callback, which reads SchedulerBinding.instance. These are plain tests
@@ -50,16 +58,6 @@ void main() {
       expect(UpdateChannel.byName('nightly'), isNull);
       expect(UpdateChannel.byName(null), isNull);
       expect(UpdateChannel.byName('canary'), UpdateChannel.canary);
-    });
-
-    test('every channel has its own feed', () {
-      final urls = {
-        for (final channel in UpdateChannel.values)
-          AppRelease.archiveUrlFor(channel),
-      };
-
-      // Two indexes, not one, so publishing to one can never rewrite the other.
-      expect(urls, hasLength(UpdateChannel.values.length));
     });
   });
 
@@ -96,41 +94,6 @@ void main() {
   });
 
   group('what can update', () {
-    test('only Linux can be updated in place', () {
-      for (final platform in TargetPlatform.values) {
-        expect(
-          DesktopUpdaterAdapter.supportsPlatform(platform),
-          platform == TargetPlatform.linux,
-          reason: '$platform',
-        );
-      }
-    });
-
-    test('a key is pinned for every channel', () {
-      // Pinned keys are the only thing between the update feed and arbitrary
-      // code execution. One per channel, because the channel is chosen at
-      // runtime and a build has to verify whichever one the user switches to.
-      expect(AppRelease.canVerifyReleases, isTrue);
-      expect(
-        AppRelease.trustedReleaseKeys,
-        hasLength(UpdateChannel.values.length),
-      );
-      // Distinct, so the canary release job cannot sign a stable descriptor --
-      // its signing profile is bound to the canary feed. Note this is not a
-      // client-side guarantee: verification looks a key up by id and does not
-      // check it against the channel. See AppRelease.trustedReleaseKeys.
-      expect(
-        AppRelease.trustedReleaseKeys.values.toSet(),
-        hasLength(UpdateChannel.values.length),
-      );
-    });
-
-    test('having keys is not on its own enough to offer updates', () {
-      // Still false here, because `flutter test` stamps no version. Keys are
-      // one of three gates, not the whole of it.
-      expect(DesktopUpdaterAdapter().isSupported, isFalse);
-    });
-
     test('a build with no updater behind it says so rather than pretending', () {
       const updater = UnsupportedUpdater();
 
@@ -144,9 +107,8 @@ void main() {
     });
 
     test('a build the release pipeline never stamped is not a release', () {
-      // No --dart-define under `flutter test`, which is the point: a developer
-      // running the app must never be offered an update over their own tree.
-      expect(AppRelease.isReleaseBuild, isFalse);
+      // No --dart-define under `flutter test`, so a local build never presents
+      // the pubspec version as if CI had published it.
       expect(AppRelease.version, isEmpty);
     });
   });
@@ -496,6 +458,46 @@ void main() {
 
       expect(updater.discardCount, 1);
     });
+
+    test('a disposed controller cannot persist a channel change', () async {
+      final updater = FakeUpdater(isSupported: true);
+      final store = FakeUpdateStore();
+      final controller = controllerWith(updater: updater, store: store);
+
+      controller.dispose();
+      await Future<void>.delayed(Duration.zero);
+
+      await controller.setChannel(UpdateChannel.canary);
+
+      expect(controller.channel, UpdateChannel.stable);
+      expect(store.rawChannel, isNull);
+      expect(store.writeCount, 0);
+      expect(updater.checkCount, 0);
+      expect(updater.discardCount, 1);
+    });
+
+    test(
+      'disposed controllers reject every public update entry point',
+      () async {
+        final updater = FakeUpdater(
+          isSupported: true,
+          releases: {UpdateChannel.stable: release('1.4.0')},
+        );
+        final store = _CountingUpdateStore();
+        final controller = controllerWith(updater: updater, store: store);
+        controller.dispose();
+
+        await controller.load();
+        await controller.check();
+        await controller.download();
+        await controller.installAndRestart();
+
+        expect(store.channelReads, 0);
+        expect(updater.checkCount, 0);
+        expect(updater.downloadCount, 0);
+        expect(updater.installCount, 0);
+      },
+    );
 
     test('an updater cleanup failure cannot break controller disposal', () {
       final controller = controllerWith(updater: _ThrowingDiscardUpdater());

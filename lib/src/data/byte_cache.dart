@@ -124,6 +124,15 @@ abstract class ByteCache<T extends Object> {
   /// draw. Failures are cached while retained; transient ones become eligible
   /// for retry after [retryAfter].
   Future<T?> load(String url) {
+    // Validate before consulting either memory or persistent storage. An
+    // unsafe key must never be served merely because another cache generation
+    // or a tampered cache directory happened to retain bytes under it.
+    try {
+      requireSafeHttpUrl(Uri.parse(url));
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, url, 'image.url');
+      return Future.value(null);
+    }
     if (_cooledDown(url)) {
       _cache.remove(url);
       _transientFailures.remove(url);
@@ -265,7 +274,7 @@ abstract class ByteCache<T extends Object> {
           response.headers,
           DateTime.now(),
         );
-        if (expiresAt != null) {
+        if (expiresAt != null && current()) {
           try {
             await persistent.write(
               url,

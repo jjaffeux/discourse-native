@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
+import 'serial_operation_queue.dart';
 import 'updater.dart';
 
 /// Raw, non-secret update preferences.
@@ -20,6 +21,8 @@ abstract interface class UpdatePersistence {
 }
 
 final class SharedPreferencesUpdatePersistence implements UpdatePersistence {
+  const SharedPreferencesUpdatePersistence();
+
   static const String _channelKey = 'discourse_native.update_channel';
   static const String _lastCheckedKey = 'discourse_native.update_last_checked';
 
@@ -50,7 +53,11 @@ final class SharedPreferencesUpdatePersistence implements UpdatePersistence {
 /// the app to fail to start.
 class UpdateStore {
   UpdateStore({UpdatePersistence? persistence})
-    : _persistence = persistence ?? SharedPreferencesUpdatePersistence();
+    : _persistence = persistence ?? _defaultPersistence;
+
+  static const UpdatePersistence _defaultPersistence =
+      SharedPreferencesUpdatePersistence();
+  static final SerialOperationQueue _operations = SerialOperationQueue();
 
   final UpdatePersistence _persistence;
 
@@ -70,7 +77,12 @@ class UpdateStore {
     try {
       // byName rather than values.byName: a channel this build no longer has
       // must read as "no preference" instead of throwing on launch.
-      return UpdateChannel.byName(await _persistence.readChannelName());
+      final name = await _operations.run<String?>(
+        owner: _persistence,
+        key: SharedPreferencesUpdatePersistence._channelKey,
+        operation: _persistence.readChannelName,
+      );
+      return UpdateChannel.byName(name);
     } catch (error, stackTrace) {
       _report(error, stackTrace, 'updates.readChannel');
       return null;
@@ -79,7 +91,12 @@ class UpdateStore {
 
   Future<void> writeChannel(UpdateChannel channel) async {
     try {
-      if (!await _persistence.writeChannelName(channel.name)) {
+      final saved = await _operations.run<bool>(
+        owner: _persistence,
+        key: SharedPreferencesUpdatePersistence._channelKey,
+        operation: () => _persistence.writeChannelName(channel.name),
+      );
+      if (!saved) {
         throw StateError('Could not persist the update channel.');
       }
     } catch (error, stackTrace) {
@@ -90,7 +107,11 @@ class UpdateStore {
 
   Future<DateTime?> readLastChecked() async {
     try {
-      final millis = await _persistence.readLastCheckedMillis();
+      final millis = await _operations.run<int?>(
+        owner: _persistence,
+        key: SharedPreferencesUpdatePersistence._lastCheckedKey,
+        operation: _persistence.readLastCheckedMillis,
+      );
       return millis == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(millis);
@@ -102,9 +123,13 @@ class UpdateStore {
 
   Future<void> writeLastChecked(DateTime at) async {
     try {
-      if (!await _persistence.writeLastCheckedMillis(
-        at.millisecondsSinceEpoch,
-      )) {
+      final saved = await _operations.run<bool>(
+        owner: _persistence,
+        key: SharedPreferencesUpdatePersistence._lastCheckedKey,
+        operation: () =>
+            _persistence.writeLastCheckedMillis(at.millisecondsSinceEpoch),
+      );
+      if (!saved) {
         throw StateError('Could not persist the last update check.');
       }
     } catch (error, stackTrace) {

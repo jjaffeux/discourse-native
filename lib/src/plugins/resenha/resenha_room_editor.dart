@@ -78,11 +78,17 @@ class _ResenhaRoomEditorDialogState extends State<_ResenhaRoomEditorDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: _name,
-              autofocus: true,
-              onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(labelText: 'Name'),
+            Semantics(
+              isRequired: true,
+              child: TextField(
+                controller: _name,
+                autofocus: true,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  helperText: 'Required',
+                ),
+              ),
             ),
             TextField(
               controller: _description,

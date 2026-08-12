@@ -30,6 +30,27 @@ void main() {
     expect(requested, [Uri.parse('http://localhost:4200/avatar.png')]);
   });
 
+  test('never serves an unsafe URL from persistent storage', () async {
+    final store = _SeededByteCacheStore()
+      ..entries['http://images.example/avatar.png'] = Uint8List.fromList([
+        1,
+        2,
+        3,
+      ]);
+    final requested = <Uri>[];
+    final cache = _TestByteCache(
+      store: store,
+      client: MockClient((request) async {
+        requested.add(request.url);
+        return http.Response.bytes([4], 200);
+      }),
+    );
+
+    expect(await cache.load('http://images.example/avatar.png'), isNull);
+    expect(store.readUrls, isEmpty);
+    expect(requested, isEmpty);
+  });
+
   test('follows a bounded safe redirect explicitly', () async {
     final requested = <Uri>[];
     final cache = _TestByteCache(
@@ -149,6 +170,46 @@ void main() {
       expect(cache.cached(url), orderedEquals([2]));
     },
   );
+
+  test('clear prevents a stale response from repopulating disk', () async {
+    final staleResponse = Completer<http.Response>();
+    final store = _RecordingByteCacheStore();
+    var requests = 0;
+    final cache = _TestByteCache(
+      store: store,
+      client: MockClient((_) {
+        requests++;
+        if (requests == 1) return staleResponse.future;
+        return Future.value(
+          http.Response.bytes(
+            [2],
+            200,
+            headers: {'cache-control': 'public, max-age=3600, immutable'},
+          ),
+        );
+      }),
+    );
+    const url = 'https://site.test/image';
+
+    final stale = cache.load(url);
+    await Future<void>.delayed(Duration.zero);
+    cache.clear();
+    staleResponse.complete(
+      http.Response.bytes(
+        [1],
+        200,
+        headers: {'cache-control': 'public, max-age=3600, immutable'},
+      ),
+    );
+
+    expect(await stale, orderedEquals([1]));
+    expect(store.writes, isEmpty);
+
+    expect(await cache.load(url), orderedEquals([2]));
+    expect(store.writes, hasLength(1));
+    expect(store.writes.single.url, url);
+    expect(store.writes.single.bytes, orderedEquals([2]));
+  });
 
   test('clear drops queued stale requests before transport', () async {
     final activeResponse = Completer<http.Response>();
@@ -381,6 +442,45 @@ void main() {
 
     expect(requests, {'a': 2, 'b': 1, 'c': 1});
   });
+
+  test(
+    'bounds queued media work per origin and reuses capacity in FIFO order',
+    () async {
+      final coordinator = MediaRequestCoordinator(
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 2,
+      );
+      addTearDown(coordinator.close);
+      final origin = Uri.parse('https://cdn.test');
+
+      final firstLease = await coordinator.acquire(origin.resolve('/first'));
+      final second = coordinator.acquire(origin.resolve('/second'));
+      var thirdGranted = false;
+      final third = coordinator.acquire(origin.resolve('/third')).then((lease) {
+        thirdGranted = true;
+        return lease;
+      });
+
+      await expectLater(
+        coordinator.acquire(origin.resolve('/overflow')),
+        throwsA(
+          isA<MediaRequestOverloadException>()
+              .having((error) => error.origin, 'origin', 'https://cdn.test')
+              .having((error) => error.maxQueued, 'maxQueued', 2),
+        ),
+      );
+
+      firstLease.release();
+      final secondLease = await second;
+      expect(thirdGranted, isFalse, reason: 'the oldest waiter runs first');
+      secondLease.release();
+      final thirdLease = await third;
+      thirdLease.release();
+
+      final afterDrain = await coordinator.acquire(origin.resolve('/later'));
+      afterDrain.release();
+    },
+  );
 
   test(
     'shares concurrency and a 429 circuit breaker across media caches',
@@ -750,4 +850,40 @@ final class _BlockingByteCacheStore implements ByteCacheStore {
     Uint8List bytes, {
     required DateTime expiresAt,
   }) async {}
+}
+
+final class _RecordingByteCacheStore implements ByteCacheStore {
+  final List<({String url, Uint8List bytes})> writes = [];
+
+  @override
+  Future<Uint8List?> read(String url) async => null;
+
+  @override
+  Future<void> write(
+    String url,
+    Uint8List bytes, {
+    required DateTime expiresAt,
+  }) async {
+    writes.add((url: url, bytes: bytes));
+  }
+}
+
+final class _SeededByteCacheStore implements ByteCacheStore {
+  final Map<String, Uint8List> entries = {};
+  final List<String> readUrls = [];
+
+  @override
+  Future<Uint8List?> read(String url) async {
+    readUrls.add(url);
+    return entries[url];
+  }
+
+  @override
+  Future<void> write(
+    String url,
+    Uint8List bytes, {
+    required DateTime expiresAt,
+  }) async {
+    entries[url] = bytes;
+  }
 }

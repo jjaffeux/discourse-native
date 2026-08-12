@@ -124,6 +124,34 @@ void main() {
     );
 
     test(
+      'bounds oversized remote suggestions after delimiter actions',
+      () async {
+        final subject = engine(
+          tags: (_) async => [
+            const TopicFilterLookupValue(name: 'used'),
+            const TopicFilterLookupValue(name: 'exact'),
+            for (var index = 0; index < 20; index++)
+              TopicFilterLookupValue(name: 'value-$index'),
+          ],
+        );
+
+        final suggestions = await subject.suggestions('tag:used+exact');
+
+        expect(suggestions, hasLength(TopicFilterSuggestions.maxResults));
+        expect(suggestions.first.name, 'tag:used+exact');
+        expect(suggestions.last.name, 'tag:used+value-18');
+        expect(
+          suggestions.map((suggestion) => suggestion.term),
+          isNot(contains('used')),
+        );
+        final names = suggestions.map((suggestion) => suggestion.name);
+        expect(names, isNot(contains('tag:used+value-19')));
+        expect(names, isNot(contains('tag:used+exact,')));
+        expect(names, isNot(contains('tag:used+exact+')));
+      },
+    );
+
+    test(
       'quotes tag groups and provides local category, date, and number values',
       () async {
         final subject = engine(
@@ -207,6 +235,45 @@ void main() {
 
         expect(controller.suggestions, isEmpty);
         expect(controller.isOpen, isFalse);
+      },
+    );
+
+    test(
+      'dispose settles the active lookup and ignores later refreshes',
+      () async {
+        final gate = Completer<List<TopicFilterLookupValue>>();
+        var lookups = 0;
+        final controller = TopicFilterController(
+          initialQuery: 'tag:bug',
+          submitQuery: (_) async {},
+          engine: engine(
+            tags: (_) {
+              lookups++;
+              return gate.future;
+            },
+          ),
+        );
+
+        final active = controller.refreshSuggestions();
+        await pumpEventQueue();
+        expect(lookups, 1);
+
+        var activeSettled = false;
+        unawaited(active.then<void>((_) => activeSettled = true));
+        controller.dispose();
+
+        var lateSettled = false;
+        unawaited(
+          controller.refreshSuggestions().then<void>((_) => lateSettled = true),
+        );
+        await pumpEventQueue();
+
+        expect(activeSettled, isTrue);
+        expect(lateSettled, isTrue);
+        expect(lookups, 1);
+
+        gate.complete(const []);
+        await pumpEventQueue();
       },
     );
   });
@@ -316,6 +383,7 @@ void main() {
   testWidgets(
     'filter suggestions support keyboard selection and pointer hover',
     (tester) async {
+      final semantics = tester.ensureSemantics();
       final api = FakeDiscourseApi(
         feeds: const {'/latest.json': [], '/filter.json': []},
         filterOptionsByPath: const {
@@ -325,38 +393,73 @@ void main() {
           ],
         },
       );
-      await _pump(tester, api);
-      await tester.tap(find.text('Filter'));
-      await tester.pumpAndSettle();
+      try {
+        await _pump(tester, api);
+        await tester.tap(find.text('Filter'));
+        await tester.pumpAndSettle();
 
-      final field = find.byKey(const ValueKey('topic-filter-input'));
-      await tester.tap(field);
-      await tester.pumpAndSettle();
+        final field = find.byKey(const ValueKey('topic-filter-input'));
+        await tester.tap(field);
+        await tester.pumpAndSettle();
 
-      final firstRow = find.byKey(const ValueKey('topic-filter-suggestion-0'));
-      final secondRow = find.byKey(const ValueKey('topic-filter-suggestion-1'));
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer();
-      await mouse.moveTo(tester.getCenter(firstRow));
-      await tester.pump();
-      _expectSelectedRow(tester, firstRow);
+        final firstRow = find.byKey(
+          const ValueKey('topic-filter-suggestion-0'),
+        );
+        final secondRow = find.byKey(
+          const ValueKey('topic-filter-suggestion-1'),
+        );
+        expect(tester.getSize(firstRow).height, greaterThanOrEqualTo(44));
+        expect(tester.getSize(secondRow).height, greaterThanOrEqualTo(44));
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pump();
-      _expectSelectedRow(tester, secondRow);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer();
+        await mouse.moveTo(tester.getCenter(firstRow));
+        await tester.pump();
+        _expectSelectedRow(tester, firstRow);
+        _expectSuggestionSemantics(
+          tester,
+          firstRow,
+          label: 'status:',
+          selected: true,
+        );
+        _expectSuggestionSemantics(
+          tester,
+          secondRow,
+          label: 'tag:\nTopics carrying a tag',
+          selected: false,
+        );
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-      await tester.pump();
-      _expectSelectedRow(tester, firstRow);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+        _expectSelectedRow(tester, secondRow);
+        _expectSuggestionSemantics(
+          tester,
+          firstRow,
+          label: 'status:',
+          selected: false,
+        );
+        _expectSuggestionSemantics(
+          tester,
+          secondRow,
+          label: 'tag:\nTopics carrying a tag',
+          selected: true,
+        );
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-      await tester.pump();
-      _expectSelectedRow(tester, secondRow);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pump();
+        _expectSelectedRow(tester, firstRow);
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(tester.widget<TextField>(field).controller!.text, 'tag:');
-      expect(api.feedPaths, ['/latest.json', '/filter.json']);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pump();
+        _expectSelectedRow(tester, secondRow);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(tester.widget<TextField>(field).controller!.text, 'tag:');
+        expect(api.feedPaths, ['/latest.json', '/filter.json']);
+      } finally {
+        semantics.dispose();
+      }
     },
   );
 
@@ -424,6 +527,24 @@ void _expectSelectedRow(WidgetTester tester, Finder row) {
   expect(decoration.color, theme.shell.selected);
   expect(border.left.color, theme.colorScheme.primary);
   expect(border.left.width, 3);
+}
+
+void _expectSuggestionSemantics(
+  WidgetTester tester,
+  Finder row, {
+  required String label,
+  required bool selected,
+}) {
+  expect(
+    tester.getSemantics(row),
+    isSemantics(
+      label: label,
+      isButton: true,
+      hasSelectedState: true,
+      isSelected: selected,
+      hasTapAction: true,
+    ),
+  );
 }
 
 Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {

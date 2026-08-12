@@ -1,8 +1,10 @@
 import 'package:discourse_native/src/shell/oneboxes/github/commit/block.dart';
+import 'package:discourse_native/src/shell/oneboxes/github/github.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
@@ -49,6 +51,28 @@ GithubCommitData parse(String source) =>
     GithubCommitData.from(html.parse(source).querySelector('aside.onebox')!);
 
 void main() {
+  test('deep GitHub markup is parsed without recursive traversal', () {
+    const depth = 1000;
+    final nested =
+        '${List.filled(depth, '<span>').join()}'
+        'deep body'
+        '${List.filled(depth, '</span>').join()}';
+    final document = html.parse(
+      '<article><div class="github-body-container">$nested</div></article>',
+    );
+    final article = document.querySelector('article')!;
+
+    expect(githubBody(article), 'deep body');
+    expect(
+      githubDescendant(article, (element) => element.text == 'deep body'),
+      isNotNull,
+    );
+    expect(
+      githubDescendants(article, (element) => element.localName == 'span'),
+      hasLength(depth),
+    );
+  });
+
   group('GithubCommitData', () {
     test('reads title, date, author and diff counts', () {
       final data = parse(commitOnebox);
@@ -111,6 +135,103 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('metadata links are named and keyboard operable', (
+      tester,
+    ) async {
+      const authorUrl = 'https://github.com/octocat';
+      const countsUrl =
+          'https://github.com/discourse/discourse/commit/9b6ee3f#files';
+      const channel = MethodChannel('plugins.flutter.io/url_launcher');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final launched = <String>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'launch') {
+          launched.add((call.arguments as Map)['url'] as String);
+        }
+        return true;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: const Scaffold(
+              body: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GithubUser(
+                      login: 'octocat',
+                      avatarUrl: null,
+                      url: authorUrl,
+                    ),
+                    SizedBox(width: 20),
+                    GithubLineCounts(
+                      additions: 12,
+                      deletions: 3,
+                      url: countsUrl,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final author = find.bySemanticsLabel('octocat');
+        final counts = find.bySemanticsLabel('12 additions, 3 deletions');
+        expect(author, findsOneWidget);
+        expect(counts, findsOneWidget);
+        for (final target in [author, counts]) {
+          expect(
+            tester.getSemantics(target),
+            isSemantics(
+              isLink: true,
+              isButton: false,
+              isFocusable: true,
+              hasTapAction: true,
+              hasFocusAction: true,
+            ),
+          );
+          final ink = find.descendant(
+            of: target,
+            matching: find.byType(InkWell),
+          );
+          expect(ink, findsOneWidget);
+          expect(
+            tester.widget<InkWell>(ink).focusColor,
+            Theme.of(tester.element(target)).shell.hover,
+          );
+          expect(tester.getSize(target).height, lessThan(44));
+        }
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          tester.getSemantics(author),
+          isSemantics(isFocusable: true, isFocused: true),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          tester.getSemantics(counts),
+          isSemantics(isFocusable: true, isFocused: true),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
+
+        expect(launched, [authorUrl, countsUrl]);
+      } finally {
+        semantics.dispose();
+      }
     });
   });
 }

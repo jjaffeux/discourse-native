@@ -275,7 +275,7 @@ class ComposerAutocomplete extends ChangeNotifier {
   /// Moves the highlight, or reports that there was nothing to move so the key
   /// falls through to the field.
   bool moveSelection(int delta) {
-    if (!isOpen) return false;
+    if (_disposed || !isOpen) return false;
     _selected = (_selected + delta) % _suggestions.length;
     if (_selected < 0) _selected += _suggestions.length;
     notifyListeners();

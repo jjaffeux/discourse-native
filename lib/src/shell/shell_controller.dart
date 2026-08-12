@@ -17,6 +17,7 @@ import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_api_key.dart';
 import '../diagnostics/diagnostics_controller.dart';
+import '../foundation/bounded_lru_cache.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/bookmark_feed.dart';
 import '../models/category_feed.dart';
@@ -496,6 +497,9 @@ class ShellController extends FrameSafeNotifier {
   ForumTab? get activeTab => currentWorkspace?.activeTab;
   String? get activeTabId => currentWorkspace?.activeTabId;
   List<ForumTab> get tabsForCurrentForum => currentWorkspace?.tabs ?? const [];
+  bool get canCreateTab =>
+      forumTabsEnabled &&
+      (currentWorkspace?.tabs.length ?? 0) < ForumWorkspace.maximumTabs;
 
   /// Id of the sidebar destination at the root of the active tab.
   String? get destinationId => activeTab?.rootDestinationId;
@@ -1723,7 +1727,7 @@ class ShellController extends FrameSafeNotifier {
       }
     }
     final wanted = <int>[];
-    for (final id in eligible) {
+    for (final id in eligible.take(TopicDetail.maximumInitialPosts)) {
       final key = _postKey(siteUrl, id);
       if (_postRefreshRequests.containsKey(key)) {
         _postRefreshPending.add(key);
@@ -2516,6 +2520,7 @@ class ShellController extends FrameSafeNotifier {
     if (detail == null) return;
     if (_postsLoading.contains(key)) return;
 
+    final boundedBatch = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
     final pending = _pendingPostIds(instance.url, detail);
     if (pending.isEmpty) return;
     final lease = lifecycle.capture(instance.url);
@@ -2532,7 +2537,7 @@ class ShellController extends FrameSafeNotifier {
       final page = await api.topicPosts(
         siteUrl: instance.url,
         topicId: topicId,
-        ids: pending.take(batchSize).toList(),
+        ids: pending.take(boundedBatch).toList(),
         apiKey: credential.value,
       );
       lease.commit(() {
@@ -2573,7 +2578,8 @@ class ShellController extends FrameSafeNotifier {
     if (detail == null) return;
     if (_earlierPostsLoading.contains(key)) return;
 
-    final pending = _pendingEarlierPostIds(instance.url, detail, batchSize);
+    final boundedBatch = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
+    final pending = _pendingEarlierPostIds(instance.url, detail, boundedBatch);
     if (pending.isEmpty) return;
     final lease = lifecycle.capture(instance.url);
 
@@ -4957,11 +4963,17 @@ class ShellController extends FrameSafeNotifier {
 
   /// What each site has said a `#ref` is. A null value is a ref it was asked
   /// about and did not have — remembered, so it is not asked twice.
-  final Map<String, Map<String, FoundHashtag?>> _hashtags = {};
+  ///
+  /// The composer may encounter new refs for an entire long-running session.
+  /// Keep the most recent answers rather than turning that stream into an
+  /// unbounded per-site dictionary. Entries in flight are never evicted.
+  static const int composerIdentityCacheCapacity = 2048;
+
+  final Map<String, BoundedLruCache<String, FoundHashtag?>> _hashtags = {};
   final Map<String, Set<String>> _hashtagsInFlight = {};
 
   /// The same, for usernames: true is somebody, false is nobody.
-  final Map<String, Map<String, bool>> _mentioned = {};
+  final Map<String, BoundedLruCache<String, bool>> _mentioned = {};
   final Map<String, Set<String>> _mentionsInFlight = {};
 
   /// Categories and tags matching [term].
@@ -5008,9 +5020,12 @@ class ShellController extends FrameSafeNotifier {
     // pill without a second round trip. This is the path almost every hashtag
     // in a post takes.
     final accepted = lease.commit(() {
-      final known = _hashtags.putIfAbsent(siteUrl, () => {});
+      final known = _hashtags.putIfAbsent(
+        siteUrl,
+        () => BoundedLruCache(composerIdentityCacheCapacity),
+      );
       for (final hashtag in found) {
-        known[hashtag.ref] = hashtag;
+        known.put(hashtag.ref, hashtag);
       }
     });
     return accepted ? found : const [];
@@ -5020,8 +5035,8 @@ class ShellController extends FrameSafeNotifier {
   ComposerPills _composerPills(ComposerTarget target) {
     final siteUrl = target.siteUrl;
     return (
-      hashtag: (ref) => _hashtags[siteUrl]?[ref],
-      mention: (username) => _mentioned[siteUrl]?[username],
+      hashtag: (ref) => _hashtags[siteUrl]?.read(ref),
+      mention: (username) => _mentioned[siteUrl]?.read(username),
       resolve: (refs, usernames) {
         unawaited(_resolveHashtags(siteUrl, refs));
         unawaited(
@@ -5043,7 +5058,10 @@ class ShellController extends FrameSafeNotifier {
   /// being unreachable says nothing about whether a category exists, and the
   /// next repaint may as well ask again.
   Future<void> _resolveHashtags(String siteUrl, Set<String> refs) async {
-    final known = _hashtags.putIfAbsent(siteUrl, () => {});
+    final known = _hashtags.putIfAbsent(
+      siteUrl,
+      () => BoundedLruCache(composerIdentityCacheCapacity),
+    );
     final inFlight = _hashtagsInFlight.putIfAbsent(siteUrl, () => {});
 
     final ask = [
@@ -5070,10 +5088,10 @@ class ShellController extends FrameSafeNotifier {
       if (isDisposed) return;
       lease.commit(() {
         for (final ref in ask) {
-          known[ref] = null;
+          known.put(ref, null);
         }
         for (final hashtag in found) {
-          known[hashtag.ref] = hashtag;
+          known.put(hashtag.ref, hashtag);
         }
         _composer?.text.artworkArrived();
       });
@@ -5098,7 +5116,10 @@ class ShellController extends FrameSafeNotifier {
     int? topicId,
     Set<String> usernames,
   ) async {
-    final known = _mentioned.putIfAbsent(siteUrl, () => {});
+    final known = _mentioned.putIfAbsent(
+      siteUrl,
+      () => BoundedLruCache(composerIdentityCacheCapacity),
+    );
     final inFlight = _mentionsInFlight.putIfAbsent(siteUrl, () => {});
 
     final ask = [
@@ -5126,7 +5147,7 @@ class ShellController extends FrameSafeNotifier {
       if (isDisposed) return;
       lease.commit(() {
         for (final name in ask) {
-          known[name] = real.contains(name);
+          known.put(name, real.contains(name));
         }
         _composer?.text.artworkArrived();
       });
@@ -5187,9 +5208,12 @@ class ShellController extends FrameSafeNotifier {
     // The site just named these, so they exist — accepting one draws its pill
     // without asking again.
     final accepted = lease.commit(() {
-      final known = _mentioned.putIfAbsent(siteUrl, () => {});
+      final known = _mentioned.putIfAbsent(
+        siteUrl,
+        () => BoundedLruCache(composerIdentityCacheCapacity),
+      );
       for (final user in found) {
-        known[user.username] = true;
+        known.put(user.username, true);
       }
     });
     return accepted ? found : const [];
@@ -6094,7 +6118,7 @@ class ShellController extends FrameSafeNotifier {
 
   /// Adds a fresh Topics work context to the selected forum and opens it.
   void createTab() {
-    if (!forumTabsEnabled) return;
+    if (!canCreateTab) return;
     final instance = currentInstance;
     if (instance == null) return;
     final workspace = _ensureWorkspace(instance);
@@ -6320,7 +6344,7 @@ class ShellController extends FrameSafeNotifier {
   void pushContent(ContentRoute route) {
     final tab = activeTab;
     if (tab == null) return;
-    _replaceActiveTab(tab.copyWith(contentStack: [...tab.contentStack, route]));
+    _replaceActiveTab(tab.push(route));
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
@@ -6408,6 +6432,20 @@ class ShellController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    final composer = _composer;
+    if (composer != null && composer.draftPersistencePending) {
+      final target = composer.target;
+      final data = composer.draft.encode();
+      // This is the last local safety boundary. It must enter DraftStore's
+      // per-site queue before lifecycle invalidation below, and must not use
+      // the normal callback because that can continue into remote sync.
+      // DraftStore diagnoses the underlying persistence failure; disposal has
+      // no live composer left to surface its wrapper error, so observe it here.
+      Future<void>.sync(
+        () => drafts.write(target.siteUrl, target.draftKey, data),
+      ).ignore();
+    }
+
     // A window can close in the frame immediately after a selection. Keep the
     // latest local choice durable, but never start hydration while tearing the
     // controller down.
@@ -6434,7 +6472,7 @@ class ShellController extends FrameSafeNotifier {
       presentation.removeListener(_notify);
       presentation.dispose();
     }
-    _composer?.dispose();
+    composer?.dispose();
     _composer = null;
     for (final tracker in _trackers.values) {
       tracker.dispose().ignore();

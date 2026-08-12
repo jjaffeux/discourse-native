@@ -53,6 +53,74 @@ void main() {
       expect(list.moreTopicsUrl, isNull);
     });
 
+    test('topic list pagination accepts only bounded root-relative paths', () {
+      String? page(String? cursor) =>
+          TopicList(topics: const [], moreTopicsUrl: cursor).nextPagePath;
+
+      expect(page('/latest?page=2'), '/latest.json?page=2');
+      expect(page('/latest.json?page=2'), '/latest.json?page=2');
+
+      for (final cursor in [
+        'latest?page=2',
+        'https://other.example/latest?page=2',
+        '//other.example/latest?page=2',
+        '/latest?page=2#posts',
+        'http://[malformed',
+        '/latest?${'x' * 2048}',
+      ]) {
+        expect(
+          page(cursor),
+          isNull,
+          reason: cursor.length <= 20 ? cursor : cursor.substring(0, 20),
+        );
+      }
+    });
+
+    test('topic list parsing is bounded to one legal server page', () {
+      final rawTopics = <Object?>[
+        for (var id = 1; id <= TopicList.maximumPageSize + 1; id += 1)
+          {'id': id, 'title': 'Topic $id'},
+      ];
+      rawTopics[4] = false;
+
+      final list = TopicList.fromJson({
+        'topic_list': {'topics': rawTopics},
+      }, siteUrl);
+
+      expect(list.topics, hasLength(TopicList.maximumPageSize - 1));
+      expect(list.topics.first.id, 1);
+      expect(list.topics.last.id, TopicList.maximumPageSize);
+      expect(list.topics.map((topic) => topic.id), isNot(contains(101)));
+      expect(() => list.topics.add(list.topics.first), throwsUnsupportedError);
+    });
+
+    test(
+      'topic-list avatar resolution is bounded to its legal poster table',
+      () {
+        final list = TopicList.fromJson({
+          'users': [
+            for (var id = 1; id <= TopicList.maximumUsersPerPage + 1; id += 1)
+              {'id': id, 'avatar_template': '/avatars/$id/{size}.png'},
+          ],
+          'topic_list': {
+            'topics': [
+              {
+                'id': 7,
+                'posters': [
+                  {'user_id': TopicList.maximumUsersPerPage},
+                  {'user_id': TopicList.maximumUsersPerPage + 1},
+                ],
+              },
+            ],
+          },
+        }, siteUrl);
+
+        expect(list.topics.single.posterAvatars, [
+          '$siteUrl/avatars/${TopicList.maximumUsersPerPage}/90.png',
+        ]);
+      },
+    );
+
     test('topic details skip malformed posts and stream ids', () {
       final payload = TopicDetail.parse({
         'id': 7,
@@ -135,6 +203,49 @@ void main() {
       expect(nested.showNewTopicDot, isFalse);
       expect(nested.showNewRepliesDot, isTrue);
       expect(nested.lastUnreadPostNumber, isNull);
+    });
+
+    test('topic parsers retain only the first three resolved posters', () {
+      final ordinary = Topic.fromJson(
+        {
+          'id': 7,
+          'posters': [
+            'not an object',
+            {'user_id': 999},
+            for (var id = 1; id <= 5; id++) {'user_id': id},
+          ],
+        },
+        {for (var id = 1; id <= 5; id++) id: 'avatar-$id'},
+        siteUrl,
+      );
+      final recommendation = Topic.fromRecommendationJson({
+        'id': 8,
+        'posters': [
+          {'user': 'not an object'},
+          {
+            'user': const {'id': 999},
+          },
+          for (var id = 1; id <= 5; id++)
+            {
+              'user': {'id': id, 'avatar_template': '/avatar-$id/{size}.png'},
+            },
+        ],
+      }, siteUrl);
+
+      expect(ordinary.posterAvatars, ['avatar-1', 'avatar-2', 'avatar-3']);
+      expect(recommendation.posterAvatars, [
+        '$siteUrl/avatar-1/90.png',
+        '$siteUrl/avatar-2/90.png',
+        '$siteUrl/avatar-3/90.png',
+      ]);
+      expect(
+        () => ordinary.posterAvatars.add('avatar-4'),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => recommendation.posterAvatars.add('avatar-4'),
+        throwsUnsupportedError,
+      );
     });
 
     test('free-form notification and bookmark data default safely', () {
@@ -249,6 +360,45 @@ void main() {
       expect(() => reactors.reactors.clear(), throwsUnsupportedError);
       expect(() => channels.public.clear(), throwsUnsupportedError);
     });
+  });
+
+  test('bounds a nonconforming likes response to one requested page', () {
+    final likers = PostLikers.parse(
+      {
+        'post_action_users': [
+          for (var index = 0; index < PostLikers.maximumPageSize + 5; index++)
+            {'id': index + 1, 'username': 'user-$index'},
+        ],
+      },
+      postId: 7,
+      siteUrl: siteUrl,
+    );
+
+    expect(likers.likers, hasLength(PostLikers.maximumPageSize));
+    expect(likers.likers.first.username, 'user-0');
+    expect(
+      likers.likers.last.username,
+      'user-${PostLikers.maximumPageSize - 1}',
+    );
+  });
+
+  test('retains only a category hashtag parent and child color', () {
+    final hashtag = FoundHashtag.fromJson({
+      'type': 'category',
+      'ref': 'parent:child',
+      'colors': [
+        null,
+        7,
+        '',
+        '112233',
+        'AABBCC',
+        for (var index = 0; index < 20; index++) '00000$index',
+      ],
+    })!;
+
+    expect(hashtag.colors, ['112233', 'AABBCC']);
+    expect(hashtag.colorValues, [0xFF112233, 0xFFAABBCC]);
+    expect(() => hashtag.colors.add('FFFFFF'), throwsUnsupportedError);
   });
 
   group('Store value semantics', () {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -8,8 +9,11 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -210,6 +214,71 @@ void main() {
     older.complete(_messagesPage(-1, 1));
     await request;
     await tester.pump();
+  });
+
+  testWidgets('jump to latest is a named 44 pixel keyboard target', (
+    tester,
+  ) async {
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [
+          _messagesPage(1, 2, canLoadMoreFuture: true),
+          _messagesPage(80, 1),
+        ],
+      },
+    );
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    controller.store.put(firstSite, _channel(lastRead: 1));
+    final semantics = tester.ensureSemantics();
+
+    try {
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+
+      final icon = find.byWidgetPredicate(
+        (widget) => widget is DIcon && widget.icon == DIcons.chevronDown,
+      );
+      expect(icon, findsOneWidget);
+      final target = find
+          .ancestor(of: icon, matching: find.byType(InkWell))
+          .last;
+      expect(tester.getSize(target), const Size.square(44));
+      expect(
+        tester.getSemantics(target),
+        isSemantics(
+          label: 'Jump to latest messages',
+          isButton: true,
+          isFocusable: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+        ),
+      );
+
+      bool targetIsFocused() =>
+          tester
+              .getSemantics(target)
+              .getSemanticsData()
+              .flagsCollection
+              .isFocused ==
+          Tristate.isTrue;
+      for (var step = 0; step < 10 && !targetIsFocused(); step++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+      }
+      expect(targetIsFocused(), isTrue);
+      expect(
+        tester.getSemantics(target),
+        isSemantics(isFocusable: true, isFocused: true),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(icon, findsNothing);
+    } finally {
+      semantics.dispose();
+    }
   });
 }
 

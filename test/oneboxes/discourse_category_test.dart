@@ -46,6 +46,21 @@ DiscourseCategoryData parse(String source) => DiscourseCategoryData.from(
 );
 
 void main() {
+  test('deep category markup parses without recursive DOM traversal', () {
+    const depth = 1000;
+    final nested =
+        '${List.filled(depth, '<div>').join()}'
+        '<span class="category-name">Deep child</span>'
+        '${List.filled(depth, '</div>').join()}';
+
+    final parsed = parse(
+      '<aside class="onebox category-onebox"><article class="onebox-body">'
+      '<span class="subcategory">$nested</span></article></aside>',
+    );
+
+    expect(parsed.subcategories.single.name, 'Deep child');
+  });
+
   group('DiscourseCategoryData', () {
     test('reads the name, the color and the subcategories', () {
       final data = parse(categoryOnebox);

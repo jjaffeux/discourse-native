@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api.dart';
 import '../data/site_lifecycle.dart';
+import '../diagnostics/diagnostics_controller.dart';
 import '../models/search_results.dart';
 
 enum SearchSessionPhase {
@@ -91,6 +92,17 @@ class ShellSearchController extends ChangeNotifier {
       : null;
   bool ownsPanel(Object field) => identical(_activeField, field);
 
+  void _report(Object error, StackTrace stackTrace) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: 'search.load',
+      source: 'search',
+      handled: true,
+      degraded: true,
+    );
+  }
+
   /// Selects the forum this global input searches. A changed forum is a hard
   /// boundary: neither its text nor a late private result may cross it.
   void selectSite(String? siteUrl, {int minimumLength = 3}) {
@@ -136,6 +148,14 @@ class ShellSearchController extends ChangeNotifier {
       return;
     }
     _panelOpen = true;
+    if (validatedTerm.length > DiscourseApi.maximumSearchTermLength) {
+      _phase = SearchSessionPhase.refused;
+      _message =
+          'Searches can be at most '
+          '${DiscourseApi.maximumSearchTermLength} characters.';
+      _notify();
+      return;
+    }
     if (!_isValid(validatedTerm)) {
       _phase = SearchSessionPhase.tooShort;
       _notify();
@@ -220,8 +240,9 @@ class ShellSearchController extends ChangeNotifier {
                 ? SearchSessionPhase.empty
                 : SearchSessionPhase.results);
       _notify();
-    } catch (_) {
+    } catch (error, stackTrace) {
       if (!lease.isCurrent || !_isCurrent(request)) return;
+      _report(error, stackTrace);
       _hits = const [];
       _sections = const [];
       _results = const [];

@@ -192,21 +192,23 @@ class _ReactionCell extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: ReactionGrid.cell,
-          height: ReactionGrid.cell,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: held ? theme.colorScheme.primary : Colors.transparent,
+        child: ExcludeSemantics(
+          child: Container(
+            width: ReactionGrid.cell,
+            height: ReactionGrid.cell,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: held ? theme.colorScheme.primary : Colors.transparent,
+              ),
             ),
-          ),
-          child: Center(
-            child: EmojiImage(
-              url: url,
-              size: 22,
-              alt: ':$id:',
-              style: theme.textTheme.labelSmall,
+            child: Center(
+              child: EmojiImage(
+                url: url,
+                size: 22,
+                alt: ':$id:',
+                style: theme.textTheme.labelSmall,
+              ),
             ),
           ),
         ),

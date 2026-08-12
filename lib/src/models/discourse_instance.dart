@@ -6,6 +6,8 @@ import 'sidebar.dart';
 import 'site_appearance.dart';
 import 'site_config.dart';
 
+final RegExp _instanceTitleWord = RegExp(r'\S+');
+
 /// A Discourse site the user has connected to — one entry in the rail.
 ///
 /// Fields mirror what `/site/basic-info.json` gives us, which is everything we
@@ -152,13 +154,17 @@ class DiscourseInstance {
 
   /// Up to two letters, shown until the real icon loads.
   String get monogram {
-    final words = title.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
-    if (words.isEmpty) return '?';
-    if (words.length == 1) {
-      final word = words.first;
-      return word.substring(0, word.length >= 2 ? 2 : 1).toUpperCase();
+    final source = title.trim();
+    final words = _instanceTitleWord.allMatches(source).iterator;
+    if (!words.moveNext()) return '?';
+    final first = words.current;
+    if (!words.moveNext()) {
+      final length = first.end - first.start;
+      return source
+          .substring(first.start, first.start + (length >= 2 ? 2 : 1))
+          .toUpperCase();
     }
-    return words.take(2).map((w) => w[0]).join().toUpperCase();
+    return '${source[first.start]}${source[words.current.start]}'.toUpperCase();
   }
 
   /// Routes every Discourse has before any forum response arrives. Categories

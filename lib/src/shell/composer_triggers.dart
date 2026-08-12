@@ -20,13 +20,9 @@ enum ComposerTriggerKind {
   /// emoji name allows the `+` of `:+1:` but never a colon, which is what
   /// stops a finished `:smile:` from reading as the start of another one.
   bool accepts(String character) => switch (this) {
-    ComposerTriggerKind.mention => RegExp(
-      r'[A-Za-z0-9_.-]',
-    ).hasMatch(character),
-    ComposerTriggerKind.hashtag => RegExp(
-      r'[A-Za-z0-9_:.-]',
-    ).hasMatch(character),
-    ComposerTriggerKind.emoji => RegExp(r'[A-Za-z0-9_+-]').hasMatch(character),
+    ComposerTriggerKind.mention => _mentionCharacter.hasMatch(character),
+    ComposerTriggerKind.hashtag => _hashtagCharacter.hasMatch(character),
+    ComposerTriggerKind.emoji => _emojiCharacter.hasMatch(character),
   };
 
   /// Enough typed for the answer to be worth asking for.
@@ -163,8 +159,8 @@ ComposerTrigger? composerTriggerAt(TextEditingValue value) {
   if (sigil > 0 && !_opensWord(text[sigil - 1])) return null;
 
   final query = text.substring(start, caret);
-  for (final character in query.split('')) {
-    if (!kind.accepts(character)) return null;
+  for (var index = 0; index < query.length; index++) {
+    if (!kind.accepts(query[index])) return null;
   }
 
   if (query.length < kind.minimum || query.length > kind.maximum) return null;
@@ -204,8 +200,7 @@ TextEditingValue applyComposerCompletion(
 
 /// What a name may be made of. Also what decides where a run *ends*: a caret
 /// with one of these after it is in the middle of a word.
-bool _isName(String character) =>
-    RegExp(r'[A-Za-z0-9_.+-]').hasMatch(character);
+bool _isName(String character) => _nameCharacter.hasMatch(character);
 
 /// What may sit immediately before a sigil.
 ///
@@ -213,5 +208,10 @@ bool _isName(String character) =>
 /// said so)` is a mention. Deliberately not a letter or a digit, which is the
 /// whole of what stops `me@example.com` completing a username and what stops
 /// the second colon of `:smile:` opening a list of its own.
-bool _opensWord(String character) =>
-    RegExp(r'''[\s([{<"'`]''').hasMatch(character);
+bool _opensWord(String character) => _wordOpeningCharacter.hasMatch(character);
+
+final RegExp _mentionCharacter = RegExp(r'[A-Za-z0-9_.-]');
+final RegExp _hashtagCharacter = RegExp(r'[A-Za-z0-9_:.-]');
+final RegExp _emojiCharacter = RegExp(r'[A-Za-z0-9_+-]');
+final RegExp _nameCharacter = RegExp(r'[A-Za-z0-9_.+-]');
+final RegExp _wordOpeningCharacter = RegExp(r'''[\s([{<"'`]''');

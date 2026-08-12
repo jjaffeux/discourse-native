@@ -102,10 +102,18 @@ class QuoteData {
     dom.Element root,
     bool Function(dom.Element) test,
   ) {
-    for (final child in root.children) {
+    final pending = <dom.Element>[];
+    void pushReversed(List<dom.Element> children) {
+      for (var index = children.length - 1; index >= 0; index--) {
+        pending.add(children[index]);
+      }
+    }
+
+    pushReversed(root.children);
+    while (pending.isNotEmpty) {
+      final child = pending.removeLast();
       if (test(child)) return child;
-      final found = _descendant(child, test);
-      if (found != null) return found;
+      pushReversed(child.children);
     }
     return null;
   }
@@ -205,12 +213,16 @@ class _Header extends StatelessWidget {
     // The attribution behaves like the name on a post: it opens the person,
     // unless the quote names a source post, which opens that instead.
     if (link != null) {
-      return MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
+      return Semantics(
+        container: true,
+        link: true,
+        label: data.title ?? link,
+        child: InkWell(
           onTap: () => openLink(context, link, siteUrl: siteUrl),
-          child: row,
+          borderRadius: BorderRadius.circular(2),
+          hoverColor: theme.shell.hover,
+          focusColor: theme.shell.hover,
+          child: ExcludeSemantics(child: row),
         ),
       );
     }

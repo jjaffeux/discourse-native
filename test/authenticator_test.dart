@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/data/authenticator.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
@@ -87,6 +89,53 @@ void main() {
         'https://two.example',
       });
     });
+
+    test(
+      'disconnect cancels only its pending site before credential persistence',
+      () async {
+        final callbacks = [Completer<String>(), Completer<String>()];
+        final started = [Completer<void>(), Completer<void>()];
+        var launchIndex = 0;
+        final store = _FakeSecureStore();
+        final authenticator = Authenticator(
+          store: store,
+          protocol: _FakeProtocol(),
+          keyPairGenerator: () async => _pair,
+          nonceGenerator: () => 'nonce',
+          launcher: (_, _) {
+            final index = launchIndex++;
+            started[index].complete();
+            return callbacks[index].future;
+          },
+        );
+        const firstSite = 'https://one.example';
+        const secondSite = 'https://two.example';
+
+        final firstConnection = authenticator.connect(firstSite);
+        await started[0].future;
+        final firstCancelled = expectLater(
+          firstConnection,
+          throwsA(
+            isA<UserApiAuthException>().having(
+              (error) => error.failure,
+              'failure',
+              UserApiAuthFailure.cancelled,
+            ),
+          ),
+        );
+        final secondConnection = authenticator.connect(secondSite);
+        await started[1].future;
+
+        await authenticator.disconnect(firstSite);
+        callbacks[0].complete('discourse://auth_redirect?payload=reply');
+        callbacks[1].complete('discourse://auth_redirect?payload=reply');
+
+        await firstCancelled;
+        expect(await secondConnection, same(_credentials));
+        expect(store.apiKeyWrites, [(secondSite, _credentials.key)]);
+        expect(store.apiKeys, {secondSite: _credentials.key});
+      },
+    );
 
     test(
       'does not open the browser when the client id cannot be read',
@@ -329,6 +378,7 @@ final class _FakeSecureStore implements SecureStore {
   final Object? deleteApiKeyError;
 
   final Map<String, String> apiKeys = {};
+  final List<(String, String)> apiKeyWrites = [];
 
   @override
   Future<String> readOrCreateClientId() async {
@@ -347,6 +397,7 @@ final class _FakeSecureStore implements SecureStore {
   Future<void> writeApiKey(String siteUrl, String key) async {
     events?.add('write-api-key');
     if (writeApiKeyError != null) throw writeApiKeyError!;
+    apiKeyWrites.add((siteUrl, key));
     apiKeys[siteUrl] = key;
   }
 

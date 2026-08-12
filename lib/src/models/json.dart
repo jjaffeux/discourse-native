@@ -8,18 +8,46 @@
 
 import 'package:html/parser.dart' as html;
 
+/// Largest legal `fancy_title` source Discourse can serialize.
+///
+/// Core limits a topic title to 255 characters. Its fancy-title fallback is
+/// the HTML-escaped raw title, whose longest entity (`&quot;`) is six UTF-16
+/// code units, so even that worst case fits in 255 * 6. Bounding the fallback
+/// before DOM parsing keeps a malformed response from allocating an arbitrary
+/// HTML tree without changing any conforming title.
+const int maximumFancyTitleSourceCodeUnits = 1530;
+
+/// Largest textual integer representation a Discourse payload can require.
+///
+/// Server IDs and counts are signed 64-bit values: 19 digits, plus an optional
+/// minus sign. Reject longer strings before `int.tryParse`; a malformed JSON
+/// response is otherwise able to spend CPU and temporary memory parsing a
+/// multi-megabyte decimal field at every model boundary that uses these
+/// helpers.
+const int maximumJsonIntegerCodeUnits = 20;
+
+/// Generous ceiling for an ISO-8601 timestamp emitted by Discourse.
+///
+/// Normal wire values are around 24–35 code units. Sixty-four leaves room for
+/// fractional precision and a numeric timezone while refusing corrupted
+/// multi-megabyte strings before `DateTime.tryParse` scans them.
+const int maximumJsonDateCodeUnits = 64;
+
 /// Reads [value] as an int: a number, or a string that parses as one.
 /// Anything else is zero.
 int jsonInt(Object? value) => switch (value) {
   final num n when n.isFinite => n.toInt(),
-  final String s => int.tryParse(s) ?? 0,
+  final String s when s.length <= maximumJsonIntegerCodeUnits =>
+    int.tryParse(s) ?? 0,
   _ => 0,
 };
 
 /// Reads [value] as an int, or null when there is none.
 int? jsonIntOrNull(Object? value) => switch (value) {
   final num n when n.isFinite => n.toInt(),
-  final String s => int.tryParse(s),
+  final String s when s.length <= maximumJsonIntegerCodeUnits => int.tryParse(
+    s,
+  ),
   _ => null,
 };
 
@@ -53,7 +81,9 @@ String? jsonText(Object? value) {
 /// Reads [value] as an ISO 8601 date, or null when it is absent or the site
 /// sent something unparseable.
 DateTime? jsonDate(Object? value) => switch (value) {
-  final String s => DateTime.tryParse(s),
+  final String s when s.length <= maximumJsonDateCodeUnits => DateTime.tryParse(
+    s,
+  ),
   _ => null,
 };
 
@@ -66,10 +96,25 @@ DateTime? jsonDate(Object? value) => switch (value) {
 String jsonTitle(Object? plain, Object? fancy) {
   if (plain case final String title when title.isNotEmpty) return title;
   if (fancy case final String fancy when fancy.isNotEmpty) {
-    return html.parseFragment(fancy).text ?? fancy;
+    final source = _boundedFancyTitleSource(fancy);
+    return html.parseFragment(source).text ?? source;
   }
   return '';
 }
+
+String _boundedFancyTitleSource(String source) {
+  if (source.length <= maximumFancyTitleSourceCodeUnits) return source;
+
+  var end = maximumFancyTitleSourceCodeUnits;
+  final before = source.codeUnitAt(end - 1);
+  final after = source.codeUnitAt(end);
+  if (_isHighSurrogate(before) && _isLowSurrogate(after)) end--;
+  return source.substring(0, end);
+}
+
+bool _isHighSurrogate(int value) => value >= 0xD800 && value <= 0xDBFF;
+
+bool _isLowSurrogate(int value) => value >= 0xDC00 && value <= 0xDFFF;
 
 /// Resolves a Discourse avatar template into an image URL for this site.
 ///

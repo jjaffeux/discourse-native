@@ -88,6 +88,7 @@ class _Image extends StatelessWidget {
       final w? when w > 0 => w.toDouble().clamp(0.0, ChatUploads.maxWidth),
       _ => ChatUploads.maxWidth,
     };
+    void open() => _open(context, absolute);
 
     Widget picture = Image.network(
       absolute(upload.thumbnailUrl ?? upload.url),
@@ -104,16 +105,23 @@ class _Image extends StatelessWidget {
       picture = AspectRatio(aspectRatio: ratio, child: picture);
     }
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: width,
-        maxHeight: ChatUploads.maxHeight,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: Material(
-          color: _placeholder ?? theme.shell.floating,
-          child: InkWell(onTap: () => _open(context, absolute), child: picture),
+    return Semantics(
+      button: true,
+      label: 'Open image: ${upload.originalFilename}',
+      onTap: open,
+      child: ExcludeSemantics(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: width,
+            maxHeight: ChatUploads.maxHeight,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Material(
+              color: _placeholder ?? theme.shell.floating,
+              child: InkWell(onTap: open, child: picture),
+            ),
+          ),
         ),
       ),
     );
@@ -131,6 +139,7 @@ class _Image extends StatelessWidget {
           ? null
           : absolute(upload.thumbnailUrl!),
       title: upload.originalFilename,
+      description: upload.originalFilename,
       details: upload.humanFilesize,
       downloadHref: absolute(upload.url),
       width: upload.width?.toDouble(),
@@ -181,45 +190,69 @@ class _Attachment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final filesize = upload.humanFilesize?.trim();
+    final label = filesize == null || filesize.isEmpty
+        ? 'Open attachment: ${upload.originalFilename}'
+        : 'Open attachment: ${upload.originalFilename}, $filesize';
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(6),
-      onTap: () => openLink(context, _absoluteUploadUrl(siteUrl, upload.url)),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: theme.shell.floating,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DIcon(
-              DIcons.paperclip,
-              size: 16,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                upload.originalFilename,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary,
+    return Semantics(
+      container: true,
+      link: true,
+      label: label,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        hoverColor: theme.shell.hover,
+        focusColor: theme.shell.hover,
+        onTap: () => openLink(context, _absoluteUploadUrl(siteUrl, upload.url)),
+        child: ExcludeSemantics(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              widthFactor: 1,
+              heightFactor: 1,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.shell.floating,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DIcon(
+                      DIcons.paperclip,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        upload.originalFilename,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    if (filesize case final size?) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        size,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
-            if (upload.humanFilesize case final size?) ...[
-              const SizedBox(width: 8),
-              Text(
-                size,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );

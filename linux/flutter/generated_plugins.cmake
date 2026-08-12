@@ -4,7 +4,6 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   desktop_drop
-  desktop_updater
   desktop_webview_window
   flutter_timezone
   flutter_webrtc

@@ -251,70 +251,74 @@ class _SuggestionRow extends StatelessWidget {
       // Not an InkWell: it asks for focus when tapped, and taking focus off
       // the field drops the caret and closes this list before the tap has
       // resolved into a completion.
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          height: composerSuggestionRowHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          color: isSelected ? theme.shell.hover : null,
-          child: Row(
-            children: [
-              SizedBox(
-                width: 22,
-                height: 22,
-                child: switch (suggestion.art) {
-                  null => null,
-                  // No `alt`: the name is already written beside it, and
-                  // artwork that will not load should leave a gap rather than
-                  // print the shortcode twice on the same row.
-                  ArtImage(:final url) => EmojiImage(
-                    url: url,
-                    size: 20,
-                    alt: '',
-                  ),
-                  ArtAvatar(:final url) => ClipOval(
-                    child: AvatarImage(
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            height: composerSuggestionRowHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            color: isSelected ? theme.shell.hover : null,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: switch (suggestion.art) {
+                    null => null,
+                    // No `alt`: the name is already written beside it, and
+                    // artwork that will not load should leave a gap rather than
+                    // print the shortcode twice on the same row.
+                    ArtImage(:final url) => EmojiImage(
                       url: url,
-                      size: 22,
-                      fallback: const SizedBox.shrink(),
+                      size: 20,
+                      alt: '',
                     ),
-                  ),
-                  ArtSquare(:final colorValues) => Center(
-                    child: _Swatch(colorValues: colorValues),
-                  ),
-                  ArtIcon(:final name, :final colorValue) => DIcon(
-                    name == null
-                        ? DIcons.tag
-                        : DIcons.byName[name] ?? DIcons.tag,
-                    size: 18,
-                    color: colorValue == null
-                        ? theme.colorScheme.onSurfaceVariant
-                        : Color(colorValue),
-                  ),
-                },
-              ),
-              const SizedBox(width: 10),
-              Text(
-                suggestion.label,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+                    ArtAvatar(:final url) => ClipOval(
+                      child: AvatarImage(
+                        url: url,
+                        size: 22,
+                        fallback: const SizedBox.shrink(),
+                      ),
+                    ),
+                    ArtSquare(:final colorValues) => Center(
+                      child: _Swatch(colorValues: colorValues),
+                    ),
+                    ArtIcon(:final name, :final colorValue) => DIcon(
+                      name == null
+                          ? DIcons.tag
+                          : DIcons.byName[name] ?? DIcons.tag,
+                      size: 18,
+                      color: colorValue == null
+                          ? theme.colorScheme.onSurfaceVariant
+                          : Color(colorValue),
+                    ),
+                  },
                 ),
-              ),
-              if (suggestion.detail case final detail?) ...[
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    detail,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                const SizedBox(width: 10),
+                Text(
+                  suggestion.label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (suggestion.detail case final detail?) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      detail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

@@ -51,6 +51,9 @@ class _PostLikesState extends State<PostLikes> {
     ).loadLikers(widget.post.id, siteUrl: widget.siteUrl),
   );
 
+  /// Shows who liked the post without changing the reader's like.
+  void _openPanel() => _panel.currentState?.open();
+
   /// Adds or removes this reader's like.
   Future<void> _toggle() async {
     final controller = ShellScope.read(context);
@@ -111,7 +114,8 @@ class _PostLikesState extends State<PostLikes> {
                 _LikersPanel(siteUrl: widget.siteUrl, post: post),
             child: _LikeCount(
               post: post,
-              onTap: post.canToggleLike ? _toggle : null,
+              onOpen: _openPanel,
+              onToggle: post.canToggleLike ? _toggle : null,
             ),
           ),
         ),
@@ -126,57 +130,75 @@ class _PostLikesState extends State<PostLikes> {
 /// distinguishing "one person liked this" from "you liked this" — the heart
 /// itself is the same either way, because the count includes them.
 class _LikeCount extends StatelessWidget {
-  const _LikeCount({required this.post, required this.onTap});
+  const _LikeCount({
+    required this.post,
+    required this.onOpen,
+    required this.onToggle,
+  });
 
   final Post post;
-  final VoidCallback? onTap;
+  final VoidCallback onOpen;
+  final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final toggle = onToggle;
 
     return Semantics(
-      button: onTap != null,
+      button: true,
       label: post.likeCount == 1
           ? '1 like, from ${post.liked ? 'you' : 'someone else'}'
           : '${post.likeCount} likes',
       // The count is what it says; what pressing it does is a different
       // question, and the answer changes with the state of the post.
-      onTapHint: onTap == null
-          ? null
+      onTapHint: toggle == null
+          ? 'show who liked this post'
           : (post.liked ? 'remove your like' : 'like this post'),
       child: MouseRegion(
-        cursor: onTap == null
-            ? SystemMouseCursors.basic
-            : SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(8, 4, 9, 4),
-            decoration: BoxDecoration(
-              color: theme.shell.floating,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: post.liked
-                    ? theme.colorScheme.primary
-                    : theme.shell.divider,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DIcon(DIcons.heart, size: 15, color: theme.discourse.love),
-                const SizedBox(width: 5),
-                Text(
-                  '${post.likeCount}',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: post.liked
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
+        cursor: SystemMouseCursors.click,
+        child: InkWell(
+          onTap: toggle ?? onOpen,
+          borderRadius: BorderRadius.circular(22),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            child: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: ExcludeSemantics(
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 9, 4),
+                  decoration: BoxDecoration(
+                    color: theme.shell.floating,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: post.liked
+                          ? theme.colorScheme.primary
+                          : theme.shell.divider,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DIcon(
+                        DIcons.heart,
+                        size: 15,
+                        color: theme.discourse.love,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${post.likeCount}',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: post.liked
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),

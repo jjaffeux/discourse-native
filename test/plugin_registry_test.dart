@@ -1,9 +1,11 @@
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
 import 'package:discourse_native/src/plugins/site_plugin.dart';
+import 'package:discourse_native/src/plugins/site_plugin_api.dart' as api;
 import 'package:discourse_native/src/shell/post_action.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +15,14 @@ const _post = Post(id: 1, postNumber: 1, username: 'sam', cooked: '');
 const _topic = TopicDetail(id: 42, title: 'A topic', stream: [1]);
 
 void main() {
+  test('registry accepts a capability declared against the API seam', () {
+    const registry = PluginRegistry([_ApiFooterPlugin()]);
+
+    final footer = registry.postFooter('https://example.com', _post);
+
+    expect((footer as Text).data, 'api-only');
+  });
+
   test('dispatches only implemented capabilities and preserves order', () {
     const registry = PluginRegistry([
       _NamedPlugin('metadata-only'),
@@ -194,6 +204,7 @@ void main() {
   testWidgets('chat preview node rendering has an unambiguous safe fallback', (
     tester,
   ) async {
+    final diagnostics = await _installDiagnostics('chat-preview-plugin');
     const registry = PluginRegistry([_PreviewPlugin('date', '[date]')]);
     const request = ChatPreviewRequest(
       raw: '[date]',
@@ -226,7 +237,26 @@ void main() {
     ]);
     final context = tester.element(find.text('date'));
     expect(duplicate.buildChatPreviewNode(context, node), isNull);
+    expect(diagnostics.events.whereType<ErrorDiagnosticEvent>(), isEmpty);
     expect(throwing.buildChatPreviewNode(context, node), isNull);
+    expect(
+      diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
+      isA<ErrorDiagnosticEvent>()
+          .having(
+            (event) => event.operation,
+            'operation',
+            'chat.previewPlugin.render',
+          )
+          .having((event) => event.source, 'source', 'chat')
+          .having(
+            (event) => event.severity,
+            'severity',
+            DiagnosticSeverity.warning,
+          )
+          .having((event) => event.handled, 'handled', isTrue)
+          .having((event) => event.degraded, 'degraded', isTrue),
+    );
+    await diagnostics.close();
   });
 
   testWidgets('a broken plugin renderer falls back the whole message to raw', (
@@ -258,6 +288,29 @@ void main() {
     expect(find.text(raw), findsOneWidget);
     expect(find.text('before'), findsNothing);
   });
+}
+
+final class _ApiFooterPlugin implements api.SitePlugin, api.PostFooterPlugin {
+  const _ApiFooterPlugin();
+
+  @override
+  String get name => 'api-only';
+
+  @override
+  Widget? postFooter(String siteUrl, Post post) => const Text('api-only');
+}
+
+Future<DiagnosticsController> _installDiagnostics(String sessionId) async {
+  final diagnostics = await DiagnosticsController.create(
+    persistence: MemoryDiagnosticsPersistence(),
+    sessionId: sessionId,
+  );
+  final binding = DiagnosticsSink.install(diagnostics);
+  addTearDown(() async {
+    binding.close();
+    await diagnostics.close();
+  });
+  return diagnostics;
 }
 
 class _NamedPlugin implements SitePlugin {

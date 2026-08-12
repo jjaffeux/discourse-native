@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'anchored_layout.dart';
 
@@ -123,6 +124,16 @@ class HoverPanelState extends State<HoverPanel> {
     _opening = Timer(HoverPanel.openDelay, _open);
   }
 
+  /// Opens immediately for keyboard focus and explicit activation. A keyboard
+  /// user has already expressed intent by traversing to the anchor, so the
+  /// pointer's hover delay would only make focus feel unresponsive.
+  void open() {
+    _cancelOpen();
+    _closing?.cancel();
+    _closing = null;
+    if (!_portal.isShowing) _open();
+  }
+
   void _open() {
     _opening = null;
     final anchor = _anchorRect();
@@ -148,6 +159,16 @@ class HoverPanelState extends State<HoverPanel> {
     _closing = null;
     if (!_portal.isShowing) return;
     _portal.hide();
+  }
+
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape &&
+        _portal.isShowing) {
+      close();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   /// The anchor's rectangle, in the coordinates the overlay lays its children
@@ -177,24 +198,47 @@ class HoverPanelState extends State<HoverPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => _scheduleOpen(),
-      onExit: (_) => _scheduleClose(),
-      child: OverlayPortal(
-        controller: _portal,
-        overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
-          valueListenable: _anchor,
-          builder: (context, anchor, child) => CustomSingleChildLayout(
-            delegate: AnchoredLayout(anchor: anchor, maxWidth: widget.maxWidth),
-            child: child!,
+    return Focus(
+      canRequestFocus: false,
+      onFocusChange: (focused) => focused ? open() : _scheduleClose(),
+      onKeyEvent: _handleKey,
+      child: MouseRegion(
+        onEnter: (_) => _scheduleOpen(),
+        onExit: (_) => _scheduleClose(),
+        child: OverlayPortal(
+          controller: _portal,
+          overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
+            valueListenable: _anchor,
+            builder: (context, anchor, child) => CustomSingleChildLayout(
+              delegate: AnchoredLayout(
+                anchor: anchor,
+                maxWidth: widget.maxWidth,
+              ),
+              child: child!,
+            ),
+            child: Focus(
+              canRequestFocus: false,
+              onFocusChange: (focused) {
+                if (focused) {
+                  _closing?.cancel();
+                  _closing = null;
+                } else {
+                  _scheduleClose();
+                }
+              },
+              onKeyEvent: _handleKey,
+              child: MouseRegion(
+                onEnter: (_) {
+                  _closing?.cancel();
+                  _closing = null;
+                },
+                onExit: (_) => _scheduleClose(),
+                child: Builder(builder: widget.panelBuilder),
+              ),
+            ),
           ),
-          child: MouseRegion(
-            onEnter: (_) => _closing?.cancel(),
-            onExit: (_) => _scheduleClose(),
-            child: Builder(builder: widget.panelBuilder),
-          ),
+          child: KeyedSubtree(key: _anchorKey, child: widget.child),
         ),
-        child: KeyedSubtree(key: _anchorKey, child: widget.child),
       ),
     );
   }

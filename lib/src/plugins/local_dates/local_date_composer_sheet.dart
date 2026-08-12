@@ -356,11 +356,15 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
           ),
           if (_error case final error?) ...[
             const SizedBox(height: 12),
-            Text(
-              error,
-              key: const ValueKey('local-date-sheet-error'),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.error,
+            Semantics(
+              container: true,
+              liveRegion: true,
+              child: Text(
+                error,
+                key: const ValueKey('local-date-sheet-error'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
               ),
             ),
           ],
@@ -553,7 +557,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
       firstDate: DateTime(1900),
       lastDate: DateTime(2200),
     );
-    if (selected == null) return;
+    if (selected == null || !mounted) return;
     controller.text =
         '${selected.year.toString().padLeft(4, '0')}-'
         '${selected.month.toString().padLeft(2, '0')}-'
@@ -572,7 +576,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
       context: context,
       initialTime: initial,
     );
-    if (selected == null) return;
+    if (selected == null || !mounted) return;
     controller.text =
         '${selected.hour.toString().padLeft(2, '0')}:'
         '${selected.minute.toString().padLeft(2, '0')}:00';

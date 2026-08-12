@@ -802,25 +802,50 @@ class _StreamState extends State<_Stream> {
 class _JumpToPresent extends StatelessWidget {
   const _JumpToPresent({required this.onTap});
 
+  static const double _targetSize = 44;
+  static const double _visualSize = 36;
+
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
-      shape: const CircleBorder(),
-      elevation: 2,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: DIcon(
-            DIcons.chevronDown,
-            size: 16,
-            color: theme.colorScheme.onSurface,
+    const label = 'Jump to latest messages';
+    return Semantics(
+      container: true,
+      button: true,
+      label: label,
+      child: Tooltip(
+        message: label,
+        excludeFromSemantics: true,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox.square(
+              dimension: _targetSize,
+              child: Center(
+                child: Material(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  shape: const CircleBorder(),
+                  elevation: 2,
+                  child: SizedBox.square(
+                    dimension: _visualSize,
+                    child: Center(
+                      child: ExcludeSemantics(
+                        child: DIcon(
+                          DIcons.chevronDown,
+                          size: 16,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

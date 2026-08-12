@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 import 'private_storage.dart';
+import 'serial_operation_queue.dart';
 
 abstract interface class ClientIdPersistence {
   Future<String?> read();
@@ -13,6 +14,8 @@ abstract interface class ClientIdPersistence {
 }
 
 final class PreferencesClientIdPersistence implements ClientIdPersistence {
+  const PreferencesClientIdPersistence();
+
   static const _key = 'discourse_native.client_id';
 
   @override
@@ -41,10 +44,14 @@ class SecureStore {
   }) : _storage = storage ?? platformCredentialStorage,
        _legacyClientIds =
            legacyClientIds ?? storage ?? platformLegacyClientIdStorage,
-       _clientIds = clientIds ?? PreferencesClientIdPersistence(),
+       _clientIds = clientIds ?? _defaultClientIds,
        _tokenGenerator = tokenGenerator ?? randomToken;
 
   static const String _legacyClientIdEntry = 'client_id';
+  static const ClientIdPersistence _defaultClientIds =
+      PreferencesClientIdPersistence();
+  static final SerialOperationQueue _clientIdOperations =
+      SerialOperationQueue();
 
   final PrivateStorage _storage;
   final PrivateStorage? _legacyClientIds;
@@ -81,7 +88,16 @@ class SecureStore {
     final pending = _clientIdRequest;
     if (pending != null) return pending;
 
-    final request = _readOrCreateClientId();
+    // App dependency replacement can create a second store while the first is
+    // still reading preferences. Serialize the whole read-create-write cycle
+    // so both stores cannot mint and return different per-install identities.
+    // Injected persistence objects remain independent unless they deliberately
+    // share the same identity.
+    final request = _clientIdOperations.run<String>(
+      owner: _clientIds,
+      key: _legacyClientIdEntry,
+      operation: _readOrCreateClientId,
+    );
     _clientIdRequest = request;
     try {
       return _clientId = await request;

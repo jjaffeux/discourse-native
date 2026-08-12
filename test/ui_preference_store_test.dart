@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/data/composer_geometry_store.dart';
 import 'package:discourse_native/src/data/diagnostics_panel_width_store.dart';
 import 'package:discourse_native/src/data/sidebar_section_store.dart';
@@ -50,6 +52,45 @@ void main() {
     expect(persistence.width, 560);
     expect(
       diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
+      _isRejectedStorageWrite('diagnosticsPanel.writeWidth'),
+    );
+  });
+
+  test('serializes diagnostics width writes in request order', () async {
+    final persistence = _ControlledDiagnosticsPanelWidthPersistence();
+    final store = DiagnosticsPanelWidthStore(persistence: persistence);
+
+    final firstWrite = store.write(480);
+    await persistence.firstWriteStarted.future;
+    final secondWrite = store.write(560);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(persistence.attemptedWidths, [480]);
+
+    persistence.finishFirstWrite.complete(true);
+    await Future.wait([firstWrite, secondWrite]);
+
+    expect(persistence.attemptedWidths, [480, 560]);
+    expect(persistence.persistedWidth, 560);
+  });
+
+  test('continues queued diagnostics writes after a rejected write', () async {
+    final persistence = _ControlledDiagnosticsPanelWidthPersistence();
+    final store = DiagnosticsPanelWidthStore(persistence: persistence);
+
+    final firstWrite = store.write(480);
+    await persistence.firstWriteStarted.future;
+    final secondWrite = store.write(560);
+    persistence.finishFirstWrite.complete(false);
+
+    await Future.wait([firstWrite, secondWrite]);
+
+    expect(persistence.attemptedWidths, [480, 560]);
+    expect(persistence.persistedWidth, 560);
+    final errors = diagnostics.events.whereType<ErrorDiagnosticEvent>();
+    expect(errors, hasLength(1));
+    expect(
+      errors.single,
       _isRejectedStorageWrite('diagnosticsPanel.writeWidth'),
     );
   });
@@ -125,6 +166,31 @@ final class _RejectingDiagnosticsPanelWidthPersistence
   Future<bool> writeWidth(double width) async {
     this.width = width;
     return false;
+  }
+}
+
+final class _ControlledDiagnosticsPanelWidthPersistence
+    implements DiagnosticsPanelWidthPersistence {
+  final firstWriteStarted = Completer<void>();
+  final finishFirstWrite = Completer<bool>();
+  final List<double> attemptedWidths = [];
+  double? persistedWidth;
+
+  @override
+  Future<double?> readWidth() async => persistedWidth;
+
+  @override
+  Future<bool> writeWidth(double width) async {
+    attemptedWidths.add(width);
+    if (attemptedWidths.length == 1) {
+      firstWriteStarted.complete();
+      final accepted = await finishFirstWrite.future;
+      if (accepted) persistedWidth = width;
+      return accepted;
+    }
+
+    persistedWidth = width;
+    return true;
   }
 }
 

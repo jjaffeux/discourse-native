@@ -8,6 +8,12 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'local_date_environment.dart';
 
+final RegExp _wallDatePattern = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
+final RegExp _wallTimePattern = RegExp(r'^(\d{1,2}):(\d{2})(?::(\d{2}))?$');
+final RegExp _recurrencePattern = RegExp(
+  r'^(\d+)\.(years?|quarters?|months?|weeks?|days?|hours?|minutes?|seconds?|milliseconds?)$',
+);
+
 /// The immutable meaning of one server-cooked `span.discourse-local-date`.
 ///
 /// Strings are retained instead of eagerly parsing them so malformed or
@@ -244,33 +250,23 @@ class LocalDateFormatter {
     final requested = spec.timezones.isEmpty
         ? defaultTimezones
         : spec.timezones;
-    final zones = <String>[
+    final zones = [
       resolved.readerTimezone,
       resolved.sourceTimezone,
-      ...requested,
-    ];
-    final seen = <String>{};
+    ].followedBy(requested);
+    final seenZones = <String>{};
+    final seenOffsets = <String>{};
     final previews = <LocalDatePreview>[];
     for (final requestedZone in zones) {
       final zone = _environment.canonicalTimezone(requestedZone);
-      if (zone == null) continue;
+      if (zone == null || !seenZones.add(zone)) continue;
       final location = _environment.location(zone);
       if (location == null) continue;
       final value = tz.TZDateTime.from(resolved.source, location);
       // Match web's useful de-duplication: canonical identity first, then the
       // same abbreviation/offset at the event instant.
       final key = '${value.timeZoneOffset.inMinutes}/${value.timeZoneName}';
-      if (!seen.add(zone) || previews.any((item) => item.timezone == zone)) {
-        continue;
-      }
-      final equivalent = previews.any((item) {
-        final prior = tz.TZDateTime.from(
-          resolved.source,
-          _environment.location(item.timezone)!,
-        );
-        return '${prior.timeZoneOffset.inMinutes}/${prior.timeZoneName}' == key;
-      });
-      if (equivalent && zone != resolved.sourceTimezone) continue;
+      if (!seenOffsets.add(key) && zone != resolved.sourceTimezone) continue;
       previews.add(
         LocalDatePreview(
           timezone: zone,
@@ -565,9 +561,7 @@ class LocalDateFormatter {
           .inDays;
 
   static _WallTime? _parseWallTime(LocalDateSpec spec) {
-    final dateMatch = RegExp(
-      r'^(\d{4})-(\d{2})-(\d{2})$',
-    ).firstMatch(spec.date);
+    final dateMatch = _wallDatePattern.firstMatch(spec.date);
     if (dateMatch == null) return null;
     final year = int.parse(dateMatch.group(1)!);
     final month = int.parse(dateMatch.group(2)!);
@@ -576,9 +570,7 @@ class LocalDateFormatter {
     var minute = 0;
     var second = 0;
     if (spec.time != null) {
-      final timeMatch = RegExp(
-        r'^(\d{1,2}):(\d{2})(?::(\d{2}))?$',
-      ).firstMatch(spec.time!);
+      final timeMatch = _wallTimePattern.firstMatch(spec.time!);
       if (timeMatch == null) return null;
       hour = int.parse(timeMatch.group(1)!);
       minute = int.parse(timeMatch.group(2)!);
@@ -609,9 +601,7 @@ class LocalDateFormatter {
     String recurring,
     DateTime now,
   ) {
-    final match = RegExp(
-      r'^(\d+)\.(years?|quarters?|months?|weeks?|days?|hours?|minutes?|seconds?|milliseconds?)$',
-    ).firstMatch(recurring);
+    final match = _recurrencePattern.firstMatch(recurring);
     if (match == null) return null;
     final amount = int.parse(match.group(1)!);
     if (amount <= 0) return null;

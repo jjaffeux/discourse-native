@@ -27,7 +27,12 @@ Future<bool> openExternalLink(String url) async {
 }
 
 bool _isAllowedExternalUri(Uri uri) => switch (uri.scheme) {
-  'http' || 'https' => uri.hasAuthority && uri.host.isNotEmpty,
+  // A cooked link never needs URL credentials. Refuse them before handing the
+  // target to another application: `trusted.example@evil.example` is easy to
+  // mistake for a trusted host, and a real password would otherwise be copied
+  // into launcher/browser history.
+  'http' ||
+  'https' => uri.hasAuthority && uri.host.isNotEmpty && uri.userInfo.isEmpty,
   'mailto' => uri.path.isNotEmpty,
   _ => false,
 };

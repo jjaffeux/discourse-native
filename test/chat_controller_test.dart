@@ -2480,6 +2480,23 @@ void main() {
     });
   });
 
+  test(
+    'disposed chat entry points complete without touching dependencies',
+    () async {
+      final subject = build();
+      subject.chat.dispose();
+
+      await subject.chat.loadChannels(site, force: true);
+      await subject.chat.openChannel(site, 9, force: true);
+      await subject.chat.showLatest(site, 9);
+      await subject.chat.loadOlder(site, 9);
+      await subject.chat.loadNewer(site, 9);
+
+      expect(subject.api.chatChannelsRequested, isEmpty);
+      expect(subject.api.chatMessagesRequested, isEmpty);
+    },
+  );
+
   group('crediting the reader with what they have seen', () {
     /// A site with one three-message channel, already open.
     Future<({ChatController chat, FakeDiscourseApi api, Store store})> reading({

@@ -225,6 +225,9 @@ class Assignments {
     Map<int, Assignment> postAssignments = const {},
   }) : postAssignments = Map.unmodifiable(postAssignments);
 
+  /// The maximum active assignments core permits across a topic and its posts.
+  static const int maximumPerTopic = 5;
+
   static const _payloadKeys = {
     'can_assign',
     'assigned_to_user',
@@ -241,10 +244,12 @@ class Assignments {
   static Assignments? fromTopicJson(Map<String, dynamic> json, String siteUrl) {
     if (!_hasAssignPayload(json)) return null;
 
+    final direct = _parseDirectAssignment(json, siteUrl);
+    final indirectBudget = maximumPerTopic - (direct == null ? 0 : 1);
     final indirect = <int, Assignment>{};
     final rawIndirect = json['indirectly_assigned_to'];
     if (rawIndirect is Map<String, dynamic>) {
-      for (final entry in rawIndirect.entries) {
+      for (final entry in rawIndirect.entries.take(indirectBudget)) {
         final postId = int.tryParse(entry.key);
         if (postId == null || postId <= 0) continue;
         final value = entry.value;
@@ -263,7 +268,7 @@ class Assignments {
 
     return Assignments(
       canAssign: _canAssign(json),
-      direct: _parseDirectAssignment(json, siteUrl),
+      direct: direct,
       postAssignments: indirect,
     );
   }
@@ -347,6 +352,10 @@ class Assignments {
 /// The target-scoped candidates and group restrictions returned before search.
 @immutable
 class AssignmentSuggestions {
+  /// Core returns the current user followed by at most five recent assignees.
+  /// Bound raw slots before resolving avatars or constructing user models.
+  static const int maximumSuggestedUsers = 6;
+
   AssignmentSuggestions({
     List<AssignmentUser> users = const [],
     List<String> assignAllowedOnGroups = const [],
@@ -360,8 +369,10 @@ class AssignmentSuggestions {
     String siteUrl,
   ) => AssignmentSuggestions(
     users: [
-      for (final value in jsonObjects(json['suggestions']))
-        ?_parseUser(value, siteUrl),
+      for (final value in jsonArray(
+        json['suggestions'],
+      ).take(maximumSuggestedUsers))
+        if (value is Map<String, dynamic>) ?_parseUser(value, siteUrl),
     ],
     assignAllowedOnGroups: _uniqueNames(json['assign_allowed_on_groups']),
     assignAllowedForGroups: _uniqueNames(json['assign_allowed_for_groups']),

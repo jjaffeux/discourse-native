@@ -155,6 +155,25 @@ void main() {
     );
   });
 
+  test('stale instance compaction retains another instance append', () async {
+    final first = FileDiagnosticsPersistence(file);
+    final second = FileDiagnosticsPersistence(file);
+    await Future.wait([first.load(nowUtc: now), second.load(nowUtc: now)]);
+
+    await first.appendEvents([_error('from-first', 1, now)], nowUtc: now);
+    await second.appendEvents([_error('from-second', 2, now)], nowUtc: now);
+
+    // `first` still has the snapshot from before `second` appended. Compaction
+    // must reconcile the shared file rather than replace it from that snapshot.
+    await first.compact(nowUtc: now);
+
+    final reloaded = await FileDiagnosticsPersistence(file).load(nowUtc: now);
+    expect(reloaded.events.map((event) => event.id), [
+      'from-first',
+      'from-second',
+    ]);
+  });
+
   test(
     'repairs legacy permissions and keeps compacted history owner-only',
     () async {
@@ -170,6 +189,10 @@ void main() {
 
       expect((await file.parent.stat()).mode & 0x1ff, 0x1c0); // 0700
       expect((await file.stat()).mode & 0x1ff, 0x180); // 0600
+      expect(
+        (await File('${file.path}.lock').stat()).mode & 0x1ff,
+        0x180,
+      ); // 0600
 
       await persistence.compact(nowUtc: now);
 

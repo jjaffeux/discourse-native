@@ -7,6 +7,9 @@
 /// here.
 library;
 
+import 'dart:collection';
+
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:highlight/highlight.dart' show highlight, Node;
 
 /// A run of source with one syntactic meaning, or none.
@@ -64,6 +67,20 @@ const Map<String, String> languageAliases = {
 /// scroll.
 const int maxHighlightedChars = 20000;
 
+/// How many highlighted blocks are retained for reuse.
+///
+/// Every admitted source is already capped by [maxHighlightedChars], so the
+/// cache has both an entry bound and a source-size bound. Thirty-two entries
+/// cover the blocks likely to be rebuilt while scrolling without turning old
+/// topics into an unbounded document cache.
+@visibleForTesting
+const int syntaxHighlightCacheCapacity = 32;
+
+typedef _HighlightKey = ({String source, String language});
+
+final LinkedHashMap<_HighlightKey, List<List<CodeToken>>>
+_syntaxHighlightCache = LinkedHashMap();
+
 /// Splits [source] into lines of tokens, highlighted as [language].
 ///
 /// Returns one entry per line of [source]. Unknown languages, `plaintext`,
@@ -77,25 +94,68 @@ List<List<CodeToken>> highlightLines(String source, String? language) {
   ];
   if (source.length > maxHighlightedChars) return plain;
 
-  final resolved = _resolve(language, source);
-  if (resolved == null) return plain;
+  final normalizedLanguage = language?.toLowerCase();
+  if (normalizedLanguage == null || normalizedLanguage.isEmpty) return plain;
+  if (normalizedLanguage == 'plaintext' ||
+      normalizedLanguage == 'text' ||
+      normalizedLanguage == 'nohighlight') {
+    return plain;
+  }
+
+  final key = (source: source, language: normalizedLanguage);
+  if (_syntaxHighlightCache.remove(key) case final cached?) {
+    // Removing and reinserting promotes the entry to most-recently used.
+    _syntaxHighlightCache[key] = cached;
+    return _copyLines(cached);
+  }
+
+  final resolved = _resolve(normalizedLanguage, source);
+  if (resolved == null) return _remember(key, plain);
 
   final List<Node>? nodes;
   try {
     nodes = highlight.parse(source, language: resolved).nodes;
   } catch (_) {
     // A highlighter that trips over one post must not take the post with it.
-    return plain;
+    return _remember(key, plain);
   }
-  if (nodes == null) return plain;
+  if (nodes == null) return _remember(key, plain);
 
   final highlighted = _splitOnNewlines(_flatten(nodes, null));
 
   // Highlighting must not change the text. If it somehow did, the line numbers
   // and selection would no longer line up, so prefer the unhighlighted source.
-  if (highlighted.length != lines.length) return plain;
-  return highlighted;
+  final result = highlighted.length == lines.length ? highlighted : plain;
+  return _remember(key, result);
 }
+
+List<List<CodeToken>> _remember(
+  _HighlightKey key,
+  List<List<CodeToken>> lines,
+) {
+  final cached = _freezeLines(lines);
+  _syntaxHighlightCache[key] = cached;
+  if (_syntaxHighlightCache.length > syntaxHighlightCacheCapacity) {
+    _syntaxHighlightCache.remove(_syntaxHighlightCache.keys.first);
+  }
+  return _copyLines(cached);
+}
+
+/// Clears process-wide highlighting state so cache behavior is deterministic
+/// in focused tests.
+@visibleForTesting
+void clearSyntaxHighlightCacheForTesting() => _syntaxHighlightCache.clear();
+
+/// Keeps callers' list containers independent while safely reusing the
+/// immutable [CodeToken] values produced by the expensive parser pass.
+List<List<CodeToken>> _copyLines(List<List<CodeToken>> lines) => [
+  for (final line in lines) List<CodeToken>.of(line),
+];
+
+List<List<CodeToken>> _freezeLines(List<List<CodeToken>> lines) =>
+    List<List<CodeToken>>.unmodifiable([
+      for (final line in lines) List<CodeToken>.unmodifiable(line),
+    ]);
 
 /// Resolves what the markup said into a language the highlighter registered,
 /// or null to leave the source alone.

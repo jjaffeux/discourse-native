@@ -38,6 +38,9 @@ class Topic with Storable<Topic> {
     this.plugins = PluginData.none,
   });
 
+  /// The topic-list row displays the first three resolved poster avatars.
+  static const int maximumPosterAvatars = 3;
+
   /// [siteUrl] resolves avatar templates, which are usually site-relative.
   factory Topic.fromJson(
     Map<String, dynamic> json,
@@ -50,7 +53,10 @@ class Topic with Storable<Topic> {
           jsonIntOrNull(poster['user_id']) ??
           jsonIntOrNull(jsonObject(poster['user'])['id']);
       final avatar = id == null ? null : avatarsByUserId[id];
-      if (avatar != null) resolvedPosters.add(avatar);
+      if (avatar != null) {
+        resolvedPosters.add(avatar);
+        if (resolvedPosters.length == maximumPosterAvatars) break;
+      }
     }
     final posters = List<String>.unmodifiable(resolvedPosters);
 
@@ -368,6 +374,14 @@ class TopicRecommendations {
 /// One page of a topic list, plus what the rows need to render.
 @immutable
 class TopicList {
+  /// Discourse validates `per_page` in the inclusive range 1–100. Applying
+  /// that server contract before constructing topic models bounds a broken or
+  /// hostile page without changing any conforming response.
+  static const int maximumPageSize = 100;
+
+  /// Core's topic poster summary contains at most five users per topic.
+  static const int maximumUsersPerPage = maximumPageSize * 5;
+
   const TopicList({
     required this.topics,
     this.moreTopicsUrl,
@@ -379,7 +393,9 @@ class TopicList {
   /// resolved into the topics here rather than left for the widgets.
   factory TopicList.fromJson(Map<String, dynamic> json, String siteUrl) {
     final avatars = <int, String?>{};
-    for (final user in jsonObjects(json['users'])) {
+    for (final value in jsonArray(json['users']).take(maximumUsersPerPage)) {
+      if (value is! Map<String, dynamic>) continue;
+      final user = value;
       final id = jsonIntOrNull(user['id']);
       if (id == null) continue;
       avatars[id] = resolveAvatarUrl(
@@ -391,8 +407,9 @@ class TopicList {
     final list = jsonObject(json['topic_list']);
     return TopicList(
       topics: List.unmodifiable([
-        for (final topic in jsonObjects(list['topics']))
-          Topic.fromJson(topic, avatars, siteUrl),
+        for (final value in jsonArray(list['topics']).take(maximumPageSize))
+          if (value is Map<String, dynamic>)
+            Topic.fromJson(value, avatars, siteUrl),
       ]),
       moreTopicsUrl: jsonText(list['more_topics_url']),
       canCreateTopic: list['can_create_topic'] == true,
@@ -414,10 +431,23 @@ class TopicList {
   /// route serves HTML. The JSON page is `/latest.json?page=1`.
   String? get nextPagePath => asJsonPath(moreTopicsUrl);
 
+  static const int _maximumPagePathLength = 2048;
+
   static String? asJsonPath(String? url) {
-    if (url == null || url.isEmpty) return null;
-    final uri = Uri.parse(url);
-    if (uri.path.endsWith('.json')) return url;
+    if (url == null || url.isEmpty || url.length > _maximumPagePathLength) {
+      return null;
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        uri.hasScheme ||
+        uri.hasAuthority ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasFragment ||
+        uri.path.isEmpty ||
+        !uri.path.startsWith('/')) {
+      return null;
+    }
+    if (uri.path.endsWith('.json')) return uri.toString();
     return uri.replace(path: '${uri.path}.json').toString();
   }
 }
@@ -687,26 +717,41 @@ class TopicTagSearch {
     this.forbiddenMessage,
   });
 
-  factory TopicTagSearch.fromJson(Map<String, dynamic> json) => TopicTagSearch(
-    tags: List.unmodifiable([
-      for (final item in jsonObjects(json['results']))
-        if (jsonText(item['name']) case final name?)
-          TopicTag(
-            id: jsonIntOrNull(item['id']),
-            name: name,
-            slug: jsonText(item['slug']),
-            count: jsonInt(item['count']),
-            disabled: item['disabled'] == true,
-            disabledReason: jsonText(item['title']),
-          ),
-    ]),
-    forbidden:
-        json['forbidden'] == true ||
-        (json['forbidden'] is List && (json['forbidden'] as List).isNotEmpty) ||
-        (jsonText(json['forbidden'])?.isNotEmpty ?? false),
-    forbiddenMessage:
-        jsonText(json['forbidden_message']) ?? jsonText(json['forbidden']),
-  );
+  factory TopicTagSearch.fromJson(
+    Map<String, dynamic> json, {
+    int limit = maximumResults,
+  }) {
+    final boundedLimit = limit.clamp(0, maximumResults).toInt();
+    return TopicTagSearch(
+      tags: List.unmodifiable([
+        for (final entry in jsonArray(json['results']).take(boundedLimit))
+          if (entry is Map<String, dynamic>)
+            if (jsonText(entry['name']) case final name?)
+              TopicTag(
+                id: jsonIntOrNull(entry['id']),
+                name: name,
+                slug: jsonText(entry['slug']),
+                count: jsonInt(entry['count']),
+                disabled: entry['disabled'] == true,
+                disabledReason: jsonText(entry['title']),
+              ),
+      ]),
+      forbidden:
+          json['forbidden'] == true ||
+          (json['forbidden'] is List &&
+              (json['forbidden'] as List).isNotEmpty) ||
+          (jsonText(json['forbidden'])?.isNotEmpty ?? false),
+      forbiddenMessage:
+          jsonText(json['forbidden_message']) ?? jsonText(json['forbidden']),
+    );
+  }
+
+  /// The largest suggestion page the composer will retain and render.
+  ///
+  /// The request sends the same (or a smaller) value, but this parser boundary
+  /// prevents a nonconforming response from constructing an arbitrary model
+  /// list for an eager autocomplete popup.
+  static const int maximumResults = 20;
 
   final List<TopicTag> tags;
   final bool forbidden;

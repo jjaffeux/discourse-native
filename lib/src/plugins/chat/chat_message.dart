@@ -269,7 +269,11 @@ class ChatUpload {
   double? get aspectRatio {
     final (w, h) = (width, height);
     if (w == null || h == null || h <= 0 || w <= 0) return null;
-    return w / h;
+    final ratio = w / h;
+    if (!ratio.isFinite || ratio <= 0) return null;
+    // Remote dimensions are layout hints. Keep one corrupt attachment from
+    // reserving an effectively unbounded/tiny extent in the chat list.
+    return ratio.clamp(1 / 4, 4).toDouble();
   }
 
   @override
@@ -429,6 +433,14 @@ typedef ChatMessagePage = ({
   bool canLoadMoreFuture,
 });
 
+/// Which edge of an oldest-first chat response is adjacent to the caller's
+/// current window.
+///
+/// This matters only for a nonconforming oversized response. Past/newest
+/// requests retain the newest edge, future requests retain the oldest edge,
+/// and the last-read request retains a window around the server's target.
+enum ChatMessagePageWindow { retainNewest, retainOldest, aroundTarget }
+
 /// Where a locally staged message is in its trip to the site.
 ///
 /// Canonical messages are [sent] too. [ChatMessage.isOptimistic] distinguishes
@@ -461,6 +473,25 @@ class ChatMessage with Storable<ChatMessage> {
     this.sendError,
     this.deliveryUncertain = false,
   });
+
+  /// Maximum distinct reaction rows retained for one message.
+  ///
+  /// The message tile eagerly builds a badge and emoji image for each entry,
+  /// so a malformed response must not turn one message into unbounded work.
+  static const int maximumReactionsPerMessage = 50;
+
+  /// Maximum attachment rows retained for one message.
+  ///
+  /// This matches the app's local upload-concurrency ceiling and bounds the
+  /// eager attachment column and image gallery built by a visible message.
+  static const int maximumUploadsPerMessage = 30;
+
+  /// The absolute page size accepted from either chat message endpoint.
+  ///
+  /// Discourse caps ordinary pages at 50. Bounding raw slots before model
+  /// construction keeps a malformed response from eagerly cooking an
+  /// arbitrary number of message trees.
+  static const int maximumPageSize = 50;
 
   /// A row inserted before credentials or the network are awaited.
   ///
@@ -522,11 +553,15 @@ class ChatMessage with Storable<ChatMessage> {
       // messages — so the empty list is the default rather than something to
       // parse.
       reactions: List.unmodifiable([
-        for (final entry in jsonObjects(json['reactions']))
+        for (final entry in jsonObjects(
+          json['reactions'],
+        ).take(maximumReactionsPerMessage))
           ChatReaction.fromJson(entry),
       ]),
       uploads: List.unmodifiable([
-        for (final entry in jsonObjects(json['uploads']))
+        for (final entry in jsonObjects(
+          json['uploads'],
+        ).take(maximumUploadsPerMessage))
           ChatUpload.fromJson(entry),
       ]),
     );
@@ -534,15 +569,91 @@ class ChatMessage with Storable<ChatMessage> {
 
   /// Reads a `Chat::MessagesSerializer` payload. See [ChatMessagePage] for why
   /// both flags are read as `== true` rather than defaulted.
-  static ChatMessagePage parsePage(Map<String, dynamic> json, String siteUrl) {
+  static ChatMessagePage parsePage(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    ChatMessagePageWindow window = ChatMessagePageWindow.retainNewest,
+    int maximumMessages = maximumPageSize,
+  }) {
+    if (maximumMessages < 1 || maximumMessages > maximumPageSize) {
+      throw RangeError.range(
+        maximumMessages,
+        1,
+        maximumPageSize,
+        'maximumMessages',
+      );
+    }
     final meta = jsonObject(json['meta']);
+    final bounded = _boundedPageEntries(
+      json['messages'],
+      window: window,
+      maximumMessages: maximumMessages,
+      targetMessageId: jsonIntOrNull(meta['target_message_id']),
+    );
     return (
       messages: List.unmodifiable([
-        for (final entry in jsonObjects(json['messages']))
+        for (final entry in bounded.entries)
           ChatMessage.fromJson(entry, siteUrl),
       ]),
-      canLoadMorePast: meta['can_load_more_past'] == true,
-      canLoadMoreFuture: meta['can_load_more_future'] == true,
+      canLoadMorePast:
+          bounded.omittedPast || meta['can_load_more_past'] == true,
+      canLoadMoreFuture:
+          bounded.omittedFuture || meta['can_load_more_future'] == true,
+    );
+  }
+
+  static ({
+    Iterable<Map<String, dynamic>> entries,
+    bool omittedPast,
+    bool omittedFuture,
+  })
+  _boundedPageEntries(
+    Object? value, {
+    required ChatMessagePageWindow window,
+    required int maximumMessages,
+    required int? targetMessageId,
+  }) {
+    if (value is! List) {
+      return (
+        entries: const <Map<String, dynamic>>[],
+        omittedPast: false,
+        omittedFuture: false,
+      );
+    }
+
+    final length = value.length;
+    if (length <= maximumMessages) {
+      return (
+        entries: value.whereType<Map<String, dynamic>>(),
+        omittedPast: false,
+        omittedFuture: false,
+      );
+    }
+
+    final latestStart = length - maximumMessages;
+    var start = switch (window) {
+      ChatMessagePageWindow.retainOldest => 0,
+      ChatMessagePageWindow.retainNewest => latestStart,
+      ChatMessagePageWindow.aroundTarget => latestStart,
+    };
+    if (window == ChatMessagePageWindow.aroundTarget &&
+        targetMessageId != null) {
+      final targetIndex = value.indexWhere(
+        (entry) =>
+            entry is Map<String, dynamic> &&
+            jsonIntOrNull(entry['id']) == targetMessageId,
+      );
+      if (targetIndex >= 0) {
+        start = targetIndex - maximumMessages ~/ 2;
+        if (start < 0) start = 0;
+        if (start > latestStart) start = latestStart;
+      }
+    }
+    final end = start + maximumMessages;
+    return (
+      entries: value.getRange(start, end).whereType<Map<String, dynamic>>(),
+      omittedPast: start > 0,
+      omittedFuture: end < length,
     );
   }
 

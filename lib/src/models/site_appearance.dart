@@ -368,16 +368,20 @@ Color _requiredColor(Map<String, dynamic> json, String name) =>
     _color(json[name]) ??
     (throw FormatException('Missing palette color $name'));
 
+// A persisted Color is 32 bits. Ten decimal digits hold every unsigned value,
+// and one extra code unit permits a sign. Hex colors are shorter even with '#'.
+const int _maximumPersistedColorTextCodeUnits = 11;
+
 Color? _color(Object? value) {
+  if (value is String && value.length > _maximumPersistedColorTextCodeUnits) {
+    return null;
+  }
   final integer = jsonIntOrNull(value);
   if (integer != null) return Color(integer & 0xFFFFFFFF);
   if (value is! String) return null;
   final text = value.trim().replaceFirst('#', '');
+  if (text.length != 6 && text.length != 8) return null;
   final parsed = int.tryParse(text, radix: 16);
   if (parsed == null) return null;
-  return switch (text.length) {
-    6 => Color(0xFF000000 | parsed),
-    8 => Color(parsed),
-    _ => null,
-  };
+  return text.length == 6 ? Color(0xFF000000 | parsed) : Color(parsed);
 }

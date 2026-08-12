@@ -3,10 +3,15 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../diagnostics/diagnostics_redactor.dart';
+
 /// A URL that cannot safely carry a Discourse API request.
 final class UnsafeHttpTransportException implements Exception {
-  const UnsafeHttpTransportException(this.url);
+  UnsafeHttpTransportException(Uri url)
+    : url = Uri.parse(DiagnosticsRedactor.uri(url));
 
+  /// A diagnostic-safe representation with credentials, fragments, and query
+  /// values removed. Rejected request data must not outlive the safety check.
   final Uri url;
 
   @override
@@ -29,6 +34,15 @@ final class HttpResponseTooLargeException implements Exception {
 Uri requireSafeHttpUrl(Uri url) {
   if (!url.hasAuthority || url.host.isEmpty || url.userInfo.isNotEmpty) {
     throw UnsafeHttpTransportException(url);
+  }
+  if (url.hasPort) {
+    try {
+      if (url.port < 1 || url.port > 65535) {
+        throw UnsafeHttpTransportException(url);
+      }
+    } on FormatException {
+      throw UnsafeHttpTransportException(url);
+    }
   }
   if (url.scheme == 'https') return url;
   if (url.scheme == 'http' && _isLoopbackHost(url.host)) return url;

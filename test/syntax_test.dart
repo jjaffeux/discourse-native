@@ -10,6 +10,8 @@ String textOf(List<CodeToken> line) => line.map((token) => token.text).join();
 
 void main() {
   group('highlightLines', () {
+    setUp(clearSyntaxHighlightCacheForTesting);
+
     test('scopes a language it knows', () {
       final lines = highlightLines('def hello\n  "hi"\nend', 'ruby');
 
@@ -91,6 +93,54 @@ void main() {
 
       expect(lines.length, 3);
       expect(lines[1], isEmpty);
+    });
+
+    test('reuses parsed tokens without sharing mutable list containers', () {
+      final first = highlightLines('def cached = "value"', 'ruby');
+      final parsedToken = first.first.first;
+
+      first.first.clear();
+      first.clear();
+      final second = highlightLines('def cached = "value"', 'ruby');
+
+      expect(second.map(textOf).join('\n'), 'def cached = "value"');
+      expect(identical(second.first.first, parsedToken), isTrue);
+    });
+
+    test('evicts the least-recently used highlighted block', () {
+      const retainedSource = 'def retained = 1';
+      const evictedSource = 'def evicted = 2';
+      final retainedToken = highlightLines(retainedSource, 'ruby').first.first;
+      final evictedToken = highlightLines(evictedSource, 'ruby').first.first;
+
+      for (var index = 0; index < syntaxHighlightCacheCapacity - 2; index++) {
+        highlightLines('def filler_$index = $index', 'ruby');
+      }
+
+      // A hit promotes this entry, so the older `evictedSource` should leave.
+      expect(
+        identical(
+          highlightLines(retainedSource, 'ruby').first.first,
+          retainedToken,
+        ),
+        isTrue,
+      );
+      highlightLines('def overflow = 33', 'ruby');
+
+      expect(
+        identical(
+          highlightLines(evictedSource, 'ruby').first.first,
+          evictedToken,
+        ),
+        isFalse,
+      );
+      expect(
+        identical(
+          highlightLines(retainedSource, 'ruby').first.first,
+          retainedToken,
+        ),
+        isTrue,
+      );
     });
   });
 }

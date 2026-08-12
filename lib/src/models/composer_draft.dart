@@ -31,6 +31,11 @@ class ComposerDraft {
   static const String createTopicAction = 'createTopic';
   static const String newTopicDraftKey = 'new_topic';
 
+  /// Discourse rejects draft JSON above `SiteSetting.max_draft_length`, whose
+  /// hidden maximum is 150,000 characters. Bound nonconforming stored/server
+  /// values before asking the JSON parser to allocate for them.
+  static const int maximumEncodedCharacters = 150000;
+
   factory ComposerDraft.fromJson(Map<String, dynamic> json) => ComposerDraft(
     reply: jsonString(json['reply']),
     action: jsonText(json['action']) ?? replyAction,
@@ -55,7 +60,9 @@ class ComposerDraft {
   /// and in the draft API, and anything that cannot be read is treated as no
   /// draft at all — an unreadable one is not worth failing an open over.
   static ComposerDraft? decode(Object? data) {
-    if (data is! String || data.isEmpty) return null;
+    if (data is! String || data.isEmpty || !_isWithinEncodedLimit(data)) {
+      return null;
+    }
     try {
       final draft = ComposerDraft.fromJson(
         jsonDecode(data) as Map<String, dynamic>,
@@ -66,6 +73,21 @@ class ComposerDraft {
     } catch (_) {
       return null;
     }
+  }
+
+  static bool _isWithinEncodedLimit(String data) {
+    var characters = 0;
+    for (var index = 0; index < data.length; index += 1) {
+      characters += 1;
+      if (characters > maximumEncodedCharacters) return false;
+
+      final codeUnit = data.codeUnitAt(index);
+      if (codeUnit >= 0xd800 && codeUnit <= 0xdbff && index + 1 < data.length) {
+        final next = data.codeUnitAt(index + 1);
+        if (next >= 0xdc00 && next <= 0xdfff) index += 1;
+      }
+    }
+    return true;
   }
 
   final String reply;

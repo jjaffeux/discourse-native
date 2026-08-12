@@ -123,11 +123,11 @@ class UpdateException implements Exception, DiagnosticErrorCause {
 /// [DiscourseApi] or [Authenticator], where there is one right way to do the
 /// thing and only the transport is swapped.
 ///
-/// The reason is testing, not taste. `pumpShell` builds the whole app in around
-/// a hundred tests, and the real implementation drags in a plugin registration
-/// and a file-backed recovery store. Neither belongs in a widget test, so there
-/// has to be something for `FakeUpdater` to implement. That the seam also makes
-/// the implementation replaceable is a side benefit rather than the point.
+/// Production currently supplies [UnsupportedUpdater]: packaged Linux installs
+/// update through apt. The interface keeps that delivery decision out of the
+/// shell and gives widget tests something for `FakeUpdater` to implement
+/// without standing up platform channels. It also leaves a narrow seam for a
+/// future platform integration.
 ///
 /// Everything here throws [UpdateException] and nothing else. That is the whole
 /// contract, and what keeps implementations interchangeable.

@@ -62,6 +62,21 @@ void main() {
     expect(reactors.reactors.map((r) => r.reaction), ['heart', 'clap']);
   });
 
+  test('retains at most one legal server page in its original order', () {
+    final reactors = parse({
+      'users': [
+        for (var index = 0; index < 55; index++)
+          {'id': index + 1, 'username': 'user-$index', 'reaction': 'heart'},
+      ],
+      'total_rows': 55,
+    });
+
+    expect(reactors.reactors, hasLength(PostReactors.maximumPageSize));
+    expect(reactors.reactors.first.username, 'user-0');
+    expect(reactors.reactors.last.username, 'user-49');
+    expect(reactors.total, 55);
+  });
+
   test('an empty answer is an empty list rather than a failure', () {
     expect(parse(const {}).reactors, isEmpty);
     expect(parse(const {}).total, 0);

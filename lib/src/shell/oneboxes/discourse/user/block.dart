@@ -58,20 +58,26 @@ class DiscourseUserOnebox extends StatelessWidget {
                     if (data.location != null)
                       Text(data.location!, style: _mutedStyle(theme)),
                     if (data.websiteName != null && data.websiteUrl != null)
-                      MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
+                      Semantics(
+                        container: true,
+                        link: true,
+                        label: data.websiteName!,
+                        child: InkWell(
                           onTap: () => openLink(
                             context,
                             data.websiteUrl!,
                             siteUrl: siteUrl,
                           ),
-                          child: Text(
-                            data.websiteName!,
-                            style: _mutedStyle(
-                              theme,
-                            )?.copyWith(color: theme.colorScheme.primary),
+                          borderRadius: BorderRadius.circular(2),
+                          hoverColor: theme.shell.hover,
+                          focusColor: theme.shell.hover,
+                          child: ExcludeSemantics(
+                            child: Text(
+                              data.websiteName!,
+                              style: _mutedStyle(
+                                theme,
+                              )?.copyWith(color: theme.colorScheme.primary),
+                            ),
                           ),
                         ),
                       ),
@@ -179,10 +185,18 @@ class DiscourseUserData {
     dom.Element root,
     bool Function(dom.Element) test,
   ) {
-    for (final child in root.children) {
+    final pending = <dom.Element>[];
+    void pushReversed(List<dom.Element> children) {
+      for (var index = children.length - 1; index >= 0; index--) {
+        pending.add(children[index]);
+      }
+    }
+
+    pushReversed(root.children);
+    while (pending.isNotEmpty) {
+      final child = pending.removeLast();
       if (test(child)) return child;
-      final found = _descendant(child, test);
-      if (found != null) return found;
+      pushReversed(child.children);
     }
     return null;
   }
@@ -203,15 +217,20 @@ final OneboxEngine discourseUserBlock = OneboxEngine(
 );
 
 bool _hasUserBody(dom.Element aside) {
-  bool walk(dom.Element element) {
-    for (final child in element.children) {
-      if (child.classes.contains('user-onebox')) return true;
-      if (walk(child)) return true;
+  final pending = <dom.Element>[];
+  void pushReversed(List<dom.Element> children) {
+    for (var index = children.length - 1; index >= 0; index--) {
+      pending.add(children[index]);
     }
-    return false;
   }
 
-  return walk(aside);
+  pushReversed(aside.children);
+  while (pending.isNotEmpty) {
+    final child = pending.removeLast();
+    if (child.classes.contains('user-onebox')) return true;
+    pushReversed(child.children);
+  }
+  return false;
 }
 
 extension on String {

@@ -14,8 +14,7 @@ planned; see [Adding a platform](#adding-a-platform).
   ```sh
   sudo apt install clang cmake ninja-build pkg-config \
                    libgtk-3-dev liblzma-dev libstdc++-12-dev \
-                   libwebkit2gtk-4.1-dev libsoup-3.0-dev \
-                   libssl-dev
+                   libwebkit2gtk-4.1-dev libsoup-3.0-dev
   ```
 
 Run `flutter doctor` to check the toolchain.
@@ -1395,12 +1394,12 @@ lives under `/usr`, owned by dpkg, where the app could not replace itself
 without asking for root — and an app that asks for root to update itself is a
 worse thing to have installed than one that does not.
 
-The in-app updater built for the relocatable-archive model is still in the tree
-— `Updater` in [updater.dart](lib/src/data/updater.dart), the controller, the
-sheet, and a `desktop_updater` adapter behind the seam — but nothing wires it
-up: [app.dart](lib/src/app.dart) passes `UnsupportedUpdater`, so `isSupported`
-is false and the UI never appears. It is kept for whichever platform gets an
-in-app updater first, which will not be one a package manager already serves.
+The generic update seam remains — `Updater` in
+[updater.dart](lib/src/data/updater.dart), its controller and its sheet — so the
+flow can be exercised with a fake and a future platform integration has a
+narrow boundary. There is no native updater implementation or dependency in
+the app today: [app.dart](lib/src/app.dart) passes `UnsupportedUpdater`, so
+`isSupported` is false and the UI never appears.
 
 Publishing, key handling and what to do about a bad build are in
 [docs/release-runbook.md](docs/release-runbook.md).

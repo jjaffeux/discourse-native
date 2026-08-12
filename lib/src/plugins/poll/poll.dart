@@ -155,14 +155,18 @@ class PollChartType {
 /// as though nobody had voted.
 @immutable
 class PollOption {
-  const PollOption({required this.id, required this.html, this.votes});
+  const PollOption({required this.id, required this.html, this.votes})
+    : _plainText = null;
+
+  PollOption._parsed({required this.id, required this.html, this.votes})
+    : _plainText = _normalizedHtmlText(html);
 
   static PollOption? fromJson(Object? value) {
     if (value is! Map<String, dynamic>) return null;
     final id = jsonText(value['id']);
     final cooked = value['html'];
     if (id == null || cooked is! String) return null;
-    return PollOption(
+    return PollOption._parsed(
       id: id,
       html: cooked,
       votes: value.containsKey('votes') ? jsonIntOrNull(value['votes']) : null,
@@ -172,11 +176,17 @@ class PollOption {
   final String id;
   final String html;
   final int? votes;
+  final String? _plainText;
+
+  /// The cooked label's accessible text.
+  ///
+  /// Wire-parsed options compute this once with the rest of the model so a
+  /// selection or pending-state rebuild does not construct another HTML DOM.
+  String get plainText => _plainText ?? _normalizedHtmlText(html);
 
   /// Number polls serialize generated values as cooked option labels.
   num? get numericValue {
-    final text = _htmlText(html).trim();
-    return int.tryParse(text) ?? double.tryParse(text);
+    return int.tryParse(plainText) ?? double.tryParse(plainText);
   }
 
   @override
@@ -189,10 +199,6 @@ class PollOption {
   @override
   int get hashCode => Object.hash(id, html, votes);
 }
-
-// Kept as a tiny helper so [PollOption.numericValue] reads like the domain
-// operation it is, while the HTML dependency stays private to this module.
-String _htmlText(String cooked) => html.parseFragment(cooked).text ?? cooked;
 
 @immutable
 class RankedPollSelection {
@@ -263,18 +269,26 @@ class PollSelection {
 
 @immutable
 class PollRankedCandidate {
-  const PollRankedCandidate({required this.digest, required this.html});
+  const PollRankedCandidate({required this.digest, required this.html})
+    : _plainText = null;
+
+  PollRankedCandidate._parsed({required this.digest, required this.html})
+    : _plainText = _normalizedHtmlText(html);
 
   static PollRankedCandidate? fromJson(Object? value) {
     if (value is! Map<String, dynamic>) return null;
     final digest = jsonText(value['digest']);
     final cooked = value['html'];
     if (digest == null || cooked is! String) return null;
-    return PollRankedCandidate(digest: digest, html: cooked);
+    return PollRankedCandidate._parsed(digest: digest, html: cooked);
   }
 
   final String digest;
   final String html;
+  final String? _plainText;
+
+  /// The cooked candidate label without markup, computed during wire parsing.
+  String get plainText => _plainText ?? _normalizedHtmlText(html);
 
   @override
   bool operator ==(Object other) =>
@@ -446,6 +460,14 @@ class Poll {
     this.selection = PollSelection.none,
   });
 
+  /// Largest option list Discourse will accept for one poll.
+  ///
+  /// `poll_maximum_options` is site-configurable, but core constrains that
+  /// setting to at most 100. Keep the same hard boundary while reading a
+  /// response so a broken or hostile payload cannot make one visible card
+  /// parse and retain an arbitrary number of cooked option labels.
+  static const int maximumOptions = 100;
+
   static Poll? fromJson(Object? value, String siteUrl, {Object? selection}) {
     if (value is! Map<String, dynamic>) return null;
     final name = jsonText(value['name']);
@@ -466,7 +488,7 @@ class Poll {
       options: List.unmodifiable(
         jsonArray(
           value['options'],
-        ).map(PollOption.fromJson).whereType<PollOption>(),
+        ).take(maximumOptions).map(PollOption.fromJson).whereType<PollOption>(),
       ),
       voters: jsonInt(value['voters']),
       closeAt: jsonDate(value['close']),
@@ -676,3 +698,11 @@ bool _sameFrozenJson(Object? a, Object? b) =>
     identical(a, b) || _frozenJsonKey(a) == _frozenJsonKey(b);
 
 String _frozenJsonKey(Object? value) => jsonEncode(value);
+
+final RegExp _htmlWhitespace = RegExp(r'\s+');
+
+String _normalizedHtmlText(String cooked) =>
+    (html.parseFragment(cooked).text ?? cooked).trim().replaceAll(
+      _htmlWhitespace,
+      ' ',
+    );

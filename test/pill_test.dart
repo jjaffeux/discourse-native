@@ -2,6 +2,7 @@ import 'package:discourse_native/src/shell/pill.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -145,6 +146,104 @@ void main() {
     await touch.up();
     await tester.pump();
     expect(decoration(tester, key).color, theme.shell.mention);
+  });
+
+  testWidgets('only actionable pills are named keyboard buttons', (
+    tester,
+  ) async {
+    const actionableKey = ValueKey('actionable-pill');
+    const hoverOnlyKey = ValueKey('hover-only-pill');
+    const inertKey = ValueKey('inert-pill');
+    var activations = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Pill(
+                  key: actionableKey,
+                  label: '@someone',
+                  baseStyle: const TextStyle(fontSize: 16),
+                  onTap: () => activations++,
+                ),
+                const SizedBox(width: 24),
+                const Pill(
+                  key: hoverOnlyKey,
+                  label: 'Poll',
+                  baseStyle: TextStyle(fontSize: 16),
+                  hoverable: true,
+                ),
+                const SizedBox(width: 24),
+                const Pill(
+                  key: inertKey,
+                  label: 'Assigned',
+                  baseStyle: TextStyle(fontSize: 16),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final actionable = find.descendant(
+      of: find.byKey(actionableKey),
+      matching: find.byType(InkWell),
+    );
+    expect(actionable, findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(hoverOnlyKey),
+        matching: find.byType(InkWell),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: find.byKey(inertKey), matching: find.byType(InkWell)),
+      findsNothing,
+    );
+
+    final semantics = tester.ensureSemantics();
+    try {
+      expect(
+        tester.getSemantics(actionable),
+        isSemantics(
+          label: '@someone',
+          isButton: true,
+          isFocusable: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+        ),
+      );
+
+      final theme = Theme.of(tester.element(find.byKey(actionableKey)));
+      final focusFill = Color.alphaBlend(
+        theme.colorScheme.onSurface.withValues(alpha: 0.08),
+        theme.shell.mention,
+      );
+      expect(decoration(tester, actionableKey).color, theme.shell.mention);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+
+      expect(
+        tester.getSemantics(actionable),
+        isSemantics(isFocusable: true, isFocused: true),
+      );
+      expect(decoration(tester, actionableKey).color, focusFill);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+
+      expect(activations, 2);
+    } finally {
+      semantics.dispose();
+    }
   });
 }
 

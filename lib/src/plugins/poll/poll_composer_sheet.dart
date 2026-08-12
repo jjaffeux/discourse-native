@@ -264,11 +264,15 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
             ),
           if (_error case final error?) ...[
             const SizedBox(height: 16),
-            Text(
-              error,
-              key: const ValueKey('poll-sheet-error'),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.error,
+            Semantics(
+              container: true,
+              liveRegion: true,
+              child: Text(
+                error,
+                key: const ValueKey('poll-sheet-error'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
               ),
             ),
           ],

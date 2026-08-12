@@ -197,16 +197,24 @@ class InstanceSidebar extends StatelessWidget {
 class _SidebarSearchRow extends StatelessWidget {
   const _SidebarSearchRow();
 
+  static const double _minimumTargetExtent = 44;
+  static const EdgeInsets _padding = EdgeInsets.fromLTRB(8, 6, 8, 5);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      height: 44,
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 5),
+      // MenuAnchor's anchor is one logical pixel shorter than its incoming
+      // constraint, so reserve that pixel outside the 44-pixel hit region.
+      height: _minimumTargetExtent + _padding.vertical + 1,
+      padding: _padding,
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.shell.divider)),
       ),
-      child: const ForumSearch(dense: true),
+      child: const ForumSearch(
+        key: ValueKey('instance-sidebar-search-target'),
+        dense: true,
+      ),
     );
   }
 }
@@ -432,6 +440,8 @@ class _SectionHeader extends StatefulWidget {
 }
 
 class _SectionHeaderState extends State<_SectionHeader> {
+  static const double _minimumActionTarget = 44;
+
   bool _titleHovered = false;
   bool _chevronHovered = false;
 
@@ -490,7 +500,10 @@ class _SectionHeaderState extends State<_SectionHeader> {
           ),
           if (section.onAction case final action?)
             IconButton(
-              constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+              constraints: const BoxConstraints.tightFor(
+                width: _minimumActionTarget,
+                height: _minimumActionTarget,
+              ),
               padding: EdgeInsets.zero,
               style: iconStyle,
               tooltip: section.actionLabel,
@@ -509,7 +522,7 @@ class _SectionHeaderState extends State<_SectionHeader> {
                   onHover: _setChevronHovered,
                   onTap: toggle,
                   child: SizedBox.square(
-                    dimension: 24,
+                    dimension: _minimumActionTarget,
                     child: Center(
                       child: DIcon(
                         widget.collapsed
@@ -542,7 +555,7 @@ class _SectionTitle extends StatelessWidget {
     final theme = Theme.of(context);
 
     return SizedBox(
-      height: 24,
+      height: _SectionHeaderState._minimumActionTarget,
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
@@ -572,8 +585,9 @@ class _DestinationTile extends StatefulWidget {
   final int badgeCount;
   final VoidCallback onTap;
 
-  // One pixel of vertical padding around a fixed 34-pixel row.
-  static const double extent = 36;
+  // Keep the one-pixel row spacing outside the minimum interactive target.
+  static const double _minimumTargetExtent = 44;
+  static const double extent = _minimumTargetExtent + 2;
 
   @override
   State<_DestinationTile> createState() => _DestinationTileState();
@@ -743,7 +757,11 @@ class _DestinationTileState extends State<_DestinationTile> {
                 ),
               if (destination.onSecondaryTap case final action?)
                 IconButton(
-                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints.tightFor(
+                    width: _DestinationTile._minimumTargetExtent,
+                    height: _DestinationTile._minimumTargetExtent,
+                  ),
+                  padding: EdgeInsets.zero,
                   tooltip: 'Open ${destination.label}',
                   onPressed: action,
                   icon: DIcon(

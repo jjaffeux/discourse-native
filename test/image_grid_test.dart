@@ -1,8 +1,11 @@
+import 'dart:ui' show Tristate;
+
 import 'package:discourse_native/src/shell/image_grid.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/dom.dart' as dom;
@@ -77,11 +80,57 @@ void main() {
       expect(data.items[1].plainSrc, 'https://example.com/tiny.png');
     });
 
+    test('keeps a plain image description for assistive technology', () {
+      final data = parse(
+        '<div class="d-image-grid">${item('big')}'
+        '<img src="https://example.com/tiny.png" alt="A tiny diagram" width="50" height="50">'
+        '</div>',
+      );
+
+      expect(data.items.last.description, 'A tiny diagram');
+    });
+
     test('measures an item by the size the markup declares', () {
       final data = parse(grid(1, width: 600, height: 400));
 
       expect(data.items.single.mosaicHeightUnit, closeTo(400 / 600, 0.0001));
       expect(data.items.single.carouselAspectRatio, closeTo(600 / 400, 0.0001));
+    });
+
+    test('bounds hostile declared and intrinsic dimensions', () {
+      ImageGridItem withDimensions(String width, String height) => parse(
+        '<div class="d-image-grid"><img src="image.png" '
+        'width="$width" height="$height"></div>',
+      ).items.single;
+
+      for (final pair in const [
+        ('0', '1'),
+        ('-1', '1'),
+        ('NaN', '1'),
+        ('Infinity', '1'),
+      ]) {
+        final image = withDimensions(pair.$1, pair.$2);
+        expect(image.declared, isNull, reason: '${pair.$1}x${pair.$2}');
+        expect(image.mosaicHeightUnit, 1, reason: '${pair.$1}x${pair.$2}');
+      }
+
+      expect(withDimensions('1e308', '1').carouselAspectRatio, 4);
+      expect(withDimensions('1', '1e308').carouselAspectRatio, 0.25);
+      expect(
+        withDimensions('1e308', '1e308').declared,
+        const Size(10000, 10000),
+      );
+
+      final invalidIntrinsic = parse(
+        '<div class="d-image-grid" data-mode="carousel">'
+        '<div><img src="image.png"><span class="informations">'
+        'NaN×1 1 MB</span></div></div>',
+      );
+      expect(invalidIntrinsic.items.single.intrinsic, isNull);
+      expect(
+        invalidIntrinsic.items.single.carouselAspectRatio,
+        closeTo(4 / 3, 0.0001),
+      );
     });
 
     test('counts anything unmeasurable as square, the way columns.js does', () {
@@ -171,6 +220,35 @@ void main() {
 
       expect(find.byType(ImageGridMosaic), findsOneWidget);
       expect(find.byType(ImageGridTile), findsNWidgets(3));
+    });
+
+    testWidgets('exposes plain-image alt text and bounds its decode width', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      await pumpGrid(
+        tester,
+        '<div class="d-image-grid">${item('big')}'
+        '<img src="https://example.com/tiny.png" alt="A tiny diagram" width="50" height="50">'
+        '</div>',
+        width: 500,
+      );
+
+      expect(find.bySemanticsLabel('A tiny diagram'), findsOneWidget);
+      final provider = tester
+          .widgetList<Image>(find.byType(Image))
+          .map((image) => image.image)
+          .whereType<ResizeImage>()
+          .singleWhere(
+            (provider) => (provider.imageProvider as NetworkImage).url.contains(
+              'tiny.png',
+            ),
+          );
+      expect(provider.width, lessThanOrEqualTo(500));
+      expect(provider.allowUpscaling, isFalse);
+      semantics.dispose();
     });
 
     testWidgets('uses three columns when there is room', (tester) async {
@@ -300,6 +378,90 @@ void main() {
           .widget<PageView>(find.byType(PageView))
           .controller!;
       expect(controller.page, 1);
+    });
+
+    testWidgets('gives every control a 44px target and explicit semantics', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await pumpGrid(tester, grid(3, mode: 'carousel'));
+
+      for (final key in const [
+        ValueKey('image-carousel-previous'),
+        ValueKey('image-carousel-next'),
+      ]) {
+        final target = find.byKey(key);
+        final size = tester.getSize(target);
+        expect(size.width, greaterThanOrEqualTo(44));
+        expect(size.height, greaterThanOrEqualTo(44));
+        final data = tester.getSemantics(target).getSemanticsData();
+        expect(data.flagsCollection.isButton, isTrue);
+        expect(data.hasAction(SemanticsAction.tap), isTrue);
+      }
+
+      expect(find.bySemanticsLabel('Previous image'), findsOneWidget);
+      expect(find.bySemanticsLabel('Next image'), findsOneWidget);
+
+      for (var image = 1; image <= 3; image++) {
+        final target = find.byKey(ValueKey('image-carousel-dot-$image'));
+        expect(
+          tester.getSize(target),
+          const Size.square(ImageGridCarousel.controlTargetSize),
+        );
+        final data = tester.getSemantics(target).getSemanticsData();
+        expect(data.label, 'Go to image $image of 3');
+        expect(data.flagsCollection.isButton, isTrue);
+        expect(data.hasAction(SemanticsAction.tap), isTrue);
+        expect(
+          data.flagsCollection.isSelected,
+          image == 1 ? Tristate.isTrue : Tristate.isFalse,
+        );
+      }
+
+      semantics.dispose();
+    });
+
+    testWidgets('dot buttons activate with Enter and Space', (tester) async {
+      await pumpGrid(tester, grid(3, mode: 'carousel'));
+      final controller = tester
+          .widget<PageView>(find.byType(PageView))
+          .controller!;
+
+      final second = tester.widget<InkWell>(
+        find.byKey(const ValueKey('image-carousel-dot-2-button')),
+      );
+      second.focusNode!.requestFocus();
+      await tester.pump();
+      expect(second.focusNode!.hasFocus, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(controller.page, 1);
+
+      final third = tester.widget<InkWell>(
+        find.byKey(const ValueKey('image-carousel-dot-3-button')),
+      );
+      third.focusNode!.requestFocus();
+      await tester.pump();
+      expect(third.focusNode!.hasFocus, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(controller.page, 2);
+    });
+
+    testWidgets('ten full-size dot targets fit a narrow carousel', (
+      tester,
+    ) async {
+      await pumpGrid(tester, grid(10, mode: 'carousel'), width: 320);
+
+      expect(tester.takeException(), isNull);
+      for (var image = 1; image <= 10; image++) {
+        expect(
+          tester.getSize(find.byKey(ValueKey('image-carousel-dot-$image'))),
+          const Size.square(ImageGridCarousel.controlTargetSize),
+        );
+      }
     });
 
     testWidgets('wraps around at both ends', (tester) async {

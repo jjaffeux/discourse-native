@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/plugins/local_dates/local_date.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:flutter/widgets.dart';
@@ -32,6 +34,27 @@ void main() {
       expect(environment.readerTimezone('not/a-zone'), 'Etc/UTC');
       environment.setDeviceTimezone('Asia/Tokyo');
       expect(environment.readerTimezone('Europe/Paris'), 'Asia/Tokyo');
+    });
+
+    test('a stale timezone detection cannot replace a newer result', () async {
+      final first = Completer<String?>();
+      final second = Completer<String?>();
+      var reads = 0;
+      final isolated = LocalDateEnvironment.forTesting(
+        detectDeviceTimezone: () => reads++ == 0 ? first.future : second.future,
+      );
+
+      final olderRefresh = isolated.refreshDeviceTimezone();
+      final newerRefresh = isolated.refreshDeviceTimezone();
+      second.complete('Asia/Tokyo');
+      await newerRefresh;
+      expect(isolated.deviceTimezone, 'Asia/Tokyo');
+
+      first.complete('Europe/Paris');
+      await olderRefresh;
+
+      expect(isolated.deviceTimezone, 'Asia/Tokyo');
+      isolated.dispose();
     });
   });
 
@@ -169,6 +192,58 @@ void main() {
         now: DateTime.utc(2026),
       );
       expect(elapsed!.formatted, 'now');
+    });
+
+    test('previews preserve order while deduplicating zones and offsets', () {
+      environment.setDeviceTimezone('Etc/UTC');
+      final previews = formatter.previews(
+        const LocalDateSpec(
+          date: '2026-01-15',
+          time: '12:00:00',
+          timezone: 'GMT',
+          timezones: [
+            'UTC',
+            'Etc/GMT',
+            'America/New_York',
+            'US/Eastern',
+            'Asia/Tokyo',
+            'JST',
+          ],
+          fallbackText: '',
+        ),
+        locale: const Locale('en'),
+        now: DateTime.utc(2020),
+      );
+
+      expect(previews.map((preview) => preview.timezone), [
+        'Etc/UTC',
+        'Etc/GMT',
+        'America/New_York',
+        'Asia/Tokyo',
+      ]);
+      expect(previews.first.current, isTrue);
+      expect(previews[1].source, isTrue);
+    });
+
+    test('preview deduplication stays bounded for oversized cooked input', () {
+      environment.setDeviceTimezone('Etc/UTC');
+      final previews = formatter.previews(
+        LocalDateSpec(
+          date: '2026-01-15',
+          time: '12:00:00',
+          timezone: 'America/New_York',
+          timezones: List.filled(100000, 'Asia/Tokyo'),
+          fallbackText: '',
+        ),
+        locale: const Locale('en'),
+        now: DateTime.utc(2020),
+      );
+
+      expect(previews.map((preview) => preview.timezone), [
+        'Etc/UTC',
+        'America/New_York',
+        'Asia/Tokyo',
+      ]);
     });
   });
 

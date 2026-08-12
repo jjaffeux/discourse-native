@@ -178,6 +178,24 @@ void main() {
     expect(changes, 1);
   });
 
+  test('reentrant disposal suppresses the totals post-load callback', () async {
+    const totals = NotificationTotals(hasChatEnabled: true);
+    final api = _AccountApi(totals: totals);
+    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+    var loaded = false;
+    final controller = _controller(
+      api,
+      credentials,
+      onTotalsLoaded: (_, _) => loaded = true,
+    );
+    controller.addListener(controller.dispose);
+
+    final result = await controller.refresh(_connectedInstance());
+
+    expect(result, totals);
+    expect(loaded, isFalse);
+  });
+
   test(
     'loads notification, reply, chat, and bookmark feeds independently',
     () async {

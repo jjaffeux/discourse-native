@@ -36,7 +36,7 @@ class SiteConfig {
     this.assignStatuses = const [],
     this.authorizedExtensions = defaultAuthorizedExtensions,
     this.authorizedExtensionsForStaff = const [],
-    this.simultaneousUploads = 15,
+    this.simultaneousUploads = defaultSimultaneousUploads,
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
     this.minSearchTermLength = defaultMinSearchTermLength,
@@ -55,6 +55,10 @@ class SiteConfig {
   static const int defaultPollMaximumOptions = 20;
   static const String defaultGifFileDetail = 'webp';
   static const int defaultGifMaxResults = 240;
+  static const int defaultSimultaneousUploads = 15;
+
+  /// A local resource ceiling even when core's `0` asks for no batch limit.
+  static const int maximumSimultaneousUploads = 30;
   static const List<String> defaultLocalDateFormats = [
     'LLL',
     'LTS',
@@ -148,12 +152,7 @@ class SiteConfig {
         json['authorized_extensions_for_staff'],
         const [],
       ),
-      simultaneousUploads: switch (jsonIntOrNull(
-        json['simultaneous_uploads'],
-      )) {
-        final value? when value >= 0 => value,
-        _ => 15,
-      },
+      simultaneousUploads: _simultaneousUploads(json['simultaneous_uploads']),
       maxImageWidth: _positiveInt(json['max_image_width'], 690),
       maxImageHeight: _positiveInt(json['max_image_height'], 500),
       minSearchTermLength:
@@ -209,8 +208,7 @@ class SiteConfig {
       json['authorizedExtensionsForStaff'],
       const [],
     ),
-    simultaneousUploads:
-        jsonIntOrNull(json['simultaneousUploads'])?.clamp(0, 30) ?? 15,
+    simultaneousUploads: _simultaneousUploads(json['simultaneousUploads']),
     maxImageWidth: _positiveInt(json['maxImageWidth'], 690),
     maxImageHeight: _positiveInt(json['maxImageHeight'], 500),
     minSearchTermLength:
@@ -495,6 +493,14 @@ class SiteConfig {
         final value? when value > 0 => value,
         _ => fallback,
       };
+
+  static int _simultaneousUploads(Object? raw) => switch (jsonIntOrNull(raw)) {
+    0 => maximumSimultaneousUploads,
+    final value? when value > maximumSimultaneousUploads =>
+      maximumSimultaneousUploads,
+    final value? when value > 0 => value,
+    _ => defaultSimultaneousUploads,
+  };
 
   static String _gifFileDetail(Object? raw) => switch (jsonText(raw)) {
     'gif' => 'gif',

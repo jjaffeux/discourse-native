@@ -153,17 +153,10 @@ class Reactions {
 
   bool get isEmpty => entries.isEmpty;
 
-  /// Where a reaction belongs in [entries], which the site orders by count
-  /// descending and then id ascending.
-  static int _slot(List<Reaction> sorted, Reaction entry) {
-    for (var i = 0; i < sorted.length; i++) {
-      final held = sorted[i];
-      if (entry.count > held.count) return i;
-      if (entry.count == held.count && entry.id.compareTo(held.id) < 0) {
-        return i;
-      }
-    }
-    return sorted.length;
+  /// The site's reaction order: count descending, then id ascending.
+  static int _compareReaction(Reaction left, Reaction right) {
+    final byCount = right.count.compareTo(left.count);
+    return byCount == 0 ? left.id.compareTo(right.id) : byCount;
   }
 
   /// This reader's reaction given, moved or taken back — the post as the site
@@ -202,12 +195,10 @@ class Reactions {
     if (held != null) step(held.id, -1);
     if (!removing) step(id, 1);
 
-    // Re-sorted rather than rebuilt from scratch, so an entry whose count did
-    // not change keeps its place.
-    final sorted = <Reaction>[];
-    for (final entry in next.values) {
-      sorted.insert(_slot(sorted, entry), entry);
-    }
+    // A site with arbitrary emoji enabled can have a long distinct-reaction
+    // row. One sort keeps this rebuild O(n log n) rather than repeatedly
+    // scanning the already sorted prefix for every entry.
+    final sorted = next.values.toList()..sort(_compareReaction);
 
     return Reactions(
       entries: List.unmodifiable(sorted),

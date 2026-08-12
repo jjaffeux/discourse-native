@@ -77,9 +77,9 @@ class _DiscourseAppState extends State<DiscourseApp>
     // Nothing updates itself. Linux ships as a .deb from an apt repository, so
     // updates arrive with `apt upgrade` the way the rest of the system does,
     // and the app is installed under /usr where it could not replace itself
-    // anyway. [DesktopUpdaterAdapter] is kept for the platform that gets an
-    // in-app updater next; wiring it here would put an update button in front
-    // of users whose package manager already owns the job.
+    // anyway. The dependency remains injectable for the generic update UI and
+    // for a future platform integration, but production uses
+    // [UnsupportedUpdater].
     updater: _updater,
     updateStore: _updateStore,
     ownsApi: false,
@@ -105,6 +105,9 @@ class _DiscourseAppState extends State<DiscourseApp>
   @override
   void didUpdateWidget(DiscourseApp oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(widget.diagnostics, oldWidget.diagnostics)) {
+      _releaseDiagnostics(oldWidget.diagnostics);
+    }
     if (!_dependenciesChanged(oldWidget)) return;
 
     _controller.dispose();
@@ -156,8 +159,28 @@ class _DiscourseAppState extends State<DiscourseApp>
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     _api.close();
-    unawaited(widget.diagnostics?.close());
+    _releaseDiagnostics(widget.diagnostics);
     super.dispose();
+  }
+
+  void _releaseDiagnostics(DiagnosticsController? diagnostics) {
+    if (diagnostics == null) return;
+    unawaited(
+      diagnostics.close().onError((Object error, StackTrace stackTrace) {
+        // The app cannot await teardown from a widget lifecycle callback, but
+        // a persistence-close failure must still be observed rather than
+        // escaping as an unhandled asynchronous error.
+        DiagnosticsSink.current.reportError(
+          error,
+          stackTrace,
+          operation: 'app.diagnostics.close',
+          source: 'diagnostics',
+          severity: DiagnosticSeverity.warning,
+          handled: true,
+          degraded: false,
+        );
+      }),
+    );
   }
 
   /// Only `hidden`, `paused` and `detached` count as being in the background,

@@ -376,37 +376,44 @@ class _TabButton extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      child: Tooltip(
-        message: section.label,
-        waitDuration: const Duration(milliseconds: 400),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: selected ? theme.shell.hover : null,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                DIcon(
-                  section.icon,
-                  size: 20,
-                  color: selected
-                      ? theme.colorScheme.onSurface
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-                if (section.badge > 0)
-                  Positioned(
-                    right: -8,
-                    top: -6,
-                    child: _Badge(count: section.badge),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Semantics(
+        key: ValueKey('user-menu-tab-${section.id}'),
+        button: true,
+        selected: selected,
+        label: section.label,
+        child: Tooltip(
+          message: section.label,
+          excludeFromSemantics: true,
+          waitDuration: const Duration(milliseconds: 400),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected ? theme.shell.hover : null,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  DIcon(
+                    section.icon,
+                    size: 20,
+                    color: selected
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurfaceVariant,
                   ),
-              ],
+                  if (section.badge > 0)
+                    Positioned(
+                      right: -8,
+                      top: -6,
+                      child: _Badge(count: section.badge),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

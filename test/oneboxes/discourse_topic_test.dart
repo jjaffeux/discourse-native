@@ -64,6 +64,25 @@ const String localTopicOnebox = '''
 ''';
 
 void main() {
+  test('deep topic markup parses without recursive DOM traversal', () {
+    const depth = 1000;
+    final nested =
+        '${List.filled(depth, '<div>').join()}'
+        '<span class="category-name">Deep category</span>'
+        '${List.filled(depth, '</div>').join()}';
+
+    final aside = html
+        .parse(
+          '<aside class="onebox discoursetopic">'
+          '<article class="onebox-body"><span class="badge-wrapper">'
+          '$nested</span></article></aside>',
+        )
+        .querySelector('aside.onebox')!;
+    final parsed = DiscourseTopicData.from(aside, OneboxData.from(aside));
+
+    expect(parsed.categories.single.name, 'Deep category');
+  });
+
   group('DiscourseTopicData', () {
     DiscourseTopicData parse(String source) {
       final aside = html.parse(source).querySelector('aside.onebox')!;

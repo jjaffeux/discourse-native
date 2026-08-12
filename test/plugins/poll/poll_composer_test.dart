@@ -54,6 +54,24 @@ void main() {
       expect(blocks.last.optionSources, isEmpty);
     });
 
+    test('accepts only the existing ASCII attribute-name grammar', () {
+      const legal =
+          '[poll _future-2=value Name9=value]\n'
+          '* A\n'
+          '* B\n'
+          '[/poll]';
+      final block = parsePollComposerBlocks(legal).single;
+      expect(block.attributes.map((attribute) => attribute.name), [
+        '_future-2',
+        'Name9',
+      ]);
+
+      for (final name in ['9name', '-name', 'éname', 'naïve']) {
+        final source = '[poll $name=value]\n* A\n* B\n[/poll]';
+        expect(parsePollComposerBlocks(source), isEmpty, reason: name);
+      }
+    });
+
     test('leaves fenced, quoted, nested, malformed, and complex polls raw', () {
       const fenced = '```\n[poll]\n* A\n* B\n[/poll]\n```';
       const quoted = '> [poll]\n> * A\n> * B\n> [/poll]';

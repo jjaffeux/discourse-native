@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/shell/hover_panel.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -55,5 +56,39 @@ void main() {
 
     expect(after.dy - before.dy, closeTo(100, 0.01));
     await mouse.removePointer();
+  });
+
+  testWidgets('keyboard focus opens immediately and Escape closes', (
+    tester,
+  ) async {
+    const panelKey = Key('panel');
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: HoverPanel(
+              panelBuilder: (_) =>
+                  const SizedBox(key: panelKey, width: 80, height: 40),
+              child: TextButton(
+                focusNode: focus,
+                onPressed: () {},
+                child: const Text('Focusable anchor'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    focus.requestFocus();
+    await tester.pump();
+    expect(find.byKey(panelKey), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.byKey(panelKey), findsNothing);
   });
 }

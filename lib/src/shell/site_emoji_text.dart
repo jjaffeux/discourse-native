@@ -59,8 +59,9 @@ class SiteEmojiText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = runs.map((run) => run.text).join();
-    final matches = _shortcode.allMatches(text).toList();
-    if (matches.isEmpty &&
+    final matches = _shortcode.allMatches(text).iterator;
+    final hasMatch = matches.moveNext();
+    if (!hasMatch &&
         runs.length == 1 &&
         runs.single.style == null &&
         trailing.isEmpty) {
@@ -75,27 +76,30 @@ class SiteEmojiText extends StatelessWidget {
 
     final effectiveStyle = DefaultTextStyle.of(context).style.merge(style);
     final spans = <InlineSpan>[];
-    var cursor = 0;
+    final cursor = _StyledRunCursor(runs);
 
-    for (final match in matches) {
-      _appendText(spans, cursor, match.start);
-      final name = match.group(1)!;
-      final emojiStyle = effectiveStyle.merge(_styleAt(match.start));
-      spans.add(
-        WidgetSpan(
-          alignment: PlaceholderAlignment.middle,
-          child: SiteEmojiImage(
-            siteUrl: siteUrl,
-            name: name,
-            size: (emojiStyle.fontSize ?? 14) * emojiScale,
-            alt: match.group(0)!,
-            style: emojiStyle,
+    if (hasMatch) {
+      do {
+        final match = matches.current;
+        cursor.appendText(spans, match.start);
+        final name = match.group(1)!;
+        final emojiStyle = effectiveStyle.merge(cursor.style);
+        spans.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: SiteEmojiImage(
+              siteUrl: siteUrl,
+              name: name,
+              size: (emojiStyle.fontSize ?? 14) * emojiScale,
+              alt: match.group(0)!,
+              style: emojiStyle,
+            ),
           ),
-        ),
-      );
-      cursor = match.end;
+        );
+        cursor.skipTo(match.end);
+      } while (matches.moveNext());
     }
-    _appendText(spans, cursor, text.length);
+    cursor.appendText(spans, text.length);
     spans.addAll(
       trailing.map(
         (widget) => _TrailingWidgetSpan(
@@ -125,37 +129,65 @@ class SiteEmojiText extends StatelessWidget {
       child: ExcludeSemantics(child: richText),
     );
   }
+}
 
-  void _appendText(List<InlineSpan> spans, int start, int end) {
-    if (start >= end) return;
-    var runStart = 0;
-    for (final run in runs) {
-      final runEnd = runStart + run.text.length;
-      final sliceStart = start.clamp(runStart, runEnd);
-      final sliceEnd = end.clamp(runStart, runEnd);
-      if (sliceStart < sliceEnd) {
+/// Walks styled runs alongside the shortcode matcher without rescanning runs.
+///
+/// Search excerpts can split almost every word into a separate run. Advancing
+/// monotonically keeps a row with many emoji linear in its text and run count,
+/// while still allowing one shortcode to cross any number of style boundaries.
+class _StyledRunCursor {
+  _StyledRunCursor(this.runs);
+
+  final List<SiteEmojiTextRun> runs;
+
+  int _runIndex = 0;
+  int _runOffset = 0;
+  int _textOffset = 0;
+
+  TextStyle? get style {
+    _skipEmptyRuns();
+    return _runIndex < runs.length ? runs[_runIndex].style : null;
+  }
+
+  void appendText(List<InlineSpan> spans, int end) =>
+      _advanceTo(end, spans: spans);
+
+  void skipTo(int end) => _advanceTo(end);
+
+  void _advanceTo(int end, {List<InlineSpan>? spans}) {
+    assert(end >= _textOffset);
+    while (_textOffset < end) {
+      _skipEmptyRuns();
+      if (_runIndex >= runs.length) return;
+
+      final run = runs[_runIndex];
+      final available = run.text.length - _runOffset;
+      final remaining = end - _textOffset;
+      final length = remaining < available ? remaining : available;
+      if (spans != null) {
         spans.add(
           TextSpan(
-            text: run.text.substring(
-              sliceStart - runStart,
-              sliceEnd - runStart,
-            ),
+            text: run.text.substring(_runOffset, _runOffset + length),
             style: run.style,
           ),
         );
       }
-      runStart = runEnd;
-      if (runStart >= end) return;
+
+      _runOffset += length;
+      _textOffset += length;
+      if (_runOffset == run.text.length) {
+        _runIndex++;
+        _runOffset = 0;
+      }
     }
   }
 
-  TextStyle? _styleAt(int offset) {
-    var runEnd = 0;
-    for (final run in runs) {
-      runEnd += run.text.length;
-      if (offset < runEnd) return run.style;
+  void _skipEmptyRuns() {
+    while (_runIndex < runs.length && runs[_runIndex].text.isEmpty) {
+      _runIndex++;
+      _runOffset = 0;
     }
-    return null;
   }
 }
 

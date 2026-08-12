@@ -12,9 +12,11 @@ import 'dart:io';
 final class MediaRequestCoordinator {
   MediaRequestCoordinator({
     this.maxConcurrentPerOrigin = 2,
+    this.maxQueuedPerOrigin = 64,
     this.defaultRateLimitCooldown = const Duration(minutes: 2),
     DateTime Function()? clock,
   }) : assert(maxConcurrentPerOrigin > 0),
+       assert(maxQueuedPerOrigin > 0),
        assert(defaultRateLimitCooldown >= Duration.zero),
        _clock = clock ?? DateTime.now;
 
@@ -22,6 +24,11 @@ final class MediaRequestCoordinator {
   static final shared = MediaRequestCoordinator();
 
   final int maxConcurrentPerOrigin;
+
+  /// Maximum work retained behind the active slots for one origin.
+  ///
+  /// Active leases do not count toward this backlog limit.
+  final int maxQueuedPerOrigin;
   final Duration defaultRateLimitCooldown;
   final DateTime Function() _clock;
   final Map<String, _MediaOriginQueue> _origins = {};
@@ -37,6 +44,11 @@ final class MediaRequestCoordinator {
     final remaining = _blockedFor(queue);
     if (remaining != null) {
       return Future.error(MediaOriginRateLimitedException(origin, remaining));
+    }
+    if (queue.waiting.length >= maxQueuedPerOrigin) {
+      return Future.error(
+        MediaRequestOverloadException(origin, maxQueuedPerOrigin),
+      );
     }
 
     final pending = _PendingMediaRequest(relatedOrigin: relatedUrl?.origin);
@@ -202,6 +214,18 @@ final class MediaOriginRateLimitedException implements Exception {
   @override
   String toString() =>
       'Media requests to $origin are paused for ${retryAfter.inSeconds}s.';
+}
+
+/// A request rejected before delegation because an origin's backlog is full.
+final class MediaRequestOverloadException implements Exception {
+  const MediaRequestOverloadException(this.origin, this.maxQueued);
+
+  final String origin;
+  final int maxQueued;
+
+  @override
+  String toString() =>
+      'Media request backlog for $origin already contains $maxQueued operations.';
 }
 
 final class _MediaOriginQueue {

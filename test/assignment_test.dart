@@ -117,6 +117,40 @@ void main() {
     );
   });
 
+  test('bounds direct and indirect assignments to the server total', () {
+    final assignments = Assignments.fromTopicJson({
+      'assigned_to_group': {'name': 'triage'},
+      'indirectly_assigned_to': {
+        for (var id = 1; id <= Assignments.maximumPerTopic + 1; id++)
+          '$id': {
+            'assigned_to': {'username': 'user-$id'},
+          },
+      },
+    }, siteUrl)!;
+
+    expect(assignments.direct, isNotNull);
+    expect(assignments.postAssignments.keys, [1, 2, 3, 4]);
+    expect(assignments.all, hasLength(Assignments.maximumPerTopic));
+    expect(() => assignments.postAssignments.clear(), throwsUnsupportedError);
+  });
+
+  test('malformed raw indirect slots still spend the server budget', () {
+    final assignments = Assignments.fromTopicJson({
+      'indirectly_assigned_to': {
+        'bad-key': {
+          'assigned_to': {'username': 'ignored'},
+        },
+        for (var id = 1; id <= Assignments.maximumPerTopic + 1; id++)
+          '$id': {
+            'assigned_to': {'username': 'user-$id'},
+          },
+      },
+    }, siteUrl)!;
+
+    expect(assignments.direct, isNull);
+    expect(assignments.postAssignments.keys, [1, 2, 3, 4]);
+  });
+
   test('post payload reads its own assignment and target metadata', () {
     final assignments = Assignments.fromPostJson(const {
       'id': 71,
@@ -170,5 +204,26 @@ void main() {
       suggestions.users.single,
       const AssignmentGroup(name: 'triage'),
     ]);
+  });
+
+  test('suggestions retain only the six raw slots core can return', () {
+    final suggestions = AssignmentSuggestions.fromJson({
+      'suggestions': [
+        {'id': 1, 'username': 'user-1'},
+        false,
+        for (var id = 2; id <= 7; id += 1) {'id': id, 'username': 'user-$id'},
+      ],
+    }, siteUrl);
+
+    expect(
+      suggestions.users.map((user) => user.id),
+      [1, 2, 3, 4, 5],
+      reason: 'a malformed raw slot still consumes the server page budget',
+    );
+    expect(suggestions.users.map((user) => user.id), isNot(contains(6)));
+    expect(
+      () => suggestions.users.add(suggestions.users.first),
+      throwsUnsupportedError,
+    );
   });
 }

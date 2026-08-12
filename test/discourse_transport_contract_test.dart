@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/site_appearance_loader.dart';
@@ -127,6 +128,141 @@ void main() {
       await Future.wait(reads);
       expect(maximumActive, 2);
     });
+
+    test(
+      'bounds queued work per origin and reuses capacity in FIFO order',
+      () async {
+        final gates = <Completer<void>>[];
+        final started = <String>[];
+        final transport = DiscourseTransport(
+          SafeHttpClient.owned(
+            MockClient((request) async {
+              started.add(request.url.path);
+              final gate = Completer<void>();
+              gates.add(gate);
+              await gate.future;
+              return http.Response('{}', 200);
+            }),
+          ),
+          const Duration(seconds: 1),
+          1024,
+          maxConcurrentPerOrigin: 1,
+          maxQueuedPerOrigin: 2,
+        );
+        addTearDown(transport.close);
+
+        Future<http.Response> read(String path) => transport.get(
+          Uri.parse('https://example.com/$path.json'),
+          siteUrl: 'https://example.com',
+        );
+
+        final first = read('first');
+        final second = read('second');
+        final third = read('third');
+        await Future<void>.delayed(Duration.zero);
+        expect(started, ['/first.json']);
+
+        await expectLater(
+          read('overflow'),
+          throwsA(
+            isA<SiteLookupException>().having(
+              (error) => error.diagnosticCause,
+              'diagnosticCause',
+              isA<DiscourseRequestOverloadException>()
+                  .having(
+                    (error) => error.origin,
+                    'origin',
+                    'https://example.com',
+                  )
+                  .having((error) => error.maxQueued, 'maxQueued', 2),
+            ),
+          ),
+        );
+        expect(started, ['/first.json']);
+
+        gates[0].complete();
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+        expect(started, ['/first.json', '/second.json']);
+        gates[1].complete();
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+        expect(started, ['/first.json', '/second.json', '/third.json']);
+        gates[2].complete();
+        await Future.wait([first, second, third]);
+
+        final afterDrain = read('after-drain');
+        await Future<void>.delayed(Duration.zero);
+        expect(started.last, '/after-drain.json');
+        gates[3].complete();
+        await afterDrain;
+      },
+    );
+
+    test(
+      'coalesces an accepted GET even when its origin queue is full',
+      () async {
+        final gates = <Completer<void>>[];
+        final started = <String>[];
+        final transport = DiscourseTransport(
+          SafeHttpClient.owned(
+            MockClient((request) async {
+              started.add(request.url.path);
+              final gate = Completer<void>();
+              gates.add(gate);
+              await gate.future;
+              return http.Response('{}', 200);
+            }),
+          ),
+          const Duration(seconds: 1),
+          1024,
+          maxConcurrentPerOrigin: 1,
+          maxQueuedPerOrigin: 1,
+        );
+        addTearDown(transport.close);
+
+        Future<http.Response> read(String path) => transport.get(
+          Uri.parse('https://example.com/$path.json'),
+          siteUrl: 'https://example.com',
+        );
+
+        final active = read('active');
+        final shared = read('shared');
+        final sharedAgain = read('shared');
+        await Future<void>.delayed(Duration.zero);
+        expect(started, ['/active.json']);
+        await expectLater(
+          transport.write(
+            Uri.parse('https://example.com/overflow.json'),
+            siteUrl: 'https://example.com',
+            method: 'POST',
+            apiKey: 'secret',
+            body: const {},
+          ),
+          throwsA(
+            isA<WriteException>()
+                .having(
+                  (error) => error.failure,
+                  'failure',
+                  WriteFailure.unreachable,
+                )
+                .having(
+                  (error) => error.diagnosticCause,
+                  'diagnosticCause',
+                  isA<DiscourseRequestOverloadException>(),
+                ),
+          ),
+        );
+
+        gates[0].complete();
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+        expect(started, ['/active.json', '/shared.json']);
+        gates[1].complete();
+        await Future.wait([active, shared, sharedAgain]);
+        expect(started.where((path) => path == '/shared.json'), hasLength(1));
+      },
+    );
 
     test('a 429 pauses later work for the same origin', () async {
       var calls = 0;

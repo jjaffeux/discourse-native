@@ -802,6 +802,48 @@ void main() {
     ]);
     expect(controller.currentPostIds, [for (var id = 35; id <= 64; id++) id]);
   });
+
+  test('post paging clamps caller batches to one server chunk', () async {
+    final site = instance('meta.example');
+    final allPosts = {
+      for (var number = 1; number <= 60; number++)
+        number: Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: '<p>Post $number</p>',
+        ),
+    };
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      postsById: allPosts,
+    );
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (var id = 1; id <= 60; id++) id],
+          postsCount: 60,
+        ),
+      )
+      ..putAll(site.url, [for (var id = 21; id <= 40; id++) allPosts[id]!]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One', postNumber: 30),
+    );
+
+    await controller.loadMorePosts(batchSize: 1000);
+    await controller.loadEarlierPosts(batchSize: 1000);
+
+    expect(api.postFetches, [
+      [for (var id = 41; id <= 60; id++) id],
+      [for (var id = 1; id <= 20; id++) id],
+    ]);
+  });
 }
 
 ShellController _controller(DiscourseInstance site, FakeDiscourseApi api) =>

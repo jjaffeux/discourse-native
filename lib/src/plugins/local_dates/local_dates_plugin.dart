@@ -8,7 +8,7 @@ import '../../shell/markdown_highlight.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
 import '../chat/chat_preview.dart';
-import '../site_plugin.dart';
+import '../site_plugin_api.dart';
 import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_composer_parser.dart';

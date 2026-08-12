@@ -70,6 +70,13 @@ class PostReactors with Storable<PostReactors> {
     this.filter,
   });
 
+  /// Largest page the plugin route can legally return.
+  ///
+  /// Keep the client boundary too: the list is rendered as one eager column,
+  /// so a nonconforming response must not create an arbitrary number of model
+  /// records, avatar loads, and rows.
+  static const int maximumPageSize = 50;
+
   /// `{users: [...], total_rows: N}` — a different envelope from
   /// `post_action_users`, so a parser of its own rather than a flag on that one.
   static PostReactors parse(
@@ -80,10 +87,11 @@ class PostReactors with Storable<PostReactors> {
   }) => PostReactors(
     postId: postId,
     filter: filter,
-    reactors: List.unmodifiable([
-      for (final entry in jsonObjects(json['users']))
-        PostReactor.fromJson(entry, siteUrl),
-    ]),
+    reactors: List.unmodifiable(
+      jsonObjects(json['users'])
+          .take(maximumPageSize)
+          .map((entry) => PostReactor.fromJson(entry, siteUrl)),
+    ),
     total: jsonInt(json['total_rows']),
   );
 

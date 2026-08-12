@@ -58,6 +58,11 @@ void main() {
       }
     });
 
+    test('rejects oversized and credential-bearing links', () {
+      expect(parse('/t/${'a' * TopicLink.maximumUrlLength}/1'), isNull);
+      expect(parse('https://user:secret@meta.discourse.org/t/a/1'), isNull);
+    });
+
     test('names the topic after its slug until the real title lands', () {
       expect(
         parse('https://meta.discourse.org/t/a-real-topic/1')?.placeholderTitle,

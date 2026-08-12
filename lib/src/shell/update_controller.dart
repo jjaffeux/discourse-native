@@ -94,7 +94,7 @@ class UpdateController extends FrameSafeNotifier {
 
   /// Reads the stored channel and, if nobody has looked in a while, looks.
   Future<void> load() async {
-    if (!isSupported) return;
+    if (isDisposed || !isSupported) return;
 
     final revision = _revision;
     final UpdateChannel? storedChannel;
@@ -118,6 +118,7 @@ class UpdateController extends FrameSafeNotifier {
     _channel = storedChannel ?? AppRelease.defaultChannel;
     _lastChecked = storedLastChecked;
     notifySafely();
+    if (!_isCurrent(revision)) return;
 
     final last = _lastChecked;
     if (last == null || DateTime.now().difference(last) >= _recheckAfter) {
@@ -132,7 +133,7 @@ class UpdateController extends FrameSafeNotifier {
   /// nothing they could do; the rail simply stays quiet. Only a check the user
   /// started gets to put a message on screen.
   Future<void> check({bool silent = false}) async {
-    if (!isSupported) return;
+    if (isDisposed || !isSupported) return;
     // A second check while one is running would race the first's result into
     // the same fields. Same guard as connectCurrentInstance.
     if (_status == UpdateStatus.checking ||
@@ -147,6 +148,7 @@ class UpdateController extends FrameSafeNotifier {
     _status = UpdateStatus.checking;
     if (!silent) _error = null;
     notifySafely();
+    if (!_isCurrent(revision)) return;
 
     try {
       final release = await updater.check(channel: channel);
@@ -177,6 +179,7 @@ class UpdateController extends FrameSafeNotifier {
 
   /// Fetches and verifies the release already found, leaving it staged.
   Future<void> download() async {
+    if (isDisposed) return;
     final release = _available;
     if (release == null || _status == UpdateStatus.downloading) return;
 
@@ -185,6 +188,7 @@ class UpdateController extends FrameSafeNotifier {
     _error = null;
     notifySafely();
     final revision = _revision;
+    if (!_isCurrent(revision)) return;
 
     try {
       await updater.download(
@@ -211,12 +215,13 @@ class UpdateController extends FrameSafeNotifier {
 
   /// Hands the app over to the updater. On success this never returns.
   Future<void> installAndRestart() async {
-    if (_status != UpdateStatus.readyToInstall) return;
+    if (isDisposed || _status != UpdateStatus.readyToInstall) return;
 
     _status = UpdateStatus.installing;
     _error = null;
     notifySafely();
     final revision = _revision;
+    if (!_isCurrent(revision)) return;
 
     try {
       await updater.installAndRestart();
@@ -236,6 +241,7 @@ class UpdateController extends FrameSafeNotifier {
   /// Discarding first is the point: a canary build downloaded a minute ago must
   /// not stay installable for someone who has since asked for stable.
   Future<void> setChannel(UpdateChannel channel) {
+    if (isDisposed) return Future<void>.value();
     if (channel == _channel) {
       return _channelChangeTask ?? Future<void>.value();
     }
@@ -313,9 +319,9 @@ class UpdateController extends FrameSafeNotifier {
   @override
   void dispose() {
     _revision++;
-    // A desktop updater session owns a plugin controller and may still have a
-    // check or download in flight. Discard is its cancellation/close boundary;
-    // the controller's revision suppresses the resulting late completion.
+    // An updater session may still have a check or download in flight. Discard
+    // is its cancellation/close boundary; the controller's revision suppresses
+    // the resulting late completion.
     try {
       unawaited(
         updater.discard().onError((Object error, StackTrace stackTrace) {

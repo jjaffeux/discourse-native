@@ -316,6 +316,48 @@ void main() {
       expect(config.maxImageHeight, 700);
     });
 
+    test('keeps eager upload batches within the local resource ceiling', () {
+      for (final value in [1, 17, 30]) {
+        expect(
+          SiteConfig.fromSettings(
+            settings(simultaneousUploads: value),
+          ).simultaneousUploads,
+          value,
+        );
+      }
+
+      for (final value in [0, 31, 1000000000]) {
+        final fresh = SiteConfig.fromSettings(
+          settings(simultaneousUploads: value),
+        );
+        final restored = SiteConfig.fromJson({'simultaneousUploads': value});
+        expect(
+          fresh.simultaneousUploads,
+          SiteConfig.maximumSimultaneousUploads,
+        );
+        expect(
+          restored.simultaneousUploads,
+          SiteConfig.maximumSimultaneousUploads,
+        );
+        expect(SiteConfig.fromJson(fresh.toJson()), fresh);
+      }
+
+      for (final value in [-1, -1000000000]) {
+        expect(
+          SiteConfig.fromSettings(
+            settings(simultaneousUploads: value),
+          ).simultaneousUploads,
+          SiteConfig.defaultSimultaneousUploads,
+        );
+        expect(
+          SiteConfig.fromJson({
+            'simultaneousUploads': value,
+          }).simultaneousUploads,
+          SiteConfig.defaultSimultaneousUploads,
+        );
+      }
+    });
+
     test('wildcard authorization still accepts images only', () {
       final config = SiteConfig.fromSettings(
         settings(authorizedExtensions: '*'),

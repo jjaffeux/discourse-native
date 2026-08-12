@@ -98,16 +98,19 @@ class _Status extends StatelessWidget {
       UpdateStatus.upToDate => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              DIcon(
-                DIcons.farCircleCheck,
-                size: 18,
-                color: theme.discourse.success,
-              ),
-              const SizedBox(width: 8),
-              Text("You're up to date.", style: theme.textTheme.bodyMedium),
-            ],
+          _UpdateStatusAnnouncement(
+            label: "You're up to date.",
+            child: Row(
+              children: [
+                DIcon(
+                  DIcons.farCircleCheck,
+                  size: 18,
+                  color: theme.discourse.success,
+                ),
+                const SizedBox(width: 8),
+                Text("You're up to date.", style: theme.textTheme.bodyMedium),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           const _CheckButton(),
@@ -117,11 +120,13 @@ class _Status extends StatelessWidget {
       UpdateStatus.available => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            release!.isDowngrade
-                ? 'Version ${release.version} is on this channel.'
-                : 'Version ${release.version} is available.',
-            style: theme.textTheme.bodyMedium,
+          _UpdateStatusAnnouncement(
+            label: _releaseMessage(release!),
+            announce: updates.error == null,
+            child: Text(
+              _releaseMessage(release),
+              style: theme.textTheme.bodyMedium,
+            ),
           ),
           if (release.sizeBytes case final bytes?) ...[
             const SizedBox(height: 4),
@@ -135,6 +140,10 @@ class _Status extends StatelessWidget {
           if (release.notes case final notes? when notes.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(notes, style: theme.textTheme.bodySmall),
+          ],
+          if (updates.error case final error?) ...[
+            const SizedBox(height: 12),
+            _UpdateError(message: error),
           ],
           const SizedBox(height: 16),
           FilledButton(
@@ -153,11 +162,22 @@ class _Status extends StatelessWidget {
       UpdateStatus.downloading => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LinearProgressIndicator(value: updates.progress),
+          LinearProgressIndicator(
+            key: const ValueKey('update-download-progress'),
+            value: updates.progress,
+            semanticsLabel: 'Downloading update',
+            // Progress indicators carry numeric min/max semantics. Keeping the
+            // override numeric lets assistive technology announce it as a
+            // percentage without invalidating that native range.
+            semanticsValue: '${(updates.progress * 100).round()}',
+          ),
           const SizedBox(height: 8),
-          Text(
-            'Downloading — ${(updates.progress * 100).round()}%',
-            style: theme.textTheme.bodySmall,
+          _UpdateStatusAnnouncement(
+            label: 'Download in progress.',
+            child: Text(
+              'Downloading — ${(updates.progress * 100).round()}%',
+              style: theme.textTheme.bodySmall,
+            ),
           ),
         ],
       ),
@@ -165,7 +185,11 @@ class _Status extends StatelessWidget {
       UpdateStatus.readyToInstall => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Ready to install.', style: theme.textTheme.bodyMedium),
+          _UpdateStatusAnnouncement(
+            label: 'Ready to install.',
+            announce: updates.error == null,
+            child: Text('Ready to install.', style: theme.textTheme.bodyMedium),
+          ),
           const SizedBox(height: 4),
           Text(
             'The app will close and reopen.',
@@ -173,6 +197,10 @@ class _Status extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+          if (updates.error case final error?) ...[
+            const SizedBox(height: 12),
+            _UpdateError(message: error),
+          ],
           const SizedBox(height: 16),
           FilledButton(
             onPressed: updates.installAndRestart,
@@ -181,37 +209,26 @@ class _Status extends StatelessWidget {
         ],
       ),
 
-      UpdateStatus.installing => const Row(
-        children: [
-          SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-          ),
-          SizedBox(width: 12),
-          Text('Installing…'),
-        ],
+      UpdateStatus.installing => const _UpdateStatusAnnouncement(
+        label: 'Installing update',
+        child: Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Installing…'),
+          ],
+        ),
       ),
 
       UpdateStatus.failed => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DIcon(
-                DIcons.triangleExclamation,
-                size: 18,
-                color: theme.colorScheme.error,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  updates.error ?? 'The update could not be checked.',
-                  style: theme.textTheme.bodyMedium,
-                ),
-              ),
-            ],
+          _UpdateError(
+            message: updates.error ?? 'The update could not be checked.',
           ),
           const SizedBox(height: 16),
           Row(
@@ -266,19 +283,77 @@ class _CheckButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final updates = ShellScope.read(context).updates;
 
-    return FilledButton(
-      onPressed: checking ? null : updates.check,
-      child: checking
-          // Same shape as the connecting state in _AddInstanceForm.
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-            )
-          : Text(label),
+    return MergeSemantics(
+      child: Semantics(
+        liveRegion: checking,
+        label: checking ? 'Checking for updates' : null,
+        child: FilledButton(
+          onPressed: checking ? null : updates.check,
+          child: checking
+              // Same shape as the connecting state in _AddInstanceForm.
+              ? const ExcludeSemantics(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                  ),
+                )
+              : Text(label),
+        ),
+      ),
     );
   }
 }
+
+class _UpdateStatusAnnouncement extends StatelessWidget {
+  const _UpdateStatusAnnouncement({
+    required this.label,
+    required this.child,
+    this.announce = true,
+  });
+
+  final String label;
+  final Widget child;
+  final bool announce;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    liveRegion: announce,
+    label: label,
+    child: ExcludeSemantics(child: child),
+  );
+}
+
+class _UpdateError extends StatelessWidget {
+  const _UpdateError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _UpdateStatusAnnouncement(
+      label: message,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DIcon(
+            DIcons.triangleExclamation,
+            size: 18,
+            color: theme.colorScheme.error,
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(message, style: theme.textTheme.bodyMedium)),
+        ],
+      ),
+    );
+  }
+}
+
+String _releaseMessage(UpdateRelease release) => release.isDowngrade
+    ? 'Version ${release.version} is on this channel.'
+    : 'Version ${release.version} is available.';
 
 String _humanSize(int bytes) {
   const mb = 1024 * 1024;

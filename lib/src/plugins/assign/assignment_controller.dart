@@ -116,7 +116,7 @@ class AssignmentController extends FrameSafeNotifier {
     AssignmentTarget target,
     Future<void> Function(_AssignmentSession session) write,
   ) async {
-    if (!canAssign(siteUrl, target)) {
+    if (isDisposed || !canAssign(siteUrl, target)) {
       return const WriteException(WriteFailure.forbidden).message;
     }
 
@@ -127,16 +127,16 @@ class AssignmentController extends FrameSafeNotifier {
 
     try {
       final session = await _session(siteUrl, lease: lease);
-      if (!lease.isCurrent) return null;
+      if (!_isCurrent(lease)) return null;
       await write(session);
-      if (!lease.isCurrent) return null;
+      if (!_isCurrent(lease)) return null;
 
       // The write response has no assignment record, and the tracking action
       // it creates may also change the post stream. Reconcile the full topic.
       await reloadTopic(siteUrl, target.topicId);
       return null;
     } on WriteException catch (error) {
-      if (lease.isCurrent && error.statusCode == 404) {
+      if (_isCurrent(lease) && error.statusCode == 404) {
         // A missing plugin route and a deleted target are intentionally
         // indistinguishable. A scoped topic read settles both without
         // disabling Assign for unrelated records.
@@ -146,7 +146,7 @@ class AssignmentController extends FrameSafeNotifier {
       }
       return error.message;
     } catch (error, stackTrace) {
-      if (lease.isCurrent) {
+      if (_isCurrent(lease)) {
         DiagnosticsSink.current.reportError(
           error,
           stackTrace,
@@ -164,7 +164,7 @@ class AssignmentController extends FrameSafeNotifier {
   }
 
   void _requirePermission(String siteUrl, AssignmentTarget target) {
-    if (!canAssign(siteUrl, target)) {
+    if (isDisposed || !canAssign(siteUrl, target)) {
       throw const WriteException(WriteFailure.forbidden);
     }
   }
@@ -178,13 +178,16 @@ class AssignmentController extends FrameSafeNotifier {
     final lease = lifecycle.capture(siteUrl);
     try {
       final session = await _session(siteUrl, lease: lease);
+      if (!_isCurrent(lease)) {
+        throw const WriteException(WriteFailure.forbidden);
+      }
       final result = await read(session);
-      if (!lease.isCurrent) {
+      if (!_isCurrent(lease)) {
         throw const WriteException(WriteFailure.forbidden);
       }
       return result;
     } on SiteLookupException catch (error, stackTrace) {
-      if (!lease.isCurrent || error.statusCode != 404) rethrow;
+      if (!_isCurrent(lease) || error.statusCode != 404) rethrow;
       invalidateLegacyFallback(siteUrl);
       await _reconcileUnavailable(siteUrl, target.topicId);
       throw WriteException(
@@ -218,14 +221,14 @@ class AssignmentController extends FrameSafeNotifier {
   }) async {
     try {
       final apiKey = await credentials.apiKeyFor(siteUrl);
-      if (lease != null && !lease.isCurrent) {
+      if (lease != null && !_isCurrent(lease)) {
         throw const WriteException(WriteFailure.forbidden);
       }
       if (apiKey == null) {
         throw const WriteException(WriteFailure.forbidden);
       }
       final clientId = await credentials.clientId();
-      if (lease != null && !lease.isCurrent) {
+      if (lease != null && !_isCurrent(lease)) {
         throw const WriteException(WriteFailure.forbidden);
       }
       return (apiKey: apiKey, clientId: clientId);
@@ -239,6 +242,8 @@ class AssignmentController extends FrameSafeNotifier {
       );
     }
   }
+
+  bool _isCurrent(SiteLease lease) => !isDisposed && lease.isCurrent;
 
   @override
   void dispose() {

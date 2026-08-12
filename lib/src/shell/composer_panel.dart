@@ -987,6 +987,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   final OverlayPortalController _selectionPortal = OverlayPortalController();
   final ValueNotifier<Rect?> _selectionAnchor = ValueNotifier(null);
   Object? _selectionSyncToken;
+  bool _selectionToolbarFocused = false;
   ComposerQuoteBlock? _pointerDownQuote;
   ComposerImageBlock? _pointerDownImage;
   PollComposerBlock? _pointerDownPoll;
@@ -1091,7 +1092,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       }
     }
     final selection = widget.composer.text.selection;
-    if (!_canFormat(selection)) {
+    if (!_canFormatSelection(selection)) {
       _selectionSyncToken = null;
       _selectionAnchor.value = null;
       if (_selectionPortal.isShowing) _selectionPortal.hide();
@@ -1141,7 +1142,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   bool _canFormat(TextSelection selection) =>
-      widget.composer.focus.hasFocus &&
+      (widget.composer.focus.hasFocus || _selectionToolbarFocused) &&
+      _canFormatSelection(selection);
+
+  bool _canFormatSelection(TextSelection selection) =>
       selection.isValid &&
       !selection.isCollapsed &&
       !selectionTouchesComposerQuote(
@@ -1149,20 +1153,28 @@ class _ComposerEditorState extends State<ComposerEditor> {
         selection,
       );
 
-  RenderEditable? get _renderEditable {
-    RenderEditable? found;
-    void visit(RenderObject object) {
-      if (found != null) return;
-      if (object is RenderEditable) {
-        found = object;
-        return;
-      }
-      object.visitChildren(visit);
-    }
+  void _selectionToolbarFocusChanged(bool focused) {
+    if (_selectionToolbarFocused == focused) return;
+    _selectionToolbarFocused = focused;
+    _syncSelectionToolbar();
+  }
 
+  RenderEditable? get _renderEditable {
     final root = _stackKey.currentContext?.findRenderObject();
-    if (root != null) visit(root);
-    return found;
+    if (root == null) return null;
+    final pending = <RenderObject>[root];
+    while (pending.isNotEmpty) {
+      final object = pending.removeLast();
+      if (object is RenderEditable) {
+        return object;
+      }
+      final children = <RenderObject>[];
+      object.visitChildren(children.add);
+      for (var index = children.length - 1; index >= 0; index--) {
+        pending.add(children[index]);
+      }
+    }
+    return null;
   }
 
   void _moveDropCaret(Offset globalPosition) {
@@ -1404,7 +1416,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     try {
       await openPollComposer(context, widget.composer, block: poll);
     } finally {
-      if (_stillContains(text.text, poll.start, poll.end, poll.source)) {
+      if (mounted &&
+          identical(widget.composer.text, text) &&
+          _stillContains(text.text, poll.start, poll.end, poll.source)) {
         text.selection = TextSelection.collapsed(
           offset: text.pollCaretAfter(poll),
         );
@@ -1420,7 +1434,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     try {
       await openLocalDateComposer(context, widget.composer, block: date);
     } finally {
-      if (_stillContains(text.text, date.start, date.end, date.source)) {
+      if (mounted &&
+          identical(widget.composer.text, text) &&
+          _stillContains(text.text, date.start, date.end, date.source)) {
         text.selection = TextSelection.collapsed(offset: date.end);
       }
       text.releaseLocalDatePointerEdit(date);
@@ -1750,7 +1766,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
             ),
             child: child!,
           ),
-          child: _SelectionFormattingMenu(composer: widget.composer),
+          child: _SelectionFormattingMenu(
+            composer: widget.composer,
+            onFocusChange: _selectionToolbarFocusChanged,
+          ),
         ),
         child: DropTarget(
           enable: !context.isTouch,
@@ -1879,45 +1898,60 @@ class _ComposerEditorState extends State<ComposerEditor> {
 }
 
 class _SelectionFormattingMenu extends StatelessWidget {
-  const _SelectionFormattingMenu({required this.composer});
+  const _SelectionFormattingMenu({
+    required this.composer,
+    required this.onFocusChange,
+  });
 
   final ComposerController composer;
+  final ValueChanged<bool> onFocusChange;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return TextFieldTapRegion(
-      child: Material(
-        key: const ValueKey('composer-selection-toolbar'),
-        color: theme.shell.floating,
-        elevation: 8,
-        borderRadius: BorderRadius.circular(10),
-        clipBehavior: Clip.antiAlias,
-        child: Container(
-          width: _ComposerEditorState._menuWidth,
-          height: _ComposerEditorState._menuHeight,
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.shell.divider),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (final (mark, icon, label) in const [
-                (ComposerMark.bold, DIcons.bold, 'Bold'),
-                (ComposerMark.italic, DIcons.italic, 'Italic'),
-              ])
-                IconButton(
-                  onPressed: () {
-                    composer.toggleMark(mark);
-                    composer.focus.requestFocus();
-                  },
-                  icon: DIcon(icon, size: 18),
-                  tooltip: label,
-                  visualDensity: VisualDensity.compact,
-                  color: theme.colorScheme.onSurface,
-                ),
-            ],
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: onFocusChange,
+      child: TextFieldTapRegion(
+        child: Material(
+          key: const ValueKey('composer-selection-toolbar'),
+          color: theme.shell.floating,
+          elevation: 8,
+          borderRadius: BorderRadius.circular(10),
+          clipBehavior: Clip.antiAlias,
+          child: Container(
+            width: _ComposerEditorState._menuWidth,
+            height: _ComposerEditorState._menuHeight,
+            foregroundDecoration: BoxDecoration(
+              border: Border.all(color: theme.shell.divider),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (final (mark, icon, label) in const [
+                  (ComposerMark.bold, DIcons.bold, 'Bold'),
+                  (ComposerMark.italic, DIcons.italic, 'Italic'),
+                ])
+                  IconButton(
+                    onPressed: () {
+                      composer.toggleMark(mark);
+                      composer.focus.requestFocus();
+                    },
+                    icon: DIcon(icon, size: 18),
+                    tooltip: label,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 44,
+                      height: 44,
+                    ),
+                    style: const ButtonStyle(
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    color: theme.colorScheme.onSurface,
+                  ),
+              ],
+            ),
           ),
         ),
       ),

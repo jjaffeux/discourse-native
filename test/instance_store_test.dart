@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -61,6 +62,65 @@ void main() {
         'https://two.example',
       ]);
       expect(loaded.map((instance) => instance.title), ['One', 'Two']);
+    });
+
+    test('keeps HTTPS and loopback HTTP origins in canonical form', () async {
+      SharedPreferences.setMockInitialValues({
+        'discourse_native.instances': jsonEncode([
+          {'url': 'https://secure.example/', 'title': 'Secure'},
+          {'url': 'https://secure-port.example:8443', 'title': 'Secure port'},
+          {'url': 'http://localhost:3000/', 'title': 'Localhost'},
+          {'url': 'http://dev.localhost:4200', 'title': 'Localhost subdomain'},
+          {'url': 'http://127.42.0.1:8080', 'title': 'IPv4 loopback'},
+          {'url': 'http://[::1]:3000', 'title': 'IPv6 loopback'},
+        ]),
+      });
+
+      final loaded = await store.load();
+
+      expect(loaded.map((instance) => instance.url), [
+        'https://secure.example',
+        'https://secure-port.example:8443',
+        'http://localhost:3000',
+        'http://dev.localhost:4200',
+        'http://127.42.0.1:8080',
+        'http://[::1]:3000',
+      ]);
+      expect(loaded.map((instance) => instance.host), [
+        'secure.example',
+        'secure-port.example:8443',
+        'localhost:3000',
+        'dev.localhost:4200',
+        '127.42.0.1:8080',
+        '::1:3000',
+      ]);
+    });
+
+    test('drops unsafe, malformed, and non-origin stored URLs', () async {
+      SharedPreferences.setMockInitialValues({
+        'discourse_native.instances': jsonEncode([
+          {'url': 'https://kept.example', 'title': 'Kept'},
+          {'url': 'http://remote.example', 'title': 'Plaintext remote'},
+          {'url': 'ftp://remote.example', 'title': 'Wrong scheme'},
+          {'url': '//relative.example', 'title': 'Scheme relative'},
+          {'url': 'relative.example', 'title': 'Relative'},
+          {
+            'url': 'https://reader:password@remote.example',
+            'title': 'Credentials',
+          },
+          {'url': 'https://remote.example/forum', 'title': 'Path'},
+          {'url': 'https://remote.example?api_key=secret', 'title': 'Query'},
+          {'url': 'https://remote.example#secret', 'title': 'Fragment'},
+          {'url': 'https://remote.example:invalid', 'title': 'Invalid port'},
+          {'url': 'https://[broken', 'title': 'Malformed'},
+        ]),
+      });
+
+      final loaded = await store.load();
+
+      expect(loaded, hasLength(1));
+      expect(loaded.single.url, 'https://kept.example');
+      expect(loaded.single.host, 'kept.example');
     });
 
     test(
@@ -231,6 +291,58 @@ void main() {
       expect(persistence.writeCount, 2);
       expect((await controlledStore.load()).single, second);
     });
+
+    test('replacement stores preserve request order', () async {
+      const old = DiscourseInstance(
+        url: 'https://old.example.com',
+        title: 'Old',
+      );
+      const latest = DiscourseInstance(
+        url: 'https://latest.example.com',
+        title: 'Latest',
+      );
+      final gate = Completer<void>();
+      final persistence = ControlledInstancePersistence(firstWriteGate: gate);
+      final oldStore = InstanceStore(persistence: persistence);
+      final replacementStore = InstanceStore(persistence: persistence);
+
+      final oldSave = oldStore.save([old]);
+      await persistence.firstWriteStarted.future;
+      final replacementSave = replacementStore.save([latest]);
+
+      await Future<void>.delayed(Duration.zero);
+      expect(persistence.writeCount, 1);
+
+      gate.complete();
+      await Future.wait([oldSave, replacementSave]);
+
+      expect(persistence.writeCount, 2);
+      expect((await replacementStore.load()).single, latest);
+    });
+
+    test('replacement load waits for an in-flight save', () async {
+      const latest = DiscourseInstance(
+        url: 'https://latest.example.com',
+        title: 'Latest',
+      );
+      final gate = Completer<void>();
+      final persistence = ControlledInstancePersistence(firstWriteGate: gate);
+      final oldStore = InstanceStore(persistence: persistence);
+      final replacementStore = InstanceStore(persistence: persistence);
+
+      final saving = oldStore.save([latest]);
+      await persistence.firstWriteStarted.future;
+      final loading = replacementStore.load();
+
+      await Future<void>.delayed(Duration.zero);
+      expect(persistence.readCount, 0);
+
+      gate.complete();
+      await saving;
+
+      expect((await loading).single, latest);
+      expect(persistence.readCount, 1);
+    });
   });
 }
 
@@ -242,10 +354,14 @@ final class ControlledInstancePersistence implements InstancePersistence {
   final Completer<void> firstWriteStarted = Completer<void>();
 
   String? stored;
+  int readCount = 0;
   int writeCount = 0;
 
   @override
-  Future<String?> read() async => stored;
+  Future<String?> read() async {
+    readCount++;
+    return stored;
+  }
 
   @override
   Future<void> write(String value) async {

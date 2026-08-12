@@ -264,6 +264,18 @@ void main() {
         expect(popup.moveSelection(1), isFalse);
       },
     );
+
+    test('a late key cannot move a disposed list', () {
+      popup.update(typed('a :sm'));
+      expect(popup.isOpen, isTrue);
+
+      popup.dispose();
+
+      expect(popup.moveSelection(1), isFalse);
+
+      // The tearDown would otherwise dispose it twice.
+      popup = open();
+    });
   });
 
   group('dismissing', () {

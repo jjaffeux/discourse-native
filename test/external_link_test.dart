@@ -52,6 +52,23 @@ void main() {
   });
 
   test(
+    'rejects credential-bearing web links before invoking the launcher',
+    () async {
+      const links = [
+        'https://reader:secret@meta.discourse.org/faq',
+        'https://meta.discourse.org@attacker.example/faq',
+        'http://reader@127.0.0.1:3000/private',
+      ];
+
+      for (final link in links) {
+        expect(await openExternalLink(link), isFalse);
+      }
+
+      expect(launched, isEmpty);
+    },
+  );
+
+  test(
     'rejects malformed and relative links before invoking the launcher',
     () async {
       expect(await openExternalLink('not a URL'), isFalse);

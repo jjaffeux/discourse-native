@@ -36,6 +36,11 @@ final class TopicFeedController extends FrameSafeNotifier {
     this.onFeedLoaded,
   });
 
+  /// Core's default topic-list page size. A `topic_ids` filter narrows that
+  /// page; it does not raise the server limit, so overflow must remain queued
+  /// for another incoming-topic request.
+  static const int incomingPageSize = 30;
+
   final TopicFeedsApi api;
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
@@ -94,7 +99,9 @@ final class TopicFeedController extends FrameSafeNotifier {
     }
 
     final existing = _feeds[key];
-    if (existing != null && !force && (existing.loading || existing.loaded)) {
+    if (existing != null &&
+        !force &&
+        (existing.loading || (existing.loaded && existing.error == null))) {
       return Future.value();
     }
 
@@ -118,14 +125,10 @@ final class TopicFeedController extends FrameSafeNotifier {
     final revision = Object();
     _revisions[key] = revision;
     _pageRequests.remove(key);
-    _rows.remove(key);
 
     final announced = incoming?.topicIds(destinationId) ?? const <int>[];
     incoming?.reset(destinationId);
-    _feeds[key] = TopicFeed(
-      loading: true,
-      filterOptions: existing?.filterOptions ?? const [],
-    );
+    _feeds[key] = (existing ?? const TopicFeed()).refreshing();
     notifySafely();
 
     bool requestIsCurrent() =>
@@ -143,8 +146,12 @@ final class TopicFeedController extends FrameSafeNotifier {
         if (!identical(_revisions[key], revision)) return;
         store.putAll(instance.url, list.topics);
         _feeds[key] = TopicFeed.of(list);
+        _rows.remove(key);
         notifySafely();
-        onFeedLoaded?.call(instance, apiKey);
+        // Publishing can synchronously dispose this owner through a listener.
+        // Do not let its post-load hook start category work for a replacement
+        // shell after that ownership boundary.
+        if (!isDisposed) onFeedLoaded?.call(instance, apiKey);
       });
     } on SiteLookupException catch (error, stackTrace) {
       if (!requestIsCurrent()) return;
@@ -152,12 +159,11 @@ final class TopicFeedController extends FrameSafeNotifier {
       _commit(lease, () {
         if (!identical(_revisions[key], revision)) return;
         incoming?.restore(destinationId, announced);
-        _feeds[key] = TopicFeed(
-          error: error.failure == SiteLookupFailure.notDiscourse
+        final held = _feeds[key] ?? existing ?? const TopicFeed();
+        _feeds[key] = held.withError(
+          error.failure == SiteLookupFailure.notDiscourse
               ? 'Not allowed — try reconnecting to ${instance.host}.'
               : "Couldn't reach ${instance.host}.",
-          loaded: true,
-          filterOptions: existing?.filterOptions ?? const [],
         );
         notifySafely();
       });
@@ -167,11 +173,8 @@ final class TopicFeedController extends FrameSafeNotifier {
       _commit(lease, () {
         if (!identical(_revisions[key], revision)) return;
         incoming?.restore(destinationId, announced);
-        _feeds[key] = TopicFeed(
-          error: "Couldn't load ${instance.host}.",
-          loaded: true,
-          filterOptions: existing?.filterOptions ?? const [],
-        );
+        final held = _feeds[key] ?? existing ?? const TopicFeed();
+        _feeds[key] = held.withError("Couldn't load ${instance.host}.");
         notifySafely();
       });
     }
@@ -213,7 +216,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     final feed = _feeds[key];
     if (feed == null || feed.loadingIncoming) return;
 
-    final ids = incoming.topicIds(destinationId);
+    final ids = incoming.topicIds(destinationId, limit: incomingPageSize);
     if (ids.isEmpty) return;
     final lease = lifecycle.capture(instance.url);
     final feedRevision = _revisions[key];
@@ -275,7 +278,10 @@ final class TopicFeedController extends FrameSafeNotifier {
     if (isDisposed) return;
     final key = (instance.url, destinationId);
     final feed = _feeds[key];
-    if (feed == null || feed.loadingMore || !feed.hasMore) return;
+    if (feed == null || feed.loading || feed.loadingMore || !feed.hasMore) {
+      return;
+    }
+    if (feed.error != null && !feed.pageError) return;
     if (_pageRequests.containsKey(key)) return;
 
     final lease = lifecycle.capture(instance.url);
@@ -289,7 +295,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         identical(_revisions[key], feedRevision) &&
         identical(_pageRequests[key], pageRequest);
 
-    _feeds[key] = feed.copyWith(loadingMore: true);
+    _feeds[key] = feed.loadingNextPage();
     notifySafely();
 
     try {
@@ -316,6 +322,7 @@ final class TopicFeedController extends FrameSafeNotifier {
           loadingMore: false,
           nextPagePath: next.nextPagePath,
           clearNextPage: next.nextPagePath == null || fresh.isEmpty,
+          clearError: true,
         );
       });
     } catch (error, stackTrace) {
@@ -329,7 +336,12 @@ final class TopicFeedController extends FrameSafeNotifier {
       _commit(lease, () {
         if (!requestIsCurrent()) return;
         final held = _feeds[key];
-        if (held != null) _feeds[key] = held.copyWith(loadingMore: false);
+        if (held != null) {
+          _feeds[key] = held.withError(
+            "Couldn't load more topics from ${instance.host}.",
+            page: true,
+          );
+        }
       });
     } finally {
       _commit(lease, () {

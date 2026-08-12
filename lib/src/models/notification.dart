@@ -269,9 +269,7 @@ class DiscourseNotification {
     // Discourse slugifies the name itself when the payload carries no slug.
     final slug =
         jsonText(data['badge_slug']) ??
-        jsonString(
-          data['badge_name'],
-        ).replaceAll(RegExp(r'[^A-Za-z0-9_]+'), '-').toLowerCase();
+        _badgeSlug(jsonString(data['badge_name']));
     final username = jsonText(data['username']);
     final query = username == null
         ? ''
@@ -335,3 +333,26 @@ class DiscourseNotification {
           path: path,
         );
 }
+
+String _badgeSlug(String name) {
+  final result = StringBuffer();
+  var insideSeparator = false;
+  for (final codeUnit in name.codeUnits) {
+    if (_isAsciiBadgeSlugCodeUnit(codeUnit)) {
+      result.writeCharCode(
+        codeUnit >= 0x41 && codeUnit <= 0x5A ? codeUnit + 0x20 : codeUnit,
+      );
+      insideSeparator = false;
+    } else if (!insideSeparator) {
+      result.write('-');
+      insideSeparator = true;
+    }
+  }
+  return result.toString();
+}
+
+bool _isAsciiBadgeSlugCodeUnit(int value) =>
+    (value >= 0x30 && value <= 0x39) ||
+    (value >= 0x41 && value <= 0x5A) ||
+    value == 0x5F ||
+    (value >= 0x61 && value <= 0x7A);
