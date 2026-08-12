@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../../../theme/app_theme.dart';
 import '../../../../theme/d_icon.dart';
 import '../../../code_block.dart' show monospaceTextStyle;
 import '../../../relative_time.dart';
@@ -27,19 +28,14 @@ class GithubPullRequestOnebox extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: data.status == null
+              ? CrossAxisAlignment.start
+              : CrossAxisAlignment.center,
           children: [
-            SizedBox(
-              width: githubIconColumnWidth,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: DIcon(
-                  data.icon,
-                  size: githubIconSize,
-                  color:
-                      data.status?.color ?? theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
+            GithubOneboxIcon(
+              icon: data.icon,
+              color: data.status?.color ?? theme.discourse.primaryHigh,
+              isPrStatus: data.status != null,
             ),
             const SizedBox(width: githubIconGap),
             Expanded(

@@ -71,6 +71,11 @@ void main() {
       tester,
     ) async {
       const boundaryKey = ValueKey('tinted-icon-boundary');
+      const iconWithoutRootFill = DIconData(
+        'icon-without-root-fill',
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'
+            '<circle cx="8" cy="8" r="8"/></svg>',
+      );
       await tester.pumpWidget(
         const MaterialApp(
           home: ColoredBox(
@@ -78,7 +83,11 @@ void main() {
             child: Center(
               child: RepaintBoundary(
                 key: boundaryKey,
-                child: DIcon(DIcons.circle, size: 32, color: Color(0xFF00FF00)),
+                child: DIcon(
+                  iconWithoutRootFill,
+                  size: 32,
+                  color: Color(0xFF00FF00),
+                ),
               ),
             ),
           ),

@@ -206,6 +206,7 @@ void main() {
       expect(theme.discourse.success, source.success);
       expect(theme.discourse.unreadIndicator, source.accentSubtle);
       expect(theme.discourse.love, source.love);
+      expect(theme.discourse.primaryHigh, source.primaryHigh);
       expect(theme.discourse.whisper, source.primaryMedium);
     });
 

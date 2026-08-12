@@ -46,6 +46,13 @@ class DIconData {
   final String name;
   final String svg;
 
+  /// SVG's initial fill is black. Make icons without an explicit root fill
+  /// inherit the requested tint just like sprite symbols that already use
+  /// `currentColor`.
+  String get tintableSvg => svg.contains('fill=')
+      ? svg
+      : svg.replaceFirst('<svg ', '<svg fill="currentColor" ');
+
   @override
   bool operator ==(Object other) => other is DIconData && other.name == name;
 
@@ -103,7 +110,7 @@ class DIcon extends StatelessWidget {
       dimension: box,
       child: Center(
         child: SvgPicture.string(
-          icon.svg,
+          icon.tintableSvg,
           width: box * glyphScale,
           height: box * glyphScale,
           fit: BoxFit.contain,

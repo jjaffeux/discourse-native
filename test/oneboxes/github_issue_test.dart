@@ -3,8 +3,8 @@ import 'package:discourse_native/src/shell/oneboxes/github/issue/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
@@ -116,12 +116,12 @@ void main() {
         findsOneWidget,
       );
 
-      final icon = tester.widget<DIcon>(
-        find.byWidgetPredicate(
-          (widget) => widget is DIcon && widget.icon == githubIssueIcon,
-        ),
+      final icon = tester.widget<GithubOneboxIcon>(
+        find.byType(GithubOneboxIcon),
       );
       expect(icon.icon, githubIssueIcon);
+      expect(icon.color, theme.discourse.primaryHigh);
+      expect(tester.getSize(find.byType(SvgPicture)), githubLegacyIconSize);
     });
   });
 }

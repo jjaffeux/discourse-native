@@ -303,6 +303,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     required this.success,
     required this.unreadIndicator,
     required this.love,
+    required this.primaryHigh,
     required this.whisper,
   });
 
@@ -314,6 +315,10 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
 
   final Color love;
 
+  /// Muted foregrounds such as legacy GitHub onebox SVGs, matching core's
+  /// `--primary-high` role.
+  final Color primaryHigh;
+
   /// Whisper body text, mirroring Discourse's `--primary-medium` role.
   final Color whisper;
 
@@ -321,6 +326,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     success: discourseSuccess,
     unreadIndicator: Color(0xFF66CCFF),
     love: discourseLove,
+    primaryHigh: Color(0xFF646464),
     whisper: Color(0xFF919191),
   );
 
@@ -328,6 +334,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     success: Color(0xFF1CA551),
     unreadIndicator: discourseBlue,
     love: discourseLove,
+    primaryHigh: Color(0xFFA6A6A6),
     whisper: Color(0xFF909090),
   );
 
@@ -336,11 +343,13 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     Color? success,
     Color? unreadIndicator,
     Color? love,
+    Color? primaryHigh,
     Color? whisper,
   }) => DiscourseColors(
     success: success ?? this.success,
     unreadIndicator: unreadIndicator ?? this.unreadIndicator,
     love: love ?? this.love,
+    primaryHigh: primaryHigh ?? this.primaryHigh,
     whisper: whisper ?? this.whisper,
   );
 
@@ -351,6 +360,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
       success: Color.lerp(success, other.success, t)!,
       unreadIndicator: Color.lerp(unreadIndicator, other.unreadIndicator, t)!,
       love: Color.lerp(love, other.love, t)!,
+      primaryHigh: Color.lerp(primaryHigh, other.primaryHigh, t)!,
       whisper: Color.lerp(whisper, other.whisper, t)!,
     );
   }
@@ -421,6 +431,7 @@ abstract final class AppTheme {
       success: palette.success,
       unreadIndicator: palette.accentSubtle,
       love: palette.love,
+      primaryHigh: palette.primaryHigh,
       whisper: palette.primaryMedium,
     );
     final materialBackdrop = opaqueColorOnCanvas(

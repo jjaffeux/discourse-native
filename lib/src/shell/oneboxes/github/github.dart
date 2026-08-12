@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../../theme/app_theme.dart';
@@ -118,13 +119,51 @@ const Color githubDeletionColor = Color(0xFFF85149);
 
 // --- Shared body parts, drawn the same by issues, PRs and commits.
 
-/// Core sizes the raw GitHub SVG to 1.8em inside a 2.5em column, with a 0.75em
-/// gap. Native onebox text is 14pt. [DIcon] applies its own optical scaling,
-/// so its box must be enlarged to leave the visible SVG at core's 25.2pt.
-const double _githubOneboxFontSize = 14;
-const double githubIconSize = _githubOneboxFontSize * 1.8 / DIcon.glyphScale;
+/// Core's onebox font is 16px. Legacy GitHub SVGs are square and capped at
+/// 1.8em; the status plugin replaces a PR glyph with a 2.5em-wide 12:16 mask.
+const double _githubOneboxFontSize = 16;
 const double githubIconColumnWidth = _githubOneboxFontSize * 2.5;
 const double githubIconGap = _githubOneboxFontSize * 0.75;
+const Size githubLegacyIconSize = Size.square(_githubOneboxFontSize * 1.8);
+const Size githubPrStatusIconSize = Size(
+  githubIconColumnWidth,
+  githubIconColumnWidth / (12 / 16),
+);
+
+/// A block-onebox GitHub SVG with core's raw sizing rather than [DIcon]'s
+/// Font Awesome optical scaling.
+class GithubOneboxIcon extends StatelessWidget {
+  const GithubOneboxIcon({
+    super.key,
+    required this.icon,
+    required this.color,
+    this.isPrStatus = false,
+  });
+
+  final DIconData icon;
+  final Color color;
+  final bool isPrStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = isPrStatus ? githubPrStatusIconSize : githubLegacyIconSize;
+
+    return SizedBox(
+      width: githubIconColumnWidth,
+      height: size.height,
+      child: Center(
+        child: SizedBox.fromSize(
+          size: size,
+          child: SvgPicture.string(
+            icon.tintableSvg,
+            fit: isPrStatus ? BoxFit.fill : BoxFit.contain,
+            theme: SvgTheme(currentColor: color),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// The avatar the info row carries, 20px with 2px corners as on the web.
 class GithubUser extends StatelessWidget {
