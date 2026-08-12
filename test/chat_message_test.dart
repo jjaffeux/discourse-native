@@ -175,7 +175,7 @@ void main() {
             inReplyTo: const {
               'id': 7,
               'cooked': '<p>before</p>',
-              'excerpt': 'before',
+              'excerpt': 'true, I&#39;m still baffled &amp; curious',
               'user': {
                 'id': 3,
                 'username': 'kris',
@@ -187,7 +187,7 @@ void main() {
 
         expect(read.replyTo!.id, 7);
         expect(read.replyTo!.userId, 3);
-        expect(read.replyTo!.excerpt, 'before');
+        expect(read.replyTo!.excerpt, "true, I'm still baffled & curious");
         expect(read.replyTo!.username, 'kris');
         expect(read.replyTo!.avatarUrl, '$site/k/90.png');
       },
@@ -349,7 +349,7 @@ void main() {
             'reply_count': 7,
             'preview': {
               'last_reply_created_at': '2026-05-05T12:00:00.000Z',
-              'last_reply_excerpt': 'sounds good',
+              'last_reply_excerpt': 'sounds good &amp; shipped',
               'last_reply_id': 18,
               'last_reply_user': {
                 'id': 3,
@@ -374,7 +374,7 @@ void main() {
       expect(read.thread!.replyCount, 7);
       expect(read.thread!.title, 'Deploy plan');
       expect(read.thread!.lastReplyUsername, 'kris');
-      expect(read.thread!.lastReplyExcerpt, 'sounds good');
+      expect(read.thread!.lastReplyExcerpt, 'sounds good & shipped');
       expect(read.thread!.lastReplyId, 18);
       expect(read.thread!.lastReplyUser?.id, 3);
       expect(read.thread!.participantCount, 4);

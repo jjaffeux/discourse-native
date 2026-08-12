@@ -78,6 +78,13 @@ String? jsonText(Object? value) {
   return trimmed.isEmpty ? null : trimmed;
 }
 
+/// Reads an HTML-escaped text field as the plain text a native widget expects.
+String? jsonHtmlText(Object? value) {
+  final source = jsonText(value);
+  if (source == null) return null;
+  return jsonText(html.parseFragment(source).text);
+}
+
 /// Reads [value] as an ISO 8601 date, or null when it is absent or the site
 /// sent something unparseable.
 DateTime? jsonDate(Object? value) => switch (value) {

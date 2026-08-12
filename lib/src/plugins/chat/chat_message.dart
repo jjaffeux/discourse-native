@@ -329,7 +329,7 @@ class ChatReplyTo {
     return ChatReplyTo(
       id: jsonInt(json['id']),
       userId: jsonInt(user['id']),
-      excerpt: jsonText(json['excerpt']) ?? '',
+      excerpt: jsonHtmlText(json['excerpt']) ?? '',
       username: jsonString(user['username']),
       avatarUrl: resolveAvatarUrl(jsonText(user['avatar_template']), siteUrl),
     );
@@ -398,7 +398,7 @@ class ChatThreadPreview {
       replyCount: jsonInt(value['reply_count']),
       title: jsonText(value['title']),
       lastReplyAt: jsonDate(preview['last_reply_created_at']),
-      lastReplyExcerpt: jsonText(preview['last_reply_excerpt']),
+      lastReplyExcerpt: jsonHtmlText(preview['last_reply_excerpt']),
       lastReplyId: jsonIntOrNull(preview['last_reply_id']),
       lastReplyUser: lastReplyUser,
       participantCount:
