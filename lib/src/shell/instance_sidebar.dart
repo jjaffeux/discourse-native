@@ -123,67 +123,71 @@ class InstanceSidebar extends StatelessWidget {
               _SidebarHeader(name: sidebar.name!, showUserMenu: showUserMenu),
               if (showUserMenu) const _SidebarSearchRow(),
               Expanded(
-                child: CustomScrollView(
-                  slivers: [
-                    ListenableBuilder(
-                      listenable: Listenable.merge([
-                        controller.accountActivity.totalsListenable,
-                        controller.draftList,
-                      ]),
-                      builder: (context, _) => SliverMainAxisGroup(
-                        slivers: [
-                          for (final section in sidebar.sections)
-                            _Section(
-                              key: ValueKey((sidebar.siteUrl, section.id)),
-                              siteUrl: sidebar.siteUrl!,
-                              section: section,
-                              store: sectionStore,
-                              selectedId: sidebar.destinationId,
-                              badgeFor: controller.sidebarBadgeFor,
-                              onSelect: (destination) {
-                                final url = destination.url;
-                                if (url == null) {
-                                  controller.selectDestination(destination);
-                                } else {
-                                  unawaited(
-                                    openLink(
-                                      context,
-                                      url,
-                                      title: destination.label,
-                                      siteUrl: sidebar.siteUrl,
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                        ],
+                child: ScrollbarTheme(
+                  data: const ScrollbarThemeData(
+                    thickness: WidgetStatePropertyAll(4),
+                  ),
+                  child: CustomScrollView(
+                    slivers: [
+                      ListenableBuilder(
+                        listenable: Listenable.merge([
+                          controller.accountActivity.totalsListenable,
+                          controller.draftList,
+                        ]),
+                        builder: (context, _) => SliverMainAxisGroup(
+                          slivers: [
+                            for (final section in sidebar.sections)
+                              _Section(
+                                key: ValueKey((sidebar.siteUrl, section.id)),
+                                siteUrl: sidebar.siteUrl!,
+                                section: section,
+                                store: sectionStore,
+                                selectedId: sidebar.destinationId,
+                                badgeFor: controller.sidebarBadgeFor,
+                                onSelect: (destination) {
+                                  final url = destination.url;
+                                  if (url == null) {
+                                    controller.selectDestination(destination);
+                                  } else {
+                                    unawaited(
+                                      openLink(
+                                        context,
+                                        url,
+                                        title: destination.label,
+                                        siteUrl: sidebar.siteUrl,
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    ListenableBuilder(
-                      listenable: Listenable.merge(
-                        pluginRegistry.sidebarListenables(context),
+                      ListenableBuilder(
+                        listenable: Listenable.merge(
+                          pluginRegistry.sidebarListenables(context),
+                        ),
+                        builder: (context, _) => SliverMainAxisGroup(
+                          slivers: [
+                            // Optional features contribute below the routes every
+                            // site has, in the order `sitePlugins` lists them.
+                            for (final section
+                                in pluginRegistry.sidebarSections(context))
+                              _Section(
+                                key: ValueKey((sidebar.siteUrl, section.id)),
+                                siteUrl: sidebar.siteUrl!,
+                                section: section,
+                                store: sectionStore,
+                                selectedId: sidebar.destinationId,
+                                badgeFor: controller.sidebarBadgeFor,
+                                onSelect: controller.selectDestination,
+                              ),
+                          ],
+                        ),
                       ),
-                      builder: (context, _) => SliverMainAxisGroup(
-                        slivers: [
-                          // Optional features contribute below the routes every
-                          // site has, in the order `sitePlugins` lists them.
-                          for (final section in pluginRegistry.sidebarSections(
-                            context,
-                          ))
-                            _Section(
-                              key: ValueKey((sidebar.siteUrl, section.id)),
-                              siteUrl: sidebar.siteUrl!,
-                              section: section,
-                              store: sectionStore,
-                              selectedId: sidebar.destinationId,
-                              badgeFor: controller.sidebarBadgeFor,
-                              onSelect: controller.selectDestination,
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                  ],
+                      const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                    ],
+                  ),
                 ),
               ),
             ],

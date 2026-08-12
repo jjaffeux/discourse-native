@@ -1083,6 +1083,28 @@ void main() {
     expect(position.pixels, closeTo(initialMax, 0.001));
   });
 
+  testWidgets('uses a thin scrollbar in the sidebar', (tester) async {
+    final previous = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      await pumpShell(tester, desktop);
+
+      final scrollbar = find.descendant(
+        of: find.byType(InstanceSidebar),
+        matching: find.byType(Scrollbar),
+      );
+      expect(scrollbar, findsOneWidget);
+      expect(
+        ScrollbarTheme.of(
+          tester.element(scrollbar),
+        ).thickness?.resolve(const <WidgetState>{}),
+        4,
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = previous;
+    }
+  });
+
   testWidgets('builds only sidebar destinations near the viewport', (
     tester,
   ) async {
