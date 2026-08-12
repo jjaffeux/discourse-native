@@ -279,6 +279,21 @@ void main() {
       find.byKey(const ValueKey('draft-list-loading-skeleton')),
       findsOneWidget,
     );
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('draft-list-loading-skeleton-content')),
+          )
+          .height,
+      greaterThanOrEqualTo(
+        tester
+                .getSize(
+                  find.byKey(const ValueKey('draft-list-loading-skeleton')),
+                )
+                .height -
+            36,
+      ),
+    );
     expect(find.bySemanticsLabel('Loading drafts'), findsOneWidget);
 
     gate.complete();

@@ -7,7 +7,9 @@ import 'package:flutter/material.dart';
 /// The child describes the eventual content's geometry. Individual
 /// [LoadingSkeletonBlock]s read the animation from the private scope below, so
 /// every shape breathes together while structural elements such as dividers
-/// remain still.
+/// remain still. The skeleton fills bounded layout axes and keeps the child's
+/// natural size on unbounded axes, so it can safely represent either a page or
+/// content inside a scroll view.
 class LoadingSkeleton extends StatefulWidget {
   const LoadingSkeleton({
     super.key,
@@ -75,9 +77,19 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
       child: ExcludeSemantics(
         child: IgnorePointer(
           child: RepaintBoundary(
-            child: _LoadingSkeletonScope(
-              opacity: _opacity,
-              child: widget.child,
+            child: LayoutBuilder(
+              builder: (context, constraints) => SizedBox(
+                width: constraints.hasBoundedWidth
+                    ? constraints.maxWidth
+                    : null,
+                height: constraints.hasBoundedHeight
+                    ? constraints.maxHeight
+                    : null,
+                child: _LoadingSkeletonScope(
+                  opacity: _opacity,
+                  child: widget.child,
+                ),
+              ),
             ),
           ),
         ),

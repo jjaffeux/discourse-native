@@ -30,6 +30,18 @@ void main() {
       find.byKey(const ValueKey('topic-list-loading-skeleton')),
       findsOneWidget,
     );
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('topic-list-loading-skeleton-content')),
+          )
+          .height,
+      greaterThanOrEqualTo(
+        tester
+            .getSize(find.byKey(const ValueKey('topic-list-loading-skeleton')))
+            .height,
+      ),
+    );
     expect(find.bySemanticsLabel('Loading topics'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);

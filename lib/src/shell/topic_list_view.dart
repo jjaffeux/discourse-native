@@ -317,9 +317,13 @@ class _TopicListViewState extends State<TopicListView> {
 
 /// A topic-list-shaped first-load state shared by topics, messages, and the
 /// filter page. These destinations all settle into the same row geometry, so
-/// using one outline keeps the handoff stable without inventing content.
+/// using one repeating outline keeps the whole viewport occupied and the
+/// handoff stable without inventing content.
 class _TopicListLoadingSkeleton extends StatelessWidget {
   const _TopicListLoadingSkeleton({super.key, required this.destination});
+
+  static const _minimumRowHeight = 47.0;
+  static const _patternLength = 5;
 
   final String destination;
 
@@ -335,53 +339,66 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
 
     return LoadingSkeleton(
       semanticsLabel: _semanticsLabel,
-      child: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.topCenter,
-          maxHeight: double.infinity,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const _TopicListSkeletonRow(
-                titleWidth: 0.72,
-                metadataWidth: 0.64,
-                posterCount: 3,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final visibleRowCount = constraints.hasBoundedHeight
+              ? (constraints.maxHeight / _minimumRowHeight).ceil()
+              : _patternLength;
+          final rowCount = visibleRowCount < 1 ? 1 : visibleRowCount;
+
+          return ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              maxHeight: double.infinity,
+              child: Column(
+                key: const ValueKey('topic-list-loading-skeleton-content'),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var index = 0; index < rowCount; index++) ...[
+                    if (index > 0) Divider(height: 1, color: divider),
+                    _rowAt(index),
+                  ],
+                ],
               ),
-              Divider(height: 1, color: divider),
-              const _TopicListSkeletonRow(
-                titleWidth: 0.88,
-                secondTitleWidth: 0.42,
-                metadataWidth: 0.52,
-                posterCount: 2,
-              ),
-              Divider(height: 1, color: divider),
-              const _TopicListSkeletonRow(
-                titleWidth: 0.56,
-                metadataWidth: 0.72,
-                posterCount: 1,
-              ),
-              Divider(height: 1, color: divider),
-              const _TopicListSkeletonRow(
-                titleWidth: 0.82,
-                metadataWidth: 0.48,
-                posterCount: 3,
-              ),
-              Divider(height: 1, color: divider),
-              const Opacity(
-                opacity: 0.72,
-                child: _TopicListSkeletonRow(
-                  titleWidth: 0.66,
-                  secondTitleWidth: 0.32,
-                  metadataWidth: 0.58,
-                  posterCount: 2,
-                ),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
+
+  Widget _rowAt(int index) => switch (index % _patternLength) {
+    0 => const _TopicListSkeletonRow(
+      titleWidth: 0.72,
+      metadataWidth: 0.64,
+      posterCount: 3,
+    ),
+    1 => const _TopicListSkeletonRow(
+      titleWidth: 0.88,
+      secondTitleWidth: 0.42,
+      metadataWidth: 0.52,
+      posterCount: 2,
+    ),
+    2 => const _TopicListSkeletonRow(
+      titleWidth: 0.56,
+      metadataWidth: 0.72,
+      posterCount: 1,
+    ),
+    3 => const _TopicListSkeletonRow(
+      titleWidth: 0.82,
+      metadataWidth: 0.48,
+      posterCount: 3,
+    ),
+    _ => const Opacity(
+      opacity: 0.72,
+      child: _TopicListSkeletonRow(
+        titleWidth: 0.66,
+        secondTitleWidth: 0.32,
+        metadataWidth: 0.58,
+        posterCount: 2,
+      ),
+    ),
+  };
 }
 
 class _TopicListSkeletonRow extends StatelessWidget {
