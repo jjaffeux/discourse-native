@@ -55,15 +55,38 @@ class InlineOneboxChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Same color as the default anchor: an inline onebox is a link first.
-    final color = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.primary;
+    final label = child
+        .toPlainText(includePlaceholders: false)
+        .trim()
+        .nullIfEmpty;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => openLink(context, href, siteUrl: siteUrl),
-        child: Text.rich(child, style: TextStyle(color: color)),
+    void activate() => openLink(context, href, siteUrl: siteUrl);
+
+    // Inline oneboxes sit in a sentence through a WidgetSpan. They use WCAG's
+    // inline-target exception rather than forcing a 44px paragraph line, while
+    // the complete painted title remains clickable and keyboard focusable.
+    return Semantics(
+      container: true,
+      link: true,
+      label: label ?? href,
+      onTap: activate,
+      child: ExcludeSemantics(
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: activate,
+            borderRadius: BorderRadius.circular(2),
+            focusColor: color.withValues(alpha: 0.16),
+            child: Text.rich(child, style: TextStyle(color: color)),
+          ),
+        ),
       ),
     );
   }
+}
+
+extension on String {
+  String? get nullIfEmpty => isEmpty ? null : this;
 }

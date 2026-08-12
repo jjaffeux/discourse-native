@@ -93,6 +93,13 @@ class ContentRoute {
   /// knows their address.
   final String? feedPath;
 
+  /// Largest site-relative feed path restored from presentation state.
+  ///
+  /// Ordinary category paths are tiny. Keeping the same generous boundary as
+  /// remote pagination cursors prevents a corrupt preference from becoming an
+  /// oversized URI on startup.
+  static const int maximumFeedPathLength = 2048;
+
   bool get isTopic => topicId != null;
 
   /// A durable, presentation-only snapshot of this route.
@@ -126,19 +133,45 @@ class ContentRoute {
     final colorValue = json['color'];
     final topicId = json['topic_id'];
     final postNumber = json['post_number'];
+    final feedPath = json['feed_path'];
+    if (topicId != null && (topicId is! int || topicId <= 0)) {
+      throw const FormatException('Invalid content route topic id');
+    }
+    if (postNumber != null && (postNumber is! int || postNumber <= 0)) {
+      throw const FormatException('Invalid content route post number');
+    }
+    if (feedPath != null && !_isSafeFeedPath(feedPath)) {
+      throw const FormatException('Invalid content route feed path');
+    }
     return ContentRoute(
       id: id,
       title: title,
       icon: DIcons.byName[iconName] ?? DIcons.comments,
       subtitle: json['subtitle'] is String ? json['subtitle'] as String : null,
       color: colorValue is int ? Color(colorValue) : null,
-      topicId: topicId is int ? topicId : null,
+      topicId: topicId as int?,
       slug: json['slug'] is String ? json['slug'] as String : null,
-      postNumber: postNumber is int ? postNumber : null,
-      feedPath: json['feed_path'] is String
-          ? json['feed_path'] as String
-          : null,
+      postNumber: postNumber as int?,
+      feedPath: feedPath as String?,
     );
+  }
+
+  static bool _isSafeFeedPath(Object? value) {
+    if (value is! String ||
+        value.isEmpty ||
+        value.length > maximumFeedPathLength) {
+      return false;
+    }
+    final uri = Uri.tryParse(value);
+    return uri != null &&
+        value.startsWith('/') &&
+        !value.startsWith('//') &&
+        uri.path.isNotEmpty &&
+        uri.path.endsWith('.json') &&
+        !uri.hasScheme &&
+        !uri.hasAuthority &&
+        uri.userInfo.isEmpty &&
+        !uri.hasFragment;
   }
 
   @override

@@ -33,6 +33,38 @@ void main() {
       expect(restored.postNumber, route.postNumber);
       expect(restored.feedPath, route.feedPath);
     });
+
+    test('rejects persisted routes that could build unsafe requests', () {
+      final ordinary = _routeJson(id: 'latest', title: 'Topics');
+
+      for (final invalid in <Map<String, Object?>>[
+        {...ordinary, 'topic_id': 0},
+        {...ordinary, 'topic_id': -1},
+        {...ordinary, 'topic_id': '42'},
+        {...ordinary, 'post_number': 0},
+        {...ordinary, 'post_number': -1},
+        {...ordinary, 'feed_path': 'https://other.example/latest.json'},
+        {...ordinary, 'feed_path': '//other.example/latest.json'},
+        {...ordinary, 'feed_path': '/latest.json#private'},
+        {...ordinary, 'feed_path': '/latest'},
+        {
+          ...ordinary,
+          'feed_path': '/${'a' * ContentRoute.maximumFeedPathLength}.json',
+        },
+      ]) {
+        expect(
+          () => ContentRoute.fromJson(Map<String, dynamic>.from(invalid)),
+          throwsFormatException,
+          reason: '$invalid',
+        );
+      }
+
+      final restored = ContentRoute.fromJson({
+        ...ordinary,
+        'feed_path': '/c/support/12.json?page=2',
+      });
+      expect(restored.feedPath, '/c/support/12.json?page=2');
+    });
   });
 
   group('ForumWorkspace persistence', () {
@@ -145,6 +177,35 @@ void main() {
       expect(restored.activeTabId, 'kept-tab');
     });
 
+    test('sanitizes corrupt persisted viewport anchors', () {
+      final restored = ForumWorkspace.tryFromJson({
+        'site_url': 'https://forum.example',
+        'account_identity': 'anonymous',
+        'active_tab_id': 'kept-tab',
+        'tabs': [
+          {
+            'id': 'kept-tab',
+            'root_destination_id': 'latest',
+            'content_stack': [_routeJson(id: 'latest', title: 'Topics')],
+            'anchors': {
+              'latest': {
+                'kind': 'topic',
+                'item_id': 9,
+                'offset': double.infinity,
+              },
+              'not-a-route': {'kind': 'topic', 'item_id': 10},
+              'negative-item': {'kind': 'feed', 'item_id': -1, 'offset': 0},
+            },
+          },
+        ],
+      });
+
+      expect(restored, isNotNull);
+      expect(restored!.tabs.single.anchors, {
+        'latest': const ForumTabAnchor(kind: 'topic', itemId: 9),
+      });
+    });
+
     test('discards a tab whose root destination is empty', () {
       final restored = ForumWorkspace.tryFromJson({
         'site_url': 'https://forum.example',
@@ -167,6 +228,64 @@ void main() {
       expect(restored, isNotNull);
       expect(restored!.tabs.map((tab) => tab.id), ['valid-tab']);
       expect(restored.activeTabId, 'valid-tab');
+    });
+
+    test('bounds restored tabs and routes while preserving active history', () {
+      final activeTabIndex = ForumWorkspace.maximumTabs + 3;
+      final restored = ForumWorkspace.tryFromJson({
+        'site_url': 'https://forum.example',
+        'account_identity': 'anonymous',
+        'active_tab_id': 'tab-$activeTabIndex',
+        'tabs': [
+          for (var tab = 0; tab <= activeTabIndex; tab++)
+            {
+              'id': 'tab-$tab',
+              'root_destination_id': 'latest',
+              'content_stack': [
+                _routeJson(id: 'latest', title: 'Topics'),
+                for (
+                  var route = 1;
+                  route <= ForumTab.maximumContentRoutes + 5;
+                  route++
+                )
+                  _routeJson(id: 'topic-$route', title: 'Topic $route'),
+              ],
+            },
+        ],
+      });
+
+      expect(restored, isNotNull);
+      expect(restored!.tabs, hasLength(ForumWorkspace.maximumTabs));
+      expect(restored.activeTabId, 'tab-$activeTabIndex');
+      expect(restored.activeTab.contentStack, hasLength(64));
+      expect(restored.activeTab.contentStack.first.id, 'latest');
+      expect(restored.activeTab.contentStack[1].id, 'topic-7');
+      expect(restored.activeTab.contentStack.last.id, 'topic-69');
+    });
+
+    test('discarded restored routes cannot retain orphaned anchors', () {
+      final restored = ForumTab.tryFromJson({
+        'id': 'bounded',
+        'root_destination_id': 'latest',
+        'content_stack': [
+          _routeJson(id: 'latest', title: 'Topics'),
+          for (
+            var route = 1;
+            route <= ForumTab.maximumContentRoutes + 1;
+            route++
+          )
+            _routeJson(id: 'topic-$route', title: 'Topic $route'),
+        ],
+        'anchors': {
+          'latest': {'kind': 'feed', 'item_id': 1},
+          'topic-1': {'kind': 'topic', 'item_id': 1},
+          'topic-65': {'kind': 'topic', 'item_id': 65},
+          'never-a-route': {'kind': 'topic', 'item_id': 99},
+        },
+      });
+
+      expect(restored, isNotNull);
+      expect(restored!.anchors.keys, ['latest', 'topic-65']);
     });
   });
 }

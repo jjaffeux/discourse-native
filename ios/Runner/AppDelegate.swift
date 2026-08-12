@@ -1,6 +1,6 @@
-import Flutter
-import CallKit
 import AVFoundation
+import CallKit
+import Flutter
 import UIKit
 
 @main
@@ -22,32 +22,94 @@ import UIKit
   }
 }
 
-private final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
-  private let provider: CXProvider
-  private let controller = CXCallController()
-  private let channel: FlutterMethodChannel
+final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
+  typealias TransactionRequester = (CXAction, @escaping (Error?) -> Void) -> Void
+
+  private let requestTransaction: TransactionRequester
+  private let reportOutgoingCallStarted: (UUID) -> Void
+  private let reportOutgoingCallConnected: (UUID) -> Void
+  private let reportCallEnded: (UUID, CXCallEndedReason) -> Void
+  private let emitMethod: (String) -> Void
+  private let emitDiagnosticEvent: (String, [String: Any]) -> Void
+  private let configureAudioSession: () throws -> Void
   private var activeCall: UUID?
   private var muted = false
 
-  init(messenger: FlutterBinaryMessenger) {
+  convenience init(messenger: FlutterBinaryMessenger) {
     let configuration = CXProviderConfiguration(localizedName: "Discourse")
     configuration.supportsVideo = true
     configuration.maximumCallsPerCallGroup = 1
     configuration.maximumCallGroups = 1
     configuration.supportedHandleTypes = [.generic]
-    provider = CXProvider(configuration: configuration)
-    channel = FlutterMethodChannel(
+    let provider = CXProvider(configuration: configuration)
+    let controller = CXCallController()
+    let channel = FlutterMethodChannel(
       name: "org.discourse.native/resenha_callkit",
       binaryMessenger: messenger
     )
-    super.init()
+
+    self.init(
+      requestTransaction: { action, completion in
+        controller.request(CXTransaction(action: action), completion: completion)
+      },
+      reportOutgoingCallStarted: { uuid in
+        provider.reportOutgoingCall(with: uuid, startedConnectingAt: Date())
+      },
+      reportOutgoingCallConnected: { uuid in
+        provider.reportOutgoingCall(with: uuid, connectedAt: Date())
+      },
+      reportCallEnded: { uuid, reason in
+        provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
+      },
+      emitMethod: { method in
+        channel.invokeMethod(method, arguments: nil)
+      },
+      emitDiagnosticEvent: { event, data in
+        let arguments: [String: Any] = [
+          "event": event,
+          "component": "callkit",
+          "data": data,
+        ]
+        channel.invokeMethod(
+          "diagnostic",
+          arguments: arguments
+        )
+      },
+      configureAudioSession: {
+        try AVAudioSession.sharedInstance().setCategory(
+          .playAndRecord,
+          mode: .videoChat,
+          options: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
+        )
+      }
+    )
+
     provider.setDelegate(self, queue: nil)
     channel.setMethodCallHandler { [weak self] call, result in
       self?.handle(call, result: result)
     }
   }
 
-  private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+  init(
+    requestTransaction: @escaping TransactionRequester,
+    reportOutgoingCallStarted: @escaping (UUID) -> Void = { _ in },
+    reportOutgoingCallConnected: @escaping (UUID) -> Void = { _ in },
+    reportCallEnded: @escaping (UUID, CXCallEndedReason) -> Void = { _, _ in },
+    emitMethod: @escaping (String) -> Void = { _ in },
+    emitDiagnosticEvent: @escaping (String, [String: Any]) -> Void = { _, _ in },
+    configureAudioSession: @escaping () throws -> Void = {}
+  ) {
+    self.requestTransaction = requestTransaction
+    self.reportOutgoingCallStarted = reportOutgoingCallStarted
+    self.reportOutgoingCallConnected = reportOutgoingCallConnected
+    self.reportCallEnded = reportCallEnded
+    self.emitMethod = emitMethod
+    self.emitDiagnosticEvent = emitDiagnosticEvent
+    self.configureAudioSession = configureAudioSession
+    super.init()
+  }
+
+  func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "start":
       let arguments = call.arguments as? [String: Any]
@@ -64,7 +126,7 @@ private final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
       request(action, result: result)
     case "connected":
       if let uuid = activeCall {
-        provider.reportOutgoingCall(with: uuid, connectedAt: Date())
+        reportOutgoingCallConnected(uuid)
         emitDiagnostic("callkit.connected.reported")
       } else {
         emitDiagnostic("callkit.connected.skipped", data: ["reason": "no_active_call"])
@@ -76,8 +138,9 @@ private final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
       result(nil)
     case "setMuted":
       guard let uuid = activeCall,
-            let arguments = call.arguments as? [String: Any],
-            let requested = arguments["muted"] as? Bool else {
+        let arguments = call.arguments as? [String: Any],
+        let requested = arguments["muted"] as? Bool
+      else {
         result(nil)
         return
       }
@@ -105,7 +168,7 @@ private final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
   private func request(_ action: CXAction, result: @escaping FlutterResult) {
     let actionName = diagnosticName(for: action)
     emitDiagnostic("callkit.transaction.requested", data: ["action": actionName])
-    controller.request(CXTransaction(action: action)) { error in
+    requestTransaction(action) { error in
       DispatchQueue.main.async {
         if let error {
           let failureData: [String: Any] = ["action": actionName]
@@ -113,11 +176,12 @@ private final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
             "callkit.transaction.failed",
             data: failureData.merging(self.errorData(error)) { _, new in new }
           )
-          result(FlutterError(
-            code: "callkit_transaction",
-            message: error.localizedDescription,
-            details: nil
-          ))
+          result(
+            FlutterError(
+              code: "callkit_transaction",
+              message: error.localizedDescription,
+              details: nil
+            ))
         } else {
           self.emitDiagnostic(
             "callkit.transaction.accepted",
@@ -131,26 +195,30 @@ private final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
 
   private func end(reason: CXCallEndedReason) {
     guard let uuid = activeCall else { return }
-    provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
+    reportCallEnded(uuid, reason)
     activeCall = nil
     muted = false
   }
 
   func providerDidReset(_ provider: CXProvider) {
+    handleProviderReset()
+  }
+
+  func handleProviderReset() {
     activeCall = nil
     muted = false
     emitDiagnostic("callkit.provider.reset")
-    channel.invokeMethod("end", arguments: nil)
+    emitMethod("end")
   }
 
   func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
+    handleStartAction(action)
+  }
+
+  func handleStartAction(_ action: CXStartCallAction) {
     do {
-      try AVAudioSession.sharedInstance().setCategory(
-        .playAndRecord,
-        mode: .videoChat,
-        options: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
-      )
-      provider.reportOutgoingCall(with: action.callUUID, startedConnectingAt: Date())
+      try configureAudioSession()
+      reportOutgoingCallStarted(action.callUUID)
       action.fulfill()
       emitDiagnostic("callkit.provider.start.fulfilled")
     } catch {
@@ -163,8 +231,12 @@ private final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
   }
 
   func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
+    handleSetMutedAction(action)
+  }
+
+  func handleSetMutedAction(_ action: CXSetMutedCallAction) {
     muted = action.isMuted
-    channel.invokeMethod(action.isMuted ? "mute" : "unmute", arguments: nil)
+    emitMethod(action.isMuted ? "mute" : "unmute")
     action.fulfill()
     emitDiagnostic(
       "callkit.provider.mute.fulfilled",
@@ -173,32 +245,29 @@ private final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
   }
 
   func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+    handleEndAction(action)
+  }
+
+  func handleEndAction(_ action: CXEndCallAction) {
     activeCall = nil
     muted = false
-    channel.invokeMethod("end", arguments: nil)
+    emitMethod("end")
     action.fulfill()
     emitDiagnostic("callkit.provider.end.fulfilled")
   }
 
   func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
     emitDiagnostic("audio_session.activated")
-    channel.invokeMethod("audioActivated", arguments: nil)
+    emitMethod("audioActivated")
   }
 
   func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
     emitDiagnostic("audio_session.deactivated")
-    channel.invokeMethod("audioDeactivated", arguments: nil)
+    emitMethod("audioDeactivated")
   }
 
   private func emitDiagnostic(_ event: String, data: [String: Any] = [:]) {
-    channel.invokeMethod(
-      "diagnostic",
-      arguments: [
-        "event": event,
-        "component": "callkit",
-        "data": data,
-      ]
-    )
+    emitDiagnosticEvent(event, data)
   }
 
   private func diagnosticName(for action: CXAction) -> String {

@@ -36,68 +36,97 @@ class Authenticator implements ApiCredentialReader {
   final WebAuthLauncher _launch;
   final AuthKeyPairGenerator _generateKeyPair;
   final String Function() _generateNonce;
+  final Map<String, Object> _connectionGenerations = {};
+
+  static const _supersededConnection = UserApiAuthException(
+    UserApiAuthFailure.cancelled,
+    'connection superseded',
+  );
 
   /// Sends the user to [siteUrl] to authorize, then stores the key it returns.
   Future<UserApiCredentials> connect(String siteUrl) async {
-    final clientId = await store.readOrCreateClientId();
-    // The private half is needed only to decrypt this callback. Keeping it
-    // transient avoids persisting another secret and prevents one pair from
-    // becoming a permanent identity shared by every connected site.
-    final pair = await _generateKeyPair();
-    final nonce = _generateNonce();
-
-    final url = protocol.authUrl(
-      siteUrl: siteUrl,
-      publicKeyPem: pair.publicPem,
-      nonce: nonce,
-      clientId: clientId,
-      applicationName: applicationName,
-    );
-
-    final String callback;
+    final generation = Object();
+    _connectionGenerations[siteUrl] = generation;
     try {
-      callback = await _launch(
-        url.toString(),
-        UserApiKeyProtocol.redirectScheme,
+      final clientId = await store.readOrCreateClientId();
+      _ensureCurrent(siteUrl, generation);
+      // The private half is needed only to decrypt this callback. Keeping it
+      // transient avoids persisting another secret and prevents one pair from
+      // becoming a permanent identity shared by every connected site.
+      final pair = await _generateKeyPair();
+      _ensureCurrent(siteUrl, generation);
+      final nonce = _generateNonce();
+
+      final url = protocol.authUrl(
+        siteUrl: siteUrl,
+        publicKeyPem: pair.publicPem,
+        nonce: nonce,
+        clientId: clientId,
+        applicationName: applicationName,
       );
-    } on UserApiAuthException {
-      rethrow;
-    } on PlatformException catch (e, stackTrace) {
-      // Every implementation agrees on this code when the user dismisses the
-      // browser: the ASWebAuthenticationSession bridges on iOS and macOS, the
-      // auth tab on Android, and both the webview and the loopback server on
-      // Linux and Windows. Anything else means the session never got as far as
-      // showing a page, which the user cannot fix by trying again — so it has
-      // to be said out loud rather than folded into a silent cancellation.
-      final failure = e.code == 'CANCELED'
-          ? UserApiAuthFailure.cancelled
-          : UserApiAuthFailure.launchFailed;
-      if (failure == UserApiAuthFailure.cancelled) {
-        throw UserApiAuthException(failure, '${e.code}: ${e.message}');
+
+      final String callback;
+      try {
+        callback = await _launch(
+          url.toString(),
+          UserApiKeyProtocol.redirectScheme,
+        );
+      } on UserApiAuthException {
+        rethrow;
+      } on PlatformException catch (e, stackTrace) {
+        // Every implementation agrees on this code when the user dismisses the
+        // browser: the ASWebAuthenticationSession bridges on iOS and macOS, the
+        // auth tab on Android, and both the webview and the loopback server on
+        // Linux and Windows. Anything else means the session never got as far as
+        // showing a page, which the user cannot fix by trying again — so it has
+        // to be said out loud rather than folded into a silent cancellation.
+        final failure = e.code == 'CANCELED'
+            ? UserApiAuthFailure.cancelled
+            : UserApiAuthFailure.launchFailed;
+        if (failure == UserApiAuthFailure.cancelled) {
+          throw UserApiAuthException(failure, '${e.code}: ${e.message}');
+        }
+        throw UserApiAuthException.caused(
+          failure,
+          '${e.code}: ${e.message}',
+          e,
+          stackTrace,
+        );
+      } catch (e, stackTrace) {
+        throw UserApiAuthException.caused(
+          UserApiAuthFailure.launchFailed,
+          '$e',
+          e,
+          stackTrace,
+        );
       }
-      throw UserApiAuthException.caused(
-        failure,
-        '${e.code}: ${e.message}',
-        e,
-        stackTrace,
+
+      _ensureCurrent(siteUrl, generation);
+      final credentials = protocol.decodePayload(
+        payload: protocol.payloadFromCallback(callback),
+        privateKeyPem: pair.privatePem,
+        expectedNonce: nonce,
       );
-    } catch (e, stackTrace) {
-      throw UserApiAuthException.caused(
-        UserApiAuthFailure.launchFailed,
-        '$e',
-        e,
-        stackTrace,
-      );
+      _ensureCurrent(siteUrl, generation);
+
+      await store.writeApiKey(siteUrl, credentials.key);
+      _ensureCurrent(siteUrl, generation);
+      return credentials;
+    } catch (_) {
+      if (!_isCurrent(siteUrl, generation)) throw _supersededConnection;
+      rethrow;
+    } finally {
+      if (_isCurrent(siteUrl, generation)) {
+        _connectionGenerations.remove(siteUrl);
+      }
     }
+  }
 
-    final credentials = protocol.decodePayload(
-      payload: protocol.payloadFromCallback(callback),
-      privateKeyPem: pair.privatePem,
-      expectedNonce: nonce,
-    );
+  bool _isCurrent(String siteUrl, Object generation) =>
+      identical(_connectionGenerations[siteUrl], generation);
 
-    await store.writeApiKey(siteUrl, credentials.key);
-    return credentials;
+  void _ensureCurrent(String siteUrl, Object generation) {
+    if (!_isCurrent(siteUrl, generation)) throw _supersededConnection;
   }
 
   @override
@@ -110,7 +139,13 @@ class Authenticator implements ApiCredentialReader {
   @override
   Future<String> clientId() => store.readOrCreateClientId();
 
-  Future<void> disconnect(String siteUrl) => store.deleteApiKey(siteUrl);
+  Future<void> disconnect(String siteUrl) {
+    // Invalidate before the platform delete suspends. A browser callback which
+    // was already queued must not be able to recreate the credential after
+    // this operation requested the disconnected state.
+    _connectionGenerations.remove(siteUrl);
+    return store.deleteApiKey(siteUrl);
+  }
 }
 
 Future<AuthKeyPair> _generateAuthKeyPair() async {

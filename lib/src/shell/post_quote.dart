@@ -35,21 +35,41 @@ String buildPostQuote({
 /// selected HTML as `First.\n\nSecond`. Match that character stream back to
 /// the cooked DOM and restore block boundaries and common inline marks.
 String postQuoteContentsFromSelection(String cooked, String plainText) {
-  final selected = plainText.trim();
-  if (selected.isEmpty || cooked.isEmpty) return selected;
-
-  final source = _CookedSelectionSource.fromHtml(cooked);
-  final directStart = source.plainText.indexOf(selected);
-  if (directStart >= 0) {
-    return source.markdown(directStart, directStart + selected.length);
-  }
-
-  final compact = selected.replaceAll(RegExp(r'[\r\n]'), '');
-  final compactStart = source.plainText.indexOf(compact);
-  return compactStart < 0
-      ? selected
-      : source.markdown(compactStart, compactStart + compact.length);
+  return PostQuoteSelectionResolver(cooked).contentsFor(plainText);
 }
+
+/// Reuses one cooked-post index while a reader adjusts the same selection.
+///
+/// Flutter reports a new selection on every pointer move. Parsing the complete
+/// cooked DOM for each of those updates makes a long post noticeably lag
+/// behind the drag. A mounted post owns one of these until its cooked body
+/// changes, while the top-level helper above remains convenient for one-shot
+/// callers and tests.
+final class PostQuoteSelectionResolver {
+  PostQuoteSelectionResolver(String cooked)
+    : _source = cooked.isEmpty ? null : _CookedSelectionSource.fromHtml(cooked);
+
+  final _CookedSelectionSource? _source;
+
+  String contentsFor(String plainText) {
+    final selected = plainText.trim();
+    final source = _source;
+    if (selected.isEmpty || source == null) return selected;
+
+    final directStart = source.plainText.indexOf(selected);
+    if (directStart >= 0) {
+      return source.markdown(directStart, directStart + selected.length);
+    }
+
+    final compact = selected.replaceAll(_selectionLineBreaks, '');
+    final compactStart = source.plainText.indexOf(compact);
+    return compactStart < 0
+        ? selected
+        : source.markdown(compactStart, compactStart + compact.length);
+  }
+}
+
+final RegExp _selectionLineBreaks = RegExp(r'[\r\n]');
 
 typedef _MarkdownMark = ({String open, String close});
 
@@ -75,38 +95,49 @@ class _CookedSelectionSource {
       if (lines > current) breaks[offset] = lines;
     }
 
-    void visit(dom.Node node, List<_MarkdownMark> marks) {
+    final fragment = html.parseFragment(cooked);
+    final pending =
+        <({dom.Node node, List<_MarkdownMark> marks, bool exiting})>[];
+    void pushNodes(List<dom.Node> nodes, List<_MarkdownMark> marks) {
+      for (var index = nodes.length - 1; index >= 0; index--) {
+        pending.add((node: nodes[index], marks: marks, exiting: false));
+      }
+    }
+
+    pushNodes(fragment.nodes, const []);
+    while (pending.isNotEmpty) {
+      final frame = pending.removeLast();
+      final node = frame.node;
       if (node is dom.Text) {
         final value = node.data;
         for (var index = 0; index < value.length; index++) {
           characters.add(
             _CookedSelectionCharacter(
               value.substring(index, index + 1),
-              List.unmodifiable(marks),
+              frame.marks,
             ),
           );
         }
-        return;
+        continue;
       }
-      if (node is! dom.Element || _ignoredCookedElement(node)) return;
+      if (node is! dom.Element || _ignoredCookedElement(node)) continue;
+      final block = _cookedBlockElement(node);
+      if (frame.exiting) {
+        if (block) addBreak(2);
+        continue;
+      }
       if (node.localName == 'br') {
         addBreak(1);
-        return;
+        continue;
       }
 
-      final block = _cookedBlockElement(node);
       if (block) addBreak(2);
       final mark = _markdownMark(node);
-      final childMarks = mark == null ? marks : [...marks, mark];
-      for (final child in node.nodes) {
-        visit(child, childMarks);
-      }
-      if (block) addBreak(2);
-    }
-
-    final fragment = html.parseFragment(cooked);
-    for (final node in fragment.nodes) {
-      visit(node, const []);
+      final childMarks = mark == null
+          ? frame.marks
+          : List<_MarkdownMark>.unmodifiable([...frame.marks, mark]);
+      pending.add((node: node, marks: childMarks, exiting: true));
+      pushNodes(node.nodes, childMarks);
     }
     return _CookedSelectionSource(characters, breaks);
   }

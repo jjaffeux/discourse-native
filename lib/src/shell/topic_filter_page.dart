@@ -10,6 +10,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'hashtag.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_filter_controller.dart';
 import 'topic_list_view.dart';
@@ -36,6 +37,7 @@ class _TopicFilterPageState extends State<TopicFilterPage> {
   final ValueNotifier<Rect?> _anchor = ValueNotifier(null);
   final FocusNode _focus = FocusNode();
 
+  ShellController? _shell;
   TopicFilterController? _filter;
 
   TopicFilterController get filter => _filter!;
@@ -55,34 +57,38 @@ class _TopicFilterPageState extends State<TopicFilterPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _filter ??= _buildController();
+    final shell = ShellScope.identityOf(context);
+    if (!identical(_shell, shell)) _replaceController(shell);
   }
 
   @override
   void didUpdateWidget(TopicFilterPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl != widget.siteUrl) {
-      _filter?.removeListener(_onFilterChanged);
-      _filter?.dispose();
-      _filter = _buildController();
+      _replaceController(_shell!);
       return;
     }
-    filter.updateEngine(_engine());
+    filter.updateEngine(_engine(_shell!));
   }
 
-  TopicFilterController _buildController() {
-    final shell = ShellScope.read(context);
+  void _replaceController(ShellController shell) {
+    _filter?.removeListener(_onFilterChanged);
+    _filter?.dispose();
+    _shell = shell;
+    _filter = _buildController(shell);
+  }
+
+  TopicFilterController _buildController(ShellController shell) {
     final controller = TopicFilterController(
       initialQuery: shell.filterQueryFor(widget.siteUrl),
       submitQuery: shell.submitTopicFilter,
-      engine: _engine(),
+      engine: _engine(shell),
     );
     controller.addListener(_onFilterChanged);
     return controller;
   }
 
-  TopicFilterSuggestions _engine() {
-    final shell = ShellScope.read(context);
+  TopicFilterSuggestions _engine(ShellController shell) {
     return TopicFilterSuggestions(
       options: widget.feed.filterOptions,
       categories: widget.categories,
@@ -298,6 +304,7 @@ class _SuggestionList extends StatelessWidget {
                       onTap: () => unawaited(filter.accept(suggestion)),
                       child: Container(
                         key: ValueKey('topic-filter-suggestion-$index'),
+                        constraints: const BoxConstraints(minHeight: 44),
                         decoration: BoxDecoration(
                           color: isSelected ? theme.shell.selected : null,
                           border: Border(

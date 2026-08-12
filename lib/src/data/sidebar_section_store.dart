@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
+import 'serial_operation_queue.dart';
 
 /// Per-forum sidebar collapse-state persistence.
 ///
@@ -57,8 +58,16 @@ final class SidebarSectionStore {
           persistence ?? const SharedPreferencesSidebarSectionPersistence();
 
   final SidebarSectionPersistence _persistence;
+  static final SerialOperationQueue _operations = SerialOperationQueue();
 
-  Future<bool> read({
+  Future<bool> read({required String siteUrl, required String sectionId}) =>
+      _operations.run(
+        owner: _persistence,
+        key: (siteUrl, sectionId),
+        operation: () => _read(siteUrl: siteUrl, sectionId: sectionId),
+      );
+
+  Future<bool> _read({
     required String siteUrl,
     required String sectionId,
   }) async {
@@ -75,6 +84,22 @@ final class SidebarSectionStore {
   }
 
   Future<void> write({
+    required String siteUrl,
+    required String sectionId,
+    required bool collapsed,
+  }) async {
+    await _operations.run<void>(
+      owner: _persistence,
+      key: (siteUrl, sectionId),
+      operation: () => _persist(
+        siteUrl: siteUrl,
+        sectionId: sectionId,
+        collapsed: collapsed,
+      ),
+    );
+  }
+
+  Future<void> _persist({
     required String siteUrl,
     required String sectionId,
     required bool collapsed,

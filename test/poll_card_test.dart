@@ -2,6 +2,7 @@ import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/poll_card.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html_parser;
 
@@ -86,6 +87,30 @@ Future<void> pumpPoll(
 );
 
 void main() {
+  test('wire poll normalizes cooked labels once on its immutable models', () {
+    final value = Poll.fromJson({
+      'name': 'lunch',
+      'type': 'ranked_choice',
+      'title': '<strong>  Lunch&nbsp; choice </strong>',
+      'options': [
+        {'id': 'soup', 'html': '<span> Soup &amp; <em>bread</em> </span>'},
+      ],
+      'ranked_choice_outcome': {
+        'winner': true,
+        'winning_candidate': {
+          'digest': 'soup',
+          'html': '<span> Soup &amp; <em>bread</em> </span>',
+        },
+      },
+    }, 'https://site.test')!;
+
+    expect(value.options.single.plainText, 'Soup & bread');
+    expect(
+      value.rankedChoiceOutcome!.winningCandidate!.plainText,
+      'Soup & bread',
+    );
+  });
+
   test('percentages use voters and preserve upstream rounding', () {
     expect(
       calculatePollPercentages(
@@ -168,6 +193,73 @@ void main() {
     expect(find.text('100%'), findsOneWidget);
     expect(find.bySemanticsLabel('Soup, 2 votes, 100 percent'), findsOneWidget);
     semantics.dispose();
+  });
+
+  testWidgets('poll title semantics refresh when the model title changes', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+
+    await pumpPoll(tester, poll(title: '<strong>First title</strong>'));
+    expect(find.bySemanticsLabel('Poll: First title'), findsOneWidget);
+
+    await pumpPoll(tester, poll(title: '<em>Second &amp; final</em>'));
+    expect(find.bySemanticsLabel('Poll: Second & final'), findsOneWidget);
+    semantics.dispose();
+  });
+
+  testWidgets('poll options are 44 pixel native keyboard buttons', (
+    tester,
+  ) async {
+    List<String>? cast;
+    final semantics = tester.ensureSemantics();
+    try {
+      await pumpPoll(
+        tester,
+        poll(),
+        onVote: (_, options) => cast = options,
+        onRemoveVote: (_) {},
+      );
+      await tester.pumpAndSettle();
+
+      final option = find.byKey(const ValueKey('poll-poll-option-a'));
+      final target = find.bySemanticsLabel('Alpha');
+      expect(option, findsOneWidget);
+      expect(target, findsOneWidget);
+      expect(tester.getSize(option).height, 44);
+      expect(
+        tester.getSemantics(target),
+        isSemantics(
+          label: 'Alpha',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          hasSelectedState: true,
+          isSelected: false,
+          isFocusable: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+        ),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(
+        tester.getSemantics(target),
+        isSemantics(isFocusable: true, isFocused: true),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(cast, ['a']);
+      expect(
+        tester.getSemantics(target),
+        isSemantics(label: 'Alpha', hasSelectedState: true, isSelected: true),
+      );
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('missing counts stay confidential rather than becoming zero', (

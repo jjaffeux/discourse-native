@@ -18,6 +18,7 @@ class TopicFeed {
     this.loadingMore = false,
     this.loadingIncoming = false,
     this.error,
+    this.pageError = false,
     this.loaded = false,
     this.nextPagePath,
     this.canCreateTopic = false,
@@ -42,6 +43,10 @@ class TopicFeed {
     bool? loading,
     bool? loadingMore,
     bool? loadingIncoming,
+    String? error,
+    bool clearError = false,
+    bool? pageError,
+    bool? loaded,
     String? nextPagePath,
     bool clearNextPage = false,
     bool? canCreateTopic,
@@ -52,13 +57,51 @@ class TopicFeed {
       loading: loading ?? this.loading,
       loadingMore: loadingMore ?? this.loadingMore,
       loadingIncoming: loadingIncoming ?? this.loadingIncoming,
-      error: error,
-      loaded: loaded,
+      error: clearError ? null : (error ?? this.error),
+      pageError: clearError ? false : (pageError ?? this.pageError),
+      loaded: loaded ?? this.loaded,
       nextPagePath: clearNextPage ? null : (nextPagePath ?? this.nextPagePath),
       canCreateTopic: canCreateTopic ?? this.canCreateTopic,
       filterOptions: filterOptions ?? this.filterOptions,
     );
   }
+
+  /// Starts a first-page request without throwing away readable cached rows.
+  ///
+  /// An initial load still has no rows and therefore renders as a blocking
+  /// wait. A refresh keeps the previous page, pagination cursor and
+  /// capabilities available until the replacement arrives.
+  TopicFeed refreshing() => TopicFeed(
+    topicIds: topicIds,
+    loading: true,
+    loaded: loaded,
+    nextPagePath: nextPagePath,
+    canCreateTopic: canCreateTopic,
+    filterOptions: filterOptions,
+  );
+
+  /// Starts pagination while keeping the current page visible.
+  TopicFeed loadingNextPage() => TopicFeed(
+    topicIds: topicIds,
+    loadingMore: true,
+    loadingIncoming: loadingIncoming,
+    loaded: loaded,
+    nextPagePath: nextPagePath,
+    canCreateTopic: canCreateTopic,
+    filterOptions: filterOptions,
+  );
+
+  /// Keeps the last useful snapshot and adds a retryable failure to it.
+  TopicFeed withError(String message, {bool page = false}) => TopicFeed(
+    topicIds: topicIds,
+    loadingIncoming: loadingIncoming,
+    error: message,
+    pageError: page,
+    loaded: true,
+    nextPagePath: nextPagePath,
+    canCreateTopic: canCreateTopic,
+    filterOptions: filterOptions,
+  );
 
   final List<int> topicIds;
   final bool loading;
@@ -72,6 +115,12 @@ class TopicFeed {
   final bool loadingIncoming;
 
   final String? error;
+
+  /// Whether [error] belongs to the next-page request rather than a refresh.
+  ///
+  /// The distinction keeps a failed page at the end of the list, where the
+  /// user encountered it, while a failed refresh is shown above stale rows.
+  final bool pageError;
 
   /// Null once the last page has been reached.
   final String? nextPagePath;

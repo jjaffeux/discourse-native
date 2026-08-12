@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/post.dart';
 import '../plugins/site_plugin.dart';
@@ -46,6 +47,9 @@ class _PostActionsState extends State<PostActions> {
   static const double _inset = 8;
 
   final OverlayPortalController _portal = OverlayPortalController();
+  final FocusNode _firstActionFocus = FocusNode(
+    debugLabel: 'First post action',
+  );
 
   /// Where the menu should sit, in global coordinates. Null once the post has
   /// scrolled out of sight.
@@ -114,6 +118,20 @@ class _PostActionsState extends State<PostActions> {
   void _pointerMoved() {
     _suppressed = false;
     _open();
+  }
+
+  /// Opens the same compact menu as hover and puts keyboard focus inside it.
+  ///
+  /// A post always has focusable content in its header, so the standard context
+  /// menu keys can be handled by this ancestor without adding another tab stop
+  /// for every post in a long topic.
+  void _openFromKeyboard() {
+    _suppressed = false;
+    _open();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_portal.isShowing) return;
+      _firstActionFocus.requestFocus();
+    });
   }
 
   /// Instant, with nothing to wait out.
@@ -257,6 +275,7 @@ class _PostActionsState extends State<PostActions> {
   void dispose() {
     _scroll?.removeListener(_onScroll);
     _anchor.dispose();
+    _firstActionFocus.dispose();
     super.dispose();
   }
 
@@ -303,6 +322,7 @@ class _PostActionsState extends State<PostActions> {
             onExit: (_) => _closeNow(),
             child: _PostActionsMenu(
               actions: actions,
+              firstActionFocus: _firstActionFocus,
               onInvoke: (action) {
                 _closeNow();
                 action.onInvoke();
@@ -314,21 +334,35 @@ class _PostActionsState extends State<PostActions> {
       ),
     );
 
+    final keyboardReachable = CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.contextMenu):
+            _openFromKeyboard,
+        const SingleActivator(LogicalKeyboardKey.f10, shift: true):
+            _openFromKeyboard,
+      },
+      child: hoverable,
+    );
+
     // Long press is gated, though: on a desktop, holding the mouse down should
     // not open a sheet.
-    if (!context.isTouch) return hoverable;
+    if (!context.isTouch) return keyboardReachable;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onLongPress: () => _openSheet(actions),
-      child: hoverable,
+      child: keyboardReachable,
     );
   }
 }
 
 class _PostActionsMenu extends StatelessWidget {
-  const _PostActionsMenu({required this.actions, required this.onInvoke});
+  const _PostActionsMenu({
+    required this.actions,
+    required this.firstActionFocus,
+    required this.onInvoke,
+  });
 
-  static const double _button = 32;
+  static const double _button = 44;
   static const double _padding = 2;
 
   /// The follower needs a width to align its right edge against, and it has to
@@ -338,6 +372,7 @@ class _PostActionsMenu extends StatelessWidget {
       actions.length * _button + _padding * 2;
 
   final List<PostAction> actions;
+  final FocusNode firstActionFocus;
   final void Function(PostAction action) onInvoke;
 
   @override
@@ -358,15 +393,18 @@ class _PostActionsMenu extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (final action in actions)
+              for (final (index, action) in actions.indexed)
                 IconButton(
+                  focusNode: index == 0 ? firstActionFocus : null,
                   onPressed: () => onInvoke(action),
                   icon: action.leading(context, size: 17),
                   tooltip: action.tooltip,
-                  visualDensity: VisualDensity.compact,
                   constraints: const BoxConstraints.tightFor(
                     width: _button,
                     height: _button,
+                  ),
+                  style: const ButtonStyle(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   padding: EdgeInsets.zero,
                   color:

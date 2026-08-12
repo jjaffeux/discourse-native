@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
+import 'image_decode.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'site_url.dart';
@@ -48,6 +49,7 @@ class LightboxImage {
     required this.fullSrc,
     required this.thumbnailSrc,
     required this.title,
+    required this.description,
     required this.details,
     required this.downloadHref,
     required this.width,
@@ -65,6 +67,11 @@ class LightboxImage {
   /// Caption line: the anchor's `title`, which Discourse fills from the image's
   /// title, its alt text, or failing both the uploaded filename.
   final String? title;
+
+  /// Human-readable image content, kept separate from [title] because an
+  /// upload's visible caption is often only its filename. Prefer the author's
+  /// alt text for assistive technology when the markup carries both.
+  final String? description;
 
   /// The `.informations` line — `"1920×1080 234 KB"`, the *intrinsic* size and
   /// the weight, not the size the post draws it at. Shown under [title].
@@ -84,10 +91,11 @@ class LightboxImage {
   final Object heroTag;
 
   double? get aspectRatio {
-    final (w, h) = (width, height);
-    if (w == null || h == null || h <= 0) return null;
-    return w / h;
+    final size = safeImageLayoutSize(width, height);
+    return size == null ? null : size.width / size.height;
   }
+
+  double? get layoutWidth => safeImageLayoutSize(width, height)?.width;
 
   /// Reads [anchor], which must be the `a.lightbox` element itself. Null when
   /// there is no image to point at, which is not markup Discourse writes but is
@@ -106,17 +114,23 @@ class LightboxImage {
       (e) => e.classes.contains('informations'),
     );
 
+    final alt = img?.attributes['alt'].orNull;
+    final imageTitle = img?.attributes['title'].orNull;
+    final anchorTitle = anchor.attributes['title'].orNull;
+
+    final layoutSize = parseSafeImageLayoutSize(
+      img?.attributes['width'],
+      img?.attributes['height'],
+    );
     return LightboxImage(
       fullSrc: fullSrc,
       thumbnailSrc: img?.attributes['src'].orNull,
-      title:
-          anchor.attributes['title'].orNull ??
-          img?.attributes['alt'].orNull ??
-          img?.attributes['title'].orNull,
+      title: anchorTitle ?? alt ?? imageTitle,
+      description: alt ?? imageTitle ?? anchorTitle,
       details: informations?.text.trim().orNull,
       downloadHref: anchor.attributes['data-download-href'].orNull,
-      width: double.tryParse(img?.attributes['width'] ?? ''),
-      height: double.tryParse(img?.attributes['height'] ?? ''),
+      width: layoutSize?.width,
+      height: layoutSize?.height,
       heroTag: _heroTag(anchor),
     );
   }
@@ -161,10 +175,18 @@ class LightboxImage {
     dom.Element root,
     bool Function(dom.Element) test,
   ) {
-    for (final child in root.children) {
+    final pending = <dom.Element>[];
+    void pushReversed(List<dom.Element> children) {
+      for (var index = children.length - 1; index >= 0; index--) {
+        pending.add(children[index]);
+      }
+    }
+
+    pushReversed(root.children);
+    while (pending.isNotEmpty) {
+      final child = pending.removeLast();
       if (test(child)) return child;
-      final found = _descendant(child, test);
-      if (found != null) return found;
+      pushReversed(child.children);
     }
     return null;
   }
@@ -239,7 +261,9 @@ class LightboxThumbnail extends StatelessWidget {
         child: ConstrainedBox(
           // Discourse's `max-width: 100%; height: auto` — never wider than the
           // column, and never blown up past the size it was resized to.
-          constraints: BoxConstraints(maxWidth: image.width ?? double.infinity),
+          constraints: BoxConstraints(
+            maxWidth: image.layoutWidth ?? double.infinity,
+          ),
           child: tile,
         ),
       ),
@@ -277,31 +301,60 @@ class LightboxTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: () => open(context),
-          child: Hero(
-            tag: image.heroTag,
-            child: Image.network(
-              resolveSiteUrl(image.thumbnailSrc ?? image.fullSrc, siteUrl),
-              fit: fit,
-              width: double.infinity,
-              height: fillsBox ? double.infinity : null,
-              errorBuilder: (context, error, stackTrace) {
-                reportImageError(
-                  error,
-                  stackTrace,
-                  operation: 'lightbox.thumbnail',
-                );
-                return UnavailableImage(color: theme.shell.placeholder);
-              },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final logicalWidth = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : image.layoutWidth;
+        final cacheWidth =
+            logicalWidth != null && logicalWidth.isFinite && logicalWidth > 0
+            ? imagePhysicalPixels(context, logicalWidth)
+            : null;
+        final label = switch (image.description) {
+          final description? when description.isNotEmpty =>
+            'Open image: $description',
+          _ => 'Open image',
+        };
+        void activate() => open(context);
+
+        return Semantics(
+          button: true,
+          label: label,
+          onTap: activate,
+          child: ExcludeSemantics(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  onTap: activate,
+                  child: Hero(
+                    tag: image.heroTag,
+                    child: Image.network(
+                      resolveSiteUrl(
+                        image.thumbnailSrc ?? image.fullSrc,
+                        siteUrl,
+                      ),
+                      fit: fit,
+                      width: double.infinity,
+                      height: fillsBox ? double.infinity : null,
+                      cacheWidth: cacheWidth,
+                      errorBuilder: (context, error, stackTrace) {
+                        reportImageError(
+                          error,
+                          stackTrace,
+                          operation: 'lightbox.thumbnail',
+                        );
+                        return UnavailableImage(color: theme.shell.placeholder);
+                      },
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

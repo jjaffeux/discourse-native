@@ -62,6 +62,11 @@ List<ComposerImageBlock> parseComposerImages(String source) {
     }
     final label = _labelPattern.firstMatch(match.group(1)!);
     if (label == null) continue;
+    final width = int.tryParse(label.group(2) ?? '');
+    final height = int.tryParse(label.group(3) ?? '');
+    final hasValidDimensions =
+        width != null && width > 0 && height != null && height > 0;
+    final scale = int.tryParse(label.group(4) ?? '');
     images.add(
       ComposerImageBlock(
         start: match.start,
@@ -69,9 +74,9 @@ List<ComposerImageBlock> parseComposerImages(String source) {
         source: match.group(0)!,
         alt: unescapeImageAlt(label.group(1)!),
         url: match.group(2)!,
-        width: int.tryParse(label.group(2) ?? ''),
-        height: int.tryParse(label.group(3) ?? ''),
-        scale: int.tryParse(label.group(4) ?? ''),
+        width: hasValidDimensions ? width : null,
+        height: hasValidDimensions ? height : null,
+        scale: scale != null && scale >= 1 && scale <= 100 ? scale : null,
       ),
     );
   }

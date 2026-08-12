@@ -93,6 +93,34 @@ void main() {
       expect(malformed.messageBusLastId, isNull);
     });
 
+    test('bounds and safely ignores malformed hand-raise dates', () {
+      Map<String, dynamic> participant(Object? handRaisedAt) => {
+        'id': 1,
+        'username': 'sam',
+        'role': 'participant',
+        'hand_raised_at': handRaisedAt,
+      };
+
+      expect(
+        ResenhaParticipant.fromJson(
+          participant('2026-08-12T12:34:56Z'),
+        ).handRaisedAt,
+        DateTime.utc(2026, 8, 12, 12, 34, 56),
+      );
+      expect(
+        ResenhaParticipant.fromJson(participant('2' * 200000)).handRaisedAt,
+        isNull,
+      );
+      expect(
+        ResenhaParticipant.fromJson(participant(double.nan)).handRaisedAt,
+        isNull,
+      );
+      expect(
+        ResenhaParticipant.fromJson(participant(double.infinity)).handRaisedAt,
+        isNull,
+      );
+    });
+
     test('serializes server room type and quality names', () {
       const draft = ResenhaRoomDraft(
         name: 'Open room',

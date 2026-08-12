@@ -97,14 +97,7 @@ class ResenhaParticipant {
         'afk' => ResenhaIdleState.afk,
         _ => ResenhaIdleState.active,
       },
-      handRaisedAt: switch (json['hand_raised_at']) {
-        final num seconds => DateTime.fromMillisecondsSinceEpoch(
-          (seconds * 1000).round(),
-          isUtc: true,
-        ),
-        final String value => DateTime.tryParse(value),
-        _ => null,
-      },
+      handRaisedAt: _resenhaDate(json['hand_raised_at']),
     );
   }
 

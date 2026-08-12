@@ -97,6 +97,13 @@ final class GifResult {
 /// One cursor page returned by `GET /gifs/search.json`.
 @immutable
 final class GifSearchPage {
+  /// The fixed page size requested by core's GIF proxy.
+  ///
+  /// Keep this boundary before result parsing: every retained result can
+  /// become an image provider and grid tile, while [nextPosition] keeps later
+  /// pages reachable.
+  static const int maximumPageSize = 24;
+
   factory GifSearchPage({
     required List<GifResult> results,
     String? nextPosition,
@@ -116,7 +123,7 @@ final class GifSearchPage {
     final next = jsonText(json['next']);
     return GifSearchPage(
       results: List.unmodifiable([
-        for (final value in jsonArray(json['results']))
+        for (final value in jsonArray(json['results']).take(maximumPageSize))
           ?GifResult.fromJson(value, fileDetail: fileDetail),
       ]),
       nextPosition: next,

@@ -111,7 +111,7 @@ class _TopicCreateControl extends StatelessWidget {
   }) {
     final theme = Theme.of(context);
     return FilledButton.styleFrom(
-      minimumSize: const Size(40, 40),
+      minimumSize: const Size(44, 44),
       padding: padding,
       backgroundColor: theme.colorScheme.surfaceContainerHighest,
       foregroundColor: theme.colorScheme.onSurface,
@@ -133,47 +133,57 @@ class _TopicCreateControl extends StatelessWidget {
 
     final mainButton = Tooltip(
       message: 'New topic',
+      excludeFromSemantics: true,
       child: showLabel
           ? FilledButton.icon(
               key: TopicCreateButton.buttonKey,
               style: mainStyle,
               onPressed: onPressed,
-              icon: const DIcon(DIcons.farPenToSquare, size: 20),
+              icon: const ExcludeSemantics(
+                child: DIcon(DIcons.farPenToSquare, size: 20),
+              ),
               label: const Text('New topic'),
             )
           : FilledButton(
               key: TopicCreateButton.buttonKey,
               style: mainStyle,
               onPressed: onPressed,
-              child: const DIcon(DIcons.farPenToSquare, size: 20),
+              child: Semantics(
+                label: 'New topic',
+                child: const ExcludeSemantics(
+                  child: DIcon(DIcons.farPenToSquare, size: 20),
+                ),
+              ),
             ),
     );
 
     if (!showDraftsButton) return mainButton;
 
-    return Semantics(
-      label: 'New topic',
-      container: true,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          mainButton,
-          const SizedBox(width: 2),
-          Tooltip(
-            message: 'Open the latest drafts menu',
-            child: FilledButton(
-              key: TopicCreateButton.draftsButtonKey,
-              style: _style(
-                context,
-                borderRadius: const BorderRadius.horizontal(right: radius),
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        mainButton,
+        const SizedBox(width: 2),
+        Tooltip(
+          message: 'Open the latest drafts menu',
+          excludeFromSemantics: true,
+          child: FilledButton(
+            key: TopicCreateButton.draftsButtonKey,
+            style: _style(
+              context,
+              borderRadius: const BorderRadius.horizontal(right: radius),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+            ),
+            onPressed: onDraftsPressed,
+            child: Semantics(
+              label: 'Open the latest drafts menu',
+              child: const ExcludeSemantics(
+                child: DIcon(DIcons.chevronDown, size: 16),
               ),
-              onPressed: onDraftsPressed,
-              child: const DIcon(DIcons.chevronDown, size: 16),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

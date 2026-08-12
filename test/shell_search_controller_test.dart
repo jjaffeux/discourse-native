@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/shell/shell_search_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +31,21 @@ void main() {
     await tester.pump();
     expect(api.terms, ['  in:title  ']);
     expect(api.typeFilters, ['exclude_topics']);
+  });
+
+  testWidgets('refuses an oversized query without credential or API work', (
+    tester,
+  ) async {
+    final api = _SearchApi();
+    final search = _controller(api)..selectSite(site);
+    addTearDown(search.dispose);
+
+    search.setQuery('x' * (DiscourseApi.maximumSearchTermLength + 1));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(search.phase, SearchSessionPhase.refused);
+    expect(search.message, 'Searches can be at most 2048 characters.');
+    expect(api.terms, isEmpty);
   });
 
   testWidgets('mirrors core facet suggestions before the Enter topic search', (
@@ -132,6 +149,55 @@ void main() {
     await tester.pump();
     expect(search.hits, isEmpty);
   });
+
+  test('reports a failed search without changing its fallback state', () async {
+    final diagnostics = await _installDiagnostics('search-failure');
+    final api = _SearchApi();
+    final search = ShellSearchController(
+      api: api,
+      credentials: FakeApiCredentialReader(),
+      lifecycle: SiteLifecycle(),
+      debounceDuration: Duration.zero,
+    )..selectSite(site);
+    addTearDown(search.dispose);
+
+    search.setQuery('broken');
+    await pumpEventQueue();
+    api.fail('broken', StateError('offline'));
+    await pumpEventQueue();
+
+    expect(search.phase, SearchSessionPhase.failed);
+    expect(search.hits, isEmpty);
+    expect(search.sections, isEmpty);
+    expect(search.results, isEmpty);
+    expect(search.message, "Couldn't search example.com.");
+    expect(
+      diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
+      isA<ErrorDiagnosticEvent>()
+          .having((event) => event.operation, 'operation', 'search.load')
+          .having((event) => event.source, 'source', 'search')
+          .having(
+            (event) => event.severity,
+            'severity',
+            DiagnosticSeverity.error,
+          )
+          .having((event) => event.handled, 'handled', isTrue)
+          .having((event) => event.degraded, 'degraded', isTrue),
+    );
+  });
+}
+
+Future<DiagnosticsController> _installDiagnostics(String sessionId) async {
+  final diagnostics = await DiagnosticsController.create(
+    persistence: MemoryDiagnosticsPersistence(),
+    sessionId: sessionId,
+  );
+  final binding = DiagnosticsSink.install(diagnostics);
+  addTearDown(() async {
+    binding.close();
+    await diagnostics.close();
+  });
+  return diagnostics;
 }
 
 ShellSearchController _controller(_SearchApi api) => ShellSearchController(
@@ -196,5 +262,9 @@ class _SearchApi extends FakeDiscourseApi {
 
   void complete(String term, SearchResults results) {
     _answers[term]!.complete(results);
+  }
+
+  void fail(String term, Object error) {
+    _answers[term]!.completeError(error, StackTrace.current);
   }
 }

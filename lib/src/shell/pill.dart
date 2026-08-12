@@ -93,16 +93,23 @@ class Pill extends StatefulWidget {
 
 class _PillState extends State<Pill> {
   bool _hovered = false;
+  bool _focused = false;
 
   void _setHovered(bool value) {
     if (_hovered == value) return;
     setState(() => _hovered = value);
   }
 
+  void _setFocused(bool value) {
+    if (_focused == value) return;
+    setState(() => _focused = value);
+  }
+
   @override
   void didUpdateWidget(Pill oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!widget.hoverable && widget.onTap == null) _hovered = false;
+    if (widget.onTap == null) _focused = false;
   }
 
   @override
@@ -110,7 +117,7 @@ class _PillState extends State<Pill> {
     final theme = Theme.of(context);
     final size = Pill.fontSizeFor(widget.baseStyle);
     final radius = BorderRadius.circular(size * pillRadius);
-    final background = _hovered
+    final background = _hovered || _focused
         ? Color.alphaBlend(
             theme.colorScheme.onSurface.withValues(alpha: 0.08),
             theme.shell.mention,
@@ -165,10 +172,14 @@ class _PillState extends State<Pill> {
     final onTap = widget.onTap;
     Widget interactive = onTap == null
         ? pill
-        : GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onTap,
-            child: pill,
+        : Semantics(
+            button: true,
+            child: InkWell(
+              onTap: onTap,
+              onFocusChange: _setFocused,
+              borderRadius: radius,
+              child: pill,
+            ),
           );
     if (widget.hoverable || onTap != null) {
       interactive = MouseRegion(

@@ -81,6 +81,7 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
   static const int formatVersion = 1;
   static const String directoryName = 'diagnostics';
   static const String fileName = 'diagnostics-v1.jsonl';
+  static final Map<String, _DiagnosticsFileCoordinator> _coordinators = {};
 
   final File file;
   final Map<String, DiagnosticEvent> _events = {};
@@ -140,7 +141,6 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
 
   @override
   Future<void> compact({required DateTime nowUtc}) => _serialize(() async {
-    await _ensureLoaded(nowUtc: nowUtc);
     await _compactNow(nowUtc);
   });
 
@@ -173,7 +173,10 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
     await _tail;
   }
 
-  Future<void> _loadFromDisk({required DateTime nowUtc}) async {
+  Future<void> _loadFromDisk({
+    required DateTime nowUtc,
+    bool compactIfNeeded = true,
+  }) async {
     _events.clear();
     _eventBytes.clear();
     _eventIdsBySequence.clear();
@@ -223,8 +226,9 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
       }
     }
     evicted |= _retainInMemory(nowUtc);
-    if (evicted || await file.length() > diagnosticsRetentionBytes) {
-      await _compactNow(nowUtc);
+    if (compactIfNeeded &&
+        (evicted || await file.length() > diagnosticsRetentionBytes)) {
+      await _compactNow(nowUtc, reloadFromDisk: false);
     }
   }
 
@@ -335,7 +339,16 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
     );
   }
 
-  Future<void> _compactNow(DateTime nowUtc) async {
+  Future<void> _compactNow(
+    DateTime nowUtc, {
+    bool reloadFromDisk = true,
+  }) async {
+    // Another persistence object or process can append after this object's
+    // in-memory fold was loaded. Reconcile the locked JSONL immediately before
+    // replacing it so compaction never publishes a stale snapshot.
+    if (reloadFromDisk) {
+      await _loadFromDisk(nowUtc: nowUtc, compactIfNeeded: false);
+    }
     _retainInMemory(nowUtc);
     await ensurePrivateDirectory(file.parent);
     final temporary = File('${file.path}.tmp');
@@ -383,14 +396,45 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
 
   Future<T> _serialize<T>(Future<T> Function() operation) {
     final completer = Completer<T>();
+    final path = file.absolute.path;
+    final coordinator = _coordinators.putIfAbsent(
+      path,
+      () => _DiagnosticsFileCoordinator(File(path)),
+    );
     _tail = _tail.then((_) async {
       try {
-        completer.complete(await operation());
+        completer.complete(await coordinator.run(operation));
       } on Object catch (error, stackTrace) {
         completer.completeError(error, stackTrace);
       }
     });
     return completer.future;
+  }
+}
+
+/// Serializes each complete diagnostics-file operation across persistence
+/// objects and holds a process-aware sidecar lock across read/append/replace.
+final class _DiagnosticsFileCoordinator {
+  _DiagnosticsFileCoordinator(this.file);
+
+  final File file;
+  Future<void> _tail = Future<void>.value();
+
+  Future<T> run<T>(Future<T> Function() operation) {
+    final result = Completer<T>();
+    _tail = _tail.then((_) async {
+      try {
+        result.complete(
+          await withPrivateAdvisoryFileLock(
+            File('${file.path}.lock'),
+            operation,
+          ),
+        );
+      } on Object catch (error, stackTrace) {
+        result.completeError(error, stackTrace);
+      }
+    });
+    return result.future;
   }
 }
 

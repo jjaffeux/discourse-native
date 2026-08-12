@@ -22,6 +22,18 @@ String encryptTextLikeDiscourse(String payload, String publicPem) {
   return base64Encode(cipher.process(utf8.encode(payload)));
 }
 
+/// Ruby's `Base64.encode64` wraps output at 60 characters and appends a final
+/// newline. Discourse uses this form for the callback payload.
+String wrapLikeDiscourseRuby(String payload) {
+  final wrapped = StringBuffer();
+  for (var offset = 0; offset < payload.length; offset += 60) {
+    final candidateEnd = offset + 60;
+    final end = candidateEnd < payload.length ? candidateEnd : payload.length;
+    wrapped.writeln(payload.substring(offset, end));
+  }
+  return wrapped.toString();
+}
+
 void main() {
   const protocol = UserApiKeyProtocol();
 
@@ -126,16 +138,66 @@ void main() {
         ),
       );
     });
+
+    test('accepts a callback at the protocol boundary', () {
+      const prefix = 'discourse://auth_redirect?payload=abc%3D#';
+      final callback = prefix.padRight(
+        UserApiKeyProtocol.maximumCallbackUrlCodeUnits,
+        'x',
+      );
+
+      expect(
+        callback,
+        hasLength(UserApiKeyProtocol.maximumCallbackUrlCodeUnits),
+      );
+      expect(protocol.payloadFromCallback(callback), 'abc=');
+    });
+
+    test('rejects an oversized callback without exposing its payload', () {
+      const secret = 'must-not-enter-diagnostics';
+      const prefix = 'discourse://auth_redirect?payload=$secret#';
+      final callback = prefix.padRight(
+        UserApiKeyProtocol.maximumCallbackUrlCodeUnits + 1,
+        'x',
+      );
+
+      expect(
+        () => protocol.payloadFromCallback(callback),
+        throwsA(
+          isA<UserApiAuthException>()
+              .having(
+                (error) => error.failure,
+                'failure',
+                UserApiAuthFailure.badReply,
+              )
+              .having(
+                (error) => error.detail ?? '',
+                'detail',
+                allOf(
+                  'callback URL exceeds protocol limit',
+                  isNot(contains(secret)),
+                ),
+              ),
+        ),
+      );
+    });
   });
 
   group('decodePayload', () {
     test('decrypts a reply produced the way Discourse produces it', () {
-      final payload = encryptLikeDiscourse({
-        'key': 'the-api-key',
-        'nonce': 'nonce-123',
-        'push': false,
-        'api': 4,
-      }, pair.publicPem);
+      final payload = wrapLikeDiscourseRuby(
+        encryptLikeDiscourse({
+          'key': 'the-api-key',
+          'nonce': 'nonce-123',
+          'push': false,
+          'api': 4,
+        }, pair.publicPem),
+      );
+
+      expect(
+        payload.replaceAll('\n', ''),
+        hasLength(UserApiKeyProtocol.maximumPayloadBase64Characters),
+      );
 
       final credentials = protocol.decodePayload(
         payload: payload,
@@ -146,6 +208,74 @@ void main() {
       expect(credentials.key, 'the-api-key');
       expect(credentials.apiVersion, 4);
       expect(credentials.push, isFalse);
+    });
+
+    test('rejects more than one block of significant Base64 input', () {
+      final payload = List.filled(
+        UserApiKeyProtocol.maximumPayloadBase64Characters + 1,
+        'A',
+      ).join();
+
+      expect(
+        () => protocol.decodePayload(
+          payload: payload,
+          privateKeyPem: pair.privatePem,
+          expectedNonce: 'nonce-123',
+        ),
+        throwsA(
+          isA<UserApiAuthException>().having(
+            (error) => error.detail,
+            'detail',
+            contains('exceeds one RSA block'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects decoded ciphertexts that are not exactly one block', () {
+      for (final byteLength in [
+        UserApiKeyProtocol.encryptedPayloadBytes - 1,
+        UserApiKeyProtocol.encryptedPayloadBytes + 1,
+      ]) {
+        final payload = base64Encode(List<int>.filled(byteLength, 0));
+
+        expect(
+          () => protocol.decodePayload(
+            payload: payload,
+            privateKeyPem: pair.privatePem,
+            expectedNonce: 'nonce-123',
+          ),
+          throwsA(
+            isA<UserApiAuthException>().having(
+              (error) => error.detail,
+              'detail',
+              contains('exactly one RSA block'),
+            ),
+          ),
+          reason: '$byteLength bytes',
+        );
+      }
+    });
+
+    test('rejects a multi-block ciphertext before decryption', () {
+      final payload = base64Encode(
+        List<int>.filled(UserApiKeyProtocol.encryptedPayloadBytes * 2, 0),
+      );
+
+      expect(
+        () => protocol.decodePayload(
+          payload: payload,
+          privateKeyPem: pair.privatePem,
+          expectedNonce: 'nonce-123',
+        ),
+        throwsA(
+          isA<UserApiAuthException>().having(
+            (error) => error.detail,
+            'detail',
+            contains('exceeds one RSA block'),
+          ),
+        ),
+      );
     });
 
     test('a malformed decrypted reply never exposes its API key', () {

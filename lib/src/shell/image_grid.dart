@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'cooked_html.dart';
+import 'image_decode.dart';
 import 'lightbox.dart';
 import 'site_url.dart';
 
@@ -44,6 +45,7 @@ class ImageGridItem {
     required this.element,
     required this.anchor,
     required this.image,
+    required this.description,
     required this.declared,
     required this.intrinsic,
   });
@@ -57,6 +59,10 @@ class ImageGridItem {
   final dom.Element? anchor;
 
   final LightboxImage? image;
+
+  /// Alt text (or, when absent, the image title) for a non-lightboxed image.
+  /// Lightboxed items use [LightboxImage.description].
+  final String? description;
 
   /// The `width`/`height` the markup declares on the `img`, which is the size
   /// Discourse resized it to.
@@ -177,8 +183,10 @@ class ImageGridData {
         ? element
         : _descendant(element, (e) => e.localName == 'img');
 
-    final width = double.tryParse(img?.attributes['width'] ?? '');
-    final height = double.tryParse(img?.attributes['height'] ?? '');
+    final declared = parseSafeImageLayoutSize(
+      img?.attributes['width'],
+      img?.attributes['height'],
+    );
 
     final informations = _descendant(
       element,
@@ -189,7 +197,10 @@ class ImageGridData {
       element: element,
       anchor: anchor,
       image: anchor == null ? null : LightboxImage.from(anchor),
-      declared: (width == null || height == null) ? null : Size(width, height),
+      description:
+          _nonEmpty(img?.attributes['alt']) ??
+          _nonEmpty(img?.attributes['title']),
+      declared: declared,
       intrinsic: _parseInformations(informations?.text),
     );
   }
@@ -202,12 +213,7 @@ class ImageGridData {
     final parts = dimensions.split(RegExp('x|×'));
     if (parts.length != 2) return null;
 
-    final width = double.tryParse(parts[0]);
-    final height = double.tryParse(parts[1]);
-    if (width == null || height == null || width <= 0 || height <= 0) {
-      return null;
-    }
-    return Size(width, height);
+    return parseSafeImageLayoutSize(parts[0], parts[1]);
   }
 }
 
@@ -403,18 +409,43 @@ class ImageGridTile extends StatelessWidget {
 
     final src = item.plainSrc;
     if (src != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: Image.network(
-          resolveSiteUrl(src, siteUrl),
-          fit: fit,
-          width: double.infinity,
-          height: double.infinity,
-          errorBuilder: (context, error, stackTrace) {
-            reportImageError(error, stackTrace, operation: 'imageGrid.image');
-            return UnavailableImage(color: Theme.of(context).shell.placeholder);
-          },
-        ),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final cacheWidth =
+              constraints.hasBoundedWidth &&
+                  constraints.maxWidth.isFinite &&
+                  constraints.maxWidth > 0
+              ? imagePhysicalPixels(context, constraints.maxWidth)
+              : null;
+          final description = item.description;
+
+          return Semantics(
+            image: description != null,
+            label: description,
+            child: ExcludeSemantics(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.network(
+                  resolveSiteUrl(src, siteUrl),
+                  fit: fit,
+                  width: double.infinity,
+                  height: double.infinity,
+                  cacheWidth: cacheWidth,
+                  errorBuilder: (context, error, stackTrace) {
+                    reportImageError(
+                      error,
+                      stackTrace,
+                      operation: 'imageGrid.image',
+                    );
+                    return UnavailableImage(
+                      color: Theme.of(context).shell.placeholder,
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+        },
       );
     }
 
@@ -422,6 +453,9 @@ class ImageGridTile extends StatelessWidget {
     return CookedHtml(html: item.element.outerHtml, siteUrl: siteUrl);
   }
 }
+
+String? _nonEmpty(String? value) =>
+    value == null || value.trim().isEmpty ? null : value.trim();
 
 /// The carousel: one image at a time, on a track that snaps.
 ///
@@ -440,6 +474,9 @@ class ImageGridCarousel extends StatefulWidget {
 
   /// `MAX_DOTS`. Past this the dots become a counter.
   static const int maxDots = 10;
+
+  /// Minimum hit and focus area for every carousel control.
+  static const double controlTargetSize = 44;
 
   @override
   State<ImageGridCarousel> createState() => _ImageGridCarouselState();
@@ -572,39 +609,69 @@ class _Controls extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _Nav(icon: DIcons.chevronLeft, tooltip: 'Previous', onTap: onPrevious),
+        _Nav(
+          key: const ValueKey('image-carousel-previous'),
+          icon: DIcons.chevronLeft,
+          label: 'Previous image',
+          onTap: onPrevious,
+        ),
         const SizedBox(width: 8),
         if (total <= ImageGridCarousel.maxDots)
-          _Dots(index: index, total: total, onSelect: onSelect)
+          Flexible(
+            child: SizedBox(
+              width: total * ImageGridCarousel.controlTargetSize,
+              child: _Dots(index: index, total: total, onSelect: onSelect),
+            ),
+          )
         else
           _Counter(index: index, total: total),
         const SizedBox(width: 8),
-        _Nav(icon: DIcons.chevronRight, tooltip: 'Next', onTap: onNext),
+        _Nav(
+          key: const ValueKey('image-carousel-next'),
+          icon: DIcons.chevronRight,
+          label: 'Next image',
+          onTap: onNext,
+        ),
       ],
     );
   }
 }
 
 class _Nav extends StatelessWidget {
-  const _Nav({required this.icon, required this.tooltip, required this.onTap});
+  const _Nav({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final DIconData icon;
-  final String tooltip;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onTap,
-      tooltip: tooltip,
-      iconSize: 14,
-      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-      padding: EdgeInsets.zero,
-      icon: DIcon(
-        icon,
-        size: 14,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-        semanticLabel: tooltip,
+    return Semantics(
+      container: true,
+      button: true,
+      label: label,
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: IconButton(
+          onPressed: onTap,
+          tooltip: label,
+          iconSize: 14,
+          constraints: const BoxConstraints.tightFor(
+            width: ImageGridCarousel.controlTargetSize,
+            height: ImageGridCarousel.controlTargetSize,
+          ),
+          padding: EdgeInsets.zero,
+          icon: DIcon(
+            icon,
+            size: 14,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
     );
   }
@@ -626,39 +693,114 @@ class _Dots extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.shell.panel,
-        borderRadius: BorderRadius.circular(16),
+    return Material(
+      color: theme.shell.panel,
+      borderRadius: BorderRadius.circular(
+        ImageGridCarousel.controlTargetSize / 2,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var dot = 0; dot < total; dot++) ...[
-            if (dot > 0) const SizedBox(width: 12),
-            Semantics(
-              label: 'Go to image ${dot + 1}',
-              selected: dot == index,
-              button: true,
-              child: GestureDetector(
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var dot = 0; dot < total; dot++)
+              _DotButton(
+                index: dot,
+                total: total,
+                selected: dot == index,
+                color: dot == index
+                    ? theme.colorScheme.onSurfaceVariant
+                    : theme.shell.divider,
                 onTap: () => onSelect(dot),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DotButton extends StatefulWidget {
+  const _DotButton({
+    required this.index,
+    required this.total,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+  });
+
+  final int index;
+  final int total;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  State<_DotButton> createState() => _DotButtonState();
+}
+
+class _DotButtonState extends State<_DotButton> {
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void didUpdateWidget(_DotButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.selected && widget.selected) _reveal();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _reveal() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(Scrollable.ensureVisible(context, alignment: 0.5));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final number = widget.index + 1;
+    final label = 'Go to image $number of ${widget.total}';
+
+    return Semantics(
+      key: ValueKey('image-carousel-dot-$number'),
+      container: true,
+      button: true,
+      selected: widget.selected,
+      label: label,
+      onTap: widget.onTap,
+      child: ExcludeSemantics(
+        child: Tooltip(
+          message: label,
+          excludeFromSemantics: true,
+          child: InkWell(
+            key: ValueKey('image-carousel-dot-$number-button'),
+            focusNode: _focusNode,
+            onFocusChange: (focused) {
+              if (focused) _reveal();
+            },
+            onTap: widget.onTap,
+            child: SizedBox.square(
+              dimension: ImageGridCarousel.controlTargetSize,
+              child: Center(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeOut,
-                  width: dot == index ? 22 : 10,
+                  width: widget.selected ? 22 : 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: dot == index
-                        ? theme.colorScheme.onSurfaceVariant
-                        : theme.shell.divider,
+                    color: widget.color,
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
               ),
             ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }
@@ -693,10 +835,18 @@ class _Counter extends StatelessWidget {
 }
 
 dom.Element? _descendant(dom.Element root, bool Function(dom.Element) test) {
-  for (final child in root.children) {
+  final pending = <dom.Element>[];
+  void pushReversed(List<dom.Element> children) {
+    for (var index = children.length - 1; index >= 0; index--) {
+      pending.add(children[index]);
+    }
+  }
+
+  pushReversed(root.children);
+  while (pending.isNotEmpty) {
+    final child = pending.removeLast();
     if (test(child)) return child;
-    final found = _descendant(child, test);
-    if (found != null) return found;
+    pushReversed(child.children);
   }
   return null;
 }

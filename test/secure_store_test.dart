@@ -87,6 +87,83 @@ void main() {
       expect(clientIds.events.where((event) => event == 'write'), hasLength(1));
     });
 
+    test('replacement stores share one client-id creation cycle', () async {
+      final readGate = Completer<void>();
+      final readStarted = Completer<void>();
+      final clientIds = _FakeClientIds()
+        ..snapshotGatedRead = true
+        ..readGate = readGate
+        ..readStarted = readStarted;
+      final generations = <String>[];
+      final firstStore = SecureStore(
+        storage: _FakeStorage(),
+        clientIds: clientIds,
+        tokenGenerator: () {
+          generations.add('first-generated');
+          return 'first-generated';
+        },
+      );
+      final replacementStore = SecureStore(
+        storage: _FakeStorage(),
+        clientIds: clientIds,
+        tokenGenerator: () {
+          generations.add('replacement-generated');
+          return 'replacement-generated';
+        },
+      );
+
+      final first = firstStore.readOrCreateClientId();
+      await readStarted.future;
+      final replacement = replacementStore.readOrCreateClientId();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(clientIds.events, ['read']);
+      readGate.complete();
+
+      expect(await Future.wait([first, replacement]), [
+        'first-generated',
+        'first-generated',
+      ]);
+      expect(generations, ['first-generated']);
+      expect(clientIds.events, ['read', 'write', 'read']);
+
+      final reopened = SecureStore(
+        storage: _FakeStorage(),
+        clientIds: clientIds,
+        tokenGenerator: () => throw StateError('must not regenerate'),
+      );
+      expect(await reopened.readOrCreateClientId(), 'first-generated');
+      expect(clientIds.events, ['read', 'write', 'read', 'read']);
+    });
+
+    test('different client-id persistence owners remain independent', () async {
+      final firstReadGate = Completer<void>();
+      final firstReadStarted = Completer<void>();
+      final firstClientIds = _FakeClientIds()
+        ..readGate = firstReadGate
+        ..readStarted = firstReadStarted;
+      final secondClientIds = _FakeClientIds('second-persisted');
+      final firstStore = SecureStore(
+        storage: _FakeStorage(),
+        clientIds: firstClientIds,
+        tokenGenerator: () => 'first-generated',
+      );
+      final secondStore = SecureStore(
+        storage: _FakeStorage(),
+        clientIds: secondClientIds,
+        tokenGenerator: () => throw StateError('must not regenerate'),
+      );
+
+      final first = firstStore.readOrCreateClientId();
+      await firstReadStarted.future;
+
+      expect(await secondStore.readOrCreateClientId(), 'second-persisted');
+      expect(secondClientIds.events, ['read']);
+
+      firstReadGate.complete();
+      expect(await first, 'first-generated');
+    });
+
     test('retries after a failed creation', () async {
       final error = StateError('preferences unavailable');
       final storage = _FakeStorage();
@@ -405,6 +482,7 @@ final class _FakeClientIds implements ClientIdPersistence {
 
   String? value;
   Object? writeError;
+  bool snapshotGatedRead = false;
   Completer<void>? readGate;
   Completer<void>? readStarted;
   final List<String> events = [];
@@ -412,11 +490,12 @@ final class _FakeClientIds implements ClientIdPersistence {
   @override
   Future<String?> read() async {
     events.add('read');
+    final snapshot = snapshotGatedRead ? value : null;
     if (readStarted case final started? when !started.isCompleted) {
       started.complete();
     }
     await readGate?.future;
-    return value;
+    return snapshotGatedRead ? snapshot : value;
   }
 
   @override

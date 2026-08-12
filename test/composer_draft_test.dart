@@ -66,5 +66,45 @@ void main() {
       // The API sends a string; an object is not what it sends.
       expect(ComposerDraft.decode(const {'reply': 'Hi'}), isNull);
     });
+
+    test('accepts the server maximum encoded length', () {
+      const prefix = '{"reply":"';
+      const suffix = '"}';
+      final data =
+          '$prefix${'x'.padRight(ComposerDraft.maximumEncodedCharacters - prefix.length - suffix.length, 'x')}$suffix';
+
+      expect(data, hasLength(ComposerDraft.maximumEncodedCharacters));
+      expect(
+        ComposerDraft.decode(data)?.reply,
+        hasLength(
+          ComposerDraft.maximumEncodedCharacters -
+              prefix.length -
+              suffix.length,
+        ),
+      );
+    });
+
+    test('counts a surrogate pair once like the Ruby server', () {
+      const prefix = '{"reply":"';
+      const suffix = '"}';
+      final reply = List.filled(
+        ComposerDraft.maximumEncodedCharacters - prefix.length - suffix.length,
+        '😀',
+      ).join();
+      final data = '$prefix$reply$suffix';
+
+      expect(data.length, greaterThan(ComposerDraft.maximumEncodedCharacters));
+      expect(ComposerDraft.decode(data)?.reply, reply);
+    });
+
+    test('rejects input above the server maximum before parsing', () {
+      final data = '{'.padRight(
+        ComposerDraft.maximumEncodedCharacters + 1,
+        ' ',
+      );
+
+      expect(data, hasLength(ComposerDraft.maximumEncodedCharacters + 1));
+      expect(ComposerDraft.decode(data), isNull);
+    });
   });
 }

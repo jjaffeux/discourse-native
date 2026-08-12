@@ -374,6 +374,7 @@ final class ResenhaController extends ChangeNotifier {
     _loadingSites.add(siteUrl);
     _errors.remove(siteUrl);
     notifyListeners();
+    if (!isCurrent()) return;
     try {
       final clientId = await credentials.clientId();
       if (!isCurrent()) return;
@@ -1104,6 +1105,7 @@ final class ResenhaController extends ChangeNotifier {
       onCallSiteChanged();
       attachTracker(siteUrl);
       notifyListeners();
+      if (!isCurrent()) return;
       _record(
         'callkit.command.requested',
         component: 'callkit',
@@ -1336,6 +1338,7 @@ final class ResenhaController extends ChangeNotifier {
   }
 
   void setForeground(bool foreground) {
+    if (_disposed) return;
     _idleState = foreground ? ResenhaIdleState.active : ResenhaIdleState.afk;
     if (_call != null) unawaited(_requestHeartbeat());
   }
@@ -1343,7 +1346,7 @@ final class ResenhaController extends ChangeNotifier {
   Future<void> setMuted(bool muted) => _setMuted(muted, syncSystem: true);
 
   void dismissCallError() {
-    if (_call == null) return;
+    if (_disposed || _call == null) return;
     _call = _call?.copyWith(clearError: true);
     notifyListeners();
   }
@@ -1371,7 +1374,13 @@ final class ResenhaController extends ChangeNotifier {
 
   Future<List<rtc.MediaDeviceInfo>> mediaDevices() =>
       _runPublicValueOperation<List<rtc.MediaDeviceInfo>>(
-        () async => _call?.media.devices() ?? const [],
+        () async {
+          if (_disposed) return const <rtc.MediaDeviceInfo>[];
+          final media = _call?.media;
+          if (media == null) return const <rtc.MediaDeviceInfo>[];
+          final result = await media.devices();
+          return _disposed ? const <rtc.MediaDeviceInfo>[] : result;
+        },
         'resenha.media.devices',
         fallback: const [],
       );
@@ -1383,6 +1392,7 @@ final class ResenhaController extends ChangeNotifier {
   );
 
   Future<void> _selectAudioInput(String deviceId) async {
+    if (_disposed) return;
     _audioInputDeviceId = deviceId;
     final correlationId =
         _activeDiagnosticCorrelationId ??
@@ -1401,9 +1411,11 @@ final class ResenhaController extends ChangeNotifier {
           ),
           'resenha.preferences.audioInput',
         );
+        if (_disposed) return;
         await _call?.media.selectAudioInput(deviceId);
       },
     );
+    if (_disposed) return;
     notifyListeners();
   }
 
@@ -1414,6 +1426,7 @@ final class ResenhaController extends ChangeNotifier {
   );
 
   Future<void> _selectAudioOutput(String deviceId) async {
+    if (_disposed) return;
     _audioOutputDeviceId = deviceId;
     final correlationId =
         _activeDiagnosticCorrelationId ??
@@ -1432,9 +1445,11 @@ final class ResenhaController extends ChangeNotifier {
           ),
           'resenha.preferences.audioOutput',
         );
+        if (_disposed) return;
         await _call?.media.selectAudioOutput(deviceId);
       },
     );
+    if (_disposed) return;
     notifyListeners();
   }
 
@@ -1445,6 +1460,7 @@ final class ResenhaController extends ChangeNotifier {
   );
 
   Future<void> _selectCamera(String deviceId) async {
+    if (_disposed) return;
     _cameraDeviceId = deviceId;
     final correlationId =
         _activeDiagnosticCorrelationId ??
@@ -1463,23 +1479,30 @@ final class ResenhaController extends ChangeNotifier {
           ),
           'resenha.preferences.camera',
         );
+        if (_disposed) return;
         final call = _call;
-        if (call?.cameraEnabled == true) {
-          await call?.media.setCameraEnabled(false);
-          await call?.media.setCameraEnabled(true, deviceId: deviceId);
-        }
+        if (call == null || !call.cameraEnabled) return;
+        final media = call.media;
+        await media.setCameraEnabled(false);
+        if (_disposed || !identical(_call?.media, media)) return;
+        await media.setCameraEnabled(true, deviceId: deviceId);
+        if (_disposed || !identical(_call?.media, media)) return;
       },
     );
+    if (_disposed) return;
     notifyListeners();
   }
 
   Future<void> setPushToTalkEnabled(bool enabled) async {
+    if (_disposed) return;
     _pushToTalkEnabled = enabled;
     await _persistPreference(
       () => _preferences.writePushToTalk(enabled),
       'resenha.preferences.pushToTalk',
     );
+    if (_disposed) return;
     if (enabled) await setMuted(true);
+    if (_disposed) return;
     notifyListeners();
   }
 
@@ -1488,6 +1511,7 @@ final class ResenhaController extends ChangeNotifier {
     int roomId,
     int userId,
   ) async {
+    if (_disposed) return 1;
     try {
       return ((await _preferences.readParticipantVolume(
                 siteUrl,
@@ -1520,8 +1544,10 @@ final class ResenhaController extends ChangeNotifier {
     int userId,
     double volume,
   ) async {
+    if (_disposed) return;
     final normalized = volume.clamp(0, 1).toDouble();
     await _call?.media.setParticipantVolume(userId, normalized);
+    if (_disposed) return;
     await _persistPreference(
       () => _preferences.writeParticipantVolume(
         siteUrl,
@@ -1678,6 +1704,7 @@ final class ResenhaController extends ChangeNotifier {
     required ResenhaCallSnapshot Function(ResenhaCallSnapshot call) update,
     Future<void> Function()? system,
   }) async {
+    if (_disposed) return;
     final call = _call;
     if (call == null) return;
     final previous = call;
@@ -1686,7 +1713,7 @@ final class ResenhaController extends ChangeNotifier {
     try {
       await media(call);
     } catch (error, stackTrace) {
-      if (identical(_call?.media, call.media)) {
+      if (!_disposed && identical(_call?.media, call.media)) {
         _call = previous.copyWith(error: 'The media setting was not applied.');
         notifyListeners();
       }
@@ -1694,7 +1721,9 @@ final class ResenhaController extends ChangeNotifier {
       return;
     }
 
+    if (_disposed) return;
     await _requestStateSync();
+    if (_disposed) return;
     try {
       await system?.call();
     } catch (error, stackTrace) {

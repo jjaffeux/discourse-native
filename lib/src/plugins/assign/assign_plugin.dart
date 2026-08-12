@@ -11,7 +11,7 @@ import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../site_plugin.dart';
+import '../site_plugin_api.dart';
 import 'assignment.dart';
 import 'assignment_sheet.dart';
 

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/forum_workspace.dart';
+import 'serial_operation_queue.dart';
 
 abstract interface class ForumTabPersistence {
   Future<String?> read();
@@ -54,6 +55,7 @@ class ForumTabStore {
 
   static const String storageKey = 'discourse_native.forum_tabs';
   static const int formatVersion = 1;
+  static final SerialOperationQueue _operations = SerialOperationQueue();
 
   final ForumTabPersistence _persistence;
   String? _pendingSave;
@@ -62,7 +64,11 @@ class ForumTabStore {
 
   Future<List<ForumWorkspace>> load() async {
     try {
-      final raw = await _persistence.read();
+      final raw = await _operations.run<String?>(
+        owner: _persistence,
+        key: storageKey,
+        operation: _persistence.read,
+      );
       if (raw == null || raw.isEmpty) return const [];
       final decoded = jsonDecode(raw);
       if (decoded is! Map || decoded['version'] != formatVersion) {
@@ -107,7 +113,15 @@ class ForumTabStore {
         _pendingSave = null;
         _pendingResult = null;
         try {
-          final saved = await _persistence.write(encoded);
+          // The drain coalesces changes made through this store. The shared
+          // queue additionally orders stores across shell replacement, where
+          // an older in-flight snapshot must not finish after the new shell's
+          // latest one and overwrite it.
+          final saved = await _operations.run<bool>(
+            owner: _persistence,
+            key: storageKey,
+            operation: () => _persistence.write(encoded),
+          );
           if (!saved) throw StateError('Could not persist forum tabs.');
         } catch (error, stackTrace) {
           _report(error, stackTrace, 'forumTabs.save');

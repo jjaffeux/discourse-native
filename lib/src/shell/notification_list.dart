@@ -362,52 +362,67 @@ class NotificationRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final description = NotificationDescription.of(notification);
+    final line = switch (description.actor) {
+      final actor? => '$actor ${description.phrase}',
+      null => description.phrase,
+    };
+    final accessibilityLabel = notification.isUnread ? '$line, unread' : line;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            // What is still unread is what the badge on the tab is counting,
-            // so it is the one thing in the row worth a color.
-            color: notification.isUnread
-                ? theme.colorScheme.primary.withValues(alpha: 0.12)
-                : null,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 1),
-                child: DIcon(
-                  description.icon,
-                  size: 16,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+      child: Semantics(
+        key: ValueKey('notification-row-${notification.id}'),
+        label: accessibilityLabel,
+        button: true,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: ExcludeSemantics(
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 44),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(
+                // What is still unread is what the badge on the tab is
+                // counting, so it is the one thing in the row worth a color.
+                color: notification.isUnread
+                    ? theme.colorScheme.primary.withValues(alpha: 0.12)
+                    : null,
+                borderRadius: BorderRadius.circular(6),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      if (description.actor case final actor?)
-                        TextSpan(
-                          text: '$actor ',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      TextSpan(text: description.phrase),
-                    ],
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: DIcon(
+                      description.icon,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium,
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          if (description.actor case final actor?)
+                            TextSpan(
+                              text: '$actor ',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          TextSpan(text: description.phrase),
+                        ],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

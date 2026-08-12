@@ -21,16 +21,28 @@ class NotificationTotals {
   factory NotificationTotals.fromJson(Map<String, dynamic> json) {
     final tracking = jsonObject(json['topic_tracking']);
     return NotificationTotals(
-      unreadNotifications: jsonInt(json['unread_notifications']),
-      unreadPersonalMessages: jsonInt(json['unread_personal_messages']),
-      unseenReviewables: jsonInt(json['unseen_reviewables']),
-      chatNotifications: jsonInt(json['chat_notifications']),
-      topicTrackingUnread: jsonInt(tracking['unread']),
-      topicTrackingNew: jsonInt(tracking['new']),
+      unreadNotifications: _count(json['unread_notifications']),
+      unreadPersonalMessages: _count(json['unread_personal_messages']),
+      unseenReviewables: _count(json['unseen_reviewables']),
+      chatNotifications: _count(json['chat_notifications']),
+      topicTrackingUnread: _count(tracking['unread']),
+      topicTrackingNew: _count(tracking['new']),
       username: jsonText(json['username']),
       // The key is only present when the site has chat enabled.
       hasChatEnabled: json['chat_notifications'] is num,
     );
+  }
+
+  static int _count(Object? value) => _optionalCount(value) ?? 0;
+
+  /// Reads a live count while preserving absence as "no update".
+  ///
+  /// Negative counts are impossible server state, but treating a present one
+  /// as zero keeps badge arithmetic total and prevents reversed clamp bounds.
+  static int? _optionalCount(Object? value) {
+    final count = jsonIntOrNull(value);
+    if (count == null) return null;
+    return count < 0 ? 0 : count;
   }
 
   /// Folds a `/notification/{id}` message onto these totals.
@@ -49,8 +61,8 @@ class NotificationTotals {
   NotificationTotals withNotification(Object? message) {
     if (message is! Map) return this;
 
-    final all = jsonIntOrNull(message['all_unread_notifications_count']);
-    final messages = jsonIntOrNull(
+    final all = _optionalCount(message['all_unread_notifications_count']);
+    final messages = _optionalCount(
       message['new_personal_messages_notifications_count'],
     );
     if (all == null && messages == null) return this;
@@ -71,7 +83,7 @@ class NotificationTotals {
   NotificationTotals withReviewableCounts(Object? message) {
     if (message is! Map) return this;
 
-    final unseen = jsonIntOrNull(message['unseen_reviewable_count']);
+    final unseen = _optionalCount(message['unseen_reviewable_count']);
     if (unseen == null) return this;
     return copyWith(unseenReviewables: unseen);
   }

@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/serial_operation_queue.dart';
+
 enum ResenhaDevicePreference { audioInput, audioOutput, camera }
 
 final class ResenhaDevicePreferences {
@@ -38,8 +40,63 @@ abstract interface class ResenhaPreferences {
   );
 }
 
+/// Typed key-value boundary behind [SharedPreferencesResenhaPreferences].
+///
+/// Keeping the platform adapter injectable makes ordering guarantees testable
+/// without a platform channel. Returning the platform's durability result
+/// preserves the public adapter's rejected-write error contract.
+abstract interface class ResenhaPreferencesPersistence {
+  Future<String?> readString(String key);
+
+  Future<bool?> readBool(String key);
+
+  Future<double?> readDouble(String key);
+
+  Future<bool> writeString(String key, String value);
+
+  Future<bool> writeBool(String key, bool value);
+
+  Future<bool> writeDouble(String key, double value);
+}
+
+final class _SharedPreferencesResenhaPersistence
+    implements ResenhaPreferencesPersistence {
+  const _SharedPreferencesResenhaPersistence();
+
+  @override
+  Future<String?> readString(String key) async =>
+      (await SharedPreferences.getInstance()).getString(key);
+
+  @override
+  Future<bool?> readBool(String key) async =>
+      (await SharedPreferences.getInstance()).getBool(key);
+
+  @override
+  Future<double?> readDouble(String key) async =>
+      (await SharedPreferences.getInstance()).getDouble(key);
+
+  @override
+  Future<bool> writeString(String key, String value) async =>
+      (await SharedPreferences.getInstance()).setString(key, value);
+
+  @override
+  Future<bool> writeBool(String key, bool value) async =>
+      (await SharedPreferences.getInstance()).setBool(key, value);
+
+  @override
+  Future<bool> writeDouble(String key, double value) async =>
+      (await SharedPreferences.getInstance()).setDouble(key, value);
+}
+
 final class SharedPreferencesResenhaPreferences implements ResenhaPreferences {
-  const SharedPreferencesResenhaPreferences();
+  const SharedPreferencesResenhaPreferences({
+    ResenhaPreferencesPersistence? persistence,
+  }) : _persistence =
+           persistence ?? const _SharedPreferencesResenhaPersistence();
+
+  static final SerialOperationQueue _operations = SerialOperationQueue();
+
+  final ResenhaPreferencesPersistence _persistence;
 
   static const _audioInputKey = 'resenha.device.audio-input';
   static const _audioOutputKey = 'resenha.device.audio-output';
@@ -48,50 +105,85 @@ final class SharedPreferencesResenhaPreferences implements ResenhaPreferences {
 
   @override
   Future<ResenhaDevicePreferences> readDevices() async {
-    final preferences = await SharedPreferences.getInstance();
+    // Start these independent keys together. Each waits only for writes to its
+    // own key, so a slow camera preference cannot block the microphone. A
+    // single Future.wait also observes every failure: if the platform channel
+    // is unavailable, the other concurrent reads must not escape as unhandled
+    // futures after the caller has caught the first error.
+    final values = await Future.wait<Object?>([
+      _readString(_audioInputKey),
+      _readString(_audioOutputKey),
+      _readString(_cameraKey),
+      _readBool(_pushToTalkKey),
+    ]);
     return ResenhaDevicePreferences(
-      audioInputDeviceId: preferences.getString(_audioInputKey),
-      audioOutputDeviceId: preferences.getString(_audioOutputKey),
-      cameraDeviceId: preferences.getString(_cameraKey),
-      pushToTalkEnabled: preferences.getBool(_pushToTalkKey) ?? false,
+      audioInputDeviceId: values[0] as String?,
+      audioOutputDeviceId: values[1] as String?,
+      cameraDeviceId: values[2] as String?,
+      pushToTalkEnabled: values[3] as bool? ?? false,
     );
   }
 
   @override
-  Future<void> writeDevice(
-    ResenhaDevicePreference preference,
-    String value,
-  ) async {
+  Future<void> writeDevice(ResenhaDevicePreference preference, String value) {
     final key = switch (preference) {
       ResenhaDevicePreference.audioInput => _audioInputKey,
       ResenhaDevicePreference.audioOutput => _audioOutputKey,
       ResenhaDevicePreference.camera => _cameraKey,
     };
-    _requireSaved(
-      await (await SharedPreferences.getInstance()).setString(key, value),
+    return _write(
+      key,
+      () => _persistence.writeString(key, value),
       'media device',
     );
   }
 
   @override
-  Future<void> writePushToTalk(bool enabled) async {
-    _requireSaved(
-      await (await SharedPreferences.getInstance()).setBool(
-        _pushToTalkKey,
-        enabled,
-      ),
-      'push-to-talk preference',
-    );
-  }
+  Future<void> writePushToTalk(bool enabled) => _write(
+    _pushToTalkKey,
+    () => _persistence.writeBool(_pushToTalkKey, enabled),
+    'push-to-talk preference',
+  );
+
+  Future<String?> _readString(String key) => _operations.run<String?>(
+    owner: _persistence,
+    key: key,
+    operation: () => _persistence.readString(key),
+  );
+
+  Future<bool?> _readBool(String key) => _operations.run<bool?>(
+    owner: _persistence,
+    key: key,
+    operation: () => _persistence.readBool(key),
+  );
+
+  Future<double?> _readDouble(String key) => _operations.run<double?>(
+    owner: _persistence,
+    key: key,
+    operation: () => _persistence.readDouble(key),
+  );
+
+  Future<void> _write(
+    String key,
+    Future<bool> Function() persist,
+    String description,
+  ) => _operations.run<void>(
+    owner: _persistence,
+    key: key,
+    operation: () async {
+      _requireSaved(await persist(), description);
+    },
+  );
 
   @override
   Future<double?> readParticipantVolume(
     String siteUrl,
     int roomId,
     int userId,
-  ) async => (await SharedPreferences.getInstance()).getDouble(
-    _volumeKey(siteUrl, roomId, userId),
-  );
+  ) {
+    final key = _volumeKey(siteUrl, roomId, userId);
+    return _readDouble(key);
+  }
 
   @override
   Future<void> writeParticipantVolume(
@@ -99,12 +191,11 @@ final class SharedPreferencesResenhaPreferences implements ResenhaPreferences {
     int roomId,
     int userId,
     double volume,
-  ) async {
-    _requireSaved(
-      await (await SharedPreferences.getInstance()).setDouble(
-        _volumeKey(siteUrl, roomId, userId),
-        volume,
-      ),
+  ) {
+    final key = _volumeKey(siteUrl, roomId, userId);
+    return _write(
+      key,
+      () => _persistence.writeDouble(key, volume),
       'participant volume',
     );
   }

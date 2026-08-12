@@ -5,6 +5,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('a hostile deep category chain cannot exhaust the call stack', () {
+    final categories = [
+      for (var id = 1; id <= 10000; id++)
+        TopicCategory(
+          id: id,
+          name: 'Category $id',
+          color: '123456',
+          slug: 'category-$id',
+          parentCategoryId: id == 1 ? null : id - 1,
+        ),
+    ];
+
+    final section = buildCategorySidebarSection(
+      categories: categories,
+      connected: true,
+      preferredCategoryIds: const [1],
+    );
+
+    expect(section.destinations.map((entry) => entry.id), [
+      'category-1',
+      'all-categories',
+    ]);
+  });
+
   test('anonymous fallback keeps the five most active root categories', () {
     const categories = [
       TopicCategory(

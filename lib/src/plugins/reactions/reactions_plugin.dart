@@ -7,7 +7,7 @@ import '../../shell/post_action.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
-import '../site_plugin.dart';
+import '../site_plugin_api.dart';
 import 'reaction.dart';
 import 'reaction_picker.dart';
 import 'reactions_row.dart';

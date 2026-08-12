@@ -139,10 +139,18 @@ class OneboxData {
     dom.Element root,
     bool Function(dom.Element) test,
   ) {
-    for (final child in root.children) {
+    final pending = <dom.Element>[];
+    void pushReversed(List<dom.Element> children) {
+      for (var index = children.length - 1; index >= 0; index--) {
+        pending.add(children[index]);
+      }
+    }
+
+    pushReversed(root.children);
+    while (pending.isNotEmpty) {
+      final child = pending.removeLast();
       if (test(child)) return child;
-      final found = _descendant(child, test);
-      if (found != null) return found;
+      pushReversed(child.children);
     }
     return null;
   }
@@ -167,17 +175,31 @@ class OneboxThumbnail {
   /// Engines like Twitter use the lead image as a small round avatar.
   final bool isAvatar;
 
+  // Onebox dimensions are remote layout hints, not authority. At the fixed
+  // 88px generic width this keeps reserved height between 22px and 352px.
+  static const double _minimumAspectRatio = 1 / 4;
+  static const double _maximumAspectRatio = 4;
+
   static OneboxThumbnail? from(dom.Element img) {
     final src = img.attributes['src'];
     if (src == null || src.isEmpty) return null;
 
     final width = double.tryParse(img.attributes['width'] ?? '');
     final height = double.tryParse(img.attributes['height'] ?? '');
+    final aspectRatio =
+        width != null &&
+            height != null &&
+            width.isFinite &&
+            height.isFinite &&
+            width > 0 &&
+            height > 0
+        ? (width / height)
+              .clamp(_minimumAspectRatio, _maximumAspectRatio)
+              .toDouble()
+        : null;
     return OneboxThumbnail(
       src: src,
-      aspectRatio: (width != null && height != null && height > 0)
-          ? width / height
-          : null,
+      aspectRatio: aspectRatio,
       isAvatar: img.classes.contains('onebox-avatar'),
     );
   }
@@ -239,6 +261,12 @@ class OneboxCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final shell = theme.shell;
+    final url = data.url;
+
+    // Engine-specific bodies can contain their own metadata links. Leave
+    // those individual semantics nodes alone; the generic fallback is the
+    // single whole-card destination that should read as one link.
+    final mergeLinkSemantics = url != null && child == null;
 
     final card = Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -252,7 +280,20 @@ class OneboxCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (data.siteName != null || data.siteIcon != null) ...[
-            _Header(icon: data.siteIcon, name: data.siteName, siteUrl: siteUrl),
+            if (mergeLinkSemantics && data.siteName == data.title)
+              ExcludeSemantics(
+                child: _Header(
+                  icon: data.siteIcon,
+                  name: data.siteName,
+                  siteUrl: siteUrl,
+                ),
+              )
+            else
+              _Header(
+                icon: data.siteIcon,
+                name: data.siteName,
+                siteUrl: siteUrl,
+              ),
             const SizedBox(height: 10),
           ],
           child ?? _genericBody(context),
@@ -260,14 +301,16 @@ class OneboxCard extends StatelessWidget {
       ),
     );
 
-    final url = data.url;
     if (url == null) return card;
 
-    return InkWell(
+    final link = InkWell(
       onTap: () => openLink(context, url, siteUrl: siteUrl),
       borderRadius: BorderRadius.circular(8),
       child: card,
     );
+    if (!mergeLinkSemantics) return link;
+
+    return MergeSemantics(child: Semantics(link: true, child: link));
   }
 
   Widget _genericBody(BuildContext context) {

@@ -789,6 +789,40 @@ void main() {
   });
 
   test(
+    'concurrent close callers share failure and still release notifiers',
+    () async {
+      final persistence = _GatedClosePersistence();
+      final controller = await DiagnosticsController.create(
+        persistence: persistence,
+        sessionId: 'failing-close',
+      );
+
+      final first = controller.close();
+      final second = controller.close();
+      expect(second, same(first));
+      await persistence.started.future;
+
+      var completed = false;
+      second.whenComplete(() => completed = true).ignore();
+      await Future<void>.delayed(Duration.zero);
+      expect(completed, isFalse);
+
+      final firstFailure = expectLater(first, throwsA(isA<StateError>()));
+      final secondFailure = expectLater(second, throwsA(isA<StateError>()));
+      persistence.release.complete();
+      await Future.wait([firstFailure, secondFailure]);
+
+      expect(persistence.closeCalls, 1);
+      await expectLater(controller.close(), completes);
+      expect(persistence.closeCalls, 1);
+      expect(
+        () => controller.eventsListenable.addListener(() {}),
+        throwsFlutterError,
+      );
+    },
+  );
+
+  test(
     'prior-session pending requests reload as interrupted, not errors',
     () async {
       final now = DateTime.utc(2026, 8, 8, 9);
@@ -1218,6 +1252,42 @@ final class _GatedFailurePersistence implements DiagnosticsPersistence {
 
   @override
   Future<void> close() => _delegate.close();
+
+  @override
+  Future<void> compact({required DateTime nowUtc}) =>
+      _delegate.compact(nowUtc: nowUtc);
+
+  @override
+  Future<void> writeLastSeenSequence(int sequence) =>
+      _delegate.writeLastSeenSequence(sequence);
+}
+
+final class _GatedClosePersistence implements DiagnosticsPersistence {
+  final MemoryDiagnosticsPersistence _delegate = MemoryDiagnosticsPersistence();
+  final Completer<void> started = Completer<void>();
+  final Completer<void> release = Completer<void>();
+  int closeCalls = 0;
+
+  @override
+  Future<DiagnosticsPersistenceState> load({required DateTime nowUtc}) =>
+      _delegate.load(nowUtc: nowUtc);
+
+  @override
+  Future<void> appendEvents(
+    List<DiagnosticEvent> events, {
+    required DateTime nowUtc,
+  }) => _delegate.appendEvents(events, nowUtc: nowUtc);
+
+  @override
+  Future<void> clear() => _delegate.clear();
+
+  @override
+  Future<void> close() async {
+    closeCalls++;
+    started.complete();
+    await release.future;
+    throw StateError('close unavailable');
+  }
 
   @override
   Future<void> compact({required DateTime nowUtc}) =>

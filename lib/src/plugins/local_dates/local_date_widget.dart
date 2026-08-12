@@ -281,37 +281,52 @@ class _LocalDateButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inherited = DefaultTextStyle.of(context).style;
+    final theme = Theme.of(context);
     final color = past
         ? inherited.color?.withValues(alpha: 0.62)
-        : Theme.of(context).colorScheme.primary;
+        : theme.colorScheme.primary;
+    final label = semanticLabel.isEmpty ? formatted : semanticLabel;
+
+    void activate() {
+      final box = context.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) return;
+      final origin = box.localToGlobal(Offset.zero);
+      onPressed(origin & box.size);
+    }
+
+    // This widget participates in a cooked paragraph through a WidgetSpan.
+    // Forcing a 44px box around it would expand the surrounding line, so it
+    // uses WCAG's inline-target exception and makes the complete painted date
+    // the hit target instead. InkWell still supplies keyboard focus, Enter and
+    // Space activation, and a visible focus overlay.
     return Semantics(
+      container: true,
       button: true,
-      label: semanticLabel.isEmpty ? formatted : semanticLabel,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            final box = context.findRenderObject() as RenderBox?;
-            if (box == null || !box.hasSize) return;
-            final origin = box.localToGlobal(Offset.zero);
-            onPressed(origin & box.size);
-          },
-          child: Text.rich(
-            TextSpan(
-              style: inherited.copyWith(
-                color: color,
-                decoration: TextDecoration.underline,
-                decorationStyle: TextDecorationStyle.dotted,
-                decorationColor: color,
-              ),
-              children: [
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: DIcon(DIcons.globe, size: 15, color: color),
+      label: label,
+      onTap: activate,
+      child: ExcludeSemantics(
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: activate,
+            borderRadius: BorderRadius.circular(2),
+            focusColor: theme.colorScheme.primary.withValues(alpha: 0.16),
+            child: Text.rich(
+              TextSpan(
+                style: inherited.copyWith(
+                  color: color,
+                  decoration: TextDecoration.underline,
+                  decorationStyle: TextDecorationStyle.dotted,
+                  decorationColor: color,
                 ),
-                TextSpan(text: ' $formatted'),
-              ],
+                children: [
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: DIcon(DIcons.globe, size: 15, color: color),
+                  ),
+                  TextSpan(text: ' $formatted'),
+                ],
+              ),
             ),
           ),
         ),

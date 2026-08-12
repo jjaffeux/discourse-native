@@ -17,9 +17,18 @@ class SearchResults {
     this.error,
   });
 
+  /// Maximum server entries parsed and retained for one header-search facet.
+  ///
+  /// The result panel eagerly builds and keeps its small suggestion set alive
+  /// for keyboard navigation. Bound each raw collection before parsing titles
+  /// and excerpts so a broken site cannot turn that panel into unbounded work.
+  static const int maximumResultsPerSection = 50;
+
   factory SearchResults.fromJson(Map<String, dynamic> json, String siteUrl) {
     final topics = <int, _SearchTopic>{};
-    for (final value in jsonObjects(json['topics'])) {
+    for (final value in jsonObjects(
+      json['topics'],
+    ).take(maximumResultsPerSection)) {
       final id = jsonIntOrNull(value['id']);
       if (id == null || id <= 0) continue;
       topics[id] = _SearchTopic(
@@ -30,7 +39,9 @@ class SearchResults {
     }
 
     final hits = <SearchPostHit>[];
-    for (final value in jsonObjects(json['posts'])) {
+    for (final value in jsonObjects(
+      json['posts'],
+    ).take(maximumResultsPerSection)) {
       final topicId = jsonIntOrNull(value['topic_id']);
       final postId = jsonIntOrNull(value['id']);
       final postNumber = jsonIntOrNull(value['post_number']);
@@ -79,7 +90,10 @@ class SearchResults {
       String? moreKey,
     }) {
       final results = <SearchResult>[
-        for (final value in jsonObjects(json[key])) ?parse(value),
+        for (final value in jsonObjects(
+          json[key],
+        ).take(maximumResultsPerSection))
+          ?parse(value),
       ];
       if (results.isEmpty) return;
       sections.add(
@@ -357,73 +371,100 @@ class SearchGroupHit extends SearchResult {
 class SearchExcerpt {
   const SearchExcerpt(this.segments);
 
+  /// A header-search blurb is a short excerpt, never a complete post.
+  ///
+  /// Bound it before constructing an HTML DOM so a broken or hostile site
+  /// cannot turn one nominal snippet into disproportionate parser work.
+  static const int maxHtmlSourceCodeUnits = 8 * 1024;
+
+  static final RegExp _whitespace = RegExp(r'\s');
+
   factory SearchExcerpt.fromHtml(String source) {
     if (source.isEmpty) return const SearchExcerpt([]);
+    source = _boundedHtmlSource(source);
 
-    final raw = <SearchExcerptSegment>[];
+    final raw = <({StringBuffer text, bool highlighted})>[];
     void append(String text, bool highlighted) {
       if (text.isEmpty) return;
       if (raw.isNotEmpty && raw.last.highlighted == highlighted) {
-        final previous = raw.removeLast();
-        raw.add(
-          SearchExcerptSegment(
-            '${previous.text}$text',
-            highlighted: highlighted,
-          ),
-        );
+        raw.last.text.write(text);
       } else {
-        raw.add(SearchExcerptSegment(text, highlighted: highlighted));
+        raw.add((text: StringBuffer(text), highlighted: highlighted));
       }
     }
 
-    void visit(Node node, bool highlighted) {
+    final roots = html.parseFragment(source).nodes;
+    final pending = <({Node node, bool highlighted, bool exiting})>[];
+    void pushNodes(List<Node> nodes, bool highlighted) {
+      for (var index = nodes.length - 1; index >= 0; index--) {
+        pending.add((
+          node: nodes[index],
+          highlighted: highlighted,
+          exiting: false,
+        ));
+      }
+    }
+
+    pushNodes(roots, false);
+    while (pending.isNotEmpty) {
+      final frame = pending.removeLast();
+      final node = frame.node;
       if (node is Text) {
-        append(node.data, highlighted);
-        return;
+        append(node.data, frame.highlighted);
+        continue;
       }
-      if (node is! Element) return;
+      if (node is! Element) continue;
+      if (frame.exiting) {
+        if (const {'p', 'div', 'li'}.contains(node.localName)) {
+          append(' ', frame.highlighted);
+        }
+        continue;
+      }
       if (node.localName == 'br') {
-        append(' ', highlighted);
-        return;
+        append(' ', frame.highlighted);
+        continue;
       }
-      final marked = highlighted || node.classes.contains('search-highlight');
-      for (final child in node.nodes) {
-        visit(child, marked);
-      }
-      if (const {'p', 'div', 'li'}.contains(node.localName)) {
-        append(' ', highlighted);
-      }
-    }
-
-    for (final node in html.parseFragment(source).nodes) {
-      visit(node, false);
+      final marked =
+          frame.highlighted || node.classes.contains('search-highlight');
+      pending.add((node: node, highlighted: marked, exiting: true));
+      pushNodes(node.nodes, marked);
     }
 
     // Search excerpts can retain indentation and line breaks from cooked HTML.
     // Collapse them without losing which words Discourse highlighted.
     final normalized = <SearchExcerptSegment>[];
+    StringBuffer? normalizedText;
+    var normalizedHighlighted = false;
+
+    void flushNormalized() {
+      final text = normalizedText;
+      if (text == null) return;
+      normalized.add(
+        SearchExcerptSegment(
+          text.toString(),
+          highlighted: normalizedHighlighted,
+        ),
+      );
+      normalizedText = null;
+    }
+
     void appendNormalized(String text, bool highlighted) {
-      if (normalized.isNotEmpty && normalized.last.highlighted == highlighted) {
-        final previous = normalized.removeLast();
-        normalized.add(
-          SearchExcerptSegment(
-            '${previous.text}$text',
-            highlighted: highlighted,
-          ),
-        );
-      } else {
-        normalized.add(SearchExcerptSegment(text, highlighted: highlighted));
+      if (normalizedText == null || normalizedHighlighted != highlighted) {
+        flushNormalized();
+        normalizedText = StringBuffer();
+        normalizedHighlighted = highlighted;
       }
+      normalizedText!.write(text);
     }
 
     var pendingSpace = false;
     var pendingSegment = -1;
     for (var segmentIndex = 0; segmentIndex < raw.length; segmentIndex++) {
       final segment = raw[segmentIndex];
-      for (final rune in segment.text.runes) {
+      for (final rune in segment.text.toString().runes) {
         final character = String.fromCharCode(rune);
-        if (RegExp(r'\s').hasMatch(character)) {
-          pendingSpace = normalized.isNotEmpty;
+        if (_whitespace.hasMatch(character)) {
+          pendingSpace = normalized.isNotEmpty || normalizedText != null;
           pendingSegment = segmentIndex;
           continue;
         }
@@ -437,8 +478,27 @@ class SearchExcerpt {
         appendNormalized(character, segment.highlighted);
       }
     }
+    flushNormalized();
     return SearchExcerpt(List.unmodifiable(normalized));
   }
+
+  static String _boundedHtmlSource(String source) {
+    if (source.length <= maxHtmlSourceCodeUnits) return source;
+
+    var end = maxHtmlSourceCodeUnits;
+    final lastIncluded = source.codeUnitAt(end - 1);
+    final firstExcluded = source.codeUnitAt(end);
+    if (_isHighSurrogate(lastIncluded) && _isLowSurrogate(firstExcluded)) {
+      end--;
+    }
+    return source.substring(0, end);
+  }
+
+  static bool _isHighSurrogate(int codeUnit) =>
+      codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
+
+  static bool _isLowSurrogate(int codeUnit) =>
+      codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
 
   final List<SearchExcerptSegment> segments;
 

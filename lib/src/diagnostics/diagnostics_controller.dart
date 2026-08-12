@@ -248,6 +248,8 @@ final class DiagnosticsController
   int _generation = 0;
   bool _persistenceFailed = false;
   bool _closed = false;
+  Future<void>? _closeTask;
+  bool _closeSettled = false;
   final bool _durablePersistenceUnavailable;
 
   final String sessionId;
@@ -687,8 +689,32 @@ final class DiagnosticsController
     await _persistenceTail;
   }
 
-  Future<void> close() async {
-    if (_closed) return;
+  Future<void> close() {
+    final active = _closeTask;
+    if (active != null && !_closeSettled) return active;
+    if (_closed) return Future<void>.value();
+
+    // Publish the shared future before beginning cleanup. A listener notified
+    // by the session-end event may itself call close; it must join this close,
+    // not start a second one.
+    final completion = Completer<void>();
+    _closeTask = completion.future;
+    unawaited(
+      _performClose().then<void>(
+        (_) {
+          _closeSettled = true;
+          completion.complete();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          _closeSettled = true;
+          completion.completeError(error, stackTrace);
+        },
+      ),
+    );
+    return completion.future;
+  }
+
+  Future<void> _performClose() async {
     final now = _clock().toUtc();
     _record(
       DiagnosticSessionEvent(
@@ -704,12 +730,37 @@ final class DiagnosticsController
     _resetErrorDeduplication();
     _expiryTimer?.cancel();
     _expiryTimer = null;
-    await flush();
-    await _persistence.close();
-    _eventsNotifier.dispose();
-    _panelStateNotifier.dispose();
-    _panelOpenNotifier.dispose();
-    _unseenErrorCountNotifier.dispose();
+
+    Object? firstError;
+    StackTrace? firstStackTrace;
+    Future<void> stage(Future<void> Function() cleanup) async {
+      try {
+        await cleanup();
+      } on Object catch (error, stackTrace) {
+        firstError ??= error;
+        firstStackTrace ??= stackTrace;
+      }
+    }
+
+    void disposeNotifier(ChangeNotifier notifier) {
+      try {
+        notifier.dispose();
+      } on Object catch (error, stackTrace) {
+        firstError ??= error;
+        firstStackTrace ??= stackTrace;
+      }
+    }
+
+    await stage(flush);
+    await stage(_persistence.close);
+    disposeNotifier(_eventsNotifier);
+    disposeNotifier(_panelStateNotifier);
+    disposeNotifier(_panelOpenNotifier);
+    disposeNotifier(_unseenErrorCountNotifier);
+
+    if (firstError != null) {
+      Error.throwWithStackTrace(firstError!, firstStackTrace!);
+    }
   }
 
   void _initializePreviousSession() {

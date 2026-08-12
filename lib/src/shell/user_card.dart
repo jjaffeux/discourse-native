@@ -36,15 +36,26 @@ class UserCardTarget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (username.isEmpty) return child;
+    final theme = Theme.of(context);
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => unawaited(
-          showUserCard(context: context, username: username, siteUrl: siteUrl),
+    void open() => unawaited(
+      showUserCard(context: context, username: username, siteUrl: siteUrl),
+    );
+
+    return Semantics(
+      container: true,
+      button: true,
+      label: 'View profile for @$username',
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
+          borderRadius: BorderRadius.circular(4),
+          hoverColor: theme.shell.hover,
+          focusColor: theme.shell.hover,
+          onTap: open,
+          child: ExcludeSemantics(child: child),
         ),
-        child: child,
       ),
     );
   }

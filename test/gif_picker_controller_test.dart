@@ -239,6 +239,25 @@ void main() {
       expect(api.gifSearchRequests, isEmpty);
     },
   );
+
+  test(
+    'dispose during API key lookup stops remaining credential and API work',
+    () async {
+      final credentials = _GatedCredentials();
+      final api = FakeDiscourseApi();
+      final controller = _controller(api, credentials: credentials);
+
+      final loading = controller.loadCategories();
+      await credentials.started.future;
+      controller.dispose();
+      credentials.result.complete('stale-key');
+      await loading;
+
+      expect(credentials.clientIdCalls, 0);
+      expect(api.gifCategoryRequests, isEmpty);
+      expect(controller.error, isNull);
+    },
+  );
 }
 
 GifPickerController _controller(
@@ -364,10 +383,17 @@ final class _FailingSearchApi implements GifsApi {
 final class _GatedCredentials extends FakeApiCredentialReader {
   final Completer<void> started = Completer<void>();
   final Completer<String?> result = Completer<String?>();
+  int clientIdCalls = 0;
 
   @override
   Future<String?> apiKeyFor(String siteUrl) {
     if (!started.isCompleted) started.complete();
     return result.future;
+  }
+
+  @override
+  Future<String> clientId() async {
+    clientIdCalls++;
+    return super.clientId();
   }
 }

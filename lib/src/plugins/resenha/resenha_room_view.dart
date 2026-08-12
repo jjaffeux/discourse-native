@@ -1170,133 +1170,175 @@ Future<void> _showResenhaMembers(
   required String siteUrl,
   required ResenhaRoom room,
 }) async {
-  var memberships = await controller.memberships(siteUrl, room.id);
+  final memberships = await controller.memberships(siteUrl, room.id);
   if (!context.mounted) return;
-  final username = TextEditingController();
-  var newRole = ResenhaRole.participant;
   await showDialog<void>(
     context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: Text('Members of ${room.name}'),
-        content: SizedBox(
-          width: 500,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    for (final membership in memberships)
-                      ListTile(
-                        title: Text(
-                          membership.user?.name ??
-                              membership.user?.username ??
-                              'User ${membership.userId}',
-                        ),
-                        subtitle: Text(membership.role.name),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            PopupMenuButton<ResenhaRole>(
-                              tooltip: 'Change role',
-                              onSelected: (role) async {
-                                await controller.updateMember(
-                                  siteUrl,
-                                  room.id,
-                                  membership.id,
-                                  role,
-                                );
-                                memberships = await controller.memberships(
-                                  siteUrl,
-                                  room.id,
-                                );
-                                setState(() {});
-                              },
-                              itemBuilder: (context) => [
-                                for (final role in ResenhaRole.values)
-                                  PopupMenuItem(
-                                    value: role,
-                                    child: Text(role.name),
-                                  ),
-                              ],
-                            ),
-                            if (membership.userId != room.creatorId)
-                              IconButton(
-                                tooltip: 'Remove member',
-                                onPressed: () async {
-                                  await controller.removeMember(
-                                    siteUrl,
-                                    room.id,
-                                    membership.id,
-                                  );
-                                  memberships = await controller.memberships(
-                                    siteUrl,
-                                    room.id,
-                                  );
-                                  setState(() {});
-                                },
-                                icon: const DIcon(DIcons.trashCan, size: 17),
+    builder: (context) => _ResenhaMembersDialog(
+      controller: controller,
+      siteUrl: siteUrl,
+      room: room,
+      initialMemberships: memberships,
+    ),
+  );
+}
+
+class _ResenhaMembersDialog extends StatefulWidget {
+  const _ResenhaMembersDialog({
+    required this.controller,
+    required this.siteUrl,
+    required this.room,
+    required this.initialMemberships,
+  });
+
+  final ResenhaController controller;
+  final String siteUrl;
+  final ResenhaRoom room;
+  final List<ResenhaMembership> initialMemberships;
+
+  @override
+  State<_ResenhaMembersDialog> createState() => _ResenhaMembersDialogState();
+}
+
+class _ResenhaMembersDialogState extends State<_ResenhaMembersDialog> {
+  final TextEditingController _username = TextEditingController();
+  late List<ResenhaMembership> _memberships = widget.initialMemberships;
+  ResenhaRole _newRole = ResenhaRole.participant;
+
+  @override
+  void dispose() {
+    _username.dispose();
+    super.dispose();
+  }
+
+  Future<void> _updateMember(
+    ResenhaMembership membership,
+    ResenhaRole role,
+  ) async {
+    await widget.controller.updateMember(
+      widget.siteUrl,
+      widget.room.id,
+      membership.id,
+      role,
+    );
+    if (!mounted) return;
+    await _refreshMemberships();
+  }
+
+  Future<void> _removeMember(ResenhaMembership membership) async {
+    await widget.controller.removeMember(
+      widget.siteUrl,
+      widget.room.id,
+      membership.id,
+    );
+    if (!mounted) return;
+    await _refreshMemberships();
+  }
+
+  Future<void> _addMember() async {
+    final value = _username.text.trim();
+    if (value.isEmpty) return;
+    await widget.controller.addMember(
+      widget.siteUrl,
+      widget.room.id,
+      value,
+      _newRole,
+    );
+    if (!mounted) return;
+    _username.clear();
+    await _refreshMemberships();
+  }
+
+  Future<void> _refreshMemberships() async {
+    if (!mounted) return;
+    final memberships = await widget.controller.memberships(
+      widget.siteUrl,
+      widget.room.id,
+    );
+    if (!mounted) return;
+    setState(() => _memberships = memberships);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text('Members of ${widget.room.name}'),
+    content: SizedBox(
+      width: 500,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final membership in _memberships)
+                  ListTile(
+                    title: Text(
+                      membership.user?.name ??
+                          membership.user?.username ??
+                          'User ${membership.userId}',
+                    ),
+                    subtitle: Text(membership.role.name),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        PopupMenuButton<ResenhaRole>(
+                          tooltip: 'Change role',
+                          onSelected: (role) => _updateMember(membership, role),
+                          itemBuilder: (context) => [
+                            for (final role in ResenhaRole.values)
+                              PopupMenuItem(
+                                value: role,
+                                child: Text(role.name),
                               ),
                           ],
                         ),
-                      ),
-                  ],
-                ),
-              ),
-              const Divider(),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: username,
-                      decoration: const InputDecoration(labelText: 'Username'),
+                        if (membership.userId != widget.room.creatorId)
+                          IconButton(
+                            tooltip: 'Remove member',
+                            onPressed: () => _removeMember(membership),
+                            icon: const DIcon(DIcons.trashCan, size: 17),
+                          ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  DropdownButton<ResenhaRole>(
-                    value: newRole,
-                    onChanged: (value) =>
-                        setState(() => newRole = value ?? newRole),
-                    items: [
-                      for (final role in ResenhaRole.values)
-                        DropdownMenuItem(value: role, child: Text(role.name)),
-                    ],
-                  ),
-                  IconButton.filledTonal(
-                    tooltip: 'Add member',
-                    onPressed: () async {
-                      final value = username.text.trim();
-                      if (value.isEmpty) return;
-                      await controller.addMember(
-                        siteUrl,
-                        room.id,
-                        value,
-                        newRole,
-                      );
-                      username.clear();
-                      memberships = await controller.memberships(
-                        siteUrl,
-                        room.id,
-                      );
-                      setState(() {});
-                    },
-                    icon: const DIcon(DIcons.userPlus, size: 17),
-                  ),
+              ],
+            ),
+          ),
+          const Divider(),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _username,
+                  decoration: const InputDecoration(labelText: 'Username'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              DropdownButton<ResenhaRole>(
+                value: _newRole,
+                onChanged: (value) =>
+                    setState(() => _newRole = value ?? _newRole),
+                items: [
+                  for (final role in ResenhaRole.values)
+                    DropdownMenuItem(value: role, child: Text(role.name)),
                 ],
               ),
+              IconButton.filledTonal(
+                tooltip: 'Add member',
+                onPressed: _addMember,
+                icon: const DIcon(DIcons.userPlus, size: 17),
+              ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Done'),
           ),
         ],
       ),
     ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Done'),
+      ),
+    ],
   );
-  username.dispose();
 }

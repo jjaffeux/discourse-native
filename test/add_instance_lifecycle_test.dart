@@ -11,6 +11,57 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 void main() {
+  testWidgets('labels the forum address and submits it with the Go action', (
+    tester,
+  ) async {
+    final store = FakeInstanceStore();
+    final api = _GatedLookupApi();
+    final controller = _controller(store, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(_app(controller));
+      await tester.tap(find.text('Add site'));
+      await tester.pumpAndSettle();
+
+      final field = find.byType(TextField);
+      final editable = find.descendant(
+        of: field,
+        matching: find.byType(EditableText),
+      );
+      final textField = tester.widget<TextField>(field);
+      expect(textField.decoration?.labelText, 'Forum address');
+      expect(textField.decoration?.hintText, 'meta.discourse.org');
+      expect(
+        tester.getSemantics(editable),
+        isSemantics(
+          label: 'Forum address\nmeta.discourse.org',
+          isTextField: true,
+          isFocusable: true,
+          isFocused: true,
+        ),
+      );
+
+      await tester.enterText(field, 'meta.example');
+      await tester.testTextInput.receiveAction(TextInputAction.go);
+      await tester.pump();
+      await api.started.future;
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      api.lookupGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(controller.instances, isEmpty);
+      expect(store.saveCount, 0);
+    } finally {
+      if (!api.lookupGate.isCompleted) api.lookupGate.complete();
+      semantics.dispose();
+    }
+  });
+
   testWidgets('dismissing the sheet cancels a pending add', (tester) async {
     final store = FakeInstanceStore();
     final api = _GatedLookupApi();

@@ -80,6 +80,7 @@ class PollCard extends StatefulWidget {
 
 class _PollCardState extends State<PollCard> {
   late Set<String> _selection;
+  String? _plainTitle;
   var _submitting = false;
 
   Poll get _poll => widget.poll;
@@ -116,11 +117,16 @@ class _PollCardState extends State<PollCard> {
   void initState() {
     super.initState();
     _selection = _savedSelection;
+    _plainTitle = _poll.title == null ? null : _plainText(_poll.title!);
   }
 
   @override
   void didUpdateWidget(PollCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.poll.title != _poll.title) {
+      _plainTitle = _poll.title == null ? null : _plainText(_poll.title!);
+    }
 
     final oldSaved = oldWidget.poll.selectedOptionIds.toSet();
     final newSaved = _savedSelection;
@@ -280,7 +286,7 @@ class _PollCardState extends State<PollCard> {
 
     return Semantics(
       container: true,
-      label: _poll.title == null ? 'Poll' : 'Poll: ${_plainText(_poll.title!)}',
+      label: _plainTitle == null ? 'Poll' : 'Poll: $_plainTitle',
       child: Card(
         key: ValueKey<String>('poll-${_poll.name}'),
         margin: const EdgeInsets.symmetric(vertical: 8),
@@ -529,7 +535,7 @@ class _PollOptionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final plain = _plainText(option.html);
+    final plain = option.plainText;
     final votes = option.votes;
     final resultLabel = votes == null || percentage == null
         ? ''
@@ -540,60 +546,66 @@ class _PollOptionRow extends StatelessWidget {
       button: canSelect,
       enabled: canSelect,
       selected: selected,
-      label: '$plain${selected ? ', selected' : ''}$resultLabel',
-      child: ExcludeSemantics(
-        child: InkWell(
-          onTap: canSelect ? onTap : null,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 7),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 1),
-                  child: Icon(
-                    multiple
-                        ? (selected
-                              ? Icons.check_box
-                              : Icons.check_box_outline_blank)
-                        : (selected
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_unchecked),
-                    size: 22,
-                    color: selected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      CookedHtml(html: option.html, siteUrl: siteUrl),
-                      if (votes != null && percentage != null) ...[
-                        const SizedBox(height: 5),
-                        Row(
-                          children: [
-                            Text(
-                              votes == 1 ? '1 vote' : '$votes votes',
-                              style: Theme.of(context).textTheme.labelSmall,
+      label: '$plain$resultLabel',
+      child: InkWell(
+        onTap: canSelect ? onTap : null,
+        borderRadius: BorderRadius.circular(8),
+        child: ExcludeSemantics(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Icon(
+                        multiple
+                            ? (selected
+                                  ? Icons.check_box
+                                  : Icons.check_box_outline_blank)
+                            : (selected
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_unchecked),
+                        size: 22,
+                        color: selected
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          CookedHtml(html: option.html, siteUrl: siteUrl),
+                          if (votes != null && percentage != null) ...[
+                            const SizedBox(height: 5),
+                            Row(
+                              children: [
+                                Text(
+                                  votes == 1 ? '1 vote' : '$votes votes',
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '$percentage%',
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '$percentage%',
-                              style: Theme.of(context).textTheme.labelSmall,
-                            ),
+                            const SizedBox(height: 4),
+                            _ResultBar(percentage: percentage!),
                           ],
-                        ),
-                        const SizedBox(height: 4),
-                        _ResultBar(percentage: percentage!),
-                      ],
-                    ],
-                  ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -665,8 +677,8 @@ class _RankedChoiceBody extends StatelessWidget {
         for (final option in poll.options)
           Semantics(
             label: ranks[option.id] == null
-                ? _plainText(option.html)
-                : '${_plainText(option.html)}, ranked ${ranks[option.id]}',
+                ? option.plainText
+                : '${option.plainText}, ranked ${ranks[option.id]}',
             child: ExcludeSemantics(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 5),
@@ -707,7 +719,7 @@ class _RankedCandidatesSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     label:
-        '$label ${candidates.map((candidate) => _plainText(candidate.html)).join(', ')}',
+        '$label ${candidates.map((candidate) => candidate.plainText).join(', ')}',
     child: ExcludeSemantics(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

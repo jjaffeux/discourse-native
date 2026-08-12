@@ -170,13 +170,11 @@ class GithubUser extends StatelessWidget {
     final url = this.url;
     if (url == null) return row;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => openLink(context, url, siteUrl: siteUrl),
-        child: row,
-      ),
+    return _GithubInlineLink(
+      label: login,
+      url: url,
+      siteUrl: siteUrl,
+      child: row,
     );
   }
 }
@@ -215,12 +213,47 @@ class GithubLineCounts extends StatelessWidget {
     final url = this.url;
     if (url == null) return row;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
+    return _GithubInlineLink(
+      label:
+          '$additions ${additions == 1 ? 'addition' : 'additions'}, '
+          '$deletions ${deletions == 1 ? 'deletion' : 'deletions'}',
+      url: url,
+      siteUrl: siteUrl,
+      child: row,
+    );
+  }
+}
+
+/// A compact metadata link inside a GitHub card.
+///
+/// It uses the inline-target exception rather than stretching the card's info
+/// row to 44 pixels, but still exposes a native keyboard focus and action path.
+class _GithubInlineLink extends StatelessWidget {
+  const _GithubInlineLink({
+    required this.label,
+    required this.url,
+    required this.siteUrl,
+    required this.child,
+  });
+
+  final String label;
+  final String url;
+  final String? siteUrl;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final hover = Theme.of(context).shell.hover;
+    return Semantics(
+      container: true,
+      link: true,
+      label: label,
+      child: InkWell(
         onTap: () => openLink(context, url, siteUrl: siteUrl),
-        child: row,
+        borderRadius: BorderRadius.circular(2),
+        hoverColor: hover,
+        focusColor: hover,
+        child: ExcludeSemantics(child: child),
       ),
     );
   }
@@ -262,10 +295,18 @@ dom.Element? githubDescendant(
   dom.Element root,
   bool Function(dom.Element) test,
 ) {
-  for (final child in root.children) {
+  final pending = <dom.Element>[];
+  void pushReversed(List<dom.Element> children) {
+    for (var index = children.length - 1; index >= 0; index--) {
+      pending.add(children[index]);
+    }
+  }
+
+  pushReversed(root.children);
+  while (pending.isNotEmpty) {
+    final child = pending.removeLast();
     if (test(child)) return child;
-    final found = githubDescendant(child, test);
-    if (found != null) return found;
+    pushReversed(child.children);
   }
   return null;
 }
@@ -276,14 +317,19 @@ List<dom.Element> githubDescendants(
   bool Function(dom.Element) test,
 ) {
   final found = <dom.Element>[];
-  void walk(dom.Element element) {
-    for (final child in element.children) {
-      if (test(child)) found.add(child);
-      walk(child);
+  final pending = <dom.Element>[];
+  void pushReversed(List<dom.Element> children) {
+    for (var index = children.length - 1; index >= 0; index--) {
+      pending.add(children[index]);
     }
   }
 
-  walk(root);
+  pushReversed(root.children);
+  while (pending.isNotEmpty) {
+    final child = pending.removeLast();
+    if (test(child)) found.add(child);
+    pushReversed(child.children);
+  }
   return found;
 }
 
@@ -332,22 +378,25 @@ String? githubBody(dom.Element article) {
   if (p == null) return null;
 
   final buffer = StringBuffer();
-  void walk(dom.Node node) {
+  final pending = <dom.Node>[];
+  void pushReversed(List<dom.Node> nodes) {
+    for (var index = nodes.length - 1; index >= 0; index--) {
+      pending.add(nodes[index]);
+    }
+  }
+
+  pushReversed(p.nodes);
+  while (pending.isNotEmpty) {
+    final node = pending.removeLast();
     if (node is dom.Element) {
       if (node.classes.contains('excerpt') ||
           node.classes.contains('show-more-container')) {
-        return;
+        continue;
       }
-      for (final child in node.nodes) {
-        walk(child);
-      }
-      return;
+      pushReversed(node.nodes);
+      continue;
     }
     buffer.write(node.text);
-  }
-
-  for (final child in p.nodes) {
-    walk(child);
   }
 
   final text = buffer.toString().trim();

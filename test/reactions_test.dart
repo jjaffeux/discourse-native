@@ -201,6 +201,29 @@ void main() {
       expect(next.entries.map((e) => e.id), ['clap', 'heart']);
     });
 
+    test('sorts a large arbitrary-emoji row in one exact site order', () {
+      const count = 512;
+      final held = Reactions(
+        entries: List.unmodifiable([
+          for (var index = 0; index < count; index++)
+            Reaction(
+              id: 'emoji-${index.toString().padLeft(3, '0')}',
+              count: count - index,
+            ),
+        ]),
+        userCount: count,
+      );
+
+      final next = held.withToggled('emoji-511');
+
+      expect(next.entries, hasLength(count));
+      expect(next.entries.first, const Reaction(id: 'emoji-000', count: 512));
+      expect(next.entries.last, const Reaction(id: 'emoji-511', count: 2));
+      expect(next.mine, const Reaction(id: 'emoji-511', canUndo: true));
+      expect(next.userCount, count + 1);
+      expect(() => next.entries.clear(), throwsUnsupportedError);
+    });
+
     test('drops an emoji nobody is left giving', () {
       final held = reactionsOf(
         payload(

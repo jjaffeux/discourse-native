@@ -61,6 +61,38 @@ void main() {
       expect(payload.posts.map((p) => p.id), [1]);
     });
 
+    test('bounds eager posts while retaining the complete paging stream', () {
+      final allIds = [
+        for (var id = 1; id <= TopicDetail.maximumInitialPosts + 2; id++) id,
+      ];
+      final payload = TopicDetail.parse({
+        'id': 7,
+        'title': 'A busy topic',
+        'posts_count': allIds.length,
+        'post_stream': {
+          'posts': [
+            'malformed',
+            for (final id in allIds)
+              {
+                'id': id,
+                'post_number': id,
+                'username': 'sam',
+                'cooked': '<p>$id</p>',
+              },
+          ],
+          'stream': allIds,
+        },
+      }, site);
+
+      expect(payload.detail.stream, allIds);
+      expect(payload.posts, hasLength(TopicDetail.maximumInitialPosts));
+      expect(payload.posts.map((post) => post.id), [
+        for (var id = 1; id <= TopicDetail.maximumInitialPosts; id++) id,
+      ]);
+      expect(payload.detail.stream.skip(payload.posts.length), [21, 22]);
+      expect(() => payload.posts.clear(), throwsUnsupportedError);
+    });
+
     test('reads canCreatePost from the topic details', () {
       final payload = TopicDetail.parse(const {
         'id': 7,

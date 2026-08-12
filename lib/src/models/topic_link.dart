@@ -24,6 +24,12 @@ class TopicLink {
   /// The numbered post named by a slugged topic URL, if there is one.
   final int? postNumber;
 
+  /// A generous boundary for server-authored links before URI parsing.
+  /// Ordinary topic links are tiny; sharing the 2 KiB navigation boundary
+  /// used for feed cursors prevents malformed cooked HTML from allocating an
+  /// arbitrarily large URI and placeholder slug.
+  static const int maximumUrlLength = 2048;
+
   /// The topic [url] points at, or null when it points at anything else.
   ///
   /// Discourse writes topic URLs as `/t/slug/12`, with a post number appended
@@ -31,8 +37,9 @@ class TopicLink {
   /// suffixed routes such as `/t/slug/12/last`. Permalinks drop the slug and
   /// leave `/t/12`.
   static TopicLink? parse(String url) {
+    if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);
-    if (uri == null) return null;
+    if (uri == null || uri.userInfo.isNotEmpty) return null;
 
     final segments = uri.pathSegments;
     if (segments.length < 2 || segments.first != 't') return null;

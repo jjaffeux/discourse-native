@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -62,6 +63,75 @@ const _teamBookmark = Bookmark(
 );
 
 void main() {
+  testWidgets(
+    'pointer tabs expose 44 pixel selected controls with keyboard actions',
+    (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.tap(find.byKey(UserMenuButton.avatarKey));
+        await tester.pumpAndSettle();
+
+        final notifications = find.byKey(const ValueKey('user-menu-tab-all'));
+        final bookmarks = find.byKey(const ValueKey('user-menu-tab-bookmarks'));
+        final replies = find.byKey(const ValueKey('user-menu-tab-replies'));
+
+        for (final tab in [notifications, bookmarks, replies]) {
+          expect(tester.getSize(tab), const Size.square(44));
+        }
+        expect(
+          tester.getSemantics(notifications),
+          isSemantics(
+            label: 'Notifications',
+            isButton: true,
+            hasSelectedState: true,
+            isSelected: true,
+            hasTapAction: true,
+          ),
+        );
+        expect(
+          tester.getSemantics(bookmarks),
+          isSemantics(
+            label: 'Bookmarks',
+            isButton: true,
+            hasSelectedState: true,
+            isSelected: false,
+            hasTapAction: true,
+          ),
+        );
+
+        await _focusTab(tester, bookmarks);
+        expect(
+          tester.getSemantics(bookmarks),
+          isSemantics(isFocusable: true, isFocused: true),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(BookmarkSection), findsOneWidget);
+        expect(
+          tester.getSemantics(bookmarks),
+          isSemantics(hasSelectedState: true, isSelected: true),
+        );
+        expect(
+          tester.getSemantics(notifications),
+          isSemantics(hasSelectedState: true, isSelected: false),
+        );
+
+        await _focusTab(tester, replies);
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(RepliesSection), findsOneWidget);
+        expect(
+          tester.getSemantics(replies),
+          isSemantics(hasSelectedState: true, isSelected: true),
+        );
+      } finally {
+        semantics.dispose();
+      }
+    }),
+  );
+
   testWidgets(
     'an open popover requests activity for each selected site',
     (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
@@ -187,6 +257,18 @@ void main() {
       expect(shell.currentInstance?.user, isNotNull);
     }),
   );
+}
+
+Future<void> _focusTab(WidgetTester tester, Finder tab) async {
+  final inkWell = find.descendant(of: tab, matching: find.byType(InkWell));
+  expect(inkWell, findsOneWidget);
+  final focusChild = find
+      .descendant(of: inkWell, matching: find.byType(MouseRegion))
+      .first;
+  final focus = Focus.of(tester.element(focusChild));
+  focus.requestFocus();
+  await tester.pumpAndSettle();
+  expect(focus.hasPrimaryFocus, isTrue);
 }
 
 typedef _MenuFixture = ({FakeAuthenticator auth, _SiteMenuApi api});

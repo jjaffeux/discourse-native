@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
@@ -75,6 +76,7 @@ void main() {
   test(
     'failed appearance refresh keeps persisted colors and bounds retries',
     () async {
+      final diagnostics = await _installDiagnostics('appearance-load');
       final stored = siteAppearance(accent: const Color(0xFF112233));
       final api = _PresentationApi()..appearanceError = StateError('offline');
       var persistenceCalls = 0;
@@ -103,6 +105,33 @@ void main() {
       expect(controller.appearanceFor(site), stored);
       expect(persistenceCalls, 0);
       expect(notifications, 0);
+      final events = diagnostics.events.whereType<ErrorDiagnosticEvent>();
+      expect(events, isNotEmpty);
+      expect(events, everyElement(_isAppearanceFailure('siteAppearance.load')));
+      controller.dispose();
+    },
+  );
+
+  test(
+    'failed appearance persistence keeps fetched colors and reports it',
+    () async {
+      final diagnostics = await _installDiagnostics('appearance-persist');
+      final fetched = siteAppearance(accent: const Color(0xFF445566));
+      final api = _PresentationApi()..appearance = fetched;
+      final controller = _controller(
+        api,
+        onAppearanceLoaded: (_, _) async {
+          throw StateError('storage unavailable');
+        },
+      );
+
+      await controller.ensureAppearance(site);
+
+      expect(controller.appearanceFor(site), fetched);
+      expect(
+        diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
+        _isAppearanceFailure('siteAppearance.persist'),
+      );
       controller.dispose();
     },
   );
@@ -131,6 +160,20 @@ void main() {
     expect(controller.appearanceFor(site), isNull);
     expect(persisted, isEmpty);
     controller.dispose();
+  });
+
+  test('reentrant disposal cannot persist published appearance', () async {
+    final api = _PresentationApi()..appearance = siteAppearance();
+    var persistenceCalls = 0;
+    final controller = _controller(
+      api,
+      onAppearanceLoaded: (_, _) async => persistenceCalls++,
+    );
+    controller.addListener(controller.dispose);
+
+    await controller.ensureAppearance(site);
+
+    expect(persistenceCalls, 0);
   });
 
   test('loads, publishes, persists, and caches site config', () async {
@@ -470,6 +513,21 @@ void main() {
     },
   );
 
+  test('reentrant disposal cannot persist published config', () async {
+    final api = _PresentationApi()
+      ..config = const SiteConfig(emojiSet: 'google');
+    var persistenceCalls = 0;
+    final controller = _controller(
+      api,
+      onConfigLoaded: (_, _) async => persistenceCalls++,
+    );
+    controller.addListener(controller.dispose);
+
+    await controller.ensureConfig(site);
+
+    expect(persistenceCalls, 0);
+  });
+
   test('forget clears custom artwork and autocomplete index', () async {
     final api = _PresentationApi()
       ..custom = {'party': '/uploads/party.png'}
@@ -499,6 +557,26 @@ void main() {
     controller.dispose();
   });
 }
+
+Future<DiagnosticsController> _installDiagnostics(String sessionId) async {
+  final diagnostics = await DiagnosticsController.create(
+    persistence: MemoryDiagnosticsPersistence(),
+    sessionId: sessionId,
+  );
+  final binding = DiagnosticsSink.install(diagnostics);
+  addTearDown(() async {
+    binding.close();
+    await diagnostics.close();
+  });
+  return diagnostics;
+}
+
+Matcher _isAppearanceFailure(String operation) => isA<ErrorDiagnosticEvent>()
+    .having((event) => event.operation, 'operation', operation)
+    .having((event) => event.source, 'source', 'presentation')
+    .having((event) => event.severity, 'severity', DiagnosticSeverity.warning)
+    .having((event) => event.handled, 'handled', isTrue)
+    .having((event) => event.degraded, 'degraded', isTrue);
 
 SitePresentationController _controller(
   _PresentationApi api, {

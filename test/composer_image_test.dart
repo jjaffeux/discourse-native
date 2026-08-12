@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/shell/composer_image.dart';
+import 'package:discourse_native/src/shell/composer_images.dart';
 import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,103 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   const source = 'before\n![A photo|640x480, 75%](upload://abc)\nafter';
+
+  test('keeps supplied preview geometry finite, positive, and bounded', () {
+    ComposerImageBlock image({
+      required int width,
+      required int height,
+      int? scale,
+    }) => ComposerImageBlock(
+      start: 0,
+      end: 1,
+      source: 'x',
+      alt: 'image',
+      url: 'https://images.test/image.png',
+      width: width,
+      height: height,
+      scale: scale,
+    );
+
+    final unscaled = image(width: 640, height: 480);
+    expect(
+      ComposerImagePreview.displaySize(
+        image(width: 640, height: 480, scale: 999),
+      ),
+      ComposerImagePreview.displaySize(unscaled),
+    );
+    expect(
+      ComposerImagePreview.displaySize(
+        image(width: 640, height: 480, scale: 75),
+      ),
+      const Size(190, 142.5),
+    );
+    expect(
+      ComposerImagePreview.displaySize(image(width: 1, height: 9999)),
+      const Size(1, 4),
+    );
+
+    final hostile = [
+      image(width: 0, height: 0, scale: 0),
+      image(width: 1 << 2000, height: 1, scale: 101),
+      image(width: 9999, height: 1),
+    ];
+    for (final value in hostile) {
+      final size = ComposerImagePreview.displaySize(value);
+      expect(size.width.isFinite, isTrue);
+      expect(size.height.isFinite, isTrue);
+      expect(size.width, inInclusiveRange(0.000001, 460));
+      expect(size.height, inInclusiveRange(0.000001, 190));
+    }
+  });
+
+  testWidgets(
+    'bounds known image decodes but preserves intrinsic measurement',
+    (tester) async {
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+
+      final known = parseComposerImages(
+        '![known|640x480](https://images.test/known.png)',
+      ).single;
+      final unknown = parseComposerImages(
+        '![unknown](https://images.test/unknown.png)',
+      ).single;
+      final knownSize = ComposerImagePreview.displaySize(known);
+      final unknownSize = ComposerImagePreview.displaySize(unknown);
+      late ImageProvider<Object> knownProvider;
+      late ImageProvider<Object> unknownProvider;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              knownProvider = composerPreviewImageProvider(
+                context,
+                url: known.url,
+                logicalSize: knownSize,
+                measureNaturalSize: !known.hasDimensions,
+              );
+              unknownProvider = composerPreviewImageProvider(
+                context,
+                url: unknown.url,
+                logicalSize: unknownSize,
+                measureNaturalSize: !unknown.hasDimensions,
+              );
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+
+      final resized = knownProvider as ResizeImage;
+      expect(resized.imageProvider, isA<NetworkImage>());
+      expect(resized.width, (knownSize.width * 2).ceil());
+      expect(resized.height, (knownSize.height * 2).ceil());
+      expect(resized.policy, ResizeImagePolicy.fit);
+      expect(resized.allowUpscaling, isFalse);
+      expect(unknownProvider, isA<NetworkImage>());
+    },
+  );
 
   testWidgets('projects a bounded fallback without changing raw offsets', (
     tester,
@@ -54,6 +152,45 @@ void main() {
     );
     expect(controller.collapsedImageAtOffset(projected.start), isNull);
     expect(controller.collapsedImageAtOffset(projected.end), isNull);
+  });
+
+  testWidgets('pending preview is one selected image with its alt text', (
+    tester,
+  ) async {
+    final image = parseComposerImages('![A diagram](upload://pending)').single;
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: ComposerImagePreview(
+              image: image,
+              url: null,
+              highlighted: true,
+              onNaturalSize: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      // The fallback remains visible, but its repeated text is presentation;
+      // the preview's single outer node owns the image name and state.
+      expect(find.text('A diagram'), findsOneWidget);
+      final target = find.bySemanticsLabel('A diagram');
+      expect(target, findsOneWidget);
+      expect(
+        tester.getSemantics(target),
+        isSemantics(
+          label: 'A diagram',
+          isImage: true,
+          hasSelectedState: true,
+          isSelected: true,
+        ),
+      );
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('reveals ordinary markdown when the caret enters the image', (

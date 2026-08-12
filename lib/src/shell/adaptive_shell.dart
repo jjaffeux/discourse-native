@@ -509,7 +509,7 @@ class _PrivateForumSignIn extends StatelessWidget {
   }
 }
 
-class _ResizableDiagnosticsPanel extends StatelessWidget {
+class _ResizableDiagnosticsPanel extends StatefulWidget {
   const _ResizableDiagnosticsPanel({
     required this.width,
     required this.onResize,
@@ -517,19 +517,71 @@ class _ResizableDiagnosticsPanel extends StatelessWidget {
     required this.child,
   });
 
-  static const double _handleWidth = 12;
-
   final double width;
   final ValueChanged<double> onResize;
   final VoidCallback onResizeEnd;
   final Widget child;
 
   @override
+  State<_ResizableDiagnosticsPanel> createState() =>
+      _ResizableDiagnosticsPanelState();
+}
+
+class _ResizableDiagnosticsPanelState
+    extends State<_ResizableDiagnosticsPanel> {
+  static const double _handleWidth = 44;
+  static const double _keyboardStep = 16;
+
+  final FocusNode _focus = FocusNode(debugLabel: 'diagnostics panel resize');
+  bool _focused = false;
+  bool _keyboardResizePending = false;
+
+  @override
+  void dispose() {
+    if (_keyboardResizePending) widget.onResizeEnd();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _resizeOnce(double delta) {
+    widget.onResize(delta);
+    widget.onResizeEnd();
+  }
+
+  KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
+    final delta = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowLeft => -_keyboardStep,
+      LogicalKeyboardKey.arrowRight => _keyboardStep,
+      _ => null,
+    };
+    if (delta == null) return KeyEventResult.ignored;
+
+    if (event is KeyDownEvent || event is KeyRepeatEvent) {
+      widget.onResize(delta);
+      _keyboardResizePending = true;
+    } else if (event is KeyUpEvent && _keyboardResizePending) {
+      _keyboardResizePending = false;
+      widget.onResizeEnd();
+    }
+    return KeyEventResult.handled;
+  }
+
+  void _focusChanged(bool focused) {
+    if (_focused == focused) return;
+    if (!focused && _keyboardResizePending) {
+      _keyboardResizePending = false;
+      widget.onResizeEnd();
+    }
+    setState(() => _focused = focused);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final divider = Theme.of(context).shell.divider;
+    final theme = Theme.of(context);
+    final divider = _focused ? theme.colorScheme.primary : theme.shell.divider;
     return Stack(
       children: [
-        Positioned.fill(child: child),
+        Positioned.fill(child: widget.child),
         Positioned(
           left: 0,
           top: 0,
@@ -537,20 +589,41 @@ class _ResizableDiagnosticsPanel extends StatelessWidget {
           width: _handleWidth,
           child: MouseRegion(
             cursor: SystemMouseCursors.resizeLeftRight,
-            child: Semantics(
-              label: 'Resize diagnostics panel',
-              value: '${width.round()} pixels wide',
-              child: GestureDetector(
-                key: const ValueKey('diagnostics-resize-handle'),
-                behavior: HitTestBehavior.translucent,
-                onHorizontalDragUpdate: (details) => onResize(details.delta.dx),
-                onHorizontalDragEnd: (_) => onResizeEnd(),
-                onHorizontalDragCancel: onResizeEnd,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: ColoredBox(
-                    color: divider,
-                    child: const SizedBox(width: 1, height: double.infinity),
+            child: Focus(
+              key: const ValueKey('diagnostics-resize-focus'),
+              focusNode: _focus,
+              onFocusChange: _focusChanged,
+              onKeyEvent: _handleKey,
+              child: Semantics(
+                key: const ValueKey('diagnostics-resize-semantics'),
+                container: true,
+                focusable: true,
+                focused: _focused,
+                label: 'Resize diagnostics panel',
+                value: '${widget.width.round()} pixels wide',
+                increasedValue:
+                    '${(widget.width + _keyboardStep).round()} pixels wide',
+                decreasedValue:
+                    '${(widget.width - _keyboardStep).round()} pixels wide',
+                onIncrease: () => _resizeOnce(-_keyboardStep),
+                onDecrease: () => _resizeOnce(_keyboardStep),
+                child: GestureDetector(
+                  key: const ValueKey('diagnostics-resize-handle'),
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragStart: (_) => _focus.requestFocus(),
+                  onHorizontalDragUpdate: (details) =>
+                      widget.onResize(details.delta.dx),
+                  onHorizontalDragEnd: (_) => widget.onResizeEnd(),
+                  onHorizontalDragCancel: widget.onResizeEnd,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: ColoredBox(
+                      color: divider,
+                      child: SizedBox(
+                        width: _focused ? 3 : 1,
+                        height: double.infinity,
+                      ),
+                    ),
                   ),
                 ),
               ),

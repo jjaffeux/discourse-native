@@ -5,6 +5,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 
 import 'resenha_diagnostics.dart';
+import 'resenha_livekit_endpoint.dart';
 import 'resenha_models.dart';
 import 'resenha_reconnect.dart';
 
@@ -32,6 +33,24 @@ final class _ResenhaMediaDiagnosticFailure implements Exception {
 
   @override
   String toString() => 'Resenha media operation $operation failed.';
+}
+
+/// The LiveKit room operations whose lifetime this client owns.
+///
+/// Keeping this boundary narrower than [lk.Room] leaves participant and track
+/// behavior on the SDK while making connection teardown directly testable
+/// without opening a socket.
+abstract interface class ResenhaLiveKitRoomAdapter {
+  lk.Room get room;
+
+  void listen({
+    required VoidCallback onChanged,
+    required VoidCallback onDisconnected,
+  });
+  Future<void> connect(String endpoint, String token);
+  Future<void> cancelListener();
+  Future<void> disconnect();
+  Future<void> disposeRoom();
 }
 
 abstract interface class ResenhaMediaSession implements Listenable {
@@ -305,6 +324,86 @@ abstract base class _ResenhaMediaNotifier extends ChangeNotifier
 
 enum _MeshSource { microphone, video, screenAudio }
 
+const int _maxMeshSdpCodeUnits = 256 * 1024;
+const int _maxMeshCandidateCodeUnits = 8 * 1024;
+const int _maxMeshSdpMidCodeUnits = 256;
+
+// ICE agents normally produce far fewer candidates. This still leaves ample
+// room for multiple interfaces and TURN transports while bounding queued text
+// to roughly half a megabyte per peer before an SDP description arrives.
+const int _maxPendingMeshCandidatesPerPeer = 64;
+
+enum _MeshSdpKind { offer, answer }
+
+sealed class _MeshInboundSignal {
+  const _MeshInboundSignal();
+}
+
+final class _MeshSdpSignal extends _MeshInboundSignal {
+  const _MeshSdpSignal(this.kind, this.sdp);
+
+  final _MeshSdpKind kind;
+  final String sdp;
+}
+
+final class _MeshCandidateSignal extends _MeshInboundSignal {
+  const _MeshCandidateSignal({
+    required this.candidate,
+    required this.sdpMid,
+    required this.sdpMLineIndex,
+  });
+
+  final String? candidate;
+  final String? sdpMid;
+  final int? sdpMLineIndex;
+}
+
+_MeshInboundSignal? _parseMeshInboundSignal(Map<String, dynamic> data) {
+  switch (data['type']) {
+    case 'offer' || 'answer':
+      final sdp = data['sdp'];
+      if (sdp is! String || sdp.length > _maxMeshSdpCodeUnits) return null;
+      return _MeshSdpSignal(
+        data['type'] == 'offer' ? _MeshSdpKind.offer : _MeshSdpKind.answer,
+        sdp,
+      );
+    case 'candidate':
+      final raw = data['candidate'];
+      if (raw is! Map) return null;
+      final candidate = raw['candidate'];
+      if (candidate != null && candidate is! String) return null;
+      if (candidate is String &&
+          candidate.length > _maxMeshCandidateCodeUnits) {
+        return null;
+      }
+      final sdpMid = raw['sdpMid'];
+      if (sdpMid != null && sdpMid is! String) return null;
+      if (sdpMid is String && sdpMid.length > _maxMeshSdpMidCodeUnits) {
+        return null;
+      }
+      final rawIndex = raw['sdpMLineIndex'];
+      final int? sdpMLineIndex;
+      if (rawIndex == null) {
+        sdpMLineIndex = null;
+      } else if (rawIndex is num &&
+          rawIndex.isFinite &&
+          rawIndex == rawIndex.truncate() &&
+          rawIndex >= 0 &&
+          rawIndex <= 65535) {
+        sdpMLineIndex = rawIndex.toInt();
+      } else {
+        return null;
+      }
+      return _MeshCandidateSignal(
+        candidate: candidate as String?,
+        sdpMid: sdpMid as String?,
+        sdpMLineIndex: sdpMLineIndex,
+      );
+    default:
+      return null;
+  }
+}
+
 final class _MeshSendSlots {
   _MeshSendSlots({
     required this.microphone,
@@ -412,6 +511,8 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   final Map<int, _MeshRemoteSlots> _remoteTracks = {};
   final Map<int, double> _participantVolumes = {};
   final Map<int, ResenhaRole> _participantRoles = {};
+  final Set<int> _currentRemoteParticipantIds = {};
+  final Set<int> _peerEligibleParticipantIds = {};
   final Set<rtc.MediaStream> _ownedLocalStreams =
       Set<rtc.MediaStream>.identity();
   final Map<int, List<rtc.RTCIceCandidate>> _pendingCandidates = {};
@@ -755,6 +856,10 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
         ],
       },
     );
+    final currentRemoteIds = {
+      for (final participant in participants)
+        if (participant.id != localUserId) participant.id,
+    };
     final wanted = {
       for (final participant in participants)
         if (participant.id != localUserId &&
@@ -764,6 +869,14 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
                 participant.role == ResenhaRole.speaker))
           participant.id,
     };
+    // Update the trust boundary before teardown. Even if a native peer rejects
+    // close, a departed participant must stop being an accepted signal sender.
+    _currentRemoteParticipantIds
+      ..clear()
+      ..addAll(currentRemoteIds);
+    _peerEligibleParticipantIds
+      ..clear()
+      ..addAll(wanted);
     final changedRoles = {
       for (final participant in participants)
         if (participant.id != localUserId &&
@@ -1204,14 +1317,19 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   }
 
   Future<void> _handleSignal(int senderId, Map<String, dynamic> data) async {
-    if (disposed) return;
+    if (disposed ||
+        senderId == localUserId ||
+        !_currentRemoteParticipantIds.contains(senderId) ||
+        !_peerEligibleParticipantIds.contains(senderId)) {
+      return;
+    }
+    final signal = _parseMeshInboundSignal(data);
+    if (signal == null) return;
     if (!_peers.containsKey(senderId)) await _createPeer(senderId);
     final peer = _peers[senderId];
     if (peer == null) return;
-    switch (data['type']) {
-      case 'offer':
-        final sdp = data['sdp'];
-        if (sdp is! String) return;
+    switch (signal) {
+      case _MeshSdpSignal(kind: _MeshSdpKind.offer, :final sdp):
         final collision =
             _makingOffer.contains(senderId) ||
             peer.signalingState !=
@@ -1232,9 +1350,7 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
         await peer.setLocalDescription(answer);
         await _sendPeerSignal(senderId, {'type': 'answer', 'sdp': answer.sdp});
         await _refreshSendSlotsBestEffort(senderId, peer);
-      case 'answer':
-        final sdp = data['sdp'];
-        if (sdp is! String) return;
+      case _MeshSdpSignal(kind: _MeshSdpKind.answer, :final sdp):
         if (peer.signalingState !=
             rtc.RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
           return;
@@ -1244,19 +1360,16 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
         );
         await _flushCandidates(senderId);
         await _refreshSendSlotsBestEffort(senderId, peer);
-      case 'candidate':
-        final candidate = data['candidate'];
-        if (candidate is! Map) return;
-        final parsed = rtc.RTCIceCandidate(
-          candidate['candidate'] as String?,
-          candidate['sdpMid'] as String?,
-          switch (candidate['sdpMLineIndex']) {
-            final num value => value.toInt(),
-            _ => null,
-          },
-        );
+      case _MeshCandidateSignal(
+        :final candidate,
+        :final sdpMid,
+        :final sdpMLineIndex,
+      ):
+        final parsed = rtc.RTCIceCandidate(candidate, sdpMid, sdpMLineIndex);
         if (await peer.getRemoteDescription() == null) {
-          (_pendingCandidates[senderId] ??= []).add(parsed);
+          final pending = _pendingCandidates[senderId] ??= [];
+          if (pending.length >= _maxPendingMeshCandidatesPerPeer) return;
+          pending.add(parsed);
           _recordDiagnostic(
             diagnostics,
             'mesh.ice.candidate.queued',
@@ -1871,6 +1984,8 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       _ownedLocalStreams.clear();
       _participantVolumes.clear();
       _participantRoles.clear();
+      _currentRemoteParticipantIds.clear();
+      _peerEligibleParticipantIds.clear();
       _recordDiagnostic(
         diagnostics,
         'mesh.session.disposed',
@@ -1879,6 +1994,53 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       );
       await super.dispose();
     }
+  }
+}
+
+final class _NativeResenhaLiveKitRoomAdapter
+    implements ResenhaLiveKitRoomAdapter {
+  _NativeResenhaLiveKitRoomAdapter(this.room);
+
+  @override
+  final lk.Room room;
+  lk.EventsListener<lk.RoomEvent>? _listener;
+
+  void listenToRoomEvents(ValueChanged<lk.RoomEvent> onEvent) {
+    _listener = room.createListener()..on<lk.RoomEvent>(onEvent);
+  }
+
+  @override
+  void listen({
+    required VoidCallback onChanged,
+    required VoidCallback onDisconnected,
+  }) {
+    _listener = room.createListener()
+      ..on<lk.RoomEvent>((event) {
+        onChanged();
+        if (event is lk.RoomDisconnectedEvent) onDisconnected();
+      });
+  }
+
+  @override
+  Future<void> connect(String endpoint, String token) =>
+      room.connect(endpoint, token);
+
+  @override
+  Future<void> cancelListener() async {
+    final listener = _listener;
+    _listener = null;
+    await listener?.dispose();
+  }
+
+  @override
+  Future<void> disconnect() async {
+    if (room.connectionState == lk.ConnectionState.disconnected) return;
+    await room.disconnect();
+  }
+
+  @override
+  Future<void> disposeRoom() async {
+    await room.dispose();
   }
 }
 
@@ -1893,11 +2055,16 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
     this.rawStatsInterval = const Duration(seconds: 5),
     ResenhaLiveKitRawStatsCollector? collectRawStats,
     ResenhaMediaDeviceEnumerator? enumerateDevices,
-  }) : _room = lk.Room(roomOptions: _roomOptions(join.room)),
-       _collectRawStats = collectRawStats ?? _collectLiveKitRawStats,
+    ResenhaLiveKitRoomAdapter? roomAdapter,
+  }) : _collectRawStats = collectRawStats ?? _collectLiveKitRawStats,
        _enumerateDevices =
            enumerateDevices ??
            (() => rtc.navigator.mediaDevices.enumerateDevices()) {
+    _roomAdapter =
+        roomAdapter ??
+        _NativeResenhaLiveKitRoomAdapter(
+          lk.Room(roomOptions: _roomOptions(join.room)),
+        );
     _reconnect = ResenhaReconnectCoordinator(
       attempt: _reconnectOnce,
       onStateChanged: (state) {
@@ -1966,9 +2133,10 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   final ResenhaDiagnosticsRecorder diagnostics;
   final String correlationId;
   final Duration rawStatsInterval;
-  final lk.Room _room;
   final ResenhaLiveKitRawStatsCollector _collectRawStats;
   final ResenhaMediaDeviceEnumerator _enumerateDevices;
+  late final ResenhaLiveKitRoomAdapter _roomAdapter;
+  lk.Room get _room => _roomAdapter.room;
 
   static lk.RoomOptions _roomOptions(ResenhaRoom room) => lk.RoomOptions(
     adaptiveStream: true,
@@ -1987,7 +2155,6 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
       },
     ),
   );
-  lk.EventsListener<lk.RoomEvent>? _listener;
   bool audioPublishingAllowed;
   bool _muted = false;
   bool _closing = false;
@@ -1996,6 +2163,7 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   Timer? _rawStatsTimer;
   late final ResenhaReconnectCoordinator _reconnect;
   final Set<Future<void>> _roomConnections = {};
+  Future<void>? _disposeFuture;
 
   @override
   ResenhaTransport get transport => ResenhaTransport.livekit;
@@ -2053,6 +2221,7 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
 
   @override
   Future<void> connect() async {
+    if (_closing || disposed) return;
     final credentials = join.livekit;
     if (credentials == null ||
         credentials.url.isEmpty ||
@@ -2066,19 +2235,29 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
       correlationId: correlationId,
       data: {'audioPublishingAllowed': audioPublishingAllowed},
     );
-    _listener = _room.createListener()
-      ..on<lk.RoomEvent>((event) {
+    final adapter = _roomAdapter;
+    if (adapter is _NativeResenhaLiveKitRoomAdapter) {
+      adapter.listenToRoomEvents((event) {
         _recordRoomEvent(event);
         changed();
         if (event is lk.RoomDisconnectedEvent && !_closing) {
           _startReconnect(reason: event.reason);
         }
       });
+    } else {
+      adapter.listen(
+        onChanged: changed,
+        onDisconnected: () {
+          if (!_closing) _startReconnect();
+        },
+      );
+    }
     try {
       await _connectRoom(credentials);
       if (_closing || disposed) return;
       if (audioPublishingAllowed) {
         await _room.localParticipant?.setMicrophoneEnabled(true);
+        if (_closing || disposed) return;
       }
       _startRawStatsTimer();
       _recordDiagnostic(
@@ -2268,7 +2447,11 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
       component: 'livekit',
       correlationId: correlationId,
     );
-    final connection = _room.connect(credentials.url, credentials.token);
+    final endpoint = requireSafeLiveKitEndpoint(credentials.url);
+    final connection = _roomAdapter.connect(
+      endpoint.toString(),
+      credentials.token,
+    );
     _roomConnections.add(connection);
     try {
       await connection;
@@ -2630,16 +2813,46 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   }
 
   @override
-  Future<void> dispose() async {
+  Future<void> dispose() {
+    final active = _disposeFuture;
+    if (active != null) return active;
+
+    // Close the mutation boundary before the first asynchronous cleanup step.
+    // A caller may start disposing without awaiting it and then race another
+    // connect attempt in the same event-loop turn.
     _closing = true;
     _rawStatsTimer?.cancel();
     _rawStatsTimer = null;
     _reconnect.cancel();
     final pendingConnections = _roomConnections.toList();
-    await _listener?.dispose();
-    if (_room.connectionState != lk.ConnectionState.disconnected) {
-      await _room.disconnect();
+    final roomCleanup = _disposeLiveKit(pendingConnections);
+    return _disposeFuture = roomCleanup.then<void>(
+      (_) => super.dispose(),
+      onError: (Object error, StackTrace stackTrace) async {
+        try {
+          await super.dispose();
+        } catch (_) {
+          // Preserve the first cleanup failure after reaching terminal state.
+        }
+        Error.throwWithStackTrace(error, stackTrace);
+      },
+    );
+  }
+
+  Future<void> _disposeLiveKit(List<Future<void>> pendingConnections) async {
+    Object? firstError;
+    StackTrace? firstStackTrace;
+    Future<void> clean(Future<void> Function() action) async {
+      try {
+        await action();
+      } on Object catch (error, stackTrace) {
+        firstError ??= error;
+        firstStackTrace ??= stackTrace;
+      }
     }
+
+    await clean(_roomAdapter.cancelListener);
+    await clean(_roomAdapter.disconnect);
     for (final connection in pendingConnections) {
       try {
         await connection;
@@ -2647,13 +2860,18 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
         // Disconnecting an in-flight connection is an expected teardown path.
       }
     }
-    await _room.dispose();
+    await clean(_roomAdapter.disposeRoom);
+    _roomConnections.clear();
     _recordDiagnostic(
       diagnostics,
       'livekit.session.disposed',
       component: 'livekit',
       correlationId: correlationId,
     );
-    await super.dispose();
+
+    final error = firstError;
+    if (error != null) {
+      Error.throwWithStackTrace(error, firstStackTrace!);
+    }
   }
 }

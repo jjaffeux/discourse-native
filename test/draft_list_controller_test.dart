@@ -199,4 +199,40 @@ void main() {
 
     expect(api.loads, isEmpty);
   });
+
+  for (final operation
+      in <
+        ({
+          String name,
+          Future<void> Function(DraftListController controller) begin,
+        })
+      >[
+        (name: 'load', begin: (controller) => controller.load(_instance)),
+        (
+          name: 'delete',
+          begin: (controller) async {
+            await controller.delete(_instance, _draft);
+          },
+        ),
+      ]) {
+    test(
+      'reentrant disposal prevents ${operation.name} credential access',
+      () async {
+        final api = _RecordingDraftsApi();
+        final credentials = _GatedApiKeys();
+        final controller = DraftListController(
+          api: api,
+          credentials: credentials,
+          lifecycle: SiteLifecycle(),
+        );
+        controller.addListener(controller.dispose);
+
+        await operation.begin(controller);
+
+        expect(credentials.sites, isEmpty);
+        expect(api.loads, isEmpty);
+        expect(api.deletions, isEmpty);
+      },
+    );
+  }
 }

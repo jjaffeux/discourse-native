@@ -174,6 +174,10 @@ class SidebarSection {
     this.onAction,
   }) : assert(showHeader || !collapsible);
 
+  /// Core's hidden `max_sidebar_section_links` setting is 50 and is enforced
+  /// when custom sections are created or updated.
+  static const int maximumCustomLinks = 50;
+
   /// Stable identity used for presentation preferences such as collapsing.
   final String id;
 
@@ -193,7 +197,12 @@ class SidebarSection {
     final sectionId = jsonIntOrNull(json['id']) ?? index;
     final destinations = <SidebarDestination>[];
     var linkIndex = 0;
-    for (final link in jsonObjects(json['links'])) {
+    for (final rawLink in jsonArray(json['links']).take(maximumCustomLinks)) {
+      if (rawLink is! Map<String, dynamic>) {
+        linkIndex++;
+        continue;
+      }
+      final link = rawLink;
       final name = jsonText(link['name']);
       final value = jsonText(link['value']);
       if (name == null || value == null) {

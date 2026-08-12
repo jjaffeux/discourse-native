@@ -42,6 +42,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   Timer? _showTimer;
   TextSelectionToolbarAnchors? _anchors;
   String _selectedText = '';
+  PostQuoteSelectionResolver? _quoteResolver;
   ScrollPosition? _scroll;
 
   @override
@@ -58,6 +59,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.post.id != widget.post.id ||
         oldWidget.post.cooked != widget.post.cooked) {
+      _quoteResolver = null;
       _dismiss(clearSelection: true);
     }
   }
@@ -66,10 +68,9 @@ class _PostTextSelectionState extends State<PostTextSelection> {
 
   void _selectionChanged(SelectedContent? content) {
     _showTimer?.cancel();
-    _selectedText = postQuoteContentsFromSelection(
+    _selectedText = (_quoteResolver ??= PostQuoteSelectionResolver(
       widget.post.cooked,
-      content?.plainText ?? '',
-    );
+    )).contentsFor(content?.plainText ?? '');
     if (_selectedText.isEmpty) {
       _dismiss(clearSelection: false);
       return;

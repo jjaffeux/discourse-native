@@ -35,7 +35,6 @@ env:
   PACKAGE_ID: org.discourse.native
   BINARY_NAME: discourse_native
   PAGES_BRANCH: gh-pages
-  FEED_BASE: https://jjaffeux.github.io/discourse-native
 
 jobs:
   linux:
@@ -89,17 +88,9 @@ jobs:
           apt-get install -y --no-install-recommends \
             clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-12-dev \
-            libwebkit2gtk-4.1-dev libsoup-3.0-dev \
-            libssl-dev
+            libwebkit2gtk-4.1-dev libsoup-3.0-dev
           # Fail here rather than 200 lines into a cmake log.
-          #
-          # libcrypto is desktop_updater's: its native component does
-          # find_package(OpenSSL REQUIRED COMPONENTS Crypto) to hash the
-          # artifact it stages. Its CURL dependency is gated behind
-          # DESKTOP_UPDATER_NATIVE_RUNTIME, which defaults off, so that one is
-          # not needed here.
-          pkg-config --exists gtk+-3.0 webkit2gtk-4.1 libsoup-3.0 \
-                              libcrypto
+          pkg-config --exists gtk+-3.0 webkit2gtk-4.1 libsoup-3.0
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
@@ -175,8 +166,7 @@ jobs:
             --build-name "${{ steps.v.outputs.version }}" \
             --build-number "${{ steps.v.outputs.build }}" \
             --dart-define=DISCOURSE_NATIVE_VERSION=${{ steps.v.outputs.version }} \
-            --dart-define=DISCOURSE_NATIVE_CHANNEL=${{ steps.v.outputs.channel }} \
-            --dart-define=DISCOURSE_NATIVE_FEED_URL=${{ env.FEED_BASE }}
+            --dart-define=DISCOURSE_NATIVE_CHANNEL=${{ steps.v.outputs.channel }}
 
       - name: Check the bundle
         working-directory: build/linux/x64/release/bundle
@@ -247,7 +237,7 @@ jobs:
             "Section: net" \
             "Priority: optional" \
             "Homepage: https://github.com/${{ github.repository }}" \
-            "Depends: libgtk-3-0, libglib2.0-0, libwebkit2gtk-4.1-0, libsoup-3.0-0, libssl3" \
+            "Depends: libgtk-3-0, libglib2.0-0, libwebkit2gtk-4.1-0, libsoup-3.0-0" \
             "Description: Native Discourse client" \
             " An experimental native client for Discourse forums, built with Flutter." \
             > "$ROOT/DEBIAN/control"

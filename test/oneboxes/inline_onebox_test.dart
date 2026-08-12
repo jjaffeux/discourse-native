@@ -1,9 +1,12 @@
+import 'dart:ui' show SemanticsAction;
+
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/oneboxes/github/github.dart';
 import 'package:discourse_native/src/shell/oneboxes/inline.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
@@ -30,6 +33,8 @@ const String genericInline =
 dom.Element anchor(String source) => html.parse(source).querySelector('a')!;
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('inlineOneboxWidgetBuilder', () {
     test('claims only a.inline-onebox anchors', () {
       expect(inlineOneboxWidgetBuilder(anchor(prInline)), isNotNull);
@@ -115,6 +120,67 @@ void main() {
         find.textContaining('for the details', findRichText: true),
         findsOneWidget,
       );
+    });
+
+    testWidgets('is one named link without announcing its icon twice', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(body: inlineOneboxWidgetBuilder(anchor(prInline))!),
+        ),
+      );
+      await tester.pump();
+
+      final target = find.bySemanticsLabel(
+        'Add the thing - Pull Request #30604 - discourse/discourse - GitHub',
+      );
+      final data = tester.getSemantics(target).getSemanticsData();
+      expect(target, findsOneWidget);
+      expect(data.flagsCollection.isLink, isTrue);
+      expect(data.flagsCollection.isButton, isFalse);
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      expect(data.label, isNot(contains('\u{fffc}')));
+      semantics.dispose();
+    });
+
+    testWidgets('activates from the keyboard with Enter and Space', (
+      tester,
+    ) async {
+      const channel = MethodChannel('plugins.flutter.io/url_launcher');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final launched = <String>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'launch') {
+          launched.add((call.arguments as Map)['url'] as String);
+        }
+        return true;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+      for (final key in [LogicalKeyboardKey.enter, LogicalKeyboardKey.space]) {
+        launched.clear();
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: Scaffold(body: inlineOneboxWidgetBuilder(anchor(prInline))!),
+          ),
+        );
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(FocusManager.instance.primaryFocus, isNotNull);
+        await tester.sendKeyEvent(key);
+        await tester.pumpAndSettle();
+
+        expect(launched, [
+          'https://github.com/discourse/discourse/pull/30604',
+        ], reason: '$key');
+      }
     });
   });
 }

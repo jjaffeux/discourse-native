@@ -16,7 +16,9 @@ import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:flutter/material.dart' show Row, Size, ValueKey;
+import 'package:flutter/material.dart'
+    show Focus, InkWell, MaterialApp, MouseRegion, Row, Size, ValueKey;
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -256,6 +258,36 @@ void main() {
     ]);
   });
 
+  testWidgets('compact draft actions are 44 pixel keyboard targets', (
+    tester,
+  ) async {
+    await _pump(tester, size: const Size(390, 844));
+    final controller = ShellScope.read(
+      tester.element(find.byType(MaterialApp)),
+    );
+    controller.openDrafts(_siteUrl);
+    await tester.pumpAndSettle();
+
+    final edit = find.byTooltip('Edit draft');
+    final remove = find.byTooltip('Remove draft');
+    expect(tester.getSize(edit), const Size.square(44));
+    expect(tester.getSize(remove), const Size.square(44));
+
+    await _focusDraftAction(tester, remove);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Remove draft?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    await _focusDraftAction(tester, edit);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ComposerPanel), findsOneWidget);
+  });
+
   testWidgets('the profile Drafts row opens the same destination', (
     tester,
   ) async {
@@ -379,4 +411,16 @@ Future<_Fixture> _pump(
   );
   await tester.pumpAndSettle();
   return (api: api);
+}
+
+Future<void> _focusDraftAction(WidgetTester tester, Finder action) async {
+  final inkWell = find.descendant(of: action, matching: find.byType(InkWell));
+  expect(inkWell, findsOneWidget);
+  final focusChild = find
+      .descendant(of: inkWell, matching: find.byType(MouseRegion))
+      .first;
+  final focus = Focus.of(tester.element(focusChild));
+  focus.requestFocus();
+  await tester.pumpAndSettle();
+  expect(focus.hasPrimaryFocus, isTrue);
 }

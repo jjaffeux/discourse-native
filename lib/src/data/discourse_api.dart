@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../diagnostics/diagnostics_redactor.dart';
 import '../models/bookmark.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
@@ -107,6 +108,11 @@ class DiscourseApi
            : SafeHttpClient.owned(client);
 
   static const int minimumApiVersion = 2;
+  static const int maximumSearchTermLength = 2048;
+  static const int maximumAutocompleteResults = TopicTagSearch.maximumResults;
+  static const int maximumRecentNotifications = 60;
+  static const int maximumUserMenuBookmarkRows = 20;
+  static const int maximumUserDraftPageSize = 30;
   static const int _maxRedirects = 5;
 
   final SafeHttpClient _client;
@@ -137,22 +143,44 @@ class DiscourseApi
   ///
   /// Bare hosts get https, since that is what any site worth connecting to
   /// serves. Explicit HTTP is reserved for loopback development servers.
+  static const int maximumForumAddressLength = 2048;
+
   static Uri normalize(String term) {
     var trimmed = term.trim();
-    while (trimmed.endsWith('/')) {
-      trimmed = trimmed.substring(0, trimmed.length - 1);
+    if (trimmed.length > maximumForumAddressLength) {
+      // Do not echo or redact a rejected oversized value: it may contain a
+      // credential whose terminating delimiter lies beyond any safe prefix.
+      throw const SiteLookupException(
+        SiteLookupFailure.unreachable,
+        'that forum address',
+        cause: FormatException('Forum address is too long.'),
+      );
     }
+    var end = trimmed.length;
+    while (end > 0 && trimmed.codeUnitAt(end - 1) == 0x2F) {
+      end--;
+    }
+    if (end != trimmed.length) trimmed = trimmed.substring(0, end);
     if (!RegExp(r'^https?://', caseSensitive: false).hasMatch(trimmed)) {
       trimmed = 'https://$trimmed';
     }
-    final url = Uri.parse(trimmed);
     try {
+      final url = Uri.parse(trimmed);
       return requireSafeHttpUrl(url);
     } on UnsafeHttpTransportException catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
-        url.toString(),
+        error.url.toString(),
         cause: error,
+        causeStackTrace: stackTrace,
+      );
+    } on FormatException catch (_, stackTrace) {
+      // Uri.parse's exception can retain its complete source, including
+      // credentials or query values. Replace it at this user-input boundary.
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        DiagnosticsRedactor.uri(trimmed),
+        cause: const FormatException('Invalid forum URL.'),
         causeStackTrace: stackTrace,
       );
     }
@@ -436,6 +464,9 @@ class DiscourseApi
     List<NotificationKind> filterByTypes = const [],
     String? clientId,
   }) async {
+    if (limit < 1 || limit > maximumRecentNotifications) {
+      throw RangeError.range(limit, 1, maximumRecentNotifications, 'limit');
+    }
     final url = Uri.parse('$siteUrl/notifications.json').replace(
       queryParameters: {
         'recent': 'true',
@@ -456,7 +487,7 @@ class DiscourseApi
     );
 
     return List.unmodifiable([
-      for (final entry in jsonObjects(body['notifications']))
+      for (final entry in jsonObjects(body['notifications']).take(limit))
         DiscourseNotification.fromJson(entry),
     ]);
   }
@@ -489,13 +520,21 @@ class DiscourseApi
       clientId: clientId,
     );
 
+    // Core gives this menu route one twenty-row budget, with due reminders
+    // first. Keep that boundary locally too: a broken serializer response must
+    // not turn opening the user menu into an arbitrary eager list build.
+    final reminderEntries = jsonObjects(
+      body['notifications'],
+    ).take(maximumUserMenuBookmarkRows).toList(growable: false);
+    final bookmarkBudget = maximumUserMenuBookmarkRows - reminderEntries.length;
+
     return (
       reminders: List<DiscourseNotification>.unmodifiable([
-        for (final entry in jsonObjects(body['notifications']))
+        for (final entry in reminderEntries)
           DiscourseNotification.fromJson(entry),
       ]),
       bookmarks: List<Bookmark>.unmodifiable([
-        for (final entry in jsonObjects(body['bookmarks']))
+        for (final entry in jsonObjects(body['bookmarks']).take(bookmarkBudget))
           Bookmark.fromJson(entry),
       ]),
     );
@@ -512,14 +551,17 @@ class DiscourseApi
     required String apiKey,
     required int id,
     String? clientId,
-  }) => _write(
-    Uri.parse('$siteUrl/notifications/mark-read.json'),
-    siteUrl: siteUrl,
-    method: 'PUT',
-    apiKey: apiKey,
-    clientId: clientId,
-    body: {'id': id},
-  );
+  }) async {
+    _requirePositiveId(id, 'id');
+    await _write(
+      Uri.parse('$siteUrl/notifications/mark-read.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'id': id},
+    );
+  }
 
   /// One page of a topic list. [path] is the list route, e.g. `/latest.json`.
   ///
@@ -550,6 +592,13 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
+    if (term.length > maximumSearchTermLength) {
+      // Do not attach the value: search text can contain private names and
+      // phrases, and this error may be forwarded to diagnostics.
+      throw ArgumentError(
+        'Search terms must be at most $maximumSearchTermLength characters.',
+      );
+    }
     final body = await _getObject(
       Uri.parse(
         '$siteUrl/search/query.json',
@@ -570,6 +619,10 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
+    _requirePositiveId(id, 'id');
+    if (postNumber != null) {
+      _requirePositiveId(postNumber, 'postNumber');
+    }
     final path = [
       siteUrl,
       't',
@@ -610,18 +663,25 @@ class DiscourseApi
     required int postNumber,
     int milliseconds = 500,
     String? clientId,
-  }) => _write(
-    Uri.parse('$siteUrl/topics/timings.json'),
-    siteUrl: siteUrl,
-    method: 'POST',
-    apiKey: apiKey,
-    clientId: clientId,
-    body: {
-      'topic_id': topicId,
-      'topic_time': milliseconds,
-      'timings': {'$postNumber': milliseconds},
-    },
-  );
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    _requirePositiveId(postNumber, 'postNumber');
+    if (milliseconds <= 0) {
+      throw RangeError.value(milliseconds, 'milliseconds', 'Must be positive.');
+    }
+    await _write(
+      Uri.parse('$siteUrl/topics/timings.json'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'topic_id': topicId,
+        'topic_time': milliseconds,
+        'timings': {'$postNumber': milliseconds},
+      },
+    );
+  }
 
   /// Specific posts by id, for paging through a long topic.
   ///
@@ -636,6 +696,7 @@ class DiscourseApi
     String? clientId,
   }) async {
     if (ids.isEmpty) return const [];
+    _validatePostWindow(topicId, ids);
 
     return (await _topicPosts(
       siteUrl: siteUrl,
@@ -662,6 +723,7 @@ class DiscourseApi
     if (ids.isEmpty) {
       return Future.value((posts: const <Post>[], recommendations: null));
     }
+    _validatePostWindow(topicId, ids);
     return _topicPosts(
       siteUrl: siteUrl,
       topicId: topicId,
@@ -896,6 +958,8 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
+    _validateAutocompleteRequest(term: term, limit: limit);
+    if (topicId != null) _requirePositiveId(topicId, 'topicId');
     final query = {
       if (term.isNotEmpty) 'term': term else 'last_seen_users': 'true',
       'limit': '$limit',
@@ -911,7 +975,7 @@ class DiscourseApi
     try {
       return switch (jsonDecode(response.body)) {
         {'users': final List<dynamic> users} => [
-          for (final user in users)
+          for (final user in users.take(limit))
             if (user is Map<String, dynamic>) FoundUser.fromJson(user, siteUrl),
         ],
         _ => const <FoundUser>[],
@@ -934,6 +998,7 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
+    _validateAutocompleteRequest(term: term, limit: limit);
     final response = await _get(
       Uri.parse(
         '$siteUrl/tags/filter/search.json',
@@ -947,12 +1012,13 @@ class DiscourseApi
       final body = jsonDecode(response.body);
       if (body is! Map<String, dynamic>) return const [];
       return List.unmodifiable([
-        for (final item in jsonObjects(body['results']))
-          if (jsonText(item['name']) case final name?)
-            TopicFilterLookupValue(
-              name: name,
-              description: '${jsonInt(item['count'])}',
-            ),
+        for (final entry in jsonArray(body['results']).take(limit))
+          if (entry is Map<String, dynamic>)
+            if (jsonText(entry['name']) case final name?)
+              TopicFilterLookupValue(
+                name: name,
+                description: '${jsonInt(entry['count'])}',
+              ),
       ]);
     } catch (error, stackTrace) {
       throw SiteLookupException(
@@ -972,6 +1038,7 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
+    _validateAutocompleteRequest(term: term, limit: limit);
     final response = await _get(
       Uri.parse(
         '$siteUrl/tag_groups/filter/search.json',
@@ -985,15 +1052,18 @@ class DiscourseApi
       final body = jsonDecode(response.body);
       if (body is! Map<String, dynamic>) return const [];
       return List.unmodifiable([
-        for (final item in jsonObjects(body['results']))
-          if (jsonText(item['name']) case final name?)
-            TopicFilterLookupValue(
-              name: name,
-              description: [
-                for (final tag in jsonObjects(item['tags']))
-                  ?jsonText(tag['name']),
-              ].join(', '),
-            ),
+        for (final entry in jsonArray(body['results']).take(limit))
+          if (entry is Map<String, dynamic>)
+            if (jsonText(entry['name']) case final name?)
+              TopicFilterLookupValue(
+                name: name,
+                description: [
+                  for (final tag in jsonArray(
+                    entry['tags'],
+                  ).take(maximumAutocompleteResults))
+                    if (tag is Map<String, dynamic>) ?jsonText(tag['name']),
+                ].join(', '),
+              ),
       ]);
     } catch (error, stackTrace) {
       throw SiteLookupException(
@@ -1013,6 +1083,7 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
+    _validateAutocompleteRequest(term: term, limit: limit);
     final response = await _get(
       Uri.parse('$siteUrl/groups/search.json').replace(
         queryParameters: {if (term.isNotEmpty) 'term': term, 'limit': '$limit'},
@@ -1026,7 +1097,7 @@ class DiscourseApi
       final body = jsonDecode(response.body);
       if (body is! List<dynamic>) return const [];
       return List.unmodifiable([
-        for (final item in body)
+        for (final item in body.take(limit))
           if (item is Map<String, dynamic>)
             if (jsonText(item['name']) case final name?)
               TopicFilterLookupValue(
@@ -1068,6 +1139,15 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
+    _validateComposerLookupValue(term, allowEmpty: true);
+    if (order.isEmpty || order.length > hashtagsPerRequest) {
+      throw RangeError.range(
+        order.length,
+        1,
+        hashtagsPerRequest,
+        'order.length',
+      );
+    }
     final response = await _get(
       Uri.parse('$siteUrl/hashtags/search.json').replace(
         // `<String, dynamic>` so the list is emitted as a repeated parameter.
@@ -1083,7 +1163,7 @@ class DiscourseApi
     try {
       return switch (jsonDecode(response.body)) {
         {'results': final List<dynamic> results} => [
-          for (final item in results)
+          for (final item in results.take(maximumAutocompleteResults))
             if (item is Map<String, dynamic>) ?FoundHashtag.fromJson(item),
         ],
         _ => const <FoundHashtag>[],
@@ -1114,8 +1194,12 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    final slugs = refs.take(hashtagsPerRequest).toList();
+    final slugs = refs.take(hashtagsPerRequest).toList(growable: false);
     if (slugs.isEmpty) return const [];
+    for (final slug in slugs) {
+      _validateComposerLookupValue(slug);
+    }
+    final requested = slugs.toSet();
 
     final response = await _get(
       Uri.parse('$siteUrl/hashtags.json').replace(
@@ -1132,12 +1216,15 @@ class DiscourseApi
     try {
       final body = jsonDecode(response.body);
       if (body is! Map<String, dynamic>) return const [];
-      return [
+      return <FoundHashtag>[
         for (final entry in body.values)
           if (entry is List<dynamic>)
             for (final item in entry)
-              if (item is Map<String, dynamic>) ?FoundHashtag.fromJson(item),
-      ];
+              if (item is Map<String, dynamic>)
+                if (FoundHashtag.fromJson(item) case final hashtag?
+                    when requested.contains(hashtag.ref))
+                  hashtag,
+      ].take(hashtagsPerRequest).toList(growable: false);
     } catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
@@ -1165,8 +1252,13 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    final asked = names.take(hashtagsPerRequest).toList();
+    final asked = names.take(hashtagsPerRequest).toList(growable: false);
     if (asked.isEmpty) return const {};
+    for (final name in asked) {
+      _validateComposerLookupValue(name);
+    }
+    if (topicId != null) _requirePositiveId(topicId, 'topicId');
+    final requested = asked.toSet();
 
     final response = await _get(
       Uri.parse('$siteUrl/composer/mentions').replace(
@@ -1185,8 +1277,9 @@ class DiscourseApi
       if (body is! Map<String, dynamic>) return const {};
       return {
         for (final name in jsonArray(body['users']))
-          if (name is String) name,
-        ...jsonObject(body['groups']).keys,
+          if (name is String && requested.contains(name)) name,
+        for (final name in jsonObject(body['groups']).keys)
+          if (requested.contains(name)) name,
       };
     } catch (error, stackTrace) {
       throw SiteLookupException(
@@ -1369,6 +1462,8 @@ class DiscourseApi
     int limit = 20,
     String? clientId,
   }) async {
+    _validateAutocompleteRequest(term: term, limit: limit);
+    if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
     final body = await _getObject(
       Uri.parse('$siteUrl/tags/filter/search.json').replace(
         queryParameters: <String, dynamic>{
@@ -1384,7 +1479,7 @@ class DiscourseApi
       apiKey: apiKey,
       clientId: clientId,
     );
-    return TopicTagSearch.fromJson(body);
+    return TopicTagSearch.fromJson(body, limit: limit);
   }
 
   /// Replies to a topic.
@@ -1411,6 +1506,10 @@ class DiscourseApi
     String? draftKey,
     String? clientId,
   }) async {
+    _requirePositiveId(topicId, 'topicId');
+    if (replyToPostNumber != null) {
+      _requirePositiveId(replyToPostNumber, 'replyToPostNumber');
+    }
     final body = await _write(
       Uri.parse('$siteUrl/posts.json'),
       siteUrl: siteUrl,
@@ -1450,6 +1549,7 @@ class DiscourseApi
     String draftKey = ComposerDraft.newTopicDraftKey,
     String? clientId,
   }) async {
+    if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
     final body = await _write(
       Uri.parse('$siteUrl/posts.json'),
       siteUrl: siteUrl,
@@ -1482,6 +1582,8 @@ class DiscourseApi
     int? categoryId,
     String? clientId,
   }) async {
+    _requirePositiveId(topicId, 'topicId');
+    if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
     await _write(
       Uri.parse('$siteUrl/t/$topicId.json'),
       siteUrl: siteUrl,
@@ -1505,6 +1607,7 @@ class DiscourseApi
     required Iterable<TopicTag> tags,
     String? clientId,
   }) async {
+    _requirePositiveId(topicId, 'topicId');
     await _write(
       Uri.parse('$siteUrl/t/$topicId/tags.json'),
       siteUrl: siteUrl,
@@ -1528,6 +1631,7 @@ class DiscourseApi
     String? editReason,
     String? clientId,
   }) async {
+    _requirePositiveId(postId, 'postId');
     final body = await _write(
       Uri.parse('$siteUrl/posts/$postId.json'),
       siteUrl: siteUrl,
@@ -1565,14 +1669,17 @@ class DiscourseApi
     required String apiKey,
     required int postId,
     String? clientId,
-  }) => _write(
-    Uri.parse('$siteUrl/posts/$postId.json'),
-    siteUrl: siteUrl,
-    method: 'DELETE',
-    apiKey: apiKey,
-    clientId: clientId,
-    body: const {},
-  );
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    await _write(
+      Uri.parse('$siteUrl/posts/$postId.json'),
+      siteUrl: siteUrl,
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
 
   /// Likes a post, and returns it as the site now holds it.
   ///
@@ -1583,17 +1690,20 @@ class DiscourseApi
     required String apiKey,
     required int postId,
     String? clientId,
-  }) async => _actedPost(
-    await _write(
-      Uri.parse('$siteUrl/post_actions.json'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {'id': postId, 'post_action_type_id': Post.likeActionId},
-    ),
-    siteUrl,
-  );
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    return _actedPost(
+      await _write(
+        Uri.parse('$siteUrl/post_actions.json'),
+        siteUrl: siteUrl,
+        method: 'POST',
+        apiKey: apiKey,
+        clientId: clientId,
+        body: {'id': postId, 'post_action_type_id': Post.likeActionId},
+      ),
+      siteUrl,
+    );
+  }
 
   /// Takes a like back, and returns the post as the site now holds it.
   ///
@@ -1605,20 +1715,23 @@ class DiscourseApi
     required String apiKey,
     required int postId,
     String? clientId,
-  }) async => _actedPost(
-    await _write(
-      Uri.parse(
-        '$siteUrl/post_actions/$postId.json'
-        '?post_action_type_id=${Post.likeActionId}',
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    return _actedPost(
+      await _write(
+        Uri.parse(
+          '$siteUrl/post_actions/$postId.json'
+          '?post_action_type_id=${Post.likeActionId}',
+        ),
+        siteUrl: siteUrl,
+        method: 'DELETE',
+        apiKey: apiKey,
+        clientId: clientId,
+        body: const {},
       ),
-      siteUrl: siteUrl,
-      method: 'DELETE',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    ),
-    siteUrl,
-  );
+      siteUrl,
+    );
+  }
 
   /// The post a like route answered with, or null when it answered with none.
   ///
@@ -1650,20 +1763,24 @@ class DiscourseApi
     required int postId,
     required String reaction,
     String? clientId,
-  }) async => _actedPost(
-    await _write(
-      Uri.parse(
-        '$siteUrl/discourse-reactions/posts/$postId'
-        '/custom-reactions/${Uri.encodeComponent(reaction)}/toggle.json',
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    _validateReactionName(reaction);
+    return _actedPost(
+      await _write(
+        Uri.parse(
+          '$siteUrl/discourse-reactions/posts/$postId'
+          '/custom-reactions/${Uri.encodeComponent(reaction)}/toggle.json',
+        ),
+        siteUrl: siteUrl,
+        method: 'PUT',
+        apiKey: apiKey,
+        clientId: clientId,
+        body: const {},
       ),
-      siteUrl: siteUrl,
-      method: 'PUT',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    ),
-    siteUrl,
-  );
+      siteUrl,
+    );
+  }
 
   /// Casts or changes this reader's selection in one named poll.
   ///
@@ -1681,6 +1798,7 @@ class DiscourseApi
     required List<String> options,
     String? clientId,
   }) async {
+    _requirePositiveId(postId, 'postId');
     final body = await _write(
       Uri.parse('$siteUrl/polls/vote.json'),
       siteUrl: siteUrl,
@@ -1706,6 +1824,7 @@ class DiscourseApi
     required String pollName,
     String? clientId,
   }) async {
+    _requirePositiveId(postId, 'postId');
     final body = await _write(
       Uri.parse('$siteUrl/polls/vote.json'),
       siteUrl: siteUrl,
@@ -1785,6 +1904,10 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
+    _requirePositiveId(postId, 'postId');
+    if (limit < 1 || limit > PostLikers.maximumPageSize) {
+      throw RangeError.range(limit, 1, PostLikers.maximumPageSize, 'limit');
+    }
     final body = await _getObject(
       Uri.parse(
         '$siteUrl/post_action_users.json'
@@ -1804,14 +1927,17 @@ class DiscourseApi
     required String apiKey,
     required int postId,
     String? clientId,
-  }) => _write(
-    Uri.parse('$siteUrl/posts/$postId/recover.json'),
-    siteUrl: siteUrl,
-    method: 'PUT',
-    apiKey: apiKey,
-    clientId: clientId,
-    body: const {},
-  );
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    await _write(
+      Uri.parse('$siteUrl/posts/$postId/recover.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
 
   /// Saves the draft of a reply, and returns the sequence to save the next one
   /// against.
@@ -2046,6 +2172,12 @@ class DiscourseApi
     int limit = 30,
     String? clientId,
   }) async {
+    if (offset < 0) {
+      throw RangeError.value(offset, 'offset', 'Must not be negative.');
+    }
+    if (limit < 1 || limit > maximumUserDraftPageSize) {
+      throw RangeError.range(limit, 1, maximumUserDraftPageSize, 'limit');
+    }
     final url = Uri.parse(
       '$siteUrl/drafts.json',
     ).replace(queryParameters: {'offset': '$offset', 'limit': '$limit'});
@@ -2056,9 +2188,10 @@ class DiscourseApi
       clientId: clientId,
     );
     return List.unmodifiable(
-      jsonObjects(
-        body['drafts'],
-      ).map(UserDraft.fromJson).where((draft) => draft.key.isNotEmpty),
+      jsonObjects(body['drafts'])
+          .take(limit)
+          .map(UserDraft.fromJson)
+          .where((draft) => draft.key.isNotEmpty),
     );
   }
 
@@ -2195,6 +2328,11 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
+    _requirePositiveId(postId, 'postId');
+    if (limit < 1 || limit > PostReactors.maximumPageSize) {
+      throw RangeError.range(limit, 1, PostReactors.maximumPageSize, 'limit');
+    }
+    if (reaction != null) _validateReactionName(reaction);
     final body = await _getObject(
       Uri.parse(
         '$siteUrl/discourse-reactions/posts/$postId/reactions-users-list.json'
@@ -2311,7 +2449,16 @@ class DiscourseApi
       clientId: clientId,
     );
 
-    return ChatMessage.parsePage(body, siteUrl);
+    return ChatMessage.parsePage(
+      body,
+      siteUrl,
+      window: after == null
+          ? (fromLastRead
+                ? ChatMessagePageWindow.aroundTarget
+                : ChatMessagePageWindow.retainNewest)
+          : ChatMessagePageWindow.retainOldest,
+      maximumMessages: fromLastRead ? ChatMessage.maximumPageSize : pageSize,
+    );
   }
 
   /// Credits the reader with everything in a channel up to [messageId].
@@ -2337,16 +2484,20 @@ class DiscourseApi
     required int channelId,
     required int messageId,
     String? clientId,
-  }) => _write(
-    Uri.parse(
-      '$siteUrl/chat/api/channels/$channelId/read.json?message_id=$messageId',
-    ),
-    siteUrl: siteUrl,
-    method: 'PUT',
-    apiKey: apiKey,
-    clientId: clientId,
-    body: const {},
-  );
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(messageId, 'messageId');
+    await _write(
+      Uri.parse(
+        '$siteUrl/chat/api/channels/$channelId/read.json?message_id=$messageId',
+      ),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
 
   @override
   Future<ChatMessagePage> chatThreadMessages({
@@ -2374,7 +2525,13 @@ class DiscourseApi
       apiKey: apiKey,
       clientId: clientId,
     );
-    return ChatMessage.parsePage(body, siteUrl);
+    return ChatMessage.parsePage(
+      body,
+      siteUrl,
+      window: after == null
+          ? ChatMessagePageWindow.retainNewest
+          : ChatMessagePageWindow.retainOldest,
+    );
   }
 
   static void _validateChatPageDirection({
@@ -2396,6 +2553,65 @@ class DiscourseApi
     if (value <= 0) throw RangeError.value(value, name, 'Must be positive.');
   }
 
+  static void _validateReactionName(String reaction) {
+    if (reaction.isNotEmpty && reaction.length <= maximumSearchTermLength) {
+      return;
+    }
+    // Do not include the value: plugin responses can supply it and errors may
+    // be forwarded to diagnostics.
+    throw ArgumentError(
+      'Reaction names must contain between 1 and '
+      '$maximumSearchTermLength characters.',
+    );
+  }
+
+  static void _validatePostWindow(int topicId, List<int> ids) {
+    _requirePositiveId(topicId, 'topicId');
+    if (ids.length > TopicDetail.maximumInitialPosts) {
+      throw RangeError.range(
+        ids.length,
+        1,
+        TopicDetail.maximumInitialPosts,
+        'ids.length',
+      );
+    }
+    for (final id in ids) {
+      _requirePositiveId(id, 'ids');
+    }
+  }
+
+  static void _validateComposerLookupValue(
+    String value, {
+    bool allowEmpty = false,
+  }) {
+    if ((!allowEmpty && value.isEmpty) ||
+        value.length > maximumSearchTermLength) {
+      // Do not include the value: composer input can contain private names and
+      // errors may be forwarded to diagnostics.
+      throw ArgumentError(
+        'Composer lookup values must be ${allowEmpty ? 'at most' : 'between 1 and'} '
+        '$maximumSearchTermLength characters.',
+      );
+    }
+  }
+
+  static void _validateAutocompleteRequest({
+    required String term,
+    required int limit,
+  }) {
+    if (term.length > maximumSearchTermLength) {
+      // Do not include the term: it can contain private names and phrases and
+      // this error can be forwarded to diagnostics.
+      throw ArgumentError(
+        'Autocomplete terms must be at most '
+        '$maximumSearchTermLength characters.',
+      );
+    }
+    if (limit < 1 || limit > maximumAutocompleteResults) {
+      throw RangeError.range(limit, 1, maximumAutocompleteResults, 'limit');
+    }
+  }
+
   @override
   Future<int?> sendChatMessage({
     required String siteUrl,
@@ -2407,6 +2623,11 @@ class DiscourseApi
     DateTime? clientCreatedAt,
     String? clientId,
   }) async {
+    _requirePositiveId(channelId, 'channelId');
+    if (threadId != null) _requirePositiveId(threadId, 'threadId');
+    if (message.trim().isEmpty) {
+      throw ArgumentError.value('', 'message', 'Must not be blank.');
+    }
     final body = await _write(
       Uri.parse('$siteUrl/chat/$channelId.json'),
       siteUrl: siteUrl,
@@ -2431,16 +2652,21 @@ class DiscourseApi
     required int threadId,
     required int messageId,
     String? clientId,
-  }) => _write(
-    Uri.parse(
-      '$siteUrl/chat/api/channels/$channelId/threads/$threadId/read.json',
-    ),
-    siteUrl: siteUrl,
-    method: 'PUT',
-    apiKey: apiKey,
-    clientId: clientId,
-    body: {'message_id': messageId},
-  );
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(threadId, 'threadId');
+    _requirePositiveId(messageId, 'messageId');
+    await _write(
+      Uri.parse(
+        '$siteUrl/chat/api/channels/$channelId/threads/$threadId/read.json',
+      ),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'message_id': messageId},
+    );
+  }
 
   /// Tells the site to forget the key, so deleting our copy does not leave a
   /// live key sitting in the user's authorized-apps list forever.
@@ -2508,9 +2734,24 @@ class DiscourseApi
 }
 
 Iterable<Map<String, dynamic>> _flattenCategories(Object? categories) sync* {
-  for (final category in jsonObjects(categories)) {
+  // Category nesting is site-controlled. Keep preorder without recursively
+  // nesting sync* iterators, so a malformed deep tree cannot exhaust the Dart
+  // call stack while the otherwise valid response is committed.
+  final pending = <Map<String, dynamic>>[];
+
+  void pushReversed(Object? value) {
+    final values = jsonArray(value);
+    for (var index = values.length - 1; index >= 0; index--) {
+      final entry = values[index];
+      if (entry is Map<String, dynamic>) pending.add(entry);
+    }
+  }
+
+  pushReversed(categories);
+  while (pending.isNotEmpty) {
+    final category = pending.removeLast();
     yield category;
-    yield* _flattenCategories(category['subcategory_list']);
+    pushReversed(category['subcategory_list']);
   }
 }
 

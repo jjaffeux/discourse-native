@@ -158,6 +158,40 @@ void main() {
     );
   });
 
+  testWidgets('an empty asynchronous search result is announced', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        _editor(
+          suggestions: AssignmentSuggestions(users: const [_sam]),
+          searchDebounce: Duration.zero,
+          search: (_, _) async => const <AssignmentAssignee>[],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final search = find.byKey(const Key('assignment-search'));
+      await tester.tap(search);
+      await tester.enterText(search, 'nobody');
+      await tester.pumpAndSettle();
+
+      final editable = tester.widget<EditableText>(
+        find.descendant(of: search, matching: find.byType(EditableText)),
+      );
+      expect(editable.focusNode.hasFocus, isTrue);
+
+      final empty = find.byKey(const Key('assignment-empty-results'));
+      expect(
+        tester.getSemantics(empty),
+        isSemantics(label: 'No matching users or groups.', isLiveRegion: true),
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('write errors stay inline and a pending write cannot duplicate', (
     tester,
   ) async {

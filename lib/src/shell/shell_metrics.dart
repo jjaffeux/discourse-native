@@ -19,4 +19,4 @@ const double composerSuggestionsWidth = 320;
 
 /// One row of it. Fixed so the list's height is known before it is built,
 /// which is what keeps it from ever needing to scroll.
-const double composerSuggestionRowHeight = 40;
+const double composerSuggestionRowHeight = 44;

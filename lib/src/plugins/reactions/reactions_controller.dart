@@ -57,6 +57,7 @@ class ReactionsController extends FrameSafeNotifier {
     required int postId,
     String? filter,
   }) async {
+    if (isDisposed) return;
     final key = _key(siteUrl, postId, filter);
     if (_requests.containsKey(key)) return;
     final request = Object();

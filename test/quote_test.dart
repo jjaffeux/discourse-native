@@ -5,6 +5,7 @@ import 'package:discourse_native/src/shell/quote_panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
@@ -113,6 +114,76 @@ void main() {
         find.textContaining('combining New and Unread', findRichText: true),
         findsOneWidget,
       );
+    });
+
+    testWidgets('source attribution is a named keyboard link', (tester) async {
+      const sourceUrl = 'https://meta.discourse.org/t/a-topic/1234/1';
+      const channel = MethodChannel('plugins.flutter.io/url_launcher');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final launched = <String>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'launch') {
+          launched.add((call.arguments as Map)['url'] as String);
+        }
+        return true;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: const Scaffold(
+              body: QuoteBlock(
+                data: QuoteData(
+                  username: 'sam',
+                  avatarUrl: null,
+                  title: 'A topic',
+                  link: sourceUrl,
+                  bodyHtml: '<p>Quoted across topics.</p>',
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final target = find.bySemanticsLabel('A topic');
+        expect(target, findsOneWidget);
+        expect(tester.getSize(target).height, lessThan(44));
+        expect(
+          tester.getSemantics(target),
+          isSemantics(
+            label: 'A topic',
+            isLink: true,
+            isButton: false,
+            isFocusable: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+          ),
+        );
+        final ink = find.descendant(of: target, matching: find.byType(InkWell));
+        expect(ink, findsOneWidget);
+        expect(
+          tester.widget<InkWell>(ink).focusColor,
+          Theme.of(tester.element(target)).shell.hover,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          tester.getSemantics(target),
+          isSemantics(isFocusable: true, isFocused: true),
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(launched, [sourceUrl]);
+      } finally {
+        semantics.dispose();
+      }
     });
 
     testWidgets('keeps the accent out of the rounded right corners', (

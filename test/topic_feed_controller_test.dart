@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/incoming_topics.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/topic_feed_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -45,8 +46,15 @@ final class _GatedCredentialReader implements SiteApiKeyReader {
   }
 }
 
-TopicList _page(int id) => TopicList(
+TopicList _page(int id, {String? moreTopicsUrl}) => TopicList(
   topics: [Topic(id: id, title: 'Topic $id', slug: 'topic-$id')],
+  moreTopicsUrl: moreTopicsUrl,
+);
+
+TopicList _pages(Iterable<int> ids) => TopicList(
+  topics: [
+    for (final id in ids) Topic(id: id, title: 'Topic $id', slug: 'topic-$id'),
+  ],
 );
 
 void main() {
@@ -70,6 +78,194 @@ void main() {
   });
 
   tearDown(() => controller.dispose());
+
+  test('a failed initial load offers one coalesced retry', () async {
+    final site = instance('one.example');
+    final failed = controller.load(
+      instance: site,
+      destinationId: 'latest',
+      path: '/latest.json',
+      incoming: null,
+    );
+    await pumpEventQueue();
+
+    api.requests.single.response.completeError(
+      SiteLookupException(SiteLookupFailure.unreachable, site.url),
+    );
+    await failed;
+
+    final failure = controller.feedFor(site.url, 'latest')!;
+    expect(failure.topicIds, isEmpty);
+    expect(failure.loading, isFalse);
+    expect(failure.error, "Couldn't reach one.example.");
+
+    final retry = controller.load(
+      instance: site,
+      destinationId: 'latest',
+      path: '/latest.json',
+      incoming: null,
+    );
+    final duplicate = controller.load(
+      instance: site,
+      destinationId: 'latest',
+      path: '/latest.json',
+      incoming: null,
+    );
+    expect(duplicate, same(retry));
+    await pumpEventQueue();
+
+    expect(api.requests, hasLength(2));
+    api.requests.last.response.complete(_page(1));
+    await Future.wait([retry, duplicate]);
+
+    expect(controller.feedFor(site.url, 'latest')?.topicIds, [1]);
+    expect(controller.feedFor(site.url, 'latest')?.error, isNull);
+  });
+
+  test('refresh keeps stale rows and scroll state through a failure', () async {
+    final site = instance('one.example');
+    final initial = controller.load(
+      instance: site,
+      destinationId: 'latest',
+      path: '/latest.json',
+      incoming: null,
+    );
+    await pumpEventQueue();
+    api.requests.single.response.complete(
+      _page(1, moreTopicsUrl: '/latest?page=1'),
+    );
+    await initial;
+    controller.saveScrollRow(site.url, 'latest', 11);
+
+    final refresh = controller.load(
+      instance: site,
+      destinationId: 'latest',
+      path: '/latest.json',
+      incoming: null,
+      force: true,
+    );
+    await pumpEventQueue();
+
+    final refreshing = controller.feedFor(site.url, 'latest')!;
+    expect(refreshing.topicIds, [1]);
+    expect(refreshing.loading, isTrue);
+    expect(refreshing.loaded, isTrue);
+    expect(refreshing.hasMore, isTrue);
+    expect(controller.scrollRowFor(site.url, 'latest'), 11);
+
+    api.requests.last.response.completeError(
+      SiteLookupException(SiteLookupFailure.unreachable, site.url),
+    );
+    await refresh;
+
+    final stale = controller.feedFor(site.url, 'latest')!;
+    expect(stale.topicIds, [1]);
+    expect(stale.loading, isFalse);
+    expect(stale.error, "Couldn't reach one.example.");
+    expect(stale.pageError, isFalse);
+    expect(stale.hasMore, isTrue);
+    expect(controller.scrollRowFor(site.url, 'latest'), 11);
+  });
+
+  test('a failed next page keeps its cursor and retries once', () async {
+    final site = instance('one.example');
+    final initial = controller.load(
+      instance: site,
+      destinationId: 'latest',
+      path: '/latest.json',
+      incoming: null,
+    );
+    await pumpEventQueue();
+    api.requests.single.response.complete(
+      _page(1, moreTopicsUrl: '/latest?page=1'),
+    );
+    await initial;
+
+    final failedPage = controller.loadMore(
+      instance: site,
+      destinationId: 'latest',
+    );
+    final duplicatePage = controller.loadMore(
+      instance: site,
+      destinationId: 'latest',
+    );
+    await pumpEventQueue();
+    expect(api.requests, hasLength(2));
+
+    api.requests.last.response.completeError(Exception('offline'));
+    await Future.wait([failedPage, duplicatePage]);
+
+    final failed = controller.feedFor(site.url, 'latest')!;
+    expect(failed.topicIds, [1]);
+    expect(failed.loadingMore, isFalse);
+    expect(failed.pageError, isTrue);
+    expect(failed.hasMore, isTrue);
+    expect(failed.error, "Couldn't load more topics from one.example.");
+
+    final retry = controller.loadMore(instance: site, destinationId: 'latest');
+    final duplicateRetry = controller.loadMore(
+      instance: site,
+      destinationId: 'latest',
+    );
+    await pumpEventQueue();
+    expect(api.requests, hasLength(3));
+
+    api.requests.last.response.complete(_page(2));
+    await Future.wait([retry, duplicateRetry]);
+
+    final recovered = controller.feedFor(site.url, 'latest')!;
+    expect(recovered.topicIds, [1, 2]);
+    expect(recovered.error, isNull);
+    expect(recovered.pageError, isFalse);
+    expect(recovered.hasMore, isFalse);
+  });
+
+  test(
+    'incoming topics are requested and cleared one server page at a time',
+    () async {
+      final site = instance('one.example');
+      final initial = controller.load(
+        instance: site,
+        destinationId: 'latest',
+        path: '/latest.json',
+        incoming: null,
+      );
+      await pumpEventQueue();
+      api.requests.single.response.complete(_page(100));
+      await initial;
+
+      final incoming = IncomingTopics();
+      for (var id = 1; id <= TopicFeedController.incomingPageSize + 1; id++) {
+        incoming.notify({'topic_id': id, 'message_type': 'latest'});
+      }
+
+      final load = controller.showIncoming(
+        instance: site,
+        destinationId: 'latest',
+        path: '/latest.json',
+        incoming: incoming,
+      );
+      await pumpEventQueue();
+
+      final requestedIds = [
+        for (var id = 1; id <= TopicFeedController.incomingPageSize; id++) id,
+      ];
+      expect(api.requests, hasLength(2));
+      expect(
+        api.requests.last.path,
+        '/latest.json?topic_ids=${requestedIds.join(',')}',
+      );
+      api.requests.last.response.complete(_pages(requestedIds));
+      await load;
+
+      expect(controller.feedFor(site.url, 'latest')?.topicIds, [
+        ...requestedIds,
+        100,
+      ]);
+      expect(incoming.topicIds('latest'), [31]);
+      expect(incoming.count('latest'), 1);
+    },
+  );
 
   test('a forced load replays once after the active request', () async {
     final site = instance('one.example');
@@ -101,6 +297,32 @@ void main() {
     expect(controller.feedFor(site.url, 'latest')?.topicIds, [2]);
     expect(store.read<Topic>(site.url, 1)?.title, 'Topic 1');
     expect(store.read<Topic>(site.url, 2)?.title, 'Topic 2');
+  });
+
+  test('reentrant disposal suppresses the feed post-load callback', () async {
+    final site = instance('one.example');
+    var loaded = false;
+    final guarded = TopicFeedController(
+      api: api,
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+      store: store,
+      onFeedLoaded: (_, _) => loaded = true,
+    );
+
+    final loading = guarded.load(
+      instance: site,
+      destinationId: 'latest',
+      path: '/latest.json',
+      incoming: null,
+    );
+    await pumpEventQueue();
+    guarded.addListener(guarded.dispose);
+
+    api.requests.single.response.complete(_page(1));
+    await loading;
+
+    expect(loaded, isFalse);
   });
 
   test('forget uses exact site keys and rejects a late response', () async {

@@ -23,11 +23,13 @@ final class DiscourseTransport {
     this._maxResponseBytes, {
     DiscourseRequestCoordinator? coordinator,
     int maxConcurrentPerOrigin = 4,
+    int maxQueuedPerOrigin = 64,
     Duration defaultRateLimitCooldown = const Duration(seconds: 15),
   }) : coordinator =
            coordinator ??
            DiscourseRequestCoordinator(
              maxConcurrentPerOrigin: maxConcurrentPerOrigin,
+             maxQueuedPerOrigin: maxQueuedPerOrigin,
              defaultRateLimitCooldown: defaultRateLimitCooldown,
            );
 

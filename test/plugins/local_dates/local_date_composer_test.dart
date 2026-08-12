@@ -48,12 +48,61 @@ void main() {
       expect(blocks.last.kind, LocalDateComposerKind.range);
     });
 
+    test('scans many interleaved code ranges in one forward pass', () {
+      const count = 2500;
+      const visible = '[date=2026-01-01 timezone=UTC]';
+      final source = StringBuffer();
+      for (var index = 0; index < count; index++) {
+        source
+          ..write('`[date=2025-12-31]` ')
+          ..write(visible)
+          ..writeln();
+      }
+      final document = source.toString();
+
+      final blocks = parseLocalDateComposerBlocks(document);
+
+      expect(blocks, hasLength(count));
+      expect(blocks.every((block) => block.source == visible), isTrue);
+      expect(
+        blocks.map((block) => document.substring(block.start, block.end)),
+        everyElement(visible),
+      );
+    });
+
     test('leaves malformed timezone markup raw', () {
       const source =
           '[date=2026-01-01 timezone=Future/Mars] '
           '[date=2026-01-02 displayedTimezone=Invalid/Zone]';
 
       expect(parseLocalDateComposerBlocks(source), isEmpty);
+    });
+
+    test('accepts the ASCII attribute-name and recurrence grammar', () {
+      const source = '[date=2024-02-29 _future-2=value recurring=12.quarters]';
+
+      final block = parseLocalDateComposerBlocks(source).single;
+
+      expect(block.attribute('_future-2'), 'value');
+      expect(block.attribute('recurring'), '12.quarters');
+    });
+
+    test('rejects invalid attribute names, dates, times, and recurrences', () {
+      const invalid = [
+        '[date=2026-01-01 2future=value]',
+        '[date=2026-01-01 -future=value]',
+        '[date=2026-01-01 füture=value]',
+        '[date=2023-02-29]',
+        '[date=2026-01-01 recurring=0.days]',
+        '[date=2026-01-01 recurring=1.century]',
+        '[date-range from=2026-01-01T24:00 to=2026-01-02T01:00]',
+        '[date-range from=2026-01-01T23:60 to=2026-01-02T01:00]',
+        '[date-range from=2026-01-01T23:59:60 to=2026-01-02T01:00]',
+      ];
+
+      for (final source in invalid) {
+        expect(parseLocalDateComposerBlocks(source), isEmpty, reason: source);
+      }
     });
 
     test('an edit preserves unknown syntax and changes only known values', () {

@@ -60,6 +60,32 @@ void main() {
     expect(images.last.url, 'https://cdn.example/image.png');
   });
 
+  test('keeps only positive dimensions and scales from 1 through 100', () {
+    const source =
+        'before ![zero|0000x0480, 000%](upload://zero) '
+        '![minimum|1x1, 1%](upload://minimum) '
+        '![maximum|9999x9999, 100%](upload://maximum) '
+        '![too large|640x480, 101%](upload://large) '
+        '![hostile|640x480, 999%](upload://hostile) after';
+    final images = parseComposerImages(source);
+
+    expect(images, hasLength(5));
+    expect(
+      (images[0].width, images[0].height, images[0].scale),
+      (null, null, null),
+    );
+    expect((images[1].width, images[1].height, images[1].scale), (1, 1, 1));
+    expect(
+      (images[2].width, images[2].height, images[2].scale),
+      (9999, 9999, 100),
+    );
+    expect(images[3].scale, isNull);
+    expect(images[4].scale, isNull);
+    for (final image in images) {
+      expect(image.source, source.substring(image.start, image.end));
+    }
+  });
+
   test('escaped alt text round trips through serialization', () {
     final image = parseComposerImages(
       r'![a \[label\] and \\ slash|640x480](upload://abc)',

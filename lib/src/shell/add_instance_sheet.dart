@@ -174,6 +174,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           textInputAction: TextInputAction.go,
           onSubmitted: (_) => _connect(),
           decoration: InputDecoration(
+            labelText: 'Forum address',
             hintText: 'meta.discourse.org',
             prefixIcon: const DIcon(DIcons.globe, size: 20),
             border: const OutlineInputBorder(),

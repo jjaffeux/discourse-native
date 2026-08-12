@@ -318,7 +318,7 @@ class _DraftRowContent extends StatelessWidget {
     final title = draft.displayTitle == 'Untitled draft'
         ? null
         : draft.displayTitle;
-    final actionSize = compact ? 38.0 : 44.0;
+    const actionSize = 44.0;
 
     return InkWell(
       onTap: action,

@@ -423,11 +423,16 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
               child: _results.isEmpty && !_searching
                   ? Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: Text(
-                        'No matching users or groups.',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                      child: Semantics(
+                        container: true,
+                        liveRegion: true,
+                        child: Text(
+                          'No matching users or groups.',
+                          key: const Key('assignment-empty-results'),
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     )

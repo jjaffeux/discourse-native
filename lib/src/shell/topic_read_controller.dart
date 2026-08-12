@@ -57,7 +57,7 @@ final class TopicReadController {
     int postNumber, {
     required bool caughtUp,
   }) {
-    if (_disposed || postNumber <= 0) return Future.value();
+    if (_disposed || topicId <= 0 || postNumber <= 0) return Future.value();
 
     final key = (siteUrl, topicId);
     final held = store.read<Topic>(siteUrl, topicId);

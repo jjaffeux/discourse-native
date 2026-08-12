@@ -334,10 +334,10 @@ final class LinuxFileStorage implements EnumerablePrivateStorage {
 
   static const _fileName = 'private-storage.json';
   static const _formatVersion = 1;
+  static final Map<String, _LinuxFileStorageCoordinator> _coordinators = {};
 
   final Directory? _providedDirectory;
   final Random _random = Random.secure();
-  Future<void> _tail = Future<void>.value();
 
   @override
   Future<String?> read(String key) =>
@@ -360,16 +360,14 @@ final class LinuxFileStorage implements EnumerablePrivateStorage {
     if (values.remove(key) != null) await _writeValues(values);
   });
 
-  Future<T> _serialize<T>(Future<T> Function() operation) {
-    final result = Completer<T>();
-    _tail = _tail.then((_) async {
-      try {
-        result.complete(await operation());
-      } catch (error, stackTrace) {
-        result.completeError(error, stackTrace);
-      }
-    });
-    return result.future;
+  Future<T> _serialize<T>(Future<T> Function() operation) async {
+    final file = await _file();
+    final path = file.absolute.path;
+    final coordinator = _coordinators.putIfAbsent(
+      path,
+      () => _LinuxFileStorageCoordinator(File(path)),
+    );
+    return coordinator.run(operation);
   }
 
   Future<Directory> _directory() async {
@@ -444,5 +442,30 @@ final class LinuxFileStorage implements EnumerablePrivateStorage {
     } finally {
       if (await temporary.exists()) await temporary.delete();
     }
+  }
+}
+
+/// Serializes full-file transactions across storage instances and processes.
+final class _LinuxFileStorageCoordinator {
+  _LinuxFileStorageCoordinator(this.file);
+
+  final File file;
+  Future<void> _tail = Future<void>.value();
+
+  Future<T> run<T>(Future<T> Function() operation) {
+    final result = Completer<T>();
+    _tail = _tail.then((_) async {
+      try {
+        result.complete(
+          await withPrivateAdvisoryFileLock(
+            File('${file.path}.lock'),
+            operation,
+          ),
+        );
+      } catch (error, stackTrace) {
+        result.completeError(error, stackTrace);
+      }
+    });
+    return result.future;
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/plugins/assign/assign_api.dart';
@@ -165,6 +166,68 @@ void main() {
     expect(await first, isNull);
     expect(reloads, [7]);
   });
+
+  test(
+    'dispose during credential lookup prevents assignment side effects',
+    () async {
+      final gatedCredentials = _GatedCredentials();
+      final disposedReloads = <int>[];
+      final disposedController = AssignmentController(
+        api: AssignApi(transport),
+        credentials: gatedCredentials,
+        lifecycle: lifecycle,
+        canAssign: (_, _) => true,
+        reloadTopic: (_, topicId) async => disposedReloads.add(topicId),
+        invalidateLegacyFallback: (_) {},
+      );
+
+      final assignment = disposedController.assign(
+        _site,
+        _topic,
+        const AssignmentUser(username: 'sam'),
+      );
+      await _waitUntil(() => gatedCredentials.apiKeyCalls == 1);
+
+      disposedController.dispose();
+      gatedCredentials.apiKey.complete('stale-key');
+
+      expect(await assignment, contains("can't post"));
+      expect(gatedCredentials.clientIdCalls, 0);
+      expect(transport.writes, isEmpty);
+      expect(disposedReloads, isEmpty);
+    },
+  );
+
+  test('dispose during client-id lookup prevents the plugin read', () async {
+    final gatedCredentials = _GatedClientIdCredentials();
+    final disposedController = AssignmentController(
+      api: AssignApi(transport),
+      credentials: gatedCredentials,
+      lifecycle: lifecycle,
+      canAssign: (_, _) => true,
+      reloadTopic: (_, _) async {},
+      invalidateLegacyFallback: (_) {},
+    );
+
+    final suggestions = disposedController.suggestions(_site, _topic);
+    await _waitUntil(() => gatedCredentials.clientIdCalls == 1);
+
+    disposedController.dispose();
+    gatedCredentials.clientIdResult.complete('stale-client');
+
+    await expectLater(
+      suggestions,
+      throwsA(
+        isA<WriteException>().having(
+          (error) => error.failure,
+          'failure',
+          WriteFailure.forbidden,
+        ),
+      ),
+    );
+
+    expect(transport.gets, isEmpty);
+  });
 }
 
 Future<void> _waitUntil(bool Function() condition) async {
@@ -175,7 +238,40 @@ Future<void> _waitUntil(bool Function() condition) async {
   fail('Condition was not reached.');
 }
 
+final class _GatedCredentials implements ApiCredentialReader {
+  final apiKey = Completer<String?>();
+  int apiKeyCalls = 0;
+  int clientIdCalls = 0;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    apiKeyCalls++;
+    return apiKey.future;
+  }
+
+  @override
+  Future<String> clientId() async {
+    clientIdCalls++;
+    return 'test-client';
+  }
+}
+
+final class _GatedClientIdCredentials implements ApiCredentialReader {
+  final clientIdResult = Completer<String>();
+  int clientIdCalls = 0;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async => 'test-key';
+
+  @override
+  Future<String> clientId() {
+    clientIdCalls++;
+    return clientIdResult.future;
+  }
+}
+
 class _PluginTransport implements PluginApiTransport {
+  final List<String> gets = [];
   final List<({String method, String path, Map<String, Object?> body})> writes =
       [];
   WriteException? writeFailure;
@@ -189,6 +285,7 @@ class _PluginTransport implements PluginApiTransport {
     required String apiKey,
     String? clientId,
   }) async {
+    gets.add(path);
     if (getFailure case final failure?) throw failure;
     return const {
       'suggestions': <Object?>[],

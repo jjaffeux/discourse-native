@@ -22,6 +22,27 @@ String triggerIn(String annotated) {
 }
 
 void main() {
+  test('trigger kinds retain their exact ASCII character grammar', () {
+    for (final kind in ComposerTriggerKind.values) {
+      for (final character in ['a', 'Z', '0', '_', '-']) {
+        expect(kind.accepts(character), isTrue, reason: '$kind $character');
+      }
+      for (final character in ['/', 'é', ' ']) {
+        expect(kind.accepts(character), isFalse, reason: '$kind $character');
+      }
+    }
+
+    expect(ComposerTriggerKind.mention.accepts('.'), isTrue);
+    expect(ComposerTriggerKind.mention.accepts(':'), isFalse);
+    expect(ComposerTriggerKind.mention.accepts('+'), isFalse);
+    expect(ComposerTriggerKind.hashtag.accepts('.'), isTrue);
+    expect(ComposerTriggerKind.hashtag.accepts(':'), isTrue);
+    expect(ComposerTriggerKind.hashtag.accepts('+'), isFalse);
+    expect(ComposerTriggerKind.emoji.accepts('+'), isTrue);
+    expect(ComposerTriggerKind.emoji.accepts('.'), isFalse);
+    expect(ComposerTriggerKind.emoji.accepts(':'), isFalse);
+  });
+
   group('composerTriggerAt', () {
     test('opens once enough has been typed', () {
       expect(triggerIn('hey @s|'), '@s');

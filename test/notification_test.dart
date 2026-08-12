@@ -74,6 +74,28 @@ void main() {
       );
     });
 
+    test('fallback badge slugs preserve the ASCII replacement grammar', () {
+      expect(
+        parse(
+          NotificationKind.grantedBadge,
+          data: const {'badge_id': 24, 'badge_name': ' Nice__Réply!! 2 '},
+        ).path,
+        '/badges/24/-nice__r-ply-2-',
+      );
+    });
+
+    test('fallback badge slugs collapse an oversized malformed run', () {
+      final name = '${'!' * 100000}Nice${'?' * 100000}';
+
+      expect(
+        parse(
+          NotificationKind.grantedBadge,
+          data: {'badge_id': 24, 'badge_name': name},
+        ).path,
+        '/badges/24/-nice-',
+      );
+    });
+
     test('at the group, the inbox or the dashboard', () {
       expect(
         parse(

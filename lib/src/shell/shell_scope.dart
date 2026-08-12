@@ -30,6 +30,14 @@ class ShellScope extends InheritedNotifier<ShellController> {
     return scope!.notifier!;
   }
 
+  /// Subscribes only to controller replacement, not controller notifications.
+  ///
+  /// State owners whose callbacks capture a [ShellController] use this to
+  /// replace those callbacks when the app replaces its dependency graph,
+  /// without rebuilding for every ordinary shell state change.
+  static ShellController identityOf(BuildContext context) =>
+      _ShellControllerIdentity.of(context);
+
   /// The controller, or null where the shell is not an ancestor — widgets that
   /// also render outside it, such as a quote in a test.
   static ShellController? maybeOf(BuildContext context) =>

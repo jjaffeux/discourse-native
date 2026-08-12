@@ -1433,6 +1433,7 @@ class ChatController extends FrameSafeNotifier {
   /// answer is simply a site drawn without chat, which is the same argument
   /// `SiteConfig` makes for having no error state.
   Future<void> loadChannels(String siteUrl, {bool force = false}) {
+    if (isDisposed) return Future.value();
     final key = _channelsKey(siteUrl);
     if (!force && _publicIds.containsKey(siteUrl)) return Future.value();
     if ((_attempts[key] ?? 0) >= maxChannelAttempts) return Future.value();
@@ -1546,6 +1547,7 @@ class ChatController extends FrameSafeNotifier {
     int channelId, {
     bool force = false,
   }) {
+    if (isDisposed || channelId <= 0) return Future.value();
     _lastOpenedChannelIds[siteUrl] = channelId;
     final key = _streamKey(siteUrl, channelId);
     if (!force && _windowAttemptedRecently(key)) return Future.value();
@@ -1568,6 +1570,7 @@ class ChatController extends FrameSafeNotifier {
   /// held, the present is already on screen and this is a scroll rather than a
   /// fetch — which is the view's half of it, so this simply does nothing.
   Future<void> showLatest(String siteUrl, int channelId) {
+    if (isDisposed || channelId <= 0) return Future.value();
     if (stream(siteUrl, channelId).atPresent) return Future.value();
     return DiagnosticsSink.runOperation(
       'chat.loadLatest',
@@ -1683,6 +1686,7 @@ class ChatController extends FrameSafeNotifier {
   /// each of which the view can and does ask for anyway, because the cheapest
   /// place to answer "no" is here.
   Future<void> loadOlder(String siteUrl, int channelId) async {
+    if (isDisposed || channelId <= 0) return;
     final key = _streamKey(siteUrl, channelId);
     final held = stream(siteUrl, channelId);
     final before = held.oldestId;
@@ -1785,6 +1789,7 @@ class ChatController extends FrameSafeNotifier {
   /// present. On a stream fetched at the live edge `canLoadMoreFuture` is
   /// false, and this is the cheapest place to say so.
   Future<void> loadNewer(String siteUrl, int channelId) async {
+    if (isDisposed || channelId <= 0) return;
     final key = _streamKey(siteUrl, channelId);
     final held = stream(siteUrl, channelId);
     final after = held.newestId;

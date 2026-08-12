@@ -55,6 +55,19 @@ void main() {
       }
     });
 
+    test('rejects out-of-range ports', () {
+      for (final value in [
+        'https://forum.example:0/path',
+        'https://forum.example:65536/path',
+      ]) {
+        expect(
+          () => requireSafeHttpUrl(Uri.parse(value)),
+          throwsA(isA<UnsafeHttpTransportException>()),
+          reason: value,
+        );
+      }
+    });
+
     test('rejects credentials on otherwise safe origins', () {
       for (final value in [
         'https://reader@forum.example/path',
@@ -67,6 +80,29 @@ void main() {
           reason: value,
         );
       }
+    });
+
+    test('does not retain rejected credentials or query values', () {
+      final rejected = Uri.parse(
+        'https://reader:password@forum.example/path?api_key=secret&view=full#private',
+      );
+
+      UnsafeHttpTransportException? failure;
+      try {
+        requireSafeHttpUrl(rejected);
+      } on UnsafeHttpTransportException catch (error) {
+        failure = error;
+      }
+
+      expect(failure, isNotNull);
+      expect(
+        failure!.url,
+        Uri.parse('https://forum.example/path?api_key&view'),
+      );
+      expect(failure.toString(), isNot(contains('reader')));
+      expect(failure.toString(), isNot(contains('password')));
+      expect(failure.toString(), isNot(contains('secret')));
+      expect(failure.toString(), isNot(contains('private')));
     });
   });
 

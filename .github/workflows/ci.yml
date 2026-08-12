@@ -56,7 +56,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-12-dev \
-            libwebkit2gtk-4.1-dev libsoup-3.0-dev libssl-dev
+            libwebkit2gtk-4.1-dev libsoup-3.0-dev
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
@@ -81,3 +81,55 @@ jobs:
           if grep -q 'not found' <<< "$dependencies"; then
             exit 1
           fi
+
+  apple-bundles:
+    # Compile both native entrypoints on every change. The iOS target includes
+    # CallKit and audio-session lifecycle code which Dart tests cannot parse or
+    # type-check; the macOS target has its own generated plugin graph.
+    needs: checks
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Build macOS bundle
+        run: flutter build macos --debug
+
+      - name: Build iOS simulator bundle
+        run: flutter build ios --simulator --debug --no-codesign
+
+      - name: Test iOS native coordinator
+        run: |
+          set -euo pipefail
+          destination_id="$(
+            xcrun simctl list devices available -j |
+              python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(device["udid"] for devices in data["devices"].values() for device in devices if device["name"].startswith("iPhone")))'
+          )"
+          test -n "$destination_id"
+          xcodebuild test \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$destination_id" \
+            -only-testing:RunnerTests \
+            -disableAutomaticPackageResolution \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Smoke-check native bundles
+        run: |
+          set -euo pipefail
+          test -x build/macos/Build/Products/Debug/Discourse.app/Contents/MacOS/Discourse
+          test -d build/ios/iphonesimulator/Runner.app

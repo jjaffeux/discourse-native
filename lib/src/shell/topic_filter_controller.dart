@@ -173,6 +173,7 @@ class TopicFilterController extends ChangeNotifier {
   Timer? _timer;
   int _request = 0;
   bool _suggestionRunning = false;
+  _QueuedTopicFilterSuggestions? _activeSuggestions;
   _QueuedTopicFilterSuggestions? _queuedSuggestions;
   bool _disposed = false;
   String? _lastSuggestionInput;
@@ -215,6 +216,7 @@ class TopicFilterController extends ChangeNotifier {
   }
 
   Future<void> refreshSuggestions() {
+    if (_disposed) return Future<void>.value();
     final input = text.text;
     final request = ++_request;
     final queued = _QueuedTopicFilterSuggestions(input, request);
@@ -229,6 +231,7 @@ class TopicFilterController extends ChangeNotifier {
 
   void _startSuggestions(_QueuedTopicFilterSuggestions queued) {
     _suggestionRunning = true;
+    _activeSuggestions = queued;
     unawaited(_runSuggestions(queued));
   }
 
@@ -246,6 +249,9 @@ class TopicFilterController extends ChangeNotifier {
       notifyListeners();
     }
     queued.complete();
+    if (identical(_activeSuggestions, queued)) {
+      _activeSuggestions = null;
+    }
     _suggestionRunning = false;
 
     final next = _queuedSuggestions;
@@ -325,6 +331,8 @@ class TopicFilterController extends ChangeNotifier {
     _disposed = true;
     _request++;
     _timer?.cancel();
+    _activeSuggestions?.complete();
+    _activeSuggestions = null;
     _queuedSuggestions?.complete();
     _queuedSuggestions = null;
     text.dispose();
@@ -428,17 +436,27 @@ class _ValueSuggester {
     bool delimiterAware = false,
     bool quote = false,
   }) async {
-    var result = [
-      for (final value in await lookup(searchTerm))
+    final used = delimiterAware
+        ? previousValues.map((item) => item.toLowerCase()).toSet()
+        : const <String>{};
+    var result = <TopicFilterSuggestion>[];
+    for (final value in await lookup(searchTerm)) {
+      if (used.contains(value.name.toLowerCase())) continue;
+      final term = quote ? _quoteIfNeeded(value.name) : value.name;
+      result.add(
         TopicFilterSuggestion(
-          name: _name(quote ? _quoteIfNeeded(value.name) : value.name),
+          name: _name(term),
           description: value.description,
-          term: quote ? _quoteIfNeeded(value.name) : value.name,
+          term: term,
           isSuggestion: true,
         ),
-    ];
+      );
+      if (result.length == TopicFilterSuggestions.maxResults) break;
+    }
     if (delimiterAware) result = _prepareDelimiters(result);
-    return result;
+    return result
+        .take(TopicFilterSuggestions.maxResults)
+        .toList(growable: false);
   }
 
   Future<List<TopicFilterSuggestion>> _usersAndGroups() async {

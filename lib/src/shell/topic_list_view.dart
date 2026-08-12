@@ -130,7 +130,13 @@ class _TopicListViewState extends State<TopicListView> {
     (String?, String?, String) feedIdentity,
     TopicFeed feed,
   ) {
-    if (!feed.hasMore || feed.loadingMore || _loadMoreToken != null) return;
+    if (!feed.hasMore ||
+        feed.loading ||
+        feed.loadingMore ||
+        feed.error != null ||
+        _loadMoreToken != null) {
+      return;
+    }
 
     final token = Object();
     _loadMoreToken = token;
@@ -197,8 +203,13 @@ class _TopicListViewState extends State<TopicListView> {
     if (feed.loading && feed.topicIds.isEmpty) {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
-    if (feed.error case final error?) {
-      return _Message(icon: DIcons.triangleExclamation, text: error);
+    if (feed.error case final error? when feed.topicIds.isEmpty) {
+      return _Message(
+        icon: DIcons.triangleExclamation,
+        text: error,
+        actionLabel: 'Retry',
+        onAction: () => unawaited(controller.loadFeed(destination)),
+      );
     }
     if (feed.isEmpty) {
       return const _Message(icon: DIcons.inbox, text: 'Nothing here yet.');
@@ -207,55 +218,91 @@ class _TopicListViewState extends State<TopicListView> {
     _syncControllers(feedIdentity);
     _restore(controller, destination, feedIdentity);
 
-    return NotificationListener<ScrollNotification>(
-      // Fetching on a scroll notification rather than from itemBuilder keeps
-      // the request off the hot path of building rows. Both paths coalesce
-      // through a post-frame callback because a viewport can emit a scroll
-      // notification while applying new content dimensions during layout.
-      onNotification: (notification) {
-        if (notification.depth != 0) return false;
-        // Opening a topic tears this list down, so the position has to be
-        // handed to the controller as it changes rather than on dispose.
-        if (_isCurrent(controller, feedIdentity) && _list?.isAttached == true) {
-          if (_list!.visibleRange case final range?) {
-            controller.saveFeedScrollRow(destination, range.$1);
-          }
-        }
-        if (notification.metrics.extentAfter < _loadMoreThreshold) {
-          _scheduleLoadMore(controller, destination, feedIdentity, feed);
-        }
-        return false;
-      },
-      // Titles wrap to one line or two, so a plain ListView's average-based
-      // guess at the unbuilt rows drifts as you scroll and the scrollbar
-      // thumb slides with it. SuperListView remembers each row's measured
-      // height instead. See TopicView, where the same problem is severe.
-      child: SuperListView.separated(
-        // Switching destinations swaps the controller, so the scrollable has
-        // to be a new one rather than re-attached to a different controller.
-        key: ValueKey(feedIdentity),
-        controller: _scroll,
-        listController: _list,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        // Still builds lazily through a SliverChildBuilderDelegate, so only
-        // rows near the viewport exist — a list of thousands costs the same
-        // as a list of thirty.
-        // Spinner only while fetching; see TopicView for why.
-        itemCount: feed.topicIds.length + (feed.loadingMore ? 1 : 0),
-        separatorBuilder: (context, _) =>
-            Divider(height: 1, color: Theme.of(context).shell.divider),
-        itemBuilder: (context, index) {
-          if (index >= feed.topicIds.length) return const _LoadingMoreRow();
+    return Column(
+      children: [
+        if (feed.loading)
+          const LinearProgressIndicator(
+            key: ValueKey('topic-feed-refresh-progress'),
+            minHeight: 2,
+          ),
+        if (feed.error case final error? when !feed.pageError)
+          _FeedErrorBanner(
+            key: const ValueKey('topic-feed-refresh-error'),
+            message: error,
+            onRetry: () => unawaited(controller.loadFeed(destination)),
+          ),
+        Expanded(
+          child: NotificationListener<ScrollNotification>(
+            // Fetching on a scroll notification rather than from itemBuilder
+            // keeps the request off the hot path of building rows. Both paths
+            // coalesce through a post-frame callback because a viewport can
+            // emit a scroll notification while applying new content
+            // dimensions during layout.
+            onNotification: (notification) {
+              if (notification.depth != 0) return false;
+              // Opening a topic tears this list down, so the position has to
+              // be handed to the controller as it changes rather than on
+              // dispose.
+              if (_isCurrent(controller, feedIdentity) &&
+                  _list?.isAttached == true) {
+                if (_list!.visibleRange case final range?) {
+                  controller.saveFeedScrollRow(destination, range.$1);
+                }
+              }
+              if (notification.metrics.extentAfter < _loadMoreThreshold) {
+                _scheduleLoadMore(controller, destination, feedIdentity, feed);
+              }
+              return false;
+            },
+            // Titles wrap to one line or two, so a plain ListView's
+            // average-based guess at the unbuilt rows drifts as you scroll and
+            // the scrollbar thumb slides with it. SuperListView remembers each
+            // row's measured height instead. See TopicView, where the same
+            // problem is severe.
+            child: SuperListView.separated(
+              // Switching destinations swaps the controller, so the scrollable
+              // has to be a new one rather than re-attached to a different
+              // controller.
+              key: ValueKey(feedIdentity),
+              controller: _scroll,
+              listController: _list,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              // Still builds lazily through a SliverChildBuilderDelegate, so
+              // only rows near the viewport exist — a list of thousands costs
+              // the same as a list of thirty.
+              // Spinner only while fetching; see TopicView for why.
+              itemCount:
+                  feed.topicIds.length +
+                  (feed.loadingMore || feed.pageError ? 1 : 0),
+              separatorBuilder: (context, _) =>
+                  Divider(height: 1, color: Theme.of(context).shell.divider),
+              itemBuilder: (context, index) {
+                if (index >= feed.topicIds.length) {
+                  if (feed.loadingMore) return const _LoadingMoreRow();
+                  return _LoadMoreErrorRow(
+                    message: feed.error!,
+                    onRetry: () =>
+                        unawaited(controller.loadMoreFeed(destination)),
+                  );
+                }
 
-          // The end is in view; fetch before the user gets there.
-          if (index == feed.topicIds.length - 1 && feed.hasMore) {
-            _scheduleLoadMore(controller, destination, feedIdentity, feed);
-          }
+                // The end is in view; fetch before the user gets there.
+                if (index == feed.topicIds.length - 1 && feed.hasMore) {
+                  _scheduleLoadMore(
+                    controller,
+                    destination,
+                    feedIdentity,
+                    feed,
+                  );
+                }
 
-          final topicId = feed.topicIds[index];
-          return _TopicRow(key: ValueKey(topicId), topicId: topicId);
-        },
-      ),
+                final topicId = feed.topicIds[index];
+                return _TopicRow(key: ValueKey(topicId), topicId: topicId);
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -353,6 +400,59 @@ class _LoadingMoreRow extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _LoadMoreErrorRow extends StatelessWidget {
+  const _LoadMoreErrorRow({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    key: const ValueKey('topic-feed-load-more-error'),
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+    child: _FeedErrorBanner(message: message, onRetry: onRetry),
+  );
+}
+
+class _FeedErrorBanner extends StatelessWidget {
+  const _FeedErrorBanner({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        color: theme.colorScheme.errorContainer,
+        child: Row(
+          children: [
+            DIcon(
+              DIcons.triangleExclamation,
+              size: 17,
+              color: theme.colorScheme.onErrorContainer,
+            ),
+            const SizedBox(width: 9),
+            Expanded(child: Text(message)),
+            TextButton(
+              key: const ValueKey('topic-feed-error-retry'),
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// One row, drawing the topic the store holds under [topicId].
@@ -762,10 +862,17 @@ class _TopicStateDot extends StatelessWidget {
 }
 
 class _Message extends StatelessWidget {
-  const _Message({required this.icon, required this.text});
+  const _Message({
+    required this.icon,
+    required this.text,
+    this.actionLabel,
+    this.onAction,
+  });
 
   final DIconData icon;
   final String text;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -786,6 +893,14 @@ class _Message extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            if (actionLabel case final label?) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                key: const ValueKey('topic-feed-initial-retry'),
+                onPressed: onAction,
+                child: Text(label),
+              ),
+            ],
           ],
         ),
       ),

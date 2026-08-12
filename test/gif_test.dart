@@ -119,6 +119,33 @@ void main() {
   });
 
   group('GifSearchPage', () {
+    test('bounds raw page slots while retaining its continuation cursor', () {
+      final page = GifSearchPage.fromJson({
+        'results': [
+          'malformed',
+          for (var index = 0; index <= GifSearchPage.maximumPageSize; index++)
+            {
+              'title': 'Result $index',
+              'media_formats': {
+                'webp': {
+                  'url': 'https://cdn.example/result-$index.webp',
+                  'dims': [320, 180],
+                },
+              },
+            },
+        ],
+        'next': 'cursor/24',
+      }, fileDetail: 'webp');
+
+      // A malformed raw slot still spends the server's fixed page budget.
+      expect(page.results, hasLength(GifSearchPage.maximumPageSize - 1));
+      expect(page.results.first.title, 'Result 0');
+      expect(page.results.last.title, 'Result 22');
+      expect(page.nextPosition, 'cursor/24');
+      expect(page.hasMore, isTrue);
+      expect(() => page.results.clear(), throwsUnsupportedError);
+    });
+
     test('normalizes a blank continuation cursor to exhaustion', () {
       final page = GifSearchPage(
         results: const [

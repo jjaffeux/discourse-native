@@ -86,6 +86,11 @@ void main() {
       expect(read('mailto:someone@example.com'), '-');
     });
 
+    test('refuses oversized and credential-bearing links', () {
+      expect(read('/tag/${'a' * ListLink.maximumUrlLength}'), '-');
+      expect(read('https://user:secret@meta.discourse.org/tag/ux'), '-');
+    });
+
     test('refuses an id that is not one', () {
       expect(read('/c/bug/0'), '-');
       expect(read('/c/bug/-3'), '-');

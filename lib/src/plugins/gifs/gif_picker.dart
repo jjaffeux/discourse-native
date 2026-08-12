@@ -7,6 +7,7 @@ import '../../data/api_credentials.dart';
 import '../../data/discourse_api_contracts.dart';
 import '../../data/site_lifecycle.dart';
 import '../../models/site_config.dart';
+import '../../shell/image_decode.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -278,6 +279,7 @@ class _GifPickerState extends State<GifPicker> {
       return _PickerMessage(
         icon: DIcons.triangleExclamation,
         message: error,
+        liveRegion: true,
         action: FilledButton.tonal(
           key: const ValueKey('gif-picker-retry'),
           onPressed: controller.retry,
@@ -368,6 +370,7 @@ class _GifResultTile extends StatelessWidget {
       label: label,
       child: Tooltip(
         message: label,
+        excludeFromSemantics: true,
         child: Material(
           clipBehavior: Clip.antiAlias,
           borderRadius: BorderRadius.circular(8),
@@ -398,6 +401,7 @@ class _GifCategoryTile extends StatelessWidget {
     label: 'Search ${category.title} GIFs',
     child: Tooltip(
       message: 'Search ${category.title} GIFs',
+      excludeFromSemantics: true,
       child: Material(
         clipBehavior: Clip.antiAlias,
         borderRadius: BorderRadius.circular(8),
@@ -449,19 +453,39 @@ class _NetworkArtwork extends StatelessWidget {
   final BoxFit fit;
 
   @override
-  Widget build(BuildContext context) => Image.network(
-    url,
-    excludeFromSemantics: true,
-    fit: fit,
-    width: double.infinity,
-    height: double.infinity,
-    errorBuilder: (context, _, _) => Center(
-      child: Icon(
-        Icons.broken_image_outlined,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => Image(
+      image: _provider(context, constraints),
+      excludeFromSemantics: true,
+      fit: fit,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (context, _, _) => Center(
+        child: Icon(
+          Icons.broken_image_outlined,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     ),
   );
+
+  ImageProvider<Object> _provider(
+    BuildContext context,
+    BoxConstraints constraints,
+  ) {
+    final width = constraints.maxWidth;
+    final height = constraints.maxHeight;
+    final provider = NetworkImage(url);
+    if (!width.isFinite || !height.isFinite || width <= 0 || height <= 0) {
+      return provider;
+    }
+    return ResizeImage(
+      provider,
+      width: imagePhysicalPixels(context, width),
+      height: imagePhysicalPixels(context, height),
+      policy: ResizeImagePolicy.fit,
+    );
+  }
 }
 
 class _InlineError extends StatelessWidget {
@@ -479,10 +503,14 @@ class _InlineError extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onErrorContainer,
+            child: Semantics(
+              container: true,
+              liveRegion: true,
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                ),
               ),
             ),
           ),
@@ -498,11 +526,13 @@ class _PickerMessage extends StatelessWidget {
     required this.icon,
     required this.message,
     this.action,
+    this.liveRegion = false,
   });
 
   final DIconData icon;
   final String message;
   final Widget? action;
+  final bool liveRegion;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -517,7 +547,14 @@ class _PickerMessage extends StatelessWidget {
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center),
+          if (liveRegion)
+            Semantics(
+              container: true,
+              liveRegion: true,
+              child: Text(message, textAlign: TextAlign.center),
+            )
+          else
+            Text(message, textAlign: TextAlign.center),
           if (action case final action?) ...[
             const SizedBox(height: 12),
             action,
@@ -550,6 +587,7 @@ class _KlipyAttribution extends StatelessWidget {
             url,
             excludeFromSemantics: true,
             fit: BoxFit.contain,
+            cacheHeight: imagePhysicalPixels(context, 30),
             errorBuilder: (context, _, _) => Text(
               'Powered by Klipy',
               style: Theme.of(context).textTheme.labelSmall,

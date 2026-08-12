@@ -85,6 +85,95 @@ void main() {
     expect(() => categories.clear(), throwsUnsupportedError);
   });
 
+  test('user-menu payloads cannot exceed their route budgets', () async {
+    var requestCount = 0;
+    final api = DiscourseApi(
+      client: serving((request) {
+        requestCount += 1;
+        return switch (request.url.path) {
+          '/notifications.json' => {
+            'notifications': [
+              for (var id = 1; id <= 65; id++) {'id': id},
+            ],
+          },
+          '/u/sam/user-menu-bookmarks.json' => {
+            'notifications': [
+              for (var id = 1; id <= 3; id++) {'id': id},
+            ],
+            'bookmarks': [
+              for (var id = 1; id <= 25; id++) {'id': id},
+            ],
+          },
+          _ => throw StateError('Unexpected request: ${request.url}'),
+        };
+      }),
+    );
+
+    final notifications = await api.notifications(
+      siteUrl: siteUrl,
+      apiKey: 'key',
+      limit: DiscourseApi.maximumRecentNotifications,
+    );
+    final bookmarks = await api.bookmarks(
+      siteUrl: siteUrl,
+      apiKey: 'key',
+      username: 'sam',
+    );
+
+    expect(notifications, hasLength(60));
+    expect(notifications.last.id, 60);
+    expect(bookmarks.reminders, hasLength(3));
+    expect(bookmarks.bookmarks, hasLength(17));
+    expect(bookmarks.bookmarks.last.id, 17);
+
+    await expectLater(
+      api.notifications(siteUrl: siteUrl, apiKey: 'key', limit: 61),
+      throwsRangeError,
+    );
+    expect(requestCount, 2, reason: 'invalid limits fail before transport');
+  });
+
+  test('draft pages cannot exceed their requested local budget', () async {
+    var requestCount = 0;
+    final api = DiscourseApi(
+      client: serving((request) {
+        requestCount += 1;
+        expect(request.url.queryParameters, {
+          'offset': '0',
+          'limit': '${DiscourseApi.maximumUserDraftPageSize}',
+        });
+        return {
+          'drafts': [
+            for (var id = 1; id <= 35; id++)
+              {'draft_key': 'topic_$id', 'sequence': id},
+          ],
+        };
+      }),
+    );
+
+    final drafts = await api.userDrafts(
+      siteUrl: siteUrl,
+      apiKey: 'key',
+      limit: DiscourseApi.maximumUserDraftPageSize,
+    );
+
+    expect(drafts, hasLength(30));
+    expect(drafts.last.key, 'topic_30');
+    await expectLater(
+      api.userDrafts(siteUrl: siteUrl, apiKey: 'key', offset: -1),
+      throwsRangeError,
+    );
+    await expectLater(
+      api.userDrafts(siteUrl: siteUrl, apiKey: 'key', limit: 0),
+      throwsRangeError,
+    );
+    await expectLater(
+      api.userDrafts(siteUrl: siteUrl, apiKey: 'key', limit: 31),
+      throwsRangeError,
+    );
+    expect(requestCount, 1, reason: 'invalid pages fail before transport');
+  });
+
   test('optional mention and chat envelopes default or skip safely', () async {
     final api = DiscourseApi(
       client: serving(

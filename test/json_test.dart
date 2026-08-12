@@ -13,6 +13,15 @@ void main() {
       expect(jsonInt('not a number'), 0);
     });
 
+    test('bounds numeric text before parsing', () {
+      expect(jsonInt('-9223372036854775808'), -9223372036854775808);
+      expect(
+        jsonInt(List.filled(maximumJsonIntegerCodeUnits + 1, '9').join()),
+        0,
+      );
+      expect(jsonInt(List.filled(200000, '9').join()), 0);
+    });
+
     test('answers silence with zero', () {
       expect(jsonInt(null), 0);
       expect(jsonInt(true), 0);
@@ -33,6 +42,15 @@ void main() {
       expect(jsonIntOrNull('not a number'), isNull);
       expect(jsonIntOrNull(null), isNull);
       expect(jsonIntOrNull(double.nan), isNull);
+    });
+
+    test('bounds numeric text before nullable parsing', () {
+      expect(jsonIntOrNull('9223372036854775807'), 9223372036854775807);
+      expect(
+        jsonIntOrNull(List.filled(maximumJsonIntegerCodeUnits + 1, '9').join()),
+        isNull,
+      );
+      expect(jsonIntOrNull(List.filled(200000, '9').join()), isNull);
     });
   });
 
@@ -84,11 +102,30 @@ void main() {
       expect(jsonDate('someday'), isNull);
       expect(jsonDate(7), isNull);
     });
+
+    test('bounds timestamp text before parsing', () {
+      final legal = '2026-08-07T09:30:00.123456+02:00';
+      expect(jsonDate(legal), DateTime.parse(legal));
+      expect(
+        jsonDate(List.filled(maximumJsonDateCodeUnits + 1, '2').join()),
+        isNull,
+      );
+      expect(jsonDate(List.filled(200000, '2').join()), isNull);
+    });
   });
 
   group('jsonTitle', () {
     test('prefers the plain one', () {
       expect(jsonTitle('A topic', 'A&nbsp;topic'), 'A topic');
+    });
+
+    test('plain text bypasses an oversized fancy fallback', () {
+      final oversized = List.filled(
+        maximumFancyTitleSourceCodeUnits * 10,
+        '<',
+      ).join();
+
+      expect(jsonTitle('A topic', oversized), 'A topic');
     });
 
     test('unescapes the fancy one when it is all there is', () {
@@ -102,6 +139,31 @@ void main() {
 
     test('falls past a blank plain one', () {
       expect(jsonTitle('', '&amp;'), '&');
+    });
+
+    test('accepts the largest legal escaped title intact', () {
+      final escaped = List.filled(255, '&quot;').join();
+      expect(escaped, hasLength(maximumFancyTitleSourceCodeUnits));
+
+      expect(jsonTitle(null, escaped), List.filled(255, '"').join());
+    });
+
+    test('bounds nonconforming fancy markup before parsing', () {
+      final retained = List.filled(
+        maximumFancyTitleSourceCodeUnits,
+        'a',
+      ).join();
+
+      expect(jsonTitle(null, '$retained<strong>discarded</strong>'), retained);
+    });
+
+    test('does not split a surrogate pair at the fancy-title cutoff', () {
+      final retained = List.filled(
+        maximumFancyTitleSourceCodeUnits - 1,
+        'a',
+      ).join();
+
+      expect(jsonTitle(null, '$retained😀discarded'), retained);
     });
 
     test('answers empty when the site sent neither', () {

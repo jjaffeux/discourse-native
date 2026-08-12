@@ -85,6 +85,38 @@ void main() {
     expect(decoded.borderRadius, 11.5);
     expect(decoded.toJson()['borderRadius'], 11.5);
   });
+
+  test('ResolvedSitePalette accepts bounded decimal and hex color text', () {
+    final json = palette().toJson()
+      ..['primary'] = '4294967295'
+      ..['secondary'] = '-2147483648'
+      ..['tertiary'] = ' #123456 '
+      ..['quaternary'] = '#12345678';
+
+    final decoded = ResolvedSitePalette.fromJson(json);
+
+    expect(decoded.primary, const Color(0xFFFFFFFF));
+    expect(decoded.secondary, const Color(0x80000000));
+    expect(decoded.tertiary, const Color(0xFF123456));
+    expect(decoded.quaternary, const Color(0x12345678));
+  });
+
+  test('ResolvedSitePalette rejects oversized color text before parsing', () {
+    final oversized = List.filled(200000, '9').join();
+    final optional = palette().toJson()..['quaternary'] = oversized;
+    final required = palette().toJson()..['primary'] = oversized;
+
+    final decoded = ResolvedSitePalette.fromJson(optional);
+
+    expect(decoded.quaternary, decoded.tertiary);
+    expect(
+      SiteAppearance.fromJson({
+        'base': required,
+        'alternate': palette(brightness: Brightness.dark).toJson(),
+      }),
+      SiteAppearance(alternate: palette(brightness: Brightness.dark)),
+    );
+  });
 }
 
 ResolvedSitePalette palette({

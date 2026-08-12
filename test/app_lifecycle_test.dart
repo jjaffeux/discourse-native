@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -245,6 +246,127 @@ void main() {
     expect(second.captureEnabled, isFalse);
   });
 
+  testWidgets('releases replaced diagnostics without replacing the shell', (
+    tester,
+  ) async {
+    final firstPersistence = _TrackingDiagnosticsPersistence();
+    final secondPersistence = _TrackingDiagnosticsPersistence();
+    final firstDiagnostics = await DiagnosticsController.create(
+      persistence: firstPersistence,
+      sessionId: 'first-app-diagnostics',
+    );
+    final secondDiagnostics = await DiagnosticsController.create(
+      persistence: secondPersistence,
+      sessionId: 'second-app-diagnostics',
+    );
+    addTearDown(firstDiagnostics.close);
+    addTearDown(secondDiagnostics.close);
+
+    final key = GlobalKey();
+    final api = FakeDiscourseApi();
+    final store = FakeInstanceStore();
+    final authenticator = FakeAuthenticator();
+    final drafts = FakeDraftStore();
+    final forumTabs = FakeForumTabStore();
+    final trackers = FakeSiteTracker.reset();
+    final updater = FakeUpdater();
+    final updateStore = FakeUpdateStore();
+
+    Widget app(DiagnosticsController diagnostics) => DiscourseApp(
+      key: key,
+      store: store,
+      api: api,
+      authenticator: authenticator,
+      drafts: drafts,
+      forumTabs: forumTabs,
+      trackers: trackers,
+      updater: updater,
+      updateStore: updateStore,
+      diagnostics: diagnostics,
+    );
+
+    await tester.pumpWidget(app(firstDiagnostics));
+    await tester.pumpAndSettle();
+    final shell = _controller(tester);
+
+    await tester.pumpWidget(app(secondDiagnostics));
+    await tester.pumpAndSettle();
+    await firstPersistence.closed.future;
+
+    expect(_controller(tester), same(shell));
+    expect(api.closeCalls, 0);
+    expect(firstPersistence.closeCalls, 1);
+    expect(secondPersistence.closeCalls, 0);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await secondPersistence.closed.future;
+
+    expect(api.closeCalls, 1);
+    expect(firstPersistence.closeCalls, 1);
+    expect(secondPersistence.closeCalls, 1);
+  });
+
+  testWidgets('observes a released diagnostics close failure', (tester) async {
+    final closeError = StateError('diagnostics persistence close failed');
+    final firstPersistence = _TrackingDiagnosticsPersistence(
+      closeError: closeError,
+    );
+    final secondPersistence = _TrackingDiagnosticsPersistence();
+    final firstDiagnostics = await DiagnosticsController.create(
+      persistence: firstPersistence,
+      sessionId: 'failing-app-diagnostics',
+    );
+    final secondDiagnostics = await DiagnosticsController.create(
+      persistence: secondPersistence,
+      sessionId: 'replacement-app-diagnostics',
+    );
+    addTearDown(firstDiagnostics.close);
+    addTearDown(secondDiagnostics.close);
+    final diagnosticsSink = _RecordingDiagnosticsSink();
+    final sinkBinding = DiagnosticsSink.install(diagnosticsSink);
+    addTearDown(sinkBinding.close);
+
+    final key = GlobalKey();
+    final api = FakeDiscourseApi();
+    final store = FakeInstanceStore();
+    final authenticator = FakeAuthenticator();
+    final drafts = FakeDraftStore();
+    final forumTabs = FakeForumTabStore();
+    final trackers = FakeSiteTracker.reset();
+    final updater = FakeUpdater();
+    final updateStore = FakeUpdateStore();
+
+    Widget app(DiagnosticsController diagnostics) => DiscourseApp(
+      key: key,
+      store: store,
+      api: api,
+      authenticator: authenticator,
+      drafts: drafts,
+      forumTabs: forumTabs,
+      trackers: trackers,
+      updater: updater,
+      updateStore: updateStore,
+      diagnostics: diagnostics,
+    );
+
+    await tester.pumpWidget(app(firstDiagnostics));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(app(secondDiagnostics));
+    await firstPersistence.closed.future;
+    await diagnosticsSink.reported.future;
+
+    expect(diagnosticsSink.error, same(closeError));
+    expect(diagnosticsSink.operation, 'app.diagnostics.close');
+    expect(diagnosticsSink.source, 'diagnostics');
+    expect(diagnosticsSink.severity, DiagnosticSeverity.warning);
+    expect(diagnosticsSink.handled, isTrue);
+    expect(diagnosticsSink.degraded, isFalse);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await secondPersistence.closed.future;
+  });
+
   test(
     'backgrounding while tracker credentials resolve starts no poll',
     () async {
@@ -408,6 +530,88 @@ final class _GatedInstanceStore implements InstanceStore {
 
   @override
   Future<void> save(List<DiscourseInstance> instances) async {}
+}
+
+final class _TrackingDiagnosticsPersistence implements DiagnosticsPersistence {
+  _TrackingDiagnosticsPersistence({this.closeError});
+
+  final MemoryDiagnosticsPersistence _delegate = MemoryDiagnosticsPersistence();
+  final Completer<void> closed = Completer<void>();
+  final Object? closeError;
+  int closeCalls = 0;
+
+  @override
+  Future<DiagnosticsPersistenceState> load({required DateTime nowUtc}) =>
+      _delegate.load(nowUtc: nowUtc);
+
+  @override
+  Future<void> appendEvents(
+    List<DiagnosticEvent> events, {
+    required DateTime nowUtc,
+  }) => _delegate.appendEvents(events, nowUtc: nowUtc);
+
+  @override
+  Future<void> writeLastSeenSequence(int sequence) =>
+      _delegate.writeLastSeenSequence(sequence);
+
+  @override
+  Future<void> compact({required DateTime nowUtc}) =>
+      _delegate.compact(nowUtc: nowUtc);
+
+  @override
+  Future<void> clear() => _delegate.clear();
+
+  @override
+  Future<void> close() async {
+    closeCalls++;
+    await _delegate.close();
+    if (!closed.isCompleted) closed.complete();
+    if (closeError case final error?) throw error;
+  }
+}
+
+final class _RecordingDiagnosticsSink implements DiagnosticsSink {
+  final Completer<void> reported = Completer<void>();
+  Object? error;
+  String? operation;
+  String? source;
+  DiagnosticSeverity? severity;
+  bool? handled;
+  bool? degraded;
+
+  @override
+  void recordLog({
+    required String name,
+    String source = 'application',
+    String? component,
+    String? message,
+    Map<String, Object?> attributes = const {},
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? operation,
+    String? correlationId,
+    bool handled = true,
+    bool degraded = false,
+  }) {}
+
+  @override
+  void reportError(
+    Object error,
+    StackTrace stackTrace, {
+    String? operation,
+    String source = 'application',
+    DiagnosticSeverity severity = DiagnosticSeverity.error,
+    bool handled = true,
+    bool degraded = true,
+    String? correlationId,
+  }) {
+    this.error = error;
+    this.operation = operation;
+    this.source = source;
+    this.severity = severity;
+    this.handled = handled;
+    this.degraded = degraded;
+    if (!reported.isCompleted) reported.complete();
+  }
 }
 
 final class _GatedAuthenticator extends FakeAuthenticator {

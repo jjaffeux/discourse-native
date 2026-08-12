@@ -411,6 +411,123 @@ void main() {
       await media.dispose();
     });
 
+    test(
+      'ignores signals from self and participants outside the roster',
+      () async {
+        final peer = _FakePeerConnection();
+        var peerCreations = 0;
+        final response = _meshJoin(localUserId: 10, remoteUserId: 20);
+        final media = MeshResenhaMediaSession(
+          join: response,
+          localUserId: 10,
+          sendSignal: (_, _) async {},
+          audioPublishingAllowed: false,
+          createPeerConnection: (_) async {
+            peerCreations++;
+            return peer;
+          },
+        );
+        await media.connect();
+        expect(peerCreations, 1);
+
+        await media.syncParticipants([
+          response.room.participants.firstWhere(
+            (participant) => participant.id == 10,
+          ),
+        ]);
+        expect(peer.closed, isTrue);
+
+        for (final senderId in [10, 20, 99]) {
+          await expectLater(
+            media.handleSignal(senderId, {
+              'type': 'offer',
+              'sdp': 'untrusted-offer',
+            }),
+            completes,
+            reason: '$senderId',
+          );
+        }
+
+        expect(peerCreations, 1);
+        await media.dispose();
+      },
+    );
+
+    test('drops oversized SDP and candidate fields without throwing', () async {
+      final peer = _FakePeerConnection();
+      final media = _meshSession(
+        peer: peer,
+        localUserId: 20,
+        remoteUserId: 10,
+        audioPublishingAllowed: false,
+      );
+      await media.connect();
+
+      await expectLater(
+        media.handleSignal(10, {
+          'type': 'offer',
+          'sdp': List.filled(300 * 1024, 's').join(),
+        }),
+        completes,
+      );
+      for (final candidate in [
+        {
+          'candidate': List.filled(9 * 1024, 'c').join(),
+          'sdpMid': '0',
+          'sdpMLineIndex': 0,
+        },
+        {
+          'candidate': 'candidate:valid-sized',
+          'sdpMid': List.filled(300, 'm').join(),
+          'sdpMLineIndex': 0,
+        },
+        {'candidate': 12, 'sdpMid': '0', 'sdpMLineIndex': double.nan},
+      ]) {
+        await expectLater(
+          media.handleSignal(10, {'type': 'candidate', 'candidate': candidate}),
+          completes,
+        );
+      }
+
+      expect(await peer.getRemoteDescription(), isNull);
+      expect(peer.createdAnswers, 0);
+      await media.handleSignal(10, {'type': 'offer', 'sdp': 'valid-offer'});
+      expect(peer.addedCandidates, isEmpty);
+      await media.dispose();
+    });
+
+    test('caps candidates queued before a remote description', () async {
+      const pendingCandidateCap = 64;
+      final peer = _FakePeerConnection();
+      final media = _meshSession(
+        peer: peer,
+        localUserId: 20,
+        remoteUserId: 10,
+        audioPublishingAllowed: false,
+      );
+      await media.connect();
+
+      for (var index = 0; index < pendingCandidateCap + 20; index++) {
+        await media.handleSignal(10, {
+          'type': 'candidate',
+          'candidate': {
+            'candidate': 'candidate:$index',
+            'sdpMid': '0',
+            'sdpMLineIndex': 0,
+          },
+        });
+      }
+      await media.handleSignal(10, {'type': 'offer', 'sdp': 'valid-offer'});
+
+      expect(peer.addedCandidates, hasLength(pendingCandidateCap));
+      expect(peer.addedCandidates.first.candidate, 'candidate:0');
+      expect(
+        peer.addedCandidates.last.candidate,
+        'candidate:${pendingCandidateCap - 1}',
+      );
+      await media.dispose();
+    });
+
     test('adopts offered source slots before creating an answer', () async {
       final microphone = _FakeTrack('mic', 'audio');
       final peer = _FakePeerConnection();
@@ -985,6 +1102,107 @@ void main() {
     await media.dispose();
   });
 
+  group('LiveKitResenhaMediaSession', () {
+    test(
+      'coalesces repeated disposal and releases every owned resource',
+      () async {
+        final adapter = _FakeLiveKitRoomAdapter();
+        final media = _liveKitSession(adapter);
+        await media.connect();
+
+        final first = media.dispose();
+        final second = media.dispose();
+
+        expect(identical(first, second), isTrue);
+        await Future.wait([first, second]);
+        expect(adapter.calls, [
+          'listen',
+          'connect',
+          'cancel-listener',
+          'disconnect',
+          'dispose-room',
+        ]);
+        expect(adapter.endpoint, 'wss://localhost:3000');
+        expect(adapter.token, 'local-test-token');
+        expect(() => media.addListener(() {}), throwsFlutterError);
+      },
+    );
+
+    for (final failingStage in [
+      'cancel-listener',
+      'disconnect',
+      'dispose-room',
+    ]) {
+      test('continues cleanup when $failingStage throws', () async {
+        final adapter = _FakeLiveKitRoomAdapter(failingStage: failingStage);
+        final media = _liveKitSession(adapter);
+        await media.connect();
+
+        final first = media.dispose();
+        final second = media.dispose();
+
+        expect(identical(first, second), isTrue);
+        await expectLater(
+          first,
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              '$failingStage failed',
+            ),
+          ),
+        );
+        await expectLater(second, throwsStateError);
+        expect(adapter.calls, [
+          'listen',
+          'connect',
+          'cancel-listener',
+          'disconnect',
+          'dispose-room',
+        ]);
+        expect(() => media.addListener(() {}), throwsFlutterError);
+      });
+    }
+
+    test(
+      'disconnect settles an in-flight connection before disposal',
+      () async {
+        final connection = Completer<void>();
+        final adapter = _FakeLiveKitRoomAdapter(
+          connection: connection,
+          cancelConnectionOnDisconnect: true,
+        );
+        final media = _liveKitSession(adapter);
+        final connecting = media.connect();
+        final connectionResult = expectLater(connecting, throwsStateError);
+        await adapter.connectStarted.future;
+
+        await media.dispose();
+        await connectionResult;
+
+        expect(connection.isCompleted, isTrue);
+        expect(adapter.calls, [
+          'listen',
+          'connect',
+          'cancel-listener',
+          'disconnect',
+          'dispose-room',
+        ]);
+      },
+    );
+
+    test('disposal closes the connection boundary synchronously', () async {
+      final adapter = _FakeLiveKitRoomAdapter();
+      final media = _liveKitSession(adapter);
+
+      final disposing = media.dispose();
+      await media.connect();
+      await disposing;
+
+      expect(adapter.calls, ['cancel-listener', 'disconnect', 'dispose-room']);
+    });
+  });
+
   group('ResenhaReconnectCoordinator', () {
     test('rejects an unusable retry schedule in release builds', () {
       ResenhaReconnectCoordinator create(List<Duration> schedule) =>
@@ -1236,6 +1454,40 @@ MeshResenhaMediaSession _meshSession({
   setTrackVolume: setTrackVolume,
 );
 
+LiveKitResenhaMediaSession _liveKitSession(ResenhaLiveKitRoomAdapter adapter) =>
+    LiveKitResenhaMediaSession(
+      join: ResenhaJoinResponse(
+        transport: ResenhaTransport.livekit,
+        ice: const ResenhaIceConfiguration(servers: [], relayOnly: false),
+        room: const ResenhaRoom(
+          id: 1,
+          name: 'Room',
+          slug: 'room',
+          isPublic: true,
+          ephemeral: false,
+          type: ResenhaRoomType.open,
+          participants: [
+            ResenhaParticipant(
+              id: 10,
+              username: 'local',
+              role: ResenhaRole.participant,
+            ),
+          ],
+        ),
+        livekit: const ResenhaLiveKitCredentials(
+          url: 'wss://localhost:3000',
+          token: 'local-test-token',
+        ),
+      ),
+      localUserId: 10,
+      audioPublishingAllowed: false,
+      refreshCredentials: () async => const ResenhaLiveKitCredentials(
+        url: 'wss://localhost:3000',
+        token: 'refreshed-local-test-token',
+      ),
+      roomAdapter: adapter,
+    );
+
 ResenhaJoinResponse _meshJoin({
   required int localUserId,
   required int remoteUserId,
@@ -1279,6 +1531,7 @@ final class _FakePeerConnection implements rtc.RTCPeerConnection {
   final List<String> mediaPlan = [];
   final List<rtc.MediaStreamTrack> addedTracks = [];
   final List<_FakeSender> addedTrackSenders = [];
+  final List<rtc.RTCIceCandidate> addedCandidates = [];
   final List<_FakeTransceiver> createdTransceivers = [];
   List<_FakeTransceiver> _associated = [];
   rtc.RTCSessionDescription? _localDescription;
@@ -1422,6 +1675,11 @@ final class _FakePeerConnection implements rtc.RTCPeerConnection {
       _remoteDescription;
 
   @override
+  Future<void> addCandidate(rtc.RTCIceCandidate candidate) async {
+    addedCandidates.add(candidate);
+  }
+
+  @override
   Future<List<rtc.StatsReport>> getStats([rtc.MediaStreamTrack? track]) async =>
       const [];
 
@@ -1439,6 +1697,71 @@ final class _FakePeerConnection implements rtc.RTCPeerConnection {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _FakeLiveKitRoomAdapter implements ResenhaLiveKitRoomAdapter {
+  _FakeLiveKitRoomAdapter({
+    this.failingStage,
+    this.connection,
+    this.cancelConnectionOnDisconnect = false,
+  });
+
+  final String? failingStage;
+  final Completer<void>? connection;
+  final bool cancelConnectionOnDisconnect;
+  final Completer<void> connectStarted = Completer<void>();
+  final List<String> calls = [];
+  @override
+  final lk.Room room = lk.Room();
+  String? endpoint;
+  String? token;
+
+  @override
+  void listen({
+    required void Function() onChanged,
+    required void Function() onDisconnected,
+  }) {
+    calls.add('listen');
+  }
+
+  @override
+  Future<void> connect(String endpoint, String token) {
+    calls.add('connect');
+    this.endpoint = endpoint;
+    this.token = token;
+    if (!connectStarted.isCompleted) connectStarted.complete();
+    return connection?.future ?? Future<void>.value();
+  }
+
+  @override
+  Future<void> cancelListener() => _finish('cancel-listener');
+
+  @override
+  Future<void> disconnect() async {
+    calls.add('disconnect');
+    if (cancelConnectionOnDisconnect &&
+        connection != null &&
+        !connection!.isCompleted) {
+      connection!.completeError(StateError('connection cancelled'));
+    }
+    if (failingStage == 'disconnect') {
+      throw StateError('disconnect failed');
+    }
+  }
+
+  @override
+  Future<void> disposeRoom() async {
+    calls.add('dispose-room');
+    await room.dispose();
+    if (failingStage == 'dispose-room') {
+      throw StateError('dispose-room failed');
+    }
+  }
+
+  Future<void> _finish(String stage) async {
+    calls.add(stage);
+    if (failingStage == stage) throw StateError('$stage failed');
+  }
 }
 
 final class _FakeTransceiver implements rtc.RTCRtpTransceiver {

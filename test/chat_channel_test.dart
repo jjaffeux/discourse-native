@@ -254,7 +254,10 @@ void main() {
 
   group('the face on a row', () {
     test('is the other person in a one-to-one conversation', () {
-      expect(channelFrom(directChannel()).avatarUrl, isNotNull);
+      final channel = channelFrom(directChannel());
+
+      expect(channel.avatarUrl, isNotNull);
+      expect(channel.users.single.username, 'hawk');
     });
 
     test('is nobody once there is more than one of them', () {
@@ -269,6 +272,27 @@ void main() {
         ),
       );
 
+      expect(channel.avatarUrl, isNull);
+    });
+
+    test('resolves only the first two users needed for a group row', () {
+      final channel = channelFrom(
+        directChannel(
+          group: true,
+          users: const [
+            {'id': 2, 'username': 'hawk', 'avatar_template': '/a/{size}.png'},
+            {'id': 3, 'username': 'kris', 'avatar_template': '/b/{size}.png'},
+            {'id': 4, 'username': 'sam', 'avatar_template': '/c/{size}.png'},
+          ],
+        ),
+      );
+
+      expect(ChatChannel.maximumResolvedUsers, 2);
+      expect(channel.users.map((user) => user.username), ['hawk', 'kris']);
+      expect(
+        () => channel.users.add(const ChatUser(id: 5, username: 'pat')),
+        throwsUnsupportedError,
+      );
       expect(channel.avatarUrl, isNull);
     });
 
@@ -377,6 +401,53 @@ void main() {
       );
 
       expect(channels.direct.map((c) => c.id), [5, 6]);
+    });
+
+    test('bounds both endpoint buckets before resolving channel state', () {
+      final channels = ChatChannel.parse(
+        payload(
+          public: [
+            for (var id = 1; id <= ChatChannel.maximumPublicChannels; id++)
+              categoryChannel(
+                id: id,
+                title: 'Public $id',
+                slug: 'public-${id.toString().padLeft(3, '0')}',
+              ),
+            categoryChannel(id: 999, title: 'Excluded', slug: 'a-excluded'),
+          ],
+          direct: [
+            for (
+              var id = 1001;
+              id <= 1000 + ChatChannel.maximumDirectMessageChannels;
+              id++
+            )
+              directChannel(id: id, title: 'Direct $id'),
+            directChannel(id: 2000, title: 'Excluded', newMessagesLastId: 2000),
+          ],
+        ),
+        site,
+      );
+
+      expect(channels.public, hasLength(ChatChannel.maximumPublicChannels));
+      expect(channels.public.first.id, 1);
+      expect(channels.public.last.id, ChatChannel.maximumPublicChannels);
+      expect(
+        channels.direct.map((channel) => channel.id),
+        List.generate(
+          ChatChannel.maximumDirectMessageChannels,
+          (index) => 1001 + index,
+        ),
+      );
+      expect(channels.newMessageBusLastIds, isNot(containsPair(999, null)));
+      expect(channels.newMessageBusLastIds, isNot(containsPair(2000, 2000)));
+      expect(
+        () => channels.public.add(channelFrom(categoryChannel(id: 1000))),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => channels.direct.add(channelFrom(directChannel(id: 2001))),
+        throwsUnsupportedError,
+      );
     });
 
     test('keeps the last message and live cursor beside each channel', () {

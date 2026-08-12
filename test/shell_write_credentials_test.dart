@@ -165,6 +165,12 @@ void main() {
   test(
     'disconnect keeps working when credential read and deletion fail',
     () async {
+      // Startup presentation hydration can legitimately use the same injected
+      // credential failure. Let that optional work settle before exercising
+      // and inspecting the disconnect boundary.
+      await pumpEventQueue();
+      await diagnostics.clear();
+      await diagnostics.flush();
       authenticator
         ..readError = StateError('secure credential read failed')
         ..deleteError = StateError('secure credential delete failed');

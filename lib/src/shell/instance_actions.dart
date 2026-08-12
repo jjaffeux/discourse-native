@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
@@ -87,6 +89,10 @@ class InstanceActions extends StatefulWidget {
 }
 
 class _InstanceActionsState extends State<InstanceActions> {
+  static const _showActions = CustomSemanticsAction(
+    label: 'Show forum actions',
+  );
+
   final MenuController _menu = MenuController();
 
   /// Opens at the pointer or thumb rather than at the item's corner, which is
@@ -98,6 +104,13 @@ class _InstanceActionsState extends State<InstanceActions> {
       return;
     }
     _menu.open(position: position);
+  }
+
+  /// Keyboard and assistive-technology users do not have a pointer position,
+  /// so anchor the same menu to the focused forum control.
+  void _openFromKeyboard() {
+    if (_menu.isOpen) return;
+    _menu.open();
   }
 
   /// The touch path: everything the menu could not sensibly hold, full width
@@ -237,18 +250,31 @@ class _InstanceActionsState extends State<InstanceActions> {
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
       menuChildren: _items(theme),
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        // Each gesture is wired only where it means something: holding a mouse
-        // button down on a desktop is not a request for a menu, and a touch
-        // screen has no second button to press.
-        onLongPressStart: context.isTouch
-            ? (details) => _open(details.localPosition)
-            : null,
-        onSecondaryTapDown: context.isTouch
-            ? null
-            : (details) => _open(details.localPosition),
-        child: widget.child,
+      child: MergeSemantics(
+        child: Semantics(
+          customSemanticsActions: {_showActions: _openFromKeyboard},
+          child: CallbackShortcuts(
+            bindings: {
+              const SingleActivator(LogicalKeyboardKey.contextMenu):
+                  _openFromKeyboard,
+              const SingleActivator(LogicalKeyboardKey.f10, shift: true):
+                  _openFromKeyboard,
+            },
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              // Each gesture is wired only where it means something: holding a
+              // mouse button down on a desktop is not a request for a menu, and
+              // a touch screen has no second button to press.
+              onLongPressStart: context.isTouch
+                  ? (details) => _open(details.localPosition)
+                  : null,
+              onSecondaryTapDown: context.isTouch
+                  ? null
+                  : (details) => _open(details.localPosition),
+              child: widget.child,
+            ),
+          ),
+        ),
       ),
     );
   }

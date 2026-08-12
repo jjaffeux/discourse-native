@@ -124,6 +124,13 @@ class _UserMenuButtonState extends State<UserMenuButton> {
           final unread =
               (controller.accountActivity.totalsFor(siteUrl)?.badge ?? 0) > 0;
 
+          final tooltip = connecting
+              ? 'Connecting…'
+              : account.displayName ?? 'Not signed in';
+          final semanticLabel = unread && !connecting
+              ? '$tooltip, unread activity'
+              : tooltip;
+
           final avatar = Padding(
             padding: const EdgeInsets.all(5),
             child: Stack(
@@ -161,15 +168,30 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               padding: WidgetStatePropertyAll(EdgeInsets.zero),
             ),
             menuChildren: [UserMenuPanel(onDismiss: _menu.close)],
-            child: Tooltip(
-              message: connecting
-                  ? 'Connecting…'
-                  : account.displayName ?? 'Not signed in',
-              child: InkWell(
-                key: UserMenuButton.avatarKey,
-                onTap: connecting ? null : _openMenu,
-                borderRadius: BorderRadius.circular(20),
-                child: avatar,
+            child: Semantics(
+              container: true,
+              button: !connecting,
+              enabled: !connecting,
+              label: semanticLabel,
+              child: Tooltip(
+                message: tooltip,
+                excludeFromSemantics: true,
+                child: InkWell(
+                  key: UserMenuButton.avatarKey,
+                  onTap: connecting ? null : _openMenu,
+                  borderRadius: BorderRadius.circular(22),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    child: Center(
+                      widthFactor: 1,
+                      heightFactor: 1,
+                      child: ExcludeSemantics(child: avatar),
+                    ),
+                  ),
+                ),
               ),
             ),
           );
@@ -195,6 +217,33 @@ class _SignedOutAccountActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final height = size + 6;
+    if (MediaQuery.sizeOf(context).width < 900) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton.filled(
+            key: UserMenuButton.signUpKey,
+            onPressed: connecting ? null : onSignUp,
+            tooltip: 'Sign up',
+            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            icon: const DIcon(DIcons.userPlus, size: 16),
+          ),
+          const SizedBox(width: 4),
+          IconButton.filled(
+            key: UserMenuButton.signInKey,
+            onPressed: connecting ? null : onSignIn,
+            tooltip: connecting ? 'Signing in…' : 'Sign in',
+            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            icon: connecting
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                  )
+                : const DIcon(DIcons.user, size: 16),
+          ),
+        ],
+      );
+    }
     final style = FilledButton.styleFrom(
       minimumSize: Size(0, height),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,

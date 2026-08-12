@@ -126,64 +126,73 @@ class _ReactionPillState extends State<ReactionPill> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return GestureDetector(
-      // Long press is the touch way in. The post underneath opens its own
-      // action sheet on a long press, and this one wins the gesture arena by
-      // being the nearer of the two.
-      onLongPress: context.isTouch ? _openSheet : null,
-      child: HoverPanel(
-        key: _panel,
-        maxWidth: _panelWidth,
-        onOpen: _load,
-        panelBuilder: (context) => _ReactorPanel(
-          siteUrl: widget.siteUrl,
-          post: widget.post,
-          filter: widget.reaction.id,
-        ),
-        child: Semantics(
-          label: widget.reaction.count == 1
-              ? '1 ${widget.reaction.id} reaction'
-              : '${widget.reaction.count} ${widget.reaction.id} reactions',
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minWidth: ReactionPill.minTarget,
-              minHeight: ReactionPill.minTarget,
-            ),
-            child: Center(
-              widthFactor: 1,
-              heightFactor: 1,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(8, 4, 9, 4),
-                decoration: BoxDecoration(
-                  color: theme.shell.floating,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: widget.mine
-                        ? theme.colorScheme.primary
-                        : theme.shell.divider,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SiteEmojiImage(
-                      siteUrl: widget.siteUrl,
-                      name: widget.reaction.id,
-                      size: 16,
-                      alt: ':${widget.reaction.id}:',
-                      style: theme.textTheme.labelSmall,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      '${widget.reaction.count}',
-                      style: theme.textTheme.labelMedium?.copyWith(
+    final label = widget.reaction.count == 1
+        ? '1 ${widget.reaction.id} reaction'
+        : '${widget.reaction.count} ${widget.reaction.id} reactions';
+
+    return HoverPanel(
+      key: _panel,
+      maxWidth: _panelWidth,
+      onOpen: _load,
+      panelBuilder: (context) => _ReactorPanel(
+        siteUrl: widget.siteUrl,
+        post: widget.post,
+        filter: widget.reaction.id,
+      ),
+      child: Semantics(
+        container: true,
+        button: true,
+        label: label,
+        onTapHint: 'show who reacted',
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minWidth: ReactionPill.minTarget,
+            minHeight: ReactionPill.minTarget,
+          ),
+          child: Center(
+            widthFactor: 1,
+            heightFactor: 1,
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: _openSheet,
+                onLongPress: context.isTouch ? _openSheet : null,
+                borderRadius: BorderRadius.circular(14),
+                child: ExcludeSemantics(
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 9, 4),
+                    decoration: BoxDecoration(
+                      color: theme.shell.floating,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
                         color: widget.mine
                             ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
+                            : theme.shell.divider,
                       ),
                     ),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SiteEmojiImage(
+                          siteUrl: widget.siteUrl,
+                          name: widget.reaction.id,
+                          size: 16,
+                          alt: ':${widget.reaction.id}:',
+                          style: theme.textTheme.labelSmall,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          '${widget.reaction.count}',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: widget.mine
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -332,6 +341,16 @@ class _ReactorListViewState extends State<_ReactorListView> {
     setState(() => _snapshot = next);
   }
 
+  void _retry() {
+    unawaited(
+      widget.reactions.load(
+        siteUrl: widget.siteUrl,
+        postId: widget.post.id,
+        filter: widget.filter,
+      ),
+    );
+  }
+
   void _reloadAfterLayout() {
     final token = Object();
     _reloadToken = token;
@@ -388,12 +407,32 @@ class _ReactorListViewState extends State<_ReactorListView> {
       }
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Text(
-          error,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Semantics(
+              container: true,
+              liveRegion: true,
+              child: Text(
+                error,
+                key: const ValueKey('reactor-list-error'),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            TextButton(
+              key: const ValueKey('reactor-list-retry'),
+              onPressed: _retry,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(44, 44),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
         ),
       );
     }

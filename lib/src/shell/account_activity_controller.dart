@@ -167,7 +167,9 @@ final class AccountActivityController extends FrameSafeNotifier {
           _totals[instance.url] = resolved;
           _notifyTotals();
         }
-        onTotalsLoaded?.call(instance, resolved);
+        // Publishing can synchronously dispose this owner through a listener.
+        // Do not let its post-load hook start work for a replacement shell.
+        if (!isDisposed) onTotalsLoaded?.call(instance, resolved);
       });
       return accepted ? applied : null;
     } catch (error, stackTrace) {

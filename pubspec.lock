@@ -57,14 +57,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.1"
-  checked_yaml:
-    dependency: transitive
-    description:
-      name: checked_yaml
-      sha256: "959525d3162f249993882720d52b7e0c833978df229be20702b33d48d91de70f"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.4"
   clock:
     dependency: transitive
     description:
@@ -129,14 +121,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.7"
-  cryptography_plus:
-    dependency: transitive
-    description:
-      name: cryptography_plus
-      sha256: "34db787df4f4740a39474b6fb0a610aa6dc13a5b5b68754b4787a79939ac0454"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.7.1"
   csslib:
     dependency: "direct main"
     description:
@@ -177,14 +161,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.1"
-  desktop_updater:
-    dependency: "direct main"
-    description:
-      name: desktop_updater
-      sha256: "2ced328ddd37bb02a0326e91ad518ce0ae338f3ffa061910fc09a9c86ecc8a22"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.1.1"
   desktop_webview_window:
     dependency: transitive
     description:
@@ -764,14 +740,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
-  pubspec_parse:
-    dependency: transitive
-    description:
-      name: pubspec_parse
-      sha256: "0560ba233314abbed0a48a2956f7f022cce7c3e1e73df540277da7544cad4082"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.5.0"
   record_use:
     dependency: transitive
     description:

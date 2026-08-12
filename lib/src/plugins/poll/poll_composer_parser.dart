@@ -153,13 +153,15 @@ List<PollComposerBlock> parsePollComposerBlocks(String source) {
   var index = 0;
   while (index < lines.length) {
     final line = lines[index];
-    if (inFence[index] || _parseOpening(line.text) == null) {
+    final opening = inFence[index] ? null : _parseOpening(line.text);
+    if (opening == null) {
       index++;
       continue;
     }
 
     var depth = 1;
     var nested = false;
+    _Closing? closing;
     var cursor = index + 1;
     for (; cursor < lines.length; cursor++) {
       if (inFence[cursor]) continue;
@@ -169,9 +171,13 @@ List<PollComposerBlock> parsePollComposerBlocks(String source) {
         nested = true;
         continue;
       }
-      if (_parseClosing(current.text) != null) {
+      final candidate = _parseClosing(current.text);
+      if (candidate != null) {
         depth--;
-        if (depth == 0) break;
+        if (depth == 0) {
+          closing = candidate;
+          break;
+        }
       }
     }
 
@@ -180,8 +186,8 @@ List<PollComposerBlock> parsePollComposerBlocks(String source) {
     // editing a range the server would parse as part of the malformed outer.
     if (cursor == lines.length) break;
 
-    final opening = _parseOpening(line.text)!;
-    final closing = _parseClosing(lines[cursor].text)!;
+    assert(closing != null);
+    final matchedClosing = closing!;
     if (!nested) {
       final body = _parseBody(
         lines.sublist(index + 1, cursor),
@@ -199,8 +205,8 @@ List<PollComposerBlock> parsePollComposerBlocks(String source) {
             openingIndent: opening.indent,
             attributeTrailingWhitespace: opening.attributeTrailingWhitespace,
             openingTrailingWhitespace: opening.trailingWhitespace,
-            closingIndent: closing.indent,
-            closingTrailingWhitespace: closing.trailingWhitespace,
+            closingIndent: matchedClosing.indent,
+            closingTrailingWhitespace: matchedClosing.trailingWhitespace,
             lineEnding: raw.contains('\r\n') ? '\r\n' : '\n',
             titleSource: body.title,
             optionSources: List.unmodifiable(body.options),
@@ -283,6 +289,16 @@ _Body? _parseBody(List<_SourceLine> lines, ComposerPollType type) {
 
 final RegExp _headingPattern = RegExp(r'^( {0,3})#[ \t]+(.+?)[ \t]*$');
 final RegExp _optionPattern = RegExp(r'^( {0,3})([*+-])(?:[ \t]+(.*))?$');
+final RegExp _openingPattern = RegExp(
+  r'^([ ]{0,3})\[poll((?:.|\t)*)\]([ \t]*)$',
+  caseSensitive: false,
+);
+final RegExp _closingPattern = RegExp(
+  r'^([ ]{0,3})\[/poll\]([ \t]*)$',
+  caseSensitive: false,
+);
+final RegExp _leadingHorizontalSpacePattern = RegExp(r'^[ \t]');
+final RegExp _fenceOpeningPattern = RegExp(r'^ {0,3}(`{3,}|~{3,})');
 
 class _Opening {
   const _Opening({
@@ -306,14 +322,13 @@ class _Closing {
 }
 
 _Opening? _parseOpening(String line) {
-  final match = RegExp(
-    r'^([ ]{0,3})\[poll((?:.|\t)*)\]([ \t]*)$',
-    caseSensitive: false,
-  ).firstMatch(line);
+  final match = _openingPattern.firstMatch(line);
   if (match == null) return null;
 
   final inside = match.group(2)!;
-  if (inside.isNotEmpty && !RegExp(r'^[ \t]').hasMatch(inside)) return null;
+  if (inside.isNotEmpty && !_leadingHorizontalSpacePattern.hasMatch(inside)) {
+    return null;
+  }
   final parsed = _parseAttributes(inside);
   if (parsed == null) return null;
   return _Opening(
@@ -325,10 +340,7 @@ _Opening? _parseOpening(String line) {
 }
 
 _Closing? _parseClosing(String line) {
-  final match = RegExp(
-    r'^([ ]{0,3})\[/poll\]([ \t]*)$',
-    caseSensitive: false,
-  ).firstMatch(line);
+  final match = _closingPattern.firstMatch(line);
   return match == null ? null : _Closing(match.group(1)!, match.group(2)!);
 }
 
@@ -434,11 +446,21 @@ String? _attributeValue(List<PollMarkupAttribute> attributes, String name) {
 bool _isHorizontalSpace(String character) =>
     character == ' ' || character == '\t';
 
-bool _isAttributeNameStart(String character) =>
-    RegExp(r'[A-Za-z_]').hasMatch(character);
+bool _isAttributeNameStart(String character) {
+  final unit = character.codeUnitAt(0);
+  return unit == 0x5F || _isAsciiLetter(unit);
+}
 
-bool _isAttributeNamePart(String character) =>
-    RegExp(r'[A-Za-z0-9_-]').hasMatch(character);
+bool _isAttributeNamePart(String character) {
+  final unit = character.codeUnitAt(0);
+  return unit == 0x2D ||
+      unit == 0x5F ||
+      _isAsciiLetter(unit) ||
+      (unit >= 0x30 && unit <= 0x39);
+}
+
+bool _isAsciiLetter(int unit) =>
+    (unit >= 0x41 && unit <= 0x5A) || (unit >= 0x61 && unit <= 0x7A);
 
 class _SourceLine {
   const _SourceLine({
@@ -495,7 +517,7 @@ List<bool> _fenceMap(List<_SourceLine> lines) {
       continue;
     }
 
-    final open = RegExp(r'^ {0,3}(`{3,}|~{3,})').firstMatch(line);
+    final open = _fenceOpeningPattern.firstMatch(line);
     if (open == null) continue;
     final run = open.group(1)!;
     marker = run[0];

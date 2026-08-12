@@ -175,10 +175,18 @@ class DiscourseCategoryData {
     dom.Element root,
     bool Function(dom.Element) test,
   ) {
-    for (final child in root.children) {
+    final pending = <dom.Element>[];
+    void pushReversed(List<dom.Element> children) {
+      for (var index = children.length - 1; index >= 0; index--) {
+        pending.add(children[index]);
+      }
+    }
+
+    pushReversed(root.children);
+    while (pending.isNotEmpty) {
+      final child = pending.removeLast();
       if (test(child)) return child;
-      final found = _descendant(child, test);
-      if (found != null) return found;
+      pushReversed(child.children);
     }
     return null;
   }
@@ -188,14 +196,19 @@ class DiscourseCategoryData {
     bool Function(dom.Element) test,
   ) {
     final found = <dom.Element>[];
-    void walk(dom.Element element) {
-      for (final child in element.children) {
-        if (test(child)) found.add(child);
-        walk(child);
+    final pending = <dom.Element>[];
+    void pushReversed(List<dom.Element> children) {
+      for (var index = children.length - 1; index >= 0; index--) {
+        pending.add(children[index]);
       }
     }
 
-    walk(root);
+    pushReversed(root.children);
+    while (pending.isNotEmpty) {
+      final child = pending.removeLast();
+      if (test(child)) found.add(child);
+      pushReversed(child.children);
+    }
     return found;
   }
 }

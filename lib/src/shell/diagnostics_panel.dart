@@ -466,6 +466,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
   }
 
   Future<void> _confirmClear() async {
+    final controller = widget.controller;
     final confirmed = await showDiscourseDialog<bool>(
       context: context,
       builder: (dialogContext) => DiscourseAlertDialog(
@@ -487,9 +488,18 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
         ],
       ),
     );
-    if (confirmed != true) return;
-    await widget.controller.clear();
-    if (mounted) widget.controller.setFrozen(false);
+    // The app can replace its diagnostics owner while this dialog is open.
+    // A confirmation describing the old history must never clear the new
+    // controller's events.
+    if (confirmed != true ||
+        !mounted ||
+        !identical(widget.controller, controller)) {
+      return;
+    }
+    await controller.clear();
+    if (mounted && identical(widget.controller, controller)) {
+      controller.setFrozen(false);
+    }
   }
 
   void _showCopied(String message) {

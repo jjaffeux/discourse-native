@@ -133,6 +133,28 @@ void main() {
         RankedPollSelection(digest: 'b', rank: 1),
       ]);
     });
+
+    test('bounds option parsing to the server setting ceiling', () {
+      final options = <Object?>[
+        // Raw response slots consume the server-sized budget. This keeps all
+        // parsing work bounded even when a nonconforming response is corrupt.
+        null,
+        for (var index = 0; index < Poll.maximumOptions; index++)
+          {'id': 'option-$index', 'html': '<strong>Option $index</strong>'},
+      ];
+      final poll = Poll.fromJson({
+        ...pollJson(),
+        'options': options,
+      }, 'https://forum.example')!;
+
+      expect(poll.options, hasLength(Poll.maximumOptions - 1));
+      expect(poll.options.first.id, 'option-0');
+      expect(poll.options.last.id, 'option-98');
+      expect(
+        () => poll.options.add(const PollOption(id: 'extra', html: 'Extra')),
+        throwsUnsupportedError,
+      );
+    });
   });
 
   group('PollsApi', () {

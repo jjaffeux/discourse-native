@@ -26,6 +26,9 @@ class FoundHashtag {
     this.colors = const [],
   });
 
+  /// A category has its own color and, at most, one parent color.
+  static const int maximumColors = 2;
+
   static FoundHashtag? fromJson(Map<String, dynamic> json) {
     final type = jsonText(json['type']);
     final ref = jsonText(json['ref']) ?? jsonText(json['slug']);
@@ -46,10 +49,12 @@ class FoundHashtag {
       styleType: jsonText(json['style_type']) ?? 'square',
       icon: jsonText(json['icon']),
       emoji: jsonText(json['emoji']),
-      colors: List.unmodifiable([
-        for (final color in jsonArray(json['colors']))
-          if (color is String && color.isNotEmpty) color,
-      ]),
+      colors: List.unmodifiable(
+        jsonArray(json['colors'])
+            .whereType<String>()
+            .where((color) => color.isNotEmpty)
+            .take(maximumColors),
+      ),
     );
   }
 

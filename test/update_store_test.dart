@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/data/update_store.dart';
 import 'package:discourse_native/src/data/updater.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
@@ -41,6 +43,55 @@ void main() {
         diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
         _isRejectedStorageWrite('updates.writeChannel'),
       );
+    });
+
+    test(
+      'replacement stores persist channel writes in request order',
+      () async {
+        final gate = Completer<void>();
+        final persistence = _ControlledUpdatePersistence(
+          firstChannelWriteGate: gate,
+        );
+        final oldStore = UpdateStore(persistence: persistence);
+        final replacementStore = UpdateStore(persistence: persistence);
+
+        final oldWrite = oldStore.writeChannel(UpdateChannel.canary);
+        await persistence.firstChannelWriteStarted.future;
+        final replacementWrite = replacementStore.writeChannel(
+          UpdateChannel.stable,
+        );
+
+        await Future<void>.delayed(Duration.zero);
+        expect(persistence.channelWriteCount, 1);
+
+        gate.complete();
+        await Future.wait([oldWrite, replacementWrite]);
+
+        expect(persistence.channelWriteCount, 2);
+        expect(persistence.channelName, UpdateChannel.stable.name);
+      },
+    );
+
+    test('replacement reads wait for an in-flight channel write', () async {
+      final gate = Completer<void>();
+      final persistence = _ControlledUpdatePersistence(
+        firstChannelWriteGate: gate,
+      );
+      final oldStore = UpdateStore(persistence: persistence);
+      final replacementStore = UpdateStore(persistence: persistence);
+
+      final writing = oldStore.writeChannel(UpdateChannel.canary);
+      await persistence.firstChannelWriteStarted.future;
+      final reading = replacementStore.readChannel();
+
+      await Future<void>.delayed(Duration.zero);
+      expect(persistence.channelReadCount, 0);
+
+      gate.complete();
+      await writing;
+
+      expect(await reading, UpdateChannel.canary);
+      expect(persistence.channelReadCount, 1);
     });
 
     test(
@@ -94,6 +145,26 @@ void main() {
       expect(await store.readChannel(), UpdateChannel.canary);
       expect(await store.readLastChecked(), at);
     });
+
+    test('a channel write does not block last-checked persistence', () async {
+      final gate = Completer<void>();
+      final persistence = _ControlledUpdatePersistence(
+        firstChannelWriteGate: gate,
+      );
+      final controlledStore = UpdateStore(persistence: persistence);
+      final at = DateTime.fromMillisecondsSinceEpoch(1720000000000);
+
+      final channelWrite = controlledStore.writeChannel(UpdateChannel.canary);
+      await persistence.firstChannelWriteStarted.future;
+
+      await controlledStore
+          .writeLastChecked(at)
+          .timeout(const Duration(seconds: 1));
+      expect(persistence.lastCheckedMillis, at.millisecondsSinceEpoch);
+
+      gate.complete();
+      await channelWrite;
+    });
   });
 }
 
@@ -122,21 +193,36 @@ final class _ControlledUpdatePersistence implements UpdatePersistence {
   _ControlledUpdatePersistence({
     this.acceptChannelWrites = true,
     this.acceptLastCheckedWrites = true,
+    this.firstChannelWriteGate,
   });
 
   final bool acceptChannelWrites;
   final bool acceptLastCheckedWrites;
+  final Completer<void>? firstChannelWriteGate;
+  final Completer<void> firstChannelWriteStarted = Completer<void>();
   String? channelName;
   int? lastCheckedMillis;
+  int channelReadCount = 0;
+  int channelWriteCount = 0;
 
   @override
-  Future<String?> readChannelName() async => channelName;
+  Future<String?> readChannelName() async {
+    channelReadCount++;
+    return channelName;
+  }
 
   @override
   Future<int?> readLastCheckedMillis() async => lastCheckedMillis;
 
   @override
   Future<bool> writeChannelName(String value) async {
+    channelWriteCount++;
+    if (channelWriteCount == 1) {
+      if (!firstChannelWriteStarted.isCompleted) {
+        firstChannelWriteStarted.complete();
+      }
+      await firstChannelWriteGate?.future;
+    }
     if (!acceptChannelWrites) return false;
     channelName = value;
     return true;

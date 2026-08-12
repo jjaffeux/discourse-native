@@ -147,46 +147,63 @@ class BookmarkRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final label = [
+      ?bookmark.author,
+      if (bookmark.title.isNotEmpty) bookmark.title else 'Bookmark',
+      if (bookmark.name case final name?) 'Note: $name',
+    ].join(', ');
 
     final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 1),
-                child: DIcon(
-                  bookmark.reminderAt == null
-                      ? DIcons.bookmark
-                      : DIcons.discourseBookmarkClock,
-                  size: 16,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      if (bookmark.author case final author?)
+      child: Semantics(
+        key: ValueKey('bookmark-row-${bookmark.id}'),
+        label: label,
+        button: true,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: ExcludeSemantics(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: DIcon(
+                        bookmark.reminderAt == null
+                            ? DIcons.bookmark
+                            : DIcons.discourseBookmarkClock,
+                        size: 16,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text.rich(
                         TextSpan(
-                          text: '$author ',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          children: [
+                            if (bookmark.author case final author?)
+                              TextSpan(
+                                text: '$author ',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            TextSpan(text: bookmark.title),
+                          ],
                         ),
-                      TextSpan(text: bookmark.title),
-                    ],
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -198,6 +215,7 @@ class BookmarkRow extends StatelessWidget {
     if (name == null) return row;
     return Tooltip(
       message: name,
+      excludeFromSemantics: true,
       waitDuration: const Duration(milliseconds: 400),
       child: row,
     );
