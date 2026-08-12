@@ -228,7 +228,7 @@ void main() {
     addTearDown(second.dispose);
 
     await tester.pumpWidget(_contentHost(first, const UserMenuButton()));
-    await tester.tap(find.byKey(UserMenuButton.avatarKey));
+    await tester.tap(find.byKey(UserMenuButton.signInKey));
     await tester.pump();
     await authenticator.started.future;
 

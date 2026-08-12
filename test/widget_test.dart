@@ -225,8 +225,13 @@ final class _GatedConnectAuthenticator extends FakeAuthenticator {
   }
 }
 
-/// The account avatar in the top right, wherever the layout has put it.
-final Finder userMenu = find.byKey(UserMenuButton.avatarKey);
+/// The account entry point in the top right, whether signed in or out.
+final Finder userMenu = find.byWidgetPredicate(
+  (widget) =>
+      widget.key == UserMenuButton.avatarKey ||
+      widget.key == UserMenuButton.signInKey,
+  description: 'account menu or sign-in action',
+);
 
 /// A sidebar entry by its label. Scoped because other shell regions can repeat
 /// destination names.
@@ -3782,10 +3787,26 @@ void main() {
   });
 
   group('connecting', () {
-    testWidgets('the avatar says so until you connect', (tester) async {
+    testWidgets('signed-out sites show sign-up and sign-in actions', (
+      tester,
+    ) async {
       await pumpShell(tester, desktop);
 
-      expect(find.byTooltip('Not signed in'), findsOneWidget);
+      expect(find.byKey(UserMenuButton.signUpKey), findsOneWidget);
+      expect(find.byKey(UserMenuButton.signInKey), findsOneWidget);
+      expect(find.byKey(UserMenuButton.avatarKey), findsNothing);
+    });
+
+    testWidgets('sign-up opens the selected forum registration page', (
+      tester,
+    ) async {
+      final launched = watchBrowser(tester);
+      await pumpShell(tester, desktop);
+
+      await tester.tap(find.byKey(UserMenuButton.signUpKey));
+      await tester.pumpAndSettle();
+
+      expect(launched, ['https://meta.discourse.org/signup']);
     });
 
     testWidgets('connecting records the account against the site', (
@@ -3815,7 +3836,7 @@ void main() {
       await tester.tap(userMenu);
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Not signed in'), findsOneWidget);
+      expect(find.byKey(UserMenuButton.signInKey), findsOneWidget);
       expect(find.byType(SnackBar), findsNothing);
     });
 
@@ -4011,9 +4032,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(auth.disconnected, ['https://meta.discourse.org']);
-      // Both sheets are gone with it, and the avatar is back to signed out.
+      // Both sheets are gone with it, and the signed-out actions are back.
       expect(find.byType(UserMenuPanel), findsNothing);
-      expect(find.byTooltip('Not signed in'), findsOneWidget);
+      expect(find.byKey(UserMenuButton.signUpKey), findsOneWidget);
+      expect(find.byKey(UserMenuButton.signInKey), findsOneWidget);
     });
   });
 

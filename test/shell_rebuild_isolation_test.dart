@@ -47,7 +47,7 @@ void main() {
                 const SizedBox(width: 240, child: InstanceSidebar()),
                 const UserMenuButton(),
                 const SizedBox(
-                  width: 400,
+                  width: 300,
                   height: 480,
                   child: UserMenuPanel(onDismiss: _noop),
                 ),

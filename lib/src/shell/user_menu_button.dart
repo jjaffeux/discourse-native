@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
+import 'external_link.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
 import 'user_menu.dart';
@@ -14,14 +17,12 @@ typedef _AccountAvatarSnapshot = ({
   bool connecting,
 });
 
-/// The account avatar in the top right of whichever column reaches the top
+/// The account controls in the top right of whichever column reaches the top
 /// right of the window, and the way into [UserMenuPanel].
 ///
-/// It stands in for the whole of the signed-in state: signed out it is the way
-/// to connect, connecting it is the progress, and connected it opens the menu.
-/// A pointer gets that menu as a popover under the avatar; a thumb gets it as a
-/// sheet, because a popover pinned to the corner of a phone is a menu you have
-/// to reach across the screen to read.
+/// Signed-out readers get explicit sign-up and sign-in actions. Once connected,
+/// the avatar opens the menu: a pointer gets a popover under it, while a thumb
+/// gets a sheet because a popover pinned to a phone corner is awkward to read.
 class UserMenuButton extends StatefulWidget {
   const UserMenuButton({super.key, this.size = 30, this.ringColor});
 
@@ -39,6 +40,9 @@ class UserMenuButton extends StatefulWidget {
 
   /// The tappable avatar itself.
   static const Key avatarKey = ValueKey('user-menu-avatar');
+
+  static const Key signUpKey = ValueKey('user-menu-sign-up');
+  static const Key signInKey = ValueKey('user-menu-sign-in');
 
   /// The dot saying there is something waiting behind the menu.
   static const Key unreadDotKey = ValueKey('user-menu-unread');
@@ -65,6 +69,15 @@ class _UserMenuButtonState extends State<UserMenuButton> {
     messenger.showSnackBar(SnackBar(content: Text(error)));
   }
 
+  Future<void> _signUp(String siteUrl) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final opened = await openExternalLink('$siteUrl/signup');
+    if (!mounted || opened) return;
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Could not open the sign-up page.')),
+    );
+  }
+
   void _openMenu() {
     if (context.isTouch) {
       unawaited(showUserMenuSheet(context));
@@ -89,6 +102,14 @@ class _UserMenuButtonState extends State<UserMenuButton> {
     builder: (context, account, _) {
       final siteUrl = account.siteUrl;
       if (siteUrl == null) return const SizedBox.shrink();
+      if (account.username == null) {
+        return _SignedOutAccountActions(
+          connecting: account.connecting,
+          size: widget.size,
+          onSignUp: () => unawaited(_signUp(siteUrl)),
+          onSignIn: () => unawaited(_connect()),
+        );
+      }
       final controller = ShellScope.read(context);
 
       return ListenableBuilder(
@@ -146,9 +167,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                   : account.displayName ?? 'Not signed in',
               child: InkWell(
                 key: UserMenuButton.avatarKey,
-                onTap: connecting
-                    ? null
-                    : (account.username == null ? _connect : _openMenu),
+                onTap: connecting ? null : _openMenu,
                 borderRadius: BorderRadius.circular(20),
                 child: avatar,
               ),
@@ -158,6 +177,56 @@ class _UserMenuButtonState extends State<UserMenuButton> {
       );
     },
   );
+}
+
+class _SignedOutAccountActions extends StatelessWidget {
+  const _SignedOutAccountActions({
+    required this.connecting,
+    required this.size,
+    required this.onSignUp,
+    required this.onSignIn,
+  });
+
+  final bool connecting;
+  final double size;
+  final VoidCallback onSignUp;
+  final VoidCallback onSignIn;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = size + 6;
+    final style = FilledButton.styleFrom(
+      minimumSize: Size(0, height),
+      padding: EdgeInsets.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FilledButton(
+          key: UserMenuButton.signUpKey,
+          onPressed: connecting ? null : onSignUp,
+          style: style,
+          child: const Text('Sign up'),
+        ),
+        const SizedBox(width: 8),
+        FilledButton.icon(
+          key: UserMenuButton.signInKey,
+          onPressed: connecting ? null : onSignIn,
+          style: style,
+          icon: connecting
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                )
+              : const DIcon(DIcons.user, size: 16),
+          label: Text(connecting ? 'Signing in…' : 'Sign in'),
+        ),
+      ],
+    );
+  }
 }
 
 /// The unread mark on the avatar. Sized and coloured like the rail's badge, so
