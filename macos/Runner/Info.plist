@@ -41,6 +41,8 @@
 	<string>Discourse uses the microphone when you join a voice room.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Discourse uses the camera when you enable video in a voice room.</string>
+	<key>NSCameraUseContinuityCameraDeviceType</key>
+	<true/>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
