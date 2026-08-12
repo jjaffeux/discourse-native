@@ -146,6 +146,15 @@ class ChatReaction {
   /// Whether this reader is one of them.
   final bool reacted;
 
+  ChatReaction withReacted(bool value) {
+    final nextCount = value == reacted ? count : count + (value ? 1 : -1);
+    return ChatReaction(
+      emoji: emoji,
+      count: nextCount < 0 ? 0 : nextCount,
+      reacted: value,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       other is ChatReaction &&
@@ -725,6 +734,59 @@ class ChatMessage with Storable<ChatMessage> {
 
   bool get isDeleted => deletedAt != null;
   bool get isOptimistic => stagedId != null;
+
+  /// Adds or removes this reader from one reaction without disturbing any of
+  /// the other reactions a chat message may hold.
+  ///
+  /// The server answers the write with success rather than an updated message,
+  /// so this is both the optimistic projection and the state retained after a
+  /// successful request. Applying the same state twice is intentionally a
+  /// no-op, which makes rollback and a repeated UI callback harmless.
+  ChatMessage withReaction(String emoji, {required bool reacted}) {
+    final index = reactions.indexWhere((reaction) => reaction.emoji == emoji);
+    if (index < 0) {
+      if (!reacted) return this;
+      return _withReactions([
+        ...reactions,
+        ChatReaction(emoji: emoji, count: 1, reacted: true),
+      ]);
+    }
+
+    final held = reactions[index];
+    if (held.reacted == reacted) return this;
+    final updated = held.withReacted(reacted);
+    final next = [...reactions];
+    if (updated.count == 0) {
+      next.removeAt(index);
+    } else {
+      next[index] = updated;
+    }
+    return _withReactions(next);
+  }
+
+  ChatMessage _withReactions(List<ChatReaction> reactions) => ChatMessage(
+    id: id,
+    channelId: channelId,
+    cooked: cooked,
+    author: author,
+    createdAt: createdAt,
+    deletedAt: deletedAt,
+    edited: edited,
+    isWebhook: isWebhook,
+    replyTo: replyTo,
+    threadId: threadId,
+    thread: thread,
+    reactions: List.unmodifiable(reactions),
+    uploads: uploads,
+    optimisticRaw: optimisticRaw,
+    preview: preview,
+    stagedId: stagedId,
+    serverId: serverId,
+    canonicalReceived: canonicalReceived,
+    delivery: delivery,
+    sendError: sendError,
+    deliveryUncertain: deliveryUncertain,
+  );
 
   ChatMessage withSendState({
     required ChatMessageDelivery delivery,

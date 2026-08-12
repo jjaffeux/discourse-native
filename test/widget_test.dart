@@ -7215,7 +7215,7 @@ void main() {
       expect(pill('0'), findsNothing);
     });
 
-    testWidgets('a reaction pill is an action that opens its reactor list', (
+    testWidgets('clicking an existing reaction adds the reader to it', (
       tester,
     ) async {
       final api = await openTopic(
@@ -7247,9 +7247,132 @@ void main() {
       tester.semantics.tap(semanticTarget);
       await tester.pumpAndSettle();
 
+      expect(api.reacted, [(postId: 1, reaction: 'clap')]);
+      expect(find.byType(ReactorList), findsNothing);
+      expect(pill('3'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('a read-only reaction still opens its reactor list', (
+      tester,
+    ) async {
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(
+            reactions: [(id: 'clap', count: 2)],
+            userCount: 2,
+            canAct: false,
+          ),
+        ],
+        reactorsById: {
+          '1:clap': const PostReactors(
+            postId: 1,
+            filter: 'clap',
+            total: 2,
+            reactors: [
+              PostReactor(id: 3, username: 'sam', reaction: 'clap'),
+              PostReactor(id: 4, username: 'ada', reaction: 'clap'),
+            ],
+          ),
+        },
+      );
+
+      await tester.tap(find.bySemanticsLabel('2 clap reactions'));
+      await tester.pumpAndSettle();
+
       expect(find.byType(ReactorList), findsOneWidget);
       expect(api.reactorsRequested, [(postId: 1, filter: 'clap')]);
-      semantics.dispose();
+      expect(api.reacted, isEmpty);
+    });
+
+    testWidgets('a touch long press opens reactors without changing reaction', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      try {
+        final api = await openTopic(
+          tester,
+          config: configured,
+          posts: [
+            post(reactions: [(id: 'clap', count: 2)], userCount: 2),
+          ],
+          reactorsById: {
+            '1:clap': const PostReactors(
+              postId: 1,
+              filter: 'clap',
+              total: 2,
+              reactors: [
+                PostReactor(id: 3, username: 'sam', reaction: 'clap'),
+                PostReactor(id: 4, username: 'ada', reaction: 'clap'),
+              ],
+            ),
+          },
+        );
+
+        await tester.longPress(find.bySemanticsLabel('2 clap reactions'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ReactorList), findsOneWidget);
+        expect(api.reactorsRequested, [(postId: 1, filter: 'clap')]);
+        expect(api.reacted, isEmpty);
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
+    testWidgets('clicking another reaction changes the one the reader holds', (
+      tester,
+    ) async {
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(
+            reactions: [(id: 'heart', count: 2), (id: 'clap', count: 1)],
+            mine: 'heart',
+            userCount: 3,
+            canAct: false,
+            canUndo: true,
+          ),
+        ],
+      );
+
+      await tester.tap(find.bySemanticsLabel('1 clap reaction'));
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, [(postId: 1, reaction: 'clap')]);
+      expect(pill('1'), findsOneWidget);
+      expect(pill('2'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
+        isSemantics(isSelected: true),
+      );
+    });
+
+    testWidgets('clicking the highlighted reaction removes it', (tester) async {
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(
+            reactions: [(id: 'clap', count: 1)],
+            mine: 'clap',
+            userCount: 1,
+            canAct: false,
+            canUndo: true,
+          ),
+        ],
+      );
+
+      await tester.tap(find.bySemanticsLabel('1 clap reaction'));
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, [(postId: 1, reaction: 'clap')]);
+      expect(find.byType(ReactionsRow), findsOneWidget);
+      expect(pill('1'), findsNothing);
     });
 
     testWidgets('a post on a site without the plugin keeps its likes', (
@@ -9837,59 +9960,132 @@ void main() {
         expect(find.text('12 KB'), findsOneWidget);
       });
 
-      testWidgets(
-        'shows the reactions a message has without offering to add one',
-        (tester) async {
-          await pumpChat(
-            tester,
-            public: [channel(9)],
-            messages: {
-              key(9): page([
-                msg(
-                  1,
-                  reactions: const [
-                    ChatReaction(emoji: 'heart', count: 3, reacted: true),
-                    ChatReaction(emoji: 'clap', count: 2),
-                  ],
-                ),
-              ]),
-            },
-          );
+      testWidgets('directly adds and removes existing message reactions', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)], direct: const []),
+          },
+          chatMessagesByKey: {
+            key(9): page([
+              msg(
+                1,
+                reactions: const [
+                  ChatReaction(emoji: 'heart', count: 3, reacted: true),
+                  ChatReaction(emoji: 'clap', count: 2),
+                ],
+              ),
+            ]),
+          },
+        );
+        await pumpChat(tester, api: api);
 
-          await tester.tap(sidebarDestination('Bugs'));
-          await tester.pumpAndSettle();
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
 
-          expect(find.text('3'), findsOneWidget);
-          expect(find.text('2'), findsOneWidget);
+        expect(find.text('3'), findsOneWidget);
+        expect(find.text('2'), findsOneWidget);
 
-          final mine = tester.widget<Container>(
-            find.byKey(const ValueKey('chat-reaction-heart')),
-          );
-          final other = tester.widget<Container>(
-            find.byKey(const ValueKey('chat-reaction-clap')),
-          );
-          final mineDecoration = mine.decoration! as BoxDecoration;
-          final otherDecoration = other.decoration! as BoxDecoration;
-          expect(
-            tester
-                .widget<Padding>(find.byKey(const ValueKey('chat-reactions')))
-                .padding,
-            const EdgeInsets.only(top: 5, bottom: 1),
-          );
-          expect(
-            mine.padding,
-            const EdgeInsets.symmetric(horizontal: 7.25, vertical: 3.5),
-          );
-          expect(mineDecoration.borderRadius, BorderRadius.circular(4));
-          expect(mineDecoration.border, isNotNull);
-          expect(mineDecoration.color, isNot(Colors.transparent));
-          expect(otherDecoration.borderRadius, BorderRadius.circular(4));
-          expect(otherDecoration.border, isNotNull);
-          expect(otherDecoration.color, Colors.transparent);
-          // Reacting is a write, and this step makes none.
-          expect(find.byType(ReactionPill), findsNothing);
-        },
-      );
+        final mine = tester.widget<Container>(
+          find.byKey(const ValueKey('chat-reaction-heart')),
+        );
+        final other = tester.widget<Container>(
+          find.byKey(const ValueKey('chat-reaction-clap')),
+        );
+        final mineDecoration = mine.decoration! as BoxDecoration;
+        final otherDecoration = other.decoration! as BoxDecoration;
+        expect(
+          tester
+              .widget<Padding>(find.byKey(const ValueKey('chat-reactions')))
+              .padding,
+          const EdgeInsets.only(top: 5, bottom: 1),
+        );
+        expect(
+          mine.padding,
+          const EdgeInsets.symmetric(horizontal: 7.25, vertical: 3.5),
+        );
+        expect(mineDecoration.borderRadius, BorderRadius.circular(4));
+        expect(mineDecoration.border, isNotNull);
+        expect(mineDecoration.color, isNot(Colors.transparent));
+        expect(otherDecoration.borderRadius, BorderRadius.circular(4));
+        expect(otherDecoration.border, isNotNull);
+        expect(otherDecoration.color, Colors.transparent);
+
+        final heart = find.bySemanticsLabel('3 heart reactions');
+        final clap = find.bySemanticsLabel('2 clap reactions');
+        expect(tester.getSize(heart).width, greaterThanOrEqualTo(44));
+        expect(tester.getSize(heart).height, greaterThanOrEqualTo(44));
+        expect(
+          tester.getSemantics(heart),
+          isSemantics(
+            isButton: true,
+            isSelected: true,
+            onTapHint: 'remove your reaction',
+          ),
+        );
+        expect(
+          tester.getSemantics(clap),
+          isSemantics(
+            isButton: true,
+            isSelected: false,
+            onTapHint: 'add this reaction',
+          ),
+        );
+
+        await tester.tap(heart);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-reaction-clap')));
+        await tester.pumpAndSettle();
+
+        expect(api.chatReactionsSet.map((write) => write.action), [
+          ChatReactionAction.remove,
+          ChatReactionAction.add,
+        ]);
+        expect(api.chatReactionsSet.map((write) => write.emoji), [
+          'heart',
+          'clap',
+        ]);
+        expect(find.bySemanticsLabel('2 heart reactions'), findsOneWidget);
+        expect(find.bySemanticsLabel('3 clap reactions'), findsOneWidget);
+      });
+
+      testWidgets('rolls back a refused message reaction and reports it', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)], direct: const []),
+          },
+          chatMessagesByKey: {
+            key(9): page([
+              msg(1, reactions: const [ChatReaction(emoji: 'clap', count: 2)]),
+            ]),
+          },
+          chatReactionFailure: const WriteException(
+            WriteFailure.validation,
+            errors: ['That emoji is unavailable.'],
+          ),
+        );
+        await pumpChat(tester, api: api);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const ValueKey('chat-reaction-clap')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('That emoji is unavailable.'), findsOneWidget);
+        final reaction = find.byKey(const ValueKey('chat-reaction-clap'));
+        expect(reaction, findsOneWidget);
+        expect(
+          find.descendant(of: reaction, matching: find.text('2')),
+          findsOneWidget,
+        );
+      });
 
       testWidgets('says how many replies a message gathered into a thread', (
         tester,
