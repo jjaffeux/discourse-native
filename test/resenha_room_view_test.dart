@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:discourse_native/src/plugins/resenha/resenha_api.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_callkit.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_controller.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_media.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_preferences.dart';
@@ -779,6 +780,9 @@ final class _MediaFactory implements ResenhaMediaFactory {
     required int localUserId,
     required ResenhaSignalSender sendSignal,
     required ResenhaLiveKitCredentialRefresher refreshLiveKitCredentials,
+    ResenhaDiagnosticsRecorder diagnostics =
+        const NoopResenhaDiagnosticsRecorder(),
+    String correlationId = 'uncorrelated',
   }) => createSession(join.transport);
 }
 

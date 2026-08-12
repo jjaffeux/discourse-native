@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 
+import 'resenha_diagnostics.dart';
 import 'resenha_models.dart';
 import 'resenha_reconnect.dart';
 
@@ -17,6 +18,21 @@ typedef ResenhaPeerConnectionCreator =
     Future<rtc.RTCPeerConnection> Function(Map<String, dynamic> configuration);
 typedef ResenhaUserMediaGetter =
     Future<rtc.MediaStream> Function(Map<String, dynamic> constraints);
+typedef ResenhaMediaDeviceEnumerator =
+    Future<List<rtc.MediaDeviceInfo>> Function();
+typedef ResenhaTrackVolumeSetter =
+    Future<void> Function(double volume, rtc.MediaStreamTrack track);
+typedef ResenhaLiveKitRawStatsCollector =
+    Future<List<Map<String, Object?>>> Function(lk.Room room);
+
+final class _ResenhaMediaDiagnosticFailure implements Exception {
+  const _ResenhaMediaDiagnosticFailure(this.operation);
+
+  final String operation;
+
+  @override
+  String toString() => 'Resenha media operation $operation failed.';
+}
 
 abstract interface class ResenhaMediaSession implements Listenable {
   ResenhaTransport get transport;
@@ -47,6 +63,9 @@ abstract interface class ResenhaMediaFactory {
     required int localUserId,
     required ResenhaSignalSender sendSignal,
     required ResenhaLiveKitCredentialRefresher refreshLiveKitCredentials,
+    ResenhaDiagnosticsRecorder diagnostics =
+        const NoopResenhaDiagnosticsRecorder(),
+    String correlationId = 'uncorrelated',
   });
 }
 
@@ -59,18 +78,25 @@ final class NativeResenhaMediaFactory implements ResenhaMediaFactory {
     required int localUserId,
     required ResenhaSignalSender sendSignal,
     required ResenhaLiveKitCredentialRefresher refreshLiveKitCredentials,
+    ResenhaDiagnosticsRecorder diagnostics =
+        const NoopResenhaDiagnosticsRecorder(),
+    String correlationId = 'uncorrelated',
   }) => switch (join.transport) {
     ResenhaTransport.mesh => MeshResenhaMediaSession(
       join: join,
       localUserId: localUserId,
       sendSignal: sendSignal,
       audioPublishingAllowed: _canPublishAudio(join.room, localUserId),
+      diagnostics: diagnostics,
+      correlationId: correlationId,
     ),
     ResenhaTransport.livekit => LiveKitResenhaMediaSession(
       join: join,
       localUserId: localUserId,
       audioPublishingAllowed: _canPublishAudio(join.room, localUserId),
       refreshCredentials: refreshLiveKitCredentials,
+      diagnostics: diagnostics,
+      correlationId: correlationId,
     ),
   };
 
@@ -83,6 +109,169 @@ final class NativeResenhaMediaFactory implements ResenhaMediaFactory {
     final effective = role ?? room.membership?.role;
     return effective == ResenhaRole.moderator ||
         effective == ResenhaRole.speaker;
+  }
+}
+
+void _recordDiagnostic(
+  ResenhaDiagnosticsRecorder diagnostics,
+  String event, {
+  required String component,
+  required String correlationId,
+  DiagnosticSeverity severity = DiagnosticSeverity.info,
+  Map<String, Object?> data = const {},
+}) {
+  try {
+    diagnostics.record(
+      event,
+      component: component,
+      severity: severity,
+      correlationId: correlationId,
+      data: data,
+    );
+  } catch (_) {
+    // Diagnostics are observational and must not alter media behavior.
+  }
+}
+
+void _recordRawDiagnostic(
+  ResenhaDiagnosticsRecorder diagnostics,
+  String event, {
+  required String component,
+  required String correlationId,
+  DiagnosticSeverity severity = DiagnosticSeverity.debug,
+  String? message,
+  Map<String, Object?> data = const {},
+}) {
+  try {
+    if (!diagnostics.captureEnabled) return;
+    diagnostics.recordRaw(
+      event,
+      component: component,
+      severity: severity,
+      correlationId: correlationId,
+      message: message,
+      data: data,
+    );
+  } catch (_) {
+    // Diagnostics are observational and must not alter media behavior.
+  }
+}
+
+String _diagnosticEnumName(Object? value) {
+  final text = '$value';
+  final separator = text.lastIndexOf('.');
+  return separator < 0 ? text : text.substring(separator + 1);
+}
+
+String _diagnosticSignalType(Object? value) => switch (value) {
+  'offer' => 'offer',
+  'answer' => 'answer',
+  'candidate' => 'candidate',
+  null => 'batch',
+  _ => 'unknown',
+};
+
+List<Map<String, Object?>> _serializeStatsReports(
+  List<rtc.StatsReport> reports,
+) => [
+  for (final report in reports)
+    {
+      'id': report.id,
+      'type': report.type,
+      'timestamp': report.timestamp,
+      'values': {
+        for (final value in report.values.entries) '${value.key}': value.value,
+      },
+    },
+];
+
+Future<List<Map<String, Object?>>> _collectLiveKitRawStats(lk.Room room) async {
+  final samples = <Map<String, Object?>>[];
+  final participants = <lk.Participant>[
+    ?room.localParticipant,
+    ...room.remoteParticipants.values,
+  ];
+  for (final participant in participants) {
+    for (final publication in participant.trackPublications.values) {
+      final track = publication.track;
+      if (track == null) continue;
+      final endpoints = <(String, Object?)>[
+        ('sender', track.sender),
+        ('receiver', track.receiver),
+      ];
+      for (final (direction, endpoint) in endpoints) {
+        if (endpoint == null) continue;
+        final context = <String, Object?>{
+          'participantSid': participant.sid,
+          'participantIdentity': participant.identity,
+          'participantName': participant.name,
+          'trackSid': publication.sid,
+          'trackName': publication.name,
+          'kind': publication.kind.name,
+          'source': publication.source.name,
+          'direction': direction,
+        };
+        try {
+          final reports = switch (endpoint) {
+            rtc.RTCRtpSender sender => await sender.getStats(),
+            rtc.RTCRtpReceiver receiver => await receiver.getStats(),
+            _ => const <rtc.StatsReport>[],
+          };
+          samples.add({...context, 'reports': _serializeStatsReports(reports)});
+        } catch (error, stackTrace) {
+          samples.add({
+            ...context,
+            'errorType': error.runtimeType.toString(),
+            'error': error.toString(),
+            'stackTrace': stackTrace.toString(),
+          });
+        }
+      }
+    }
+  }
+  return samples;
+}
+
+Future<List<rtc.MediaDeviceInfo>> _enumerateDevicesWithDiagnostics({
+  required ResenhaMediaDeviceEnumerator enumerateDevices,
+  required ResenhaDiagnosticsRecorder diagnostics,
+  required String correlationId,
+}) async {
+  try {
+    final devices = await enumerateDevices();
+    _recordRawDiagnostic(
+      diagnostics,
+      'media.devices.enumerated',
+      component: 'webrtc',
+      correlationId: correlationId,
+      data: {
+        'count': devices.length,
+        'devices': [
+          for (final device in devices)
+            {
+              'deviceId': device.deviceId,
+              'groupId': device.groupId,
+              'kind': device.kind,
+              'label': device.label,
+            },
+        ],
+      },
+    );
+    return devices;
+  } catch (error, stackTrace) {
+    _recordRawDiagnostic(
+      diagnostics,
+      'media.devices.enumeration_failed',
+      component: 'webrtc',
+      correlationId: correlationId,
+      severity: DiagnosticSeverity.warning,
+      message: error.toString(),
+      data: {
+        'errorType': error.runtimeType.toString(),
+        'stackTrace': stackTrace.toString(),
+      },
+    );
+    rethrow;
   }
 }
 
@@ -182,9 +371,14 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     required this.localUserId,
     required this.sendSignal,
     required this.audioPublishingAllowed,
+    this.diagnostics = const NoopResenhaDiagnosticsRecorder(),
+    this.correlationId = 'uncorrelated',
+    this.rawStatsInterval = const Duration(seconds: 5),
     ResenhaPeerConnectionCreator? createPeerConnection,
     ResenhaUserMediaGetter? getUserMedia,
     ResenhaUserMediaGetter? getDisplayMedia,
+    ResenhaMediaDeviceEnumerator? enumerateDevices,
+    ResenhaTrackVolumeSetter? setTrackVolume,
   }) : _createPeerConnection = createPeerConnection ?? rtc.createPeerConnection,
        _getUserMedia =
            getUserMedia ??
@@ -193,15 +387,26 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
        _getDisplayMedia =
            getDisplayMedia ??
            ((constraints) =>
-               rtc.navigator.mediaDevices.getDisplayMedia(constraints));
+               rtc.navigator.mediaDevices.getDisplayMedia(constraints)),
+       _enumerateDevices =
+           enumerateDevices ??
+           (() => rtc.navigator.mediaDevices.enumerateDevices()),
+       _setTrackVolume = setTrackVolume ?? rtc.Helper.setVolume;
 
   final ResenhaJoinResponse join;
   final int localUserId;
   final ResenhaSignalSender sendSignal;
+  final ResenhaDiagnosticsRecorder diagnostics;
+  final String correlationId;
+  final Duration rawStatsInterval;
   final ResenhaPeerConnectionCreator _createPeerConnection;
   final ResenhaUserMediaGetter _getUserMedia;
   final ResenhaUserMediaGetter _getDisplayMedia;
+  final ResenhaMediaDeviceEnumerator _enumerateDevices;
+  final ResenhaTrackVolumeSetter _setTrackVolume;
   final Map<int, rtc.RTCPeerConnection> _peers = {};
+  final Map<int, String> _peerDiagnosticAliases = {};
+  final Expando<String> _trackDiagnosticAliases = Expando<String>();
   final Map<int, Future<void>> _peerCreations = {};
   final Map<int, _MeshSendSlots> _sendSlots = {};
   final Map<int, _MeshRemoteSlots> _remoteTracks = {};
@@ -219,11 +424,24 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   bool _muted = false;
   bool audioPublishingAllowed;
   Timer? _speakingTimer;
+  Timer? _rawStatsTimer;
   bool _pollingSpeaking = false;
+  bool _pollingRawStats = false;
+  bool _deviceInventoryCaptured = false;
+  int _nextPeerDiagnosticAlias = 1;
+  int _nextTrackDiagnosticAlias = 1;
   Set<int> _speaking = const {};
   String? _audioInputDeviceId;
   Future<void> _mutationTail = Future<void>.value();
   bool _closing = false;
+
+  String _peerDiagnosticAlias(int peerId) => _peerDiagnosticAliases.putIfAbsent(
+    peerId,
+    () => 'peer-${_nextPeerDiagnosticAlias++}',
+  );
+
+  String _trackDiagnosticAlias(rtc.MediaStreamTrack track) =>
+      _trackDiagnosticAliases[track] ??= 'track-${_nextTrackDiagnosticAlias++}';
 
   @override
   ResenhaTransport get transport => ResenhaTransport.mesh;
@@ -258,16 +476,77 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   Set<int> get speakingParticipantIds => _speaking;
 
   @override
+  Future<List<rtc.MediaDeviceInfo>> devices() async {
+    final result = await _enumerateDevicesWithDiagnostics(
+      enumerateDevices: _enumerateDevices,
+      diagnostics: diagnostics,
+      correlationId: correlationId,
+    );
+    try {
+      if (diagnostics.captureEnabled) _deviceInventoryCaptured = true;
+    } catch (_) {
+      // Diagnostics are observational and must not alter device enumeration.
+    }
+    return result;
+  }
+
+  @override
   Future<void> connect() => _serialize(_connect);
 
   Future<void> _connect() async {
-    if (audioPublishingAllowed) await _ensureAudioTrack();
-    await _syncParticipants(join.room.participants);
-    if (_closing || disposed) return;
-    _speakingTimer = Timer.periodic(
-      const Duration(milliseconds: 250),
-      (_) => unawaited(_pollSpeakingLevels()),
+    _recordDiagnostic(
+      diagnostics,
+      'mesh.session.connect.started',
+      component: 'mesh',
+      correlationId: correlationId,
+      data: {
+        'participantCount': join.room.participants.length,
+        'audioPublishingAllowed': audioPublishingAllowed,
+        'relayOnly': join.ice.relayOnly,
+        'iceServerCount': join.ice.servers.length,
+      },
     );
+    try {
+      if (audioPublishingAllowed) await _ensureAudioTrack();
+      await _syncParticipants(join.room.participants);
+      if (_closing || disposed) return;
+      _speakingTimer = Timer.periodic(
+        const Duration(milliseconds: 250),
+        (_) => unawaited(_pollSpeakingLevels()),
+      );
+      if (rawStatsInterval > Duration.zero) {
+        _rawStatsTimer = Timer.periodic(
+          rawStatsInterval,
+          (_) => unawaited(_pollRawStats()),
+        );
+      }
+      _recordDiagnostic(
+        diagnostics,
+        'mesh.session.connect.completed',
+        component: 'mesh',
+        correlationId: correlationId,
+        data: {'peerCount': _peers.length},
+      );
+    } catch (error, stackTrace) {
+      _recordDiagnostic(
+        diagnostics,
+        'mesh.session.connect.failed',
+        component: 'mesh',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.error,
+        data: {'errorType': error.runtimeType.toString()},
+      );
+      _recordRawDiagnostic(
+        diagnostics,
+        'mesh.session.connect.failure_detail',
+        component: 'mesh',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.error,
+        message: error.toString(),
+        data: {'stackTrace': stackTrace.toString()},
+      );
+      rethrow;
+    }
   }
 
   Future<void> _serialize(Future<void> Function() action) {
@@ -315,6 +594,58 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       }
     } finally {
       _pollingSpeaking = false;
+    }
+  }
+
+  Future<void> _pollRawStats() async {
+    if (_pollingRawStats || _closing || disposed) return;
+    try {
+      if (!diagnostics.captureEnabled) {
+        _deviceInventoryCaptured = false;
+        return;
+      }
+    } catch (_) {
+      return;
+    }
+    _pollingRawStats = true;
+    try {
+      if (!_deviceInventoryCaptured) {
+        try {
+          await devices();
+        } catch (_) {
+          // Device enumeration failures are already captured as raw detail.
+        }
+      }
+      for (final entry in _peers.entries.toList()) {
+        if (_closing || disposed) return;
+        if (!identical(_peers[entry.key], entry.value)) continue;
+        try {
+          final reports = await entry.value.getStats();
+          if (!identical(_peers[entry.key], entry.value)) continue;
+          _recordRawDiagnostic(
+            diagnostics,
+            'mesh.peer.stats',
+            component: 'webrtc',
+            correlationId: correlationId,
+            data: {
+              'peerId': entry.key,
+              'reports': _serializeStatsReports(reports),
+            },
+          );
+        } catch (error, stackTrace) {
+          _recordRawDiagnostic(
+            diagnostics,
+            'mesh.peer.stats_failed',
+            component: 'webrtc',
+            correlationId: correlationId,
+            severity: DiagnosticSeverity.warning,
+            message: error.toString(),
+            data: {'peerId': entry.key, 'stackTrace': stackTrace.toString()},
+          );
+        }
+      }
+    } finally {
+      _pollingRawStats = false;
     }
   }
 
@@ -395,6 +726,35 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       _serialize(() => _syncParticipants(participants));
 
   Future<void> _syncParticipants(List<ResenhaParticipant> participants) async {
+    _recordRawDiagnostic(
+      diagnostics,
+      'mesh.roster.sync',
+      component: 'mesh',
+      correlationId: correlationId,
+      data: {
+        'participants': [
+          for (final participant in participants)
+            {
+              'peerAlias': participant.id == localUserId
+                  ? 'local'
+                  : _peerDiagnosticAlias(participant.id),
+              'id': participant.id,
+              'username': participant.username,
+              'name': participant.name,
+              'role': participant.role.name,
+              'muted': participant.muted,
+              'deafened': participant.deafened,
+              'videoOn': participant.videoOn,
+              'screenSharing': participant.screenSharing,
+              'watchingVideo': participant.watchingVideo,
+              'idleState': participant.idleState.name,
+              'handRaisedAt': participant.handRaisedAt
+                  ?.toUtc()
+                  .toIso8601String(),
+            },
+        ],
+      },
+    );
     final wanted = {
       for (final participant in participants)
         if (participant.id != localUserId &&
@@ -446,7 +806,51 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
 
   Future<void> _createPeerNow(int peerId) async {
     if (_closing || disposed || _peers.containsKey(peerId)) return;
-    final peer = await _createPeerConnection(_configuration);
+    final peerAlias = _peerDiagnosticAlias(peerId);
+    _recordRawDiagnostic(
+      diagnostics,
+      'mesh.peer.identity',
+      component: 'webrtc',
+      correlationId: correlationId,
+      data: {'peerAlias': peerAlias, 'peerId': peerId},
+    );
+    _recordDiagnostic(
+      diagnostics,
+      'mesh.peer.create.started',
+      component: 'webrtc',
+      correlationId: correlationId,
+      data: {'peerAlias': peerAlias},
+    );
+    late final rtc.RTCPeerConnection peer;
+    try {
+      peer = await _createPeerConnection(_configuration);
+    } catch (error, stackTrace) {
+      _recordDiagnostic(
+        diagnostics,
+        'mesh.peer.create.failed',
+        component: 'webrtc',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.error,
+        data: {
+          'peerAlias': peerAlias,
+          'errorType': error.runtimeType.toString(),
+        },
+      );
+      _recordRawDiagnostic(
+        diagnostics,
+        'mesh.peer.create.failure_detail',
+        component: 'webrtc',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.error,
+        message: error.toString(),
+        data: {
+          'peerAlias': peerAlias,
+          'peerId': peerId,
+          'stackTrace': stackTrace.toString(),
+        },
+      );
+      rethrow;
+    }
     var registered = false;
     if (_closing || disposed || _peers.containsKey(peerId)) {
       await peer.close();
@@ -456,14 +860,51 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     try {
       peer.onIceCandidate = (candidate) {
         if (candidate.candidate == null) return;
+        _recordRawDiagnostic(
+          diagnostics,
+          'mesh.ice.candidate.local',
+          component: 'webrtc',
+          correlationId: correlationId,
+          data: {
+            'peerAlias': peerAlias,
+            'peerId': peerId,
+            'candidate': candidate.toMap(),
+          },
+        );
         _queueCandidate(peerId, candidate);
       };
       peer.onTrack = (event) {
         if (!identical(_peers[peerId], peer)) return;
+        final trackAlias = _trackDiagnosticAlias(event.track);
+        _recordRawDiagnostic(
+          diagnostics,
+          'mesh.track.received',
+          component: 'webrtc',
+          correlationId: correlationId,
+          data: {
+            'peerAlias': peerAlias,
+            'peerId': peerId,
+            'trackAlias': trackAlias,
+            'trackId': event.track.id,
+            'kind': event.track.kind,
+            'streamIds': [for (final stream in event.streams) stream.id],
+          },
+        );
         final slots = _remoteTracks[peerId] ??= _MeshRemoteSlots();
         slots.accept(event);
         event.track.onEnded = () {
           if (!identical(_peers[peerId], peer)) return;
+          _recordDiagnostic(
+            diagnostics,
+            'mesh.track.ended',
+            component: 'webrtc',
+            correlationId: correlationId,
+            data: {
+              'peerAlias': peerAlias,
+              'trackAlias': trackAlias,
+              'kind': event.track.kind,
+            },
+          );
           slots.remove(event.track);
           _applyRemoteAudio(peerId);
           changed();
@@ -472,10 +913,51 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
         changed();
       };
       peer.onConnectionState = (state) {
-        if (identical(_peers[peerId], peer) &&
-            state == rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+        if (!identical(_peers[peerId], peer)) return;
+        _recordDiagnostic(
+          diagnostics,
+          'mesh.peer.connection_state',
+          component: 'webrtc',
+          correlationId: correlationId,
+          severity:
+              state == rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed
+              ? DiagnosticSeverity.warning
+              : DiagnosticSeverity.info,
+          data: {'peerAlias': peerAlias, 'state': _diagnosticEnumName(state)},
+        );
+        if (state == rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
           unawaited(_serialize(() => _restartPeer(peerId)));
         }
+      };
+      peer.onIceConnectionState = (state) {
+        if (!identical(_peers[peerId], peer)) return;
+        _recordDiagnostic(
+          diagnostics,
+          'mesh.peer.ice_connection_state',
+          component: 'webrtc',
+          correlationId: correlationId,
+          data: {'peerAlias': peerAlias, 'state': _diagnosticEnumName(state)},
+        );
+      };
+      peer.onIceGatheringState = (state) {
+        if (!identical(_peers[peerId], peer)) return;
+        _recordDiagnostic(
+          diagnostics,
+          'mesh.peer.ice_gathering_state',
+          component: 'webrtc',
+          correlationId: correlationId,
+          data: {'peerAlias': peerAlias, 'state': _diagnosticEnumName(state)},
+        );
+      };
+      peer.onSignalingState = (state) {
+        if (!identical(_peers[peerId], peer)) return;
+        _recordDiagnostic(
+          diagnostics,
+          'mesh.peer.signaling_state',
+          component: 'webrtc',
+          correlationId: correlationId,
+          data: {'peerAlias': peerAlias, 'state': _diagnosticEnumName(state)},
+        );
       };
 
       final microphone = _microphoneTrack;
@@ -515,12 +997,43 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       );
       _peers[peerId] = peer;
       registered = true;
+      _recordDiagnostic(
+        diagnostics,
+        'mesh.peer.create.completed',
+        component: 'webrtc',
+        correlationId: correlationId,
+        data: {'peerAlias': peerAlias, 'initiatesOffer': localUserId < peerId},
+      );
       if (microphone != null) await _applyAudioQuality(microphoneSender);
       if (_screenAudioTrack != null) {
         await _applyAudioQuality(screenAudio.sender);
       }
       if (localUserId < peerId) await _offer(peerId);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordDiagnostic(
+        diagnostics,
+        'mesh.peer.setup_failed',
+        component: 'webrtc',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.error,
+        data: {
+          'peerAlias': peerAlias,
+          'errorType': error.runtimeType.toString(),
+        },
+      );
+      _recordRawDiagnostic(
+        diagnostics,
+        'mesh.peer.setup_failure_detail',
+        component: 'webrtc',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.error,
+        message: error.toString(),
+        data: {
+          'peerAlias': peerAlias,
+          'peerId': peerId,
+          'stackTrace': stackTrace.toString(),
+        },
+      );
       if (registered && identical(_peers[peerId], peer)) {
         await _closePeer(peerId);
       } else {
@@ -551,16 +1064,26 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       peerId,
       () => Timer(
         const Duration(milliseconds: 30),
-        () => unawaited(_flushOutgoingCandidates(peerId)),
+        () => unawaited(_flushOutgoingCandidatesAtTerminal(peerId)),
       ),
     );
+  }
+
+  Future<void> _flushOutgoingCandidatesAtTerminal(int peerId) async {
+    try {
+      await _flushOutgoingCandidates(peerId);
+    } catch (_) {
+      // `_sendPeerSignal` already emitted safe metadata and capture-gated raw
+      // detail. This timer is the terminal owner of the detached future, so it
+      // must consume the failure instead of letting it reach global handlers.
+    }
   }
 
   Future<void> _flushOutgoingCandidates(int peerId) async {
     _candidateTimers.remove(peerId)?.cancel();
     final events = _outgoingCandidates.remove(peerId);
     if (events == null || events.isEmpty || disposed) return;
-    await sendSignal(peerId, {'events': events});
+    await _sendPeerSignal(peerId, {'events': events});
   }
 
   Future<void> _offer(int peerId, {bool restartIce = false}) async {
@@ -573,7 +1096,7 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
         if (restartIce) 'iceRestart': true,
       });
       await peer.setLocalDescription(offer);
-      await sendSignal(peerId, {'type': 'offer', 'sdp': offer.sdp});
+      await _sendPeerSignal(peerId, {'type': 'offer', 'sdp': offer.sdp});
     } finally {
       _makingOffer.remove(peerId);
     }
@@ -581,6 +1104,16 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
 
   Future<void> _restartPeer(int peerId) async {
     if (disposed || !_peers.containsKey(peerId)) return;
+    _recordDiagnostic(
+      diagnostics,
+      'mesh.peer.ice_restart.requested',
+      component: 'webrtc',
+      correlationId: correlationId,
+      data: {
+        'peerAlias': _peerDiagnosticAlias(peerId),
+        'isOfferer': localUserId < peerId,
+      },
+    );
     if (localUserId < peerId) {
       await _offer(peerId, restartIce: true);
     }
@@ -588,7 +1121,87 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
 
   @override
   Future<void> handleSignal(int senderId, Map<String, dynamic> data) =>
-      _serialize(() => _handleSignal(senderId, data));
+      _serialize(() {
+        _recordDiagnostic(
+          diagnostics,
+          'mesh.signaling.received',
+          component: 'webrtc',
+          correlationId: correlationId,
+          data: {
+            'peerAlias': _peerDiagnosticAlias(senderId),
+            'type': _diagnosticSignalType(data['type']),
+            if (data['events'] is List)
+              'eventCount': (data['events'] as List).length,
+          },
+        );
+        _recordRawDiagnostic(
+          diagnostics,
+          'mesh.signaling.received.raw',
+          component: 'webrtc',
+          correlationId: correlationId,
+          data: {
+            'peerAlias': _peerDiagnosticAlias(senderId),
+            'peerId': senderId,
+            'signal': data,
+          },
+        );
+        return _handleSignal(senderId, data);
+      });
+
+  Future<void> _sendPeerSignal(int peerId, Map<String, Object?> event) async {
+    _recordDiagnostic(
+      diagnostics,
+      'mesh.signaling.sent',
+      component: 'webrtc',
+      correlationId: correlationId,
+      data: {
+        'peerAlias': _peerDiagnosticAlias(peerId),
+        'type': _diagnosticSignalType(event['type']),
+        if (event['events'] is List)
+          'eventCount': (event['events'] as List).length,
+      },
+    );
+    _recordRawDiagnostic(
+      diagnostics,
+      'mesh.signaling.sent.raw',
+      component: 'webrtc',
+      correlationId: correlationId,
+      data: {
+        'peerAlias': _peerDiagnosticAlias(peerId),
+        'peerId': peerId,
+        'signal': event,
+      },
+    );
+    try {
+      await sendSignal(peerId, event);
+    } catch (error, stackTrace) {
+      _recordDiagnostic(
+        diagnostics,
+        'mesh.signaling.send_failed',
+        component: 'webrtc',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.warning,
+        data: {
+          'peerAlias': _peerDiagnosticAlias(peerId),
+          'errorType': error.runtimeType.toString(),
+        },
+      );
+      _recordRawDiagnostic(
+        diagnostics,
+        'mesh.signaling.send_failure_detail',
+        component: 'webrtc',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.warning,
+        message: error.toString(),
+        data: {
+          'peerAlias': _peerDiagnosticAlias(peerId),
+          'peerId': peerId,
+          'stackTrace': stackTrace.toString(),
+        },
+      );
+      rethrow;
+    }
+  }
 
   Future<void> _handleSignal(int senderId, Map<String, dynamic> data) async {
     if (disposed) return;
@@ -617,7 +1230,7 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
         await _flushCandidates(senderId);
         final answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
-        await sendSignal(senderId, {'type': 'answer', 'sdp': answer.sdp});
+        await _sendPeerSignal(senderId, {'type': 'answer', 'sdp': answer.sdp});
         await _refreshSendSlotsBestEffort(senderId, peer);
       case 'answer':
         final sdp = data['sdp'];
@@ -644,8 +1257,22 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
         );
         if (await peer.getRemoteDescription() == null) {
           (_pendingCandidates[senderId] ??= []).add(parsed);
+          _recordDiagnostic(
+            diagnostics,
+            'mesh.ice.candidate.queued',
+            component: 'webrtc',
+            correlationId: correlationId,
+            data: {'peerAlias': _peerDiagnosticAlias(senderId)},
+          );
         } else {
           await peer.addCandidate(parsed);
+          _recordDiagnostic(
+            diagnostics,
+            'mesh.ice.candidate.added',
+            component: 'webrtc',
+            correlationId: correlationId,
+            data: {'peerAlias': _peerDiagnosticAlias(senderId)},
+          );
         }
     }
   }
@@ -749,9 +1376,22 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   Future<void> _flushCandidates(int peerId) async {
     final peer = _peers[peerId];
     if (peer == null) return;
-    for (final candidate
-        in _pendingCandidates.remove(peerId) ?? const <rtc.RTCIceCandidate>[]) {
+    final pending =
+        _pendingCandidates.remove(peerId) ?? const <rtc.RTCIceCandidate>[];
+    for (final candidate in pending) {
       await peer.addCandidate(candidate);
+    }
+    if (pending.isNotEmpty) {
+      _recordDiagnostic(
+        diagnostics,
+        'mesh.ice.candidates.flushed',
+        component: 'webrtc',
+        correlationId: correlationId,
+        data: {
+          'peerAlias': _peerDiagnosticAlias(peerId),
+          'count': pending.length,
+        },
+      );
     }
   }
 
@@ -914,7 +1554,49 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
         in _remoteTracks[participantId]?.audioTracks ??
             const <rtc.MediaStreamTrack>[]) {
       track.enabled = !_deafened;
-      unawaited(rtc.Helper.setVolume(_deafened ? 0 : volume, track));
+      unawaited(
+        _setRemoteTrackVolume(participantId, track, _deafened ? 0 : volume),
+      );
+    }
+  }
+
+  Future<void> _setRemoteTrackVolume(
+    int participantId,
+    rtc.MediaStreamTrack track,
+    double volume,
+  ) async {
+    final peerAlias = _peerDiagnosticAlias(participantId);
+    final trackAlias = _trackDiagnosticAlias(track);
+    try {
+      await _setTrackVolume(volume, track);
+    } catch (error, stackTrace) {
+      _recordDiagnostic(
+        diagnostics,
+        'mesh.track.volume_failed',
+        component: 'webrtc',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.warning,
+        data: {
+          'peerAlias': peerAlias,
+          'trackAlias': trackAlias,
+          'errorType': error.runtimeType.toString(),
+        },
+      );
+      _recordRawDiagnostic(
+        diagnostics,
+        'mesh.track.volume_failure_detail',
+        component: 'webrtc',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.warning,
+        message: error.toString(),
+        data: {
+          'peerAlias': peerAlias,
+          'peerId': participantId,
+          'trackAlias': trackAlias,
+          'trackId': track.id,
+          'stackTrace': stackTrace.toString(),
+        },
+      );
     }
   }
 
@@ -1119,8 +1801,22 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     _outgoingCandidates.remove(id);
     _makingOffer.remove(id);
     if (peer != null) {
+      _recordDiagnostic(
+        diagnostics,
+        'mesh.peer.close.started',
+        component: 'webrtc',
+        correlationId: correlationId,
+        data: {'peerAlias': _peerDiagnosticAlias(id)},
+      );
       await peer.close();
       await peer.dispose();
+      _recordDiagnostic(
+        diagnostics,
+        'mesh.peer.close.completed',
+        component: 'webrtc',
+        correlationId: correlationId,
+        data: {'peerAlias': _peerDiagnosticAlias(id)},
+      );
     }
     changed();
   }
@@ -1133,6 +1829,8 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       await _mutationTail;
       _speakingTimer?.cancel();
       _speakingTimer = null;
+      _rawStatsTimer?.cancel();
+      _rawStatsTimer = null;
       for (final timer in _candidateTimers.values) {
         timer.cancel();
       }
@@ -1173,6 +1871,12 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
       _ownedLocalStreams.clear();
       _participantVolumes.clear();
       _participantRoles.clear();
+      _recordDiagnostic(
+        diagnostics,
+        'mesh.session.disposed',
+        component: 'mesh',
+        correlationId: correlationId,
+      );
       await super.dispose();
     }
   }
@@ -1184,17 +1888,87 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
     required this.localUserId,
     required this.audioPublishingAllowed,
     required this.refreshCredentials,
-  }) : _room = lk.Room(roomOptions: _roomOptions(join.room)) {
+    this.diagnostics = const NoopResenhaDiagnosticsRecorder(),
+    this.correlationId = 'uncorrelated',
+    this.rawStatsInterval = const Duration(seconds: 5),
+    ResenhaLiveKitRawStatsCollector? collectRawStats,
+    ResenhaMediaDeviceEnumerator? enumerateDevices,
+  }) : _room = lk.Room(roomOptions: _roomOptions(join.room)),
+       _collectRawStats = collectRawStats ?? _collectLiveKitRawStats,
+       _enumerateDevices =
+           enumerateDevices ??
+           (() => rtc.navigator.mediaDevices.enumerateDevices()) {
     _reconnect = ResenhaReconnectCoordinator(
       attempt: _reconnectOnce,
-      onStateChanged: (_) => changed(),
+      onStateChanged: (state) {
+        _recordDiagnostic(
+          diagnostics,
+          'livekit.reconnect.state_changed',
+          component: 'livekit',
+          correlationId: correlationId,
+          severity: state == ResenhaMediaConnectionState.failed
+              ? DiagnosticSeverity.error
+              : DiagnosticSeverity.info,
+          data: {'state': state.name},
+        );
+        changed();
+      },
+      onAttemptStarted: (attemptNumber, delay) {
+        _recordDiagnostic(
+          diagnostics,
+          'livekit.reconnect.attempt_started',
+          component: 'livekit',
+          correlationId: correlationId,
+          data: {
+            'attempt': attemptNumber,
+            'delayMilliseconds': delay.inMilliseconds,
+          },
+        );
+      },
+      onAttemptFailed: (attemptNumber, error, stackTrace) {
+        _recordDiagnostic(
+          diagnostics,
+          'livekit.reconnect.attempt_failed',
+          component: 'livekit',
+          correlationId: correlationId,
+          severity: DiagnosticSeverity.warning,
+          data: {
+            'attempt': attemptNumber,
+            'errorType': error.runtimeType.toString(),
+          },
+        );
+        _recordRawDiagnostic(
+          diagnostics,
+          'livekit.reconnect.attempt_failure_detail',
+          component: 'livekit',
+          correlationId: correlationId,
+          severity: DiagnosticSeverity.warning,
+          message: error.toString(),
+          data: {'attempt': attemptNumber, 'stackTrace': stackTrace.toString()},
+        );
+      },
+      onExhausted: (attemptCount) {
+        _recordDiagnostic(
+          diagnostics,
+          'livekit.reconnect.exhausted',
+          component: 'livekit',
+          correlationId: correlationId,
+          severity: DiagnosticSeverity.error,
+          data: {'attemptCount': attemptCount},
+        );
+      },
     );
   }
 
   final ResenhaJoinResponse join;
   final int localUserId;
   final ResenhaLiveKitCredentialRefresher refreshCredentials;
+  final ResenhaDiagnosticsRecorder diagnostics;
+  final String correlationId;
+  final Duration rawStatsInterval;
   final lk.Room _room;
+  final ResenhaLiveKitRawStatsCollector _collectRawStats;
+  final ResenhaMediaDeviceEnumerator _enumerateDevices;
 
   static lk.RoomOptions _roomOptions(ResenhaRoom room) => lk.RoomOptions(
     adaptiveStream: true,
@@ -1217,6 +1991,9 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   bool audioPublishingAllowed;
   bool _muted = false;
   bool _closing = false;
+  bool _pollingRawStats = false;
+  bool _deviceInventoryCaptured = false;
+  Timer? _rawStatsTimer;
   late final ResenhaReconnectCoordinator _reconnect;
   final Set<Future<void>> _roomConnections = {};
 
@@ -1260,6 +2037,21 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   }
 
   @override
+  Future<List<rtc.MediaDeviceInfo>> devices() async {
+    final result = await _enumerateDevicesWithDiagnostics(
+      enumerateDevices: _enumerateDevices,
+      diagnostics: diagnostics,
+      correlationId: correlationId,
+    );
+    try {
+      if (diagnostics.captureEnabled) _deviceInventoryCaptured = true;
+    } catch (_) {
+      // Diagnostics are observational and must not alter device enumeration.
+    }
+    return result;
+  }
+
+  @override
   Future<void> connect() async {
     final credentials = join.livekit;
     if (credentials == null ||
@@ -1267,40 +2059,199 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
         credentials.token.isEmpty) {
       throw const FormatException('Missing LiveKit credentials');
     }
+    _recordDiagnostic(
+      diagnostics,
+      'livekit.session.connect.started',
+      component: 'livekit',
+      correlationId: correlationId,
+      data: {'audioPublishingAllowed': audioPublishingAllowed},
+    );
     _listener = _room.createListener()
       ..on<lk.RoomEvent>((event) {
+        _recordRoomEvent(event);
         changed();
         if (event is lk.RoomDisconnectedEvent && !_closing) {
-          _startReconnect();
+          _startReconnect(reason: event.reason);
         }
       });
-    await _connectRoom(credentials);
-    if (_closing || disposed) return;
-    if (audioPublishingAllowed) {
-      await _room.localParticipant?.setMicrophoneEnabled(true);
+    try {
+      await _connectRoom(credentials);
+      if (_closing || disposed) return;
+      if (audioPublishingAllowed) {
+        await _room.localParticipant?.setMicrophoneEnabled(true);
+      }
+      _startRawStatsTimer();
+      _recordDiagnostic(
+        diagnostics,
+        'livekit.session.connect.completed',
+        component: 'livekit',
+        correlationId: correlationId,
+      );
+      changed();
+    } catch (error, stackTrace) {
+      _recordDiagnostic(
+        diagnostics,
+        'livekit.session.connect.failed',
+        component: 'livekit',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.error,
+        data: {'errorType': error.runtimeType.toString()},
+      );
+      _recordRawDiagnostic(
+        diagnostics,
+        'livekit.session.connect.failure_detail',
+        component: 'livekit',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.error,
+        message: error.toString(),
+        data: {'stackTrace': stackTrace.toString()},
+      );
+      rethrow;
     }
-    changed();
   }
 
-  void _startReconnect() {
+  Future<void> _pollRawStats() async {
+    if (_pollingRawStats || _closing || disposed) return;
+    try {
+      if (!diagnostics.captureEnabled) {
+        _deviceInventoryCaptured = false;
+        return;
+      }
+    } catch (_) {
+      return;
+    }
+    _pollingRawStats = true;
+    try {
+      if (!_deviceInventoryCaptured) {
+        try {
+          await devices();
+        } catch (_) {
+          // Device enumeration failures are already captured as raw detail.
+        }
+      }
+      final samples = await _collectRawStats(_room);
+      if (_closing || disposed) return;
+      if (samples.isEmpty) {
+        _recordRawDiagnostic(
+          diagnostics,
+          'livekit.room.stats',
+          component: 'livekit',
+          correlationId: correlationId,
+          data: {
+            'connectionState': _room.connectionState.name,
+            'participantCount':
+                _room.remoteParticipants.length +
+                (_room.localParticipant == null ? 0 : 1),
+            'trackEndpointCount': 0,
+          },
+        );
+      } else {
+        for (final sample in samples) {
+          _recordRawDiagnostic(
+            diagnostics,
+            'livekit.track.stats',
+            component: 'livekit',
+            correlationId: correlationId,
+            data: sample,
+          );
+        }
+      }
+    } catch (error, stackTrace) {
+      _recordRawDiagnostic(
+        diagnostics,
+        'livekit.room.stats_failed',
+        component: 'livekit',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.warning,
+        message: error.toString(),
+        data: {
+          'errorType': error.runtimeType.toString(),
+          'stackTrace': stackTrace.toString(),
+        },
+      );
+    } finally {
+      _pollingRawStats = false;
+    }
+  }
+
+  @visibleForTesting
+  Future<void> pollRawStatsForTesting() => _pollRawStats();
+
+  void _startRawStatsTimer() {
+    if (rawStatsInterval <= Duration.zero || _rawStatsTimer != null) return;
+    _rawStatsTimer = Timer.periodic(
+      rawStatsInterval,
+      (_) => unawaited(_pollRawStats()),
+    );
+  }
+
+  @visibleForTesting
+  void startRawStatsTimerForTesting() => _startRawStatsTimer();
+
+  void _startReconnect({lk.DisconnectReason? reason}) {
+    _recordDiagnostic(
+      diagnostics,
+      'livekit.reconnect.requested',
+      component: 'livekit',
+      correlationId: correlationId,
+      severity: DiagnosticSeverity.warning,
+      data: {'cause': reason?.name ?? 'room_disconnected'},
+    );
     final observed = _reconnect.reconnect().then<void>(
       (_) {},
-      onError: (Object error, StackTrace stackTrace) {
-        FlutterError.reportError(
-          FlutterErrorDetails(
-            exception: error,
-            stack: stackTrace,
-            library: 'Resenha media',
-            context: ErrorDescription('while reconnecting a LiveKit room'),
-          ),
-        );
-      },
+      onError: _reportUnexpectedReconnectFailure,
     );
     unawaited(observed);
   }
 
+  @visibleForTesting
+  void reportUnexpectedReconnectFailureForTesting(
+    Object error,
+    StackTrace stackTrace,
+  ) => _reportUnexpectedReconnectFailure(error, stackTrace);
+
+  void _reportUnexpectedReconnectFailure(Object error, StackTrace stackTrace) {
+    _recordDiagnostic(
+      diagnostics,
+      'livekit.reconnect.unhandled_failure',
+      component: 'livekit',
+      correlationId: correlationId,
+      severity: DiagnosticSeverity.error,
+      data: {'errorType': error.runtimeType.toString()},
+    );
+    _recordRawDiagnostic(
+      diagnostics,
+      'livekit.reconnect.unhandled_failure_detail',
+      component: 'livekit',
+      correlationId: correlationId,
+      severity: DiagnosticSeverity.error,
+      message: error.toString(),
+      data: {'stackTrace': stackTrace.toString()},
+    );
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: const _ResenhaMediaDiagnosticFailure('livekit.reconnect'),
+        stack: stackTrace,
+        library: 'Resenha media',
+        context: ErrorDescription('while reconnecting a LiveKit room'),
+      ),
+    );
+  }
+
   Future<void> _reconnectOnce() async {
+    _recordDiagnostic(
+      diagnostics,
+      'livekit.credentials.refresh.started',
+      component: 'livekit',
+      correlationId: correlationId,
+    );
     final credentials = await refreshCredentials();
+    _recordDiagnostic(
+      diagnostics,
+      'livekit.credentials.refresh.completed',
+      component: 'livekit',
+      correlationId: correlationId,
+    );
     if (_closing || disposed || _reconnect.cancelled) return;
     await _connectRoom(credentials);
     if (_closing || disposed || _reconnect.cancelled) return;
@@ -1311,14 +2262,276 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
 
   Future<void> _connectRoom(ResenhaLiveKitCredentials credentials) async {
     if (_closing || disposed) return;
+    _recordDiagnostic(
+      diagnostics,
+      'livekit.room.connect.started',
+      component: 'livekit',
+      correlationId: correlationId,
+    );
     final connection = _room.connect(credentials.url, credentials.token);
     _roomConnections.add(connection);
     try {
       await connection;
+      _recordDiagnostic(
+        diagnostics,
+        'livekit.room.connect.completed',
+        component: 'livekit',
+        correlationId: correlationId,
+      );
     } finally {
       _roomConnections.remove(connection);
     }
   }
+
+  void _recordRoomEvent(lk.RoomEvent event) {
+    if (event is lk.RoomConnectedEvent) {
+      _recordDiagnostic(
+        diagnostics,
+        'livekit.room.connected',
+        component: 'livekit',
+        correlationId: correlationId,
+      );
+      return;
+    }
+    if (event is lk.RoomReconnectingEvent) {
+      _recordDiagnostic(
+        diagnostics,
+        'livekit.room.reconnecting',
+        component: 'livekit',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.warning,
+        data: {'mode': 'full'},
+      );
+      return;
+    }
+    if (event is lk.RoomResumingEvent) {
+      _recordDiagnostic(
+        diagnostics,
+        'livekit.room.reconnecting',
+        component: 'livekit',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.warning,
+        data: {'mode': 'signal_resume'},
+      );
+      return;
+    }
+    if (event is lk.RoomAttemptReconnectEvent) {
+      _recordDiagnostic(
+        diagnostics,
+        'livekit.room.reconnect_attempt',
+        component: 'livekit',
+        correlationId: correlationId,
+        data: {
+          'attempt': event.attempt,
+          'maxAttempts': event.maxAttemptsRetry,
+          'nextDelayMilliseconds': event.nextRetryDelaysInMs,
+        },
+      );
+      return;
+    }
+    if (event is lk.RoomReconnectedEvent) {
+      _recordDiagnostic(
+        diagnostics,
+        'livekit.room.reconnected',
+        component: 'livekit',
+        correlationId: correlationId,
+      );
+      return;
+    }
+    if (event is lk.RoomDisconnectedEvent) {
+      final expected =
+          _closing || event.reason == lk.DisconnectReason.clientInitiated;
+      _recordDiagnostic(
+        diagnostics,
+        'livekit.room.disconnected',
+        component: 'livekit',
+        correlationId: correlationId,
+        severity: expected
+            ? DiagnosticSeverity.info
+            : DiagnosticSeverity.warning,
+        data: {'reason': event.reason?.name ?? 'unknown', 'expected': expected},
+      );
+      return;
+    }
+    if (event is lk.ParticipantConnectedEvent) {
+      _recordLiveKitParticipantEvent(
+        'livekit.participant.connected',
+        event.participant,
+      );
+      return;
+    }
+    if (event is lk.ParticipantDisconnectedEvent) {
+      _recordLiveKitParticipantEvent(
+        'livekit.participant.disconnected',
+        event.participant,
+      );
+      return;
+    }
+    if (event is lk.ParticipantConnectionQualityUpdatedEvent) {
+      _recordRawDiagnostic(
+        diagnostics,
+        'livekit.participant.connection_quality',
+        component: 'livekit',
+        correlationId: correlationId,
+        data: {
+          'participant': _liveKitParticipantData(event.participant),
+          'quality': event.connectionQuality.name,
+        },
+      );
+      return;
+    }
+    if (event is lk.TrackPublishedEvent) {
+      _recordLiveKitTrackEvent(
+        'livekit.track.published',
+        event.participant,
+        event.publication,
+      );
+      return;
+    }
+    if (event is lk.TrackUnpublishedEvent) {
+      _recordLiveKitTrackEvent(
+        'livekit.track.unpublished',
+        event.participant,
+        event.publication,
+      );
+      return;
+    }
+    if (event is lk.LocalTrackPublishedEvent) {
+      _recordLiveKitTrackEvent(
+        'livekit.track.local_published',
+        event.participant,
+        event.publication,
+      );
+      return;
+    }
+    if (event is lk.LocalTrackUnpublishedEvent) {
+      _recordLiveKitTrackEvent(
+        'livekit.track.local_unpublished',
+        event.participant,
+        event.publication,
+      );
+      return;
+    }
+    if (event is lk.TrackSubscribedEvent) {
+      _recordLiveKitTrackEvent(
+        'livekit.track.subscribed',
+        event.participant,
+        event.publication,
+      );
+      return;
+    }
+    if (event is lk.TrackUnsubscribedEvent) {
+      _recordLiveKitTrackEvent(
+        'livekit.track.unsubscribed',
+        event.participant,
+        event.publication,
+      );
+      return;
+    }
+    if (event is lk.TrackMutedEvent) {
+      _recordLiveKitTrackEvent(
+        'livekit.track.muted',
+        event.participant,
+        event.publication,
+      );
+      return;
+    }
+    if (event is lk.TrackUnmutedEvent) {
+      _recordLiveKitTrackEvent(
+        'livekit.track.unmuted',
+        event.participant,
+        event.publication,
+      );
+      return;
+    }
+    if (event is lk.TrackStreamStateUpdatedEvent) {
+      _recordLiveKitTrackEvent(
+        'livekit.track.stream_state',
+        event.participant,
+        event.publication,
+        extra: {'state': event.streamState.name},
+      );
+      return;
+    }
+    if (event is lk.TrackSubscriptionExceptionEvent) {
+      _recordRawDiagnostic(
+        diagnostics,
+        'livekit.track.subscription_failed',
+        component: 'livekit',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.warning,
+        data: {
+          if (event.participant case final participant?)
+            'participant': _liveKitParticipantData(participant),
+          'trackSid': event.sid,
+          'reason': event.reason.name,
+        },
+      );
+      return;
+    }
+    if (event is lk.RoomRecordingStatusChanged) {
+      _recordDiagnostic(
+        diagnostics,
+        'livekit.room.recording_changed',
+        component: 'livekit',
+        correlationId: correlationId,
+        data: {'active': event.activeRecording},
+      );
+    }
+  }
+
+  @visibleForTesting
+  void recordRoomEventForTesting(lk.RoomEvent event) => _recordRoomEvent(event);
+
+  void _recordLiveKitParticipantEvent(
+    String event,
+    lk.Participant participant,
+  ) {
+    _recordRawDiagnostic(
+      diagnostics,
+      event,
+      component: 'livekit',
+      correlationId: correlationId,
+      data: {'participant': _liveKitParticipantData(participant)},
+    );
+  }
+
+  void _recordLiveKitTrackEvent(
+    String event,
+    lk.Participant participant,
+    lk.TrackPublication publication, {
+    Map<String, Object?> extra = const {},
+  }) {
+    _recordRawDiagnostic(
+      diagnostics,
+      event,
+      component: 'livekit',
+      correlationId: correlationId,
+      data: {
+        'participant': _liveKitParticipantData(participant),
+        'publication': {
+          'sid': publication.sid,
+          'name': publication.name,
+          'kind': publication.kind.name,
+          'source': publication.source.name,
+          'muted': publication.muted,
+          'subscribed': publication.subscribed,
+          'mimeType': publication.mimeType,
+        },
+        ...extra,
+      },
+    );
+  }
+
+  Map<String, Object?> _liveKitParticipantData(lk.Participant participant) => {
+    'sid': participant.sid,
+    'identity': participant.identity,
+    'name': participant.name,
+    'kind': participant.kind.name,
+    'state': participant.state.name,
+    'isSpeaking': participant.isSpeaking,
+    'isMuted': participant.isMuted,
+  };
 
   @override
   Future<void> syncParticipants(List<ResenhaParticipant> participants) async {}
@@ -1419,10 +2632,14 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   @override
   Future<void> dispose() async {
     _closing = true;
+    _rawStatsTimer?.cancel();
+    _rawStatsTimer = null;
     _reconnect.cancel();
     final pendingConnections = _roomConnections.toList();
     await _listener?.dispose();
-    await _room.disconnect();
+    if (_room.connectionState != lk.ConnectionState.disconnected) {
+      await _room.disconnect();
+    }
     for (final connection in pendingConnections) {
       try {
         await connection;
@@ -1431,6 +2648,12 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
       }
     }
     await _room.dispose();
+    _recordDiagnostic(
+      diagnostics,
+      'livekit.session.disposed',
+      component: 'livekit',
+      correlationId: correlationId,
+    );
     await super.dispose();
   }
 }

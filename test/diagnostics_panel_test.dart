@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/diagnostics_panel_width_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
 import 'package:discourse_native/src/shell/diagnostics_panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -68,6 +69,51 @@ void main() {
     expect(
       find.byKey(const ValueKey('diagnostics-rail-button')),
       findsOneWidget,
+    );
+  });
+
+  testWidgets('app-owned Resenha capture exposes its tab and rail indicator', (
+    tester,
+  ) async {
+    final diagnostics = await _controller();
+    final resenha = await ResenhaDiagnosticsController.create(
+      persistence: MemoryResenhaDiagnosticsPersistence(),
+      captureIdFactory: () => 'capture-app-wiring',
+      clock: () => DateTime.utc(2026, 8, 8, 10, 12, 37),
+    );
+    await _pumpApp(
+      tester,
+      const Size(1000, 800),
+      diagnostics,
+      resenhaDiagnostics: resenha,
+    );
+
+    expect(
+      find.byKey(const ValueKey('resenha-capture-rail-indicator')),
+      findsNothing,
+    );
+    await resenha.startCapture();
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('resenha-capture-rail-indicator')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('diagnostics-top-level-tabs')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Resenha'));
+    await tester.pumpAndSettle();
+    expect(find.text('Recording On'), findsOneWidget);
+
+    await resenha.stopCapture();
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('resenha-capture-rail-indicator')),
+      findsNothing,
     );
   });
 
@@ -575,12 +621,16 @@ Future<void> _pumpApp(
   DiagnosticsController diagnostics, {
   InstanceStore? store,
   FakeAuthenticator? authenticator,
+  ResenhaDiagnosticsController? resenhaDiagnostics,
   bool settle = true,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   addTearDown(diagnostics.close);
+  if (resenhaDiagnostics != null) {
+    addTearDown(resenhaDiagnostics.close);
+  }
 
   await tester.pumpWidget(
     DiscourseApp(
@@ -593,6 +643,7 @@ Future<void> _pumpApp(
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
       diagnostics: diagnostics,
+      resenhaDiagnostics: resenhaDiagnostics,
     ),
   );
   if (settle) {

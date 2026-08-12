@@ -13,9 +13,11 @@ class Helper {
   /// Params:
   ///
   /// "severity": possible values: ['verbose', 'info', 'warning', 'error', 'none']
-  static void setLogger(Logger logger, [String severity = 'none']) {
-    NativeLogsListener.instance.setLogger(logger, severity);
-  }
+  static Future<void> setLogger(
+    Logger logger, [
+    String severity = 'none',
+  ]) =>
+      NativeLogsListener.instance.setLogger(logger, severity);
 
   static Future<List<MediaDeviceInfo>> enumerateDevices(String type) async {
     var devices = await navigator.mediaDevices.enumerateDevices();

@@ -95,6 +95,41 @@ void main() {
       expect(safe, isNot(contains('fragment')));
     });
 
+    test('scrubs secrets assigned through quoted JSON keys', () {
+      const secret = 'QUOTED_JSON_SECRET_SENTINEL';
+      const jwt =
+          'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.'
+          'abcdefghijklmnop';
+      final safe = DiagnosticsRedactor.scrub(
+        '{"api_key":"$secret","credential":"$secret",'
+        '"token":"$secret","sdp":"a=ice-pwd:$secret",'
+        '"ice_ufrag":"$secret","client_id":"$secret",'
+        '"vendor":"$jwt"}',
+      );
+
+      expect(safe, isNot(contains(secret)));
+      expect(safe, isNot(contains(jwt)));
+      expect(safe, contains('api_key=<redacted>'));
+      expect(safe, contains('credential=<redacted>'));
+      expect(safe, contains('token=<redacted>'));
+      expect(safe, contains('ice-pwd=<redacted>'));
+      expect(safe, contains('ice_ufrag=<redacted>'));
+      expect(safe, contains('client_id=<redacted>'));
+      expect(safe, contains('<redacted-jwt>'));
+    });
+
+    test('scrubs quoted secrets containing escaped quote characters', () {
+      const secret = 'ESCAPED_QUOTE_SECRET_SENTINEL';
+      final safe = DiagnosticsRedactor.scrub(
+        r'''{"credential":"prefix\"ESCAPED_QUOTE_SECRET_SENTINEL",'''
+        r'''"api_key":'prefix\'ESCAPED_QUOTE_SECRET_SENTINEL'}''',
+      );
+
+      expect(safe, isNot(contains(secret)));
+      expect(safe, contains('credential=<redacted>'));
+      expect(safe, contains('api_key=<redacted>'));
+    });
+
     test('scrubs credentials from absolute URIs under every scheme', () {
       const credential = 'FTP_PASSWORD_SENTINEL';
       const queryValue = 'FTP_QUERY_SENTINEL';
@@ -107,6 +142,98 @@ void main() {
       expect(safe, isNot(contains(credential)));
       expect(safe, isNot(contains(queryValue)));
       expect(safe, isNot(contains('alice')));
+    });
+  });
+
+  group('DiagnosticLogEvent', () {
+    test('recursively sanitizes and freezes structured attributes', () {
+      const secret = 'STRUCTURED_LOG_SECRET_SENTINEL';
+      final cyclic = <String, Object?>{};
+      cyclic['self'] = cyclic;
+      final timestamp = DateTime.utc(2026, 8, 8, 9);
+      final event = DiagnosticLogEvent(
+        id: 'log-1',
+        sessionId: 'session-1',
+        sequence: 1,
+        timestampUtc: timestamp,
+        updatedAtUtc: timestamp,
+        severity: DiagnosticSeverity.info,
+        source: 'resenha',
+        name: 'peer.connected',
+        component: 'mesh',
+        message:
+            'connected to https://user:pass@example.test/room?token=$secret',
+        attributes: {
+          'participant': {
+            'id': 42,
+            'username': 'reader',
+            'authorization': 'Bearer $secret',
+          },
+          'candidate': ['udp', 'https://example.test/ice?credential=$secret'],
+          'clientId': secret,
+          'cyclic': cyclic,
+          'elapsed': const Duration(milliseconds: 12),
+        },
+      );
+
+      final participant =
+          event.attributes['participant']! as Map<String, Object?>;
+      final candidate = event.attributes['candidate']! as List<Object?>;
+      final serialized = jsonEncode(event.toJson());
+
+      expect(event.kind, DiagnosticEventKind.log);
+      expect(event.isError, isFalse);
+      expect(participant['id'], 42);
+      expect(participant['username'], 'reader');
+      expect(participant['authorization'], '<redacted>');
+      expect(event.attributes['clientId'], '<redacted>');
+      expect(candidate[1], 'https://example.test/ice?credential');
+      expect(
+        (event.attributes['cyclic']! as Map<String, Object?>)['self'],
+        '<cyclic value>',
+      );
+      expect(event.attributes['elapsed'], 12000);
+      expect(event.message, 'connected to https://example.test/room?token');
+      expect(serialized, isNot(contains(secret)));
+      expect(serialized, isNot(contains('user:pass')));
+      expect(() => event.attributes['later'] = true, throwsUnsupportedError);
+      expect(() => participant['later'] = true, throwsUnsupportedError);
+      expect(() => candidate.add('later'), throwsUnsupportedError);
+    });
+
+    test('round-trips logs and accepts absent optional log fields', () {
+      final timestamp = DateTime.utc(2026, 8, 8, 9);
+      final event = DiagnosticLogEvent(
+        id: 'log-2',
+        sessionId: 'session-1',
+        sequence: 2,
+        timestampUtc: timestamp,
+        updatedAtUtc: timestamp,
+        severity: DiagnosticSeverity.warning,
+        source: 'resenha',
+        name: 'reconnect.scheduled',
+        attributes: const {
+          'attempt': 2,
+          'delays': [0, 1000, 2000],
+        },
+      );
+
+      final decoded = DiagnosticEvent.fromJson(event.toJson());
+      expect(decoded, isA<DiagnosticLogEvent>());
+      expect((decoded! as DiagnosticLogEvent).toJson(), event.toJson());
+
+      final minimal = Map<String, Object?>.of(event.toJson())
+        ..remove('attributes');
+      final minimalDecoded =
+          DiagnosticEvent.fromJson(minimal)! as DiagnosticLogEvent;
+      expect(minimalDecoded.attributes, isEmpty);
+      expect(minimalDecoded.component, isNull);
+      expect(minimalDecoded.message, isNull);
+
+      expect(
+        DiagnosticEvent.fromJson({...event.toJson(), 'kind': 'future-kind'}),
+        isNull,
+      );
     });
   });
 
@@ -177,6 +304,67 @@ void main() {
         expect(event.correlationId, 'topic-42');
       },
     );
+
+    test('records, filters, persists, and exports structured logs', () async {
+      const secret = 'CONTROLLER_LOG_SECRET_SENTINEL';
+      final binding = DiagnosticsSink.install(controller);
+      try {
+        await DiagnosticsSink.runOperation('resenha.join', () async {
+          await Future<void>.delayed(Duration.zero);
+          DiagnosticsSink.current.recordLog(
+            name: 'peer.connected',
+            source: 'resenha',
+            component: 'mesh',
+            message: 'connected',
+            attributes: {
+              'participantId': 42,
+              'endpoint': 'https://reader:pass@turn.example.test?token=$secret',
+              'accessToken': secret,
+            },
+          );
+        }, correlationId: 'resenha-call-42');
+      } finally {
+        binding.close();
+      }
+
+      final log = controller.events.whereType<DiagnosticLogEvent>().single;
+      expect(log.operation, 'resenha.join');
+      expect(log.correlationId, 'resenha-call-42');
+      expect(log.component, 'mesh');
+      expect(log.attributes['accessToken'], '<redacted>');
+
+      controller.setQuery('turn.example.test');
+      expect(controller.visibleEvents, [log]);
+      controller.setKindFilter(DiagnosticsKindFilter.requests);
+      expect(controller.visibleEvents, isEmpty);
+      controller.setKindFilter(DiagnosticsKindFilter.errors);
+      expect(controller.visibleEvents, isEmpty);
+      controller
+        ..setKindFilter(DiagnosticsKindFilter.all)
+        ..setQuery('');
+
+      controller.recordLog(
+        name: 'peer.failed',
+        source: 'resenha',
+        component: 'mesh',
+        severity: DiagnosticSeverity.error,
+        degraded: true,
+      );
+      controller.setKindFilter(DiagnosticsKindFilter.errors);
+      expect(controller.visibleEvents, hasLength(1));
+      expect(controller.visibleEvents.single, isA<DiagnosticLogEvent>());
+
+      final report = controller.buildJsonReport(controller.events);
+      expect(report, contains('reported structured application logs'));
+      expect(report, contains('peer.connected'));
+      expect(report, contains('resenha-call-42'));
+      expect(report, isNot(contains(secret)));
+      expect(report, isNot(contains('reader:pass')));
+
+      await controller.flush();
+      final stored = await persistence.load(nowUtc: now);
+      expect(stored.events.whereType<DiagnosticLogEvent>(), hasLength(2));
+    });
 
     test(
       'the process-wide sink has a no-op fallback and restorable binding',

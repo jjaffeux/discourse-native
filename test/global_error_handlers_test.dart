@@ -197,6 +197,20 @@ final class _RecordingSink implements DiagnosticsSink {
   final List<_RecordedError> records = [];
 
   @override
+  void recordLog({
+    required String name,
+    String source = 'application',
+    String? component,
+    String? message,
+    Map<String, Object?> attributes = const {},
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? operation,
+    String? correlationId,
+    bool handled = true,
+    bool degraded = false,
+  }) {}
+
+  @override
   void reportError(
     Object error,
     StackTrace stackTrace, {
@@ -226,6 +240,20 @@ final class _NotifyingSink implements DiagnosticsSink {
 
   final ValueNotifier<int> count;
   int records = 0;
+
+  @override
+  void recordLog({
+    required String name,
+    String source = 'application',
+    String? component,
+    String? message,
+    Map<String, Object?> attributes = const {},
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? operation,
+    String? correlationId,
+    bool handled = true,
+    bool degraded = false,
+  }) {}
 
   @override
   void reportError(

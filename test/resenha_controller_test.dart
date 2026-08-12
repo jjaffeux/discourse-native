@@ -9,10 +9,12 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_api.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_callkit.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_controller.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_media.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
@@ -33,7 +35,12 @@ FakeSiteTracker tracker(String siteUrl) => FakeSiteTracker(
 
 final class FakeResenhaMediaFactory implements ResenhaMediaFactory {
   final List<FakeResenhaMediaSession> sessions = [];
+  final List<String> correlationIds = [];
+  final List<ResenhaDiagnosticsRecorder> diagnosticsRecorders = [];
   Completer<void>? nextConnectGate;
+  Object? nextAudioInputFailure;
+  Object? nextAudioOutputFailure;
+  Object? nextCameraFailure;
 
   @override
   ResenhaMediaSession create({
@@ -41,14 +48,78 @@ final class FakeResenhaMediaFactory implements ResenhaMediaFactory {
     required int localUserId,
     required ResenhaSignalSender sendSignal,
     required ResenhaLiveKitCredentialRefresher refreshLiveKitCredentials,
+    ResenhaDiagnosticsRecorder diagnostics =
+        const NoopResenhaDiagnosticsRecorder(),
+    String correlationId = 'uncorrelated',
   }) {
-    final session = FakeResenhaMediaSession(
-      join.transport,
-      connectGate: nextConnectGate,
-    );
+    final session =
+        FakeResenhaMediaSession(join.transport, connectGate: nextConnectGate)
+          ..audioInputFailure = nextAudioInputFailure
+          ..audioOutputFailure = nextAudioOutputFailure
+          ..cameraFailure = nextCameraFailure;
     nextConnectGate = null;
+    nextAudioInputFailure = null;
+    nextAudioOutputFailure = null;
+    nextCameraFailure = null;
+    correlationIds.add(correlationId);
+    diagnosticsRecorders.add(diagnostics);
     sessions.add(session);
     return session;
+  }
+}
+
+typedef RecordedResenhaDiagnostic = ({
+  String event,
+  String component,
+  DiagnosticSeverity severity,
+  String? correlationId,
+  String? message,
+  Map<String, Object?> data,
+});
+
+final class FakeResenhaDiagnosticsRecorder
+    implements ResenhaDiagnosticsRecorder {
+  @override
+  bool captureEnabled = false;
+
+  final List<RecordedResenhaDiagnostic> records = [];
+  final List<RecordedResenhaDiagnostic> rawRecords = [];
+
+  @override
+  void record(
+    String event, {
+    String component = 'runtime',
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? correlationId,
+    Map<String, Object?> data = const {},
+  }) {
+    records.add((
+      event: event,
+      component: component,
+      severity: severity,
+      correlationId: correlationId,
+      message: null,
+      data: data,
+    ));
+  }
+
+  @override
+  void recordRaw(
+    String event, {
+    String component = 'sdk',
+    DiagnosticSeverity severity = DiagnosticSeverity.debug,
+    String? correlationId,
+    String? message,
+    Map<String, Object?> data = const {},
+  }) {
+    rawRecords.add((
+      event: event,
+      component: component,
+      severity: severity,
+      correlationId: correlationId,
+      message: message,
+      data: data,
+    ));
   }
 }
 
@@ -75,6 +146,9 @@ final class FakeResenhaMediaSession extends ChangeNotifier
   Object? muteFailure;
   Object? participantSyncFailure;
   Object? disposeFailure;
+  Object? audioInputFailure;
+  Object? audioOutputFailure;
+  Object? cameraFailure;
   String? selectedAudioInput;
   String? selectedAudioOutput;
   String? selectedCamera;
@@ -109,11 +183,13 @@ final class FakeResenhaMediaSession extends ChangeNotifier
 
   @override
   Future<void> selectAudioOutput(String deviceId) async {
+    if (audioOutputFailure case final failure?) throw failure;
     selectedAudioOutput = deviceId;
   }
 
   @override
   Future<void> selectAudioInput(String deviceId) async {
+    if (audioInputFailure case final failure?) throw failure;
     selectedAudioInput = deviceId;
   }
 
@@ -125,6 +201,7 @@ final class FakeResenhaMediaSession extends ChangeNotifier
 
   @override
   Future<void> setCameraEnabled(bool enabled, {String? deviceId}) async {
+    if (cameraFailure case final failure?) throw failure;
     camera = enabled;
     if (deviceId != null) selectedCamera = deviceId;
   }
@@ -242,6 +319,19 @@ final class _NextGatedCredentialReader implements ApiCredentialReader {
   Future<String> clientId() async => 'client';
 }
 
+final class _FailingCredentialReader implements ApiCredentialReader {
+  Object? failure;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async {
+    if (failure case final failure?) throw failure;
+    return 'key';
+  }
+
+  @override
+  Future<String> clientId() async => 'client';
+}
+
 final class FakeResenhaSystemCall implements ResenhaSystemCall {
   final StreamController<ResenhaSystemCallAction> controller =
       StreamController.broadcast();
@@ -298,6 +388,12 @@ final class _PendingPluginWrite {
   final Completer<Map<String, dynamic>> response = Completer();
 }
 
+typedef _TransportDiagnosticContext = ({
+  String path,
+  String? operation,
+  String? correlationId,
+});
+
 final class _PendingThreadMessages {
   _PendingThreadMessages({required this.before});
 
@@ -314,8 +410,12 @@ final class _ControlledResenhaTransport extends FakeDiscourseApi {
   final List<String> pluginGets = [];
   final List<_PendingPluginGet> pendingPluginGets = [];
   final List<_PendingPluginWrite> pendingPluginWrites = [];
+  final List<_TransportDiagnosticContext> diagnosticContexts = [];
   final List<_PendingThreadMessages> pendingThreadMessages = [];
   bool holdThreadMessages = false;
+  Object? chatThreadReadFailure;
+  Object? operationFailure;
+  int chatThreadReadCalls = 0;
 
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -325,6 +425,7 @@ final class _ControlledResenhaTransport extends FakeDiscourseApi {
     String? clientId,
   }) {
     pluginGets.add(path);
+    if (operationFailure case final failure?) return Future.error(failure);
     if (pluginGetFailures[path] case final failure?) {
       return Future.error(failure);
     }
@@ -350,6 +451,12 @@ final class _ControlledResenhaTransport extends FakeDiscourseApi {
     required Map<String, Object?> body,
     String? clientId,
   }) {
+    diagnosticContexts.add((
+      path: path,
+      operation: DiagnosticsSink.currentOperation,
+      correlationId: DiagnosticsSink.currentCorrelationId,
+    ));
+    if (operationFailure case final failure?) return Future.error(failure);
     if (!heldPluginWritePaths.contains(path)) {
       return super.pluginWriteJson(
         siteUrl: siteUrl,
@@ -390,6 +497,29 @@ final class _ControlledResenhaTransport extends FakeDiscourseApi {
     pendingThreadMessages.add(pending);
     return pending.response.future;
   }
+
+  @override
+  Future<void> markChatThreadRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    chatThreadReadCalls++;
+    if (chatThreadReadFailure case final failure?) throw failure;
+  }
+}
+
+Future<List<Object>> _captureUncaught(Future<void> Function() action) async {
+  final uncaught = <Object>[];
+  final operation = runZonedGuarded<Future<void>>(
+    action,
+    (error, _) => uncaught.add(error),
+  );
+  await operation;
+  return uncaught;
 }
 
 ChatMessagePage _chatPage(int id, {bool canLoadMorePast = false}) => (
@@ -413,6 +543,7 @@ void main() {
   late FakeResenhaPreferences preferences;
   late FakeResenhaMediaFactory mediaFactory;
   late FakeResenhaSystemCall systemCall;
+  late FakeResenhaDiagnosticsRecorder diagnostics;
   late FakeSiteTracker firstTracker;
   late FakeSiteTracker secondTracker;
   late ResenhaController controller;
@@ -435,6 +566,7 @@ void main() {
       onCallSiteChanged: () {},
       mediaFactory: mediaFactory,
       systemCall: systemCall,
+      diagnostics: diagnostics,
       preferences: preferences,
       heartbeatInterval: const Duration(milliseconds: 15),
     );
@@ -485,6 +617,7 @@ void main() {
     preferences = FakeResenhaPreferences();
     mediaFactory = FakeResenhaMediaFactory();
     systemCall = FakeResenhaSystemCall();
+    diagnostics = FakeResenhaDiagnosticsRecorder();
     firstTracker = tracker(firstSite);
     secondTracker = tracker(secondSite);
     controller = ResenhaController(
@@ -500,6 +633,7 @@ void main() {
       onCallSiteChanged: () {},
       mediaFactory: mediaFactory,
       systemCall: systemCall,
+      diagnostics: diagnostics,
       preferences: preferences,
       heartbeatInterval: const Duration(milliseconds: 15),
     );
@@ -787,6 +921,170 @@ void main() {
     });
   }
 
+  test(
+    'contains secure-store failures across detached public entry points',
+    () async {
+      const privateCause =
+          'credential-private-user device-private 203.0.113.130';
+      final failingCredentials = _FailingCredentialReader();
+      credentials = failingCredentials;
+      useTransport(transport);
+      await controller.openChat(firstSite, 7);
+      final ordinaryDiagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'resenha-public-credentials',
+      );
+      final binding = DiagnosticsSink.install(ordinaryDiagnostics);
+      addTearDown(() async {
+        binding.close();
+        await ordinaryDiagnostics.close();
+      });
+      failingCredentials.failure = PlatformException(
+        code: 'secure_store_read',
+        message: privateCause,
+        details: {'account': 'credential-private-user'},
+      );
+
+      final uncaught = await _captureUncaught(() async {
+        unawaited(controller.ensureLoaded(firstSite, force: true));
+        unawaited(
+          controller.join(
+            siteUrl: firstSite,
+            siteName: 'Private site',
+            room: ResenhaRoom.fromJson(fixture('room')),
+          ),
+        );
+        unawaited(controller.openChat(firstSite, 7, force: true));
+        unawaited(controller.loadOlderChat(firstSite, 7));
+        unawaited(controller.sendChatMessage(firstSite, 7, 'hello'));
+        for (var index = 0; index < 8; index++) {
+          await pumpEventQueue();
+        }
+      });
+
+      expect(uncaught, isEmpty);
+      const operations = {
+        'resenha.directory',
+        'resenha.join',
+        'resenha.chat.load',
+        'resenha.chat.page',
+        'resenha.chat.send',
+      };
+      expect(
+        diagnostics.records
+            .where((record) => record.event == 'runtime.error')
+            .map((record) => record.data['operation'])
+            .toSet(),
+        containsAll(operations),
+      );
+      expect(
+        ordinaryDiagnostics.events
+            .whereType<ErrorDiagnosticEvent>()
+            .map((event) => event.operation)
+            .toSet(),
+        containsAll(operations),
+      );
+      expect(diagnostics.rawRecords, isEmpty);
+      expect(
+        ordinaryDiagnostics.buildJsonReport(),
+        isNot(contains(privateCause)),
+      );
+    },
+  );
+
+  test(
+    'contains ignored admin operation failures behind the safe boundary',
+    () async {
+      const privateCause =
+          'admin-private-user membership-987654321 203.0.113.131';
+      final controlled = privilegedTransport();
+      useTransport(controlled);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: ResenhaRoom.fromJson(fixture('room')),
+      );
+      final ordinaryDiagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'resenha-public-admin',
+      );
+      final binding = DiagnosticsSink.install(ordinaryDiagnostics);
+      addTearDown(() async {
+        binding.close();
+        await ordinaryDiagnostics.close();
+      });
+      controlled.operationFailure = PlatformException(
+        code: 'admin_operation',
+        message: privateCause,
+        details: {'userId': 987654321},
+      );
+      final actions = <Future<void> Function()>[
+        () => controller.requestToSpeak(),
+        () => controller.kick(2),
+        () async {
+          await controller.flagParticipant(2, 'Please review');
+        },
+        () => controller.setRecording(true),
+        () async {
+          await controller.memberships(firstSite, 7);
+        },
+        () => controller.addMember(
+          firstSite,
+          7,
+          'admin-private-user',
+          ResenhaRole.participant,
+        ),
+        () => controller.updateMember(
+          firstSite,
+          7,
+          987654321,
+          ResenhaRole.speaker,
+        ),
+        () => controller.removeMember(firstSite, 7, 987654321),
+      ];
+
+      final uncaught = await _captureUncaught(() async {
+        for (final action in actions) {
+          unawaited(action());
+        }
+        for (var index = 0; index < 8; index++) {
+          await pumpEventQueue();
+        }
+      });
+
+      expect(uncaught, isEmpty);
+      const operations = {
+        'resenha.requestToSpeak',
+        'resenha.kick',
+        'resenha.flag',
+        'resenha.recording',
+        'resenha.memberships',
+        'resenha.membership.add',
+        'resenha.membership.update',
+        'resenha.membership.remove',
+      };
+      expect(
+        diagnostics.records
+            .where((record) => record.event == 'runtime.error')
+            .map((record) => record.data['operation'])
+            .toSet(),
+        containsAll(operations),
+      );
+      expect(
+        ordinaryDiagnostics.events
+            .whereType<ErrorDiagnosticEvent>()
+            .map((event) => event.operation)
+            .toSet(),
+        containsAll(operations),
+      );
+      expect(diagnostics.rawRecords, isEmpty);
+      final ordinaryExport = ordinaryDiagnostics.buildJsonReport();
+      expect(ordinaryExport, isNot(contains(privateCause)));
+      expect(ordinaryExport, isNot(contains('admin-private-user')));
+      expect(ordinaryExport, isNot(contains('987654321')));
+    },
+  );
+
   test('rejected media preferences do not block live call controls', () async {
     final diagnostics = await DiagnosticsController.create(
       persistence: MemoryDiagnosticsPersistence(),
@@ -833,6 +1131,259 @@ void main() {
       }),
     );
   });
+
+  for (final captureEnabled in [false, true]) {
+    test('saved stale device failure is privacy-safe with capture '
+        '${captureEnabled ? 'on' : 'off'}', () async {
+      const deviceId = 'private-stale-microphone';
+      const sentinelUsername = 'private-participant-name';
+      const sentinelUserId = '987654321';
+      const sentinelTrackId = 'private-track-id';
+      const sentinelStreamId = 'private-stream-id';
+      const sentinelIp = '203.0.113.77';
+      final ordinaryDiagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'resenha-stale-device-$captureEnabled',
+      );
+      final binding = DiagnosticsSink.install(ordinaryDiagnostics);
+      addTearDown(() async {
+        binding.close();
+        await ordinaryDiagnostics.close();
+      });
+      preferences.devices = const ResenhaDevicePreferences(
+        audioInputDeviceId: deviceId,
+      );
+      diagnostics.captureEnabled = captureEnabled;
+      useTransport(transport);
+      mediaFactory.nextAudioInputFailure = StateError(
+        '$sentinelUsername $sentinelUserId $deviceId $sentinelTrackId '
+        '$sentinelStreamId $sentinelIp',
+      );
+      await pumpEventQueue();
+
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      final failure = diagnostics.records.singleWhere(
+        (record) => record.event == 'media.device_selection.failed',
+      );
+      expect(failure.data['kind'], 'audio_input');
+      expect(failure.data['origin'], 'saved_join');
+      expect(failure.data['errorType'], 'StateError');
+      expect(failure.correlationId, mediaFactory.correlationIds.single);
+
+      final safeExport = jsonEncode([
+        for (final record in diagnostics.records)
+          {
+            'event': record.event,
+            'correlationId': record.correlationId,
+            'data': record.data,
+          },
+      ]);
+      expect(safeExport, isNot(contains(deviceId)));
+      expect(safeExport, isNot(contains(sentinelUsername)));
+      expect(safeExport, isNot(contains(sentinelUserId)));
+      expect(safeExport, isNot(contains(sentinelTrackId)));
+      expect(safeExport, isNot(contains(sentinelStreamId)));
+      expect(safeExport, isNot(contains(sentinelIp)));
+
+      final rawExport = jsonEncode([
+        for (final record in diagnostics.rawRecords)
+          {
+            'event': record.event,
+            'message': record.message,
+            'data': record.data,
+          },
+      ]);
+      expect(
+        rawExport.contains(deviceId),
+        captureEnabled,
+        reason: 'Device IDs belong only to explicit deep capture.',
+      );
+      final ordinaryExport = ordinaryDiagnostics.buildJsonReport();
+      for (final sentinel in [
+        deviceId,
+        sentinelUsername,
+        sentinelUserId,
+        sentinelTrackId,
+        sentinelStreamId,
+        sentinelIp,
+      ]) {
+        expect(ordinaryExport, isNot(contains(sentinel)));
+      }
+      expect(ordinaryExport, contains('StateError'));
+      expect(ordinaryExport, contains('resenha.join'));
+    });
+  }
+
+  test(
+    'traces saved input and output selection with call correlation',
+    () async {
+      preferences.devices = const ResenhaDevicePreferences(
+        audioInputDeviceId: 'saved-input',
+        audioOutputDeviceId: 'saved-output',
+      );
+      diagnostics.captureEnabled = true;
+      useTransport(transport);
+      await pumpEventQueue();
+
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      final saved = diagnostics.records
+          .where(
+            (record) =>
+                record.event.startsWith('media.device_selection.') &&
+                record.data['origin'] == 'saved_join',
+          )
+          .toList();
+      expect(saved, hasLength(4));
+      expect(saved.map((record) => record.data['kind']).toSet(), {
+        'audio_input',
+        'audio_output',
+      });
+      expect(
+        saved.every(
+          (record) =>
+              record.correlationId == mediaFactory.correlationIds.single,
+        ),
+        isTrue,
+      );
+      final raw = jsonEncode([
+        for (final record in diagnostics.rawRecords)
+          {'event': record.event, 'data': record.data},
+      ]);
+      expect(raw, contains('saved-input'));
+      expect(raw, contains('saved-output'));
+    },
+  );
+
+  test('traces explicit input output and camera selections', () async {
+    diagnostics.captureEnabled = true;
+    await controller.ensureLoaded(firstSite);
+    await controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: controller.room(firstSite, 7)!,
+    );
+    await controller.setCameraEnabled(true);
+
+    await controller.selectAudioInput('user-input');
+    await controller.selectAudioOutput('user-output');
+    await controller.selectCamera('user-camera');
+
+    final explicit = diagnostics.records
+        .where(
+          (record) =>
+              record.event.startsWith('media.device_selection.') &&
+              record.data['origin'] == 'user',
+        )
+        .toList();
+    expect(explicit, hasLength(6));
+    expect(explicit.map((record) => record.data['kind']).toSet(), {
+      'audio_input',
+      'audio_output',
+      'camera',
+    });
+    expect(
+      explicit.every(
+        (record) => record.correlationId == mediaFactory.correlationIds.single,
+      ),
+      isTrue,
+    );
+    final raw = jsonEncode([
+      for (final record in diagnostics.rawRecords)
+        {'event': record.event, 'data': record.data},
+    ]);
+    expect(raw, contains('user-input'));
+    expect(raw, contains('user-output'));
+    expect(raw, contains('user-camera'));
+  });
+
+  test(
+    'contains ignored device PlatformExceptions behind the safe boundary',
+    () async {
+      const privateCause = 'device-private-user track-private 203.0.113.132';
+      const inputId = 'private-input-device';
+      const outputId = 'private-output-device';
+      const cameraId = 'private-camera-device';
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      await controller.setCameraEnabled(true);
+      final media = mediaFactory.sessions.single;
+      final failure = PlatformException(
+        code: 'device_selection',
+        message: privateCause,
+        details: {'deviceId': inputId, 'trackId': 'track-private'},
+      );
+      media
+        ..audioInputFailure = failure
+        ..audioOutputFailure = failure
+        ..cameraFailure = failure;
+      final ordinaryDiagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'resenha-public-devices',
+      );
+      final binding = DiagnosticsSink.install(ordinaryDiagnostics);
+      addTearDown(() async {
+        binding.close();
+        await ordinaryDiagnostics.close();
+      });
+
+      final uncaught = await _captureUncaught(() async {
+        unawaited(controller.selectAudioInput(inputId));
+        unawaited(controller.selectAudioOutput(outputId));
+        unawaited(controller.selectCamera(cameraId));
+        for (var index = 0; index < 8; index++) {
+          await pumpEventQueue();
+        }
+      });
+
+      expect(uncaught, isEmpty);
+      expect(
+        diagnostics.records
+            .where((record) => record.event == 'media.device_selection.failed')
+            .map((record) => record.data['kind'])
+            .toSet(),
+        {'audio_input', 'audio_output', 'camera'},
+      );
+      const operations = {
+        'resenha.media.selectAudioInput',
+        'resenha.media.selectAudioOutput',
+        'resenha.media.selectCamera',
+      };
+      expect(
+        ordinaryDiagnostics.events
+            .whereType<ErrorDiagnosticEvent>()
+            .map((event) => event.operation)
+            .toSet(),
+        containsAll(operations),
+      );
+      expect(diagnostics.rawRecords, isEmpty);
+      final ordinaryExport = ordinaryDiagnostics.buildJsonReport();
+      for (final sentinel in [
+        privateCause,
+        inputId,
+        outputId,
+        cameraId,
+        'track-private',
+      ]) {
+        expect(ordinaryExport, isNot(contains(sentinel)));
+      }
+    },
+  );
 
   test(
     'a forgotten site cannot be restored by a late directory response',
@@ -1206,6 +1757,56 @@ void main() {
     expect(controller.chat(firstSite, 7)?.canLoadMorePast, isFalse);
   });
 
+  test(
+    'contains detached chat mark-read failures without forwarding raw cause',
+    () async {
+      const privateCause = 'chat-private-user device-private 203.0.113.122';
+      final controlled = _ControlledResenhaTransport(
+        pluginResponses: {
+          'GET /resenha/rooms/7/chat_session.json': fixture('chat'),
+        },
+        chatMessagesByKey: {'thread-42-99': _chatPage(10)},
+      )..chatThreadReadFailure = StateError(privateCause);
+      useTransport(controlled);
+      final ordinaryDiagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'resenha-chat-mark-read',
+      );
+      final binding = DiagnosticsSink.install(ordinaryDiagnostics);
+      addTearDown(() async {
+        binding.close();
+        await ordinaryDiagnostics.close();
+      });
+      final uncaught = <Object>[];
+
+      final operation = runZonedGuarded<Future<void>>(() async {
+        await controller.openChat(firstSite, 7);
+        await pumpEventQueue();
+        await pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+      await operation;
+
+      expect(uncaught, isEmpty);
+      expect(controlled.chatThreadReadCalls, 1);
+      final safeRecord = diagnostics.records.singleWhere(
+        (record) =>
+            record.event == 'runtime.error' &&
+            record.data['operation'] == 'resenha.chat.markRead',
+      );
+      expect(safeRecord.data['errorType'], 'StateError');
+      expect(diagnostics.rawRecords, isEmpty);
+      final globalRecord = ordinaryDiagnostics.events
+          .whereType<ErrorDiagnosticEvent>()
+          .singleWhere((event) => event.operation == 'resenha.chat.markRead');
+      expect(globalRecord.message, contains('resenha.chat.markRead'));
+      expect(globalRecord.message, isNot(contains(privateCause)));
+      expect(
+        ordinaryDiagnostics.buildJsonReport(),
+        isNot(contains(privateCause)),
+      );
+    },
+  );
+
   test('enforces one call globally while switching sites', () async {
     await controller.ensureLoaded(firstSite);
     await controller.ensureLoaded(secondSite);
@@ -1260,6 +1861,105 @@ void main() {
       hasLength(2),
     );
     expect(controller.errorFor(firstSite), isNull);
+  });
+
+  test('propagates one call correlation into media and join HTTP', () async {
+    final controlled = privilegedTransport();
+    useTransport(controlled);
+
+    await controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: ResenhaRoom.fromJson(fixture('room')),
+    );
+
+    final correlationId = mediaFactory.correlationIds.single;
+    final joinContext = controlled.diagnosticContexts.singleWhere(
+      (context) => context.path.endsWith('/join.json'),
+    );
+    expect(correlationId, startsWith('resenha-call-'));
+    expect(joinContext.operation, 'resenha.join');
+    expect(joinContext.correlationId, correlationId);
+    expect(mediaFactory.diagnosticsRecorders.single, same(diagnostics));
+  });
+
+  test('records an ordered correlated join and leave lifecycle', () async {
+    diagnostics.captureEnabled = true;
+    await controller.ensureLoaded(firstSite);
+
+    await controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: controller.room(firstSite, 7)!,
+    );
+    final correlationId = mediaFactory.correlationIds.single;
+    await controller.leave();
+
+    final events = diagnostics.records
+        .where((record) => record.correlationId == correlationId)
+        .map((record) => record.event)
+        .toList();
+    int index(String event) => events.indexOf(event);
+    expect(index('call.join.requested'), lessThan(index('call.join.started')));
+    expect(index('call.join.started'), lessThan(index('call.join.completed')));
+    expect(index('call.join.completed'), lessThan(index('call.leave.started')));
+    expect(
+      index('call.leave.started'),
+      lessThan(index('call.leave.completed')),
+    );
+    final leave = diagnostics.records.singleWhere(
+      (record) =>
+          record.correlationId == correlationId &&
+          record.event == 'call.leave.started',
+    );
+    expect(leave.data['reason'], 'user');
+    final roster = diagnostics.rawRecords.singleWhere(
+      (record) =>
+          record.correlationId == correlationId &&
+          record.event == 'call.join.initial_roster',
+    );
+    final participants = roster.data['participants']! as List<Object?>;
+    expect(
+      (participants.first! as Map<String, Object?>)['username'],
+      isNotEmpty,
+    );
+  });
+
+  test('captures raw signaling only while deep capture is enabled', () async {
+    await controller.ensureLoaded(firstSite);
+    await controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: controller.room(firstSite, 7)!,
+    );
+
+    void deliver(String sdp) {
+      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+        'type': 'signal',
+        'sender_id': 2,
+        'data': {'type': 'offer', 'sdp': sdp},
+      });
+    }
+
+    deliver('capture-off');
+    await pumpEventQueue();
+    expect(
+      diagnostics.rawRecords.where(
+        (record) => record.event == 'signaling.received.raw',
+      ),
+      isEmpty,
+    );
+
+    diagnostics.captureEnabled = true;
+    deliver('capture-on');
+    await pumpEventQueue();
+    final rawSignal = diagnostics.rawRecords.singleWhere(
+      (record) => record.event == 'signaling.received.raw',
+    );
+    expect(
+      (rawSignal.data['signal']! as Map<String, dynamic>)['sdp'],
+      'capture-on',
+    );
   });
 
   test('dispose during a failing connect tears media down only once', () async {
@@ -1545,6 +2245,12 @@ void main() {
       expect(controller.call, isNull);
       expect(media.disposeCount, 1);
       expect(systemCall.ends, 1);
+      expect(
+        diagnostics.records
+            .singleWhere((record) => record.event == 'call.leave.started')
+            .data['reason'],
+        'rosterRemoval',
+      );
       expect(
         transport.pluginWrites.where(
           (write) => write.path.endsWith('/leave.json'),

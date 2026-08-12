@@ -323,18 +323,26 @@ class _DiagnosticsButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final diagnostics = DiagnosticsScope.read(context);
+    final resenhaDiagnostics = DiagnosticsScope.maybeReadResenha(context);
 
     return ListenableBuilder(
       listenable: Listenable.merge([
         diagnostics.panelListenable,
         diagnostics.unseenErrorsListenable,
+        if (resenhaDiagnostics != null)
+          resenhaDiagnostics.captureEnabledListenable,
       ]),
       builder: (context, _) {
         final open = diagnostics.isPanelOpen;
         final unseen = diagnostics.unseenErrorCountListenable.value;
-        final tooltip = unseen == 0
+        final baseTooltip = unseen == 0
             ? 'Diagnostics'
             : 'Diagnostics, $unseen unseen ${unseen == 1 ? 'error' : 'errors'}';
+        final recording =
+            resenhaDiagnostics?.captureEnabledListenable.value ?? false;
+        final tooltip = recording
+            ? '$baseTooltip, Resenha capture recording'
+            : baseTooltip;
 
         return Semantics(
           button: true,
@@ -377,6 +385,26 @@ class _DiagnosticsButton extends StatelessWidget {
                       // second number to the accessible label.
                       child: ExcludeSemantics(
                         child: _UnreadBadge(count: unseen),
+                      ),
+                    ),
+                  if (recording)
+                    Positioned(
+                      key: const ValueKey('resenha-capture-rail-indicator'),
+                      right: -3,
+                      top: -3,
+                      child: ExcludeSemantics(
+                        child: Container(
+                          width: 11,
+                          height: 11,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.error,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: theme.shell.rail,
+                              width: 2,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                 ],

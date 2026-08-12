@@ -33,7 +33,7 @@ abstract final class DiagnosticsRedactor {
     caseSensitive: false,
   );
   static final RegExp _sensitiveAssignment = RegExp(
-    r'''\b(authorization|proxy-authorization|cookie|set-cookie|x-api-key|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|password|passwd|secret)\b\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)''',
+    r'''["']?\b(authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|x[-_ ]?api[-_ ]?key|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|auth[-_ ]?token|token|password|passwd|secret|credential|client[-_ ]?(?:id|secret)|ice[-_ ]?(?:pwd|password|ufrag)|livekit[-_ ]?(?:token|jwt|key|secret|credential|password)|turn[-_ ]?(?:username|token|key|secret|credential|password))\b["']?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)''',
     caseSensitive: false,
   );
   static final RegExp _authorizationValue = RegExp(
@@ -46,6 +46,9 @@ abstract final class DiagnosticsRedactor {
   );
   static final RegExp _queryAssignment = RegExp(
     r'([?&][A-Za-z0-9_.~%+-]+)=[^\s&#]*',
+  );
+  static final RegExp _jwt = RegExp(
+    r'(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(?![A-Za-z0-9_-])',
   );
 
   /// Returns a URI with no user-info, fragment, or query values.
@@ -114,6 +117,7 @@ abstract final class DiagnosticsRedactor {
       _sensitiveAssignment,
       (match) => '${match.group(1)}=<redacted>',
     );
+    text = text.replaceAll(_jwt, '<redacted-jwt>');
     text = text.replaceAllMapped(_queryAssignment, (match) => match.group(1)!);
 
     final homes = <String>{

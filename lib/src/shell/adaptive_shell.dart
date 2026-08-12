@@ -191,6 +191,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           if (diagnostics == null) return framedShell(shell);
           final panel = DiagnosticsPanel(
             controller: diagnostics,
+            resenhaController: DiagnosticsScope.maybeReadResenha(context),
             onClose: diagnostics.closePanel,
           );
 

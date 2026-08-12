@@ -134,6 +134,21 @@ abstract class DiagnosticsSink {
     bool degraded = true,
     String? correlationId,
   });
+
+  /// Records a sanitized structured log without allowing diagnostics failures
+  /// to affect the operation being observed.
+  void recordLog({
+    required String name,
+    String source = 'application',
+    String? component,
+    String? message,
+    Map<String, Object?> attributes = const {},
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? operation,
+    String? correlationId,
+    bool handled = true,
+    bool degraded = false,
+  });
 }
 
 final class DiagnosticsSinkBinding {
@@ -165,6 +180,20 @@ final class _NoopDiagnosticsSink implements DiagnosticsSink {
     bool handled = true,
     bool degraded = true,
     String? correlationId,
+  }) {}
+
+  @override
+  void recordLog({
+    required String name,
+    String source = 'application',
+    String? component,
+    String? message,
+    Map<String, Object?> attributes = const {},
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? operation,
+    String? correlationId,
+    bool handled = true,
+    bool degraded = false,
   }) {}
 }
 
@@ -453,6 +482,49 @@ final class DiagnosticsController
   }
 
   @override
+  void recordLog({
+    required String name,
+    String source = 'application',
+    String? component,
+    String? message,
+    Map<String, Object?> attributes = const {},
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? operation,
+    String? correlationId,
+    bool handled = true,
+    bool degraded = false,
+  }) {
+    if (_closed) return;
+    try {
+      final operationGeneration = Zone.current[_generationZoneKey] as int?;
+      if (operationGeneration != null && operationGeneration != _generation) {
+        return;
+      }
+      final now = _clock().toUtc();
+      final event = DiagnosticLogEvent(
+        id: _newEventId('log', now),
+        sessionId: sessionId,
+        sequence: _nextSequence(),
+        timestampUtc: now,
+        updatedAtUtc: now,
+        severity: severity,
+        source: source,
+        operation: operation ?? DiagnosticsSink.currentOperation,
+        correlationId: correlationId ?? DiagnosticsSink.currentCorrelationId,
+        handled: handled,
+        degraded: degraded,
+        name: name,
+        component: component,
+        message: message,
+        attributes: attributes,
+      );
+      _record(event, persistImmediately: event.isError);
+    } on Object {
+      // Logging is observational and must stay independent of producer health.
+    }
+  }
+
+  @override
   void recordHttp(HttpDiagnosticRecord update) {
     if (_closed) return;
     try {
@@ -563,6 +635,7 @@ final class DiagnosticsController
           'Flutter framework errors',
           'root-isolate platform errors',
           'reported operational errors',
+          'reported structured application logs',
         ],
         'excluded': [
           'external browser and web-auth traffic',

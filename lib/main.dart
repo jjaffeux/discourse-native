@@ -10,6 +10,8 @@ import 'src/data/emoji_cache.dart';
 import 'src/data/media_request_coordinator.dart';
 import 'src/diagnostics/diagnostics.dart';
 import 'src/plugins/local_dates/local_date_environment.dart';
+import 'src/plugins/resenha/resenha_diagnostics.dart';
+import 'src/plugins/resenha/resenha_sdk_diagnostics.dart';
 
 void main() {
   final parentZone = Zone.current;
@@ -33,6 +35,10 @@ void main() {
             DiagnosticsSink.install(controller);
             RecordingHttpOverrides.install(controller);
             globalErrors = DiagnosticsGlobalErrorBinding.install(controller);
+            final resenhaDiagnostics =
+                await ResenhaDiagnosticsController.create(
+                  sdkLogBridges: [NativeResenhaDiagnosticsSdkLogBridge()],
+                );
 
             try {
               final mediaStore = await FileByteCacheStore.applicationCache();
@@ -57,7 +63,12 @@ void main() {
               );
             }
 
-            runApp(DiscourseApp(diagnostics: controller));
+            runApp(
+              DiscourseApp(
+                diagnostics: controller,
+                resenhaDiagnostics: resenhaDiagnostics,
+              ),
+            );
           },
           (error, stackTrace) {
             recordGlobal(error, stackTrace, source: 'zone');

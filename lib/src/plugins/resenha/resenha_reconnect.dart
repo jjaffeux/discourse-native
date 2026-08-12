@@ -3,6 +3,11 @@ import 'dart:async';
 enum ResenhaMediaConnectionState { connected, reconnecting, failed }
 
 typedef ResenhaReconnectAttempt = Future<void> Function();
+typedef ResenhaReconnectAttemptStarted =
+    void Function(int attemptNumber, Duration delay);
+typedef ResenhaReconnectAttemptFailed =
+    void Function(int attemptNumber, Object error, StackTrace stackTrace);
+typedef ResenhaReconnectExhausted = void Function(int attemptCount);
 typedef ResenhaReconnectTimerFactory =
     Timer Function(Duration delay, void Function() callback);
 
@@ -18,6 +23,9 @@ final class ResenhaReconnectCoordinator {
   ResenhaReconnectCoordinator({
     required this.attempt,
     required this.onStateChanged,
+    this.onAttemptStarted,
+    this.onAttemptFailed,
+    this.onExhausted,
     List<Duration> schedule = const [
       Duration.zero,
       Duration(seconds: 1),
@@ -40,6 +48,9 @@ final class ResenhaReconnectCoordinator {
 
   final ResenhaReconnectAttempt attempt;
   final void Function(ResenhaMediaConnectionState state) onStateChanged;
+  final ResenhaReconnectAttemptStarted? onAttemptStarted;
+  final ResenhaReconnectAttemptFailed? onAttemptFailed;
+  final ResenhaReconnectExhausted? onExhausted;
   final ResenhaReconnectTimerFactory timerFactory;
   final List<Duration> _schedule;
 
@@ -82,11 +93,15 @@ final class ResenhaReconnectCoordinator {
 
   Future<void> _run() async {
     _setConnectionState(ResenhaMediaConnectionState.reconnecting);
-    for (final delay in _schedule) {
+    for (var index = 0; index < _schedule.length; index++) {
+      final attemptNumber = index + 1;
+      final delay = _schedule[index];
       if (!await _wait(delay) || _cancelled) return;
+      _notifyAttemptStarted(attemptNumber, delay);
       try {
         await attempt();
-      } catch (_) {
+      } catch (error, stackTrace) {
+        _notifyAttemptFailed(attemptNumber, error, stackTrace);
         continue;
       }
       if (_cancelled) return;
@@ -94,7 +109,36 @@ final class ResenhaReconnectCoordinator {
       return;
     }
     if (!_cancelled) {
+      _notifyExhausted(_schedule.length);
       _setConnectionState(ResenhaMediaConnectionState.failed);
+    }
+  }
+
+  void _notifyAttemptStarted(int attemptNumber, Duration delay) {
+    try {
+      onAttemptStarted?.call(attemptNumber, delay);
+    } catch (_) {
+      // Diagnostic observers must never change the reconnect policy.
+    }
+  }
+
+  void _notifyAttemptFailed(
+    int attemptNumber,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    try {
+      onAttemptFailed?.call(attemptNumber, error, stackTrace);
+    } catch (_) {
+      // Diagnostic observers must never change the reconnect policy.
+    }
+  }
+
+  void _notifyExhausted(int attemptCount) {
+    try {
+      onExhausted?.call(attemptCount);
+    } catch (_) {
+      // Diagnostic observers must never change the reconnect policy.
     }
   }
 
