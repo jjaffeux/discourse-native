@@ -733,11 +733,14 @@ class _TopicViewState extends State<TopicView> {
 
 /// A faithful outline of the post stream while its first page is in flight.
 ///
-/// The column deliberately paints past a short viewport and is clipped there,
-/// so loading never introduces a second scroll position or changes the real
-/// stream's eventual anchor.
+/// The post pattern repeats until it covers the viewport. Any remainder, or
+/// the whole pattern on an exceptionally short pane, is clipped so loading
+/// never introduces a second scroll position or changes the real stream's
+/// eventual anchor.
 class _TopicLoadingSkeleton extends StatelessWidget {
   const _TopicLoadingSkeleton({super.key});
+
+  static const _patternHeight = 404.0;
 
   @override
   Widget build(BuildContext context) {
@@ -745,34 +748,46 @@ class _TopicLoadingSkeleton extends StatelessWidget {
 
     return LoadingSkeleton(
       semanticsLabel: 'Loading topic',
-      child: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.topCenter,
-          maxHeight: double.infinity,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const _TopicPostSkeleton(
-                nameWidthFactor: 0.3,
-                lineWidths: [0.92, 0.72, 0.48],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final patternCount = constraints.hasBoundedHeight
+              ? (constraints.maxHeight / _patternHeight).ceil()
+              : 1;
+
+          return ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              maxHeight: double.infinity,
+              child: Column(
+                key: const ValueKey('topic-loading-skeleton-content'),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var index = 0; index < patternCount; index++) ...[
+                    const _TopicPostSkeleton(
+                      nameWidthFactor: 0.3,
+                      lineWidths: [0.92, 0.72, 0.48],
+                    ),
+                    Divider(height: 1, color: divider),
+                    const _TopicPostSkeleton(
+                      nameWidthFactor: 0.22,
+                      lineWidths: [0.72, 0.92, 0.3],
+                    ),
+                    Divider(height: 1, color: divider),
+                    const Opacity(
+                      opacity: 0.72,
+                      child: _TopicPostSkeleton(
+                        nameWidthFactor: 0.3,
+                        lineWidths: [0.92, 0.48],
+                        showFooter: false,
+                      ),
+                    ),
+                    Divider(height: 1, color: divider),
+                  ],
+                ],
               ),
-              Divider(height: 1, color: divider),
-              const _TopicPostSkeleton(
-                nameWidthFactor: 0.22,
-                lineWidths: [0.72, 0.92, 0.3],
-              ),
-              Divider(height: 1, color: divider),
-              const Opacity(
-                opacity: 0.72,
-                child: _TopicPostSkeleton(
-                  nameWidthFactor: 0.3,
-                  lineWidths: [0.92, 0.48],
-                  showFooter: false,
-                ),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

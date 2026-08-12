@@ -3404,6 +3404,18 @@ void main() {
         find.byKey(const ValueKey('topic-loading-skeleton')),
         findsOneWidget,
       );
+      expect(
+        tester
+            .getSize(
+              find.byKey(const ValueKey('topic-loading-skeleton-content')),
+            )
+            .height,
+        greaterThanOrEqualTo(
+          tester
+              .getSize(find.byKey(const ValueKey('topic-loading-skeleton')))
+              .height,
+        ),
+      );
       expect(find.bySemanticsLabel('Loading topic'), findsOneWidget);
       expect(activityIndicators, findsNothing);
       expect(tester.takeException(), isNull);
@@ -10014,6 +10026,18 @@ void main() {
         expect(
           find.byKey(const ValueKey('chat-loading-skeleton')),
           findsOneWidget,
+        );
+        expect(
+          tester
+              .getSize(
+                find.byKey(const ValueKey('chat-loading-skeleton-content')),
+              )
+              .height,
+          greaterThanOrEqualTo(
+            tester
+                .getSize(find.byKey(const ValueKey('chat-loading-skeleton')))
+                .height,
+          ),
         );
         expect(find.bySemanticsLabel('Loading chat channel'), findsOneWidget);
         expect(find.byKey(const ValueKey('chat-composer')), findsOneWidget);
