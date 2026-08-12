@@ -13,6 +13,8 @@ void main() {
   ) async {
     final composer = _composer('already open');
     composer.autocomplete.update(_typed(':item'));
+    await tester.pump(ComposerAutocomplete.debounce);
+    await tester.pump();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -58,6 +60,7 @@ void main() {
     );
 
     first.autocomplete.update(_typed(':item'));
+    await tester.pump(ComposerAutocomplete.debounce);
     await tester.pump();
     expect(find.text('first'), findsOneWidget);
 
@@ -67,6 +70,7 @@ void main() {
     expect(find.text('first'), findsNothing);
 
     second.autocomplete.update(_typed(':item'));
+    await tester.pump(ComposerAutocomplete.debounce);
     await tester.pump();
     expect(find.text('second'), findsOneWidget);
 
@@ -111,6 +115,7 @@ void main() {
       ),
     );
     composer.autocomplete.update(_typed(':item'));
+    await tester.pump(ComposerAutocomplete.debounce);
     await tester.pump();
     final before = tester.getTopLeft(find.text('moving'));
 
@@ -180,6 +185,70 @@ void main() {
       composer.dispose();
     }
   });
+
+  testWidgets('an action row opens its secondary surface without completing', (
+    tester,
+  ) async {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 1,
+        slug: 'topic',
+        topicTitle: 'Topic',
+      ),
+      search: (
+        users: (_) async => const [],
+        hashtags: (_) async => const [],
+        emojis: (query) async => [
+          ComposerSuggestion(
+            kind: ComposerTriggerKind.emoji,
+            value: query,
+            label: 'More emoji',
+            action: ComposerSuggestionAction.openEmojiPicker,
+          ),
+        ],
+      ),
+    );
+    addTearDown(composer.dispose);
+    composer.text.value = _typed(':sm');
+    ComposerSuggestion? opened;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: ComposerSuggestionField(
+            composer: composer,
+            onAction:
+                ({
+                  required context,
+                  required composer,
+                  required suggestion,
+                  anchor,
+                }) async {
+                  opened = suggestion;
+                },
+            field: TextField(
+              controller: composer.text,
+              focusNode: composer.focus,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(ComposerAutocomplete.debounce);
+    await tester.pump();
+    composer.focus.requestFocus();
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+
+    expect(opened?.action, ComposerSuggestionAction.openEmojiPicker);
+    expect(opened?.value, 'sm');
+    expect(composer.text.text, ':sm');
+    expect(composer.autocomplete.isOpen, isFalse);
+  });
 }
 
 ComposerController _composer(String label) => ComposerController(
@@ -205,7 +274,7 @@ ComposerController _composerWith(List<String> labels) => ComposerController(
 ComposerSearch _search(List<String> labels) => (
   users: (_) async => const [],
   hashtags: (_) async => const [],
-  emojis: (_) => [
+  emojis: (_) async => [
     for (final label in labels)
       ComposerSuggestion(
         kind: ComposerTriggerKind.emoji,

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// The shape `/site/settings.json` answers with, trimmed to what is read.
 Map<String, dynamic> settings({
+  bool? emojiEnabled,
   String? emojiSet = 'twitter',
   String externalEmojiUrl = '',
   bool? reactionsEnabled,
@@ -31,6 +32,7 @@ Map<String, dynamic> settings({
   bool? gifResultLimitEnabled,
   Object? gifMaxResults,
 }) => {
+  'enable_emoji': ?emojiEnabled,
   'emoji_set': ?emojiSet,
   'external_emoji_url': externalEmojiUrl,
   'discourse_reactions_enabled': ?reactionsEnabled,
@@ -67,6 +69,14 @@ void main() {
       );
     });
 
+    test('reads the emoji authoring gate and defaults it on', () {
+      expect(SiteConfig.fromSettings(const {}).emojiEnabled, isTrue);
+      expect(
+        SiteConfig.fromSettings(settings(emojiEnabled: false)).emojiEnabled,
+        isFalse,
+      );
+    });
+
     test('falls back to core defaults for everything absent', () {
       // A site too old to have a setting, or one that answered with a payload
       // this build does not recognise, is drawn as plain core rather than as
@@ -74,6 +84,7 @@ void main() {
       const unknown = SiteConfig.unknown();
       expect(SiteConfig.fromSettings(const {}), unknown);
       expect(unknown.emojiSet, 'twitter');
+      expect(unknown.emojiEnabled, isTrue);
       expect(unknown.mainReaction, isNull);
       expect(unknown.offeredReactions, isEmpty);
       expect(unknown.minSearchTermLength, 3);
@@ -382,6 +393,7 @@ void main() {
   group('storage', () {
     final full = SiteConfig.fromSettings(
       settings(
+        emojiEnabled: false,
         emojiSet: 'google',
         externalEmojiUrl: 'https://cdn.example/emoji',
         reactionsEnabled: true,

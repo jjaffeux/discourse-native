@@ -2441,42 +2441,62 @@ void _feedGroups() {
     });
   });
 
-  group('emojis', () {
-    test('flattens the groups the site lists them in', () async {
-      final paths = <String>[];
-      final api = DiscourseApi(
-        client: MockClient((request) async {
-          paths.add(request.url.path);
-          return http.Response(
-            jsonEncode({
-              'smileys_&_emotion': [
-                {'name': 'smile', 'url': '/images/emoji/twitter/smile.png'},
-                {'name': 'grin', 'url': 'https://cdn.example.com/grin.png'},
-              ],
-              'default': [
-                {'name': 'shipit', 'url': '/uploads/shipit.png'},
-                // Malformed rows are dropped rather than read loosely.
-                {'name': 'no_url'},
-              ],
-              'not_a_group': 'nonsense',
-            }),
-            200,
-          );
-        }),
-      );
+  group('emoji catalog', () {
+    test(
+      'preserves ordered groups, tonability, and resolved artwork',
+      () async {
+        final paths = <String>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            paths.add(request.url.path);
+            return http.Response(
+              jsonEncode({
+                'smileys_&_emotion': [
+                  {
+                    'name': 'smile',
+                    'url': '/images/emoji/twitter/smile.png?v=2',
+                    'tonable': true,
+                    'ignored': 'future field',
+                  },
+                  {'name': 'grin', 'url': 'https://cdn.example.com/grin.png'},
+                ],
+                'default': [
+                  {'name': 'shipit', 'url': '//cdn.example.com/shipit.png'},
+                  // Malformed rows are dropped rather than read loosely.
+                  {'name': 'no_url'},
+                ],
+                'opaque plugin/group': <Object?>[],
+                'not_a_group': 'nonsense',
+              }),
+              200,
+            );
+          }),
+        );
 
-      final emojis = await api.emojis(siteUrl: 'https://example.com');
+        final catalog = await api.emojiCatalog(siteUrl: 'https://example.com');
 
-      expect(paths, ['/emojis.json']);
-      expect(emojis.map((e) => e.name), ['smile', 'grin', 'shipit']);
-      // Site-relative urls are resolved; an absolute one is left as the site
-      // wrote it, CDN and all.
-      expect(
-        emojis.first.url,
-        'https://example.com/images/emoji/twitter/smile.png',
-      );
-      expect(emojis[1].url, 'https://cdn.example.com/grin.png');
-    });
+        expect(paths, ['/emojis.json']);
+        expect(catalog.groups.map((group) => group.id), [
+          'smileys_&_emotion',
+          'default',
+          'opaque plugin/group',
+        ]);
+        expect(catalog.all.map((emoji) => emoji.name), [
+          'smile',
+          'grin',
+          'shipit',
+        ]);
+        // Site-relative urls are resolved; an absolute one is left as the site
+        // wrote it, CDN and all.
+        expect(
+          catalog.all.first.url,
+          'https://example.com/images/emoji/twitter/smile.png?v=2',
+        );
+        expect(catalog.all.first.tonable, isTrue);
+        expect(catalog.all[1].url, 'https://cdn.example.com/grin.png');
+        expect(catalog.all[2].url, 'https://cdn.example.com/shipit.png');
+      },
+    );
 
     test('an answer it cannot read is a failure, not an empty list', () async {
       final api = DiscourseApi(
@@ -2484,9 +2504,52 @@ void _feedGroups() {
       );
 
       await expectLater(
-        api.emojis(siteUrl: 'https://example.com'),
+        api.emojiCatalog(siteUrl: 'https://example.com'),
         throwsA(isA<SiteLookupException>()),
       );
+    });
+
+    test('reads and sanitizes localized search aliases', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'heart': ['love', ' amour ', 'love', 4, ''],
+              'wave': <String>[],
+              'malformed': 'not a list',
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final aliases = await api.emojiSearchAliases(
+        siteUrl: 'https://example.com',
+      );
+
+      expect(aliases, {
+        'heart': ['love', 'amour'],
+        'wave': <String>[],
+      });
+    });
+
+    test('protocol-relative artwork follows the forum origin scheme', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'default': [
+                {'name': 'shipit', 'url': '//cdn.example.com/shipit.png'},
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final catalog = await api.emojiCatalog(siteUrl: 'http://127.0.0.1:3000');
+
+      expect(catalog.all.single.url, 'http://cdn.example.com/shipit.png');
     });
   });
 

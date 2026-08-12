@@ -1291,13 +1291,12 @@ class DiscourseApi
     }
   }
 
-  /// Every emoji a site allows, flattened out of the groups it lists them in.
+  /// Every emoji a site allows, retaining the site's authoritative group order.
   ///
-  /// `/emojis.json` answers with `Emoji.grouped` — an object of group name to
-  /// list — and the grouping is a picker's business, not a completion's. The
-  /// site has already dropped the emoji it denies, so nothing here has to, and
-  /// custom uploads are in the same payload carrying their own upload url.
-  Future<List<SiteEmoji>> emojis({
+  /// `/emojis.json` is already filtered by the site's deny list and includes
+  /// custom uploads in their configured groups. Group identifiers are opaque:
+  /// core names and theme/plugin-defined names travel through unchanged.
+  Future<SiteEmojiCatalog> emojiCatalog({
     required String siteUrl,
     String? apiKey,
     String? clientId,
@@ -1311,19 +1310,69 @@ class DiscourseApi
 
     try {
       final decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) return const [];
+      if (decoded is! Map<String, dynamic>) return SiteEmojiCatalog.empty;
 
-      return [
-        for (final group in decoded.values)
-          if (group is List<dynamic>)
-            for (final emoji in group)
-              if (emoji case {
-                'name': final String name,
-                'url': final String url,
-              })
-                if (_absoluteIcon(url, siteUrl) case final resolved?)
-                  SiteEmoji(name: name, url: resolved),
-      ];
+      final groups = <SiteEmojiGroup>[];
+      for (final entry in decoded.entries) {
+        if (entry.value is! List<dynamic>) continue;
+        final emojis = <SiteEmoji>[];
+        for (final row in entry.value as List<dynamic>) {
+          if (row is! Map<String, dynamic>) continue;
+          final name = row['name'];
+          final url = row['url'];
+          if (name is! String || name.isEmpty || url is! String) continue;
+          final resolved = _absoluteIcon(url, siteUrl);
+          if (resolved == null) continue;
+          emojis.add(
+            SiteEmoji(
+              name: name,
+              url: resolved,
+              tonable: row['tonable'] == true,
+            ),
+          );
+        }
+        groups.add(SiteEmojiGroup(id: entry.key, emojis: emojis));
+      }
+      return SiteEmojiCatalog(groups: groups);
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// Localized and base-language search aliases keyed by canonical emoji name.
+  Future<Map<String, List<String>>> emojiSearchAliases({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      Uri.parse('$siteUrl/emojis/search-aliases.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return const {};
+
+      final aliases = <String, List<String>>{};
+      for (final entry in decoded.entries) {
+        if (entry.key.isEmpty || entry.value is! List<dynamic>) continue;
+        final unique = <String>{};
+        for (final raw in entry.value as List<dynamic>) {
+          if (raw is! String) continue;
+          final alias = raw.trim();
+          if (alias.isNotEmpty) unique.add(alias);
+        }
+        aliases[entry.key] = List<String>.unmodifiable(unique);
+      }
+      return Map<String, List<String>>.unmodifiable(aliases);
     } catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
@@ -2752,7 +2801,10 @@ class DiscourseApi
   /// CDN setup.
   static String? _absoluteIcon(String? icon, String baseUrl) {
     if (icon == null || icon.isEmpty) return null;
-    if (icon.startsWith('//')) return 'https:$icon';
+    if (icon.startsWith('//')) {
+      final scheme = Uri.tryParse(baseUrl)?.scheme;
+      return '${scheme == null || scheme.isEmpty ? 'https' : scheme}:$icon';
+    }
     if (icon.startsWith('http://') || icon.startsWith('https://')) return icon;
     return '$baseUrl${icon.startsWith('/') ? '' : '/'}$icon';
   }

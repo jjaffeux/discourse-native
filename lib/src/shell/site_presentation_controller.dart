@@ -27,8 +27,14 @@ typedef CustomEmojiLoader =
       String? apiKey,
       String? clientId,
     });
-typedef SiteEmojiLoader =
-    Future<List<SiteEmoji>> Function({
+typedef SiteEmojiCatalogLoader =
+    Future<SiteEmojiCatalog> Function({
+      required String siteUrl,
+      String? apiKey,
+      String? clientId,
+    });
+typedef EmojiSearchAliasesLoader =
+    Future<Map<String, List<String>>> Function({
       required String siteUrl,
       String? apiKey,
       String? clientId,
@@ -43,9 +49,9 @@ typedef SiteAppearanceLoaded =
 
 /// Per-site appearance, settings, and emoji metadata used to decide rendering.
 ///
-/// This state has different freshness and notification needs from navigation:
-/// settings and custom artwork can repaint visible content, while the complete
-/// emoji index only needs to refresh an open composer's autocomplete.
+/// Emoji consumers await the shared catalog and alias requests directly. That
+/// keeps locally-owned chat composers and shell-owned topic composers on the
+/// same race-safe path without a presentation notification side channel.
 final class SitePresentationController extends FrameSafeNotifier {
   static const Duration defaultPersistedFreshness = Duration(minutes: 5);
 
@@ -53,14 +59,14 @@ final class SitePresentationController extends FrameSafeNotifier {
     required this.loadAppearance,
     required this.loadConfig,
     required this.loadCustomEmojis,
-    required this.loadEmojis,
+    required this.loadEmojiCatalog,
+    required this.loadEmojiSearchAliases,
     required this.credentials,
     required this.lifecycle,
     required this.readPersistedAppearance,
     required this.readPersistedConfig,
     required this.onAppearanceLoaded,
     required this.onConfigLoaded,
-    required this.onEmojiIndexChanged,
     this.maxAttempts = 3,
     this.persistedFreshness = defaultPersistedFreshness,
     DateTime Function()? clock,
@@ -73,14 +79,14 @@ final class SitePresentationController extends FrameSafeNotifier {
   final SiteAppearanceLoader loadAppearance;
   final SiteConfigLoader loadConfig;
   final CustomEmojiLoader loadCustomEmojis;
-  final SiteEmojiLoader loadEmojis;
+  final SiteEmojiCatalogLoader loadEmojiCatalog;
+  final EmojiSearchAliasesLoader loadEmojiSearchAliases;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
   final PersistedSiteAppearanceReader readPersistedAppearance;
   final PersistedSiteConfigReader readPersistedConfig;
   final SiteAppearanceLoaded onAppearanceLoaded;
   final SiteConfigLoaded onConfigLoaded;
-  final VoidCallback onEmojiIndexChanged;
   final int maxAttempts;
   final Duration persistedFreshness;
   final DateTime Function() _clock;
@@ -105,7 +111,13 @@ final class SitePresentationController extends FrameSafeNotifier {
   final _configs = _RetryingSiteCache<SiteConfig>();
   final Map<String, Future<void>> _configRequests = {};
   final _customEmojis = _RetryingSiteCache<Map<String, String>>();
-  final _emojis = _RetryingSiteCache<List<SiteEmoji>>();
+  final _emojiCatalogs = _RetryingSiteCache<SiteEmojiCatalog>();
+  final _emojiSearchAliases = _RetryingSiteCache<Map<String, List<String>>>();
+  final Map<String, Future<SiteEmojiCatalog?>> _emojiCatalogRequests = {};
+  final Map<String, Future<Map<String, List<String>>?>> _emojiAliasRequests =
+      {};
+  final Set<String> _failedEmojiCatalogs = {};
+  final Set<String> _failedEmojiSearchAliases = {};
   static final Object _unchangedPresentation = Object();
   final Map<String, Object> _presentationTokens = {};
 
@@ -299,41 +311,176 @@ final class SitePresentationController extends FrameSafeNotifier {
     }
   }
 
-  Future<void> ensureEmojis(String siteUrl) async {
-    if (isDisposed || !_emojis.start(siteUrl, maxAttempts)) return;
+  SiteEmojiCatalog? emojiCatalogFor(String siteUrl) => _emojiCatalogs[siteUrl];
+
+  Map<String, List<String>>? emojiSearchAliasesFor(String siteUrl) =>
+      _emojiSearchAliases[siteUrl];
+
+  Future<SiteEmojiCatalog?> ensureEmojiCatalog(String siteUrl) =>
+      _emojiCatalogRequest(siteUrl, refresh: false);
+
+  Future<SiteEmojiCatalog?> refreshEmojiCatalog(String siteUrl) =>
+      _emojiCatalogRequest(siteUrl, refresh: true);
+
+  Future<SiteEmojiCatalog?> _emojiCatalogRequest(
+    String siteUrl, {
+    required bool refresh,
+  }) {
+    if (isDisposed) return Future.value(null);
+    final cached = _emojiCatalogs[siteUrl];
+    if (!refresh && cached != null) return Future.value(cached);
+    final active = _emojiCatalogRequests[siteUrl];
+    if (active != null) return active;
+    if (!refresh && _failedEmojiCatalogs.contains(siteUrl)) {
+      return Future.value(null);
+    }
+    if (refresh) _failedEmojiCatalogs.remove(siteUrl);
+
+    late final Future<SiteEmojiCatalog?> request;
+    request = _loadEmojiCatalog(siteUrl, refresh: refresh).whenComplete(() {
+      if (identical(_emojiCatalogRequests[siteUrl], request)) {
+        final removed = _emojiCatalogRequests.remove(siteUrl);
+        assert(identical(removed, request));
+      }
+    });
+    _emojiCatalogRequests[siteUrl] = request;
+    return request;
+  }
+
+  Future<SiteEmojiCatalog?> _loadEmojiCatalog(
+    String siteUrl, {
+    required bool refresh,
+  }) async {
+    if (isDisposed ||
+        !_emojiCatalogs.start(siteUrl, maxAttempts, refresh: refresh)) {
+      return _emojiCatalogs[siteUrl];
+    }
     final lease = lifecycle.capture(siteUrl);
 
     try {
-      final emojis = await _withCredentials(
+      final catalog = await _withCredentials(
         siteUrl,
         lease,
-        (apiKey, clientId) =>
-            loadEmojis(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId),
+        (apiKey, clientId) => loadEmojiCatalog(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+        ),
       );
-      if (emojis == null || isDisposed) return;
+      if (catalog == null || isDisposed) return null;
 
-      lease.commit(() {
-        _emojis.complete(siteUrl, List.unmodifiable(emojis));
-        onEmojiIndexChanged();
+      final accepted = lease.commit(() {
+        _failedEmojiCatalogs.remove(siteUrl);
+        _emojiCatalogs.complete(siteUrl, catalog);
       });
+      return accepted && lease.isCurrent && !isDisposed ? catalog : null;
     } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _report(error, stackTrace, 'emoji.loadIndex');
+      if (isDisposed || !lease.isCurrent) return null;
+      _failedEmojiCatalogs.add(siteUrl);
+      _report(error, stackTrace, 'emoji.loadCatalog');
       // Shortcodes remain valid text when autocomplete metadata is absent.
+      return null;
     } finally {
-      if (!isDisposed) lease.commit(() => _emojis.finish(siteUrl));
+      if (!isDisposed) lease.commit(() => _emojiCatalogs.finish(siteUrl));
+    }
+  }
+
+  Future<Map<String, List<String>>?> ensureEmojiSearchAliases(String siteUrl) =>
+      _emojiAliasesRequest(siteUrl, refresh: false);
+
+  Future<Map<String, List<String>>?> refreshEmojiSearchAliases(
+    String siteUrl,
+  ) => _emojiAliasesRequest(siteUrl, refresh: true);
+
+  Future<Map<String, List<String>>?> _emojiAliasesRequest(
+    String siteUrl, {
+    required bool refresh,
+  }) {
+    if (isDisposed) return Future.value(null);
+    final cached = _emojiSearchAliases[siteUrl];
+    if (!refresh && cached != null) return Future.value(cached);
+    final active = _emojiAliasRequests[siteUrl];
+    if (active != null) return active;
+    if (!refresh && _failedEmojiSearchAliases.contains(siteUrl)) {
+      return Future.value(null);
+    }
+    if (refresh) _failedEmojiSearchAliases.remove(siteUrl);
+
+    late final Future<Map<String, List<String>>?> request;
+    request = _loadEmojiSearchAliases(siteUrl, refresh: refresh).whenComplete(
+      () {
+        if (identical(_emojiAliasRequests[siteUrl], request)) {
+          final removed = _emojiAliasRequests.remove(siteUrl);
+          assert(identical(removed, request));
+        }
+      },
+    );
+    _emojiAliasRequests[siteUrl] = request;
+    return request;
+  }
+
+  Future<Map<String, List<String>>?> _loadEmojiSearchAliases(
+    String siteUrl, {
+    required bool refresh,
+  }) async {
+    if (isDisposed ||
+        !_emojiSearchAliases.start(siteUrl, maxAttempts, refresh: refresh)) {
+      return _emojiSearchAliases[siteUrl];
+    }
+    final lease = lifecycle.capture(siteUrl);
+
+    try {
+      final aliases = await _withCredentials(
+        siteUrl,
+        lease,
+        (apiKey, clientId) => loadEmojiSearchAliases(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+        ),
+      );
+      if (aliases == null || isDisposed) return null;
+
+      final immutable = _immutableAliases(aliases);
+      final accepted = lease.commit(() {
+        _failedEmojiSearchAliases.remove(siteUrl);
+        _emojiSearchAliases.complete(siteUrl, immutable);
+      });
+      return accepted && lease.isCurrent && !isDisposed ? immutable : null;
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return null;
+      _failedEmojiSearchAliases.add(siteUrl);
+      _report(error, stackTrace, 'emoji.loadSearchAliases');
+      // Name search remains useful when this optional localized index fails.
+      return null;
+    } finally {
+      if (!isDisposed) lease.commit(() => _emojiSearchAliases.finish(siteUrl));
     }
   }
 
   List<SiteEmoji> searchEmojis(String siteUrl, String query, {int limit = 7}) {
     if (limit <= 0) return const [];
-    final all = _emojis[siteUrl];
-    if (all == null) return const [];
+    final cappedLimit = limit > 50 ? 50 : limit;
+    final catalog = _emojiCatalogs[siteUrl];
+    if (catalog == null) return const [];
 
     final needle = query.toLowerCase();
     final best = <(int, SiteEmoji)>[];
-    for (final emoji in all) {
-      final rank = emoji.rank(needle);
+    final available = catalog.byName.values.toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    final aliases = _emojiSearchAliases[siteUrl] ?? const {};
+    for (final emoji in available) {
+      final name = emoji.name.toLowerCase();
+      final rank = name.startsWith(needle)
+          ? 0
+          : (aliases[emoji.name]?.any(
+                  (alias) => alias.toLowerCase().startsWith(needle),
+                ) ??
+                false)
+          ? 1
+          : name.indexOf(needle) > 0
+          ? 2
+          : null;
       if (rank == null) continue;
 
       final candidate = (rank, emoji);
@@ -342,19 +489,25 @@ final class SitePresentationController extends FrameSafeNotifier {
           _compareEmoji(best[index], candidate) <= 0) {
         index++;
       }
-      if (index >= limit) continue;
+      if (index >= cappedLimit) continue;
 
       best.insert(index, candidate);
-      if (best.length > limit) best.removeLast();
+      if (best.length > cappedLimit) best.removeLast();
     }
     return [for (final match in best) match.$2];
   }
 
   static int _compareEmoji((int, SiteEmoji) a, (int, SiteEmoji) b) {
     if (a.$1 != b.$1) return a.$1.compareTo(b.$1);
-    final length = a.$2.name.length.compareTo(b.$2.name.length);
-    return length != 0 ? length : a.$2.name.compareTo(b.$2.name);
+    return a.$2.name.compareTo(b.$2.name);
   }
+
+  static Map<String, List<String>> _immutableAliases(
+    Map<String, List<String>> aliases,
+  ) => Map<String, List<String>>.unmodifiable({
+    for (final entry in aliases.entries)
+      entry.key: List<String>.unmodifiable(entry.value),
+  });
 
   bool get _persistedIsFresh =>
       persistedFreshness > Duration.zero &&
@@ -394,12 +547,18 @@ final class SitePresentationController extends FrameSafeNotifier {
     final oldAppearance = appearanceFor(siteUrl);
     final oldConfig = configFor(siteUrl);
     final customChanged = _customEmojis[siteUrl]?.isNotEmpty ?? false;
-    final emojiIndexChanged = _emojis.contains(siteUrl);
+    final catalogRequest = _emojiCatalogRequests.remove(siteUrl);
+    catalogRequest?.ignore();
+    final aliasRequest = _emojiAliasRequests.remove(siteUrl);
+    aliasRequest?.ignore();
 
     _appearances.forget(siteUrl);
     _configs.forget(siteUrl);
     _customEmojis.forget(siteUrl);
-    _emojis.forget(siteUrl);
+    _emojiCatalogs.forget(siteUrl);
+    _emojiSearchAliases.forget(siteUrl);
+    _failedEmojiCatalogs.remove(siteUrl);
+    _failedEmojiSearchAliases.remove(siteUrl);
     _presentationTokens.remove(siteUrl);
 
     if (oldAppearance != appearanceFor(siteUrl) ||
@@ -407,7 +566,6 @@ final class SitePresentationController extends FrameSafeNotifier {
         customChanged) {
       notifySafely();
     }
-    if (emojiIndexChanged) onEmojiIndexChanged();
   }
 
   void _notifyPresentationChanged(String siteUrl) {

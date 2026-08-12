@@ -42,6 +42,13 @@ class ArtIcon extends SuggestionArt {
   final int? colorValue;
 }
 
+/// A suggestion row that performs an action instead of completing text.
+///
+/// Keeping this distinct from an empty [value] means keyboard and pointer
+/// activation can share the same row without teaching the completion writer
+/// that an empty emoji is meaningful.
+enum ComposerSuggestionAction { openEmojiPicker }
+
 /// One row the popup can offer, and what accepting it writes.
 @immutable
 class ComposerSuggestion {
@@ -51,6 +58,7 @@ class ComposerSuggestion {
     required this.label,
     this.detail,
     this.art,
+    this.action,
   });
 
   /// Which trigger this answers, which is what accepting it writes the sigils
@@ -68,18 +76,24 @@ class ComposerSuggestion {
   final String? detail;
 
   final SuggestionArt? art;
+
+  /// Present when selecting this row should open another surface rather than
+  /// write [value]. For [ComposerSuggestionAction.openEmojiPicker], [value]
+  /// carries the current filter into that surface.
+  final ComposerSuggestionAction? action;
 }
 
 /// Where the composer's completions come from.
 ///
 /// Functions supplied by the shell, which owns the site, the key and the
 /// caches — the composer only decides *when* to ask, exactly as it does for
-/// `onSaveDraft`. Emoji are synchronous because they are a list already in
-/// hand; people and places are not.
+/// `onSaveDraft`. Emoji use the asynchronous path too: their catalog and
+/// localized aliases can land independently, and stale answers must not
+/// replace a newer shortcode query.
 typedef ComposerSearch = ({
   Future<List<ComposerSuggestion>> Function(String term) users,
   Future<List<ComposerSuggestion>> Function(String term) hashtags,
-  List<ComposerSuggestion> Function(String query) emojis,
+  Future<List<ComposerSuggestion>> Function(String query) emojis,
 });
 
 /// The mention and emoji popup for one composer.
@@ -163,6 +177,7 @@ class ComposerAutocomplete extends ChangeNotifier {
     }
 
     if (next == _trigger) return;
+    final previousKind = _trigger?.kind;
     _timer?.cancel();
     _timer = null;
     _queuedRemoteSearch = null;
@@ -170,24 +185,18 @@ class ComposerAutocomplete extends ChangeNotifier {
     _epoch++;
     _selected = 0;
 
-    switch (next.kind) {
-      case ComposerTriggerKind.emoji:
-        // Nothing to race: the list is already here.
-        _suggestions = _take(search?.emojis(next.query) ?? const []);
-        notifyListeners();
-      case ComposerTriggerKind.mention:
-      case ComposerTriggerKind.hashtag:
-        // The old rows stay up while the new ones are on their way. Blanking
-        // the list per keystroke makes the popup flash rather than narrow.
-        notifyListeners();
-        final epoch = _epoch;
-        late final Timer timer;
-        timer = Timer(debounce, () {
-          if (identical(_timer, timer)) _timer = null;
-          _enqueueRemoteSearch((trigger: next, epoch: epoch));
-        });
-        _timer = timer;
-    }
+    // Rows from the same kind stay visible while the new answer is loading;
+    // that avoids a flash on every keystroke. A different kind's rows would
+    // be actively misleading, so those are cleared immediately.
+    if (previousKind != next.kind) _suggestions = const [];
+    notifyListeners();
+    final epoch = _epoch;
+    late final Timer timer;
+    timer = Timer(debounce, () {
+      if (identical(_timer, timer)) _timer = null;
+      _enqueueRemoteSearch((trigger: next, epoch: epoch));
+    });
+    _timer = timer;
   }
 
   void _enqueueRemoteSearch(({ComposerTrigger trigger, int epoch}) request) {
@@ -226,7 +235,7 @@ class ComposerAutocomplete extends ChangeNotifier {
     final find = switch (asked.kind) {
       ComposerTriggerKind.mention => search?.users,
       ComposerTriggerKind.hashtag => search?.hashtags,
-      ComposerTriggerKind.emoji => null,
+      ComposerTriggerKind.emoji => search?.emojis,
     };
     if (find == null) return;
 
@@ -250,8 +259,7 @@ class ComposerAutocomplete extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Re-runs the synchronous half, for a list that landed after the popup
-  /// opened over it.
+  /// Re-runs emoji search when its catalog or localized aliases have landed.
   ///
   /// A switch rather than an inequality, so a fourth kind is a compile error
   /// here. Nothing else in this file would have said a word about it.
@@ -261,9 +269,14 @@ class ComposerAutocomplete extends ChangeNotifier {
 
     switch (open.kind) {
       case ComposerTriggerKind.emoji:
-        _suggestions = _take(search?.emojis(open.query) ?? const []);
+        _timer?.cancel();
+        _timer = null;
+        _queuedRemoteSearch = null;
+        _epoch++;
         _selected = 0;
         notifyListeners();
+        _enqueueRemoteSearch((trigger: open, epoch: _epoch));
+        return;
       // Both of these asked the site, and the site's answer does not go stale
       // because a *different* list arrived.
       case ComposerTriggerKind.mention:

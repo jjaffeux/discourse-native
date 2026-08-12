@@ -208,6 +208,7 @@ class ComposerController extends ChangeNotifier {
     this._target, {
     this.onSaveDraft,
     ComposerSearch? search,
+    this.onEmojiAccepted,
     String Function(String name)? resolveEmoji,
     ComposerPills? pills,
     ComposerQuoteContentsFormatter? formatQuoteContents,
@@ -264,6 +265,10 @@ class ComposerController extends ChangeNotifier {
   /// keep asking a site that is not answering. The local copy is still being
   /// written, so nothing is lost by stopping.
   static const int maxDraftFailures = 5;
+
+  /// Records an emoji accepted from autocomplete. Picker selections record
+  /// themselves in the picker context before returning to the composer.
+  final void Function(String code)? onEmojiAccepted;
 
   /// Write validation text originates in a response body. Keep the useful
   /// classification and status in diagnostics without retaining that text.
@@ -642,6 +647,52 @@ class ComposerController extends ChangeNotifier {
     );
   }
 
+  /// Inserts one canonical emoji shortcode at the current selection.
+  ///
+  /// A picker opened from `:part` completes that run, just as the web editor
+  /// does. Otherwise the selection is replaced and prose immediately before
+  /// it is separated from the shortcode by one space. No trailing space is
+  /// forced: adjacent emoji and punctuation remain possible.
+  void insertEmoji(String bareCode) {
+    if (_disposed) return;
+    final code = bareCode
+        .replaceFirst(RegExp(r'^:'), '')
+        .replaceFirst(RegExp(r':$'), '');
+    if (!RegExp(r'^[A-Za-z0-9_+\-]+(?::t[2-6])?$').hasMatch(code)) return;
+
+    final old = text.value;
+    final selection = old.selection.isValid
+        ? old.selection
+        : TextSelection.collapsed(offset: old.text.length);
+    var start = selection.start;
+    final end = selection.end;
+    var insertion = ':$code:';
+
+    if (selection.isCollapsed) {
+      final before = old.text.substring(0, start);
+      final partial = RegExp(r':[A-Za-z0-9_+\-]*$').firstMatch(before);
+      if (partial != null && _emojiSigilOpensWord(before, partial.start)) {
+        start = partial.start;
+      } else if (start > 0 && !RegExp(r'\s').hasMatch(old.text[start - 1])) {
+        insertion = ' $insertion';
+      }
+    } else if (start > 0 && !RegExp(r'\s').hasMatch(old.text[start - 1])) {
+      insertion = ' $insertion';
+    }
+
+    text.value = old.copyWith(
+      text: old.text.replaceRange(start, end, insertion),
+      selection: TextSelection.collapsed(offset: start + insertion.length),
+      composing: TextRange.empty,
+    );
+    autocomplete.close();
+  }
+
+  static bool _emojiSigilOpensWord(String text, int sigil) {
+    if (sigil == 0) return true;
+    return RegExp(r'''[\s([{<"'`]''').hasMatch(text[sigil - 1]);
+  }
+
   /// Inserts a markdown block over the current selection, separated from the
   /// prose on either side by a blank line.
   ///
@@ -750,11 +801,25 @@ class ComposerController extends ChangeNotifier {
   /// would be text the site never hears about. It also keeps the insertion on
   /// the undo stack, which an assignment with no valid selection would not.
   void acceptSuggestion(ComposerSuggestion suggestion) {
-    if (_disposed) return;
+    if (_disposed || suggestion.action != null) return;
     final open = autocomplete.trigger;
     if (open == null) return;
 
     text.value = applyComposerCompletion(text.value, open, suggestion.value);
+    autocomplete.close();
+    if (suggestion.kind == ComposerTriggerKind.emoji) {
+      onEmojiAccepted?.call(suggestion.value);
+    }
+  }
+
+  bool get isDisposed => _disposed;
+
+  /// Removes an emoji completion that became disallowed while metadata was
+  /// loading, without disturbing mention or hashtag completion.
+  void closeEmojiAutocomplete() {
+    if (_disposed || autocomplete.trigger?.kind != ComposerTriggerKind.emoji) {
+      return;
+    }
     autocomplete.close();
   }
 

@@ -53,7 +53,7 @@ void main() {
           if (hashtagGate != null) await hashtagGate!.future;
           return places[term] ?? const [];
         },
-        emojis: (query) => [
+        emojis: (query) async => [
           for (final name in const ['smile', 'smirk', 'sad'])
             if (name.startsWith(query)) emoji(name),
         ],
@@ -78,8 +78,13 @@ void main() {
   tearDown(() => popup.dispose());
 
   group('emoji', () {
-    test('answers without waiting, because the list is already here', () {
+    testWidgets('loads emoji through the same race-safe async path', (
+      tester,
+    ) async {
       popup.update(typed('a :sm'));
+
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
 
       expect(popup.isOpen, isTrue);
       expect(popup.suggestions.map((s) => s.value), ['smile', 'smirk']);
@@ -90,10 +95,15 @@ void main() {
       expect(popup.isOpen, isFalse);
     });
 
-    test('closes when nothing matches, rather than showing an empty box', () {
-      popup.update(typed('a :zz'));
-      expect(popup.isOpen, isFalse);
-    });
+    testWidgets(
+      'closes when nothing matches, rather than showing an empty box',
+      (tester) async {
+        popup.update(typed('a :zz'));
+        await tester.pump(ComposerAutocomplete.debounce);
+        await tester.pump();
+        expect(popup.isOpen, isFalse);
+      },
+    );
   });
 
   group('mentions', () {
@@ -126,6 +136,7 @@ void main() {
 
       popup.update(typed('a :sm'));
       await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
 
       expect(asked, isEmpty);
       expect(popup.suggestions.map((suggestion) => suggestion.value), [
@@ -244,8 +255,12 @@ void main() {
   });
 
   group('the highlight', () {
-    test('wraps around rather than stopping at the ends', () {
+    testWidgets('wraps around rather than stopping at the ends', (
+      tester,
+    ) async {
       popup.update(typed('a :sm'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
       expect(popup.selectedIndex, 0);
 
       popup.moveSelection(1);
@@ -265,8 +280,10 @@ void main() {
       },
     );
 
-    test('a late key cannot move a disposed list', () {
+    testWidgets('a late key cannot move a disposed list', (tester) async {
       popup.update(typed('a :sm'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
       expect(popup.isOpen, isTrue);
 
       popup.dispose();
@@ -279,8 +296,10 @@ void main() {
   });
 
   group('dismissing', () {
-    test('survives the next keystroke on the same run', () {
+    testWidgets('survives the next keystroke on the same run', (tester) async {
       popup.update(typed('a :sm'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
       popup.dismiss();
       expect(popup.isOpen, isFalse);
 
@@ -290,11 +309,15 @@ void main() {
       expect(popup.isOpen, isFalse);
     });
 
-    test('lets the next run open one', () {
+    testWidgets('lets the next run open one', (tester) async {
       popup.update(typed('a :sm'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
       popup.dismiss();
 
       popup.update(typed('a :sm and :sm'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
       expect(popup.isOpen, isTrue);
     });
   });

@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 import '../data/authenticator.dart';
 import '../data/discourse_api.dart';
 import '../data/draft_store.dart';
+import '../data/emoji_picker_store.dart';
 import '../data/forum_tab_store.dart';
 import '../data/instance_store.dart';
 import '../data/site_lifecycle.dart';
@@ -119,6 +120,7 @@ class ShellController extends FrameSafeNotifier {
     required this.api,
     required this.authenticator,
     required this.drafts,
+    EmojiPickerStore? emojiPickerStore,
     ForumTabStore? forumTabs,
     this.forumTabsEnabled = true,
     Store? store,
@@ -130,6 +132,7 @@ class ShellController extends FrameSafeNotifier {
     this.ownsApi = true,
     this.topicLoadTimeout = const Duration(seconds: 30),
   }) : forumTabs = forumTabs ?? ForumTabStore.memory(),
+       emojiPickerStore = emojiPickerStore ?? EmojiPickerStore(),
        assert(topicLoadTimeout > Duration.zero),
        store = store ?? Store(),
        lifecycle = lifecycle ?? SiteLifecycle(),
@@ -172,6 +175,7 @@ class ShellController extends FrameSafeNotifier {
 
   final Authenticator authenticator;
   final DraftStore drafts;
+  final EmojiPickerStore emojiPickerStore;
   final SiteLifecycle lifecycle;
   final ResenhaDiagnosticsRecorder resenhaDiagnostics;
 
@@ -387,14 +391,14 @@ class ShellController extends FrameSafeNotifier {
       loadAppearance: _loadSiteAppearance,
       loadConfig: _loadSiteConfig,
       loadCustomEmojis: _loadCustomEmojis,
-      loadEmojis: api.emojis,
+      loadEmojiCatalog: _loadEmojiCatalog,
+      loadEmojiSearchAliases: _loadEmojiSearchAliases,
       credentials: authenticator,
       lifecycle: lifecycle,
       readPersistedAppearance: (siteUrl) => _instanceAt(siteUrl)?.appearance,
       readPersistedConfig: (siteUrl) => _instanceAt(siteUrl)?.config,
       onAppearanceLoaded: _persistSiteAppearance,
       onConfigLoaded: _persistSiteConfig,
-      onEmojiIndexChanged: () => _composer?.autocomplete.refresh(),
     );
     controller.addListener(_notify);
     return controller;
@@ -443,6 +447,34 @@ class ShellController extends FrameSafeNotifier {
     final authenticate =
         apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
     return api.customEmojis(
+      siteUrl: siteUrl,
+      apiKey: authenticate ? apiKey : null,
+      clientId: authenticate ? clientId : null,
+    );
+  }
+
+  Future<SiteEmojiCatalog> _loadEmojiCatalog({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) {
+    final authenticate =
+        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
+    return api.emojiCatalog(
+      siteUrl: siteUrl,
+      apiKey: authenticate ? apiKey : null,
+      clientId: authenticate ? clientId : null,
+    );
+  }
+
+  Future<Map<String, List<String>>> _loadEmojiSearchAliases({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) {
+    final authenticate =
+        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
+    return api.emojiSearchAliases(
       siteUrl: siteUrl,
       apiKey: authenticate ? apiKey : null,
       clientId: authenticate ? clientId : null,
@@ -2678,6 +2710,15 @@ class ShellController extends FrameSafeNotifier {
       target,
       onSaveDraft: persistsDraft ? _saveDraft : null,
       search: _composerSearch(target),
+      onEmojiAccepted: (code) => unawaited(
+        emojiPickerStore.trackEmoji(
+          siteUrl: target.siteUrl,
+          context: target.isChat
+              ? EmojiPickerContext.chat
+              : EmojiPickerContext.topic,
+          emoji: code,
+        ),
+      ),
       resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
       pills: _composerPills(target),
       formatQuoteContents: (block) =>
@@ -3150,7 +3191,9 @@ class ShellController extends FrameSafeNotifier {
   /// must not send the search — or the name it completes — to the site the
   /// user switched to.
   ComposerSearch _composerSearch(ComposerTarget target) {
-    unawaited(ensureEmojis(target.siteUrl));
+    if (siteConfigFor(target.siteUrl).emojiEnabled) {
+      unawaited(ensureEmojiCatalog(target.siteUrl));
+    }
 
     return (
       users: (term) async {
@@ -3186,15 +3229,40 @@ class ShellController extends FrameSafeNotifier {
             ),
         ];
       },
-      emojis: (query) => [
-        for (final emoji in searchEmojis(target.siteUrl, query))
+      emojis: (query) async {
+        if (!siteConfigFor(target.siteUrl).emojiEnabled) return const [];
+        final catalog = await ensureEmojiCatalog(target.siteUrl);
+        if (catalog == null ||
+            catalog.isEmpty ||
+            !siteConfigFor(target.siteUrl).emojiEnabled) {
+          return const [];
+        }
+
+        // Aliases are optional. Waiting for them gives the first query the
+        // forum's active-locale vocabulary; a failed request leaves the
+        // catalog's canonical-name search fully usable.
+        await ensureEmojiSearchAliases(target.siteUrl);
+        await emojiPickerStore.ensureLoaded(siteUrl: target.siteUrl);
+        if (!siteConfigFor(target.siteUrl).emojiEnabled) return const [];
+        final tone = emojiPickerStore.skinToneFor(siteUrl: target.siteUrl);
+        final found = searchEmojis(target.siteUrl, query, limit: 5);
+        return [
+          for (final emoji in found)
+            ComposerSuggestion(
+              kind: ComposerTriggerKind.emoji,
+              value: emoji.codeFor(tone),
+              label: emoji.codeFor(tone),
+              art: ArtImage(emoji.urlFor(tone)),
+            ),
           ComposerSuggestion(
             kind: ComposerTriggerKind.emoji,
-            value: emoji.name,
-            label: emoji.name,
-            art: ArtImage(emoji.url),
+            value: query,
+            label: 'More emoji',
+            art: const ArtIcon('discourse-emojis'),
+            action: ComposerSuggestionAction.openEmojiPicker,
           ),
-      ],
+        ];
+      },
     );
   }
 
@@ -4941,8 +5009,21 @@ class ShellController extends FrameSafeNotifier {
     await topicFeeds.loadMore(instance: instance, destinationId: destinationId);
   }
 
-  Future<void> ensureEmojis(String siteUrl) =>
-      _presentation.ensureEmojis(siteUrl);
+  SiteEmojiCatalog? emojiCatalogFor(String siteUrl) =>
+      _presentation.emojiCatalogFor(siteUrl);
+
+  Future<SiteEmojiCatalog?> ensureEmojiCatalog(String siteUrl) =>
+      _presentation.ensureEmojiCatalog(siteUrl);
+
+  Future<SiteEmojiCatalog?> refreshEmojiCatalog(String siteUrl) =>
+      _presentation.refreshEmojiCatalog(siteUrl);
+
+  Future<Map<String, List<String>>?> ensureEmojiSearchAliases(String siteUrl) =>
+      _presentation.ensureEmojiSearchAliases(siteUrl);
+
+  Future<Map<String, List<String>>?> refreshEmojiSearchAliases(
+    String siteUrl,
+  ) => _presentation.refreshEmojiSearchAliases(siteUrl);
 
   List<SiteEmoji> searchEmojis(String siteUrl, String query, {int limit = 7}) =>
       _presentation.searchEmojis(siteUrl, query, limit: limit);
@@ -5352,6 +5433,9 @@ class ShellController extends FrameSafeNotifier {
   Future<void> _persistSiteConfig(String siteUrl, SiteConfig config) async {
     if (currentInstance?.url == siteUrl) {
       search.selectSite(siteUrl, minimumLength: config.minSearchTermLength);
+    }
+    if (!config.emojiEnabled && _composer?.target.siteUrl == siteUrl) {
+      _composer?.closeEmojiAutocomplete();
     }
     final held = _instanceAt(siteUrl);
     if (held == null || held.config == config) return;

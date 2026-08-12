@@ -99,7 +99,7 @@ void main() {
           throw StateError('search failed');
         },
         hashtags: (_) async => const [],
-        emojis: (_) => const [],
+        emojis: (_) async => const [],
       ),
     );
     addTearDown(composer.dispose);
@@ -346,6 +346,81 @@ void main() {
     expect(composer.canSubmit, isFalse);
     composer.text.text = 'Changed body';
     expect(composer.canSubmit, isTrue);
+  });
+
+  group('emoji insertion', () {
+    test('replaces an incomplete shortcode at the caret', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.value = _typed('hello :smi');
+
+      composer.insertEmoji('smile');
+
+      expect(composer.text.text, 'hello :smile:');
+      expect(composer.text.selection.baseOffset, 13);
+    });
+
+    test('replaces a selection and separates it from preceding prose', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.value = const TextEditingValue(
+        text: 'helloworld',
+        selection: TextSelection(baseOffset: 5, extentOffset: 10),
+      );
+
+      composer.insertEmoji(':wave:t3:');
+
+      expect(composer.text.text, 'hello :wave:t3:');
+      expect(composer.text.value.composing, TextRange.empty);
+    });
+
+    test('does not mistake a colon inside a word for a partial shortcode', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.value = _typed('time:smi');
+
+      composer.insertEmoji('smile');
+
+      expect(composer.text.text, 'time:smi :smile:');
+    });
+
+    test('rejects noncanonical and t1 codes', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.value = _typed('draft');
+
+      composer.insertEmoji('wave:t1');
+      composer.insertEmoji('not valid');
+
+      expect(composer.text.text, 'draft');
+    });
+
+    testWidgets('closes an open emoji trigger when the feature is disabled', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _target,
+        search: (
+          users: (_) async => const [],
+          hashtags: (_) async => const [],
+          emojis: (_) async => const [
+            ComposerSuggestion(
+              kind: ComposerTriggerKind.emoji,
+              value: 'wave',
+              label: 'wave',
+            ),
+          ],
+        ),
+      );
+      addTearDown(composer.dispose);
+      composer.text.value = _typed(':wa');
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
+      expect(composer.autocomplete.isOpen, isTrue);
+
+      composer.closeEmojiAutocomplete();
+      expect(composer.autocomplete.isOpen, isFalse);
+    });
   });
 
   group('image uploads', () {

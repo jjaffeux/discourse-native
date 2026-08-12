@@ -9,7 +9,16 @@ import 'avatar_image.dart';
 import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
 import 'emoji.dart';
+import 'emoji_picker.dart';
 import 'shell_metrics.dart';
+
+typedef ComposerSuggestionActionHandler =
+    Future<void> Function({
+      required BuildContext context,
+      required ComposerController composer,
+      required ComposerSuggestion suggestion,
+      Rect? anchor,
+    });
 
 /// The composer's text field, with the completion list over it.
 ///
@@ -22,12 +31,16 @@ class ComposerSuggestionField extends StatefulWidget {
     super.key,
     required this.composer,
     required this.field,
+    this.onAction,
   });
 
   final ComposerController composer;
 
   /// The field itself, built by the panel — this widget only wraps it.
   final Widget field;
+
+  /// Handles rows that open a secondary surface instead of completing text.
+  final ComposerSuggestionActionHandler? onAction;
 
   @override
   State<ComposerSuggestionField> createState() =>
@@ -158,7 +171,24 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
 
   void _accept() {
     final choice = _popup.selected;
-    if (choice != null) widget.composer.acceptSuggestion(choice);
+    if (choice != null) _activate(choice);
+  }
+
+  void _activate(ComposerSuggestion choice) {
+    if (choice.action == null) {
+      widget.composer.acceptSuggestion(choice);
+      return;
+    }
+
+    _popup.close();
+    widget.onAction
+        ?.call(
+          context: _anchorKey.currentContext ?? context,
+          composer: widget.composer,
+          suggestion: choice,
+          anchor: _anchor.value,
+        )
+        .ignore();
   }
 
   @override
@@ -179,18 +209,21 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
             ),
             child: child!,
           ),
-          child: _Suggestions(composer: widget.composer),
+          child: _Suggestions(composer: widget.composer, onTap: _activate),
         ),
-        child: KeyedSubtree(key: _anchorKey, child: widget.field),
+        child: EmojiPickerAnchor(
+          child: KeyedSubtree(key: _anchorKey, child: widget.field),
+        ),
       ),
     );
   }
 }
 
 class _Suggestions extends StatelessWidget {
-  const _Suggestions({required this.composer});
+  const _Suggestions({required this.composer, required this.onTap});
 
   final ComposerController composer;
+  final ValueChanged<ComposerSuggestion> onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +253,7 @@ class _Suggestions extends StatelessWidget {
                   _SuggestionRow(
                     suggestion: suggestion,
                     isSelected: index == popup.selectedIndex,
-                    onTap: () => composer.acceptSuggestion(suggestion),
+                    onTap: () => onTap(suggestion),
                   ),
               ],
             ),
