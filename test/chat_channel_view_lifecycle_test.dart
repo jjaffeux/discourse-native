@@ -20,6 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 
@@ -475,7 +476,7 @@ void main() {
     await tester.pumpWidget(
       _TestStreamView(
         controller: controller,
-        message: message,
+        messages: [message],
         stream: const ChatStreamState(
           messageIds: [1],
           canLoadMoreFuture: true,
@@ -495,6 +496,73 @@ void main() {
     expect(find.text('3'), findsOneWidget);
     expect(
       find.bySemanticsLabel('Jump to latest messages, 3 new'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('the day crossing the top of chat stays pinned', (tester) async {
+    final api = _ChatApi(openPages: const {});
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    final firstDay = DateTime(2020, 1, 2);
+    final secondDay = DateTime(2020, 1, 3);
+    final messages = [
+      for (var id = 1; id <= 48; id++)
+        _message(
+          id,
+          createdAt: (id <= 24 ? firstDay : secondDay).add(
+            Duration(minutes: id <= 24 ? id : id - 24),
+          ),
+        ),
+    ];
+    controller.store
+      ..put(firstSite, _channel(lastRead: 48))
+      ..putAll(firstSite, messages);
+
+    final theme = AppTheme.dark;
+    await tester.pumpWidget(
+      _TestStreamView(
+        controller: controller,
+        messages: messages,
+        stream: ChatStreamState(
+          messageIds: [for (final message in messages) message.id],
+          fetchedOnce: true,
+          fetches: 1,
+        ),
+        theme: theme,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final floatingSecond = find.byKey(
+      ValueKey(('chat-floating-day', secondDay)),
+    );
+    expect(floatingSecond, findsOneWidget);
+    expect(tester.getSize(floatingSecond).height, 44);
+    final floatingDecoration = tester
+        .widgetList<Container>(
+          find.descendant(of: floatingSecond, matching: find.byType(Container)),
+        )
+        .map((container) => container.decoration)
+        .whereType<BoxDecoration>()
+        .single;
+    expect(floatingDecoration.color, theme.colorScheme.surfaceContainerLow);
+    expect(
+      floatingDecoration.border,
+      Border.all(color: theme.colorScheme.surfaceContainerHigh),
+    );
+
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    list.listController!.jumpToItem(
+      index: 35,
+      scrollController: list.controller!,
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
+
+    expect(floatingSecond, findsNothing);
+    expect(
+      find.byKey(ValueKey(('chat-floating-day', firstDay))),
       findsOneWidget,
     );
   });
@@ -571,24 +639,26 @@ final class _TestView extends StatelessWidget {
 final class _TestStreamView extends StatelessWidget {
   const _TestStreamView({
     required this.controller,
-    required this.message,
+    required this.messages,
     required this.stream,
+    this.theme,
   });
 
   final ShellController controller;
-  final ChatMessage message;
+  final List<ChatMessage> messages;
   final ChatStreamState stream;
+  final ThemeData? theme;
 
   @override
   Widget build(BuildContext context) => ShellScope(
     controller: controller,
     child: MaterialApp(
-      theme: AppTheme.light,
+      theme: theme ?? AppTheme.light,
       home: Scaffold(
         body: ChatMessageStream(
           siteUrl: 'https://one.example',
           target: const ChatChannelTarget(9),
-          items: buildChatStream([message]),
+          items: buildChatStream(messages),
           stream: stream,
         ),
       ),
@@ -701,13 +771,17 @@ ChatMessagePage _messagesPage(
   targetMessageId: null,
 );
 
-ChatMessage _message(int id, {String? cooked, ChatThreadPreview? thread}) =>
-    ChatMessage(
-      id: id,
-      channelId: 9,
-      cooked: cooked ?? '<p>Message $id</p>',
-      author: const ChatMessageAuthor(id: 2, username: 'sam'),
-      createdAt: DateTime.utc(2026, 1, 1).add(Duration(minutes: id)),
-      threadId: thread?.threadId,
-      thread: thread,
-    );
+ChatMessage _message(
+  int id, {
+  String? cooked,
+  ChatThreadPreview? thread,
+  DateTime? createdAt,
+}) => ChatMessage(
+  id: id,
+  channelId: 9,
+  cooked: cooked ?? '<p>Message $id</p>',
+  author: const ChatMessageAuthor(id: 2, username: 'sam'),
+  createdAt: createdAt ?? DateTime.utc(2026, 1, 1).add(Duration(minutes: id)),
+  threadId: thread?.threadId,
+  thread: thread,
+);
