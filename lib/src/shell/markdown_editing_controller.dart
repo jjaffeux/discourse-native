@@ -238,6 +238,7 @@ class MarkdownEditingController extends TextEditingController {
   List<PollComposerBlock> _pollBlocks = const [];
   Set<int> _collapsedPollStarts = const {};
   PollComposerBlock? _caretSuppressedPoll;
+  int? _hoveredPollStart;
   final Map<int, GlobalKey> _pollPillKeys = {};
 
   /// Safely projectable poll occurrences in the current raw document.
@@ -249,6 +250,20 @@ class MarkdownEditingController extends TextEditingController {
 
   bool isPollCollapsed(PollComposerBlock block) =>
       _collapsedPollStarts.contains(block.start);
+
+  bool isPollHovered(PollComposerBlock block) =>
+      _hoveredPollStart == block.start;
+
+  /// Updates hover from the editor-level mouse region because EditableText
+  /// deliberately keeps its embedded WidgetSpans out of pointer hit testing.
+  void updatePollHoverAtGlobalPosition(Offset? globalPosition) {
+    final hovered = globalPosition == null
+        ? null
+        : collapsedPollAtGlobalPosition(globalPosition)?.start;
+    if (_hoveredPollStart == hovered) return;
+    _hoveredPollStart = hovered;
+    artworkArrived();
+  }
 
   /// The first editable offset on the line following [block].
   ///
@@ -560,6 +575,9 @@ class MarkdownEditingController extends TextEditingController {
           block,
     ];
     _collapsedPollStarts = {for (final block in collapsedPolls) block.start};
+    if (!_collapsedPollStarts.contains(_hoveredPollStart)) {
+      _hoveredPollStart = null;
+    }
     final pollProjection = Object.hash(
       pollMaximumOptions,
       Object.hashAll(
@@ -568,6 +586,7 @@ class MarkdownEditingController extends TextEditingController {
             block.start,
             block.end,
             isPillSelectedForKeyboard(block),
+            isPollHovered(block),
           ),
         ),
       ),
@@ -725,6 +744,7 @@ class MarkdownEditingController extends TextEditingController {
             ),
             maximumOptions: pollMaximumOptions,
             highlighted: isPillSelectedForKeyboard(block),
+            hovered: isPollHovered(block),
             followedByLineBreak: pollCaretAfter(block) > block.end,
           ),
         ),

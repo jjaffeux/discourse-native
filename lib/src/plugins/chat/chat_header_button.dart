@@ -230,7 +230,7 @@ class _UrgentBadge extends StatelessWidget {
         label,
         style: theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.surface,
-          fontSize: 10,
+          fontSize: DiscourseTypography.fontDown3,
           height: 1,
           fontWeight: FontWeight.w700,
         ),

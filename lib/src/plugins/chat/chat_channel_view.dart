@@ -1345,7 +1345,7 @@ class _JumpToPresent extends StatelessWidget {
                             pendingCount > 99 ? '99+' : '$pendingCount',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onPrimary,
-                              fontSize: 10,
+                              fontSize: DiscourseTypography.fontDown3,
                               fontWeight: FontWeight.w700,
                             ),
                           ),

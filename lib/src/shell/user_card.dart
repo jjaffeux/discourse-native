@@ -358,7 +358,7 @@ class _CardContent extends StatelessWidget {
                         card.displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
+                        style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -366,9 +366,7 @@ class _CardContent extends StatelessWidget {
                         '@${card.username}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        style: theme.textTheme.titleSmall,
                       ),
                       if (card.title case final title?) ...[
                         const SizedBox(height: 2),
@@ -376,7 +374,7 @@ class _CardContent extends StatelessWidget {
                           title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall,
+                          style: theme.textTheme.bodyMedium,
                         ),
                       ],
                       if (card.isStaff || card.isSuspended) ...[
@@ -406,7 +404,9 @@ class _CardContent extends StatelessWidget {
               const SizedBox(height: 14),
               CookedHtml(
                 html: bio,
-                textStyle: theme.textTheme.bodySmall,
+                textStyle: theme.textTheme.bodyMedium?.copyWith(
+                  height: DiscourseTypography.lineHeightCooked,
+                ),
                 siteUrl: siteUrl,
               ),
             ],

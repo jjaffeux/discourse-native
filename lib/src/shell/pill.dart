@@ -7,9 +7,8 @@
 ///
 /// Every dimension is a *ratio* of the prose the pill sits in rather than a
 /// pixel count, for the reason `emojiScale` gives: the stylesheet fixes these
-/// against a 15px body, and here the surrounding style varies — a post is
-/// `bodyMedium`, a chat message, an onebox body and a user card bio are
-/// smaller.
+/// against the surrounding prose, and the native renderer can also place them
+/// in headings or deliberately compact metadata.
 ///
 /// Deliberately knows nothing about the DOM, the shell or any model: the
 /// composer draws pills too, and must not import `package:html` to do it.
@@ -54,6 +53,7 @@ class Pill extends StatefulWidget {
     this.leading,
     this.onTap,
     this.hoverable = false,
+    this.hovered = false,
     this.highlighted = false,
   });
 
@@ -74,12 +74,17 @@ class Pill extends StatefulWidget {
   /// editable, rather than through [onTap] itself.
   final bool hoverable;
 
+  /// Whether an owning render object has established that the pointer is over
+  /// the pill. EditableText excludes embedded widgets from pointer hit
+  /// testing, so composer pills provide this from the editor-level region.
+  final bool hovered;
+
   /// A keyboard focus ring for projected composer items.
   final bool highlighted;
 
   /// The pill's own font size, which every other measurement is taken against.
   static double fontSizeFor(TextStyle? baseStyle) =>
-      (baseStyle?.fontSize ?? 14) * pillScale;
+      (baseStyle?.fontSize ?? DiscourseTypography.base) * pillScale;
 
   /// The box a [DIcon] needs for its *glyph* to come out at [pillGlyph].
   ///
@@ -117,7 +122,7 @@ class _PillState extends State<Pill> {
     final theme = Theme.of(context);
     final size = Pill.fontSizeFor(widget.baseStyle);
     final radius = BorderRadius.circular(size * pillRadius);
-    final background = _hovered || _focused
+    final background = _hovered || widget.hovered || _focused
         ? Color.alphaBlend(
             theme.colorScheme.onSurface.withValues(alpha: 0.08),
             theme.shell.mention,

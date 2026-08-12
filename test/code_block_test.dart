@@ -146,6 +146,9 @@ void main() {
       final line = tester.widget<Text>(find.text('def hello').first);
       expect(line.style?.fontFamily, monospaceFontFamily);
       expect(line.style?.fontFamilyFallback, monospaceFallback);
+      expect(line.style?.fontSize, 14);
+      expect(line.style?.height, 17 / 13);
+      expect(line.style?.color, DiscourseColors.light.primaryVeryHigh);
       expect(
         line.style?.fontFeatures,
         contains(const FontFeature.disable('liga')),

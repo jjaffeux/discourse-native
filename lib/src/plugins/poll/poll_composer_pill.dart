@@ -57,6 +57,7 @@ List<InlineSpan> buildCollapsedPollSpans({
   Key? pillKey,
   int maximumOptions = 20,
   bool highlighted = false,
+  bool hovered = false,
   bool followedByLineBreak = false,
 }) {
   final source = block.source;
@@ -72,6 +73,7 @@ List<InlineSpan> buildCollapsedPollSpans({
         label: pollComposerSummary(block, maximumOptions: maximumOptions),
         baseStyle: baseStyle,
         highlighted: highlighted,
+        hovered: hovered,
       ),
     ),
     if (projectsLineBreak)
@@ -123,11 +125,13 @@ class PollComposerPill extends StatelessWidget {
     required this.label,
     required this.baseStyle,
     this.highlighted = false,
+    this.hovered = false,
   });
 
   final String label;
   final TextStyle baseStyle;
   final bool highlighted;
+  final bool hovered;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -138,6 +142,7 @@ class PollComposerPill extends StatelessWidget {
       label: label,
       baseStyle: baseStyle,
       hoverable: true,
+      hovered: hovered,
       highlighted: highlighted,
       leading: DIcon(
         DIcons.squarePollHorizontal,

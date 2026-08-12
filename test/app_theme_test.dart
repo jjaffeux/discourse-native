@@ -208,7 +208,55 @@ void main() {
       expect(theme.discourse.love, source.love);
       expect(theme.discourse.primaryHigh, source.primaryHigh);
       expect(theme.discourse.whisper, source.primaryMedium);
+      expect(theme.discourse.primaryHigh, source.primaryHigh);
+      expect(theme.discourse.primaryVeryHigh, source.primaryVeryHigh);
     });
+
+    test(
+      'uses the Discourse modular type scale instead of Material defaults',
+      () {
+        final text = AppTheme.fromPalette(palette()).textTheme;
+
+        expect(text.displayLarge?.fontSize, DiscourseTypography.fontUp6);
+        expect(text.displayMedium?.fontSize, DiscourseTypography.fontUp5);
+        expect(text.displaySmall?.fontSize, DiscourseTypography.fontUp4);
+        expect(text.headlineSmall?.fontSize, DiscourseTypography.fontUp3);
+        expect(text.titleLarge?.fontSize, DiscourseTypography.fontUp2);
+        expect(text.titleMedium?.fontSize, DiscourseTypography.fontUp1);
+        expect(text.titleSmall?.fontSize, DiscourseTypography.base);
+        expect(text.bodyLarge?.fontSize, DiscourseTypography.base);
+        expect(text.bodyMedium?.fontSize, DiscourseTypography.base);
+        expect(text.bodySmall?.fontSize, DiscourseTypography.fontDown1);
+        expect(text.labelLarge?.fontSize, DiscourseTypography.base);
+        expect(text.labelMedium?.fontSize, DiscourseTypography.fontDown1);
+        expect(text.labelSmall?.fontSize, DiscourseTypography.fontDown2);
+
+        for (final style in [
+          text.displayLarge,
+          text.displayMedium,
+          text.displaySmall,
+          text.headlineLarge,
+          text.headlineMedium,
+          text.headlineSmall,
+          text.titleLarge,
+          text.titleMedium,
+          text.titleSmall,
+          text.bodyLarge,
+          text.bodyMedium,
+          text.bodySmall,
+          text.labelLarge,
+          text.labelMedium,
+          text.labelSmall,
+        ]) {
+          expect(style?.fontWeight, FontWeight.normal);
+          expect(style?.letterSpacing, 0);
+        }
+
+        expect(text.titleMedium?.height, DiscourseTypography.lineHeightMedium);
+        expect(text.bodyMedium?.height, DiscourseTypography.lineHeightLarge);
+        expect(text.labelSmall?.height, DiscourseTypography.lineHeightMedium);
+      },
+    );
 
     test('maps the site palette into adaptive Cupertino controls', () {
       final source = palette();
@@ -231,6 +279,15 @@ void main() {
       final sheetShape = theme.bottomSheetTheme.shape as RoundedRectangleBorder;
 
       expect(theme.dialogTheme.backgroundColor, source.secondary);
+      expect(
+        theme.dialogTheme.titleTextStyle?.fontSize,
+        DiscourseTypography.fontUp3,
+      );
+      expect(theme.dialogTheme.titleTextStyle?.fontWeight, FontWeight.w700);
+      expect(
+        theme.dialogTheme.contentTextStyle?.fontSize,
+        DiscourseTypography.base,
+      );
       expect(theme.dialogTheme.surfaceTintColor, Colors.transparent);
       expect(theme.dialogTheme.barrierColor, discourseModalBarrier);
       expect(theme.dialogTheme.clipBehavior, Clip.antiAlias);
@@ -294,6 +351,27 @@ void main() {
     expect(AppTheme.dark.code, CodeColors.dark);
     expect(AppTheme.light.discourse, DiscourseColors.light);
     expect(AppTheme.dark.discourse, DiscourseColors.dark);
+  });
+
+  test('fallback Material roles use the built-in Discourse schemes', () {
+    final light = AppTheme.light.colorScheme;
+    final dark = AppTheme.dark.colorScheme;
+
+    expect(light.primary, discourseBlue);
+    expect(light.secondary, const Color(0xFFE45735));
+    expect(light.tertiary, const Color(0xFFFFFF4D));
+    expect(light.error, const Color(0xFFC80001));
+    expect(light.surface, ShellColors.light.content);
+    expect(light.onSurface, ShellColors.light.railForeground);
+    expect(light.onSurfaceVariant, DiscourseColors.light.primaryHigh);
+
+    expect(dark.primary, discourseDarkBlue);
+    expect(dark.secondary, const Color(0xFFC14924));
+    expect(dark.tertiary, const Color(0xFFA87137));
+    expect(dark.error, const Color(0xFFE45735));
+    expect(dark.surface, ShellColors.dark.content);
+    expect(dark.onSurface, ShellColors.dark.railForeground);
+    expect(dark.onSurfaceVariant, DiscourseColors.dark.primaryHigh);
   });
 
   testWidgets('MaterialApp exposes the mapped Cupertino theme', (tester) async {

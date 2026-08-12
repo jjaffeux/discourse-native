@@ -319,12 +319,12 @@ class GithubBodyText extends StatelessWidget {
         text,
         maxLines: 10,
         overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodySmall
+        style: theme.textTheme.bodyMedium
             ?.merge(monospaceTextStyle)
             .copyWith(
-              fontSize: 12,
-              height: 1.4,
-              color: theme.colorScheme.onSurfaceVariant,
+              fontSize: DiscourseTypography.code,
+              height: DiscourseTypography.codeLineHeight,
+              color: theme.discourse.primaryVeryHigh,
             ),
       ),
     );

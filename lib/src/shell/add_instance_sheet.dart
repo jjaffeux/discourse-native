@@ -41,8 +41,8 @@ Future<void> showAddInstanceSheet(BuildContext context) {
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(dialogContext).textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      style: Theme.of(dialogContext).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                   ),
                   IconButton(

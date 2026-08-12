@@ -107,7 +107,7 @@ class _DialogHeader extends StatelessWidget {
             'Search GIFs',
             style: Theme.of(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
         IconButton(

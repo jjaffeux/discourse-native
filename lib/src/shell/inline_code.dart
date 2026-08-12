@@ -51,6 +51,10 @@ class InlineCode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final surrounding =
+        baseStyle ??
+        theme.textTheme.bodyMedium ??
+        const TextStyle(fontSize: DiscourseTypography.base);
 
     return Container(
       padding: _padding,
@@ -60,13 +64,14 @@ class InlineCode extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: (baseStyle ?? const TextStyle())
+        style: surrounding
             .merge(monospaceTextStyle)
             .copyWith(
-              fontSize: (baseStyle?.fontSize ?? 14) * _scale,
+              fontSize:
+                  (surrounding.fontSize ?? DiscourseTypography.base) * _scale,
               color: isLink
                   ? theme.colorScheme.primary
-                  : baseStyle?.color ?? theme.colorScheme.onSurface,
+                  : surrounding.color ?? theme.colorScheme.onSurface,
               height: 1.2,
             ),
       ),

@@ -253,9 +253,9 @@ class _CodeBlockState extends State<CodeBlock> {
     if (data.lines.isEmpty) return const SizedBox();
 
     final style = monospaceTextStyle.copyWith(
-      fontSize: 12,
-      height: 1.4,
-      color: theme.colorScheme.onSurface,
+      fontSize: DiscourseTypography.code,
+      height: DiscourseTypography.codeLineHeight,
+      color: theme.discourse.primaryVeryHigh,
     );
     final gutterStyle = style.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
@@ -301,9 +301,7 @@ class _CodeBlockState extends State<CodeBlock> {
                         style: style,
                         gutterStyle: gutterStyle,
                         gutterWidth: _gutterWidth,
-                        highlight: theme.colorScheme.tertiary.withValues(
-                          alpha: 0.14,
-                        ),
+                        highlight: theme.colorScheme.tertiaryContainer,
                         scopeColor: (scope) => scopeColor(scope, theme.code),
                       ),
                   ],

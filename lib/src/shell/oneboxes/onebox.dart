@@ -345,8 +345,8 @@ class OneboxCard extends StatelessWidget {
         if (title != null)
           Text(
             title,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: theme.colorScheme.tertiary,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.primary,
             ),
           ),
         if (title != null && data.bodyHtml.isNotEmpty)
@@ -354,7 +354,7 @@ class OneboxCard extends StatelessWidget {
         if (data.bodyHtml.isNotEmpty)
           CookedHtml(
             html: data.bodyHtml,
-            textStyle: theme.textTheme.bodySmall,
+            textStyle: theme.textTheme.bodyMedium,
             siteUrl: siteUrl,
           ),
       ],
@@ -398,7 +398,7 @@ class _Header extends StatelessWidget {
               name!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),

@@ -36,8 +36,8 @@ class DiscourseCategoryOnebox extends StatelessWidget {
             children: [
               Text(
                 data.name,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.tertiary,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.primary,
                 ),
               ),
               if (data.description != null) ...[
@@ -46,7 +46,7 @@ class DiscourseCategoryOnebox extends StatelessWidget {
                   data.description!,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                  style: theme.textTheme.bodyMedium?.copyWith(color: muted),
                 ),
               ],
               if (data.subcategories.isNotEmpty) ...[

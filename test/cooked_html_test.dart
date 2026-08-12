@@ -571,8 +571,8 @@ void main() {
       expect(style.fontFamily, monospaceFontFamily);
       expect(style.fontFamilyFallback, monospaceFallback);
       expect(style.fontFeatures, contains(const FontFeature.disable('liga')));
-      // Smaller than the prose it sits in, the way `0.875rem` is.
-      expect(style.fontSize, lessThan(14));
+      // Exactly `0.875rem` against Discourse's 16px cooked body.
+      expect(style.fontSize, 14);
     });
 
     testWidgets('keeps the whitespace the author wrote', (tester) async {

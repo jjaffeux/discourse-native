@@ -5,6 +5,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 
 import '../../shell/cooked_html.dart';
+import '../../theme/app_theme.dart';
 import 'poll.dart';
 
 /// Saves the option digests selected in [poll].
@@ -311,8 +312,7 @@ class _PollCardState extends State<PollCard> {
                     CookedHtml(
                       html: _poll.title!,
                       siteUrl: widget.siteUrl,
-                      textStyle: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      textStyle: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 8),
                   ],
@@ -363,7 +363,7 @@ class _PollCardState extends State<PollCard> {
                       _multipleMin == _multipleMax
                           ? 'Choose exactly $_multipleMin.'
                           : 'Choose between $_multipleMin and $_multipleMax options.',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 8),
                     Align(
@@ -508,7 +508,7 @@ class _MetadataChip extends StatelessWidget {
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(label, style: theme.textTheme.labelSmall),
+      child: Text(label, style: theme.textTheme.bodyMedium),
     );
   }
 }
@@ -535,6 +535,10 @@ class _PollOptionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final whisper =
+        theme.extension<DiscourseColors>()?.whisper ??
+        theme.colorScheme.onSurfaceVariant;
     final plain = option.plainText;
     final votes = option.votes;
     final resultLabel = votes == null || percentage == null
@@ -581,19 +585,25 @@ class _PollOptionRow extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          CookedHtml(html: option.html, siteUrl: siteUrl),
+                          CookedHtml(
+                            html: option.html,
+                            siteUrl: siteUrl,
+                            textStyle: Theme.of(context).textTheme.titleMedium,
+                          ),
                           if (votes != null && percentage != null) ...[
                             const SizedBox(height: 5),
                             Row(
                               children: [
                                 Text(
                                   votes == 1 ? '1 vote' : '$votes votes',
-                                  style: Theme.of(context).textTheme.labelSmall,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(color: whisper),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   '$percentage%',
-                                  style: Theme.of(context).textTheme.labelSmall,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(color: whisper),
                                 ),
                               ],
                             ),
@@ -693,7 +703,11 @@ class _RankedChoiceBody extends StatelessWidget {
                       ),
                     ),
                     Expanded(
-                      child: CookedHtml(html: option.html, siteUrl: siteUrl),
+                      child: CookedHtml(
+                        html: option.html,
+                        siteUrl: siteUrl,
+                        textStyle: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ),
                   ],
                 ),
@@ -726,7 +740,11 @@ class _RankedCandidatesSummary extends StatelessWidget {
         children: [
           Text(label, style: Theme.of(context).textTheme.labelLarge),
           for (final candidate in candidates)
-            CookedHtml(html: candidate.html, siteUrl: siteUrl),
+            CookedHtml(
+              html: candidate.html,
+              siteUrl: siteUrl,
+              textStyle: Theme.of(context).textTheme.titleMedium,
+            ),
         ],
       ),
     ),
@@ -749,7 +767,7 @@ class _Guidance extends StatelessWidget {
           color: theme.colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(text, style: theme.textTheme.bodySmall),
+        child: Text(text, style: theme.textTheme.bodyMedium),
       ),
     );
   }
@@ -771,7 +789,7 @@ class _CloseTime extends StatelessWidget {
       closed
           ? 'Automatically closed $date at $time.'
           : 'Closes $date at $time.',
-      style: Theme.of(context).textTheme.bodySmall,
+      style: Theme.of(context).textTheme.bodyMedium,
     );
   }
 }
@@ -833,9 +851,7 @@ class PollFallbackCard extends StatelessWidget {
               CookedHtml(
                 html: title!,
                 siteUrl: siteUrl,
-                textStyle: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                textStyle: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 8),
             ],
@@ -847,7 +863,11 @@ class PollFallbackCard extends StatelessWidget {
                   children: [
                     const Text('•  '),
                     Expanded(
-                      child: CookedHtml(html: option, siteUrl: siteUrl),
+                      child: CookedHtml(
+                        html: option,
+                        siteUrl: siteUrl,
+                        textStyle: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ),
                   ],
                 ),
