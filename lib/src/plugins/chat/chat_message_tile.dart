@@ -75,6 +75,7 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final messageTextStyle = theme.textTheme.bodyLarge?.copyWith(height: 1.4);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(16, chained ? 1 : 8, 16, 2),
@@ -142,20 +143,21 @@ class _Tile extends StatelessWidget {
                     if (message.canonicalReceived && message.cooked.isNotEmpty)
                       CookedHtml(
                         html: message.cooked,
-                        textStyle: theme.textTheme.bodyMedium,
+                        textStyle: messageTextStyle,
                         siteUrl: siteUrl,
+                        compactParagraphs: true,
                       ),
                     if (message.preview case ProjectedPreview(
                       :final document,
                     ) when !message.canonicalReceived)
                       ChatPreviewBody(
                         document: document,
-                        textStyle: theme.textTheme.bodyMedium,
+                        textStyle: messageTextStyle,
                       ),
                     if (message.optimisticRaw case final raw?
                         when !message.canonicalReceived &&
                             message.preview is! ProjectedPreview)
-                      Text(raw, style: theme.textTheme.bodyMedium),
+                      Text(raw, style: messageTextStyle),
                     if (message.uploads.isNotEmpty)
                       ChatUploads(siteUrl: siteUrl, uploads: message.uploads),
                     if (message.reactions.isNotEmpty)
@@ -232,8 +234,9 @@ class _Header extends StatelessWidget {
                 message.author.displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  height: 1.4,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -250,7 +253,8 @@ class _Header extends StatelessWidget {
           if (message.createdAt case final at?)
             Text(
               relativeTime(at),
-              style: theme.textTheme.labelSmall?.copyWith(
+              style: theme.textTheme.bodyMedium?.copyWith(
+                height: 1.4,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -258,7 +262,7 @@ class _Header extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               '(edited)',
-              style: theme.textTheme.labelSmall?.copyWith(
+              style: theme.textTheme.labelMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -351,14 +355,14 @@ class _Reactions extends StatelessWidget {
                   SiteEmojiImage(
                     siteUrl: siteUrl,
                     name: reaction.emoji,
-                    size: 14,
+                    size: 15,
                     alt: ':${reaction.emoji}:',
-                    style: theme.textTheme.labelSmall,
+                    style: theme.textTheme.labelMedium,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     '${reaction.count}',
-                    style: theme.textTheme.labelSmall?.copyWith(
+                    style: theme.textTheme.labelMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                     ),

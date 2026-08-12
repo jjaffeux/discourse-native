@@ -16,6 +16,9 @@ import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+import 'package:html/dom.dart' as dom;
+import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -131,6 +134,32 @@ TextStyle styleOf(WidgetTester tester, String text) {
 }
 
 void main() {
+  testWidgets('chat paragraphs use Discourse compact outer margins', (
+    tester,
+  ) async {
+    const html = '<p>First</p><p>Second</p>';
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          body: CookedHtml(html: html, compactParagraphs: true),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final renderer = tester.widget<HtmlWidget>(find.byType(HtmlWidget));
+    final styles = renderer.customStylesBuilder!;
+    final paragraphs = html_parser
+        .parseFragment(html)
+        .nodes
+        .whereType<dom.Element>()
+        .toList(growable: false);
+
+    expect(styles(paragraphs.first), {'margin': '0.1em 0 0.5em'});
+    expect(styles(paragraphs.last), {'margin': '0.5em 0 0.1em'});
+  });
+
   testWidgets('unrelated shell notifications do not rebuild post HTML', (
     tester,
   ) async {

@@ -388,6 +388,31 @@ void main() {
     expect(fixture.api.chatMessagesSent.single.clientCreatedAt, isNotNull);
   });
 
+  testWidgets('uses Discourse web chat typography and paragraph rhythm', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {
+        FakeDiscourseApi.chatMessagesKey(9): (
+          messages: [_message(1)],
+          canLoadMorePast: false,
+          canLoadMoreFuture: false,
+        ),
+      },
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    final cooked = tester.widget<CookedHtml>(find.byType(CookedHtml));
+    expect(cooked.compactParagraphs, isTrue);
+    expect(cooked.textStyle?.fontSize, 16);
+    expect(cooked.textStyle?.height, 1.4);
+    final author = tester.widget<Text>(find.text('sam'));
+    expect(author.style?.fontSize, 16);
+    expect(author.style?.fontWeight, FontWeight.w700);
+  });
+
   testWidgets('canonical cooked content replaces the projected row in place', (
     tester,
   ) async {
