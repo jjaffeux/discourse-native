@@ -446,6 +446,7 @@ class _StreamState extends State<ChatMessageStream>
   /// be a request per frame, and one that waited for the scroll to *end* would
   /// never credit a reader who keeps a channel open and idle.
   static const Duration _readInterval = Duration(milliseconds: 500);
+  static const EdgeInsets _streamPadding = EdgeInsets.symmetric(vertical: 8);
 
   /// Asked for the visible range, and the reason the list is measured at all.
   final ListController _list = ListController();
@@ -474,6 +475,8 @@ class _StreamState extends State<ChatMessageStream>
   /// on every build because it changes far less often than a scroll does.
   bool _awayFromPresent = false;
   int _unseenLiveMessages = 0;
+  DateTime? _floatingDay;
+  double _floatingDayOffset = 0;
   int? _highlightMessageId;
   int? _pendingHighlightMessageId;
   int? _handledHighlightRequest;
@@ -517,6 +520,8 @@ class _StreamState extends State<ChatMessageStream>
       _anchoring = false;
       _awayFromPresent = false;
       _unseenLiveMessages = 0;
+      _floatingDay = null;
+      _floatingDayOffset = 0;
       _clearHighlight(notify: false);
     }
 
@@ -638,6 +643,7 @@ class _StreamState extends State<ChatMessageStream>
       _lookScheduled = false;
       if (!mounted) return;
       if (_anchorIfFresh()) return;
+      _syncFloatingDay();
       _fillTowardsPresent();
       _noteWhatIsOnScreen();
     });
@@ -767,6 +773,7 @@ class _StreamState extends State<ChatMessageStream>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _anchored != token) return;
       _anchoring = false;
+      _syncFloatingDay();
       _fillTowardsPresent();
       if (_seen != null) _startReadDwell(_readInterval);
       _noteWhatIsOnScreen();
@@ -897,6 +904,77 @@ class _StreamState extends State<ChatMessageStream>
     return widget.items[widget.items.length - 1 - index];
   }
 
+  /// Pins the date whose messages currently cross the top of the viewport.
+  ///
+  /// Chat's list is reversed: row zero is at the bottom and larger rows head
+  /// into the past. A separator's normal top is therefore measured from the
+  /// bottom of the viewport. Once that top has passed above zero, its date
+  /// floats until the next (newer) separator pushes it out.
+  void _syncFloatingDay() {
+    if (!_list.isAttached || !_scroll.hasClients) return;
+
+    final days = <({DateTime day, int row})>[];
+    for (var index = 0; index < widget.items.length; index++) {
+      if (widget.items[index] case ChatStreamDay(:final day)) {
+        days.add((
+          day: day,
+          row: _leadingRows + widget.items.length - 1 - index,
+        ));
+      }
+    }
+    if (days.isEmpty) {
+      _setFloatingDay(null, 0);
+      return;
+    }
+
+    final dayRows = {for (final entry in days) entry.row};
+    final tops = <int, double>{};
+    var extentThroughRow = 0.0;
+    for (var row = 0; row <= days.first.row; row++) {
+      extentThroughRow += _list.extentForIndex(row).$1;
+      if (dayRows.contains(row)) {
+        tops[row] =
+            _scroll.position.viewportDimension -
+            _streamPadding.bottom -
+            extentThroughRow +
+            _scroll.position.pixels;
+      }
+    }
+
+    double topOf(int row) => tops[row]!;
+
+    var candidateIndex = -1;
+    for (var index = 0; index < days.length; index++) {
+      if (topOf(days[index].row) > 0) break;
+      candidateIndex = index;
+    }
+    if (candidateIndex < 0) {
+      _setFloatingDay(null, 0);
+      return;
+    }
+
+    var offset = 0.0;
+    final nextIndex = candidateIndex + 1;
+    if (nextIndex < days.length) {
+      final nextTop = topOf(days[nextIndex].row);
+      if (nextTop < _DaySeparator.height) {
+        offset = nextTop - _DaySeparator.height;
+      }
+    }
+    _setFloatingDay(days[candidateIndex].day, offset);
+  }
+
+  void _setFloatingDay(DateTime? day, double offset) {
+    if (_floatingDay == day && (_floatingDayOffset - offset).abs() < 0.1) {
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _floatingDay = day;
+      _floatingDayOffset = offset;
+    });
+  }
+
   /// The row a message is drawn on, or null when it is not in the list — a
   /// last-read message the reader has since deleted, or one that fell outside
   /// the window the site answered with.
@@ -1013,6 +1091,7 @@ class _StreamState extends State<ChatMessageStream>
             }
             _noteWhatIsOnScreen();
             _syncAwayFromPresent();
+            _scheduleLook();
             return false;
           },
           // Reversed rather than reversing the list, which is what makes
@@ -1036,7 +1115,7 @@ class _StreamState extends State<ChatMessageStream>
             reverse: true,
             controller: _scroll,
             listController: _list,
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: _streamPadding,
             itemCount: leading + items.length + (stream.loadingOlder ? 1 : 0),
             itemBuilder: (context, row) {
               // The two ends. Newest first, because under a reversed list that
@@ -1079,7 +1158,16 @@ class _StreamState extends State<ChatMessageStream>
                       ),
                     ),
                   ),
-                ChatStreamDay(:final day) => _DaySeparator(day: day),
+                ChatStreamDay(:final day) => IgnorePointer(
+                  ignoring: day == _floatingDay,
+                  child: Opacity(
+                    opacity: day == _floatingDay ? 0 : 1,
+                    child: _DaySeparator(
+                      key: ValueKey(('chat-day', day)),
+                      day: day,
+                    ),
+                  ),
+                ),
                 ChatStreamDeleted(:final count) => _DeletedRun(count: count),
                 ChatStreamNewDivider() => const _NewDivider(),
                 null => const SizedBox.shrink(),
@@ -1087,6 +1175,19 @@ class _StreamState extends State<ChatMessageStream>
             },
           ),
         ),
+        if (_floatingDay case final day?)
+          Positioned(
+            left: 0,
+            right: 0,
+            top: _floatingDayOffset,
+            child: IgnorePointer(
+              child: _DaySeparator(
+                key: ValueKey(('chat-floating-day', day)),
+                day: day,
+                floating: true,
+              ),
+            ),
+          ),
         if (_awayFromPresent)
           Positioned(
             left: 0,
@@ -1263,9 +1364,12 @@ class _JumpToPresent extends StatelessWidget {
 
 /// The line between two days of conversation.
 class _DaySeparator extends StatelessWidget {
-  const _DaySeparator({required this.day});
+  const _DaySeparator({super.key, required this.day, this.floating = false});
+
+  static const double height = 44;
 
   final DateTime day;
+  final bool floating;
 
   static const List<String> _months = [
     'January',
@@ -1296,23 +1400,48 @@ class _DaySeparator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final label = _label;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Row(
+    return SizedBox(
+      height: height,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Expanded(child: Divider(height: 1, color: theme.shell.divider)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+          if (!floating)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(height: 1, color: theme.shell.divider),
+            ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: floating
+                  ? theme.colorScheme.surfaceContainerLow
+                  : theme.shell.content,
+              border: Border.all(
+                color: floating
+                    ? theme.colorScheme.surfaceContainerHigh
+                    : Colors.transparent,
+              ),
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: floating
+                  ? const [
+                      BoxShadow(
+                        color: Color(0x1F000000),
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      ),
+                    ]
+                  : null,
+            ),
             child: Text(
-              _label,
+              label,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          Expanded(child: Divider(height: 1, color: theme.shell.divider)),
         ],
       ),
     );
