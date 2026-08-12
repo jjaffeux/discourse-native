@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
@@ -258,6 +260,38 @@ void main() {
     ]);
   });
 
+  testWidgets('the drafts page uses a draft-row skeleton while loading', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    await _pump(tester, userDraftGate: gate);
+    final semantics = tester.ensureSemantics();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(InstanceSidebar),
+        matching: find.text('Drafts'),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('draft-list-loading-skeleton')),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('Loading drafts'), findsOneWidget);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('draft-list-loading-skeleton')),
+      findsNothing,
+    );
+    expect(find.byTooltip('Edit draft'), findsOneWidget);
+    semantics.dispose();
+  });
+
   testWidgets('compact draft actions are 44 pixel keyboard targets', (
     tester,
   ) async {
@@ -375,6 +409,7 @@ Future<_Fixture> _pump(
   Size size = const Size(1440, 900),
   int draftCount = 1,
   List<UserDraft> userDrafts = const [_draft],
+  Completer<void>? userDraftGate,
 }) async {
   EmojiCache.instance = EmojiCache(
     client: MockClient((_) async => http.Response('', 404)),
@@ -390,6 +425,7 @@ Future<_Fixture> _pump(
     user: site.user,
     totals: const NotificationTotals(),
     userDraftList: userDrafts,
+    userDraftGate: userDraftGate,
     categoryList: const [
       TopicCategory(id: 5, name: 'Support', color: '0088CC'),
     ],

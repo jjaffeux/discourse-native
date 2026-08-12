@@ -11,6 +11,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
 import 'avatar_image.dart';
+import 'loading_skeleton.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -201,7 +202,10 @@ class _TopicListViewState extends State<TopicListView> {
     final feed = widget.feed;
 
     if (feed.loading && feed.topicIds.isEmpty) {
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return _TopicListLoadingSkeleton(
+        key: const ValueKey('topic-list-loading-skeleton'),
+        destination: destination,
+      );
     }
     if (feed.error case final error? when feed.topicIds.isEmpty) {
       return _Message(
@@ -309,6 +313,156 @@ class _TopicListViewState extends State<TopicListView> {
   /// How close to the end triggers the next page. Roughly a screenful, so the
   /// rows are usually there before the user reaches them.
   static const double _loadMoreThreshold = 800;
+}
+
+/// A topic-list-shaped first-load state shared by topics, messages, and the
+/// filter page. These destinations all settle into the same row geometry, so
+/// using one outline keeps the handoff stable without inventing content.
+class _TopicListLoadingSkeleton extends StatelessWidget {
+  const _TopicListLoadingSkeleton({super.key, required this.destination});
+
+  final String destination;
+
+  String get _semanticsLabel => switch (destination) {
+    'messages' => 'Loading messages',
+    'filter' => 'Loading filtered topics',
+    _ => 'Loading topics',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final divider = Theme.of(context).shell.divider;
+
+    return LoadingSkeleton(
+      semanticsLabel: _semanticsLabel,
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topCenter,
+          maxHeight: double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _TopicListSkeletonRow(
+                titleWidth: 0.72,
+                metadataWidth: 0.64,
+                posterCount: 3,
+              ),
+              Divider(height: 1, color: divider),
+              const _TopicListSkeletonRow(
+                titleWidth: 0.88,
+                secondTitleWidth: 0.42,
+                metadataWidth: 0.52,
+                posterCount: 2,
+              ),
+              Divider(height: 1, color: divider),
+              const _TopicListSkeletonRow(
+                titleWidth: 0.56,
+                metadataWidth: 0.72,
+                posterCount: 1,
+              ),
+              Divider(height: 1, color: divider),
+              const _TopicListSkeletonRow(
+                titleWidth: 0.82,
+                metadataWidth: 0.48,
+                posterCount: 3,
+              ),
+              Divider(height: 1, color: divider),
+              const Opacity(
+                opacity: 0.72,
+                child: _TopicListSkeletonRow(
+                  titleWidth: 0.66,
+                  secondTitleWidth: 0.32,
+                  metadataWidth: 0.58,
+                  posterCount: 2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopicListSkeletonRow extends StatelessWidget {
+  const _TopicListSkeletonRow({
+    required this.titleWidth,
+    this.secondTitleWidth,
+    required this.metadataWidth,
+    required this.posterCount,
+  });
+
+  final double titleWidth;
+  final double? secondTitleWidth;
+  final double metadataWidth;
+  final int posterCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SkeletonLine(widthFactor: titleWidth, height: 11),
+                if (secondTitleWidth case final secondTitleWidth?) ...[
+                  const SizedBox(height: 7),
+                  _SkeletonLine(widthFactor: secondTitleWidth, height: 11),
+                ],
+                const SizedBox(height: 8),
+                _SkeletonLine(widthFactor: metadataWidth, height: 8),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          _TopicListSkeletonPosters(count: posterCount),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkeletonLine extends StatelessWidget {
+  const _SkeletonLine({required this.widthFactor, required this.height});
+
+  final double widthFactor;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.centerStart,
+    child: FractionallySizedBox(
+      widthFactor: widthFactor,
+      child: LoadingSkeletonBlock(height: height),
+    ),
+  );
+}
+
+class _TopicListSkeletonPosters extends StatelessWidget {
+  const _TopicListSkeletonPosters({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 24.0 + (count - 1) * 16,
+      height: 24,
+      child: Stack(
+        children: [
+          for (var index = 0; index < count; index++)
+            Positioned(
+              left: index * 16,
+              child: const LoadingSkeletonBlock.circle(diameter: 24),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// "See 3 new topics" — the strip the site's live updates put at the top of a
