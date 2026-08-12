@@ -6,6 +6,7 @@ import '../models/topic.dart';
 import '../models/user_draft.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
+import '../plugins/chat/chat_thread.dart';
 import '../plugins/gifs/gif.dart';
 import '../plugins/poll/poll.dart';
 import '../plugins/reactions/post_reactors.dart';
@@ -210,6 +211,7 @@ abstract interface class ChatApi {
     required int channelId,
     int? before,
     int? after,
+    int? targetMessageId,
     bool fromLastRead = false,
     int pageSize = 50,
     String? apiKey,
@@ -230,7 +232,35 @@ abstract interface class ChatApi {
     required int threadId,
     int? before,
     int? after,
+    int? targetMessageId,
+    int pageSize = 50,
     String? apiKey,
+    String? clientId,
+  });
+
+  Future<ChatThread> chatThread({
+    required String siteUrl,
+    required int channelId,
+    required int threadId,
+    String? apiKey,
+    String? clientId,
+  });
+
+  Future<ChatThread> createChatThread({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int originalMessageId,
+    String? title,
+    String? clientId,
+  });
+
+  Future<ChatThreadMembership> updateChatThreadNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required ChatThreadNotificationLevel notificationLevel,
     String? clientId,
   });
 

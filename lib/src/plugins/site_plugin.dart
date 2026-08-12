@@ -219,6 +219,10 @@ final class PluginRegistry {
     return null;
   }
 
+  bool ownsContentChrome(BuildContext context, ContentRoute route) => plugins
+      .whereType<ContentChromePlugin>()
+      .any((plugin) => plugin.ownsContentChrome(context, route));
+
   List<String> topicChannels(int topicId) => [
     for (final plugin in plugins.whereType<TopicLivePlugin>())
       ...plugin.topicChannels(topicId),

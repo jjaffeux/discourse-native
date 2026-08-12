@@ -30,6 +30,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
@@ -5010,7 +5011,130 @@ void main() {
       expect(launched, isEmpty);
     });
 
-    testWidgets('one on something the app has no page for opens the browser', (
+    testWidgets('a channel-message bookmark opens its exact target natively', (
+      tester,
+    ) async {
+      const emptyPage = (
+        messages: <ChatMessage>[],
+        canLoadMorePast: false,
+        canLoadMoreFuture: false,
+        targetMessageId: 44,
+      );
+      final api = FakeDiscourseApi(
+        bookmarkList: [bookmarks[1]],
+        chatChannelsBySite: const {
+          'https://meta.discourse.org': ChatChannels(
+            public: [
+              ChatChannel(
+                id: 9,
+                title: 'Dev',
+                kind: ChatChannelKind.category,
+                membership: ChatMembership(following: true),
+                threadingEnabled: true,
+              ),
+            ],
+          ),
+        },
+        chatMessagesByKey: const {'9~target~44': emptyPage},
+      );
+      final launched = watchBrowser(tester);
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openBookmarks(tester);
+      final shell = ShellScope.read(
+        tester.element(find.byType(BookmarkSection)),
+      );
+
+      await tester.tap(find.textContaining('david A message in #dev'));
+      await tester.pumpAndSettle();
+
+      expect(launched, isEmpty);
+      expect(shell.currentContent?.id, 'chat-c-9');
+      expect(
+        api.chatMessagesRequested.map((request) => request.targetMessageId),
+        contains(44),
+      );
+      expect(find.byType(BookmarkRow), findsNothing);
+    });
+
+    testWidgets('a thread bookmark opens its exact reply natively', (
+      tester,
+    ) async {
+      const threadBookmark = Bookmark(
+        id: 10,
+        title: 'A reply in the support thread',
+        author: 'kris',
+        path: '/chat/c/-/9/t/3/45',
+      );
+      const emptyPage = (
+        messages: <ChatMessage>[],
+        canLoadMorePast: false,
+        canLoadMoreFuture: false,
+        targetMessageId: 45,
+      );
+      final api = FakeDiscourseApi(
+        bookmarkList: const [threadBookmark],
+        chatChannelsBySite: const {
+          'https://meta.discourse.org': ChatChannels(
+            public: [
+              ChatChannel(
+                id: 9,
+                title: 'Support',
+                kind: ChatChannelKind.category,
+                membership: ChatMembership(following: true),
+                threadingEnabled: true,
+              ),
+            ],
+          ),
+        },
+        chatThreadsByKey: const {
+          '9~3': ChatThread(
+            id: 3,
+            channelId: 9,
+            status: 'open',
+            replyCount: 2,
+            membership: ChatThreadMembership(threadId: 3),
+          ),
+        },
+        chatMessagesByKey: const {'thread-9-3~target~45': emptyPage},
+      );
+      final launched = watchBrowser(tester);
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openBookmarks(tester);
+      final shell = ShellScope.read(
+        tester.element(find.byType(BookmarkSection)),
+      );
+
+      await tester.tap(
+        find.textContaining('kris A reply in the support thread'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(launched, isEmpty);
+      expect(shell.currentContent?.id, 'chat-c-9-t-3');
+      expect(
+        api.chatThreadMessagesRequested.map(
+          (request) => request.targetMessageId,
+        ),
+        contains(45),
+      );
+      expect(find.byType(BookmarkRow), findsNothing);
+    });
+
+    testWidgets('an unclaimable Chat bookmark keeps browser fallback', (
       tester,
     ) async {
       final api = FakeDiscourseApi(bookmarkList: bookmarks);
@@ -5028,6 +5152,88 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(launched, ['https://meta.discourse.org/chat/c/-/9/44']);
+      expect(find.byType(BookmarkRow), findsNothing);
+    });
+
+    testWidgets('an inaccessible thread bookmark keeps browser fallback', (
+      tester,
+    ) async {
+      const path = 'https://meta.discourse.org/chat/c/-/9/t/99/45';
+      final api = FakeDiscourseApi(
+        bookmarkList: const [
+          Bookmark(
+            id: 12,
+            title: 'Inaccessible support thread',
+            author: 'kris',
+            path: path,
+          ),
+        ],
+        chatChannelsBySite: const {
+          'https://meta.discourse.org': ChatChannels(
+            public: [
+              ChatChannel(
+                id: 9,
+                title: 'Support',
+                kind: ChatChannelKind.category,
+                membership: ChatMembership(following: true),
+                threadingEnabled: true,
+              ),
+            ],
+          ),
+        },
+        // No detail for thread 99: native hydration must decline the route.
+        chatThreadsByKey: const {},
+      );
+      final launched = watchBrowser(tester);
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openBookmarks(tester);
+
+      await tester.tap(find.textContaining('kris Inaccessible support thread'));
+      await tester.pumpAndSettle();
+
+      expect(launched, [path]);
+      expect(find.byType(BookmarkRow), findsNothing);
+    });
+
+    testWidgets('a Chat bookmark on a disconnected site opens the browser', (
+      tester,
+    ) async {
+      const path = 'https://team.discourse.org/chat/c/-/9/t/3/45';
+      final api = FakeDiscourseApi(
+        bookmarkList: const [
+          Bookmark(
+            id: 11,
+            title: 'Disconnected support thread',
+            author: 'kris',
+            path: path,
+          ),
+        ],
+      );
+      final launched = watchBrowser(tester);
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: [
+          ...connected,
+          instance('team.discourse.org', title: 'Discourse Team'),
+        ],
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openBookmarks(tester);
+
+      await tester.tap(find.textContaining('kris Disconnected support thread'));
+      await tester.pumpAndSettle();
+
+      expect(launched, [path]);
       expect(find.byType(BookmarkRow), findsNothing);
     });
 
@@ -9108,6 +9314,7 @@ void main() {
       messages: messages,
       canLoadMorePast: canLoadMorePast,
       canLoadMoreFuture: canLoadMoreFuture,
+      targetMessageId: null,
     );
 
     String key(int channelId, {int? before, int? after}) =>
@@ -10376,12 +10583,11 @@ void main() {
         expect(api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
       });
 
-      testWidgets('credits the reader on the way out of a channel', (
+      testWidgets('does not credit a reader who leaves before the dwell', (
         tester,
       ) async {
-        // Discourse writes from its teardown for this: leaving inside the
-        // debounce window is leaving having read it, and a cancelled timer
-        // would throw that away.
+        // A visible row is not read until it has stayed in front of the reader
+        // for the full dwell. Replacing the pane must not flush that timer.
         final api = FakeDiscourseApi(
           totals: withChat,
           chatChannelsBySite: {
@@ -10406,7 +10612,7 @@ void main() {
         await tester.tap(find.dIcon(DIcons.arrowLeft));
         await tester.pumpAndSettle();
 
-        expect(api.chatReadsMarked, [(channelId: 9, messageId: 1)]);
+        expect(api.chatReadsMarked, isEmpty);
       });
 
       testWidgets('tells the site nothing about a channel nobody opened', (

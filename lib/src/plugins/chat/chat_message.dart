@@ -367,6 +367,10 @@ class ChatThreadPreview {
     this.title,
     this.lastReplyAt,
     this.lastReplyExcerpt,
+    this.lastReplyId,
+    this.lastReplyUser,
+    this.participantCount,
+    this.participantUsers = const [],
     this.lastReplyUsername,
     this.lastReplyAvatarUrl,
   });
@@ -382,12 +386,24 @@ class ChatThreadPreview {
     if (value is! Map<String, dynamic>) return null;
     final preview = jsonObject(value['preview']);
     final user = jsonObject(preview['last_reply_user']);
+    final participants = List<ChatMessageAuthor>.unmodifiable([
+      for (final participant in jsonObjects(preview['participant_users']))
+        ChatMessageAuthor.fromJson(participant, url),
+    ]);
+    final lastReplyUser = user.isEmpty
+        ? null
+        : ChatMessageAuthor.fromJson(user, url);
     return ChatThreadPreview(
       threadId: jsonInt(value['id']),
       replyCount: jsonInt(value['reply_count']),
       title: jsonText(value['title']),
       lastReplyAt: jsonDate(preview['last_reply_created_at']),
       lastReplyExcerpt: jsonText(preview['last_reply_excerpt']),
+      lastReplyId: jsonIntOrNull(preview['last_reply_id']),
+      lastReplyUser: lastReplyUser,
+      participantCount:
+          jsonIntOrNull(preview['participant_count']) ?? participants.length,
+      participantUsers: participants,
       lastReplyUsername: jsonText(user['username']),
       lastReplyAvatarUrl: resolveAvatarUrl(
         jsonText(user['avatar_template']),
@@ -401,6 +417,18 @@ class ChatThreadPreview {
   final String? title;
   final DateTime? lastReplyAt;
   final String? lastReplyExcerpt;
+  final int? lastReplyId;
+
+  /// The author of the newest reply. The older scalar accessors remain while
+  /// existing summary-card callers migrate to this typed representation.
+  final ChatMessageAuthor? lastReplyUser;
+
+  /// Total distinct participants, which can exceed [participantUsers] because
+  /// the server deliberately serializes only a small representative set.
+  final int? participantCount;
+  final List<ChatMessageAuthor> participantUsers;
+
+  /// Compatibility scalars used by the existing compact preview tile.
   final String? lastReplyUsername;
   final String? lastReplyAvatarUrl;
 
@@ -412,6 +440,10 @@ class ChatThreadPreview {
       other.title == title &&
       other.lastReplyAt == lastReplyAt &&
       other.lastReplyExcerpt == lastReplyExcerpt &&
+      other.lastReplyId == lastReplyId &&
+      other.lastReplyUser == lastReplyUser &&
+      other.participantCount == participantCount &&
+      listEquals(other.participantUsers, participantUsers) &&
       other.lastReplyUsername == lastReplyUsername &&
       other.lastReplyAvatarUrl == lastReplyAvatarUrl;
 
@@ -422,6 +454,10 @@ class ChatThreadPreview {
     title,
     lastReplyAt,
     lastReplyExcerpt,
+    lastReplyId,
+    lastReplyUser,
+    participantCount,
+    Object.hashAll(participantUsers),
     lastReplyUsername,
     lastReplyAvatarUrl,
   );
@@ -440,6 +476,7 @@ typedef ChatMessagePage = ({
   List<ChatMessage> messages,
   bool canLoadMorePast,
   bool canLoadMoreFuture,
+  int? targetMessageId,
 });
 
 /// Which edge of an oldest-first chat response is adjacent to the caller's
@@ -516,6 +553,7 @@ class ChatMessage with Storable<ChatMessage> {
     required ChatPreviewResult preview,
     required ChatMessageAuthor author,
     required DateTime createdAt,
+    int? threadId,
   }) {
     assert(id < 0);
     return ChatMessage(
@@ -524,6 +562,7 @@ class ChatMessage with Storable<ChatMessage> {
       cooked: '',
       author: author,
       createdAt: createdAt,
+      threadId: threadId,
       optimisticRaw: raw,
       preview: preview,
       stagedId: stagedId,
@@ -608,6 +647,7 @@ class ChatMessage with Storable<ChatMessage> {
           bounded.omittedPast || meta['can_load_more_past'] == true,
       canLoadMoreFuture:
           bounded.omittedFuture || meta['can_load_more_future'] == true,
+      targetMessageId: jsonIntOrNull(meta['target_message_id']),
     );
   }
 
@@ -842,6 +882,81 @@ class ChatMessage with Storable<ChatMessage> {
     serverId: canonical.id,
     canonicalReceived: true,
     delivery: ChatMessageDelivery.sent,
+  );
+
+  /// Replaces only the thread summary embedded on an original message.
+  ChatMessage withThreadPreview(ChatThreadPreview? thread) => ChatMessage(
+    id: id,
+    channelId: channelId,
+    cooked: cooked,
+    author: author,
+    createdAt: createdAt,
+    deletedAt: deletedAt,
+    edited: edited,
+    isWebhook: isWebhook,
+    replyTo: replyTo,
+    threadId: threadId,
+    thread: thread,
+    reactions: reactions,
+    uploads: uploads,
+    optimisticRaw: optimisticRaw,
+    preview: preview,
+    stagedId: stagedId,
+    serverId: serverId,
+    canonicalReceived: canonicalReceived,
+    delivery: delivery,
+    sendError: sendError,
+    deliveryUncertain: deliveryUncertain,
+  );
+
+  /// Replaces the reaction aggregate after an incremental MessageBus event.
+  ChatMessage withReactions(List<ChatReaction> reactions) => ChatMessage(
+    id: id,
+    channelId: channelId,
+    cooked: cooked,
+    author: author,
+    createdAt: createdAt,
+    deletedAt: deletedAt,
+    edited: edited,
+    isWebhook: isWebhook,
+    replyTo: replyTo,
+    threadId: threadId,
+    thread: thread,
+    reactions: List.unmodifiable(reactions),
+    uploads: uploads,
+    optimisticRaw: optimisticRaw,
+    preview: preview,
+    stagedId: stagedId,
+    serverId: serverId,
+    canonicalReceived: canonicalReceived,
+    delivery: delivery,
+    sendError: sendError,
+    deliveryUncertain: deliveryUncertain,
+  );
+
+  /// Replaces only the server deletion timestamp.
+  ChatMessage withDeletedAt(DateTime? deletedAt) => ChatMessage(
+    id: id,
+    channelId: channelId,
+    cooked: cooked,
+    author: author,
+    createdAt: createdAt,
+    deletedAt: deletedAt,
+    edited: edited,
+    isWebhook: isWebhook,
+    replyTo: replyTo,
+    threadId: threadId,
+    thread: thread,
+    reactions: reactions,
+    uploads: uploads,
+    optimisticRaw: optimisticRaw,
+    preview: preview,
+    stagedId: stagedId,
+    serverId: serverId,
+    canonicalReceived: canonicalReceived,
+    delivery: delivery,
+    sendError: sendError,
+    deliveryUncertain: deliveryUncertain,
   );
 
   /// Paging windows overlap at their boundary; an unchanged copy should not

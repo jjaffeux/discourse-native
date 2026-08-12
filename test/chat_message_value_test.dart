@@ -169,6 +169,43 @@ void main() {
     expect(optimistic(), isNot(optimistic(stagedId: 'native-2')));
   });
 
+  test('optimistic thread messages retain their thread identity', () {
+    final optimistic = ChatMessage.optimistic(
+      id: -1,
+      channelId: 3,
+      threadId: 22,
+      raw: 'Hello',
+      stagedId: 'native-1',
+      preview: const SourceFallback(
+        'Hello',
+        ChatPreviewFallbackReason.unsupportedSyntax,
+      ),
+      author: const ChatMessageAuthor(id: 1, username: 'sam'),
+      createdAt: DateTime.utc(2026, 8, 8, 11),
+    );
+
+    expect(optimistic.threadId, 22);
+  });
+
+  test(
+    'thread preview and deletion helpers preserve unrelated message data',
+    () {
+      final original = message();
+      const thread = ChatThreadPreview(threadId: 22, replyCount: 3);
+      final deletedAt = DateTime.utc(2026, 8, 8, 12);
+
+      final updated = original
+          .withThreadPreview(thread)
+          .withDeletedAt(deletedAt);
+
+      expect(updated.thread, thread);
+      expect(updated.deletedAt, deletedAt);
+      expect(updated.cooked, original.cooked);
+      expect(updated.author, original.author);
+      expect(updated.reactions, original.reactions);
+    },
+  );
+
   test('outgoing text never infers trusted preview metadata', () {
     final outgoing = OutgoingChatMessage.text(
       '![cat](https://media.example/cat.gif)',

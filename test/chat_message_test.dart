@@ -350,11 +350,21 @@ void main() {
             'preview': {
               'last_reply_created_at': '2026-05-05T12:00:00.000Z',
               'last_reply_excerpt': 'sounds good',
+              'last_reply_id': 18,
               'last_reply_user': {
                 'id': 3,
                 'username': 'kris',
                 'avatar_template': '/k/{size}.png',
               },
+              'participant_count': 4,
+              'participant_users': [
+                {
+                  'id': 3,
+                  'username': 'kris',
+                  'avatar_template': '/k/{size}.png',
+                },
+                {'id': 4, 'username': 'lee', 'name': 'Lee'},
+              ],
             },
           },
         ),
@@ -365,6 +375,13 @@ void main() {
       expect(read.thread!.title, 'Deploy plan');
       expect(read.thread!.lastReplyUsername, 'kris');
       expect(read.thread!.lastReplyExcerpt, 'sounds good');
+      expect(read.thread!.lastReplyId, 18);
+      expect(read.thread!.lastReplyUser?.id, 3);
+      expect(read.thread!.participantCount, 4);
+      expect(read.thread!.participantUsers.map((user) => user.displayName), [
+        'kris',
+        'Lee',
+      ]);
     });
 
     test(
@@ -473,6 +490,7 @@ void main() {
       ]);
       expect(read.canLoadMorePast, isTrue);
       expect(read.canLoadMoreFuture, isTrue);
+      expect(read.targetMessageId, 40);
       expect(() => read.messages.clear(), throwsUnsupportedError);
     });
 

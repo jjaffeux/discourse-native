@@ -432,7 +432,7 @@ SiteTracker _tracker(
 final class _FakeMessageBusSession
     implements SiteMessageBusSession, SiteMessageBusErrorSource {
   final Map<String, List<_FakeMessageBusSubscription>> _subscriptions = {};
-  final Map<String, List<void Function(Object?)>> _retainedCallbacks = {};
+  final Map<String, List<void Function(Object?, int)>> _retainedCallbacks = {};
   final Map<String, int?> lastIds = {};
   final StreamController<Object> _errors = StreamController<Object>.broadcast();
 
@@ -458,22 +458,24 @@ final class _FakeMessageBusSession
           .length ??
       0;
 
-  void deliver(String channel, Object? data) {
+  void deliver(String channel, Object? data, {int messageId = 1}) {
     final subscriptions = List.of(
       _subscriptions[channel] ?? const <_FakeMessageBusSubscription>[],
     );
     for (final subscription in subscriptions) {
-      if (!subscription.cancelled) subscription.callback(data);
+      if (!subscription.cancelled) subscription.callback(data, messageId);
     }
   }
 
-  void Function(Object?) retainedCallback(String channel) =>
-      _retainedCallbacks[channel]!.last;
+  void Function(Object?) retainedCallback(String channel) {
+    final callback = _retainedCallbacks[channel]!.last;
+    return (data) => callback(data, 1);
+  }
 
   @override
   SiteMessageBusSubscription subscribe(
     String channel,
-    void Function(Object? data) onMessage, {
+    void Function(Object? data, int messageId) onMessage, {
     int? lastId,
   }) {
     if (channel == failingChannel) {
@@ -518,7 +520,7 @@ final class _FakeMessageBusSession
 final class _FakeMessageBusSubscription implements SiteMessageBusSubscription {
   _FakeMessageBusSubscription(this.callback, {this.throwsOnCancel = false});
 
-  final void Function(Object?) callback;
+  final void Function(Object?, int) callback;
   final bool throwsOnCancel;
   bool cancelled = false;
 

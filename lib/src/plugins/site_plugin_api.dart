@@ -255,6 +255,17 @@ abstract interface class ContentPlugin {
   Widget? content(BuildContext context, ContentRoute route);
 }
 
+/// Lets a plugin-owned screen replace the shell's standard content header.
+///
+/// Most screens keep the common Back, title, search, and topic actions. A
+/// richer nested screen can opt out route by route and draw that chrome as
+/// part of its own responsive layout without teaching the shell its routing
+/// vocabulary.
+abstract interface class ContentChromePlugin {
+  /// True when this plugin draws all chrome above [route]'s content itself.
+  bool ownsContentChrome(BuildContext context, ContentRoute route);
+}
+
 /// Adds topic-scoped message-bus subscriptions and invalidation hints.
 abstract interface class TopicLivePlugin {
   /// The message_bus channels worth listening to while [topicId] is the topic

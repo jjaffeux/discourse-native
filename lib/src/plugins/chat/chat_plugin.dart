@@ -7,6 +7,8 @@ import '../../theme/d_icons.dart';
 import '../site_plugin_api.dart';
 import 'chat_channel.dart';
 import 'chat_channel_view.dart';
+import 'chat_route.dart';
+import 'chat_thread_view.dart';
 
 /// `chat`, as this app knows it.
 ///
@@ -37,7 +39,8 @@ import 'chat_channel_view.dart';
 /// that appears and then vanishes is worse than one that arrives late, and a
 /// section with a spinner in it says something false about how many channels
 /// there are.
-class ChatPlugin implements SitePlugin, SidebarPlugin, ContentPlugin {
+class ChatPlugin
+    implements SitePlugin, SidebarPlugin, ContentPlugin, ContentChromePlugin {
   const ChatPlugin();
 
   @override
@@ -83,10 +86,16 @@ class ChatPlugin implements SitePlugin, SidebarPlugin, ContentPlugin {
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {
-    final channelId = ChatChannel.channelIdIn(route.id);
-    if (channelId == null) return null;
-    return ChatChannelView(channelId: channelId);
+    final chatRoute = ChatRoute.parse(route.id);
+    if (chatRoute == null) return null;
+    return chatRoute.isThread
+        ? ChatThreadWorkspace(route: chatRoute)
+        : ChatChannelView(channelId: chatRoute.channelId);
   }
+
+  @override
+  bool ownsContentChrome(BuildContext context, ContentRoute route) =>
+      ChatRoute.parse(route.id)?.isThread ?? false;
 
   /// One channel as a sidebar row.
   ///
@@ -96,7 +105,7 @@ class ChatPlugin implements SitePlugin, SidebarPlugin, ContentPlugin {
   /// the category it lives in.
   static SidebarDestination destination(ChatChannel channel) =>
       SidebarDestination(
-        id: ChatChannel.routeId(channel.id),
+        id: ChatRoute.channel(channel.id).routeId,
         label: channel.title,
         icon: switch (channel.kind) {
           ChatChannelKind.directMessage when channel.users.length > 1 =>

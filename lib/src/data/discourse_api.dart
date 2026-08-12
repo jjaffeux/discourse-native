@@ -28,6 +28,7 @@ import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
+import '../plugins/chat/chat_thread.dart';
 import '../plugins/gifs/gif.dart';
 import '../plugins/poll/poll.dart';
 import '../plugins/reactions/post_reactors.dart';
@@ -2462,6 +2463,7 @@ class DiscourseApi
     required int channelId,
     int? before,
     int? after,
+    int? targetMessageId,
     bool fromLastRead = false,
     int pageSize = 50,
     String? apiKey,
@@ -2474,6 +2476,7 @@ class DiscourseApi
     _validateChatPageDirection(
       before: before,
       after: after,
+      targetMessageId: targetMessageId,
       fromLastRead: fromLastRead,
     );
 
@@ -2487,6 +2490,7 @@ class DiscourseApi
     final query = [
       'page_size=$pageSize',
       if (fromLastRead) 'fetch_from_last_read=true',
+      if (targetMessageId != null) 'target_message_id=$targetMessageId',
       if (before != null) ...['direction=past', 'target_message_id=$before'],
       if (after != null) ...['direction=future', 'target_message_id=$after'],
     ].join('&');
@@ -2502,7 +2506,7 @@ class DiscourseApi
       body,
       siteUrl,
       window: after == null
-          ? (fromLastRead
+          ? (fromLastRead || targetMessageId != null
                 ? ChatMessagePageWindow.aroundTarget
                 : ChatMessagePageWindow.retainNewest)
           : ChatMessagePageWindow.retainOldest,
@@ -2555,20 +2559,31 @@ class DiscourseApi
     required int threadId,
     int? before,
     int? after,
+    int? targetMessageId,
+    int pageSize = 50,
     String? apiKey,
     String? clientId,
   }) async {
     _requirePositiveId(channelId, 'channelId');
     _requirePositiveId(threadId, 'threadId');
-    _validateChatPageDirection(before: before, after: after);
+    if (pageSize < 1 || pageSize > 50) {
+      throw RangeError.range(pageSize, 1, 50, 'pageSize');
+    }
+    _validateChatPageDirection(
+      before: before,
+      after: after,
+      targetMessageId: targetMessageId,
+    );
     final query = [
+      'page_size=$pageSize',
+      if (targetMessageId != null) 'target_message_id=$targetMessageId',
       if (before != null) ...['direction=past', 'target_message_id=$before'],
       if (after != null) ...['direction=future', 'target_message_id=$after'],
     ].join('&');
     final body = await _getObject(
       Uri.parse(
-        '$siteUrl/chat/api/channels/$channelId/threads/$threadId/messages'
-        '${query.isEmpty ? '.json' : '.json?$query'}',
+        '$siteUrl/chat/api/channels/$channelId/threads/$threadId/messages.json?'
+        '$query',
       ),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -2578,23 +2593,105 @@ class DiscourseApi
       body,
       siteUrl,
       window: after == null
-          ? ChatMessagePageWindow.retainNewest
+          // With no explicit target the thread endpoint implicitly resolves
+          // the membership's last-read id and returns it in response metadata.
+          // Bound around that server-selected target just as we do for an
+          // explicit notification destination.
+          ? ChatMessagePageWindow.aroundTarget
           : ChatMessagePageWindow.retainOldest,
+      maximumMessages: pageSize,
     );
+  }
+
+  @override
+  Future<ChatThread> chatThread({
+    required String siteUrl,
+    required int channelId,
+    required int threadId,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(threadId, 'threadId');
+    final body = await _getObject(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId/threads/$threadId.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return ChatThread.fromJson(jsonObject(body['thread']), siteUrl);
+  }
+
+  @override
+  Future<ChatThread> createChatThread({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int originalMessageId,
+    String? title,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(originalMessageId, 'originalMessageId');
+    final body = await _write(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId/threads.json'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'original_message_id': originalMessageId, 'title': ?title},
+    );
+    return ChatThread.fromJson(body, siteUrl);
+  }
+
+  @override
+  Future<ChatThreadMembership> updateChatThreadNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required ChatThreadNotificationLevel notificationLevel,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(threadId, 'threadId');
+    final body = await _write(
+      Uri.parse(
+        '$siteUrl/chat/api/channels/$channelId/threads/$threadId/'
+        'notifications-settings/me.json',
+      ),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'notification_level': notificationLevel.value},
+    );
+    final membership = ChatThreadMembership.fromJson(body['membership']);
+    if (membership == null) {
+      throw const FormatException('Missing chat thread membership.');
+    }
+    return membership;
   }
 
   static void _validateChatPageDirection({
     int? before,
     int? after,
+    int? targetMessageId,
     bool fromLastRead = false,
   }) {
     if (before != null) _requirePositiveId(before, 'before');
     if (after != null) _requirePositiveId(after, 'after');
-    final shapes = [before != null, after != null, fromLastRead];
+    if (targetMessageId != null) {
+      _requirePositiveId(targetMessageId, 'targetMessageId');
+    }
+    final shapes = [
+      before != null,
+      after != null,
+      targetMessageId != null,
+      fromLastRead,
+    ];
     if (shapes.where((selected) => selected).length > 1) {
-      throw ArgumentError(
-        'Only one of before, after, or fromLastRead may be selected.',
-      );
+      throw ArgumentError('Only one pagination target may be selected.');
     }
   }
 

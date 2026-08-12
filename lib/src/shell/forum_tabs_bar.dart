@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
-import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_plugin.dart';
+import '../plugins/chat/chat_route.dart';
 import '../plugins/chat/chat_user_avatar.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -659,9 +659,12 @@ class CurrentForumTabsBar extends StatelessWidget {
             builder: (context, _) {
               ForumTabItem itemFor(ForumTab tab) {
                 final route = tab.currentContent;
-                final channelId = ChatChannel.channelIdIn(route.id);
-                if (channelId != null) {
-                  final channel = controller.chat.channel(siteUrl, channelId);
+                final chatRoute = ChatRoute.parse(route.id);
+                if (chatRoute != null) {
+                  final channel = controller.chat.channel(
+                    siteUrl,
+                    chatRoute.channelId,
+                  );
                   if (channel != null) {
                     final destination = ChatPlugin.destination(channel);
                     final emoji = destination.emoji;

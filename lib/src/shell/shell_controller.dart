@@ -54,6 +54,8 @@ import '../plugins/assign/assignment.dart';
 import '../plugins/assign/assignment_controller.dart';
 import '../plugins/chat/chat_controller.dart';
 import '../plugins/chat/chat_plugin.dart';
+import '../plugins/chat/chat_route.dart';
+import '../plugins/chat/chat_stream_target.dart';
 import '../plugins/poll/poll.dart';
 import '../plugins/reactions/reaction.dart';
 import '../plugins/reactions/reactions_controller.dart';
@@ -365,6 +367,14 @@ class ShellController extends FrameSafeNotifier {
     siteConfigFor: siteConfigFor,
     previewEngine: pluginRegistry.chatPreviewEngine,
   );
+
+  /// One-shot scroll/fetch intent for the Chat screen selected by navigation.
+  ///
+  /// Routes themselves remain durable presentation state. The mounted Chat
+  /// view consumes this value when it is ready, keeping message targeting out
+  /// of the shell's persistence and out of [ChatController].
+  final ChatNavigationHandoff chatNavigation = ChatNavigationHandoff();
+  int _chatUrlOpenGeneration = 0;
 
   /// Voice/video rooms across every connected site. Unlike topic and chat
   /// state this owns one app-global media session, so it deliberately survives
@@ -2284,6 +2294,134 @@ class ShellController extends FrameSafeNotifier {
     return true;
   }
 
+  /// Opens a Discourse Chat URL natively when its site and channel are
+  /// available to a connected account.
+  ///
+  /// Channel access is confirmed after the shared channel-list request. A
+  /// missing/forbidden channel returns false so callers can preserve the
+  /// browser fallback instead of navigating to a native dead end.
+  Future<bool> openChatUrl(String url) async {
+    final generation = ++_chatUrlOpenGeneration;
+    final link = ChatLink.parse(absoluteUrl(url));
+    if (link == null) return false;
+
+    var index = _instances.indexWhere((instance) => instance.serves(link.uri));
+    if (index < 0 || !_instances[index].isConnected) return false;
+
+    final siteUrl = _instances[index].url;
+    await chat.loadChannels(siteUrl);
+    if (isDisposed || generation != _chatUrlOpenGeneration) return false;
+    if (chat.channel(siteUrl, link.route.channelId) == null) return false;
+    if (link.route.threadId case final threadId?) {
+      final detail = await chat.refreshThreadDetail(
+        siteUrl,
+        ChatThreadTarget(channelId: link.route.channelId, threadId: threadId),
+      );
+      if (isDisposed || generation != _chatUrlOpenGeneration) return false;
+      // A 403/404 or unsupported thread contract leaves navigation untouched
+      // so the caller can retain its browser fallback.
+      if (detail == null) return false;
+    }
+
+    // The rail can be reordered or a site removed while credentials/channel
+    // discovery crosses a platform or network boundary. Resolve it again
+    // before changing selection and leave the current site untouched when the
+    // original target disappeared.
+    index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0 || !_instances[index].isConnected) return false;
+    if (index != _instanceIndex) selectInstance(index);
+
+    return _openChatRoute(siteUrl, link.route, messageId: link.messageId);
+  }
+
+  /// Opens one known thread. Message tiles can close over this method without
+  /// importing shell route strings or constructing a persisted route.
+  void openChatThread({
+    required String siteUrl,
+    required int channelId,
+    required int threadId,
+    int? messageId,
+    bool focusComposer = false,
+  }) {
+    if (channelId <= 0 ||
+        threadId <= 0 ||
+        (messageId != null && messageId <= 0)) {
+      return;
+    }
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0 || !_instances[index].isConnected) return;
+    if (index != _instanceIndex) selectInstance(index);
+    _openChatRoute(
+      siteUrl,
+      ChatRoute.thread(channelId: channelId, threadId: threadId),
+      messageId: messageId,
+      focusComposer: focusComposer,
+    );
+  }
+
+  /// Opens one known channel, optionally centred on a particular message.
+  bool openChatChannel(int channelId, {int? messageId}) {
+    if (channelId <= 0 || (messageId != null && messageId <= 0)) return false;
+    final instance = currentInstance;
+    if (instance == null || !instance.isConnected) return false;
+    return _openChatRoute(
+      instance.url,
+      ChatRoute.channel(channelId),
+      messageId: messageId,
+    );
+  }
+
+  bool _openChatRoute(
+    String siteUrl,
+    ChatRoute route, {
+    int? messageId,
+    bool focusComposer = false,
+  }) {
+    if (currentInstance?.url != siteUrl) return false;
+    final channel = chat.channel(siteUrl, route.channelId);
+    if (channel == null) return false;
+
+    final currentRoute = switch (currentContent?.id) {
+      final id? => ChatRoute.parse(id),
+      null => null,
+    };
+    if (route.isThread) {
+      if (currentRoute != route) {
+        // Thread-to-thread and cross-channel navigation both begin from the
+        // channel root. This prevents a notification trail from accumulating
+        // indistinguishable thread screens in Back history.
+        if (currentRoute?.threadId != null ||
+            currentRoute?.channelId != route.channelId) {
+          selectDestination(ChatPlugin.destination(channel));
+        }
+        pushContent(
+          ContentRoute(
+            id: route.routeId,
+            title: 'Thread',
+            subtitle: channel.title,
+            icon: DIcons.comments,
+          ),
+        );
+      }
+    } else if (currentRoute != route || contentStack.length != 1) {
+      selectDestination(ChatPlugin.destination(channel));
+    }
+
+    chatNavigation.offer(
+      ChatNavigationTarget(
+        siteUrl: siteUrl,
+        route: route,
+        messageId: messageId,
+        focusComposer: focusComposer,
+      ),
+    );
+    if (_mobilePane != MobilePane.content) {
+      _mobilePane = MobilePane.content;
+      _notify();
+    }
+    return true;
+  }
+
   /// Opens the category or tag list [url] points at, if this is one and a site
   /// in the rail serves it.
   ///
@@ -2770,6 +2908,7 @@ class ShellController extends FrameSafeNotifier {
     required String siteUrl,
     required int channelId,
     required String channelTitle,
+    int? threadId,
   }) => _buildTextComposer(
     ComposerTarget(
       siteUrl: siteUrl,
@@ -2777,6 +2916,7 @@ class ShellController extends FrameSafeNotifier {
       slug: '',
       topicTitle: channelTitle,
       chatChannelId: channelId,
+      chatThreadId: threadId,
       mode: ComposerMode.chat,
     ),
   );
@@ -6145,7 +6285,9 @@ class ShellController extends FrameSafeNotifier {
       loadFeed(root.feedPath == null ? tab.rootDestinationId : root.id),
     );
     final route = tab.currentContent;
-    if (route.topicId case final topicId?) {
+    if (ChatRoute.parse(route.id) != null) {
+      unawaited(chat.loadChannels(instance.url));
+    } else if (route.topicId case final topicId?) {
       final anchor = tab.anchors[route.id];
       unawaited(
         loadTopic(
@@ -6554,6 +6696,7 @@ class ShellController extends FrameSafeNotifier {
       ..dispose();
     reactions.dispose();
     assignments.dispose();
+    chatNavigation.dispose();
     chat.dispose();
     resenha.dispose();
     search.dispose();

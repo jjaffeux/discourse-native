@@ -7,8 +7,8 @@ import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import 'chat_channel.dart';
 import 'chat_controller.dart';
+import 'chat_route.dart';
 
 typedef _ChatHeaderSnapshot = ({
   String? siteUrl,
@@ -48,8 +48,7 @@ class ChatHeaderButton extends StatelessWidget {
         siteUrl: instance?.url,
         user: instance?.user,
         chatActive:
-            ChatChannel.channelIdIn(controller.currentContent?.id ?? '') !=
-            null,
+            ChatRoute.parse(controller.currentContent?.id ?? '') != null,
       );
     },
     builder: (context, account, _) {

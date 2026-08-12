@@ -38,6 +38,7 @@ class ComposerTarget {
     this.editingPostId,
     this.editingPostNumber,
     this.chatChannelId,
+    this.chatThreadId,
     ComposerMode? mode,
     this.originFeedId,
     this.initialCategoryId,
@@ -53,6 +54,7 @@ class ComposerTarget {
   final String topicTitle;
   final ComposerMode mode;
   final int? chatChannelId;
+  final int? chatThreadId;
   final String? originFeedId;
   final int? initialCategoryId;
   final List<TopicTag> initialTags;
@@ -84,7 +86,9 @@ class ComposerTarget {
   String get draftKey => isNewTopic
       ? ComposerDraft.newTopicDraftKey
       : isChat
-      ? 'chat_$chatChannelId'
+      ? chatThreadId == null
+            ? 'chat_$chatChannelId'
+            : 'chat_${chatChannelId}_thread_$chatThreadId'
       : 'topic_$topicId';
 
   ComposerTarget replyingTo(int? postNumber, String? username) =>
@@ -97,6 +101,7 @@ class ComposerTarget {
         replyToPostNumber: postNumber,
         replyToUsername: username,
         chatChannelId: chatChannelId,
+        chatThreadId: chatThreadId,
         mode: mode,
         originFeedId: originFeedId,
         initialCategoryId: initialCategoryId,

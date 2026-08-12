@@ -502,6 +502,8 @@ final class _ControlledResenhaTransport extends FakeDiscourseApi {
     required int threadId,
     int? before,
     int? after,
+    int? targetMessageId,
+    int pageSize = 50,
     String? apiKey,
     String? clientId,
   }) {
@@ -512,6 +514,8 @@ final class _ControlledResenhaTransport extends FakeDiscourseApi {
         threadId: threadId,
         before: before,
         after: after,
+        targetMessageId: targetMessageId,
+        pageSize: pageSize,
         apiKey: apiKey,
         clientId: clientId,
       );
@@ -556,6 +560,7 @@ ChatMessagePage _chatPage(int id, {bool canLoadMorePast = false}) => (
   ],
   canLoadMorePast: canLoadMorePast,
   canLoadMoreFuture: false,
+  targetMessageId: null,
 );
 
 void main() {
@@ -623,6 +628,7 @@ void main() {
           ],
           canLoadMorePast: true,
           canLoadMoreFuture: false,
+          targetMessageId: null,
         ),
         'thread-42-99~past~10': (
           messages: const [
@@ -635,6 +641,7 @@ void main() {
           ],
           canLoadMorePast: false,
           canLoadMoreFuture: false,
+          targetMessageId: null,
         ),
       },
     );

@@ -5,7 +5,12 @@ import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_route.dart';
+import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
+import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -115,6 +120,7 @@ void main() {
       messages: messages,
       canLoadMorePast: true,
       canLoadMoreFuture: false,
+      targetMessageId: null,
     );
     final api = _ChatApi(
       openPages: {
@@ -227,7 +233,7 @@ void main() {
     final api = _ChatApi(
       openPages: {
         firstSite: [
-          _messagesPage(1, 2, canLoadMoreFuture: true),
+          _messagesPage(1, 40, canLoadMoreFuture: true),
           _messagesPage(80, 1),
         ],
       },
@@ -289,6 +295,224 @@ void main() {
       semantics.dispose();
     }
   });
+
+  testWidgets(
+    'an explicit channel target is fetched and transiently highlighted',
+    (tester) async {
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [_messagesPage(40, 5)],
+        },
+      );
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      controller.store.put(firstSite, _channel(lastRead: 40));
+      controller.chatNavigation.offer(
+        ChatNavigationTarget(
+          siteUrl: 'https://one.example',
+          route: ChatRoute.channel(9),
+          messageId: 42,
+        ),
+      );
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+
+      expect(api.targetMessageIds, [42]);
+      expect(controller.chatNavigation.value, isNull);
+      expect(
+        find.byKey(const ValueKey('chat-message-highlight')),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('chat-message-highlight')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('the ordinary last-read anchor is never highlighted', (
+    tester,
+  ) async {
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [_messagesPage(40, 5)],
+      },
+    );
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    controller.store.put(firstSite, _channel(lastRead: 42));
+
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(api.targetMessageIds, [null]);
+    expect(find.byKey(const ValueKey('chat-message-highlight')), findsNothing);
+  });
+
+  testWidgets('a paused dwell resumes without crediting hidden time', (
+    tester,
+  ) async {
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [_messagesPage(1, 1)],
+      },
+    );
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    addTearDown(() => _resumeLifecycle(tester));
+    controller.store.put(firstSite, _channel(lastRead: 0));
+
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(api.chatReadsMarked, isEmpty);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump(const Duration(seconds: 2));
+    expect(api.chatReadsMarked, isEmpty);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(api.chatReadsMarked, isEmpty);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(api.chatReadsMarked, [(channelId: 9, messageId: 1)]);
+  });
+
+  testWidgets(
+    'reply availability follows the live channel while existing threads stay openable',
+    (tester) async {
+      final existing = _message(
+        2,
+        thread: const ChatThreadPreview(
+          threadId: 3,
+          replyCount: 1,
+          lastReplyId: 2,
+        ),
+      );
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [
+            (
+              messages: [_message(1), existing],
+              canLoadMorePast: false,
+              canLoadMoreFuture: false,
+              targetMessageId: null,
+            ),
+          ],
+        },
+      );
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      controller.store.put(firstSite, _channel(lastRead: 0));
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+      expect(find.byKey(ChatMessageTile.actionsKey(1)), findsOneWidget);
+      expect(find.byKey(ChatMessageTile.actionsKey(2)), findsOneWidget);
+
+      controller.store.put(
+        firstSite,
+        const ChatChannel(
+          id: 9,
+          title: 'Chat',
+          kind: ChatChannelKind.category,
+          status: ChatChannelStatus.readOnly,
+          membership: ChatMembership(following: true),
+          threadingEnabled: true,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(ChatMessageTile.actionsKey(1)), findsNothing);
+      expect(find.byKey(ChatMessageTile.actionsKey(2)), findsOneWidget);
+    },
+  );
+
+  testWidgets('a failed thread creation is explained', (tester) async {
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [_messagesPage(1, 1)],
+      },
+    );
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    controller.store.put(firstSite, _channel(lastRead: 0));
+
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byType(ChatMessageTile));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reply in thread'));
+    await tester.pumpAndSettle();
+
+    expect(api.chatThreadsCreated.single.originalMessageId, 1);
+    expect(
+      find.text('Could not start this thread. Try again.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('jump to latest visibly renders its pending message count', (
+    tester,
+  ) async {
+    final api = _ChatApi(openPages: const {});
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    final message = _message(1);
+    controller.store
+      ..put(firstSite, _channel(lastRead: 0))
+      ..put(firstSite, message);
+
+    await tester.pumpWidget(
+      _TestStreamView(
+        controller: controller,
+        message: message,
+        stream: const ChatStreamState(
+          messageIds: [1],
+          canLoadMoreFuture: true,
+          pendingNewMessages: 3,
+          fetchedOnce: true,
+          fetches: 1,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('chat-jump-pending-count')),
+      findsOneWidget,
+    );
+    expect(find.text('3'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Jump to latest messages, 3 new'),
+      findsOneWidget,
+    );
+  });
+}
+
+void _resumeLifecycle(WidgetTester tester) {
+  var state = tester.binding.lifecycleState;
+  if (state == AppLifecycleState.paused) {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    state = AppLifecycleState.hidden;
+  }
+  if (state == AppLifecycleState.hidden) {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    state = AppLifecycleState.inactive;
+  }
+  if (state == AppLifecycleState.inactive) {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+  }
 }
 
 Finder _verticalChatScroll() => find.byWidgetPredicate(
@@ -344,6 +568,34 @@ final class _TestView extends StatelessWidget {
   );
 }
 
+final class _TestStreamView extends StatelessWidget {
+  const _TestStreamView({
+    required this.controller,
+    required this.message,
+    required this.stream,
+  });
+
+  final ShellController controller;
+  final ChatMessage message;
+  final ChatStreamState stream;
+
+  @override
+  Widget build(BuildContext context) => ShellScope(
+    controller: controller,
+    child: MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: ChatMessageStream(
+          siteUrl: 'https://one.example',
+          target: const ChatChannelTarget(9),
+          items: buildChatStream([message]),
+          stream: stream,
+        ),
+      ),
+    ),
+  );
+}
+
 final class _SynchronousAuthenticator extends FakeAuthenticator {
   @override
   Future<String?> apiKeyFor(String siteUrl) => SynchronousFuture(keys[siteUrl]);
@@ -372,6 +624,7 @@ final class _ChatApi extends FakeDiscourseApi {
   final Map<String, int> _openCounts = {};
   final List<String> olderSites = [];
   final List<String> newerSites = [];
+  final List<int?> targetMessageIds = [];
 
   @override
   Future<ChatMessagePage> chatMessages({
@@ -379,6 +632,7 @@ final class _ChatApi extends FakeDiscourseApi {
     required int channelId,
     int? before,
     int? after,
+    int? targetMessageId,
     bool fromLastRead = false,
     int pageSize = 50,
     String? apiKey,
@@ -395,6 +649,8 @@ final class _ChatApi extends FakeDiscourseApi {
       if (failNewer) throw StateError('newer page refused');
       return SynchronousFuture(_messagesPage(after + 1, 1));
     }
+
+    targetMessageIds.add(targetMessageId);
 
     final count = (_openCounts[siteUrl] ?? 0) + 1;
     _openCounts[siteUrl] = count;
@@ -430,6 +686,7 @@ ChatChannel _channel({required int lastRead}) => ChatChannel(
   title: 'Chat',
   kind: ChatChannelKind.category,
   membership: ChatMembership(following: true, lastReadMessageId: lastRead),
+  threadingEnabled: true,
 );
 
 ChatMessagePage _messagesPage(
@@ -441,12 +698,16 @@ ChatMessagePage _messagesPage(
   messages: [for (var id = first; id < first + count; id++) _message(id)],
   canLoadMorePast: canLoadMorePast,
   canLoadMoreFuture: canLoadMoreFuture,
+  targetMessageId: null,
 );
 
-ChatMessage _message(int id, {String? cooked}) => ChatMessage(
-  id: id,
-  channelId: 9,
-  cooked: cooked ?? '<p>Message $id</p>',
-  author: const ChatMessageAuthor(id: 2, username: 'sam'),
-  createdAt: DateTime.utc(2026, 1, 1).add(Duration(minutes: id)),
-);
+ChatMessage _message(int id, {String? cooked, ChatThreadPreview? thread}) =>
+    ChatMessage(
+      id: id,
+      channelId: 9,
+      cooked: cooked ?? '<p>Message $id</p>',
+      author: const ChatMessageAuthor(id: 2, username: 'sam'),
+      createdAt: DateTime.utc(2026, 1, 1).add(Duration(minutes: id)),
+      threadId: thread?.threadId,
+      thread: thread,
+    );
