@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/site_tracker.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
@@ -185,6 +186,63 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     expect(firstApi.closeCalls, 1);
     expect(secondApi.closeCalls, 1);
+  });
+
+  testWidgets('closes a replaced app-owned Resenha diagnostics controller', (
+    tester,
+  ) async {
+    final key = GlobalKey();
+    final bridgeReleased = Completer<void>();
+    final first = await ResenhaDiagnosticsController.create(
+      persistence: MemoryResenhaDiagnosticsPersistence(),
+      sdkLogBridges: [
+        CallbackResenhaDiagnosticsSdkLogBridge(
+          install: (_) {},
+          uninstall: () {
+            if (!bridgeReleased.isCompleted) bridgeReleased.complete();
+          },
+        ),
+      ],
+    );
+    final second = await ResenhaDiagnosticsController.create(
+      persistence: MemoryResenhaDiagnosticsPersistence(),
+    );
+    addTearDown(first.close);
+    addTearDown(second.close);
+    await first.startCapture();
+
+    final store = FakeInstanceStore();
+    final api = FakeDiscourseApi();
+    final authenticator = FakeAuthenticator();
+    final drafts = FakeDraftStore();
+    final forumTabs = FakeForumTabStore();
+    final trackers = FakeSiteTracker.reset();
+    final updater = FakeUpdater();
+    final updateStore = FakeUpdateStore();
+
+    Widget app(ResenhaDiagnosticsController diagnostics) => DiscourseApp(
+      key: key,
+      store: store,
+      api: api,
+      authenticator: authenticator,
+      drafts: drafts,
+      forumTabs: forumTabs,
+      trackers: trackers,
+      updater: updater,
+      updateStore: updateStore,
+      resenhaDiagnostics: diagnostics,
+    );
+
+    await tester.pumpWidget(app(first));
+    await tester.pumpAndSettle();
+    expect(first.captureEnabled, isTrue);
+
+    await tester.pumpWidget(app(second));
+    await tester.pumpAndSettle();
+
+    expect(bridgeReleased.isCompleted, isTrue);
+    expect(first.captureEnabled, isFalse);
+    expect(second.captureEnabled, isFalse);
   });
 
   test(

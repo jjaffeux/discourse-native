@@ -57,6 +57,7 @@ import '../plugins/reactions/reaction.dart';
 import '../plugins/reactions/reactions_controller.dart';
 import '../plugins/resenha/resenha_api.dart';
 import '../plugins/resenha/resenha_controller.dart';
+import '../plugins/resenha/resenha_diagnostics.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_controller.dart';
@@ -124,6 +125,7 @@ class ShellController extends FrameSafeNotifier {
     this.trackers = SiteTracker.new,
     Updater updater = const UnsupportedUpdater(),
     UpdateStore? updateStore,
+    this.resenhaDiagnostics = const NoopResenhaDiagnosticsRecorder(),
     this.ownsApi = true,
     this.topicLoadTimeout = const Duration(seconds: 30),
   }) : forumTabs = forumTabs ?? ForumTabStore.memory(),
@@ -170,6 +172,7 @@ class ShellController extends FrameSafeNotifier {
   final Authenticator authenticator;
   final DraftStore drafts;
   final SiteLifecycle lifecycle;
+  final ResenhaDiagnosticsRecorder resenhaDiagnostics;
 
   void _reportOperationalError(
     Object error,
@@ -368,6 +371,7 @@ class ShellController extends FrameSafeNotifier {
     trackerFor: (siteUrl) => _trackers[siteUrl],
     userIdFor: (siteUrl) => _instanceAt(siteUrl)?.user?.id,
     onCallSiteChanged: _syncTracking,
+    diagnostics: resenhaDiagnostics,
   );
 
   SitePresentationController? _sitePresentation;

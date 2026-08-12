@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_media.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_reconnect.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
+import 'package:livekit_client/livekit_client.dart' as lk;
 
 ResenhaJoinResponse join({
   required ResenhaRoomType roomType,
@@ -22,6 +26,60 @@ ResenhaJoinResponse join({
     participants: [ResenhaParticipant(id: 10, username: 'sam', role: role)],
   ),
 );
+
+typedef _RecordedDiagnostic = ({
+  String event,
+  String component,
+  DiagnosticSeverity severity,
+  String? correlationId,
+  String? message,
+  Map<String, Object?> data,
+});
+
+final class _DiagnosticsRecorder implements ResenhaDiagnosticsRecorder {
+  @override
+  bool captureEnabled = false;
+
+  final List<_RecordedDiagnostic> records = [];
+  final List<_RecordedDiagnostic> rawRecords = [];
+
+  @override
+  void record(
+    String event, {
+    String component = 'runtime',
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? correlationId,
+    Map<String, Object?> data = const {},
+  }) {
+    records.add((
+      event: event,
+      component: component,
+      severity: severity,
+      correlationId: correlationId,
+      message: null,
+      data: data,
+    ));
+  }
+
+  @override
+  void recordRaw(
+    String event, {
+    String component = 'sdk',
+    DiagnosticSeverity severity = DiagnosticSeverity.debug,
+    String? correlationId,
+    String? message,
+    Map<String, Object?> data = const {},
+  }) {
+    rawRecords.add((
+      event: event,
+      component: component,
+      severity: severity,
+      correlationId: correlationId,
+      message: message,
+      data: data,
+    ));
+  }
+}
 
 void main() {
   test('stage listeners do not acquire an outgoing audio publication', () {
@@ -409,6 +467,522 @@ void main() {
       expect(await peer.getRemoteDescription(), isNull);
       await media.dispose();
     });
+
+    test('records correlated peer, signaling, ICE, and track events', () async {
+      final diagnostics = _DiagnosticsRecorder()..captureEnabled = true;
+      final peer = _FakePeerConnection();
+      final media = _meshSession(
+        peer: peer,
+        audioPublishingAllowed: false,
+        diagnostics: diagnostics,
+        correlationId: 'call-42',
+      );
+      await media.connect();
+
+      peer.onConnectionState?.call(
+        rtc.RTCPeerConnectionState.RTCPeerConnectionStateConnected,
+      );
+      peer.onIceConnectionState?.call(
+        rtc.RTCIceConnectionState.RTCIceConnectionStateChecking,
+      );
+      peer.onSignalingState?.call(
+        rtc.RTCSignalingState.RTCSignalingStateHaveLocalOffer,
+      );
+      peer.onIceCandidate?.call(rtc.RTCIceCandidate('candidate:raw', '0', 0));
+      final track = _FakeTrack('remote-video', 'video');
+      peer.onTrack?.call(rtc.RTCTrackEvent(streams: const [], track: track));
+      await media.handleSignal(20, {
+        'type': 'candidate',
+        'candidate': {
+          'candidate': 'candidate:remote',
+          'sdpMid': '0',
+          'sdpMLineIndex': 0,
+        },
+      });
+
+      expect(
+        diagnostics.records.map((record) => record.event),
+        containsAll({
+          'mesh.peer.create.completed',
+          'mesh.peer.connection_state',
+          'mesh.peer.ice_connection_state',
+          'mesh.peer.signaling_state',
+          'mesh.signaling.received',
+          'mesh.ice.candidate.queued',
+        }),
+      );
+      expect(
+        diagnostics.rawRecords.map((record) => record.event),
+        containsAll({
+          'mesh.ice.candidate.local',
+          'mesh.track.received',
+          'mesh.signaling.received.raw',
+        }),
+      );
+      expect(
+        diagnostics.records.every(
+          (record) => record.correlationId == 'call-42',
+        ),
+        isTrue,
+      );
+      await media.dispose();
+    });
+
+    test(
+      'keeps stable media identities out of capture-off diagnostics',
+      () async {
+        const localUserId = 731946201;
+        const remoteUserId = 731946202;
+        const localUsername = 'privacy-local-alice';
+        const remoteUsername = 'privacy-remote-bob';
+        const deviceId = 'privacy-device-7e65';
+        const groupId = 'privacy-group-8f76';
+        const trackId = 'privacy-track-9a87';
+        const streamId = 'privacy-stream-ab98';
+        const candidateIp = '203.0.113.77';
+        final diagnostics = _DiagnosticsRecorder();
+        final peer = _FakePeerConnection();
+        final media = _meshSession(
+          peer: peer,
+          audioPublishingAllowed: false,
+          localUserId: localUserId,
+          remoteUserId: remoteUserId,
+          localUsername: localUsername,
+          remoteUsername: remoteUsername,
+          diagnostics: diagnostics,
+          correlationId: 'privacy-call',
+          enumerateDevices: () async => [
+            rtc.MediaDeviceInfo(
+              deviceId: deviceId,
+              groupId: groupId,
+              kind: 'videoinput',
+              label: 'Privacy sentinel camera',
+            ),
+          ],
+        );
+        await media.connect();
+
+        peer.onConnectionState?.call(
+          rtc.RTCPeerConnectionState.RTCPeerConnectionStateConnected,
+        );
+        peer.onIceCandidate?.call(
+          rtc.RTCIceCandidate(
+            'candidate:1 1 udp 2122260223 $candidateIp 54321 typ host',
+            '0',
+            0,
+          ),
+        );
+        final track = _FakeTrack(trackId, 'video');
+        final stream = _FakeStream(streamId, [track]);
+        peer.onTrack?.call(rtc.RTCTrackEvent(streams: [stream], track: track));
+        await media.handleSignal(remoteUserId, {
+          'type': 'candidate',
+          'candidate': {
+            'candidate':
+                'candidate:2 1 udp 2122260223 $candidateIp 54322 typ host',
+            'sdpMid': '0',
+            'sdpMLineIndex': 0,
+          },
+        });
+        await media.handleSignal(remoteUserId, {
+          'type': 'untrusted-$candidateIp-$trackId',
+        });
+        track.onEnded?.call();
+        await media.devices();
+
+        final ordinaryExport = jsonEncode([
+          for (final record in diagnostics.records)
+            {
+              'event': record.event,
+              'component': record.component,
+              'correlationId': record.correlationId,
+              'data': record.data,
+            },
+        ]);
+        for (final sentinel in [
+          '$localUserId',
+          '$remoteUserId',
+          localUsername,
+          remoteUsername,
+          deviceId,
+          groupId,
+          trackId,
+          streamId,
+          candidateIp,
+        ]) {
+          expect(ordinaryExport, isNot(contains(sentinel)));
+        }
+        for (final rawIdentityKey in [
+          'peerId',
+          'localUserId',
+          'participantSid',
+          'participantIdentity',
+          'participantName',
+          'trackId',
+          'trackSid',
+          'streamIds',
+          'deviceId',
+          'groupId',
+        ]) {
+          expect(ordinaryExport, isNot(contains('"$rawIdentityKey"')));
+        }
+        expect(ordinaryExport, contains('peer-1'));
+        expect(ordinaryExport, contains('track-1'));
+        expect(diagnostics.rawRecords, isEmpty);
+        await media.dispose();
+      },
+    );
+
+    test(
+      'contains candidate batch timer failures at the terminal boundary',
+      () async {
+        const privateCause =
+            'candidate-private-user device-private 203.0.113.120';
+        final uncaught = <Object>[];
+        final diagnostics = _DiagnosticsRecorder();
+        final peer = _FakePeerConnection();
+        final media = _meshSession(
+          peer: peer,
+          localUserId: 20,
+          remoteUserId: 10,
+          audioPublishingAllowed: false,
+          diagnostics: diagnostics,
+          correlationId: 'candidate-failure-call',
+          sendSignal: (_, _) async => throw StateError(privateCause),
+        );
+        await media.connect();
+
+        final operation = runZonedGuarded<Future<void>>(() async {
+          peer.onIceCandidate?.call(
+            rtc.RTCIceCandidate(
+              'candidate:1 1 udp 2122260223 203.0.113.120 54321 typ host',
+              '0',
+              0,
+            ),
+          );
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }, (error, _) => uncaught.add(error));
+        await operation;
+
+        expect(uncaught, isEmpty);
+        final failure = diagnostics.records.singleWhere(
+          (record) => record.event == 'mesh.signaling.send_failed',
+        );
+        expect(failure.data['peerAlias'], 'peer-1');
+        expect(failure.data['errorType'], 'StateError');
+        final ordinaryExport = jsonEncode([
+          for (final record in diagnostics.records)
+            {'event': record.event, 'data': record.data},
+        ]);
+        expect(ordinaryExport, isNot(contains(privateCause)));
+        expect(diagnostics.rawRecords, isEmpty);
+        await media.dispose();
+      },
+    );
+
+    test(
+      'contains detached remote volume failures without exposing raw cause',
+      () async {
+        const privateCause = 'volume-private-user track-private 203.0.113.121';
+        final uncaught = <Object>[];
+        final diagnostics = _DiagnosticsRecorder();
+        final peer = _FakePeerConnection();
+        final media = _meshSession(
+          peer: peer,
+          audioPublishingAllowed: false,
+          diagnostics: diagnostics,
+          correlationId: 'volume-failure-call',
+          setTrackVolume: (_, _) async => throw StateError(privateCause),
+        );
+        await media.connect();
+
+        final operation = runZonedGuarded<Future<void>>(() async {
+          final track = _FakeTrack('track-private', 'audio');
+          final stream = _FakeStream('stream-private', [track]);
+          peer.onTrack?.call(
+            rtc.RTCTrackEvent(streams: [stream], track: track),
+          );
+          await _pumpEventQueue();
+        }, (error, _) => uncaught.add(error));
+        await operation;
+
+        expect(uncaught, isEmpty);
+        final failure = diagnostics.records.singleWhere(
+          (record) => record.event == 'mesh.track.volume_failed',
+        );
+        expect(failure.data['peerAlias'], 'peer-1');
+        expect(failure.data['trackAlias'], 'track-1');
+        expect(failure.data['errorType'], 'StateError');
+        final ordinaryExport = jsonEncode([
+          for (final record in diagnostics.records)
+            {'event': record.event, 'data': record.data},
+        ]);
+        expect(ordinaryExport, isNot(contains(privateCause)));
+        expect(ordinaryExport, isNot(contains('track-private')));
+        expect(diagnostics.rawRecords, isEmpty);
+        await media.dispose();
+      },
+    );
+
+    test('samples raw peer stats only while capture is enabled', () async {
+      final diagnostics = _DiagnosticsRecorder();
+      final peer = _FakePeerConnection();
+      final media = _meshSession(
+        peer: peer,
+        audioPublishingAllowed: false,
+        diagnostics: diagnostics,
+        correlationId: 'stats-call',
+        rawStatsInterval: const Duration(milliseconds: 5),
+        enumerateDevices: () async => const [],
+      );
+      await media.connect();
+
+      await Future<void>.delayed(const Duration(milliseconds: 12));
+      expect(
+        diagnostics.rawRecords.where(
+          (record) => record.event == 'mesh.peer.stats',
+        ),
+        isEmpty,
+      );
+
+      diagnostics.captureEnabled = true;
+      await Future<void>.delayed(const Duration(milliseconds: 12));
+      final stats = diagnostics.rawRecords.where(
+        (record) => record.event == 'mesh.peer.stats',
+      );
+      expect(stats, isNotEmpty);
+      expect(
+        stats.every((record) => record.correlationId == 'stats-call'),
+        true,
+      );
+      await media.dispose();
+    });
+
+    test('records full device inventory only during deep capture', () async {
+      final diagnostics = _DiagnosticsRecorder();
+      final devices = [
+        rtc.MediaDeviceInfo(
+          deviceId: 'microphone-1',
+          groupId: 'headset-1',
+          kind: 'audioinput',
+          label: 'USB headset microphone',
+        ),
+        rtc.MediaDeviceInfo(
+          deviceId: 'camera-1',
+          groupId: 'camera-group-1',
+          kind: 'videoinput',
+          label: 'External camera',
+        ),
+      ];
+      final media = _meshSession(
+        peer: _FakePeerConnection(),
+        audioPublishingAllowed: false,
+        diagnostics: diagnostics,
+        correlationId: 'device-call',
+        enumerateDevices: () async => devices,
+      );
+
+      expect(await media.devices(), devices);
+      expect(diagnostics.rawRecords, isEmpty);
+
+      diagnostics.captureEnabled = true;
+      expect(await media.devices(), devices);
+      final inventory = diagnostics.rawRecords.single;
+      expect(inventory.event, 'media.devices.enumerated');
+      expect(inventory.correlationId, 'device-call');
+      expect(inventory.data['count'], 2);
+      final recordedDevices = inventory.data['devices'] as List<Object?>;
+      expect(
+        recordedDevices.first,
+        containsPair('label', 'USB headset microphone'),
+      );
+      expect(recordedDevices.first, containsPair('deviceId', 'microphone-1'));
+      expect(recordedDevices.last, containsPair('kind', 'videoinput'));
+      await media.dispose();
+    });
+  });
+
+  test('records typed LiveKit room and reconnect events', () {
+    final diagnostics = _DiagnosticsRecorder()..captureEnabled = true;
+    final meshJoin = _meshJoin(localUserId: 10, remoteUserId: 20);
+    final media = LiveKitResenhaMediaSession(
+      join: ResenhaJoinResponse(
+        transport: ResenhaTransport.livekit,
+        ice: meshJoin.ice,
+        room: meshJoin.room,
+        livekit: const ResenhaLiveKitCredentials(
+          url: 'wss://livekit.invalid',
+          token: 'not-used',
+        ),
+      ),
+      localUserId: 10,
+      audioPublishingAllowed: true,
+      refreshCredentials: () async =>
+          const ResenhaLiveKitCredentials(url: '', token: ''),
+      diagnostics: diagnostics,
+      correlationId: 'livekit-call',
+    );
+
+    media.recordRoomEventForTesting(
+      lk.RoomDisconnectedEvent(
+        reason: lk.DisconnectReason.signalingConnectionFailure,
+      ),
+    );
+    media.recordRoomEventForTesting(
+      const lk.RoomAttemptReconnectEvent(
+        attempt: 2,
+        maxAttemptsRetry: 5,
+        nextRetryDelaysInMs: 1000,
+      ),
+    );
+    media.recordRoomEventForTesting(const lk.RoomReconnectedEvent());
+
+    expect(diagnostics.records.map((record) => record.event), [
+      'livekit.room.disconnected',
+      'livekit.room.reconnect_attempt',
+      'livekit.room.reconnected',
+    ]);
+    expect(
+      diagnostics.records.every(
+        (record) => record.correlationId == 'livekit-call',
+      ),
+      isTrue,
+    );
+    expect(
+      diagnostics.records.first.data['reason'],
+      'signalingConnectionFailure',
+    );
+    expect(media.rawStatsInterval, const Duration(seconds: 5));
+  });
+
+  test(
+    'does not forward a reconnect cause through capture-off Flutter errors',
+    () async {
+      const privateCause =
+          'participant-alice device-private 203.0.113.88 track-private';
+      final diagnostics = _DiagnosticsRecorder();
+      final meshJoin = _meshJoin(localUserId: 10, remoteUserId: 20);
+      final media = LiveKitResenhaMediaSession(
+        join: ResenhaJoinResponse(
+          transport: ResenhaTransport.livekit,
+          ice: meshJoin.ice,
+          room: meshJoin.room,
+          livekit: const ResenhaLiveKitCredentials(
+            url: 'wss://livekit.invalid',
+            token: 'not-used',
+          ),
+        ),
+        localUserId: 10,
+        audioPublishingAllowed: true,
+        refreshCredentials: () async =>
+            const ResenhaLiveKitCredentials(url: '', token: ''),
+        diagnostics: diagnostics,
+        correlationId: 'livekit-private-failure',
+      );
+      addTearDown(media.dispose);
+      final reported = <FlutterErrorDetails>[];
+      final previousHandler = FlutterError.onError;
+      FlutterError.onError = reported.add;
+      addTearDown(() => FlutterError.onError = previousHandler);
+
+      media.reportUnexpectedReconnectFailureForTesting(
+        StateError(privateCause),
+        StackTrace.current,
+      );
+
+      expect(reported, hasLength(1));
+      expect(
+        reported.single.exception.toString(),
+        contains('livekit.reconnect'),
+      );
+      expect(
+        reported.single.exception.toString(),
+        isNot(contains(privateCause)),
+      );
+      final ordinaryExport = jsonEncode([
+        for (final record in diagnostics.records)
+          {'event': record.event, 'data': record.data},
+      ]);
+      expect(ordinaryExport, isNot(contains(privateCause)));
+      expect(diagnostics.rawRecords, isEmpty);
+    },
+  );
+
+  test('samples raw LiveKit track stats only during deep capture', () async {
+    final diagnostics = _DiagnosticsRecorder();
+    final meshJoin = _meshJoin(localUserId: 10, remoteUserId: 20);
+    var collectionCount = 0;
+    var enumerationCount = 0;
+    final media = LiveKitResenhaMediaSession(
+      join: ResenhaJoinResponse(
+        transport: ResenhaTransport.livekit,
+        ice: meshJoin.ice,
+        room: meshJoin.room,
+        livekit: const ResenhaLiveKitCredentials(
+          url: 'wss://livekit.invalid',
+          token: 'not-used',
+        ),
+      ),
+      localUserId: 10,
+      audioPublishingAllowed: true,
+      refreshCredentials: () async =>
+          const ResenhaLiveKitCredentials(url: '', token: ''),
+      diagnostics: diagnostics,
+      correlationId: 'livekit-stats-call',
+      rawStatsInterval: const Duration(milliseconds: 5),
+      enumerateDevices: () async {
+        enumerationCount++;
+        return [
+          rtc.MediaDeviceInfo(
+            deviceId: 'speaker-1',
+            groupId: 'headset-1',
+            kind: 'audiooutput',
+            label: 'USB headset',
+          ),
+        ];
+      },
+      collectRawStats: (_) async {
+        collectionCount++;
+        return [
+          {
+            'participantIdentity': 'remote-user',
+            'trackSid': 'track-1',
+            'direction': 'receiver',
+            'reports': [
+              {
+                'id': 'inbound-1',
+                'type': 'inbound-rtp',
+                'timestamp': 1234,
+                'values': {'packetsLost': 2, 'jitter': 0.03},
+              },
+            ],
+          },
+        ];
+      },
+    );
+    media.startRawStatsTimerForTesting();
+
+    await Future<void>.delayed(const Duration(milliseconds: 12));
+    expect(collectionCount, 0);
+    expect(enumerationCount, 0);
+    expect(diagnostics.rawRecords, isEmpty);
+
+    diagnostics.captureEnabled = true;
+    await Future<void>.delayed(const Duration(milliseconds: 18));
+    expect(collectionCount, greaterThan(0));
+    expect(enumerationCount, 1);
+    expect(
+      diagnostics.rawRecords.map((record) => record.event),
+      containsAll({'media.devices.enumerated', 'livekit.track.stats'}),
+    );
+    final stats = diagnostics.rawRecords.firstWhere(
+      (record) => record.event == 'livekit.track.stats',
+    );
+    expect(stats.correlationId, 'livekit-stats-call');
+    expect(stats.data['participantIdentity'], 'remote-user');
+    expect(stats.data['direction'], 'receiver');
+    expect(stats.data['reports'], isNotEmpty);
+    await media.dispose();
   });
 
   group('ResenhaReconnectCoordinator', () {
@@ -520,6 +1094,27 @@ void main() {
       ]);
     });
 
+    test('reports retry attempt causes to diagnostic observers', () async {
+      final started = <(int, Duration)>[];
+      final failures = <(int, Object)>[];
+      var exhausted = 0;
+      final coordinator = ResenhaReconnectCoordinator(
+        attempt: () async => throw StateError('expired token'),
+        onStateChanged: (_) {},
+        onAttemptStarted: (attempt, delay) => started.add((attempt, delay)),
+        onAttemptFailed: (attempt, error, _) => failures.add((attempt, error)),
+        onExhausted: (attemptCount) => exhausted = attemptCount,
+        schedule: const [Duration.zero],
+      );
+
+      await coordinator.reconnect();
+
+      expect(started, [(1, Duration.zero)]);
+      expect(failures.single.$1, 1);
+      expect(failures.single.$2, isA<StateError>());
+      expect(exhausted, 1);
+    });
+
     test('cancel releases backoff and prevents later attempts', () async {
       var attempts = 0;
       final states = <ResenhaMediaConnectionState>[];
@@ -610,21 +1205,42 @@ MeshResenhaMediaSession _meshSession({
   required bool audioPublishingAllowed,
   int localUserId = 10,
   int remoteUserId = 20,
+  String localUsername = 'local',
+  String remoteUsername = 'remote',
   ResenhaUserMediaGetter? getUserMedia,
   ResenhaUserMediaGetter? getDisplayMedia,
+  ResenhaDiagnosticsRecorder diagnostics =
+      const NoopResenhaDiagnosticsRecorder(),
+  String correlationId = 'uncorrelated',
+  Duration rawStatsInterval = const Duration(seconds: 5),
+  ResenhaMediaDeviceEnumerator? enumerateDevices,
+  ResenhaSignalSender? sendSignal,
+  ResenhaTrackVolumeSetter? setTrackVolume,
 }) => MeshResenhaMediaSession(
-  join: _meshJoin(localUserId: localUserId, remoteUserId: remoteUserId),
+  join: _meshJoin(
+    localUserId: localUserId,
+    remoteUserId: remoteUserId,
+    localUsername: localUsername,
+    remoteUsername: remoteUsername,
+  ),
   localUserId: localUserId,
-  sendSignal: (_, _) async {},
+  sendSignal: sendSignal ?? ((_, _) async {}),
   audioPublishingAllowed: audioPublishingAllowed,
+  diagnostics: diagnostics,
+  correlationId: correlationId,
+  rawStatsInterval: rawStatsInterval,
   createPeerConnection: (_) async => peer,
   getUserMedia: getUserMedia,
   getDisplayMedia: getDisplayMedia,
+  enumerateDevices: enumerateDevices,
+  setTrackVolume: setTrackVolume,
 );
 
 ResenhaJoinResponse _meshJoin({
   required int localUserId,
   required int remoteUserId,
+  String localUsername = 'local',
+  String remoteUsername = 'remote',
   ResenhaRoomType roomType = ResenhaRoomType.open,
   ResenhaRole localRole = ResenhaRole.participant,
   ResenhaRole remoteRole = ResenhaRole.participant,
@@ -639,10 +1255,14 @@ ResenhaJoinResponse _meshJoin({
     ephemeral: false,
     type: roomType,
     participants: [
-      ResenhaParticipant(id: localUserId, username: 'local', role: localRole),
+      ResenhaParticipant(
+        id: localUserId,
+        username: localUsername,
+        role: localRole,
+      ),
       ResenhaParticipant(
         id: remoteUserId,
-        username: 'remote',
+        username: remoteUsername,
         role: remoteRole,
       ),
     ],
@@ -676,6 +1296,12 @@ final class _FakePeerConnection implements rtc.RTCPeerConnection {
   void Function(rtc.RTCTrackEvent event)? onTrack;
   @override
   void Function(rtc.RTCPeerConnectionState state)? onConnectionState;
+  @override
+  void Function(rtc.RTCIceConnectionState state)? onIceConnectionState;
+  @override
+  void Function(rtc.RTCIceGatheringState state)? onIceGatheringState;
+  @override
+  void Function(rtc.RTCSignalingState state)? onSignalingState;
 
   @override
   rtc.RTCSignalingState? get signalingState => _signalingState;

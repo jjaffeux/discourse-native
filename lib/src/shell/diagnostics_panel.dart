@@ -5,10 +5,14 @@ import 'package:flutter/services.dart';
 
 import '../diagnostics/diagnostic_event.dart';
 import '../diagnostics/diagnostics_controller.dart';
+import '../diagnostics/diagnostics_persistence.dart';
+import '../diagnostics/resenha_report_exporter.dart';
+import '../plugins/resenha/resenha_diagnostics.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
+import 'resenha_diagnostics_view.dart';
 
 /// The initial width used by both the docked diagnostics sidebar and the
 /// non-phone overlay.
@@ -29,10 +33,16 @@ class DiagnosticsPanel extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onClose,
+    this.resenhaController,
+    this.resenhaReportExporter,
+    this.resenhaClipboardByteLimit = resenhaDiagnosticsClipboardByteLimit,
   });
 
   final DiagnosticsController controller;
   final VoidCallback onClose;
+  final ResenhaDiagnosticsController? resenhaController;
+  final ResenhaReportExporter? resenhaReportExporter;
+  final int resenhaClipboardByteLimit;
 
   @override
   State<DiagnosticsPanel> createState() => _DiagnosticsPanelState();
@@ -41,6 +51,9 @@ class DiagnosticsPanel extends StatefulWidget {
 class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
   final TextEditingController _search = TextEditingController();
   final ScrollController _timeline = ScrollController();
+  late final ResenhaReportExporter _resenhaReportExporter =
+      widget.resenhaReportExporter ?? NativeResenhaReportExporter();
+  bool _showResenha = false;
 
   @override
   void didUpdateWidget(DiagnosticsPanel oldWidget) {
@@ -48,6 +61,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
     if (!identical(widget.controller, oldWidget.controller)) {
       _search.text = widget.controller.panelState.query;
     }
+    if (widget.resenhaController == null) _showResenha = false;
   }
 
   @override
@@ -66,7 +80,8 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape) {
-          if (widget.controller.panelState.selectedEventId != null) {
+          if (!_showResenha &&
+              widget.controller.panelState.selectedEventId != null) {
             widget.controller.selectEvent(null);
           } else {
             widget.onClose();
@@ -102,7 +117,8 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                 children: [
                   _PanelHeader(
                     frozen: panelState.frozen,
-                    showingDetail: selected != null,
+                    showingDetail: !_showResenha && selected != null,
+                    showGeneralActions: !_showResenha,
                     onBack: () => widget.controller.selectEvent(null),
                     onToggleFrozen: () =>
                         widget.controller.setFrozen(!panelState.frozen),
@@ -111,8 +127,19 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                     onClose: widget.onClose,
                   ),
                   Divider(height: 1, color: theme.shell.divider),
+                  if (widget.resenhaController != null) ...[
+                    _DiagnosticsTabs(
+                      showResenha: _showResenha,
+                      onChanged: (showResenha) {
+                        setState(() => _showResenha = showResenha);
+                      },
+                    ),
+                    Divider(height: 1, color: theme.shell.divider),
+                  ],
                   Expanded(
-                    child: selected == null
+                    child: _showResenha
+                        ? _buildResenhaTimeline(widget.resenhaController!)
+                        : selected == null
                         ? _buildTimeline(context)
                         : _EventDetail(
                             event: selected,
@@ -126,6 +153,150 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
         ),
       ),
     );
+  }
+
+  Widget _buildResenhaTimeline(ResenhaDiagnosticsController controller) {
+    return ResenhaDiagnosticsView(
+      stateListenable: controller.stateListenable,
+      eventsListenable: Listenable.merge([
+        controller.eventsListenable,
+        widget.controller.eventsListenable,
+      ]),
+      readState: () {
+        final state = controller.state;
+        return ResenhaDiagnosticsUiState(
+          enabled: state.enabled,
+          captureId: state.captureId,
+          startedAtUtc: state.startedAtUtc,
+          retainedBytes: state.retainedBytes,
+          droppedRecords: state.droppedRecords,
+          truncated: state.truncated,
+        );
+      },
+      readEvents: () => _resenhaTimelineEvents(
+        controller.eventsTail,
+        widget.controller.events,
+      ),
+      startCapture: controller.startCapture,
+      stopCapture: controller.stopCapture,
+      clear: controller.clear,
+      buildJsonReport: () => _buildResenhaJsonReport(controller),
+      buildClipboardReport: (byteLimit) =>
+          _buildResenhaClipboardReport(controller, byteLimit),
+      writeJsonReportTo: (output) =>
+          _writeResenhaJsonReportTo(controller, output),
+      exporter: _resenhaReportExporter,
+      clipboardByteLimit: widget.resenhaClipboardByteLimit,
+    );
+  }
+
+  Future<ResenhaClipboardReport> _buildResenhaClipboardReport(
+    ResenhaDiagnosticsController controller,
+    int byteLimit,
+  ) async {
+    // A full deep report below the clipboard threshold is cheap enough to
+    // build and lets the exact ordinary/deep de-duplicator decide whether the
+    // combined report still fits. Above the threshold, never materialize the
+    // retained (up to 50 MiB) history merely to throw its oldest bytes away.
+    if (controller.state.retainedBytes <= byteLimit) {
+      return boundResenhaReportForClipboard(
+        await _buildResenhaJsonReport(controller),
+        byteLimit: byteLimit,
+      );
+    }
+
+    final capturedOrdinaryIds = <String>{
+      for (final event in controller.eventsTail)
+        if (event.data[resenhaDiagnosticsEventIdField] case final String id) id,
+    };
+    final recent = <_ResenhaReportRecord>[
+      for (final event in widget.controller.events)
+        if (_isResenhaOrdinaryEvent(event) &&
+            !_duplicatesDeepEvent(event, capturedOrdinaryIds))
+          _ordinaryResenhaReportRecord(event),
+      for (final event in controller.eventsTail)
+        (
+          timestamp: event.timestampUtc,
+          identity: 'deep:${event.identity}',
+          line: jsonEncode(resenhaDiagnosticLine(event)),
+        ),
+    ]..sort(_compareResenhaReportRecords);
+    final ordinaryBytes = recent
+        .where((record) => record.identity.startsWith('ordinary:'))
+        .fold<int>(
+          0,
+          (total, record) => total + utf8.encode(record.line).length + 1,
+        );
+    final marker = jsonEncode({
+      'kind': 'export_metadata',
+      'truncated': true,
+      'reason': 'clipboard_limit',
+      'deepRetainedBytes': controller.state.retainedBytes,
+      'ordinaryRecentBytes': ordinaryBytes,
+      'message': 'Recent records only. Use Share/Save for the full report.',
+    });
+    final retained = <String>[];
+    var retainedBytes = utf8.encode('$marker\n').length;
+    for (final record in recent.reversed) {
+      final lineBytes = utf8.encode('${record.line}\n').length;
+      if (retainedBytes + lineBytes > byteLimit) break;
+      retained.add(record.line);
+      retainedBytes += lineBytes;
+    }
+    return ResenhaClipboardReport(
+      '$marker\n${retained.reversed.join('\n')}',
+      truncated: true,
+    );
+  }
+
+  Future<String> _buildResenhaJsonReport(
+    ResenhaDiagnosticsController controller,
+  ) async {
+    final deepReport = await controller.buildJsonReport();
+    final capturedOrdinaryIds = _deepEventIds(deepReport);
+    final ordinaryEvents = widget.controller.events.where(
+      (event) =>
+          _isResenhaOrdinaryEvent(event) &&
+          !_duplicatesDeepEvent(event, capturedOrdinaryIds),
+    );
+    final ordinaryRecords = [
+      for (final event in ordinaryEvents) _ordinaryResenhaReportRecord(event),
+    ]..sort(_compareResenhaReportRecords);
+
+    final firstLineEnd = deepReport.indexOf('\n');
+    if (firstLineEnd < 0) return deepReport;
+    final rawHeader = deepReport.substring(0, firstLineEnd);
+    final header = _enrichResenhaReportHeader(
+      rawHeader,
+      ordinaryEventCount: ordinaryRecords.length,
+    );
+
+    final deepEvents = deepReport.substring(firstLineEnd + 1);
+    return '$header\n${_mergeResenhaReportEvents(deepEvents, ordinaryRecords)}';
+  }
+
+  Future<void> _writeResenhaJsonReportTo(
+    ResenhaDiagnosticsController controller,
+    StringSink output,
+  ) async {
+    final ordinarySnapshot = widget.controller.events
+        .where(_isResenhaOrdinaryEvent)
+        .toList(growable: false);
+    final candidateIds = <String>{
+      for (final event in ordinarySnapshot.whereType<DiagnosticLogEvent>())
+        if (event.attributes[resenhaDiagnosticsEventIdField]
+            case final String id)
+          id,
+    };
+    final capturedIds = await controller.findRetainedEventIds(candidateIds);
+    final ordinaryRecords = [
+      for (final event in ordinarySnapshot)
+        if (!_duplicatesDeepEvent(event, capturedIds))
+          _ordinaryResenhaReportRecord(event),
+    ]..sort(_compareResenhaReportRecords);
+    final merged = _MergingResenhaReportSink(output, ordinaryRecords);
+    await controller.writeJsonReportTo(merged);
+    merged.finish();
   }
 
   void _syncSearchText(String query) {
@@ -188,7 +359,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                 controller: _search,
                 decoration: InputDecoration(
                   isDense: true,
-                  hintText: 'Search requests and errors',
+                  hintText: 'Search diagnostics',
                   prefixIcon: const Padding(
                     padding: EdgeInsets.all(12),
                     child: DIcon(DIcons.magnifyingGlass, size: 18),
@@ -332,6 +503,7 @@ class _PanelHeader extends StatelessWidget {
   const _PanelHeader({
     required this.frozen,
     required this.showingDetail,
+    this.showGeneralActions = true,
     required this.onBack,
     required this.onToggleFrozen,
     required this.onCopyReport,
@@ -341,6 +513,7 @@ class _PanelHeader extends StatelessWidget {
 
   final bool frozen;
   final bool showingDetail;
+  final bool showGeneralActions;
   final VoidCallback onBack;
   final VoidCallback onToggleFrozen;
   final VoidCallback onCopyReport;
@@ -372,25 +545,27 @@ class _PanelHeader extends StatelessWidget {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
-          IconButton(
-            key: const ValueKey('diagnostics-freeze'),
-            tooltip: frozen ? 'Resume live updates' : 'Freeze visible events',
-            onPressed: onToggleFrozen,
-            icon: DIcon(frozen ? DIcons.play : DIcons.snowflake, size: 18),
-            color: frozen ? Theme.of(context).colorScheme.primary : null,
-          ),
-          IconButton(
-            key: const ValueKey('diagnostics-copy-report'),
-            tooltip: 'Copy filtered report',
-            onPressed: onCopyReport,
-            icon: const DIcon(DIcons.copy, size: 18),
-          ),
-          IconButton(
-            key: const ValueKey('diagnostics-clear'),
-            tooltip: 'Clear history',
-            onPressed: onClear,
-            icon: const DIcon(DIcons.trashCan, size: 18),
-          ),
+          if (showGeneralActions) ...[
+            IconButton(
+              key: const ValueKey('diagnostics-freeze'),
+              tooltip: frozen ? 'Resume live updates' : 'Freeze visible events',
+              onPressed: onToggleFrozen,
+              icon: DIcon(frozen ? DIcons.play : DIcons.snowflake, size: 18),
+              color: frozen ? Theme.of(context).colorScheme.primary : null,
+            ),
+            IconButton(
+              key: const ValueKey('diagnostics-copy-report'),
+              tooltip: 'Copy filtered report',
+              onPressed: onCopyReport,
+              icon: const DIcon(DIcons.copy, size: 18),
+            ),
+            IconButton(
+              key: const ValueKey('diagnostics-clear'),
+              tooltip: 'Clear history',
+              onPressed: onClear,
+              icon: const DIcon(DIcons.trashCan, size: 18),
+            ),
+          ],
           IconButton(
             key: const ValueKey('diagnostics-close'),
             tooltip: 'Close diagnostics',
@@ -399,6 +574,33 @@ class _PanelHeader extends StatelessWidget {
           ),
           const SizedBox(width: 4),
         ],
+      ),
+    );
+  }
+}
+
+class _DiagnosticsTabs extends StatelessWidget {
+  const _DiagnosticsTabs({required this.showResenha, required this.onChanged});
+
+  final bool showResenha;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<bool>(
+          key: const ValueKey('diagnostics-top-level-tabs'),
+          segments: const [
+            ButtonSegment(value: false, label: Text('General')),
+            ButtonSegment(value: true, label: Text('Resenha')),
+          ],
+          selected: {showResenha},
+          showSelectedIcon: false,
+          onSelectionChanged: (selection) => onChanged(selection.first),
+        ),
       ),
     );
   }
@@ -688,7 +890,7 @@ class _EmptyTimeline extends StatelessWidget {
             Text(
               hasEvents
                   ? 'Change the filters or search to see more.'
-                  : 'Requests and operational errors will appear here.',
+                  : 'Requests, logs, and operational errors will appear here.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -718,6 +920,7 @@ bool _isError(DiagnosticEvent event) => event.isError;
 String _eventMethod(DiagnosticEvent event) {
   return switch (event) {
     HttpDiagnosticEvent(:final method) => method,
+    DiagnosticLogEvent() => 'LOG',
     ErrorDiagnosticEvent() => 'ERR',
     DiagnosticSessionEvent() => 'APP',
   };
@@ -726,6 +929,8 @@ String _eventMethod(DiagnosticEvent event) {
 String _eventTitle(DiagnosticEvent event) {
   return switch (event) {
     HttpDiagnosticEvent(:final uri) => uri,
+    DiagnosticLogEvent(:final name, :final message) =>
+      message == null ? name : '$name: $message',
     ErrorDiagnosticEvent(:final errorType, :final message) =>
       '${event.operation ?? errorType}: $message',
     DiagnosticSessionEvent(:final state, :final message) =>
@@ -737,6 +942,7 @@ String _eventStatus(DiagnosticEvent event) {
   return switch (event) {
     HttpDiagnosticEvent(:final statusCode?) => '$statusCode',
     HttpDiagnosticEvent(:final state) => _sentenceCase(state.name),
+    DiagnosticLogEvent() => _sentenceCase(event.severity.name),
     ErrorDiagnosticEvent() => _sentenceCase(event.severity.name),
     DiagnosticSessionEvent(:final state) => _sentenceCase(state.name),
   };
@@ -783,4 +989,336 @@ String _splitIdentifier(String value) => value
 String _sentenceCase(String value) {
   if (value.isEmpty) return value;
   return '${value[0].toUpperCase()}${value.substring(1)}';
+}
+
+List<Map<String, Object?>> _resenhaTimelineEvents(
+  List<ResenhaDiagnosticRecord> deepEvents,
+  List<DiagnosticEvent> ordinaryEvents,
+) {
+  final capturedOrdinaryIds = <String>{
+    for (final event in deepEvents)
+      if (event.data[resenhaDiagnosticsEventIdField] case final String id) id,
+  };
+  final timeline =
+      <({DateTime timestamp, String identity, Map<String, Object?> json})>[
+        for (final event in ordinaryEvents)
+          if (_isResenhaOrdinaryEvent(event) &&
+              !_duplicatesDeepEvent(event, capturedOrdinaryIds))
+            (
+              timestamp: event.timestampUtc,
+              identity: 'ordinary:${event.id}',
+              json: _ordinaryResenhaEventJson(event),
+            ),
+        for (final event in deepEvents)
+          (
+            timestamp: event.timestampUtc,
+            identity: 'deep:${event.captureId}:${event.sequence}',
+            json: {
+              ...event.toJson(),
+              'id': 'deep:${event.captureId}:${event.sequence}',
+              'origin': 'deep',
+            },
+          ),
+      ];
+  timeline.sort((left, right) {
+    final timestamp = left.timestamp.compareTo(right.timestamp);
+    return timestamp != 0 ? timestamp : left.identity.compareTo(right.identity);
+  });
+  return List.unmodifiable([for (final entry in timeline) entry.json]);
+}
+
+Map<String, Object?> _ordinaryResenhaEventJson(DiagnosticEvent event) {
+  final json = <String, Object?>{
+    ..._resenhaOrdinaryEventPayload(event),
+    'id': 'ordinary:${event.id}',
+    'ordinaryEventId': event.id,
+    'origin': 'ordinary',
+  };
+  switch (event) {
+    case HttpDiagnosticEvent():
+      json['event'] = '${event.method} ${_resenhaHttpPath(event.uri)}';
+      json['component'] = 'http';
+      json['message'] = [
+        event.statusCode,
+        event.state.name,
+        if (event.totalDuration != null)
+          '${event.totalDuration!.inMilliseconds} ms',
+      ].join(' · ');
+    case ErrorDiagnosticEvent():
+      json['event'] = event.operation ?? event.errorType;
+      json['component'] = event.source;
+    case DiagnosticLogEvent():
+      // The view already understands its `name`, `component`, and `message`.
+      break;
+    case DiagnosticSessionEvent():
+      json['event'] = 'session.${event.state.name}';
+      json['component'] = event.source;
+  }
+  return Map.unmodifiable(json);
+}
+
+/// Strict projection for data copied from the app-wide recorder into the
+/// Resenha surface. General diagnostics may retain a scrubbed exception and
+/// response metadata, but those strings can still contain peer addresses or
+/// media identifiers. The always-on Resenha stream keeps only allowlisted
+/// causal fields; full detail belongs to explicit deep capture.
+Map<String, Object?> _resenhaOrdinaryEventPayload(DiagnosticEvent event) =>
+    switch (event) {
+      HttpDiagnosticEvent() => {
+        ...event.commonJson(),
+        'method': event.method,
+        'uri': _resenhaHttpPath(event.uri),
+        'state': event.state.name,
+        if (event.statusCode != null) 'statusCode': event.statusCode,
+        if (event.headerDuration != null)
+          'headerDurationMicros': event.headerDuration!.inMicroseconds,
+        if (event.totalDuration != null)
+          'totalDurationMicros': event.totalDuration!.inMicroseconds,
+        'sentBytes': event.sentBytes,
+        'receivedBytes': event.receivedBytes,
+        if (event.errorType != null) 'errorType': event.errorType,
+      },
+      ErrorDiagnosticEvent() => {
+        ...event.commonJson(),
+        'errorType': event.errorType,
+      },
+      DiagnosticLogEvent() => event.toJson(),
+      DiagnosticSessionEvent() => {
+        ...event.commonJson(),
+        'state': event.state.name,
+      },
+    };
+
+String _resenhaHttpPath(String value) {
+  final parsed = Uri.tryParse(value);
+  if (parsed == null) return '<unavailable-path>';
+  final path = parsed.path.isEmpty ? '/' : parsed.path;
+  final queryNames = parsed.query
+      .split('&')
+      .map((part) => part.split('=').first)
+      .where((name) => name.isNotEmpty)
+      .join('&');
+  return queryNames.isEmpty ? path : '$path?$queryNames';
+}
+
+bool _isResenhaOrdinaryEvent(DiagnosticEvent event) {
+  if (event.source == 'resenha' ||
+      event.operation == 'resenha' ||
+      (event.operation?.startsWith('resenha.') ?? false) ||
+      (event.correlationId?.startsWith('resenha-call-') ?? false)) {
+    return true;
+  }
+  if (event case HttpDiagnosticEvent(:final uri)) {
+    final path = Uri.tryParse(uri)?.path ?? uri.split('?').first;
+    return path.toLowerCase().contains('/resenha/');
+  }
+  return false;
+}
+
+bool _duplicatesDeepEvent(
+  DiagnosticEvent event,
+  Set<String> capturedOrdinaryIds,
+) {
+  if (event is! DiagnosticLogEvent) return false;
+  final eventId = event.attributes[resenhaDiagnosticsEventIdField];
+  return eventId is String && capturedOrdinaryIds.contains(eventId);
+}
+
+Set<String> _deepEventIds(String report) {
+  final pattern = RegExp(
+    '"${RegExp.escape(resenhaDiagnosticsEventIdField)}":"([A-Za-z0-9._:-]+)"',
+  );
+  return {for (final match in pattern.allMatches(report)) match.group(1)!};
+}
+
+typedef _ResenhaReportRecord = ({
+  DateTime timestamp,
+  String identity,
+  String line,
+});
+
+_ResenhaReportRecord _ordinaryResenhaReportRecord(DiagnosticEvent event) => (
+  timestamp: event.timestampUtc,
+  identity: 'ordinary:${event.id}',
+  line: jsonEncode({
+    'version': resenhaDiagnosticsFormatVersion,
+    'record': 'event',
+    'origin': 'ordinary',
+    'event': _resenhaOrdinaryEventPayload(event),
+  }),
+);
+
+int _compareResenhaReportRecords(
+  _ResenhaReportRecord left,
+  _ResenhaReportRecord right,
+) {
+  final timestamp = left.timestamp.compareTo(right.timestamp);
+  return timestamp != 0 ? timestamp : left.identity.compareTo(right.identity);
+}
+
+String _enrichResenhaReportHeader(
+  String rawHeader, {
+  required int ordinaryEventCount,
+}) {
+  try {
+    final decoded = jsonDecode(rawHeader);
+    if (decoded is Map) {
+      return jsonEncode({
+        for (final entry in decoded.entries) '${entry.key}': entry.value,
+        'streams': {
+          'ordinary': {
+            'retentionHours': diagnosticsRetentionAge.inHours,
+            'maximumEvents': diagnosticsRetentionCount,
+            'maximumBytes': diagnosticsRetentionBytes,
+            'eventCount': ordinaryEventCount,
+            'selection': [
+              'source=resenha',
+              'operation=resenha.*',
+              'correlationId=resenha-call-*',
+              'HTTP path contains /resenha/',
+            ],
+          },
+          'deep': {
+            'requiresExplicitCapture': true,
+            'retentionDays': resenhaDiagnosticsRetentionAge.inDays,
+            'maximumBytes': resenhaDiagnosticsRetentionBytes,
+          },
+        },
+      });
+    }
+  } on FormatException {
+    // The deep controller currently emits valid JSON. Preserve a future or
+    // externally supplied header instead of making report export fail.
+  }
+  return rawHeader;
+}
+
+final class _MergingResenhaReportSink implements StringSink {
+  _MergingResenhaReportSink(this.output, this.ordinaryEvents);
+
+  final StringSink output;
+  final List<_ResenhaReportRecord> ordinaryEvents;
+  String _pending = '';
+  var _ordinaryIndex = 0;
+  var _lineIndex = 0;
+  var _finished = false;
+
+  @override
+  void write(Object? object) {
+    if (_finished) throw StateError('The Resenha report sink is finished.');
+    final chunk = '$object';
+    var offset = 0;
+    while (offset < chunk.length) {
+      final newline = chunk.indexOf('\n', offset);
+      if (newline < 0) {
+        _pending += chunk.substring(offset);
+        return;
+      }
+      _pending += chunk.substring(offset, newline);
+      _emitLine(
+        _pending.endsWith('\r')
+            ? _pending.substring(0, _pending.length - 1)
+            : _pending,
+      );
+      _pending = '';
+      offset = newline + 1;
+    }
+  }
+
+  @override
+  void writeAll(Iterable<Object?> objects, [String separator = '']) {
+    var first = true;
+    for (final object in objects) {
+      if (!first) write(separator);
+      first = false;
+      write(object);
+    }
+  }
+
+  @override
+  void writeCharCode(int charCode) => write(String.fromCharCode(charCode));
+
+  @override
+  void writeln([Object? object = '']) {
+    write(object);
+    write('\n');
+  }
+
+  void finish() {
+    if (_finished) return;
+    if (_pending.isNotEmpty) _emitLine(_pending);
+    while (_ordinaryIndex < ordinaryEvents.length) {
+      output.writeln(ordinaryEvents[_ordinaryIndex].line);
+      _ordinaryIndex += 1;
+    }
+    _pending = '';
+    _finished = true;
+  }
+
+  void _emitLine(String line) {
+    if (_lineIndex == 0) {
+      output.writeln(
+        _enrichResenhaReportHeader(
+          line,
+          ordinaryEventCount: ordinaryEvents.length,
+        ),
+      );
+      _lineIndex += 1;
+      return;
+    }
+    if (line.isEmpty) return;
+    final deepTimestamp = _resenhaReportLineTimestamp(line);
+    if (deepTimestamp != null) {
+      while (_ordinaryIndex < ordinaryEvents.length &&
+          ordinaryEvents[_ordinaryIndex].timestamp.isBefore(deepTimestamp)) {
+        output.writeln(ordinaryEvents[_ordinaryIndex].line);
+        _ordinaryIndex += 1;
+      }
+    }
+    output.writeln(line);
+    _lineIndex += 1;
+  }
+}
+
+final RegExp _resenhaReportTimestampPattern = RegExp(
+  r'"timestampUtc":"([^"]+)"',
+);
+
+String _mergeResenhaReportEvents(
+  String deepEvents,
+  List<_ResenhaReportRecord> ordinaryEvents,
+) {
+  if (ordinaryEvents.isEmpty) return deepEvents;
+  final output = StringBuffer();
+  var ordinaryIndex = 0;
+  var offset = 0;
+  while (offset < deepEvents.length) {
+    final newline = deepEvents.indexOf('\n', offset);
+    final end = newline < 0 ? deepEvents.length : newline;
+    final line = deepEvents.substring(offset, end);
+    offset = newline < 0 ? deepEvents.length : newline + 1;
+    if (line.isEmpty) continue;
+
+    final deepTimestamp = _resenhaReportLineTimestamp(line);
+    if (deepTimestamp != null) {
+      // Deep wins an exact timestamp tie. Its capture sequence is the most
+      // precise ordering available for callbacks recorded in the same tick.
+      while (ordinaryIndex < ordinaryEvents.length &&
+          ordinaryEvents[ordinaryIndex].timestamp.isBefore(deepTimestamp)) {
+        output.writeln(ordinaryEvents[ordinaryIndex].line);
+        ordinaryIndex += 1;
+      }
+    }
+    output.writeln(line);
+  }
+  while (ordinaryIndex < ordinaryEvents.length) {
+    output.writeln(ordinaryEvents[ordinaryIndex].line);
+    ordinaryIndex += 1;
+  }
+  return output.toString();
+}
+
+DateTime? _resenhaReportLineTimestamp(String line) {
+  final match = _resenhaReportTimestampPattern.firstMatch(line);
+  return match == null ? null : DateTime.tryParse(match.group(1)!)?.toUtc();
 }

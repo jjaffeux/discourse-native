@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/diagnostics/diagnostics_redactor.dart';
 
-enum DiagnosticEventKind { session, http, error }
+enum DiagnosticEventKind { session, http, log, error }
 
 enum DiagnosticSeverity { debug, info, warning, error }
 
@@ -61,6 +61,7 @@ sealed class DiagnosticEvent {
     return switch (kind) {
       DiagnosticEventKind.session => DiagnosticSessionEvent.fromJson(json),
       DiagnosticEventKind.http => HttpDiagnosticEvent.fromJson(json),
+      DiagnosticEventKind.log => DiagnosticLogEvent.fromJson(json),
       DiagnosticEventKind.error => ErrorDiagnosticEvent.fromJson(json),
       null => null,
     };
@@ -369,6 +370,108 @@ final class HttpDiagnosticEvent extends DiagnosticEvent {
   }
 }
 
+/// A structured application log which is safe to retain and export.
+///
+/// Attribute keys and string values are scrubbed recursively. Collections are
+/// copied into immutable JSON-shaped values, with defensive bounds so a cyclic,
+/// infinite, or otherwise hostile value cannot make logging affect the work it
+/// is observing.
+final class DiagnosticLogEvent extends DiagnosticEvent {
+  DiagnosticLogEvent({
+    required super.id,
+    required super.sessionId,
+    required super.sequence,
+    required super.timestampUtc,
+    required super.updatedAtUtc,
+    super.severity = DiagnosticSeverity.info,
+    required super.source,
+    super.operation,
+    super.correlationId,
+    super.handled = true,
+    super.degraded = false,
+    required String name,
+    String? component,
+    String? message,
+    Map<String, Object?> attributes = const {},
+  }) : name = DiagnosticsRedactor.scrub(name),
+       component = component == null
+           ? null
+           : DiagnosticsRedactor.scrub(component),
+       message = message == null ? null : DiagnosticsRedactor.scrub(message),
+       attributes = _sanitizeAttributes(attributes);
+
+  final String name;
+  final String? component;
+  final String? message;
+  final Map<String, Object?> attributes;
+
+  @override
+  DiagnosticEventKind get kind => DiagnosticEventKind.log;
+
+  @override
+  bool get isError => severity == DiagnosticSeverity.error;
+
+  @override
+  String get searchText => [
+    source,
+    operation,
+    correlationId,
+    name,
+    component,
+    message,
+    jsonEncode(attributes),
+  ].whereType<String>().join(' ').toLowerCase();
+
+  @override
+  Map<String, Object?> toJson() => {
+    ...commonJson(),
+    'name': name,
+    if (component != null) 'component': component,
+    if (message != null) 'message': message,
+    'attributes': attributes,
+  };
+
+  static DiagnosticLogEvent? fromJson(Map<Object?, Object?> json) {
+    final common = _CommonFields.fromJson(json);
+    final name = json['name'];
+    final component = json['component'];
+    final message = json['message'];
+    final rawAttributes = json['attributes'];
+    if (common == null ||
+        name is! String ||
+        component is! String? ||
+        message is! String? ||
+        rawAttributes is! Map?) {
+      return null;
+    }
+    final attributes = <String, Object?>{};
+    if (rawAttributes != null) {
+      for (final entry in rawAttributes.entries) {
+        if (entry.key is String) {
+          attributes[entry.key as String] = entry.value;
+        }
+      }
+    }
+    return DiagnosticLogEvent(
+      id: common.id,
+      sessionId: common.sessionId,
+      sequence: common.sequence,
+      timestampUtc: common.timestampUtc,
+      updatedAtUtc: common.updatedAtUtc,
+      severity: common.severity,
+      source: common.source,
+      operation: common.operation,
+      correlationId: common.correlationId,
+      handled: common.handled,
+      degraded: common.degraded,
+      name: name,
+      component: component,
+      message: message,
+      attributes: attributes,
+    );
+  }
+}
+
 final class ErrorDiagnosticEvent extends DiagnosticEvent {
   ErrorDiagnosticEvent({
     required super.id,
@@ -542,4 +645,115 @@ Map<String, List<String>> _headers(Object? value) {
     headers[entry.key as String] = values;
   }
   return headers;
+}
+
+const int _maximumAttributeDepth = 16;
+const int _maximumAttributeItems = 256;
+const String _redactedAttribute = '<redacted>';
+const String _cyclicAttribute = '<cyclic value>';
+const String _deepAttribute = '<maximum depth reached>';
+const String _truncatedAttribute = '<collection truncated>';
+
+Map<String, Object?> _sanitizeAttributes(Map<String, Object?> attributes) {
+  try {
+    final sanitized = _sanitizeAttributeValue(
+      attributes,
+      ancestors: Set<Object>.identity(),
+      depth: 0,
+    );
+    return sanitized is Map<String, Object?> ? sanitized : const {};
+  } on Object {
+    // A diagnostic producer can supply a custom Map implementation. Its
+    // iterator must not be allowed to affect the operation being diagnosed.
+    return const {'unreadableAttributes': '<unreadable>'};
+  }
+}
+
+Object? _sanitizeAttributeValue(
+  Object? value, {
+  required Set<Object> ancestors,
+  required int depth,
+  String? key,
+}) {
+  if (key != null && _isSensitiveAttributeKey(key)) {
+    return _redactedAttribute;
+  }
+  if (value == null || value is bool || value is int) return value;
+  if (value is double) {
+    return value.isFinite ? value : DiagnosticsRedactor.scrub(value);
+  }
+  if (value is String) return DiagnosticsRedactor.scrub(value);
+  if (value is Uri) return DiagnosticsRedactor.uri(value);
+  if (value is DateTime) return value.toUtc().toIso8601String();
+  if (value is Duration) return value.inMicroseconds;
+  if (depth >= _maximumAttributeDepth) return _deepAttribute;
+
+  if (value is Map) {
+    if (!ancestors.add(value)) return _cyclicAttribute;
+    final sanitized = <String, Object?>{};
+    try {
+      var count = 0;
+      for (final entry in value.entries) {
+        if (count >= _maximumAttributeItems) {
+          sanitized[_truncatedAttribute] = true;
+          break;
+        }
+        final safeKey = DiagnosticsRedactor.scrub(
+          DiagnosticsRedactor.safeString(entry.key),
+        );
+        sanitized[safeKey] = _sanitizeAttributeValue(
+          entry.value,
+          ancestors: ancestors,
+          depth: depth + 1,
+          key: safeKey,
+        );
+        count += 1;
+      }
+    } on Object {
+      sanitized['unreadableValue'] = '<unreadable>';
+    } finally {
+      ancestors.remove(value);
+    }
+    return Map<String, Object?>.unmodifiable(sanitized);
+  }
+
+  if (value is Iterable) {
+    if (!ancestors.add(value)) return _cyclicAttribute;
+    final sanitized = <Object?>[];
+    try {
+      var count = 0;
+      for (final item in value) {
+        if (count >= _maximumAttributeItems) {
+          sanitized.add(_truncatedAttribute);
+          break;
+        }
+        sanitized.add(
+          _sanitizeAttributeValue(item, ancestors: ancestors, depth: depth + 1),
+        );
+        count += 1;
+      }
+    } on Object {
+      sanitized.add('<unreadable>');
+    } finally {
+      ancestors.remove(value);
+    }
+    return List<Object?>.unmodifiable(sanitized);
+  }
+
+  return DiagnosticsRedactor.scrub(DiagnosticsRedactor.safeString(value));
+}
+
+bool _isSensitiveAttributeKey(String key) {
+  final normalized = key.toLowerCase().replaceAll(RegExp('[^a-z0-9]'), '');
+  return normalized.contains('authorization') ||
+      normalized.contains('cookie') ||
+      normalized.contains('apikey') ||
+      normalized.contains('password') ||
+      normalized.contains('passwd') ||
+      normalized.contains('secret') ||
+      normalized.contains('credential') ||
+      normalized.contains('token') ||
+      normalized == 'clientid' ||
+      normalized.contains('icepwd') ||
+      normalized.contains('iceufrag');
 }

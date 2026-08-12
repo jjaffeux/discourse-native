@@ -23,11 +23,11 @@ class NativeLogsListener {
   /// Params:
   ///
   /// "severity": possible values: ['verbose', 'info', 'warning', 'error', 'none']
-  void setLogger(Logger logger, [String severity = 'none']) {
+  Future<void> setLogger(Logger logger, [String severity = 'none']) async {
     _logger = logger;
     _severity = severity;
 
-    WebRTC.invokeMethod('setLogSeverity', {
+    await WebRTC.invokeMethod('setLogSeverity', {
       'severity': severity,
     });
   }

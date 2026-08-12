@@ -14,6 +14,7 @@ import 'data/updater.dart';
 import 'diagnostics/diagnostics.dart';
 import 'models/site_appearance.dart';
 import 'plugins/local_dates/local_date_environment.dart';
+import 'plugins/resenha/resenha_diagnostics.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/platform.dart';
 import 'shell/shell_controller.dart';
@@ -37,6 +38,7 @@ class DiscourseApp extends StatefulWidget {
     this.updater,
     this.updateStore,
     this.diagnostics,
+    this.resenhaDiagnostics,
   });
 
   final InstanceStore? store;
@@ -48,6 +50,7 @@ class DiscourseApp extends StatefulWidget {
   final Updater? updater;
   final UpdateStore? updateStore;
   final DiagnosticsController? diagnostics;
+  final ResenhaDiagnosticsController? resenhaDiagnostics;
 
   @override
   State<DiscourseApp> createState() => _DiscourseAppState();
@@ -82,6 +85,8 @@ class _DiscourseAppState extends State<DiscourseApp>
     // of users whose package manager already owns the job.
     updater: _updater,
     updateStore: _updateStore,
+    resenhaDiagnostics:
+        widget.resenhaDiagnostics ?? const NoopResenhaDiagnosticsRecorder(),
     ownsApi: false,
   );
 
@@ -97,6 +102,14 @@ class _DiscourseAppState extends State<DiscourseApp>
     _updater = widget.updater ?? const UnsupportedUpdater();
     _updateStore = widget.updateStore ?? UpdateStore();
     _foreground = _isForeground(WidgetsBinding.instance.lifecycleState);
+    widget.resenhaDiagnostics?.record(
+      'app.lifecycle.initial',
+      component: 'app',
+      data: {
+        'state': WidgetsBinding.instance.lifecycleState?.name ?? 'unknown',
+        'foreground': _foreground,
+      },
+    );
     _controller = _createController()..setForeground(_foreground);
     WidgetsBinding.instance.addObserver(this);
     unawaited(_controller.load());
@@ -108,6 +121,12 @@ class _DiscourseAppState extends State<DiscourseApp>
     if (!_dependenciesChanged(oldWidget)) return;
 
     _controller.dispose();
+    if (!identical(widget.resenhaDiagnostics, oldWidget.resenhaDiagnostics)) {
+      // DiscourseApp owns the injected diagnostics controller for the same
+      // lifetime as the ordinary diagnostics controller. A replacement must
+      // release an active SDK bridge as well as the final widget disposal does.
+      unawaited(oldWidget.resenhaDiagnostics?.close());
+    }
     _updateDependencies(oldWidget);
     _controller = _createController()..setForeground(_foreground);
     unawaited(_controller.load());
@@ -121,7 +140,8 @@ class _DiscourseAppState extends State<DiscourseApp>
       !identical(widget.forumTabs, oldWidget.forumTabs) ||
       !identical(widget.trackers, oldWidget.trackers) ||
       !identical(widget.updater, oldWidget.updater) ||
-      !identical(widget.updateStore, oldWidget.updateStore);
+      !identical(widget.updateStore, oldWidget.updateStore) ||
+      !identical(widget.resenhaDiagnostics, oldWidget.resenhaDiagnostics);
 
   void _updateDependencies(DiscourseApp oldWidget) {
     if (!identical(widget.store, oldWidget.store)) {
@@ -157,6 +177,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     _controller.dispose();
     _api.close();
     unawaited(widget.diagnostics?.close());
+    unawaited(widget.resenhaDiagnostics?.close());
     super.dispose();
   }
 
@@ -171,13 +192,21 @@ class _DiscourseAppState extends State<DiscourseApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = _isForeground(state);
+    widget.resenhaDiagnostics?.record(
+      'app.lifecycle.changed',
+      component: 'app',
+      data: {'state': state.name, 'foreground': _foreground},
+    );
     _controller.setForeground(_foreground);
     if (state == AppLifecycleState.resumed) {
       unawaited(
         LocalDateEnvironment.instance.refreshDeviceTimezone(forceNotify: true),
       );
     }
-    if (!_foreground) unawaited(widget.diagnostics?.flush());
+    if (!_foreground) {
+      unawaited(widget.diagnostics?.flush());
+      unawaited(widget.resenhaDiagnostics?.flush());
+    }
   }
 
   static bool _isForeground(AppLifecycleState? state) =>
@@ -229,7 +258,11 @@ class _DiscourseAppState extends State<DiscourseApp>
     final diagnostics = widget.diagnostics;
     return diagnostics == null
         ? app
-        : DiagnosticsScope(controller: diagnostics, child: app);
+        : DiagnosticsScope(
+            controller: diagnostics,
+            resenhaController: widget.resenhaDiagnostics,
+            child: app,
+          );
   }
 
   static Widget _materialApp({

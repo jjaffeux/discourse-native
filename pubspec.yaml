@@ -87,6 +87,23 @@ dependencies:
   # exercising Mesh and LiveKit rooms on every supported platform.
   flutter_webrtc: 1.6.0
   livekit_client: 2.10.0
+  # Deep Resenha diagnostics can mirror flutter_webrtc's native log stream
+  # into the app-owned, redacted capture store while the user explicitly has
+  # capture enabled.
+  logger: ^2.7.0
+  # LiveKit uses package:logging internally. Diagnostics temporarily raises
+  # the root level when hierarchical logging has not been enabled, because
+  # package:logging rejects assigning a level to LiveKit's child logger in
+  # that mode.
+  logging: ^1.3.0
+  # Apple platforms expose a native share sheet for a generated diagnostics
+  # file. Linux file sharing is not supported by share_plus, so the desktop
+  # fallback below lets the user choose a save destination instead.
+  # 13.x requires win32 6.x, while the pinned LiveKit SDK currently resolves
+  # through device_info_plus on win32 5.x. 12.x exposes the same file-sharing
+  # API we use without forcing an unreviewed media SDK upgrade.
+  share_plus: ^12.0.2
+  file_selector: ^1.1.0
 
 dependency_overrides:
   # Version 1.6.0 lacks the iOS required-reason privacy manifest. Keep every

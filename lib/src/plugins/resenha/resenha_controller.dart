@@ -11,11 +11,52 @@ import '../../diagnostics/diagnostics_controller.dart';
 import '../chat/chat_message.dart';
 import 'resenha_api.dart';
 import 'resenha_callkit.dart';
+import 'resenha_diagnostics.dart';
 import 'resenha_media.dart';
 import 'resenha_models.dart';
 import 'resenha_preferences.dart';
 
 enum ResenhaCallStatus { joining, connected, reconnecting, leaving, failed }
+
+enum _ResenhaLeaveReason {
+  user,
+  roomToggle,
+  roomSwitch,
+  roomDestroyed,
+  kicked,
+  rosterRemoval,
+  credentialsMissing,
+  systemAction,
+  accountRemoval,
+}
+
+final class _ResenhaDiagnosticFailure implements Exception {
+  const _ResenhaDiagnosticFailure({
+    required this.operation,
+    required this.errorType,
+  });
+
+  final String operation;
+  final String errorType;
+
+  @override
+  String toString() => 'Resenha operation $operation failed ($errorType).';
+}
+
+String _resenhaSignalingDiagnosticType(Object? value) => switch (value) {
+  'offer' => 'offer',
+  'answer' => 'answer',
+  'candidate' => 'candidate',
+  null => 'batch',
+  _ => 'unknown',
+};
+
+String _resenhaDirectoryDiagnosticType(Object? value) => switch (value) {
+  'created' => 'created',
+  'updated' => 'updated',
+  'destroyed' => 'destroyed',
+  _ => 'unknown',
+};
 
 @immutable
 class ResenhaChatSnapshot {
@@ -117,9 +158,15 @@ final class ResenhaController extends ChangeNotifier {
     required this.onCallSiteChanged,
     this.mediaFactory = const NativeResenhaMediaFactory(),
     ResenhaSystemCall? systemCall,
+    ResenhaDiagnosticsRecorder? diagnostics,
     ResenhaPreferences? preferences,
     this.heartbeatInterval = const Duration(seconds: 10),
-  }) : systemCall = systemCall ?? NativeResenhaSystemCall(),
+  }) : diagnostics = diagnostics ?? const NoopResenhaDiagnosticsRecorder(),
+       systemCall =
+           systemCall ??
+           NativeResenhaSystemCall(
+             diagnostics: diagnostics ?? const NoopResenhaDiagnosticsRecorder(),
+           ),
        _preferences =
            preferences ?? const SharedPreferencesResenhaPreferences() {
     _systemActions = this.systemCall.actions.listen(_onSystemAction);
@@ -134,6 +181,7 @@ final class ResenhaController extends ChangeNotifier {
   final VoidCallback onCallSiteChanged;
   final ResenhaMediaFactory mediaFactory;
   final ResenhaSystemCall systemCall;
+  final ResenhaDiagnosticsRecorder diagnostics;
   final ResenhaPreferences _preferences;
   final Duration heartbeatInterval;
   late final StreamSubscription<ResenhaSystemCallAction> _systemActions;
@@ -155,6 +203,7 @@ final class ResenhaController extends ChangeNotifier {
   Future<void> _joinTail = Future<void>.value();
   Future<void>? _pendingJoin;
   String? _pendingJoinKey;
+  String? _pendingJoinCorrelationId;
   Object? _pendingJoinSession;
   Future<void>? _stateSync;
   Timer? _stateRetry;
@@ -163,6 +212,7 @@ final class ResenhaController extends ChangeNotifier {
   Future<void>? _leaveOperation;
   ResenhaMediaSession? _leavingMedia;
   final Expando<Future<void>> _mediaDisposals = Expando<Future<void>>();
+  final Expando<String> _mediaCorrelations = Expando<String>();
   Timer? _heartbeat;
   Future<void>? _heartbeatRequest;
   bool _heartbeatPending = false;
@@ -229,7 +279,14 @@ final class ResenhaController extends ChangeNotifier {
     return _linkedRooms[siteUrl]?[roomId];
   }
 
-  Future<ResenhaRoom?> resolveRoom(String siteUrl, String slug) async {
+  Future<ResenhaRoom?> resolveRoom(String siteUrl, String slug) =>
+      _runPublicValueOperation<ResenhaRoom?>(
+        () => _resolveRoom(siteUrl, slug),
+        'resenha.room',
+        fallback: null,
+      );
+
+  Future<ResenhaRoom?> _resolveRoom(String siteUrl, String slug) async {
     final directory = _directories[siteUrl];
     for (final room in directory?.rooms ?? const <ResenhaRoom>[]) {
       if (room.slug == slug) return room;
@@ -257,7 +314,13 @@ final class ResenhaController extends ChangeNotifier {
     }
   }
 
-  Future<void> ensureLoaded(String siteUrl, {bool force = false}) async {
+  Future<void> ensureLoaded(String siteUrl, {bool force = false}) =>
+      _runPublicOperation(
+        () => _ensureLoaded(siteUrl, force: force),
+        'resenha.directory',
+      );
+
+  Future<void> _ensureLoaded(String siteUrl, {bool force = false}) async {
     if (!supportedPlatform) return;
     if (_disposed ||
         _loadingSites.contains(siteUrl) ||
@@ -268,6 +331,16 @@ final class ResenhaController extends ChangeNotifier {
       attachTracker(siteUrl);
       return;
     }
+    _record(
+      'room.directory.load_started',
+      component: 'room',
+      data: {'force': force},
+    );
+    _recordRaw(
+      'room.directory.load_context',
+      component: 'room',
+      data: {'siteUrl': siteUrl},
+    );
     final siteSession = _siteSession(siteUrl);
     final request = Object();
     _directoryRequests[siteUrl] = request;
@@ -293,6 +366,11 @@ final class ResenhaController extends ChangeNotifier {
       );
       if (!isCurrent()) return;
       _directories[siteUrl] = directory;
+      _record(
+        'room.directory.load_completed',
+        component: 'room',
+        data: {'roomCount': directory.rooms.length},
+      );
       _replaceSubscriptions(siteUrl, directory);
     } on SiteLookupException catch (error, stackTrace) {
       if (!isCurrent()) return;
@@ -343,6 +421,12 @@ final class ResenhaController extends ChangeNotifier {
   void _replaceSubscriptions(String siteUrl, ResenhaDirectory directory) {
     final tracker = trackerFor(siteUrl);
     if (tracker == null) return;
+    _record(
+      'room.subscriptions.synced',
+      component: 'room',
+      correlationId: _correlationForSite(siteUrl),
+      data: {'roomCount': directory.rooms.length},
+    );
     _directorySubscriptions.remove(siteUrl)?.cancel();
     _directorySubscriptions[siteUrl] = tracker.watchPluginChannel(
       '/resenha/rooms/index',
@@ -372,6 +456,18 @@ final class ResenhaController extends ChangeNotifier {
     final rawRoom = data['room'];
     if (rawRoom is! Map<String, dynamic>) return;
     final incoming = ResenhaRoom.fromJson(rawRoom);
+    final call = _call;
+    _record(
+      'room.directory_event',
+      component: 'room',
+      correlationId: call?.siteUrl == siteUrl && call?.room.id == incoming.id
+          ? _correlationFor(call)
+          : null,
+      data: {
+        ..._roomDiagnosticData(incoming),
+        'type': _resenhaDirectoryDiagnosticType(data['type']),
+      },
+    );
     final held = _directories[siteUrl];
     if (held == null) return;
     final rooms = [...held.rooms];
@@ -389,7 +485,13 @@ final class ResenhaController extends ChangeNotifier {
         rooms.removeWhere((room) => room.id == incoming.id);
         if (_call case final call?
             when call.siteUrl == siteUrl && call.room.id == incoming.id) {
-          _observe(() => leave(notifyServer: false), 'resenha.roomDestroyed');
+          _observe(
+            () => _leave(
+              notifyServer: false,
+              reason: _ResenhaLeaveReason.roomDestroyed,
+            ),
+            'resenha.roomDestroyed',
+          );
         }
       default:
         return;
@@ -414,6 +516,33 @@ final class ResenhaController extends ChangeNotifier {
       final senderId = data['sender_id'];
       final signal = data['data'];
       final call = _call;
+      final correlationId = call?.siteUrl == siteUrl && call?.room.id == roomId
+          ? _correlationFor(call)
+          : null;
+      _record(
+        'signaling.received',
+        component: 'signaling',
+        correlationId: correlationId,
+        data: {
+          'roomId': roomId,
+          'senderPresent': senderId is num,
+          if (signal is Map)
+            'type': _resenhaSignalingDiagnosticType(signal['type']),
+        },
+      );
+      if (signal is Map<String, dynamic>) {
+        _recordRaw(
+          'signaling.received.raw',
+          component: 'signaling',
+          correlationId: correlationId,
+          data: {
+            'siteUrl': siteUrl,
+            'roomId': roomId,
+            if (senderId is num) 'senderId': senderId.toInt(),
+            'signal': signal,
+          },
+        );
+      }
       if (senderId is num &&
           signal is Map<String, dynamic> &&
           call?.siteUrl == siteUrl &&
@@ -430,11 +559,39 @@ final class ResenhaController extends ChangeNotifier {
     if (event is ResenhaKickedEvent) {
       final call = _call;
       if (call?.siteUrl == siteUrl && call?.room.id == roomId) {
-        _observe(() => leave(notifyServer: false), 'resenha.kicked');
+        _record(
+          'room.kicked',
+          component: 'room',
+          correlationId: _correlationFor(call),
+          severity: DiagnosticSeverity.warning,
+          data: {'roomId': roomId},
+        );
+        _observe(
+          () => _leave(notifyServer: false, reason: _ResenhaLeaveReason.kicked),
+          'resenha.kicked',
+        );
       }
       return;
     }
     if (event is ResenhaRoleChangedEvent) {
+      _record(
+        'room.role_changed',
+        component: 'roster',
+        correlationId: _correlationForRoom(siteUrl, roomId),
+        data: {
+          'roomId': roomId,
+          'participantScope': event.userId == userIdFor(siteUrl)
+              ? 'local'
+              : 'remote',
+          'role': event.role.name,
+        },
+      );
+      _recordRaw(
+        'room.role_changed.detail',
+        component: 'roster',
+        correlationId: _correlationForRoom(siteUrl, roomId),
+        data: {'roomId': roomId, 'userId': event.userId},
+      );
       final held = room(siteUrl, roomId);
       if (held != null &&
           held.participants.any(
@@ -450,9 +607,22 @@ final class ResenhaController extends ChangeNotifier {
       return;
     }
     if (event is ResenhaParticipantsEvent) {
+      _recordRoster(
+        'room.roster_received',
+        siteUrl,
+        roomId,
+        event.participants,
+        correlationId: _correlationForRoom(siteUrl, roomId),
+      );
       _replaceParticipants(siteUrl, roomId, event.participants);
     }
     if (event is ResenhaRecordingEvent) {
+      _record(
+        'room.recording_changed',
+        component: 'room',
+        correlationId: _correlationForRoom(siteUrl, roomId),
+        data: {'roomId': roomId, 'active': event.recording?.active ?? false},
+      );
       _replaceRecording(siteUrl, roomId, event.recording);
     }
   }
@@ -521,7 +691,11 @@ final class ResenhaController extends ChangeNotifier {
           userId != null &&
           !participants.any((participant) => participant.id == userId)) {
         _observe(
-          () => _leave(notifyServer: false, clearImmediately: true),
+          () => _leave(
+            notifyServer: false,
+            clearImmediately: true,
+            reason: _ResenhaLeaveReason.rosterRemoval,
+          ),
           'resenha.rosterRemoval',
         );
         return;
@@ -582,16 +756,41 @@ final class ResenhaController extends ChangeNotifier {
     if (_pendingJoinKey == key &&
         identical(_pendingJoinSession, siteSession) &&
         pending != null) {
+      _record(
+        'call.join.coalesced',
+        correlationId: _pendingJoinCorrelationId,
+        data: _roomDiagnosticData(room),
+      );
       return pending;
     }
 
-    final operation = _joinTail.then(
-      (_) => _join(
-        siteUrl: siteUrl,
-        siteName: siteName,
-        room: room,
-        siteSession: siteSession,
+    final correlationId = _nextCallCorrelationId();
+    _record(
+      'call.join.requested',
+      correlationId: correlationId,
+      data: _roomDiagnosticData(room),
+    );
+    _recordRaw(
+      'call.join.context',
+      correlationId: correlationId,
+      data: _rawRoomDiagnosticData(siteUrl, room, siteName: siteName),
+    );
+    final operation = DiagnosticsSink.runOperation(
+      'resenha.join',
+      () => _joinTail.then(
+        (_) => _runPublicOperation(
+          () => _join(
+            siteUrl: siteUrl,
+            siteName: siteName,
+            room: room,
+            siteSession: siteSession,
+            correlationId: correlationId,
+          ),
+          'resenha.join',
+          correlationId: correlationId,
+        ),
       ),
+      correlationId: correlationId,
     );
     // Room taps can arrive while the preceding transport is still connecting.
     // Keep each leave/join transition atomic so a later tap cannot dispose the
@@ -605,11 +804,13 @@ final class ResenhaController extends ChangeNotifier {
       if (identical(_pendingJoin, tracked)) {
         _pendingJoin = null;
         _pendingJoinKey = null;
+        _pendingJoinCorrelationId = null;
         _pendingJoinSession = null;
       }
     });
     _pendingJoin = tracked;
     _pendingJoinKey = key;
+    _pendingJoinCorrelationId = correlationId;
     _pendingJoinSession = siteSession;
     return tracked;
   }
@@ -619,31 +820,73 @@ final class ResenhaController extends ChangeNotifier {
     required String siteName,
     required ResenhaRoom room,
     required Object siteSession,
+    required String correlationId,
   }) async {
     bool siteIsCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    if (!supportedPlatform || !siteIsCurrent()) return;
+    if (!supportedPlatform || !siteIsCurrent()) {
+      _record(
+        'call.join.skipped',
+        correlationId: correlationId,
+        data: {
+          ..._roomDiagnosticData(room),
+          'reason': !supportedPlatform ? 'unsupported_platform' : 'stale_site',
+          'platform': Platform.operatingSystem,
+        },
+      );
+      return;
+    }
+    _record(
+      'call.join.started',
+      correlationId: correlationId,
+      data: _roomDiagnosticData(room),
+    );
     final pendingLeave = _leaveOperation;
     if (pendingLeave != null) await pendingLeave;
     if (!siteIsCurrent()) return;
     final held = _call;
     if (held?.siteUrl == siteUrl && held?.room.id == room.id) {
-      await leave();
+      _record(
+        'call.join.cancelled',
+        correlationId: correlationId,
+        data: {'reason': 'active_room_toggle'},
+      );
+      await _leave(notifyServer: true, reason: _ResenhaLeaveReason.roomToggle);
       return;
     }
-    if (held != null) await leave();
+    if (held != null) {
+      await _leave(notifyServer: true, reason: _ResenhaLeaveReason.roomSwitch);
+    }
     if (!siteIsCurrent()) return;
     final revision = Object();
     _joinRevision = revision;
     bool isCurrent() => siteIsCurrent() && identical(_joinRevision, revision);
     final apiKey = await credentials.apiKeyFor(siteUrl);
     final userId = userIdFor(siteUrl);
-    if (apiKey == null || userId == null || !isCurrent()) return;
+    if (apiKey == null || userId == null || !isCurrent()) {
+      _record(
+        'call.join.skipped',
+        correlationId: correlationId,
+        data: {
+          'reason': !isCurrent()
+              ? 'cancelled'
+              : apiKey == null
+              ? 'missing_api_key'
+              : 'missing_user_id',
+        },
+      );
+      return;
+    }
     ResenhaMediaSession? media;
     try {
       final clientId = await credentials.clientId();
       if (!isCurrent()) return;
       late ResenhaJoinResponse response;
       try {
+        _record(
+          'call.join.server_request.started',
+          correlationId: correlationId,
+          data: {'roomId': room.id},
+        );
         response = await api.join(
           siteUrl: siteUrl,
           roomId: room.id,
@@ -652,6 +895,15 @@ final class ResenhaController extends ChangeNotifier {
         );
       } on WriteException catch (error) {
         if (error.failure != WriteFailure.rateLimited) rethrow;
+        _record(
+          'call.join.server_request.rate_limited',
+          correlationId: correlationId,
+          severity: DiagnosticSeverity.warning,
+          data: {
+            'retryAfterMilliseconds':
+                (error.retryAfter ?? const Duration(seconds: 1)).inMilliseconds,
+          },
+        );
         // A 429 is the one write failure that is safe to retry: Discourse
         // rejected it before the room mutation ran. Native user API keys share
         // a site-wide request budget, so a room switch can legitimately land
@@ -669,6 +921,21 @@ final class ResenhaController extends ChangeNotifier {
         );
       }
       if (!isCurrent()) return;
+      _record(
+        'call.join.server_request.completed',
+        correlationId: correlationId,
+        data: {
+          'transport': response.transport.name,
+          'participantCount': response.room.participants.length,
+        },
+      );
+      _recordRoster(
+        'call.join.initial_roster',
+        siteUrl,
+        room.id,
+        response.room.participants,
+        correlationId: correlationId,
+      );
       ResenhaMediaSession? callbackMedia;
       bool mediaIsCurrent() =>
           isCurrent() &&
@@ -679,12 +946,64 @@ final class ResenhaController extends ChangeNotifier {
         localUserId: userId,
         sendSignal: (recipientId, event) async {
           if (!mediaIsCurrent()) return;
-          await api.signal(
-            siteUrl: siteUrl,
-            roomId: room.id,
-            apiKey: apiKey,
-            payload: {'recipient_id': recipientId, ...event},
+          _record(
+            'signaling.send.started',
+            component: 'signaling',
+            correlationId: correlationId,
+            data: {
+              'roomId': room.id,
+              'recipientPresent': true,
+              'type': _resenhaSignalingDiagnosticType(event['type']),
+            },
           );
+          _recordRaw(
+            'signaling.send.raw',
+            component: 'signaling',
+            correlationId: correlationId,
+            data: {
+              'siteUrl': siteUrl,
+              'roomId': room.id,
+              'recipientId': recipientId,
+              'signal': event,
+            },
+          );
+          try {
+            await DiagnosticsSink.runOperation(
+              'resenha.signal',
+              () => api.signal(
+                siteUrl: siteUrl,
+                roomId: room.id,
+                apiKey: apiKey,
+                payload: {'recipient_id': recipientId, ...event},
+              ),
+              correlationId: correlationId,
+            );
+            _record(
+              'signaling.send.completed',
+              component: 'signaling',
+              correlationId: correlationId,
+            );
+          } catch (error, stackTrace) {
+            _record(
+              'signaling.send.failed',
+              component: 'signaling',
+              correlationId: correlationId,
+              severity: DiagnosticSeverity.warning,
+              data: {'errorType': error.runtimeType.toString()},
+            );
+            _recordRaw(
+              'signaling.send.failure_detail',
+              component: 'signaling',
+              correlationId: correlationId,
+              severity: DiagnosticSeverity.warning,
+              message: error.toString(),
+              data: {
+                'recipientId': recipientId,
+                'stackTrace': stackTrace.toString(),
+              },
+            );
+            rethrow;
+          }
         },
         refreshLiveKitCredentials: () async {
           final fallback = response.livekit;
@@ -692,18 +1011,42 @@ final class ResenhaController extends ChangeNotifier {
             throw StateError('LiveKit credentials are unavailable.');
           }
           if (!mediaIsCurrent()) return fallback;
+          _record(
+            'livekit.credentials.refresh.requested',
+            component: 'livekit',
+            correlationId: correlationId,
+            data: {'roomId': room.id},
+          );
           final refreshClientId = await credentials.clientId();
           if (!mediaIsCurrent()) return fallback;
-          final refreshed = await api.livekitToken(
-            siteUrl: siteUrl,
-            roomId: room.id,
-            apiKey: apiKey,
-            clientId: refreshClientId,
+          final refreshed = await DiagnosticsSink.runOperation(
+            'resenha.livekitToken',
+            () => api.livekitToken(
+              siteUrl: siteUrl,
+              roomId: room.id,
+              apiKey: apiKey,
+              clientId: refreshClientId,
+            ),
+            correlationId: correlationId,
+          );
+          _record(
+            'livekit.credentials.refresh.received',
+            component: 'livekit',
+            correlationId: correlationId,
           );
           return mediaIsCurrent() ? refreshed : fallback;
         },
+        diagnostics: diagnostics,
+        correlationId: correlationId,
       );
       callbackMedia = media;
+      _mediaCorrelations[media] = correlationId;
+      _record(
+        'media.session.created',
+        component: 'media',
+        correlationId: correlationId,
+        data: {'transport': media.transport.name},
+      );
       final initiallyMuted = !_canPublishAudio(
         response.room,
         response.room.participants,
@@ -711,6 +1054,11 @@ final class ResenhaController extends ChangeNotifier {
       );
       await media.setMuted(initiallyMuted);
       if (!isCurrent()) {
+        _record(
+          'call.join.cancelled',
+          correlationId: correlationId,
+          data: {'reason': 'cancelled_after_media_creation'},
+        );
         await _disposeMedia(media, 'resenha.media.disposeAfterCancelledJoin');
         return;
       }
@@ -723,24 +1071,80 @@ final class ResenhaController extends ChangeNotifier {
         media: media,
         muted: initiallyMuted,
       );
+      if (systemCall case final NativeResenhaSystemCall nativeSystemCall) {
+        nativeSystemCall.associateDiagnostics(correlationId);
+      }
+      _record(
+        'call.status_changed',
+        correlationId: correlationId,
+        data: {
+          'from': null,
+          'to': ResenhaCallStatus.joining.name,
+          'transport': media.transport.name,
+        },
+      );
       onCallSiteChanged();
       attachTracker(siteUrl);
       notifyListeners();
+      _record(
+        'callkit.command.requested',
+        component: 'callkit',
+        correlationId: correlationId,
+        data: {'command': 'start'},
+      );
       await systemCall.start(roomName: room.name, siteName: siteName);
+      _record(
+        'callkit.command.completed',
+        component: 'callkit',
+        correlationId: correlationId,
+        data: {'command': 'start'},
+      );
       if (!isCurrent()) return;
+      _record(
+        'media.connect.started',
+        component: 'media',
+        correlationId: correlationId,
+      );
       await media.connect();
+      _record(
+        'media.connect.completed',
+        component: 'media',
+        correlationId: correlationId,
+      );
       if (!isCurrent()) return;
       if (_audioInputDeviceId case final deviceId?) {
-        await media.selectAudioInput(deviceId);
+        await _traceDeviceSelection(
+          kind: 'audio_input',
+          origin: 'saved_join',
+          deviceId: deviceId,
+          applied: true,
+          correlationId: correlationId,
+          action: () => media!.selectAudioInput(deviceId),
+        );
         if (!isCurrent()) return;
       }
       if (_audioOutputDeviceId case final deviceId?) {
-        await media.selectAudioOutput(deviceId);
+        await _traceDeviceSelection(
+          kind: 'audio_output',
+          origin: 'saved_join',
+          deviceId: deviceId,
+          applied: true,
+          correlationId: correlationId,
+          action: () => media!.selectAudioOutput(deviceId),
+        );
         if (!isCurrent()) return;
       }
       _call = _call?.copyWith(
         status: ResenhaCallStatus.connected,
         clearError: true,
+      );
+      _record(
+        'call.status_changed',
+        correlationId: correlationId,
+        data: {
+          'from': ResenhaCallStatus.joining.name,
+          'to': ResenhaCallStatus.connected.name,
+        },
       );
       await _requestStateSync();
       if (!isCurrent()) return;
@@ -749,15 +1153,45 @@ final class ResenhaController extends ChangeNotifier {
         if (!isCurrent()) return;
       }
       await systemCall.connected();
+      _record(
+        'callkit.command.completed',
+        component: 'callkit',
+        correlationId: correlationId,
+        data: {'command': 'connected'},
+      );
       if (!isCurrent()) return;
       _startHeartbeat();
+      _record(
+        'call.join.completed',
+        correlationId: correlationId,
+        data: {
+          ..._roomDiagnosticData(response.room),
+          'transport': response.transport.name,
+        },
+      );
       notifyListeners();
     } catch (error, stackTrace) {
       if (media case final activeMedia?) {
         await _disposeMedia(activeMedia, 'resenha.media.disposeAfterJoin');
       }
       if (!isCurrent()) return;
+      _record(
+        'call.join.failed',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.error,
+        data: {'errorType': error.runtimeType.toString()},
+      );
+      _recordRaw(
+        'call.join.failure_detail',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.error,
+        message: error.toString(),
+        data: {'stackTrace': stackTrace.toString()},
+      );
       await _runHandled(systemCall.failed, 'resenha.systemCall.failed');
+      if (systemCall case final NativeResenhaSystemCall nativeSystemCall) {
+        nativeSystemCall.associateDiagnostics(null);
+      }
       if (isCurrent()) {
         _call = null;
         _errors[siteUrl] = error is WriteException
@@ -773,6 +1207,12 @@ final class ResenhaController extends ChangeNotifier {
   void _startHeartbeat() {
     _heartbeat?.cancel();
     _heartbeatPending = false;
+    _recordRaw(
+      'heartbeat.started',
+      component: 'heartbeat',
+      correlationId: _correlationFor(_call),
+      data: {'intervalMilliseconds': heartbeatInterval.inMilliseconds},
+    );
     _scheduleHeartbeat();
   }
 
@@ -818,20 +1258,62 @@ final class ResenhaController extends ChangeNotifier {
         _isCurrentCall(call, siteSession) &&
         _call?.status == ResenhaCallStatus.connected;
     try {
+      final correlationId = _correlationFor(call);
+      _recordRaw(
+        'heartbeat.requested',
+        component: 'heartbeat',
+        correlationId: correlationId,
+        data: {
+          'siteUrl': call.siteUrl,
+          'roomId': call.room.id,
+          'idleState': _idleState.name,
+        },
+      );
       final apiKey = await credentials.apiKeyFor(call.siteUrl);
       if (!isCurrent()) return;
       if (apiKey == null) {
-        await leave(notifyServer: false);
+        _record(
+          'heartbeat.credentials_missing',
+          component: 'heartbeat',
+          correlationId: correlationId,
+          severity: DiagnosticSeverity.warning,
+        );
+        await _leave(
+          notifyServer: false,
+          reason: _ResenhaLeaveReason.credentialsMissing,
+        );
         return;
       }
-      await api.heartbeat(
-        siteUrl: call.siteUrl,
-        roomId: call.room.id,
-        apiKey: apiKey,
-        idle: _idleState,
+      await DiagnosticsSink.runOperation(
+        'resenha.heartbeat',
+        () => api.heartbeat(
+          siteUrl: call.siteUrl,
+          roomId: call.room.id,
+          apiKey: apiKey,
+          idle: _idleState,
+        ),
+        correlationId: correlationId,
+      );
+      _recordRaw(
+        'heartbeat.completed',
+        component: 'heartbeat',
+        correlationId: correlationId,
       );
     } catch (error, stackTrace) {
-      if (isCurrent()) _report(error, stackTrace, 'resenha.heartbeat');
+      if (isCurrent()) {
+        _recordRaw(
+          'heartbeat.failed',
+          component: 'heartbeat',
+          correlationId: _correlationFor(call),
+          severity: DiagnosticSeverity.warning,
+          message: error.toString(),
+          data: {
+            'errorType': error.runtimeType.toString(),
+            'stackTrace': stackTrace.toString(),
+          },
+        );
+        _report(error, stackTrace, 'resenha.heartbeat');
+      }
     }
   }
 
@@ -869,46 +1351,107 @@ final class ResenhaController extends ChangeNotifier {
         update: (call) => call.copyWith(cameraEnabled: enabled),
       );
 
-  Future<List<rtc.MediaDeviceInfo>> mediaDevices() async =>
-      _call?.media.devices() ?? const [];
+  Future<List<rtc.MediaDeviceInfo>> mediaDevices() =>
+      _runPublicValueOperation<List<rtc.MediaDeviceInfo>>(
+        () async => _call?.media.devices() ?? const [],
+        'resenha.media.devices',
+        fallback: const [],
+      );
 
-  Future<void> selectAudioInput(String deviceId) async {
+  Future<void> selectAudioInput(String deviceId) => _runPublicOperation(
+    () => _selectAudioInput(deviceId),
+    'resenha.media.selectAudioInput',
+    correlationId: _activeDiagnosticCorrelationId,
+  );
+
+  Future<void> _selectAudioInput(String deviceId) async {
     _audioInputDeviceId = deviceId;
-    await _persistPreference(
-      () => _preferences.writeDevice(
-        ResenhaDevicePreference.audioInput,
-        deviceId,
-      ),
-      'resenha.preferences.audioInput',
+    final correlationId =
+        _activeDiagnosticCorrelationId ??
+        DiagnosticsSink.newCorrelationId('resenha-device');
+    await _traceDeviceSelection(
+      kind: 'audio_input',
+      origin: 'user',
+      deviceId: deviceId,
+      applied: _call != null,
+      correlationId: correlationId,
+      action: () async {
+        await _persistPreference(
+          () => _preferences.writeDevice(
+            ResenhaDevicePreference.audioInput,
+            deviceId,
+          ),
+          'resenha.preferences.audioInput',
+        );
+        await _call?.media.selectAudioInput(deviceId);
+      },
     );
-    await _call?.media.selectAudioInput(deviceId);
     notifyListeners();
   }
 
-  Future<void> selectAudioOutput(String deviceId) async {
+  Future<void> selectAudioOutput(String deviceId) => _runPublicOperation(
+    () => _selectAudioOutput(deviceId),
+    'resenha.media.selectAudioOutput',
+    correlationId: _activeDiagnosticCorrelationId,
+  );
+
+  Future<void> _selectAudioOutput(String deviceId) async {
     _audioOutputDeviceId = deviceId;
-    await _persistPreference(
-      () => _preferences.writeDevice(
-        ResenhaDevicePreference.audioOutput,
-        deviceId,
-      ),
-      'resenha.preferences.audioOutput',
+    final correlationId =
+        _activeDiagnosticCorrelationId ??
+        DiagnosticsSink.newCorrelationId('resenha-device');
+    await _traceDeviceSelection(
+      kind: 'audio_output',
+      origin: 'user',
+      deviceId: deviceId,
+      applied: _call != null,
+      correlationId: correlationId,
+      action: () async {
+        await _persistPreference(
+          () => _preferences.writeDevice(
+            ResenhaDevicePreference.audioOutput,
+            deviceId,
+          ),
+          'resenha.preferences.audioOutput',
+        );
+        await _call?.media.selectAudioOutput(deviceId);
+      },
     );
-    await _call?.media.selectAudioOutput(deviceId);
     notifyListeners();
   }
 
-  Future<void> selectCamera(String deviceId) async {
+  Future<void> selectCamera(String deviceId) => _runPublicOperation(
+    () => _selectCamera(deviceId),
+    'resenha.media.selectCamera',
+    correlationId: _activeDiagnosticCorrelationId,
+  );
+
+  Future<void> _selectCamera(String deviceId) async {
     _cameraDeviceId = deviceId;
-    await _persistPreference(
-      () => _preferences.writeDevice(ResenhaDevicePreference.camera, deviceId),
-      'resenha.preferences.camera',
+    final correlationId =
+        _activeDiagnosticCorrelationId ??
+        DiagnosticsSink.newCorrelationId('resenha-device');
+    await _traceDeviceSelection(
+      kind: 'camera',
+      origin: 'user',
+      deviceId: deviceId,
+      applied: _call?.cameraEnabled == true,
+      correlationId: correlationId,
+      action: () async {
+        await _persistPreference(
+          () => _preferences.writeDevice(
+            ResenhaDevicePreference.camera,
+            deviceId,
+          ),
+          'resenha.preferences.camera',
+        );
+        final call = _call;
+        if (call?.cameraEnabled == true) {
+          await call?.media.setCameraEnabled(false);
+          await call?.media.setCameraEnabled(true, deviceId: deviceId);
+        }
+      },
     );
-    final call = _call;
-    if (call?.cameraEnabled == true) {
-      await call?.media.setCameraEnabled(false);
-      await call?.media.setCameraEnabled(true, deviceId: deviceId);
-    }
     notifyListeners();
   }
 
@@ -947,6 +1490,17 @@ final class ResenhaController extends ChangeNotifier {
     int roomId,
     int userId,
     double volume,
+  ) => _runPublicOperation(
+    () => _setParticipantVolume(siteUrl, roomId, userId, volume),
+    'resenha.media.participantVolume',
+    correlationId: _activeDiagnosticCorrelationId,
+  );
+
+  Future<void> _setParticipantVolume(
+    String siteUrl,
+    int roomId,
+    int userId,
+    double volume,
   ) async {
     final normalized = volume.clamp(0, 1).toDouble();
     await _call?.media.setParticipantVolume(userId, normalized);
@@ -962,6 +1516,14 @@ final class ResenhaController extends ChangeNotifier {
   }
 
   Future<void> _restoreDevicePreferences() async {
+    final correlationId = DiagnosticsSink.newCorrelationId(
+      'resenha-preferences',
+    );
+    _record(
+      'preferences.devices.restore_started',
+      component: 'preferences',
+      correlationId: correlationId,
+    );
     try {
       final preferences = await _preferences.readDevices();
       if (_disposed) return;
@@ -969,11 +1531,111 @@ final class ResenhaController extends ChangeNotifier {
       _audioOutputDeviceId = preferences.audioOutputDeviceId;
       _cameraDeviceId = preferences.cameraDeviceId;
       _pushToTalkEnabled = preferences.pushToTalkEnabled;
+      _record(
+        'preferences.devices.restore_completed',
+        component: 'preferences',
+        correlationId: correlationId,
+        data: {
+          'audioInputPresent': preferences.audioInputDeviceId != null,
+          'audioOutputPresent': preferences.audioOutputDeviceId != null,
+          'cameraPresent': preferences.cameraDeviceId != null,
+          'pushToTalkEnabled': preferences.pushToTalkEnabled,
+        },
+      );
+      _recordRaw(
+        'preferences.devices.restore_detail',
+        component: 'preferences',
+        correlationId: correlationId,
+        data: {
+          'audioInputDeviceId': ?preferences.audioInputDeviceId,
+          'audioOutputDeviceId': ?preferences.audioOutputDeviceId,
+          'cameraDeviceId': ?preferences.cameraDeviceId,
+        },
+      );
       notifyListeners();
     } catch (error, stackTrace) {
       // Tests and early startup may not have a preferences channel yet. Device
       // defaults remain usable and the next explicit selection persists.
+      _record(
+        'preferences.devices.restore_failed',
+        component: 'preferences',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.warning,
+        data: {'errorType': error.runtimeType.toString()},
+      );
+      _recordRaw(
+        'preferences.devices.restore_failure_detail',
+        component: 'preferences',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.warning,
+        message: error.toString(),
+        data: {'stackTrace': stackTrace.toString()},
+      );
       _report(error, stackTrace, 'resenha.preferences.restore');
+    }
+  }
+
+  Future<void> _traceDeviceSelection({
+    required String kind,
+    required String origin,
+    required String deviceId,
+    required bool applied,
+    required String correlationId,
+    required Future<void> Function() action,
+  }) async {
+    final safeData = <String, Object?>{
+      'kind': kind,
+      'origin': origin,
+      'applied': applied,
+    };
+    _record(
+      'media.device_selection.attempted',
+      component: 'media',
+      correlationId: correlationId,
+      data: safeData,
+    );
+    _recordRaw(
+      'media.device_selection.attempt_detail',
+      component: 'media',
+      correlationId: correlationId,
+      data: {...safeData, 'deviceId': deviceId},
+    );
+    try {
+      await action();
+      _record(
+        'media.device_selection.succeeded',
+        component: 'media',
+        correlationId: correlationId,
+        data: safeData,
+      );
+      _recordRaw(
+        'media.device_selection.success_detail',
+        component: 'media',
+        correlationId: correlationId,
+        data: {...safeData, 'deviceId': deviceId},
+      );
+    } catch (error, stackTrace) {
+      _record(
+        'media.device_selection.failed',
+        component: 'media',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.warning,
+        data: {...safeData, 'errorType': error.runtimeType.toString()},
+      );
+      _recordRaw(
+        'media.device_selection.failure_detail',
+        component: 'media',
+        correlationId: correlationId,
+        severity: DiagnosticSeverity.warning,
+        message: error.toString(),
+        data: {
+          ...safeData,
+          'deviceId': deviceId,
+          'errorType': error.runtimeType.toString(),
+          'stackTrace': stackTrace.toString(),
+        },
+      );
+      Error.throwWithStackTrace(error, stackTrace);
     }
   }
 
@@ -1027,6 +1689,12 @@ final class ResenhaController extends ChangeNotifier {
 
   Future<void> _requestStateSync() {
     _stateSyncPending = true;
+    _recordRaw(
+      'state_sync.queued',
+      component: 'state',
+      correlationId: _correlationFor(_call),
+      data: {'coalesced': _stateSync != null || _stateRetry != null},
+    );
     final active = _stateSync;
     if (active != null || _stateRetry != null) {
       return active ?? Future<void>.value();
@@ -1051,17 +1719,41 @@ final class ResenhaController extends ChangeNotifier {
       final siteSession = _siteSession(call.siteUrl);
       bool isCurrent() => _isCurrentCall(call, siteSession);
       try {
+        final correlationId = _correlationFor(call);
+        _recordRaw(
+          'state_sync.requested',
+          component: 'state',
+          correlationId: correlationId,
+          data: {
+            'siteUrl': call.siteUrl,
+            'roomId': call.room.id,
+            'muted': call.muted,
+            'deafened': call.deafened,
+            'video': call.cameraEnabled,
+            'screen': call.screenSharing,
+            'watching': _isWatching(call),
+          },
+        );
         final apiKey = await credentials.apiKeyFor(call.siteUrl);
         if (apiKey == null || !isCurrent()) return;
-        await api.state(
-          siteUrl: call.siteUrl,
-          roomId: call.room.id,
-          apiKey: apiKey,
-          muted: call.muted,
-          deafened: call.deafened,
-          video: call.cameraEnabled,
-          screen: call.screenSharing,
-          watching: _isWatching(call),
+        await DiagnosticsSink.runOperation(
+          'resenha.state',
+          () => api.state(
+            siteUrl: call.siteUrl,
+            roomId: call.room.id,
+            apiKey: apiKey,
+            muted: call.muted,
+            deafened: call.deafened,
+            video: call.cameraEnabled,
+            screen: call.screenSharing,
+            watching: _isWatching(call),
+          ),
+          correlationId: correlationId,
+        );
+        _recordRaw(
+          'state_sync.completed',
+          component: 'state',
+          correlationId: correlationId,
         );
       } on WriteException catch (error, stackTrace) {
         if (!isCurrent()) return;
@@ -1069,6 +1761,16 @@ final class ResenhaController extends ChangeNotifier {
           _report(error, stackTrace, 'resenha.state');
           return;
         }
+        _recordRaw(
+          'state_sync.rate_limited',
+          component: 'state',
+          correlationId: _correlationFor(call),
+          severity: DiagnosticSeverity.warning,
+          data: {
+            'retryAfterMilliseconds':
+                (error.retryAfter ?? const Duration(seconds: 1)).inMilliseconds,
+          },
+        );
         _stateSyncPending = true;
         _stateRetry = Timer(
           (error.retryAfter ?? const Duration(seconds: 1)) +
@@ -1086,16 +1788,22 @@ final class ResenhaController extends ChangeNotifier {
   }
 
   Future<void> leave({bool notifyServer = true}) =>
-      _leave(notifyServer: notifyServer);
+      _leave(notifyServer: notifyServer, reason: _ResenhaLeaveReason.user);
 
   Future<void> _leave({
     required bool notifyServer,
+    required _ResenhaLeaveReason reason,
     bool clearImmediately = false,
   }) {
     final active = _leaveOperation;
     final call = _call;
     if (call == null) return active ?? Future<void>.value();
     if (active != null && identical(_leavingMedia, call.media)) {
+      _record(
+        'call.leave.coalesced',
+        correlationId: _correlationFor(call),
+        data: {'reason': reason.name, 'clearImmediately': clearImmediately},
+      );
       if (clearImmediately && identical(_call?.media, call.media)) {
         _call = null;
         onCallSiteChanged();
@@ -1115,15 +1823,51 @@ final class ResenhaController extends ChangeNotifier {
     _stateRetry?.cancel();
     _stateRetry = null;
     _stateSyncPending = false;
+    final correlationId = _correlationFor(call);
+    _record(
+      'call.leave.started',
+      correlationId: correlationId,
+      data: {
+        ..._roomDiagnosticData(call.room),
+        'reason': reason.name,
+        'notifyServer': notifyServer,
+        'clearImmediately': clearImmediately,
+        'status': call.status.name,
+      },
+    );
+    _recordRaw(
+      'call.leave.context',
+      correlationId: correlationId,
+      data: {
+        ..._rawRoomDiagnosticData(
+          call.siteUrl,
+          call.room,
+          siteName: call.siteName,
+        ),
+        'reason': reason.name,
+      },
+    );
     _call = clearImmediately
         ? null
         : call.copyWith(status: ResenhaCallStatus.leaving);
+    if (!clearImmediately && call.status != ResenhaCallStatus.leaving) {
+      _record(
+        'call.status_changed',
+        correlationId: correlationId,
+        data: {
+          'from': call.status.name,
+          'to': ResenhaCallStatus.leaving.name,
+          'reason': reason.name,
+        },
+      );
+    }
     if (clearImmediately) onCallSiteChanged();
     if (!_disposed) notifyListeners();
     unawaited(
       _finishLeave(
         call,
         notifyServer: notifyServer,
+        reason: reason,
         operation: operation,
         completion: completion,
       ),
@@ -1134,22 +1878,63 @@ final class ResenhaController extends ChangeNotifier {
   Future<void> _finishLeave(
     ResenhaCallSnapshot call, {
     required bool notifyServer,
+    required _ResenhaLeaveReason reason,
     required Future<void> operation,
     required Completer<void> completion,
   }) async {
+    final correlationId = _correlationFor(call);
     if (notifyServer) {
       try {
+        _record(
+          'call.leave.server_request.started',
+          correlationId: correlationId,
+          data: {'roomId': call.room.id},
+        );
         final apiKey = await credentials.apiKeyFor(call.siteUrl);
         if (apiKey != null) {
-          await api.leave(
-            siteUrl: call.siteUrl,
-            roomId: call.room.id,
-            apiKey: apiKey,
+          await DiagnosticsSink.runOperation(
+            'resenha.leave',
+            () => api.leave(
+              siteUrl: call.siteUrl,
+              roomId: call.room.id,
+              apiKey: apiKey,
+            ),
+            correlationId: correlationId,
+          );
+          _record(
+            'call.leave.server_request.completed',
+            correlationId: correlationId,
+          );
+        } else {
+          _record(
+            'call.leave.server_request.skipped',
+            correlationId: correlationId,
+            severity: DiagnosticSeverity.warning,
+            data: {'reason': 'missing_api_key'},
           );
         }
       } catch (error, stackTrace) {
+        _record(
+          'call.leave.server_request.failed',
+          correlationId: correlationId,
+          severity: DiagnosticSeverity.warning,
+          data: {'errorType': error.runtimeType.toString()},
+        );
+        _recordRaw(
+          'call.leave.server_request.failure_detail',
+          correlationId: correlationId,
+          severity: DiagnosticSeverity.warning,
+          message: error.toString(),
+          data: {'stackTrace': stackTrace.toString()},
+        );
         _report(error, stackTrace, 'resenha.leave');
       }
+    } else {
+      _record(
+        'call.leave.server_request.skipped',
+        correlationId: correlationId,
+        data: {'reason': 'local_only'},
+      );
     }
 
     try {
@@ -1157,8 +1942,30 @@ final class ResenhaController extends ChangeNotifier {
     } catch (error, stackTrace) {
       _report(error, stackTrace, 'resenha.media.removeListener');
     }
+    _record(
+      'media.dispose.started',
+      component: 'media',
+      correlationId: correlationId,
+    );
     await _disposeMedia(call.media, 'resenha.media.dispose');
+    _record(
+      'media.dispose.completed',
+      component: 'media',
+      correlationId: correlationId,
+    );
+    _record(
+      'callkit.command.requested',
+      component: 'callkit',
+      correlationId: correlationId,
+      data: {'command': 'end'},
+    );
     await _runHandled(systemCall.end, 'resenha.systemCall.end');
+    _record(
+      'callkit.command.completed',
+      component: 'callkit',
+      correlationId: correlationId,
+      data: {'command': 'end'},
+    );
 
     if (identical(_leaveOperation, operation)) {
       _leaveOperation = null;
@@ -1168,11 +1975,29 @@ final class ResenhaController extends ChangeNotifier {
       _call = null;
       onCallSiteChanged();
     }
+    _record(
+      'call.leave.completed',
+      correlationId: correlationId,
+      data: {'reason': reason.name},
+    );
+    if (systemCall case final NativeResenhaSystemCall nativeSystemCall) {
+      nativeSystemCall.associateDiagnostics(null);
+    }
     if (!_disposed) notifyListeners();
     completion.complete();
   }
 
   Future<ResenhaRoom?> saveRoom({
+    required String siteUrl,
+    required ResenhaRoomDraft draft,
+    int? roomId,
+  }) => _runPublicValueOperation<ResenhaRoom?>(
+    () => _saveRoom(siteUrl: siteUrl, draft: draft, roomId: roomId),
+    'resenha.saveRoom',
+    fallback: null,
+  );
+
+  Future<ResenhaRoom?> _saveRoom({
     required String siteUrl,
     required ResenhaRoomDraft draft,
     int? roomId,
@@ -1204,7 +2029,12 @@ final class ResenhaController extends ChangeNotifier {
     }
   }
 
-  Future<void> deleteRoom(String siteUrl, int roomId) async {
+  Future<void> deleteRoom(String siteUrl, int roomId) => _runPublicOperation(
+    () => _deleteRoom(siteUrl, roomId),
+    'resenha.deleteRoom',
+  );
+
+  Future<void> _deleteRoom(String siteUrl, int roomId) async {
     final siteSession = _siteSession(siteUrl);
     bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
     final apiKey = await credentials.apiKeyFor(siteUrl);
@@ -1223,7 +2053,13 @@ final class ResenhaController extends ChangeNotifier {
     }
   }
 
-  Future<void> openChat(
+  Future<void> openChat(String siteUrl, int roomId, {bool force = false}) =>
+      _runPublicOperation(
+        () => _openChat(siteUrl, roomId, force: force),
+        'resenha.chat.load',
+      );
+
+  Future<void> _openChat(
     String siteUrl,
     int roomId, {
     bool force = false,
@@ -1266,14 +2102,15 @@ final class ResenhaController extends ChangeNotifier {
         canLoadMorePast = page.canLoadMorePast;
         _subscribeChat(siteUrl, roomId, channelId, threadId);
         if (messages.isNotEmpty) {
-          unawaited(
-            chatApi.markChatThreadRead(
+          _observe(
+            () => chatApi.markChatThreadRead(
               siteUrl: siteUrl,
               apiKey: apiKey,
               channelId: channelId,
               threadId: threadId,
               messageId: messages.last.id,
             ),
+            'resenha.chat.markRead',
           );
         }
       }
@@ -1293,7 +2130,12 @@ final class ResenhaController extends ChangeNotifier {
     if (isCurrent()) notifyListeners();
   }
 
-  Future<void> loadOlderChat(String siteUrl, int roomId) async {
+  Future<void> loadOlderChat(String siteUrl, int roomId) => _runPublicOperation(
+    () => _loadOlderChat(siteUrl, roomId),
+    'resenha.chat.page',
+  );
+
+  Future<void> _loadOlderChat(String siteUrl, int roomId) async {
     final key = '$siteUrl#$roomId';
     final state = _chats[key];
     final channelId = state?.session.channelId;
@@ -1362,7 +2204,13 @@ final class ResenhaController extends ChangeNotifier {
     });
   }
 
-  Future<void> sendChatMessage(
+  Future<void> sendChatMessage(String siteUrl, int roomId, String message) =>
+      _runPublicOperation(
+        () => _sendChatMessage(siteUrl, roomId, message),
+        'resenha.chat.send',
+      );
+
+  Future<void> _sendChatMessage(
     String siteUrl,
     int roomId,
     String message,
@@ -1419,7 +2267,14 @@ final class ResenhaController extends ChangeNotifier {
     }
   }
 
-  Future<void> requestToSpeak({int? userId, bool raised = true}) async {
+  Future<void> requestToSpeak({int? userId, bool raised = true}) =>
+      _runPublicOperation(
+        () => _requestToSpeak(userId: userId, raised: raised),
+        'resenha.requestToSpeak',
+        correlationId: _activeDiagnosticCorrelationId,
+      );
+
+  Future<void> _requestToSpeak({int? userId, bool raised = true}) async {
     final call = _call;
     if (call == null) return;
     final siteSession = _siteSession(call.siteUrl);
@@ -1434,7 +2289,13 @@ final class ResenhaController extends ChangeNotifier {
     );
   }
 
-  Future<void> kick(int userId) async {
+  Future<void> kick(int userId) => _runPublicOperation(
+    () => _kick(userId),
+    'resenha.kick',
+    correlationId: _activeDiagnosticCorrelationId,
+  );
+
+  Future<void> _kick(int userId) async {
     final call = _call;
     if (call == null) return;
     final siteSession = _siteSession(call.siteUrl);
@@ -1448,7 +2309,15 @@ final class ResenhaController extends ChangeNotifier {
     );
   }
 
-  Future<bool> flagParticipant(int userId, String message) async {
+  Future<bool> flagParticipant(int userId, String message) =>
+      _runPublicValueOperation<bool>(
+        () => _flagParticipant(userId, message),
+        'resenha.flag',
+        fallback: false,
+        correlationId: _activeDiagnosticCorrelationId,
+      );
+
+  Future<bool> _flagParticipant(int userId, String message) async {
     final call = _call;
     final text = message.trim();
     if (call == null || text.isEmpty) return false;
@@ -1475,7 +2344,13 @@ final class ResenhaController extends ChangeNotifier {
     return true;
   }
 
-  Future<void> setRecording(bool active) async {
+  Future<void> setRecording(bool active) => _runPublicOperation(
+    () => _setRecording(active),
+    'resenha.recording',
+    correlationId: _activeDiagnosticCorrelationId,
+  );
+
+  Future<void> _setRecording(bool active) async {
     final call = _call;
     if (call == null) return;
     final siteSession = _siteSession(call.siteUrl);
@@ -1489,7 +2364,14 @@ final class ResenhaController extends ChangeNotifier {
     );
   }
 
-  Future<List<ResenhaMembership>> memberships(
+  Future<List<ResenhaMembership>> memberships(String siteUrl, int roomId) =>
+      _runPublicValueOperation<List<ResenhaMembership>>(
+        () => _memberships(siteUrl, roomId),
+        'resenha.memberships',
+        fallback: const [],
+      );
+
+  Future<List<ResenhaMembership>> _memberships(
     String siteUrl,
     int roomId,
   ) async {
@@ -1507,6 +2389,16 @@ final class ResenhaController extends ChangeNotifier {
   }
 
   Future<void> addMember(
+    String siteUrl,
+    int roomId,
+    String username,
+    ResenhaRole role,
+  ) => _runPublicOperation(
+    () => _addMember(siteUrl, roomId, username, role),
+    'resenha.membership.add',
+  );
+
+  Future<void> _addMember(
     String siteUrl,
     int roomId,
     String username,
@@ -1529,6 +2421,16 @@ final class ResenhaController extends ChangeNotifier {
     int roomId,
     int membershipId,
     ResenhaRole role,
+  ) => _runPublicOperation(
+    () => _updateMember(siteUrl, roomId, membershipId, role),
+    'resenha.membership.update',
+  );
+
+  Future<void> _updateMember(
+    String siteUrl,
+    int roomId,
+    int membershipId,
+    ResenhaRole role,
   ) async {
     final siteSession = _siteSession(siteUrl);
     final apiKey = await credentials.apiKeyFor(siteUrl);
@@ -1542,7 +2444,13 @@ final class ResenhaController extends ChangeNotifier {
     );
   }
 
-  Future<void> removeMember(
+  Future<void> removeMember(String siteUrl, int roomId, int membershipId) =>
+      _runPublicOperation(
+        () => _removeMember(siteUrl, roomId, membershipId),
+        'resenha.membership.remove',
+      );
+
+  Future<void> _removeMember(
     String siteUrl,
     int roomId,
     int membershipId,
@@ -1570,6 +2478,18 @@ final class ResenhaController extends ChangeNotifier {
         ResenhaMediaConnectionState.failed => ResenhaCallStatus.failed,
       };
       if (status != call.status && call.status != ResenhaCallStatus.leaving) {
+        _record(
+          'call.status_changed',
+          correlationId: _correlationFor(call),
+          severity: status == ResenhaCallStatus.failed
+              ? DiagnosticSeverity.error
+              : DiagnosticSeverity.info,
+          data: {
+            'from': call.status.name,
+            'to': status.name,
+            'mediaConnectionState': call.media.connectionState.name,
+          },
+        );
         updated = updated.copyWith(
           status: status,
           error: status == ResenhaCallStatus.failed
@@ -1583,6 +2503,12 @@ final class ResenhaController extends ChangeNotifier {
           updated.screenSharing &&
           !call.media.screenSharing;
       if (screenShareEnded) {
+        _record(
+          'media.screen_share.ended',
+          component: 'media',
+          correlationId: _correlationFor(call),
+          data: {'cause': 'track_ended'},
+        );
         updated = updated.copyWith(screenSharing: false);
       }
       _call = updated;
@@ -1592,6 +2518,12 @@ final class ResenhaController extends ChangeNotifier {
   }
 
   void _onSystemAction(ResenhaSystemCallAction action) {
+    _record(
+      'callkit.action',
+      component: 'callkit',
+      correlationId: _correlationFor(_call),
+      data: {'action': action.name},
+    );
     switch (action) {
       case ResenhaSystemCallAction.mute:
         _observe(
@@ -1604,13 +2536,25 @@ final class ResenhaController extends ChangeNotifier {
           'resenha.systemAction.unmute',
         );
       case ResenhaSystemCallAction.end:
-        _observe(leave, 'resenha.systemAction.end');
+        _observe(
+          () => _leave(
+            notifyServer: true,
+            reason: _ResenhaLeaveReason.systemAction,
+          ),
+          'resenha.systemAction.end',
+        );
     }
   }
 
   void forget(String siteUrl) {
     if (_call?.siteUrl == siteUrl) {
-      _observe(leave, 'resenha.accountRemoval');
+      _observe(
+        () => _leave(
+          notifyServer: true,
+          reason: _ResenhaLeaveReason.accountRemoval,
+        ),
+        'resenha.accountRemoval',
+      );
     }
     _siteSessions.remove(siteUrl);
     _directoryRequests.remove(siteUrl);
@@ -1636,16 +2580,172 @@ final class ResenhaController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
-  void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'resenha',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
+  String _nextCallCorrelationId() {
+    return DiagnosticsSink.newCorrelationId('resenha-call');
+  }
+
+  String? _correlationFor(ResenhaCallSnapshot? call) =>
+      call == null ? null : _mediaCorrelations[call.media];
+
+  String? _correlationForSite(String siteUrl) {
+    final call = _call;
+    return call?.siteUrl == siteUrl ? _correlationFor(call) : null;
+  }
+
+  String? _correlationForRoom(String siteUrl, int roomId) {
+    final call = _call;
+    return call?.siteUrl == siteUrl && call?.room.id == roomId
+        ? _correlationFor(call)
+        : null;
+  }
+
+  String? get _activeDiagnosticCorrelationId {
+    final active = _correlationFor(_call);
+    if (active != null) return active;
+    final leavingMedia = _leavingMedia;
+    return leavingMedia == null ? null : _mediaCorrelations[leavingMedia];
+  }
+
+  void _record(
+    String event, {
+    String component = 'controller',
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? correlationId,
+    Map<String, Object?> data = const {},
+  }) {
+    try {
+      diagnostics.record(
+        event,
+        component: component,
+        severity: severity,
+        correlationId: correlationId,
+        data: data,
+      );
+    } catch (_) {
+      // Diagnostics are observational and must not alter call behavior.
+    }
+  }
+
+  void _recordRaw(
+    String event, {
+    String component = 'controller',
+    DiagnosticSeverity severity = DiagnosticSeverity.debug,
+    String? correlationId,
+    String? message,
+    Map<String, Object?> data = const {},
+  }) {
+    try {
+      if (!diagnostics.captureEnabled) return;
+      diagnostics.recordRaw(
+        event,
+        component: component,
+        severity: severity,
+        correlationId: correlationId,
+        message: message,
+        data: data,
+      );
+    } catch (_) {
+      // Diagnostics are observational and must not alter call behavior.
+    }
+  }
+
+  Map<String, Object?> _roomDiagnosticData(ResenhaRoom room) => {
+    'roomId': room.id,
+    'roomType': room.type.name,
+    'participantCount': room.participants.length,
+  };
+
+  Map<String, Object?> _rawRoomDiagnosticData(
+    String siteUrl,
+    ResenhaRoom room, {
+    String? siteName,
+  }) => {
+    'siteUrl': siteUrl,
+    'siteName': ?siteName,
+    'roomId': room.id,
+    'roomName': room.name,
+    'roomSlug': room.slug,
+    'roomType': room.type.name,
+    'participantCount': room.participants.length,
+  };
+
+  void _recordRoster(
+    String event,
+    String siteUrl,
+    int roomId,
+    List<ResenhaParticipant> participants, {
+    String? correlationId,
+  }) {
+    _recordRaw(
+      event,
+      component: 'roster',
+      correlationId: correlationId,
+      data: {
+        'siteUrl': siteUrl,
+        'roomId': roomId,
+        'participants': [
+          for (final participant in participants)
+            {
+              'id': participant.id,
+              'username': participant.username,
+              'name': participant.name,
+              'avatarTemplate': participant.avatarTemplate,
+              'role': participant.role.name,
+              'muted': participant.muted,
+              'deafened': participant.deafened,
+              'videoOn': participant.videoOn,
+              'screenSharing': participant.screenSharing,
+              'watchingVideo': participant.watchingVideo,
+              'idleState': participant.idleState.name,
+              'handRaisedAt': participant.handRaisedAt
+                  ?.toUtc()
+                  .toIso8601String(),
+            },
+        ],
+      },
     );
+  }
+
+  void _report(
+    Object error,
+    StackTrace stackTrace,
+    String operation, {
+    String? correlationId,
+  }) {
+    final effectiveCorrelationId =
+        correlationId ??
+        _activeDiagnosticCorrelationId ??
+        DiagnosticsSink.currentCorrelationId;
+    _record(
+      'runtime.error',
+      severity: DiagnosticSeverity.warning,
+      correlationId: effectiveCorrelationId,
+      data: {'operation': operation, 'errorType': error.runtimeType.toString()},
+    );
+    _recordRaw(
+      'runtime.error_detail',
+      severity: DiagnosticSeverity.warning,
+      correlationId: effectiveCorrelationId,
+      message: error.toString(),
+      data: {'operation': operation, 'stackTrace': stackTrace.toString()},
+    );
+    try {
+      DiagnosticsSink.current.reportError(
+        _ResenhaDiagnosticFailure(
+          operation: operation,
+          errorType: error.runtimeType.toString(),
+        ),
+        stackTrace,
+        operation: operation,
+        source: 'resenha',
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+        degraded: true,
+        correlationId: effectiveCorrelationId,
+      );
+    } catch (_) {
+      // Diagnostics are observational and must not reopen a handled boundary.
+    }
   }
 
   void _observe(Future<void> Function() action, String operation) {
@@ -1654,12 +2754,33 @@ final class ResenhaController extends ChangeNotifier {
 
   Future<void> _runHandled(
     Future<void> Function() action,
-    String operation,
-  ) async {
+    String operation, {
+    String? correlationId,
+  }) async {
     try {
       await action();
     } catch (error, stackTrace) {
-      _report(error, stackTrace, operation);
+      _report(error, stackTrace, operation, correlationId: correlationId);
+    }
+  }
+
+  Future<void> _runPublicOperation(
+    Future<void> Function() action,
+    String operation, {
+    String? correlationId,
+  }) => _runHandled(action, operation, correlationId: correlationId);
+
+  Future<T> _runPublicValueOperation<T>(
+    Future<T> Function() action,
+    String operation, {
+    required T fallback,
+    String? correlationId,
+  }) async {
+    try {
+      return await action();
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, operation, correlationId: correlationId);
+      return fallback;
     }
   }
 
