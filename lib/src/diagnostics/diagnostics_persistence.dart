@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
@@ -22,6 +23,23 @@ final class DiagnosticsPersistenceState {
 
   final List<DiagnosticEvent> events;
   final int lastSeenSequence;
+}
+
+typedef _DecodedDiagnosticEvent = ({
+  DiagnosticEvent event,
+  int serializedBytes,
+});
+
+final class _DecodedDiagnosticsFile {
+  const _DecodedDiagnosticsFile({
+    required this.events,
+    required this.lastSeenSequence,
+    required this.evicted,
+  });
+
+  final List<_DecodedDiagnosticEvent> events;
+  final int lastSeenSequence;
+  final bool evicted;
 }
 
 abstract interface class DiagnosticsPersistence {
@@ -192,39 +210,21 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
     await ensurePrivateDirectory(file.parent);
     restrictPrivateFile(file);
 
-    var evicted = false;
-    final cutoff = nowUtc.toUtc().subtract(diagnosticsRetentionAge);
-    await for (final line in _boundedJsonLines(file)) {
-      if (line.trim().isEmpty) continue;
-      try {
-        final decoded = jsonDecode(line);
-        if (decoded is! Map || decoded['version'] != formatVersion) continue;
-        switch (decoded['record']) {
-          case 'event':
-            final event = DiagnosticEvent.fromJson(decoded['event']);
-            if (event != null) {
-              _putEvent(event);
-              // Fold duplicate lifecycle records first, then enforce a limit
-              // as soon as this record crosses one. The map is therefore
-              // bounded by the retained budget plus at most the one record
-              // currently being decoded, even for a crash-grown file full of
-              // individually valid near-limit lines.
-              if (_events.length > diagnosticsRetentionCount ||
-                  _totalEventBytes > diagnosticsEventBudgetBytes ||
-                  !event.timestampUtc.isAfter(cutoff)) {
-                evicted |= _retainInMemory(nowUtc);
-              }
-            }
-          case 'lastSeen':
-            final sequence = decoded['sequence'];
-            if (sequence is int) _lastSeenSequence = sequence;
-        }
-      } on FormatException {
-        // A crash can leave one incomplete line; healthy lines still load.
-      } on TypeError {
-        // Version-compatible but malformed records are ignored individually.
-      }
+    // A retained history may contain thousands of events with long error
+    // strings. JSON decoding and the mandatory privacy scrub are CPU-bound;
+    // doing them on the UI isolate made an ordinary diagnostics compaction
+    // contend with scrolling for multiple seconds in debug/profile captures.
+    final path = file.absolute.path;
+    final nowUtcMicroseconds = nowUtc.microsecondsSinceEpoch;
+    final decoded = await Isolate.run(
+      () => _decodeDiagnosticsFile(path, nowUtcMicroseconds),
+      debugName: 'diagnostics-file-decode',
+    );
+    _lastSeenSequence = decoded.lastSeenSequence;
+    for (final item in decoded.events) {
+      _putEvent(item.event, serializedBytes: item.serializedBytes);
     }
+    var evicted = decoded.evicted;
     evicted |= _retainInMemory(nowUtc);
     if (compactIfNeeded &&
         (evicted || await file.length() > diagnosticsRetentionBytes)) {
@@ -282,7 +282,7 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
     _removeEvent(_eventIdsBySequence[oldestSequence]!.first);
   }
 
-  void _putEvent(DiagnosticEvent event) {
+  void _putEvent(DiagnosticEvent event, {int? serializedBytes}) {
     final previous = _events[event.id];
     if (previous != null) {
       _removeIndex(_eventIdsBySequence, previous.sequence, event.id);
@@ -294,7 +294,7 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
     }
     final previousBytes = _eventBytes[event.id];
     if (previousBytes != null) _totalEventBytes -= previousBytes;
-    final bytes = diagnosticEventSerializedBytes(event);
+    final bytes = serializedBytes ?? diagnosticEventSerializedBytes(event);
     _events[event.id] = event;
     _eventBytes[event.id] = bytes;
     _eventIdsBySequence.putIfAbsent(event.sequence, () => {}).add(event.id);
@@ -484,6 +484,154 @@ Stream<String> _boundedJsonLines(File file) async* {
     final line = finishLine();
     if (line != null) yield line;
   }
+}
+
+/// Decodes and privacy-scrubs a diagnostics history away from Flutter's UI
+/// isolate while retaining the same incremental memory bounds as the owner.
+Future<_DecodedDiagnosticsFile> _decodeDiagnosticsFile(
+  String path,
+  int nowUtcMicroseconds,
+) async {
+  final events = <String, DiagnosticEvent>{};
+  final eventBytes = <String, int>{};
+  final eventIdsBySequence = SplayTreeMap<int, Set<String>>();
+  final eventIdsByTimestamp = SplayTreeMap<int, Set<String>>();
+  final nowUtc = DateTime.fromMicrosecondsSinceEpoch(
+    nowUtcMicroseconds,
+    isUtc: true,
+  );
+  final cutoff = nowUtc.subtract(diagnosticsRetentionAge);
+  var totalEventBytes = 0;
+  var lastSeenSequence = 0;
+  var evicted = false;
+
+  void removeIndex(SplayTreeMap<int, Set<String>> index, int key, String id) {
+    final ids = index[key];
+    if (ids == null) return;
+    ids.remove(id);
+    if (ids.isEmpty) index.remove(key);
+  }
+
+  void removeEvent(String id) {
+    final event = events.remove(id);
+    if (event != null) {
+      removeIndex(eventIdsBySequence, event.sequence, id);
+      removeIndex(
+        eventIdsByTimestamp,
+        event.timestampUtc.microsecondsSinceEpoch,
+        id,
+      );
+    }
+    final bytes = eventBytes.remove(id);
+    if (bytes != null) totalEventBytes -= bytes;
+  }
+
+  void removeOldestEvent() {
+    final oldestSequence = eventIdsBySequence.firstKey();
+    if (oldestSequence == null) return;
+    removeEvent(eventIdsBySequence[oldestSequence]!.first);
+  }
+
+  bool retain() {
+    final oldestTimestamp = eventIdsByTimestamp.firstKey();
+    if (events.length <= diagnosticsRetentionCount &&
+        totalEventBytes <= diagnosticsEventBudgetBytes &&
+        (oldestTimestamp == null ||
+            oldestTimestamp > cutoff.microsecondsSinceEpoch)) {
+      return false;
+    }
+
+    var removed = false;
+    while (eventIdsByTimestamp.isNotEmpty) {
+      final timestamp = eventIdsByTimestamp.firstKey()!;
+      if (timestamp > cutoff.microsecondsSinceEpoch) break;
+      for (final id in eventIdsByTimestamp[timestamp]!.toList()) {
+        removeEvent(id);
+        removed = true;
+      }
+    }
+    while (events.length > diagnosticsRetentionCount) {
+      removeOldestEvent();
+      removed = true;
+    }
+    if (totalEventBytes > diagnosticsEventBudgetBytes) {
+      for (final entry in eventBytes.entries.toList()) {
+        if (entry.value <= diagnosticsEventBudgetBytes) continue;
+        removeEvent(entry.key);
+        removed = true;
+      }
+    }
+    while (totalEventBytes > diagnosticsEventBudgetBytes) {
+      removeOldestEvent();
+      removed = true;
+    }
+    return removed;
+  }
+
+  void putEvent(DiagnosticEvent event) {
+    final previous = events[event.id];
+    if (previous != null) {
+      removeIndex(eventIdsBySequence, previous.sequence, event.id);
+      removeIndex(
+        eventIdsByTimestamp,
+        previous.timestampUtc.microsecondsSinceEpoch,
+        event.id,
+      );
+    }
+    final previousBytes = eventBytes[event.id];
+    if (previousBytes != null) totalEventBytes -= previousBytes;
+    final bytes = diagnosticEventSerializedBytes(event);
+    events[event.id] = event;
+    eventBytes[event.id] = bytes;
+    eventIdsBySequence.putIfAbsent(event.sequence, () => {}).add(event.id);
+    eventIdsByTimestamp
+        .putIfAbsent(event.timestampUtc.microsecondsSinceEpoch, () => {})
+        .add(event.id);
+    totalEventBytes += bytes;
+  }
+
+  await for (final line in _boundedJsonLines(File(path))) {
+    if (line.trim().isEmpty) continue;
+    try {
+      final decoded = jsonDecode(line);
+      if (decoded is! Map ||
+          decoded['version'] != FileDiagnosticsPersistence.formatVersion) {
+        continue;
+      }
+      switch (decoded['record']) {
+        case 'event':
+          final event = DiagnosticEvent.fromJson(decoded['event']);
+          if (event != null) {
+            putEvent(event);
+            // Fold duplicate lifecycle records first, then enforce a limit as
+            // soon as this record crosses one. Even a crash-grown file stays
+            // bounded by the retained budget plus the record being decoded.
+            if (events.length > diagnosticsRetentionCount ||
+                totalEventBytes > diagnosticsEventBudgetBytes ||
+                !event.timestampUtc.isAfter(cutoff)) {
+              evicted |= retain();
+            }
+          }
+        case 'lastSeen':
+          final sequence = decoded['sequence'];
+          if (sequence is int) lastSeenSequence = sequence;
+      }
+    } on FormatException {
+      // A crash can leave one incomplete line; healthy lines still load.
+    } on TypeError {
+      // Version-compatible but malformed records are ignored individually.
+    }
+  }
+  evicted |= retain();
+
+  return _DecodedDiagnosticsFile(
+    events: [
+      for (final event in events.values)
+        (event: event, serializedBytes: eventBytes[event.id]!),
+    ],
+    lastSeenSequence: lastSeenSequence,
+    evicted: evicted,
+  );
 }
 
 /// A deterministic persistence implementation for tests and embedders.

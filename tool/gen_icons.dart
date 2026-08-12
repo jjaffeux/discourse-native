@@ -227,7 +227,8 @@ String _render(
 /// A standalone SVG document, single-quoted for the Dart literal.
 String _svg(String viewBox, String inner) {
   final markup =
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="$viewBox">$inner</svg>';
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="$viewBox" '
+      'fill="currentColor">$inner</svg>';
   return markup
       .replaceAll(r'\', r'\\')
       .replaceAll("'", r"\'")

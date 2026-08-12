@@ -1,6 +1,35 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+/// Applies an icon's tint while flutter_svg compiles the picture.
+///
+/// A runtime [ColorFilter] makes vector_graphics wrap every icon paint in a
+/// canvas saveLayer. Icons appear throughout scrolling rows, so that turns a
+/// handful of tiny glyphs into a handful of offscreen buffers every frame.
+/// Mapping the SVG's paints up front produces the same monochrome glyph with
+/// no compositing layer at paint time.
+@immutable
+final class _DIconColorMapper extends ColorMapper {
+  const _DIconColorMapper(this.tint);
+
+  final Color tint;
+
+  @override
+  Color substitute(
+    String? id,
+    String elementName,
+    String attributeName,
+    Color color,
+  ) => tint;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _DIconColorMapper && other.tint == tint;
+
+  @override
+  int get hashCode => tint.hashCode;
+}
+
 /// One icon from Discourse's SVG sprite.
 ///
 /// [name] is the name Discourse uses — `gear`, `far-heart`, `discourse-text` —
@@ -66,6 +95,9 @@ class DIcon extends StatelessWidget {
     final box = size ?? iconTheme.size ?? 24;
     final tint = color ?? iconTheme.color ?? const Color(0xFF000000);
     final opacity = iconTheme.opacity ?? 1.0;
+    final resolvedTint = opacity == 1.0
+        ? tint
+        : tint.withValues(alpha: tint.a * opacity);
 
     return SizedBox.square(
       dimension: box,
@@ -75,10 +107,8 @@ class DIcon extends StatelessWidget {
           width: box * glyphScale,
           height: box * glyphScale,
           fit: BoxFit.contain,
-          colorFilter: ColorFilter.mode(
-            opacity == 1.0 ? tint : tint.withValues(alpha: tint.a * opacity),
-            BlendMode.srcIn,
-          ),
+          theme: SvgTheme(currentColor: resolvedTint),
+          colorMapper: _DIconColorMapper(resolvedTint),
           semanticsLabel: semanticLabel,
         ),
       ),

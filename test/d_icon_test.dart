@@ -1,6 +1,10 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/finders.dart';
@@ -55,6 +59,53 @@ void main() {
       );
 
       expect(tester.getSize(find.dIcon(DIcons.gear)), const Size(18, 18));
+      final picture = tester.widget<SvgPicture>(find.byType(SvgPicture));
+      expect(
+        picture.colorFilter,
+        isNull,
+        reason: 'runtime SVG color filters paint through Canvas.saveLayer',
+      );
+    });
+
+    testWidgets('bakes the tint into the picture without a paint-time layer', (
+      tester,
+    ) async {
+      const boundaryKey = ValueKey('tinted-icon-boundary');
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: ColoredBox(
+            color: Colors.white,
+            child: Center(
+              child: RepaintBoundary(
+                key: boundaryKey,
+                child: DIcon(DIcons.circle, size: 32, color: Color(0xFF00FF00)),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final picture = tester.widget<SvgPicture>(find.byType(SvgPicture));
+      expect(picture.colorFilter, isNull);
+
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(boundaryKey),
+      );
+      final centerPixel = (await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        try {
+          final pixels = await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          );
+          final center =
+              (image.width * (image.height ~/ 2) + image.width ~/ 2) * 4;
+          return pixels!.buffer.asUint8List(center, 4);
+        } finally {
+          image.dispose();
+        }
+      }))!;
+      expect(centerPixel, [0, 255, 0, 255]);
     });
 
     test('aliases resolve to the icon Discourse maps them to', () {
