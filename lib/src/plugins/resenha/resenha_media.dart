@@ -1330,10 +1330,10 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
     if (peer == null) return;
     switch (signal) {
       case _MeshSdpSignal(kind: _MeshSdpKind.offer, :final sdp):
+        final signalingState = await peer.getSignalingState();
         final collision =
             _makingOffer.contains(senderId) ||
-            peer.signalingState !=
-                rtc.RTCSignalingState.RTCSignalingStateStable;
+            signalingState != rtc.RTCSignalingState.RTCSignalingStateStable;
         final polite = localUserId < senderId;
         if (collision && !polite) return;
         if (collision) {
@@ -1351,7 +1351,7 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
         await _sendPeerSignal(senderId, {'type': 'answer', 'sdp': answer.sdp});
         await _refreshSendSlotsBestEffort(senderId, peer);
       case _MeshSdpSignal(kind: _MeshSdpKind.answer, :final sdp):
-        if (peer.signalingState !=
+        if (await peer.getSignalingState() !=
             rtc.RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
           return;
         }

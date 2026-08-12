@@ -556,6 +556,28 @@ void main() {
       await media.dispose();
     });
 
+    test(
+      'accepts a first offer before the cached signaling state is set',
+      () async {
+        final peer = _FakePeerConnection(exposeNullCachedSignalingState: true);
+        final media = _meshSession(
+          peer: peer,
+          localUserId: 20,
+          remoteUserId: 10,
+          audioPublishingAllowed: false,
+        );
+        await media.connect();
+
+        await media.handleSignal(10, {
+          'type': 'offer',
+          'sdp': 'first-remote-offer',
+        });
+
+        expect(peer.createdAnswers, 1);
+        await media.dispose();
+      },
+    );
+
     test('the lower-id peer rolls back a fallback-offer collision', () async {
       final peer = _FakePeerConnection();
       final media = _meshSession(peer: peer, audioPublishingAllowed: false);
@@ -1523,11 +1545,15 @@ ResenhaJoinResponse _meshJoin({
 );
 
 final class _FakePeerConnection implements rtc.RTCPeerConnection {
-  _FakePeerConnection({List<String>? events, this.failClose = false})
-    : events = events ?? <String>[];
+  _FakePeerConnection({
+    List<String>? events,
+    this.failClose = false,
+    this.exposeNullCachedSignalingState = false,
+  }) : events = events ?? <String>[];
 
   final List<String> events;
   final bool failClose;
+  final bool exposeNullCachedSignalingState;
   final List<String> mediaPlan = [];
   final List<rtc.MediaStreamTrack> addedTracks = [];
   final List<_FakeSender> addedTrackSenders = [];
@@ -1557,7 +1583,11 @@ final class _FakePeerConnection implements rtc.RTCPeerConnection {
   void Function(rtc.RTCSignalingState state)? onSignalingState;
 
   @override
-  rtc.RTCSignalingState? get signalingState => _signalingState;
+  rtc.RTCSignalingState? get signalingState =>
+      exposeNullCachedSignalingState ? null : _signalingState;
+
+  @override
+  Future<rtc.RTCSignalingState?> getSignalingState() async => _signalingState;
 
   @override
   Future<rtc.RTCRtpSender> addTrack(
