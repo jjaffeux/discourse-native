@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html;
 
+import 'found_group.dart';
 import 'json.dart';
+import 'topic_tag.dart';
 
 /// The transient answer from Discourse's header-search endpoint.
 ///
@@ -15,6 +17,7 @@ class SearchResults {
     this.hits = const [],
     this.sections = const [],
     this.error,
+    this.searchLogId,
   });
 
   /// Maximum server entries parsed and retained for one header-search facet.
@@ -35,6 +38,18 @@ class SearchResults {
         id: id,
         title: jsonTitle(value['title'], value['fancy_title']),
         slug: jsonString(value['slug']),
+        categoryId: jsonIntOrNull(value['category_id']),
+        tags: List.unmodifiable([
+          for (final tag in jsonArray(value['tags'])) ?TopicTag.parse(tag),
+        ]),
+        pinned: value['pinned'] == true,
+        unpinned: value['unpinned'] == true,
+        closed: value['closed'] == true,
+        archived: value['archived'] == true,
+        privateMessage: value['archetype'] == 'private_message',
+        bookmarked: value['bookmarked'] == true,
+        warning: value['is_warning'] == true,
+        invisible: value['visible'] == false,
       );
     }
 
@@ -61,6 +76,19 @@ class SearchResults {
           postNumber: postNumber,
           topicTitle: topic.title,
           topicSlug: topic.slug,
+          topicTitleExcerpt: SearchExcerpt.fromHtml(
+            jsonString(value['topic_title_headline']),
+          ),
+          categoryId: topic.categoryId,
+          tags: topic.tags,
+          pinned: topic.pinned,
+          unpinned: topic.unpinned,
+          closed: topic.closed,
+          archived: topic.archived,
+          privateMessage: topic.privateMessage,
+          bookmarked: topic.bookmarked,
+          warning: topic.warning,
+          invisible: topic.invisible,
           username: jsonString(value['username']),
           name: jsonText(value['name']),
           avatarUrl: resolveAvatarUrl(
@@ -113,19 +141,30 @@ class SearchResults {
       SearchCategoryHit.fromJson,
       moreKey: 'more_categories',
     );
-    addSection(SearchResultKind.tag, 'tags', SearchTagHit.fromJson);
+    addSection(
+      SearchResultKind.tag,
+      'tags',
+      SearchTagHit.fromJson,
+      moreKey: 'more_tags',
+    );
     addSection(
       SearchResultKind.user,
       'users',
       (value) => SearchUserHit.fromJson(value, siteUrl),
       moreKey: 'more_users',
     );
-    addSection(SearchResultKind.group, 'groups', SearchGroupHit.fromJson);
+    addSection(
+      SearchResultKind.group,
+      'groups',
+      (value) => SearchGroupHit.fromJson(value, siteUrl),
+      moreKey: 'more_groups',
+    );
 
     return SearchResults(
       hits: List.unmodifiable(hits),
       sections: List.unmodifiable(sections),
       error: jsonText(grouped['error']),
+      searchLogId: jsonIntOrNull(grouped['search_log_id']),
     );
   }
 
@@ -151,6 +190,9 @@ class SearchResults {
   /// A successful response can still carry a refusal, such as overloaded
   /// search. This is the site's reader-facing explanation.
   final String? error;
+
+  /// The server-side search event credited when one of these results opens.
+  final int? searchLogId;
 }
 
 enum SearchResultKind {
@@ -196,6 +238,17 @@ class SearchPostHit extends SearchResult {
     required this.topicSlug,
     required this.username,
     required this.excerpt,
+    this.topicTitleExcerpt = const SearchExcerpt([]),
+    this.categoryId,
+    this.tags = const [],
+    this.pinned = false,
+    this.unpinned = false,
+    this.closed = false,
+    this.archived = false,
+    this.privateMessage = false,
+    this.bookmarked = false,
+    this.warning = false,
+    this.invisible = false,
     this.name,
     this.avatarUrl,
     this.createdAt,
@@ -206,6 +259,17 @@ class SearchPostHit extends SearchResult {
   final int postNumber;
   final String topicTitle;
   final String topicSlug;
+  final SearchExcerpt topicTitleExcerpt;
+  final int? categoryId;
+  final List<TopicTag> tags;
+  final bool pinned;
+  final bool unpinned;
+  final bool closed;
+  final bool archived;
+  final bool privateMessage;
+  final bool bookmarked;
+  final bool warning;
+  final bool invisible;
   final String username;
   final String? name;
   final String? avatarUrl;
@@ -221,8 +285,12 @@ class SearchPostHit extends SearchResult {
   Object get id => postId;
 
   @override
-  String get path =>
-      ['/t', Uri.encodeComponent(topicSlug), topicId, postNumber].join('/');
+  String get path => [
+    '/t',
+    Uri.encodeComponent(topicSlug),
+    topicId,
+    if (postNumber > 1) postNumber,
+  ].join('/');
 }
 
 @immutable
@@ -339,9 +407,15 @@ class SearchGroupHit extends SearchResult {
     required this.groupId,
     required this.name,
     this.fullName,
+    this.flairUrl,
+    this.flairColor,
+    this.flairBackgroundColor,
   });
 
-  static SearchGroupHit? fromJson(Map<String, dynamic> json) {
+  static SearchGroupHit? fromJson(
+    Map<String, dynamic> json, [
+    String? siteUrl,
+  ]) {
     final id = jsonIntOrNull(json['id']);
     final name = jsonText(json['name']);
     if (id == null || id <= 0 || name == null) return null;
@@ -349,12 +423,20 @@ class SearchGroupHit extends SearchResult {
       groupId: id,
       name: name,
       fullName: jsonText(json['full_name']) ?? jsonText(json['display_name']),
+      flairUrl: siteUrl == null
+          ? jsonText(json['flair_url'])
+          : resolveFlairUrl(jsonText(json['flair_url']), siteUrl),
+      flairColor: jsonText(json['flair_color']),
+      flairBackgroundColor: jsonText(json['flair_bg_color']),
     );
   }
 
   final int groupId;
   final String name;
   final String? fullName;
+  final String? flairUrl;
+  final String? flairColor;
+  final String? flairBackgroundColor;
 
   @override
   SearchResultKind get kind => SearchResultKind.group;
@@ -519,9 +601,29 @@ class _SearchTopic {
     required this.id,
     required this.title,
     required this.slug,
+    required this.categoryId,
+    required this.tags,
+    required this.pinned,
+    required this.unpinned,
+    required this.closed,
+    required this.archived,
+    required this.privateMessage,
+    required this.bookmarked,
+    required this.warning,
+    required this.invisible,
   });
 
   final int id;
   final String title;
   final String slug;
+  final int? categoryId;
+  final List<TopicTag> tags;
+  final bool pinned;
+  final bool unpinned;
+  final bool closed;
+  final bool archived;
+  final bool privateMessage;
+  final bool bookmarked;
+  final bool warning;
+  final bool invisible;
 }

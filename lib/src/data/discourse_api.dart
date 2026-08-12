@@ -9,6 +9,7 @@ import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
+import '../models/found_group.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
 import '../models/json.dart';
@@ -609,6 +610,103 @@ class DiscourseApi
       clientId: clientId,
     );
     return SearchResults.fromJson(body, siteUrl);
+  }
+
+  /// People and groups offered by core's header-search `@` assistant.
+  ///
+  /// This is intentionally separate from composer mention completion. The
+  /// composer only offers people it can safely mention; a search modifier may
+  /// scope to either a person or a visible group.
+  Future<FoundUsersAndGroups> searchUsersAndGroups({
+    required String siteUrl,
+    required String term,
+    int limit = 6,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    _validateAutocompleteRequest(term: term, limit: limit);
+    final body = await _getObject(
+      Uri.parse('$siteUrl/u/search/users.json').replace(
+        queryParameters: {
+          if (term.isNotEmpty) 'term': term else 'last_seen_users': 'true',
+          'include_groups': 'true',
+          'limit': '$limit',
+        },
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    return FoundUsersAndGroups(
+      users: List.unmodifiable([
+        for (final user in jsonObjects(body['users']).take(limit))
+          FoundUser.fromJson(user, siteUrl),
+      ]),
+      groups: List.unmodifiable([
+        for (final group in jsonObjects(body['groups']).take(limit))
+          FoundGroup.fromJson(group, siteUrl),
+      ]),
+    );
+  }
+
+  /// The five most recent searches exposed by core's initial search menu.
+  Future<List<String>> recentSearches({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    final body = await _getObject(
+      Uri.parse('$siteUrl/u/recent-searches.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return List.unmodifiable(
+      jsonArray(
+        body['recent_searches'],
+      ).map(jsonText).whereType<String>().take(5),
+    );
+  }
+
+  Future<void> resetRecentSearches({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    await _write(
+      Uri.parse('$siteUrl/u/recent-searches.json'),
+      siteUrl: siteUrl,
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
+
+  /// Credits a selected autocomplete result to the search log that produced
+  /// it, matching core's `/search/click` write.
+  Future<void> logSearchClick({
+    required String siteUrl,
+    required String apiKey,
+    required int searchLogId,
+    required Object resultId,
+    required SearchResultKind resultKind,
+    String? clientId,
+  }) async {
+    _requirePositiveId(searchLogId, 'searchLogId');
+    await _write(
+      Uri.parse('$siteUrl/search/click.json'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'search_log_id': searchLogId,
+        'search_result_id': resultId,
+        'search_result_type': resultKind.name,
+      },
+    );
   }
 
   /// A topic with its first chunk of posts (20) and the full list of post ids.

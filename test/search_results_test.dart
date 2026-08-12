@@ -5,7 +5,21 @@ void main() {
   test('associates posts with topics and resolves transient presentation', () {
     final results = SearchResults.fromJson(const {
       'topics': [
-        {'id': 12, 'title': 'A useful & safe topic', 'slug': 'useful-topic'},
+        {
+          'id': 12,
+          'title': 'A useful & safe topic',
+          'slug': 'useful-topic',
+          'category_id': 7,
+          'tags': ['flutter'],
+          'pinned': true,
+          'unpinned': true,
+          'closed': true,
+          'archived': true,
+          'archetype': 'private_message',
+          'bookmarked': true,
+          'is_warning': true,
+          'visible': false,
+        },
       ],
       'posts': [
         {
@@ -16,11 +30,13 @@ void main() {
           'name': 'Sam Example',
           'avatar_template': '/user_avatar/example.com/sam/{size}/1.png',
           'created_at': '2026-08-08T10:00:00Z',
+          'topic_title_headline':
+              'A <span class="search-highlight">useful</span> topic',
           'blurb':
               'A <span class="search-highlight">useful &amp; safe</span> answer',
         },
       ],
-      'grouped_search_result': {'error': null},
+      'grouped_search_result': {'error': null, 'search_log_id': 44},
     }, 'https://example.com');
 
     expect(results.hits, hasLength(1));
@@ -28,6 +44,17 @@ void main() {
     expect(hit.topicId, 12);
     expect(hit.postNumber, 4);
     expect(hit.topicTitle, 'A useful & safe topic');
+    expect(hit.topicTitleExcerpt.plainText, 'A useful topic');
+    expect(hit.categoryId, 7);
+    expect(hit.tags.single.name, 'flutter');
+    expect(hit.pinned, isTrue);
+    expect(hit.unpinned, isTrue);
+    expect(hit.closed, isTrue);
+    expect(hit.archived, isTrue);
+    expect(hit.privateMessage, isTrue);
+    expect(hit.bookmarked, isTrue);
+    expect(hit.warning, isTrue);
+    expect(hit.invisible, isTrue);
     expect(hit.displayName, 'Sam Example');
     expect(hit.avatarUrl, contains('/user_avatar/example.com/sam/'));
     expect(hit.excerpt.plainText, 'A useful & safe answer');
@@ -37,6 +64,20 @@ void main() {
           .map((segment) => segment.text),
       ['useful & safe'],
     );
+    expect(results.searchLogId, 44);
+  });
+
+  test('omits the redundant first-post suffix from topic paths', () {
+    final results = SearchResults.fromJson(const {
+      'topics': [
+        {'id': 12, 'title': 'A topic', 'slug': 'a-topic'},
+      ],
+      'posts': [
+        {'id': 91, 'topic_id': 12, 'post_number': 1, 'username': 'sam'},
+      ],
+    }, 'https://example.com');
+
+    expect(results.hits.single.path, '/t/a-topic/12');
   });
 
   test('skips malformed and orphaned posts without losing server errors', () {
@@ -145,7 +186,14 @@ void main() {
         },
       ],
       'groups': [
-        {'id': 9, 'name': 'team', 'full_name': 'The Team'},
+        {
+          'id': 9,
+          'name': 'team',
+          'full_name': 'The Team',
+          'flair_url': 'shield-halved',
+          'flair_color': 'FFFFFF',
+          'flair_bg_color': '0088CC',
+        },
       ],
       'grouped_search_result': {
         'more_posts': true,
@@ -171,6 +219,10 @@ void main() {
     expect(results.sections.first.hasMore, isTrue);
     expect(results.sections[3].hasMore, isTrue);
     expect((results.results[3] as SearchUserHit).avatarUrl, contains('/sam/'));
+    final group = results.results[4] as SearchGroupHit;
+    expect(group.flairUrl, 'shield-halved');
+    expect(group.flairColor, 'FFFFFF');
+    expect(group.flairBackgroundColor, '0088CC');
   });
 
   test('drops malformed individual facets without dropping valid sections', () {

@@ -19,6 +19,9 @@ Map<String, dynamic> settings({
   int? maxImageWidth,
   int? maxImageHeight,
   int? minSearchTermLength,
+  bool? logSearchQueries,
+  bool? taggingEnabled,
+  bool? usePgHeadlinesForExcerpt,
   bool? fixedCategoryPositions,
   bool? allowUncategorizedTopics,
   Object? defaultNavigationMenuCategories,
@@ -46,6 +49,9 @@ Map<String, dynamic> settings({
   'max_image_width': ?maxImageWidth,
   'max_image_height': ?maxImageHeight,
   'min_search_term_length': ?minSearchTermLength,
+  'log_search_queries': ?logSearchQueries,
+  'tagging_enabled': ?taggingEnabled,
+  'use_pg_headlines_for_excerpt': ?usePgHeadlinesForExcerpt,
   'fixed_category_positions': ?fixedCategoryPositions,
   'allow_uncategorized_topics': ?allowUncategorizedTopics,
   'default_navigation_menu_categories': ?defaultNavigationMenuCategories,
@@ -88,6 +94,9 @@ void main() {
       expect(unknown.mainReaction, isNull);
       expect(unknown.offeredReactions, isEmpty);
       expect(unknown.minSearchTermLength, 3);
+      expect(unknown.logSearchQueries, isTrue);
+      expect(unknown.taggingEnabled, isTrue);
+      expect(unknown.usePgHeadlinesForExcerpt, isFalse);
       expect(unknown.gifsEnabled, isFalse);
       expect(unknown.gifFileDetail, SiteConfig.defaultGifFileDetail);
       expect(unknown.gifResultLimitEnabled, isFalse);
@@ -107,6 +116,20 @@ void main() {
         ).minSearchTermLength,
         1,
       );
+    });
+
+    test('reads the header-search presentation settings', () {
+      final config = SiteConfig.fromSettings(
+        settings(
+          logSearchQueries: false,
+          taggingEnabled: false,
+          usePgHeadlinesForExcerpt: true,
+        ),
+      );
+
+      expect(config.logSearchQueries, isFalse);
+      expect(config.taggingEnabled, isFalse);
+      expect(config.usePgHeadlinesForExcerpt, isTrue);
     });
 
     test('reads category navigation ordering and anonymous defaults', () {
@@ -402,6 +425,9 @@ void main() {
         allowAnyEmoji: true,
         desaturated: true,
         minSearchTermLength: 5,
+        logSearchQueries: false,
+        taggingEnabled: false,
+        usePgHeadlinesForExcerpt: true,
         fixedCategoryPositions: true,
         allowUncategorizedTopics: true,
         defaultNavigationMenuCategories: '7|3',

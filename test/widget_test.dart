@@ -329,10 +329,12 @@ void main() {
 
       final title = tester.getRect(find.text('Discourse Meta'));
       final field = tester.getRect(find.byKey(ForumSearch.inputKey));
-      final searchTarget = find.descendant(
-        of: find.byKey(const ValueKey('instance-sidebar-search-target')),
-        matching: find.byType(GestureDetector),
-      );
+      final searchTarget = find
+          .descendant(
+            of: find.byKey(const ValueKey('instance-sidebar-search-target')),
+            matching: find.byType(GestureDetector),
+          )
+          .first;
       expect(field.top, greaterThanOrEqualTo(title.bottom));
       expect(searchTarget, findsOneWidget);
       expect(tester.getSize(searchTarget).height, greaterThanOrEqualTo(44));
@@ -347,6 +349,44 @@ void main() {
           .focusNode;
       expect(focusNode.hasFocus, isTrue);
     });
+
+    testWidgets(
+      'opens initial options for an empty field and returns on clear',
+      (tester) async {
+        await pumpShell(tester, laptop);
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+
+        await tester.tap(find.byKey(ForumSearch.inputKey));
+        await tester.pumpAndSettle();
+        expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('forum-search-quick-tip')),
+          findsOneWidget,
+        );
+
+        await tester.enterText(find.byKey(ForumSearch.inputKey), 'matching');
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('forum-search-clear')));
+        await tester.pumpAndSettle();
+
+        expect(controller.search.query, isEmpty);
+        expect(controller.search.panelOpen, isTrue);
+        expect(
+          tester
+              .widget<EditableText>(find.byKey(ForumSearch.inputKey))
+              .focusNode
+              .hasFocus,
+          isTrue,
+        );
+        expect(
+          find.byKey(const ValueKey('forum-search-quick-tip')),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('searches live without navigating and opens the matched post', (
       tester,
@@ -453,6 +493,51 @@ void main() {
       expect(find.textContaining(':cry:'), findsNothing);
     });
 
+    testWidgets('obeys core headline and tag presentation settings', (
+      tester,
+    ) async {
+      const site = 'https://meta.discourse.org';
+      const hit = SearchPostHit(
+        postId: 70,
+        topicId: 7,
+        postNumber: 1,
+        topicTitle: 'Original title',
+        topicSlug: 'original-title',
+        topicTitleExcerpt: SearchExcerpt([
+          SearchExcerptSegment('Highlighted title', highlighted: true),
+        ]),
+        tags: [TopicTag(name: 'hidden-tag')],
+        pinned: true,
+        username: 'sam',
+        excerpt: SearchExcerpt([SearchExcerptSegment('A result')]),
+      );
+      final api = FakeDiscourseApi(
+        searchResults: const {
+          'presentation': SearchResults(hits: [hit]),
+        },
+        siteConfigs: const {
+          site: SiteConfig(
+            taggingEnabled: false,
+            usePgHeadlinesForExcerpt: true,
+          ),
+        },
+      );
+      await pumpShell(tester, laptop, api: api);
+
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'presentation');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('forum-search-topics-action')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Highlighted title'), findsOneWidget);
+      expect(find.text('Original title'), findsNothing);
+      expect(find.text('hidden-tag'), findsNothing);
+      expect(find.bySemanticsLabel('Pinned'), findsOneWidget);
+    });
+
     testWidgets('shows core facets first and topics after Enter', (
       tester,
     ) async {
@@ -526,7 +611,7 @@ void main() {
 
       expect(api.searchesRequested.single.typeFilter, 'exclude_topics');
       expect(searchInput.hasFocus, isTrue);
-      expect(controller.search.topicsActionSelected, isTrue);
+      expect(controller.search.topicsActionSelected, isFalse);
       expect(find.byKey(const ValueKey('search-hit-70')), findsNothing);
       expect(
         find.byKey(const ValueKey('forum-search-topics-action')),
@@ -539,6 +624,9 @@ void main() {
       expect(find.text('flaky-test'), findsOneWidget);
       expect(find.text('Automation Test'), findsOneWidget);
 
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(controller.search.topicsActionSelected, isTrue);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
       expect(controller.search.selectedResult, isA<SearchCategoryHit>());
@@ -603,6 +691,9 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(searchInput.hasFocus, isTrue);
+      expect(controller.search.selectedIndex, -1);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
       expect(controller.search.selectedIndex, 0);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
@@ -614,8 +705,7 @@ void main() {
       await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowDown);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
-      expect(controller.search.selectedIndex, 0);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      expect(controller.search.selectedIndex, 1);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(api.topicsOpened, [2]);
@@ -629,6 +719,74 @@ void main() {
       expect(controller.search.panelOpen, isFalse);
       expect(controller.search.query, 'matches');
       expect(searchInput.hasFocus, isFalse);
+    });
+
+    testWidgets('Ctrl Enter opens the selected result externally', (
+      tester,
+    ) async {
+      const hit = SearchPostHit(
+        postId: 70,
+        topicId: 7,
+        postNumber: 2,
+        topicTitle: 'External result',
+        topicSlug: 'external-result',
+        username: 'sam',
+        excerpt: SearchExcerpt([SearchExcerptSegment('match')]),
+      );
+      final api = FakeDiscourseApi(
+        searchResults: const {
+          'external': SearchResults(hits: [hit]),
+        },
+      );
+      final launched = watchBrowser(tester);
+      await pumpShell(tester, laptop, api: api);
+
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'external');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+
+      expect(launched, ['https://meta.discourse.org/t/external-result/7/2']);
+      expect(api.topicsOpened, isEmpty);
+    });
+
+    testWidgets('a second Enter opens the full search page', (tester) async {
+      const hit = SearchPostHit(
+        postId: 70,
+        topicId: 7,
+        postNumber: 1,
+        topicTitle: 'Full search result',
+        topicSlug: 'full-search-result',
+        username: 'sam',
+        excerpt: SearchExcerpt([SearchExcerptSegment('match')]),
+      );
+      final api = FakeDiscourseApi(
+        searchResults: const {
+          'two enters': SearchResults(hits: [hit]),
+        },
+      );
+      final launched = watchBrowser(tester);
+      await pumpShell(tester, laptop, api: api);
+
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'two enters');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('search-hit-70')), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(launched, ['https://meta.discourse.org/search?q=two+enters']);
+      expect(find.byKey(ForumSearch.panelKey), findsNothing);
     });
 
     testWidgets('shows distinct selected and hovered result states', (
@@ -659,6 +817,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
 
       const firstKey = ValueKey('search-hit-1');
       const secondKey = ValueKey('search-hit-2');
@@ -718,7 +878,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
 
-      for (var index = 1; index < 8; index++) {
+      for (var index = 0; index < 8; index++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
         await tester.pump();
       }

@@ -17,6 +17,7 @@ import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/incoming_topics.dart';
@@ -707,6 +708,8 @@ class FakeDiscourseApi implements DiscourseApi {
   final SiteLookupFailure? searchFailure;
   final List<({String siteUrl, String term, String? typeFilter})>
   searchesRequested = [];
+  final List<({int searchLogId, Object resultId, SearchResultKind resultKind})>
+  searchClicks = [];
 
   /// Site urls passed to [siteConfig], in order.
   final List<String> siteConfigsRequested = [];
@@ -1303,6 +1306,51 @@ class FakeDiscourseApi implements DiscourseApi {
       throw SiteLookupException(failure, siteUrl);
     }
     return searchResults[term] ?? const SearchResults();
+  }
+
+  @override
+  Future<FoundUsersAndGroups> searchUsersAndGroups({
+    required String siteUrl,
+    required String term,
+    int limit = 6,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    userSearchesRequested.add((term: term, topicId: null));
+    if (userSearchGate != null) await userSearchGate!.future;
+    return FoundUsersAndGroups(
+      users: (userSearches[term] ?? const []).take(limit).toList(),
+    );
+  }
+
+  @override
+  Future<List<String>> recentSearches({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async => const [];
+
+  @override
+  Future<void> resetRecentSearches({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {}
+
+  @override
+  Future<void> logSearchClick({
+    required String siteUrl,
+    required String apiKey,
+    required int searchLogId,
+    required Object resultId,
+    required SearchResultKind resultKind,
+    String? clientId,
+  }) async {
+    searchClicks.add((
+      searchLogId: searchLogId,
+      resultId: resultId,
+      resultKind: resultKind,
+    ));
   }
 
   @override

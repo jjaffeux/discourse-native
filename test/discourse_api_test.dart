@@ -1317,6 +1317,112 @@ void _feedGroups() {
     });
   });
 
+  group('header search support', () {
+    test('asks user search for recent people and visible groups', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'users': [
+                {
+                  'username': 'sam',
+                  'name': 'Sam Example',
+                  'avatar_template': '/user_avatar/sam/{size}/1.png',
+                },
+              ],
+              'groups': [
+                {
+                  'name': 'team',
+                  'full_name': 'The Team',
+                  'flair_url': 'shield-halved',
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final found = await api.searchUsersAndGroups(
+        siteUrl: 'https://example.com',
+        term: '',
+        apiKey: 'secret',
+        clientId: 'client',
+      );
+
+      expect(sent.url.path, '/u/search/users.json');
+      expect(sent.url.queryParameters, {
+        'last_seen_users': 'true',
+        'include_groups': 'true',
+        'limit': '6',
+      });
+      expect(sent.headers['User-Api-Key'], 'secret');
+      expect(found.users.single.username, 'sam');
+      expect(found.groups.single.name, 'team');
+      expect(found.groups.single.flairUrl, 'shield-halved');
+    });
+
+    test('loads, clears, and click-tracks core search state', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          if (request.method == 'GET') {
+            return http.Response(
+              jsonEncode({
+                'success': 'OK',
+                'recent_searches': [
+                  'one',
+                  'two',
+                  'three',
+                  'four',
+                  'five',
+                  'ignored',
+                  7,
+                ],
+              }),
+              200,
+            );
+          }
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      final recent = await api.recentSearches(
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+        clientId: 'client',
+      );
+      await api.resetRecentSearches(
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+        clientId: 'client',
+      );
+      await api.logSearchClick(
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+        searchLogId: 22,
+        resultId: 91,
+        resultKind: SearchResultKind.topic,
+        clientId: 'client',
+      );
+
+      expect(recent, ['one', 'two', 'three', 'four', 'five']);
+      expect(sent.map((request) => (request.method, request.url.path)), [
+        ('GET', '/u/recent-searches.json'),
+        ('DELETE', '/u/recent-searches.json'),
+        ('POST', '/search/click.json'),
+      ]);
+      expect(jsonDecode(sent.last.body), {
+        'search_log_id': 22,
+        'search_result_id': 91,
+        'search_result_type': 'topic',
+      });
+    });
+  });
+
   group('topicList', () {
     test(
       'parses topics and resolves poster avatars from the users array',

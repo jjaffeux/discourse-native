@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/models/found_group.dart';
+import 'package:discourse_native/src/models/found_hashtag.dart';
+import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/shell/shell_search_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,12 +27,12 @@ void main() {
     expect(api.terms, isEmpty);
     expect(search.phase, SearchSessionPhase.tooShort);
 
-    search.setQuery('  in:title  ');
+    search.setQuery('  before:2020  ');
     await tester.pump(const Duration(milliseconds: 399));
     expect(api.terms, isEmpty);
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump();
-    expect(api.terms, ['  in:title  ']);
+    expect(api.terms, ['  before:2020  ']);
     expect(api.typeFilters, ['exclude_topics']);
   });
 
@@ -66,16 +69,19 @@ void main() {
       SearchResultKind.tag,
       SearchResultKind.group,
     ]);
-    expect(search.topicsActionSelected, isTrue);
+    expect(search.topicsActionSelected, isFalse);
+    expect(search.selectedResult, isNull);
 
     expect(search.moveSelection(1), isTrue);
+    expect(search.topicsActionSelected, isTrue);
+    search.moveSelection(1);
     expect(search.selectedResult, _facetTag);
     search.moveSelection(-1);
     expect(search.topicsActionSelected, isTrue);
     search.moveSelection(-1);
-    expect(search.selectedResult, _facetGroup);
-    search.moveSelection(1);
-    expect(search.topicsActionSelected, isTrue);
+    expect(search.topicsActionSelected, isFalse);
+    expect(search.selectedResult, isNull);
+    expect(search.moveSelection(-1), isFalse);
 
     search.showTopics();
     await tester.pump(const Duration(milliseconds: 1));
@@ -86,6 +92,211 @@ void main() {
     expect(api.typeFilters, ['exclude_topics', null]);
     expect(search.sections.map((section) => section.kind), [
       SearchResultKind.topic,
+    ]);
+    expect(search.selectedResult, isNull);
+  });
+
+  testWidgets('uses core assistants for trailing search modifiers', (
+    tester,
+  ) async {
+    final api = _SearchApi();
+    final search = _controller(api)..selectSite(site);
+    addTearDown(search.dispose);
+
+    search.setQuery('look #ra');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    expect(api.terms, isEmpty);
+    expect(api.hashtagTerms, ['ra']);
+    expect(search.phase, SearchSessionPhase.suggestions);
+    expect(search.suggestions.map((item) => item.completion), [
+      'look #random',
+      'look #random-tag',
+    ]);
+    expect(search.selectedSuggestion, isNull);
+
+    search.moveSelection(1);
+    final category = search.selectedSuggestion!;
+    search.acceptSuggestion(category);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+
+    expect(search.query, 'look #random');
+    expect(search.mode, SearchMode.topics);
+    expect(api.terms, ['look #random']);
+    expect(api.typeFilters, [null]);
+
+    search.clear();
+    search.setQuery('status:c');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(search.suggestions.map((item) => item.label), ['status:closed']);
+
+    search.clear();
+    search.selectSite(site, taggingEnabled: false);
+    search.setQuery('#ra');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(api.hashtagOrders.last, ['category']);
+    expect(search.suggestions.map((item) => item.kind), [
+      SearchSuggestionKind.category,
+    ]);
+  });
+
+  testWidgets('uses core user ordering and does not render group rows', (
+    tester,
+  ) async {
+    final api = _SearchApi();
+    final search = _controller(api)..selectSite(site);
+    addTearDown(search.dispose);
+
+    search.setQuery('@team');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    expect(api.userTerms, ['team']);
+    expect(search.suggestions.map((item) => item.completion), [
+      '@team',
+      '@team-support',
+    ]);
+    expect(search.suggestions.map((item) => item.kind), [
+      SearchSuggestionKind.user,
+      SearchSuggestionKind.user,
+    ]);
+    expect(search.suggestions.map((item) => item.label), [
+      'team',
+      'team-support',
+    ]);
+  });
+
+  testWidgets('does not preselect or wrap topic results and includes More', (
+    tester,
+  ) async {
+    final api = _SearchApi();
+    final search = _controller(api)..selectSite(site);
+    addTearDown(search.dispose);
+
+    search.setQuery('query');
+    await tester.pump(const Duration(milliseconds: 400));
+    api.complete('query', _facetedResults);
+    await tester.pump();
+    search.showTopics();
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+
+    expect(search.selectedResult, isNull);
+    expect(search.hasMoreTopics, isTrue);
+    search.moveSelection(1);
+    expect(search.selectedResult, _facetTopic);
+    search.moveSelection(1);
+    expect(search.moreActionSelected, isTrue);
+    expect(search.moveSelection(1), isFalse);
+    expect(search.moreActionSelected, isTrue);
+    search.moveSelection(-1);
+    expect(search.selectedResult, _facetTopic);
+    search.moveSelection(-1);
+    expect(search.selectedResult, isNull);
+    expect(search.moveSelection(-1), isFalse);
+  });
+
+  testWidgets('editing topic results returns to debounced facet mode', (
+    tester,
+  ) async {
+    final api = _SearchApi();
+    final search = _controller(api)..selectSite(site);
+    addTearDown(search.dispose);
+
+    search.setQuery('query');
+    await tester.pump(const Duration(milliseconds: 400));
+    api.complete('query', _facetedResults);
+    await tester.pump();
+    search.showTopics();
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(search.mode, SearchMode.topics);
+
+    search.setQuery('changed');
+    expect(search.mode, SearchMode.facets);
+    expect(search.phase, SearchSessionPhase.waiting);
+    await tester.pump(const Duration(milliseconds: 399));
+    expect(api.terms, isNot(contains('changed')));
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(api.terms.last, 'changed');
+    expect(api.typeFilters.last, 'exclude_topics');
+  });
+
+  testWidgets('loads, reuses, and clears authenticated recent searches', (
+    tester,
+  ) async {
+    final api = _SearchApi()..recent = const ['yellow', 'blue'];
+    final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
+    final search = ShellSearchController(
+      api: api,
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+    )..selectSite(site);
+    addTearDown(search.dispose);
+    final field = Object();
+    final unregister = search.registerFocus(field, () {});
+    addTearDown(unregister);
+
+    search.activateField(field);
+    await tester.pump();
+    expect(search.panelOpen, isTrue);
+    expect(search.phase, SearchSessionPhase.idle);
+    expect(search.recentSearches, ['yellow', 'blue']);
+
+    search.useRecentSearch('blue');
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(search.query, 'blue');
+    expect(search.mode, SearchMode.topics);
+    expect(api.typeFilters.last, isNull);
+
+    api.complete('blue', _facetedResults);
+    await tester.pump();
+    search.clearQuery();
+    await search.resetRecentSearches();
+    expect(search.recentSearches, isEmpty);
+    expect(api.recentResetCount, 1);
+  });
+
+  testWidgets('credits an opened result to its search log', (tester) async {
+    final api = _SearchApi();
+    final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
+    final search = ShellSearchController(
+      api: api,
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+    )..selectSite(site);
+    addTearDown(search.dispose);
+
+    search.setQuery('query');
+    await tester.pump(const Duration(milliseconds: 400));
+    api.complete(
+      'query',
+      const SearchResults(
+        hits: [_facetTopic],
+        sections: [
+          SearchResultSection(
+            kind: SearchResultKind.topic,
+            results: [_facetTopic],
+          ),
+        ],
+        searchLogId: 77,
+      ),
+    );
+    await tester.pump();
+    search.showTopics();
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+
+    search.recordSelection(_facetTopic);
+    await tester.pump();
+    expect(api.searchClicks, [
+      (searchLogId: 77, resultId: 1, resultKind: SearchResultKind.topic),
     ]);
   });
 
@@ -236,7 +447,11 @@ const _facetGroup = SearchGroupHit(groupId: 3, name: 'automation-test');
 const _facetedResults = SearchResults(
   hits: [_facetTopic],
   sections: [
-    SearchResultSection(kind: SearchResultKind.topic, results: [_facetTopic]),
+    SearchResultSection(
+      kind: SearchResultKind.topic,
+      results: [_facetTopic],
+      hasMore: true,
+    ),
     SearchResultSection(kind: SearchResultKind.tag, results: [_facetTag]),
     SearchResultSection(kind: SearchResultKind.group, results: [_facetGroup]),
   ],
@@ -246,6 +461,11 @@ class _SearchApi extends FakeDiscourseApi {
   final List<String> terms = [];
   final List<String?> typeFilters = [];
   final Map<String, Completer<SearchResults>> _answers = {};
+  final List<String> hashtagTerms = [];
+  final List<List<String>> hashtagOrders = [];
+  final List<String> userTerms = [];
+  List<String> recent = const [];
+  int recentResetCount = 0;
 
   @override
   Future<SearchResults> searchPosts({
@@ -258,6 +478,68 @@ class _SearchApi extends FakeDiscourseApi {
     terms.add(term);
     typeFilters.add(typeFilter);
     return (_answers[term] ??= Completer<SearchResults>()).future;
+  }
+
+  @override
+  Future<List<FoundHashtag>> searchHashtags({
+    required String siteUrl,
+    required String term,
+    List<String> order = DiscourseApi.hashtagOrder,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    hashtagTerms.add(term);
+    hashtagOrders.add(order);
+    return const [
+      FoundHashtag(
+        type: 'category',
+        ref: 'random',
+        slug: 'random',
+        text: 'Random',
+        id: 1,
+      ),
+      FoundHashtag(
+        type: 'tag',
+        ref: 'random-tag::tag',
+        slug: 'random-tag',
+        text: 'random-tag',
+        id: 2,
+      ),
+    ];
+  }
+
+  @override
+  Future<FoundUsersAndGroups> searchUsersAndGroups({
+    required String siteUrl,
+    required String term,
+    int limit = 6,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    userTerms.add(term);
+    return const FoundUsersAndGroups(
+      users: [
+        FoundUser(username: 'team-support'),
+        FoundUser(username: 'team'),
+      ],
+      groups: [FoundGroup(name: 'team-member')],
+    );
+  }
+
+  @override
+  Future<List<String>> recentSearches({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async => recent;
+
+  @override
+  Future<void> resetRecentSearches({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    recentResetCount++;
   }
 
   void complete(String term, SearchResults results) {

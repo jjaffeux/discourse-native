@@ -41,6 +41,9 @@ class SiteConfig {
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
     this.minSearchTermLength = defaultMinSearchTermLength,
+    this.logSearchQueries = true,
+    this.taggingEnabled = true,
+    this.usePgHeadlinesForExcerpt = false,
     this.fixedCategoryPositions = false,
     this.allowUncategorizedTopics = false,
     this.defaultNavigationMenuCategoryIds = const [],
@@ -160,6 +163,9 @@ class SiteConfig {
       minSearchTermLength:
           jsonIntOrNull(json['min_search_term_length'])?.clamp(1, 100) ??
           defaultMinSearchTermLength,
+      logSearchQueries: json['log_search_queries'] != false,
+      taggingEnabled: json['tagging_enabled'] != false,
+      usePgHeadlinesForExcerpt: json['use_pg_headlines_for_excerpt'] == true,
       fixedCategoryPositions: json['fixed_category_positions'] == true,
       allowUncategorizedTopics: json['allow_uncategorized_topics'] == true,
       defaultNavigationMenuCategoryIds: _categoryIds(
@@ -217,6 +223,9 @@ class SiteConfig {
     minSearchTermLength:
         jsonIntOrNull(json['minSearchTermLength'])?.clamp(1, 100) ??
         defaultMinSearchTermLength,
+    logSearchQueries: json['logSearchQueries'] != false,
+    taggingEnabled: json['taggingEnabled'] != false,
+    usePgHeadlinesForExcerpt: json['usePgHeadlinesForExcerpt'] == true,
     fixedCategoryPositions: json['fixedCategoryPositions'] == true,
     allowUncategorizedTopics: json['allowUncategorizedTopics'] == true,
     defaultNavigationMenuCategoryIds: _categoryIds(
@@ -252,6 +261,9 @@ class SiteConfig {
     'maxImageWidth': maxImageWidth,
     'maxImageHeight': maxImageHeight,
     'minSearchTermLength': minSearchTermLength,
+    'logSearchQueries': logSearchQueries,
+    'taggingEnabled': taggingEnabled,
+    'usePgHeadlinesForExcerpt': usePgHeadlinesForExcerpt,
     'fixedCategoryPositions': fixedCategoryPositions,
     'allowUncategorizedTopics': allowUncategorizedTopics,
     'defaultNavigationMenuCategoryIds': defaultNavigationMenuCategoryIds,
@@ -325,6 +337,9 @@ class SiteConfig {
   final int maxImageWidth;
   final int maxImageHeight;
   final int minSearchTermLength;
+  final bool logSearchQueries;
+  final bool taggingEnabled;
+  final bool usePgHeadlinesForExcerpt;
 
   /// How core orders category navigation, and which categories anonymous
   /// visitors see when the site has chosen an explicit menu.
@@ -430,6 +445,9 @@ class SiteConfig {
       other.maxImageWidth == maxImageWidth &&
       other.maxImageHeight == maxImageHeight &&
       other.minSearchTermLength == minSearchTermLength &&
+      other.logSearchQueries == logSearchQueries &&
+      other.taggingEnabled == taggingEnabled &&
+      other.usePgHeadlinesForExcerpt == usePgHeadlinesForExcerpt &&
       other.fixedCategoryPositions == fixedCategoryPositions &&
       other.allowUncategorizedTopics == allowUncategorizedTopics &&
       listEquals(
@@ -464,6 +482,9 @@ class SiteConfig {
     maxImageWidth,
     maxImageHeight,
     minSearchTermLength,
+    logSearchQueries,
+    taggingEnabled,
+    usePgHeadlinesForExcerpt,
     fixedCategoryPositions,
     allowUncategorizedTopics,
     Object.hashAll(defaultNavigationMenuCategoryIds),
