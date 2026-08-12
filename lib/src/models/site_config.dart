@@ -44,6 +44,8 @@ class SiteConfig {
     this.fixedCategoryPositions = false,
     this.allowUncategorizedTopics = false,
     this.defaultNavigationMenuCategoryIds = const [],
+    this.badgesEnabled = true,
+    this.allowUsernameInShareLinks = true,
     this.resenha = const ResenhaClientConfig(),
   });
 
@@ -165,6 +167,8 @@ class SiteConfig {
       defaultNavigationMenuCategoryIds: _categoryIds(
         json['default_navigation_menu_categories'],
       ),
+      badgesEnabled: json['enable_badges'] != false,
+      allowUsernameInShareLinks: json['allow_username_in_share_links'] != false,
       resenha: ResenhaClientConfig.fromSettings(json),
     );
   }
@@ -222,6 +226,8 @@ class SiteConfig {
     defaultNavigationMenuCategoryIds: _categoryIds(
       json['defaultNavigationMenuCategoryIds'],
     ),
+    badgesEnabled: json['badgesEnabled'] != false,
+    allowUsernameInShareLinks: json['allowUsernameInShareLinks'] != false,
     resenha: jsonObject(json['resenha']).isEmpty
         ? const ResenhaClientConfig()
         : ResenhaClientConfig.fromJson(jsonObject(json['resenha'])),
@@ -255,6 +261,8 @@ class SiteConfig {
     'fixedCategoryPositions': fixedCategoryPositions,
     'allowUncategorizedTopics': allowUncategorizedTopics,
     'defaultNavigationMenuCategoryIds': defaultNavigationMenuCategoryIds,
+    'badgesEnabled': badgesEnabled,
+    'allowUsernameInShareLinks': allowUsernameInShareLinks,
     'resenha': resenha.toJson(),
   };
 
@@ -331,7 +339,25 @@ class SiteConfig {
   final bool fixedCategoryPositions;
   final bool allowUncategorizedTopics;
   final List<int> defaultNavigationMenuCategoryIds;
+
+  /// Core adds the signed-in username to shared topic and post links only
+  /// while both of these client settings permit referral badges.
+  final bool badgesEnabled;
+  final bool allowUsernameInShareLinks;
+
   final ResenhaClientConfig resenha;
+
+  /// The URL core copies from a post menu, including its optional referral.
+  String shareUrl(String url, {String? username}) {
+    final account = username?.trim().toLowerCase();
+    if (!badgesEnabled ||
+        !allowUsernameInShareLinks ||
+        account == null ||
+        account.isEmpty) {
+      return url;
+    }
+    return '$url?u=${Uri.encodeQueryComponent(account)}';
+  }
 
   bool canUploadImage(String filename, {required bool staff}) {
     final dot = filename.lastIndexOf('.');
@@ -436,6 +462,8 @@ class SiteConfig {
         other.defaultNavigationMenuCategoryIds,
         defaultNavigationMenuCategoryIds,
       ) &&
+      other.badgesEnabled == badgesEnabled &&
+      other.allowUsernameInShareLinks == allowUsernameInShareLinks &&
       other.resenha == resenha &&
       listEquals(other.offeredReactions, offeredReactions);
 
@@ -467,6 +495,8 @@ class SiteConfig {
     fixedCategoryPositions,
     allowUncategorizedTopics,
     Object.hashAll(defaultNavigationMenuCategoryIds),
+    badgesEnabled,
+    allowUsernameInShareLinks,
     resenha,
     Object.hashAll(offeredReactions),
   ]);
