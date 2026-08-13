@@ -10874,6 +10874,16 @@ void main() {
           find.byKey(const ValueKey('unavailable-forum-remove')),
           findsOneWidget,
         );
+        final retryButton = tester.widget<FilledButton>(
+          find.byKey(const ValueKey('unavailable-forum-retry')),
+        );
+        final removeButton = tester.widget<OutlinedButton>(
+          find.byKey(const ValueKey('unavailable-forum-remove')),
+        );
+        // Desktop's compact density otherwise removes the theme's 7px of
+        // vertical padding, leaving the outlined action visibly cramped.
+        expect(retryButton.style?.visualDensity, VisualDensity.standard);
+        expect(removeButton.style?.visualDensity, VisualDensity.standard);
 
         await tester.tap(
           find.byKey(const ValueKey('unavailable-forum-remove')),

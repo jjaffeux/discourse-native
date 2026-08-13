@@ -567,6 +567,14 @@ class _PrivateForumSignIn extends StatelessWidget {
 class _UnavailableForum extends StatelessWidget {
   const _UnavailableForum({required this.siteTitle, required this.retrying});
 
+  // The app's button padding matches Discourse's web controls. Flutter's
+  // compact desktop density subtracts 8px from each vertical inset, which
+  // reduces that padding to zero, so keep these prominent recovery actions at
+  // the geometry the theme actually specifies.
+  static const _actionStyle = ButtonStyle(
+    visualDensity: VisualDensity.standard,
+  );
+
   final String siteTitle;
   final bool retrying;
 
@@ -628,6 +636,7 @@ class _UnavailableForum extends StatelessWidget {
                       children: [
                         FilledButton.icon(
                           key: const ValueKey('unavailable-forum-retry'),
+                          style: _actionStyle,
                           onPressed: retrying
                               ? null
                               : () => unawaited(controller.retryCurrentForum()),
@@ -652,8 +661,10 @@ class _UnavailableForum extends StatelessWidget {
                               );
                             }
                           },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: theme.colorScheme.error,
+                          style: _actionStyle.copyWith(
+                            foregroundColor: WidgetStatePropertyAll(
+                              theme.colorScheme.error,
+                            ),
                           ),
                           icon: const DIcon(DIcons.trashCan, size: 18),
                           label: const Text('Remove forum'),
