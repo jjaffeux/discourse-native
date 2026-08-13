@@ -372,6 +372,7 @@ class ShellController extends FrameSafeNotifier {
         (held) => held.withChatNotificationsDelta(delta),
       );
     },
+    onSiteUnreachable: _markForumUnavailable,
   );
 
   /// One-shot scroll/fetch intent for the Chat screen selected by navigation.
@@ -507,6 +508,72 @@ class ShellController extends FrameSafeNotifier {
   String? get connectError {
     final siteUrl = currentInstance?.url;
     return siteUrl == null ? null : _connectErrors[siteUrl];
+  }
+
+  final Set<String> _unavailableForums = {};
+  final Set<String> _retryingUnavailableForums = {};
+
+  bool get currentForumUnavailable {
+    final siteUrl = currentInstance?.url;
+    return siteUrl != null && _unavailableForums.contains(siteUrl);
+  }
+
+  bool get retryingCurrentForum {
+    final siteUrl = currentInstance?.url;
+    return siteUrl != null && _retryingUnavailableForums.contains(siteUrl);
+  }
+
+  void _markForumUnavailable(String siteUrl) {
+    if (_instanceAt(siteUrl) == null || !_unavailableForums.add(siteUrl)) {
+      return;
+    }
+    _notify();
+  }
+
+  /// Retries the read whose failure replaced the selected forum's workspace.
+  ///
+  /// The boundary currently comes from Chat's first window: unlike a failed
+  /// page of older messages, there is no usable destination behind it. Keep
+  /// the full-forum gate mounted while the retry runs, then reveal the saved
+  /// workspace only after a real window has arrived.
+  Future<void> retryCurrentForum() async {
+    final instance = currentInstance;
+    final route = currentContent;
+    if (instance == null ||
+        route == null ||
+        !_unavailableForums.contains(instance.url) ||
+        !_retryingUnavailableForums.add(instance.url)) {
+      return;
+    }
+
+    final chatRoute = ChatRoute.parse(route.id);
+    if (chatRoute == null) {
+      _retryingUnavailableForums.remove(instance.url);
+      return;
+    }
+
+    _notify();
+    final target = chatRoute.isThread
+        ? ChatThreadTarget(
+            channelId: chatRoute.channelId,
+            threadId: chatRoute.threadId!,
+          )
+        : ChatChannelTarget(chatRoute.channelId);
+    try {
+      if (target case final ChatThreadTarget thread) {
+        await chat.openThread(instance.url, thread, force: true);
+      } else {
+        await chat.openChannel(instance.url, chatRoute.channelId, force: true);
+      }
+      if (!isDisposed && chat.streamFor(instance.url, target).error == null) {
+        _unavailableForums.remove(instance.url);
+      }
+    } finally {
+      if (!isDisposed) {
+        _retryingUnavailableForums.remove(instance.url);
+        _notify();
+      }
+    }
   }
 
   final List<DiscourseInstance> _instances = [];
@@ -6212,6 +6279,8 @@ class ShellController extends FrameSafeNotifier {
     _mentioned.remove(siteUrl);
     _mentionsInFlight.remove(siteUrl);
     _connectErrors.remove(siteUrl);
+    _unavailableForums.remove(siteUrl);
+    _retryingUnavailableForums.remove(siteUrl);
 
     reactions.forget(siteUrl);
     assignments.forget(siteUrl);

@@ -271,6 +271,7 @@ class ChatController extends FrameSafeNotifier {
     SiteConfig Function(String siteUrl)? siteConfigFor,
     ChatPreviewEngine? previewEngine,
     this.onChatNotificationsDelta,
+    this.onSiteUnreachable,
     this.minimumWindowRefreshInterval = const Duration(seconds: 30),
     DateTime Function()? clock,
   }) : assert(minimumWindowRefreshInterval >= Duration.zero),
@@ -289,6 +290,7 @@ class ChatController extends FrameSafeNotifier {
   final SiteConfig Function(String siteUrl) _siteConfigFor;
   final ChatPreviewEngine _previewEngine;
   final ChatNotificationsDelta? onChatNotificationsDelta;
+  final ValueChanged<String>? onSiteUnreachable;
   final DateTime Function() _clock;
 
   static DiscourseUser? _noCurrentUser(String _) => null;
@@ -3187,17 +3189,26 @@ class ChatController extends FrameSafeNotifier {
       lease.commit(() {
         if (!identical(_streamGenerations[key], generation)) return;
         final current = _streams[key] ?? const ChatStreamState();
+        final replacesDestination =
+            current.messageIds.isEmpty && current.localMessageIds.isEmpty;
         _setStream(
           key,
           current.copyWith(
             fetchedOnce: true,
-            error: current.messageIds.isEmpty && current.localMessageIds.isEmpty
+            error: replacesDestination
                 ? target.threadId == null
                       ? 'Could not load this channel.'
                       : 'Could not load this thread.'
                 : null,
           ),
         );
+        final siteDidNotAnswer =
+            error is SiteLookupException &&
+            error.failure == SiteLookupFailure.unreachable &&
+            error.statusCode == null;
+        if (replacesDestination && siteDidNotAnswer) {
+          onSiteUnreachable?.call(siteUrl);
+        }
       });
       return targetMessageId != null &&
               error is SiteLookupException &&

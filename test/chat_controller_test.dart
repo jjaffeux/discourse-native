@@ -104,6 +104,7 @@ ChatChannel channel(
   FakeApiCredentialReader? credentialReader,
   DiscourseUser? currentUser,
   ChatNotificationsDelta? onChatNotificationsDelta,
+  void Function(String)? onSiteUnreachable,
   Duration minimumWindowRefreshInterval = const Duration(seconds: 30),
   DateTime Function()? clock,
 }) {
@@ -131,6 +132,7 @@ ChatChannel channel(
       store: store,
       currentUserFor: (_) => currentUser,
       onChatNotificationsDelta: onChatNotificationsDelta,
+      onSiteUnreachable: onSiteUnreachable,
       minimumWindowRefreshInterval: minimumWindowRefreshInterval,
       clock: clock,
     ),
@@ -1594,12 +1596,14 @@ void main() {
     test(
       'says so when the first ask fails and there is nothing to fall back on',
       () async {
-        final subject = build();
+        final unreachable = <String>[];
+        final subject = build(onSiteUnreachable: unreachable.add);
 
         await subject.chat.openChannel(site, 9);
 
         expect(subject.chat.stream(site, 9).error, isNotNull);
         expect(subject.chat.stream(site, 9).fetchedOnce, isTrue);
+        expect(unreachable, [site]);
       },
     );
   });
@@ -2330,10 +2334,7 @@ void main() {
           'chat_message_id': 1,
           'emoji': 'clap',
           'action': 'add',
-          'user': {
-            'id': currentUser.id,
-            'username': currentUser.username,
-          },
+          'user': {'id': currentUser.id, 'username': currentUser.username},
         });
         gate.complete();
         await writing;

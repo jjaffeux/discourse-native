@@ -10834,7 +10834,7 @@ void main() {
         expect(find.text('No messages here yet.'), findsOneWidget);
       });
 
-      testWidgets('offers a retry when a channel will not load at all', (
+      testWidgets('replaces the forum workspace when it cannot be reached', (
         tester,
       ) async {
         final messages = <String, ChatMessagePage>{};
@@ -10851,26 +10851,32 @@ void main() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
 
-        expect(find.text("Couldn't connect to this forum"), findsOneWidget);
+        expect(find.text('Meta'), findsOneWidget);
         expect(
           find.text(
-            "We couldn't load this channel from meta.discourse.org. Check your "
-            'internet connection and try again.',
+            "We couldn't reach this community. Check its address or your "
+            'internet connection, then try again.',
           ),
           findsOneWidget,
         );
         expect(
-          find.byKey(const ValueKey('chat-channel-load-failure')),
+          find.byKey(const ValueKey('unavailable-forum-gate')),
           findsOneWidget,
         );
+        expect(find.byType(MainContent), findsNothing);
+        expect(find.byType(InstanceRail), findsOneWidget);
+        expect(find.byType(InstanceSidebar), findsNothing);
+        expect(find.byKey(const ValueKey('forum-tabs-bar')), findsNothing);
+        expect(find.byType(ShellTitleBar), findsOneWidget);
+        expect(find.text('General'), findsNothing);
         expect(find.byType(ChatComposer), findsNothing);
         expect(
-          find.byKey(const ValueKey('chat-channel-remove-forum')),
+          find.byKey(const ValueKey('unavailable-forum-remove')),
           findsOneWidget,
         );
 
         await tester.tap(
-          find.byKey(const ValueKey('chat-channel-remove-forum')),
+          find.byKey(const ValueKey('unavailable-forum-remove')),
         );
         await tester.pumpAndSettle();
         expect(find.text('Remove Meta?'), findsOneWidget);
@@ -10878,12 +10884,12 @@ void main() {
         await tester.pumpAndSettle();
 
         messages[key(9)] = page([msg(1)]);
-        await tester.tap(find.byKey(const ValueKey('chat-channel-retry')));
+        await tester.tap(find.byKey(const ValueKey('unavailable-forum-retry')));
         await tester.pumpAndSettle();
 
         expect(api.chatMessagesRequested, hasLength(2));
         expect(
-          find.byKey(const ValueKey('chat-channel-load-failure')),
+          find.byKey(const ValueKey('unavailable-forum-gate')),
           findsNothing,
         );
         expect(renderedText('Hello there'), findsOneWidget);

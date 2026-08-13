@@ -15,6 +15,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'diagnostics_panel.dart';
 import 'empty_state.dart';
+import 'instance_actions.dart';
 import 'instance_rail.dart';
 import 'instance_sidebar.dart';
 import 'main_content.dart';
@@ -46,9 +47,11 @@ enum ShellLayout {
   bool get isCompact => this == ShellLayout.compact;
 }
 
-typedef _PrivateForumSnapshot = ({
-  String? siteTitle,
+typedef _ForumBoundarySnapshot = ({
+  String? privateForumTitle,
+  String? unavailableForumTitle,
   bool connecting,
+  bool retrying,
   String? error,
 });
 
@@ -171,26 +174,44 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<_PrivateForumSnapshot>(
+    return ShellSelector<_ForumBoundarySnapshot>(
       select: (controller) {
         final instance = controller.currentInstance;
         final privateForum =
             controller.loadStatus == InstanceLoadStatus.ready &&
             instance?.loginRequired == true &&
             instance?.isConnected == false;
+        final unavailableForum =
+            controller.loadStatus == InstanceLoadStatus.ready &&
+            instance != null &&
+            controller.currentForumUnavailable;
         return (
-          siteTitle: privateForum ? instance!.title : null,
+          privateForumTitle: privateForum ? instance!.title : null,
+          unavailableForumTitle: unavailableForum ? instance.title : null,
           connecting: privateForum && controller.connecting,
+          retrying: unavailableForum && controller.retryingCurrentForum,
           error: privateForum ? controller.connectError : null,
         );
       },
-      builder: (context, privateForum, _) {
-        if (privateForum.siteTitle case final siteTitle?) {
+      builder: (context, boundary, _) {
+        if (boundary.unavailableForumTitle case final siteTitle?) {
           return Scaffold(
-            body: _PrivateForumShell(
-              siteTitle: siteTitle,
-              connecting: privateForum.connecting,
-              error: privateForum.error,
+            body: _ForumBoundaryShell(
+              child: _UnavailableForum(
+                siteTitle: siteTitle,
+                retrying: boundary.retrying,
+              ),
+            ),
+          );
+        }
+        if (boundary.privateForumTitle case final siteTitle?) {
+          return Scaffold(
+            body: _ForumBoundaryShell(
+              child: _PrivateForumSignIn(
+                siteTitle: siteTitle,
+                connecting: boundary.connecting,
+                error: boundary.error,
+              ),
             ),
           );
         }
@@ -393,17 +414,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   }
 }
 
-/// Keeps app-level forum switching available while one forum is locked.
-class _PrivateForumShell extends StatelessWidget {
-  const _PrivateForumShell({
-    required this.siteTitle,
-    required this.connecting,
-    required this.error,
-  });
+/// Keeps app-level forum switching available while one forum is unavailable.
+class _ForumBoundaryShell extends StatelessWidget {
+  const _ForumBoundaryShell({required this.child});
 
-  final String siteTitle;
-  final bool connecting;
-  final String? error;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -420,15 +435,7 @@ class _PrivateForumShell extends StatelessWidget {
               return Row(
                 children: [
                   SizedBox(width: railWidth, child: const InstanceRail()),
-                  Expanded(
-                    child: ShellPanel(
-                      child: _PrivateForumSignIn(
-                        siteTitle: siteTitle,
-                        connecting: connecting,
-                        error: error,
-                      ),
-                    ),
-                  ),
+                  Expanded(child: ShellPanel(child: child)),
                 ],
               );
             },
@@ -443,7 +450,7 @@ class _PrivateForumShell extends StatelessWidget {
 ///
 /// Lookup has already established that anonymous requests cannot read this
 /// forum. Keep its forum-specific chrome out of view until authentication
-/// succeeds, while [_PrivateForumShell] preserves app-level forum switching.
+/// succeeds, while [_ForumBoundaryShell] preserves app-level forum switching.
 class _PrivateForumSignIn extends StatelessWidget {
   const _PrivateForumSignIn({
     required this.siteTitle,
@@ -543,6 +550,118 @@ class _PrivateForumSignIn extends StatelessWidget {
                     label: Text(connecting ? 'Signing in…' : 'Sign in'),
                   ),
                 ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The full-shell recovery boundary for a forum that did not answer.
+///
+/// The community title is the only route identity retained here: a connection
+/// failure belongs to the forum, so channel names, tabs, sidebar destinations,
+/// and composers would all imply that part of it remained usable.
+class _UnavailableForum extends StatelessWidget {
+  const _UnavailableForum({required this.siteTitle, required this.retrying});
+
+  final String siteTitle;
+  final bool retrying;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final controller = ShellScope.read(context);
+
+    return ColoredBox(
+      key: const ValueKey('unavailable-forum-gate'),
+      color: theme.shell.content,
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Semantics(
+                liveRegion: true,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.errorContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: DIcon(
+                        DIcons.triangleExclamation,
+                        size: 32,
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      siteTitle,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "We couldn't reach this community. Check its address "
+                      'or your internet connection, then try again.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        FilledButton.icon(
+                          key: const ValueKey('unavailable-forum-retry'),
+                          onPressed: retrying
+                              ? null
+                              : () => unawaited(controller.retryCurrentForum()),
+                          icon: retrying
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator.adaptive(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const DIcon(DIcons.arrowsRotate, size: 18),
+                          label: Text(retrying ? 'Trying again…' : 'Try again'),
+                        ),
+                        OutlinedButton.icon(
+                          key: const ValueKey('unavailable-forum-remove'),
+                          onPressed: () {
+                            final instance = controller.currentInstance;
+                            if (instance != null) {
+                              unawaited(
+                                confirmInstanceRemoval(context, instance),
+                              );
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.error,
+                          ),
+                          icon: const DIcon(DIcons.trashCan, size: 18),
+                          label: const Text('Remove forum'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
