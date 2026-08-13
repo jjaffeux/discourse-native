@@ -202,6 +202,13 @@ void main() {
       );
     });
 
+    test('rejects a scheme without a host', () {
+      expect(
+        () => DiscourseApi.normalize('https://'),
+        throwsA(isA<SiteLookupException>()),
+      );
+    });
+
     test('does not retain secrets from a rejected URL', () {
       SiteLookupException? failure;
       try {
