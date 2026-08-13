@@ -116,7 +116,7 @@ void main() {
     final firstForumInitialTabId = controller.activeTabId;
     controller.createTab();
     final firstForumLastTabId = controller.activeTabId;
-    controller.selectDestination(_destination(forums[0], 'messages'));
+    controller.selectDestination(_destination(forums[0], 'drafts'));
 
     controller.selectInstance(1);
     controller.createTab();
@@ -132,7 +132,7 @@ void main() {
     expect(controller.tabsForCurrentForum, hasLength(2));
     expect(controller.activeTabId, firstForumLastTabId);
     expect(controller.activeTabId, isNot(firstForumInitialTabId));
-    expect(controller.currentContent?.id, 'messages');
+    expect(controller.currentContent?.id, 'drafts');
 
     controller.selectInstance(1);
 
@@ -177,9 +177,9 @@ void main() {
 
     controller.createTab();
     final secondTabId = controller.activeTabId!;
-    controller.selectDestination(_destination(forums[0], 'messages'));
+    controller.selectDestination(_destination(forums[0], 'drafts'));
 
-    expect(_routeIds(controller), ['messages']);
+    expect(_routeIds(controller), ['drafts']);
 
     controller.selectTab(firstTabId);
 
@@ -187,7 +187,7 @@ void main() {
 
     controller.selectTab(secondTabId);
 
-    expect(_routeIds(controller), ['messages']);
+    expect(_routeIds(controller), ['drafts']);
   });
 
   test('each tab restores its own feed row', () {
@@ -231,7 +231,7 @@ void main() {
     controller.saveTopicScrollPost(404, 16);
     controller.createTab();
     final activeTabId = controller.activeTabId!;
-    controller.selectDestination(_destination(forums[0], 'messages'));
+    controller.selectDestination(_destination(forums[0], 'drafts'));
     await Future<void>.delayed(Duration.zero);
 
     controller = ShellController(
@@ -250,7 +250,7 @@ void main() {
       activeTabId,
     ]);
     expect(controller.activeTabId, activeTabId);
-    expect(_routeIds(controller), ['messages']);
+    expect(_routeIds(controller), ['drafts']);
 
     controller.selectTab(firstTabId);
     expect(_routeIds(controller), ['latest', 'topic-404']);
