@@ -120,12 +120,15 @@ const Color githubDeletionColor = Color(0xFFF85149);
 // --- Shared body parts, drawn the same by issues, PRs and commits.
 
 /// Core's onebox font is 16px. Legacy GitHub SVGs are square and capped at
-/// 1.8em; the status plugin replaces a PR glyph with a 2.5em-wide 12:16 mask.
+/// 1.8em; the status plugin reserves the old 12:16 slot for its 2.5em-wide
+/// replacement. The replacement SVGs themselves have square 16:16 viewBoxes,
+/// so they stay square inside that slot instead of being stretched to fit it.
 const double _githubOneboxFontSize = 16;
 const double githubIconColumnWidth = _githubOneboxFontSize * 2.5;
 const double githubIconGap = _githubOneboxFontSize * 0.75;
 const Size githubLegacyIconSize = Size.square(_githubOneboxFontSize * 1.8);
-const Size githubPrStatusIconSize = Size(
+const Size githubPrStatusIconSize = Size.square(githubIconColumnWidth);
+const Size githubPrStatusSlotSize = Size(
   githubIconColumnWidth,
   githubIconColumnWidth / (12 / 16),
 );
@@ -146,17 +149,17 @@ class GithubOneboxIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = isPrStatus ? githubPrStatusIconSize : githubLegacyIconSize;
+    final iconSize = isPrStatus ? githubPrStatusIconSize : githubLegacyIconSize;
+    final slotSize = isPrStatus ? githubPrStatusSlotSize : githubLegacyIconSize;
 
-    return SizedBox(
-      width: githubIconColumnWidth,
-      height: size.height,
+    return SizedBox.fromSize(
+      size: slotSize,
       child: Center(
         child: SizedBox.fromSize(
-          size: size,
+          size: iconSize,
           child: SvgPicture.string(
             icon.tintableSvg,
-            fit: isPrStatus ? BoxFit.fill : BoxFit.contain,
+            fit: BoxFit.contain,
             theme: SvgTheme(currentColor: color),
           ),
         ),
