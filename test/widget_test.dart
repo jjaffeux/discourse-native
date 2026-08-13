@@ -10,6 +10,7 @@ import 'package:discourse_native/src/data/updater.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
@@ -959,9 +960,9 @@ void main() {
     ) async {
       await pumpShell(tester, phone);
 
-      final messages = sidebarDestination('Messages');
+      final topics = sidebarDestination('Topics');
       final target = find
-          .ancestor(of: messages, matching: find.byType(InkWell))
+          .ancestor(of: topics, matching: find.byType(InkWell))
           .first;
       expect(tester.getSize(target).height, closeTo(38.4, 0.01));
       expect(tester.getSize(target).width, greaterThanOrEqualTo(44));
@@ -978,7 +979,7 @@ void main() {
     testWidgets('back returns from content to the sidebar', (tester) async {
       await pumpShell(tester, phone);
 
-      await tester.tap(find.text('Messages'));
+      await tester.tap(find.text('Topics'));
       await tester.pumpAndSettle();
       await tester.tap(find.dIcon(DIcons.arrowLeft));
       await tester.pumpAndSettle();
@@ -992,9 +993,15 @@ void main() {
     ) async {
       await pumpShell(tester, phone);
 
-      await tester.tap(find.text('Messages'));
+      await tester.tap(find.text('Topics'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Replace with deeper view'));
+      ShellScope.read(tester.element(find.byType(MainContent))).pushContent(
+        const ContentRoute(
+          id: 'topic-placeholder',
+          title: 'Topic 1',
+          icon: DIcons.comments,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Topic 1'), findsWidgets);
@@ -1014,7 +1021,7 @@ void main() {
       expect(userMenu, findsOneWidget);
       final onSidebar = tester.getRect(userMenu);
 
-      await tester.tap(find.text('Messages'));
+      await tester.tap(find.text('Topics'));
       await tester.pumpAndSettle();
 
       expect(userMenu, findsOneWidget);
@@ -1843,7 +1850,7 @@ void main() {
   ) async {
     await pumpShell(tester, desktop);
 
-    final destination = sidebarDestination('Messages');
+    final destination = sidebarDestination('Drafts');
     final inkWell = find
         .ancestor(of: destination, matching: find.byType(InkWell))
         .first;
@@ -3173,19 +3180,53 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('messages has no list endpoint without a username', (
+    testWidgets('signed-out readers do not see Messages in the sidebar', (
       tester,
     ) async {
       final api = FakeDiscourseApi(feeds: {'/latest.json': latest});
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('Messages'));
+
+      expect(sidebarDestination('Messages'), findsNothing);
+      expect(api.feedPaths, ['/latest.json']);
+    });
+
+    testWidgets('a signed-out Messages route explains the account boundary', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(feeds: {'/latest.json': latest});
+
+      await pumpShell(tester, desktop, api: api);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      controller.selectDestination(
+        const SidebarDestination(
+          id: 'messages',
+          label: 'Messages',
+          icon: DIcons.inbox,
+        ),
+      );
       await tester.pumpAndSettle();
 
-      // The inbox path is named after the account, so with no signed-in user
-      // it falls back to the placeholder rather than firing a bad request.
       expect(api.feedPaths, ['/latest.json']);
-      expect(find.text('Replace with deeper view'), findsOneWidget);
+      expect(find.text('Sign in to view your messages'), findsOneWidget);
+      expect(
+        find.text(
+          'Private messages are tied to your forum account and aren’t '
+          'available while you’re signed out.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('messages-sign-in')), findsOneWidget);
+      expect(find.text('Replace with deeper view'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('messages-sign-in')));
+      await tester.pumpAndSettle();
+
+      expect(controller.currentContent?.id, 'latest');
+      expect(sidebarDestination('Messages'), findsOneWidget);
+      expect(find.text('Sign in to view your messages'), findsNothing);
     });
   });
 

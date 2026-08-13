@@ -366,7 +366,7 @@ void main() {
             expect(find.byType(MainContent), findsNothing);
             expect(find.byType(ForumTabsBar), findsNothing);
 
-            await tester.tap(_sidebarText('Messages'));
+            await tester.tap(_sidebarText('Topics'));
             await tester.pumpAndSettle();
 
             expect(find.byType(InstanceSidebar), findsNothing);
@@ -376,10 +376,7 @@ void main() {
           expect(_inMainContent(find.byType(ForumTabsBar)), findsOneWidget);
           expect(find.byType(CurrentForumTabsBar), findsOneWidget);
           expect(find.byKey(const ValueKey('forum-tabs-add')), findsOneWidget);
-          expect(
-            _bar(tester).items.single.title,
-            size == _compact ? 'Messages' : 'Topics',
-          );
+          expect(_bar(tester).items.single.title, 'Topics');
         }
       }),
     );
@@ -400,7 +397,7 @@ void main() {
 
           if (size == _compact) {
             expect(find.byType(MainContent), findsNothing);
-            await tester.tap(_sidebarText('Messages'));
+            await tester.tap(_sidebarText('Topics'));
             await tester.pumpAndSettle();
             expect(find.byType(MainContent), findsOneWidget);
           }

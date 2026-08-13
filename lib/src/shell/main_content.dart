@@ -107,8 +107,12 @@ class _MainContentBody extends StatelessWidget {
                       key: contentKey,
                       child:
                           !route.isTopic &&
-                              route.id == 'drafts' &&
-                              state.siteUrl != null
+                              route.id == 'messages' &&
+                              !state.isConnected
+                          ? const _SignedOutMessagesState()
+                          : !route.isTopic &&
+                                route.id == 'drafts' &&
+                                state.siteUrl != null
                           ? DraftListView(siteUrl: state.siteUrl!)
                           : !route.isTopic &&
                                 route.id == 'all-categories' &&
@@ -330,6 +334,90 @@ class _ContentHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A defensive boundary for a stale restored tab or programmatic route.
+///
+/// Anonymous readers cannot ordinarily reach Messages because its sidebar
+/// destination is hidden. If they do, explain the account boundary instead of
+/// presenting an empty inbox or the generic unfinished-route placeholder.
+class _SignedOutMessagesState extends StatelessWidget {
+  const _SignedOutMessagesState();
+
+  @override
+  Widget build(BuildContext context) =>
+      ShellSelector<({bool connecting, String? error})>(
+        select: (controller) =>
+            (connecting: controller.connecting, error: controller.connectError),
+        builder: (context, state, _) {
+          final theme = Theme.of(context);
+          final controller = ShellScope.read(context);
+
+          return Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DIcon(
+                      DIcons.lock,
+                      size: 48,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Sign in to view your messages',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Private messages are tied to your forum account and '
+                      'aren’t available while you’re signed out.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (state.error case final error?) ...[
+                      const SizedBox(height: 16),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          error,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      key: const ValueKey('messages-sign-in'),
+                      onPressed: state.connecting
+                          ? null
+                          : () =>
+                                unawaited(controller.connectCurrentInstance()),
+                      icon: state.connecting
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator.adaptive(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const DIcon(DIcons.user, size: 18),
+                      label: Text(state.connecting ? 'Signing in…' : 'Sign in'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
 }
 
 /// Stand-in for real content. Doubles as a way to exercise every navigation
