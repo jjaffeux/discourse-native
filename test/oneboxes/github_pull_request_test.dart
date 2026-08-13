@@ -187,7 +187,16 @@ void main() {
       expect(icon.icon, githubPrMergedIcon);
       expect(icon.color, GithubPrStatus.merged.color);
       expect(icon.isPrStatus, isTrue);
+      expect(
+        tester.getSize(find.byType(GithubOneboxIcon)),
+        githubPrStatusSlotSize,
+      );
       expect(tester.getSize(find.byType(SvgPicture)), githubPrStatusIconSize);
+      expect(githubPrStatusIconSize.aspectRatio, 1);
+      expect(
+        tester.widget<SvgPicture>(find.byType(SvgPicture)).fit,
+        BoxFit.contain,
+      );
     });
 
     testWidgets('uses core legacy size and primary-high without a status', (
