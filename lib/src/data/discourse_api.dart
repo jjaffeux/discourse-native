@@ -159,8 +159,13 @@ class DiscourseApi
         cause: FormatException('Forum address is too long.'),
       );
     }
+    // Do not trim the two slashes that belong to a bare scheme. Turning
+    // `https://` into `https:` would make the default-scheme branch reinterpret
+    // `https` as a host and send a pointless validation request there.
+    final schemeSeparator = trimmed.indexOf('://');
+    final minimumEnd = schemeSeparator < 0 ? 0 : schemeSeparator + 3;
     var end = trimmed.length;
-    while (end > 0 && trimmed.codeUnitAt(end - 1) == 0x2F) {
+    while (end > minimumEnd && trimmed.codeUnitAt(end - 1) == 0x2F) {
       end--;
     }
     if (end != trimmed.length) trimmed = trimmed.substring(0, end);
