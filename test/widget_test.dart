@@ -27,6 +27,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
@@ -10833,15 +10834,60 @@ void main() {
         expect(find.text('No messages here yet.'), findsOneWidget);
       });
 
-      testWidgets('says so when a channel will not load at all', (
+      testWidgets('offers a retry when a channel will not load at all', (
         tester,
       ) async {
-        await pumpChat(tester, public: [channel(9)]);
+        final messages = <String, ChatMessagePage>{};
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)], direct: const []),
+          },
+          chatMessagesByKey: messages,
+        );
+        await pumpChat(tester, api: api);
 
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Could not load this channel.'), findsOneWidget);
+        expect(find.text("Couldn't connect to this forum"), findsOneWidget);
+        expect(
+          find.text(
+            "We couldn't load this channel from meta.discourse.org. Check your "
+            'internet connection and try again.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('chat-channel-load-failure')),
+          findsOneWidget,
+        );
+        expect(find.byType(ChatComposer), findsNothing);
+        expect(
+          find.byKey(const ValueKey('chat-channel-remove-forum')),
+          findsOneWidget,
+        );
+
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-remove-forum')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Remove Meta?'), findsOneWidget);
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+
+        messages[key(9)] = page([msg(1)]);
+        await tester.tap(find.byKey(const ValueKey('chat-channel-retry')));
+        await tester.pumpAndSettle();
+
+        expect(api.chatMessagesRequested, hasLength(2));
+        expect(
+          find.byKey(const ValueKey('chat-channel-load-failure')),
+          findsNothing,
+        );
+        expect(renderedText('Hello there'), findsOneWidget);
+        expect(find.byType(ChatComposer), findsOneWidget);
       });
 
       testWidgets(

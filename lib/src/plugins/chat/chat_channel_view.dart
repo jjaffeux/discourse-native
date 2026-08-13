@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../../shell/instance_actions.dart';
 import '../../shell/loading_skeleton.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
@@ -217,8 +218,23 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       content = const _ChatLoadingSkeleton(
         key: ValueKey('chat-loading-skeleton'),
       );
-    } else if (stream.error case final error?) {
-      content = _Message(icon: DIcons.triangleExclamation, text: error);
+    } else if (stream.error != null) {
+      content = _ChatLoadFailure(
+        siteUrl: widget.siteUrl,
+        onRetry: () => unawaited(
+          widget.chat.openChannel(
+            widget.siteUrl,
+            widget.channelId,
+            force: true,
+          ),
+        ),
+        onRemove: () {
+          final instance = ShellScope.read(context).currentInstance;
+          if (instance != null) {
+            unawaited(confirmInstanceRemoval(context, instance));
+          }
+        },
+      );
     } else if (stream.isEmpty) {
       content = const _Message(
         icon: DIcons.comment,
@@ -231,11 +247,12 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     return Column(
       children: [
         Expanded(child: content),
-        ChatComposer(
-          key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
-          siteUrl: widget.siteUrl,
-          channelId: widget.channelId,
-        ),
+        if (stream.error == null || hasMessages)
+          ChatComposer(
+            key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
+            siteUrl: widget.siteUrl,
+            channelId: widget.channelId,
+          ),
       ],
     );
   }
@@ -1733,6 +1750,105 @@ class _Message extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A first-page failure belongs to the whole destination, not to one line in
+/// an otherwise usable chat screen. Give it the space and recovery action of
+/// a page, and keep the composer out of view until the channel is reachable.
+class _ChatLoadFailure extends StatelessWidget {
+  const _ChatLoadFailure({
+    required this.siteUrl,
+    required this.onRetry,
+    required this.onRemove,
+  });
+
+  final String siteUrl;
+  final VoidCallback onRetry;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final host = Uri.tryParse(siteUrl)?.host;
+    final forum = host == null || host.isEmpty ? 'this forum' : host;
+
+    return ColoredBox(
+      key: const ValueKey('chat-channel-load-failure'),
+      color: theme.shell.content,
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Semantics(
+                liveRegion: true,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.errorContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: DIcon(
+                        DIcons.triangleExclamation,
+                        size: 32,
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      "Couldn't connect to this forum",
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "We couldn't load this channel from $forum. Check your "
+                      'internet connection and try again.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        FilledButton.icon(
+                          key: const ValueKey('chat-channel-retry'),
+                          onPressed: onRetry,
+                          icon: const DIcon(DIcons.arrowsRotate, size: 18),
+                          label: const Text('Try again'),
+                        ),
+                        OutlinedButton.icon(
+                          key: const ValueKey('chat-channel-remove-forum'),
+                          onPressed: onRemove,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.error,
+                          ),
+                          icon: const DIcon(DIcons.trashCan, size: 18),
+                          label: const Text('Remove forum'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
