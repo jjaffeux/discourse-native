@@ -383,15 +383,20 @@ Color _requiredColor(Map<String, dynamic> json, String name) =>
 const int _maximumPersistedColorTextCodeUnits = 11;
 
 Color? _color(Object? value) {
-  if (value is String && value.length > _maximumPersistedColorTextCodeUnits) {
-    return null;
+  String? text;
+  if (value is String) {
+    if (value.length > _maximumPersistedColorTextCodeUnits) return null;
+    text = value.trim().replaceFirst('#', '');
+  }
+  // Hex must win over decimal for the six/eight-digit shapes: '222222' is the
+  // persisted hex color 0xFF222222, never the decimal integer 222222, and no
+  // color with visible alpha writes exactly six or eight decimal digits.
+  if (text != null && (text.length == 6 || text.length == 8)) {
+    final parsed = int.tryParse(text, radix: 16);
+    if (parsed != null && parsed >= 0) {
+      return text.length == 6 ? Color(0xFF000000 | parsed) : Color(parsed);
+    }
   }
   final integer = jsonIntOrNull(value);
-  if (integer != null) return Color(integer & 0xFFFFFFFF);
-  if (value is! String) return null;
-  final text = value.trim().replaceFirst('#', '');
-  if (text.length != 6 && text.length != 8) return null;
-  final parsed = int.tryParse(text, radix: 16);
-  if (parsed == null) return null;
-  return text.length == 6 ? Color(0xFF000000 | parsed) : Color(parsed);
+  return integer == null ? null : Color(integer & 0xFFFFFFFF);
 }

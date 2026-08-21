@@ -117,7 +117,25 @@ void main() {
     );
   });
 
-  test('bounds direct and indirect assignments to the server total', () {
+  test('a raised per-topic site limit keeps every real assignment', () {
+    // max_assignments_per_topic is a raisable discourse-assign setting; the
+    // parser bound must not silently drop assignments a real site can serve.
+    final assignments = Assignments.fromTopicJson({
+      'assigned_to_user': {'username': 'lead'},
+      'indirectly_assigned_to': {
+        for (var id = 1; id <= 8; id++)
+          '$id': {
+            'assigned_to': {'username': 'user-$id'},
+          },
+      },
+    }, siteUrl)!;
+
+    expect(assignments.direct, isNotNull);
+    expect(assignments.postAssignments.keys, List.generate(8, (i) => i + 1));
+    expect(assignments.all, hasLength(9));
+  });
+
+  test('bounds direct and indirect assignments to the parser ceiling', () {
     final assignments = Assignments.fromTopicJson({
       'assigned_to_group': {'name': 'triage'},
       'indirectly_assigned_to': {
@@ -129,12 +147,15 @@ void main() {
     }, siteUrl)!;
 
     expect(assignments.direct, isNotNull);
-    expect(assignments.postAssignments.keys, [1, 2, 3, 4]);
+    expect(
+      assignments.postAssignments.keys,
+      List.generate(Assignments.maximumPerTopic - 1, (i) => i + 1),
+    );
     expect(assignments.all, hasLength(Assignments.maximumPerTopic));
     expect(() => assignments.postAssignments.clear(), throwsUnsupportedError);
   });
 
-  test('malformed raw indirect slots still spend the server budget', () {
+  test('malformed raw indirect slots still spend the parser budget', () {
     final assignments = Assignments.fromTopicJson({
       'indirectly_assigned_to': {
         'bad-key': {
@@ -148,7 +169,10 @@ void main() {
     }, siteUrl)!;
 
     expect(assignments.direct, isNull);
-    expect(assignments.postAssignments.keys, [1, 2, 3, 4]);
+    expect(
+      assignments.postAssignments.keys,
+      List.generate(Assignments.maximumPerTopic - 1, (i) => i + 1),
+    );
   });
 
   test('post payload reads its own assignment and target metadata', () {

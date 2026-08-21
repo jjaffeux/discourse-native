@@ -263,6 +263,23 @@ void main() {
       expect(restored.activeTab.contentStack.last.id, 'topic-69');
     });
 
+    test('equal restored tabs with anchors share one hash code', () {
+      Map<String, Object?> tabJson() => {
+        'id': 'anchored-tab',
+        'root_destination_id': 'latest',
+        'content_stack': [_routeJson(id: 'latest', title: 'Topics')],
+        'anchors': {
+          'latest': {'kind': 'feed', 'item_id': 17, 'offset': 0.25},
+        },
+      };
+
+      final first = ForumTab.tryFromJson(_jsonMap(tabJson()));
+      final second = ForumTab.tryFromJson(_jsonMap(tabJson()));
+
+      expect(first, second);
+      expect(first.hashCode, second!.hashCode);
+    });
+
     test('discarded restored routes cannot retain orphaned anchors', () {
       final restored = ForumTab.tryFromJson({
         'id': 'bounded',

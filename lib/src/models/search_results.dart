@@ -319,7 +319,7 @@ class SearchCategoryHit extends SearchResult {
   final String slug;
   final String color;
 
-  int get colorValue => int.tryParse('FF$color', radix: 16) ?? 0xFF888888;
+  int get colorValue => categoryColorValue(color);
 
   @override
   SearchResultKind get kind => SearchResultKind.category;

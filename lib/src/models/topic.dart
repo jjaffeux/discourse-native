@@ -618,15 +618,7 @@ class TopicCategory with Storable<TopicCategory> {
   bool get canCreateTopic => permission == 1;
   bool get isMuted => notificationLevel == 0;
 
-  int get colorValue {
-    var hex = color.trim();
-    if (hex.startsWith('#')) hex = hex.substring(1);
-    if (hex.length == 3) {
-      hex = [for (final digit in hex.split('')) '$digit$digit'].join();
-    }
-    if (hex.length != 6) return 0xFF888888;
-    return int.tryParse('FF$hex', radix: 16) ?? 0xFF888888;
-  }
+  int get colorValue => categoryColorValue(color);
 
   @override
   Object get storeId => id;

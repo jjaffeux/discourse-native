@@ -225,6 +225,19 @@ void main() {
     expect(group.flairBackgroundColor, '0088CC');
   });
 
+  test('normalizes CSS shorthand category hit colors', () {
+    SearchCategoryHit hit(String color) => SearchCategoryHit(
+      categoryId: 3,
+      name: 'Dev',
+      slug: 'dev',
+      color: color,
+    );
+
+    expect(hit('aBc').colorValue, 0xFFAABBCC);
+    expect(hit('#0088CC').colorValue, 0xFF0088CC);
+    expect(hit('nope').colorValue, 0xFF888888);
+  });
+
   test('drops malformed individual facets without dropping valid sections', () {
     final results = SearchResults.fromJson(const {
       'categories': [
