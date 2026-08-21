@@ -111,7 +111,8 @@ class _TopicViewState extends State<TopicView> {
     _dayJumpToken = null;
     _seen = null;
     _scroll = ScrollController();
-    _list = ListController();
+    _list = ListController()..addListener(_noteExtentsChanged);
+    _noteExtentsChanged();
   }
 
   void _restoreInitialPost(
@@ -361,6 +362,14 @@ class _TopicViewState extends State<TopicView> {
     String siteUrl,
     List<int> postIds,
   ) {
+    // Rebuilding this on every build costs a store read per loaded post, and
+    // the floating-day push animation rebuilds per frame. Snapshots allocate
+    // a fresh id list each time, so value equality is the usable key; the
+    // int comparison is far cheaper than the reads it saves. Created-at never
+    // changes for a held post, so same ids means same day starts.
+    if (_dayStartsSite == siteUrl && listEquals(_dayStartsFor, postIds)) {
+      return _dayStartsCache;
+    }
     final starts = <_TopicDayStart>[];
     DateTime? previousDay;
     for (var index = 0; index < postIds.length; index++) {
@@ -371,8 +380,15 @@ class _TopicViewState extends State<TopicView> {
       }
       previousDay = day;
     }
+    _dayStartsCache = starts;
+    _dayStartsFor = postIds;
+    _dayStartsSite = siteUrl;
     return starts;
   }
+
+  List<_TopicDayStart> _dayStartsCache = const [];
+  List<int>? _dayStartsFor;
+  String? _dayStartsSite;
 
   /// Loads enough of an around-post window to know where [day] really began,
   /// then places that day's first post at the top. This is the topic analogue
@@ -538,12 +554,23 @@ class _TopicViewState extends State<TopicView> {
     }
   }
 
+  /// Cumulative extent before each child, grown on demand.
+  ///
+  /// [_offsetBeforeChild] backs every per-frame viewport measurement, and a
+  /// fresh walk per call grows with how deep the reader is in the topic. The
+  /// list controller notifies exactly when a measure changes during layout,
+  /// which is when these sums can go stale — a steady scroll over measured
+  /// rows reuses them.
+  final List<double> _extentsBefore = [0];
+
+  void _noteExtentsChanged() => _extentsBefore.length = 1;
+
   double _offsetBeforeChild(ListController list, int childIndex) {
-    var offset = 0.0;
-    for (var index = 0; index < childIndex; index++) {
-      offset += list.extentForIndex(index).$1;
+    while (_extentsBefore.length <= childIndex) {
+      final index = _extentsBefore.length - 1;
+      _extentsBefore.add(_extentsBefore[index] + list.extentForIndex(index).$1);
     }
-    return offset;
+    return _extentsBefore[childIndex];
   }
 
   ({int postId, double viewportOffset})? _captureViewportAnchor(
