@@ -132,7 +132,7 @@ final class FakeResenhaMediaSession extends ChangeNotifier
   final Completer<void>? connectGate;
 
   @override
-  ResenhaMediaConnectionState get connectionState =>
+  ResenhaMediaConnectionState connectionState =
       ResenhaMediaConnectionState.connected;
   int connectCount = 0;
   int disposeCount = 0;
@@ -2341,6 +2341,38 @@ void main() {
     await controller.leave();
   });
 
+  test('heartbeats resume after a media reconnection', () async {
+    await controller.ensureLoaded(firstSite);
+    await controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: controller.room(firstSite, 7)!,
+    );
+    final media = mediaFactory.sessions.single;
+
+    media.connectionState = ResenhaMediaConnectionState.reconnecting;
+    media.notifyListeners();
+    expect(controller.call?.status, ResenhaCallStatus.reconnecting);
+    // Long enough for any scheduled heartbeat to fire while the call is away
+    // from connected, which is the moment the chain historically died.
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    final heartbeatsBefore = transport.pluginWrites
+        .where((write) => write.path.endsWith('/heartbeat.json'))
+        .length;
+
+    media.connectionState = ResenhaMediaConnectionState.connected;
+    media.notifyListeners();
+    expect(controller.call?.status, ResenhaCallStatus.connected);
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+
+    expect(
+      transport.pluginWrites
+          .where((write) => write.path.endsWith('/heartbeat.json'))
+          .length,
+      greaterThan(heartbeatsBefore),
+    );
+  });
+
   test(
     'keeps a local media setting when roster state is rate limited',
     () async {
@@ -2371,6 +2403,44 @@ void main() {
           (write) => write.path.endsWith('/state.json'),
         ),
         hasLength(stateWritesBefore + 2),
+      );
+    },
+  );
+
+  test(
+    'a failed media toggle keeps roster updates that landed while in flight',
+    () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final media = mediaFactory.sessions.single;
+      expect(controller.call?.muted, isTrue);
+      final muteGate = Completer<void>();
+      media.muteGate = muteGate;
+      media.muteFailure = StateError('mute rejected');
+
+      final unmuting = controller.setMuted(false);
+      firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+        'type': 'participants',
+        'participants': [
+          {'id': 1, 'username': 'sam', 'role': 'moderator'},
+          {'id': 2, 'username': 'lee', 'role': 'participant'},
+        ],
+      });
+      await Future<void>.delayed(Duration.zero);
+      muteGate.complete();
+      await unmuting;
+
+      expect(controller.call?.muted, isTrue);
+      expect(controller.call?.error, 'The media setting was not applied.');
+      expect(
+        controller.call?.room.participants.map(
+          (participant) => participant.username,
+        ),
+        containsAll(['sam', 'lee']),
       );
     },
   );
@@ -2432,6 +2502,40 @@ void main() {
       );
     },
   );
+
+  test('a stale roster without the local user does not abort a join', () async {
+    await controller.ensureLoaded(firstSite);
+    final connectGate = Completer<void>();
+    mediaFactory.nextConnectGate = connectGate;
+
+    final joining = controller.join(
+      siteUrl: firstSite,
+      siteName: 'One',
+      room: controller.room(firstSite, 7)!,
+    );
+    while (mediaFactory.sessions.isEmpty ||
+        mediaFactory.sessions.single.connectCount == 0) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect(controller.call?.status, ResenhaCallStatus.joining);
+
+    firstTracker.deliverPluginMessage('/resenha/rooms/7', {
+      'type': 'participants',
+      'participants': const <Object?>[],
+    });
+    await Future<void>.delayed(Duration.zero);
+    connectGate.complete();
+    await joining;
+
+    expect(controller.call?.status, ResenhaCallStatus.connected);
+    expect(mediaFactory.sessions.single.disposeCount, 0);
+    expect(
+      diagnostics.records.where(
+        (record) => record.event == 'call.leave.started',
+      ),
+      isEmpty,
+    );
+  });
 
   test(
     'leave remains terminal and idempotent when native teardown fails',
