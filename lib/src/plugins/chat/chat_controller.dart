@@ -1942,6 +1942,24 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
+  /// Applies one `reaction` event to a stored message.
+  ///
+  /// Reaction events are the only non-idempotent thing this channel carries:
+  /// `sent` dedupes on the id list and `edit`/`delete` write whole records,
+  /// while a reaction is a +1/-1 delta. That matters because a subscription is
+  /// resumed from a stored cursor, so anything published since is replayed —
+  /// and a replayed delta lands on top of a window fetch that already counted
+  /// it.
+  ///
+  /// The cursor is kept as fresh as the server allows: it advances on every
+  /// event processed here and is raised again from each channel-list load. The
+  /// gap that remains is between that position and the window fetch, and it
+  /// cannot be closed from this side. `Chat::MessagesSerializer` publishes no
+  /// bus position for a window to adopt, and the event names its actor while
+  /// the stored reaction keeps only a count and this reader's own bit — so
+  /// there is no reactor set to test the actor against, the way Discourse's
+  /// web client can. Reactions on a remounted channel can therefore sit one
+  /// out until the next fetch replaces them.
   void _applyReactionEvent(String siteUrl, Map<String, dynamic> data) {
     final messageId = jsonIntOrNull(data['chat_message_id']);
     final emoji = jsonText(data['emoji']);
