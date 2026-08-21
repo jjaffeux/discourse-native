@@ -1141,7 +1141,17 @@ flutter test
 
 CI also builds a debug Linux bundle after those checks and verifies that its
 executable has no unresolved shared libraries. That keeps the native WebRTC,
-LiveKit and desktop plugin graph compiling between release builds.
+LiveKit and desktop plugin graph compiling between release builds. The macOS
+and iOS bundles are compiled on every change for the same reason, together
+with the `RunnerTests` covering the CallKit and audio-session code Dart tests
+cannot type-check.
+
+The macOS build there is driven as `flutter build macos --debug --config-only`
+followed by `xcodebuild ... CODE_SIGNING_ALLOWED=NO`, because
+`flutter build macos` has no `--no-codesign` and the runner holds no
+certificate for the team the project names. Signing stays configured for Debug
+on purpose — development builds are custom-signed, see [macOS
+keychain](#macos-keychain) — so it is CI that opts out, not the project.
 
 Two suites need more than that:
 
