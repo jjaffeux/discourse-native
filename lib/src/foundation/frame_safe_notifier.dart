@@ -13,11 +13,12 @@ abstract class FrameSafeNotifier extends ChangeNotifier {
   void notifySafely() {
     if (_disposed) return;
 
-    if (SchedulerBinding.instance.schedulerPhase ==
-        SchedulerPhase.persistentCallbacks) {
+    final scheduler = _schedulerOrNull;
+    if (scheduler != null &&
+        scheduler.schedulerPhase == SchedulerPhase.persistentCallbacks) {
       if (_scheduled) return;
       _scheduled = true;
-      SchedulerBinding.instance.addPostFrameCallback((_) {
+      scheduler.addPostFrameCallback((_) {
         _scheduled = false;
         if (!_disposed) notifyListeners();
       });
@@ -25,6 +26,17 @@ abstract class FrameSafeNotifier extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  /// The scheduler binding, or null in a pure-Dart context (VM tests, tools,
+  /// secondary isolates). With no frames to coalesce against, notifying
+  /// synchronously is the frame-safe behavior.
+  static SchedulerBinding? get _schedulerOrNull {
+    try {
+      return SchedulerBinding.instance;
+    } on FlutterError {
+      return null;
+    }
   }
 
   @override
