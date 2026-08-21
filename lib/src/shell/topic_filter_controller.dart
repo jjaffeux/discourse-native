@@ -237,13 +237,17 @@ class TopicFilterController extends ChangeNotifier {
 
   Future<void> _runSuggestions(_QueuedTopicFilterSuggestions queued) async {
     List<TopicFilterSuggestion> result;
+    var failed = false;
     try {
       result = await engine.suggestions(queued.input);
     } catch (_) {
+      failed = true;
       result = const [];
     }
     if (!_disposed && queued.request == _request && queued.input == text.text) {
-      _lastSuggestionInput = queued.input;
+      // A thrown lookup is not an answer for this input: recording it would
+      // make ensureFreshSuggestions treat the failure as final and never retry.
+      if (!failed) _lastSuggestionInput = queued.input;
       _suggestions = result;
       _selectedIndex = -1;
       notifyListeners();
@@ -322,6 +326,9 @@ class TopicFilterController extends ChangeNotifier {
     _open = false;
     _suggestions = const [];
     _selectedIndex = -1;
+    // The suggestions were just discarded, so the input must not read as
+    // already answered: reopening for the same text has to rebuild them.
+    _lastSuggestionInput = null;
     _request++;
     notifyListeners();
   }

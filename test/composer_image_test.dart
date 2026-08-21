@@ -154,6 +154,48 @@ void main() {
     expect(controller.collapsedImageAtOffset(projected.end), isNull);
   });
 
+  testWidgets('a thrown short-url lookup is retried on a later repaint', (
+    tester,
+  ) async {
+    var attempts = 0;
+    final controller = MarkdownEditingController(
+      text: source,
+      resolveUploadUrls: (urls) {
+        attempts++;
+        if (attempts == 1) return Future.error(StateError('offline'));
+        return Future.value(const {
+          'upload://abc': 'https://cdn.example/abc.png',
+        });
+      },
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: SizedBox())),
+    );
+    final context = tester.element(find.byType(SizedBox));
+    const style = TextStyle(fontSize: 15);
+
+    controller.buildTextSpan(
+      context: context,
+      style: style,
+      withComposing: false,
+    );
+    await tester.pump();
+    expect(attempts, 1);
+
+    controller.buildTextSpan(
+      context: context,
+      style: style,
+      withComposing: false,
+    );
+    await tester.pump();
+
+    final image = controller.imageBlocks.single;
+    expect(attempts, 2);
+    expect(controller.resolvedImageUrl(image), 'https://cdn.example/abc.png');
+  });
+
   testWidgets('pending preview is one selected image with its alt text', (
     tester,
   ) async {

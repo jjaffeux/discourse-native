@@ -961,8 +961,11 @@ class MarkdownEditingController extends TextEditingController {
           artworkArrived();
         },
         onError: (_) {
+          // A failed batch says nothing about the URLs themselves.
+          // _failedImageUrls is reserved for URLs the site resolved to
+          // nothing; a transport error only releases the batch so the next
+          // repaint asks again.
           _resolvingImageUrls.removeAll(fresh);
-          _failedImageUrls.addAll(fresh);
           if (!_disposed) artworkArrived();
         },
       ),

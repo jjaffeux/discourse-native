@@ -30,6 +30,9 @@ final class DraftListController extends FrameSafeNotifier {
   final Map<String, DraftFeed> _feeds = {};
   final Map<String, Object> _requests = {};
   final Map<_DraftDeletionKey, Object> _deletions = {};
+  // Draft keys deleted while a page request was in flight. That response was
+  // produced against an older server state, so these keys outrank it.
+  final Map<String, Set<String>> _deletedWhileLoading = {};
 
   DraftFeed feedFor(String? siteUrl) => siteUrl == null
       ? const DraftFeed()
@@ -59,9 +62,9 @@ final class DraftListController extends FrameSafeNotifier {
       if (!_isCurrentLoad(lease, siteUrl, request)) return;
       if (apiKey == null) {
         _commit(lease, siteUrl, request, () {
-          _feeds[siteUrl] = held.withError(
-            'Reconnect to ${instance.host} to see your drafts.',
-          );
+          _feeds[siteUrl] = feedFor(
+            siteUrl,
+          ).withError('Reconnect to ${instance.host} to see your drafts.');
         });
         return;
       }
@@ -71,9 +74,16 @@ final class DraftListController extends FrameSafeNotifier {
         offset: held.drafts.length,
         limit: pageSize,
       );
+      // The commit must build on the feed as it stands now, not the [held]
+      // snapshot: a delete that landed during the request already removed its
+      // row, and replaying the snapshot would put the row back.
       _commit(lease, siteUrl, request, () {
-        _feeds[siteUrl] = held.withPage(
-          page,
+        final removed = _deletedWhileLoading[siteUrl] ?? const <String>{};
+        _feeds[siteUrl] = feedFor(siteUrl).withPage(
+          [
+            for (final draft in page)
+              if (!removed.contains(draft.key)) draft,
+          ],
           limit: pageSize,
           reportedCount: instance.user?.draftCount,
         );
@@ -82,8 +92,9 @@ final class DraftListController extends FrameSafeNotifier {
       if (!lease.isCurrent || !identical(_requests[siteUrl], request)) return;
       _report(error, stackTrace, 'drafts.load');
       _commit(lease, siteUrl, request, () {
-        _feeds[siteUrl] = held.withError(
-          held.drafts.isEmpty
+        final current = feedFor(siteUrl);
+        _feeds[siteUrl] = current.withError(
+          current.drafts.isEmpty
               ? "Couldn't load drafts from ${instance.host}."
               : "Couldn't load more drafts from ${instance.host}.",
         );
@@ -91,6 +102,7 @@ final class DraftListController extends FrameSafeNotifier {
     } finally {
       if (!isDisposed && identical(_requests[siteUrl], request)) {
         _requests.remove(siteUrl);
+        _deletedWhileLoading.remove(siteUrl);
       }
     }
   }
@@ -116,6 +128,11 @@ final class DraftListController extends FrameSafeNotifier {
         sequence: draft.sequence,
       );
       if (!_isCurrentDeletion(lease, identity, request)) return false;
+      if (_requests.containsKey(instance.url)) {
+        // The page in flight predates this delete; its response must not
+        // resurrect the row.
+        (_deletedWhileLoading[instance.url] ??= {}).add(draft.key);
+      }
       _feeds[instance.url] = feedFor(instance.url).without(draft.key);
       return true;
     } catch (error, stackTrace) {
@@ -137,6 +154,7 @@ final class DraftListController extends FrameSafeNotifier {
   void forget(String siteUrl) {
     var changed = _feeds.remove(siteUrl) != null;
     changed = _requests.remove(siteUrl) != null || changed;
+    _deletedWhileLoading.remove(siteUrl);
     final deletionsBefore = _deletions.length;
     _deletions.removeWhere((identity, _) => identity.siteUrl == siteUrl);
     changed = _deletions.length != deletionsBefore || changed;
@@ -184,6 +202,7 @@ final class DraftListController extends FrameSafeNotifier {
   void dispose() {
     _requests.clear();
     _deletions.clear();
+    _deletedWhileLoading.clear();
     super.dispose();
   }
 }

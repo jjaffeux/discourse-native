@@ -45,6 +45,40 @@ final class _RecordingDraftsApi implements DraftsApi {
   }
 }
 
+final class _GatedDraftsApi implements DraftsApi {
+  final List<Completer<List<UserDraft>>> pages = [];
+  final List<(String, String)> deletions = [];
+
+  @override
+  Future<List<UserDraft>> userDrafts({
+    required String siteUrl,
+    required String apiKey,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  }) {
+    final page = Completer<List<UserDraft>>();
+    pages.add(page);
+    return page.future;
+  }
+
+  @override
+  Future<void> deleteUserDraft({
+    required String siteUrl,
+    required String apiKey,
+    required String draftKey,
+    required int sequence,
+    String? clientId,
+  }) async {
+    deletions.add((siteUrl, draftKey));
+  }
+}
+
+final class _ReadyApiKeys implements SiteApiKeyReader {
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async => 'api-key';
+}
+
 final class _GatedApiKeys implements SiteApiKeyReader {
   _GatedApiKeys([List<Completer<String?>>? results])
     : results = results ?? [Completer<String?>()];
@@ -179,6 +213,70 @@ void main() {
       expect(await deletion, isFalse);
       expect(api.deletions, isEmpty);
       expect(controller.deleting(_siteUrl, _draft.key), isFalse);
+    },
+  );
+
+  test('a draft deleted while a page is in flight stays deleted', () async {
+    final api = _GatedDraftsApi();
+    final controller = DraftListController(
+      api: api,
+      credentials: _ReadyApiKeys(),
+      lifecycle: SiteLifecycle(),
+    );
+    addTearDown(controller.dispose);
+
+    final seed = controller.load(_instance);
+    await pumpEventQueue();
+    api.pages.single.complete(const [_draft]);
+    await seed;
+    expect(controller.feedFor(_siteUrl).drafts.single.key, _draft.key);
+
+    final refresh = controller.load(_instance, refresh: true);
+    await pumpEventQueue();
+    expect(await controller.delete(_instance, _draft), isTrue);
+
+    // The refresh response was produced before the server-side delete landed.
+    api.pages[1].complete(const [_draft]);
+    await refresh;
+
+    expect(api.deletions, [(_siteUrl, _draft.key)]);
+    expect(controller.feedFor(_siteUrl).drafts, isEmpty);
+  });
+
+  test(
+    'a failed page keeps a deletion that landed while it was in flight',
+    () async {
+      final api = _GatedDraftsApi();
+      final controller = DraftListController(
+        api: api,
+        credentials: _ReadyApiKeys(),
+        lifecycle: SiteLifecycle(),
+      );
+      addTearDown(controller.dispose);
+
+      final seeded = [
+        for (var index = 0; index < DraftListController.pageSize; index++)
+          UserDraft(key: 'topic_$index', sequence: 1, data: null),
+      ];
+      final seed = controller.load(_instance);
+      await pumpEventQueue();
+      api.pages.single.complete(seeded);
+      await seed;
+      expect(controller.feedFor(_siteUrl).hasMore, isTrue);
+
+      final more = controller.load(_instance);
+      await pumpEventQueue();
+      expect(await controller.delete(_instance, seeded[3]), isTrue);
+
+      api.pages[1].completeError(StateError('offline'));
+      await more;
+
+      final feed = controller.feedFor(_siteUrl);
+      expect(feed.error, isNotNull);
+      expect(
+        feed.drafts.map((draft) => draft.key),
+        isNot(contains(seeded[3].key)),
+      );
     },
   );
 
