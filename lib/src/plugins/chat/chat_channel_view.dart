@@ -982,16 +982,15 @@ class _StreamState extends State<ChatMessageStream>
       }
       _dayExtentSums = sums;
     }
-    final tops = {
-      for (final entry in sums.entries)
-        entry.key:
-            _scroll.position.viewportDimension -
-            _streamPadding.bottom -
-            entry.value +
-            _scroll.position.pixels,
-    };
+    // Every separator's top is the same scalar minus its own cached sum, so
+    // the scroll position enters the arithmetic once rather than through a
+    // rebuilt map on each of these — one runs per scroll frame.
+    final fromBottom =
+        _scroll.position.viewportDimension -
+        _streamPadding.bottom +
+        _scroll.position.pixels;
 
-    double topOf(int row) => tops[row]!;
+    double topOf(int row) => fromBottom - sums![row]!;
 
     var candidateIndex = -1;
     for (var index = 0; index < days.length; index++) {

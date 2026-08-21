@@ -723,7 +723,13 @@ class ShellController extends FrameSafeNotifier {
     unawaited(forumTabs.save(_forumWorkspaces.values));
   }
 
-  /// Persists scroll anchors on a trailing edge instead of per change.
+  /// Persists scroll anchors once per window instead of once per change.
+  ///
+  /// A fixed window, deliberately, not a window each change restarts: an
+  /// uninterrupted scroll emits anchors continuously, and a restarting window
+  /// would defer every write to whenever it happened to stop. What
+  /// [anchorPersistDebounce] promises is a bound on how stale the persisted
+  /// anchor may be, which only a fixed window gives.
   ///
   /// The active tab is updated before this runs — widgets read anchors from
   /// memory synchronously — and the eventual write serialises that live state,

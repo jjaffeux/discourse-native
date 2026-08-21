@@ -1697,11 +1697,7 @@ class ChatController extends FrameSafeNotifier {
         // A root original may carry its thread id and nested preview, while a
         // reply carries a thread id without that nested root summary.
         if (message.threadId != null && message.thread == null) return;
-        final replaced = store.read<ChatMessage>(siteUrl, message.id);
-        store.put(siteUrl, message);
-        if (replaced != null && replaced.isDeleted != message.isDeleted) {
-          _bumpStreamsHolding(siteUrl, message.id);
-        }
+        _putLiveMessage(siteUrl, message);
         final target = ChatChannelTarget(channelId);
         final key = _targetKey(siteUrl, target);
         final window = streamFor(siteUrl, target);
@@ -1803,11 +1799,7 @@ class ChatController extends FrameSafeNotifier {
         // applying either incremental copy here would double reactions and
         // other non-idempotent updates while both panes are mounted.
         if (message.id == originalId) return;
-        final replaced = store.read<ChatMessage>(siteUrl, message.id);
-        store.put(siteUrl, message);
-        if (replaced != null && replaced.isDeleted != message.isDeleted) {
-          _bumpStreamsHolding(siteUrl, message.id);
-        }
+        _putLiveMessage(siteUrl, message);
         if (data['type'] == 'sent' && !window.messageIds.contains(message.id)) {
           _applyLiveMessage(siteUrl, key, window, message);
         }
@@ -1826,6 +1818,46 @@ class ChatController extends FrameSafeNotifier {
         if (jsonIntOrNull(data['chat_message_id']) == originalId) return;
         _applyReactionEvent(siteUrl, data);
         break;
+    }
+  }
+
+  /// Folds messages parked beyond a window into the list that closes its seam.
+  ///
+  /// A `sent` event can outrun the response reaching the present: published
+  /// after the server built that page, parked because the window it would
+  /// have joined could not yet append it. It is in neither the page nor the
+  /// held list, so a seam that closes without it claims the present with that
+  /// message missing forever.
+  ///
+  /// Clearing is part of the same step and stays here with it: the park exists
+  /// only until something can carry it, and emptying it before the merge — or
+  /// in a caller that forgets to — is how the message is dropped.
+  List<int> _withSeamStragglers(
+    String siteUrl,
+    Set<int> pendingIds,
+    List<int> held,
+  ) {
+    final stragglers = _pendingBeyondWindow(siteUrl, pendingIds, held);
+    final merged = stragglers.isEmpty
+        ? held
+        : _sortedIds(siteUrl, stragglers, held: held);
+    pendingIds.clear();
+    return merged;
+  }
+
+  /// Commits a live record, reprojecting the windows holding it when the
+  /// change is one an id list cannot express.
+  ///
+  /// The single owner of that rule on purpose: a window's projection is keyed
+  /// on its id list, so a record that flips between deleted and present
+  /// changes the rendered shape without changing any list. Any future handler
+  /// that puts a [ChatMessage] goes through here rather than rediscovering
+  /// that a store write alone leaves mounted panes stale.
+  void _putLiveMessage(String siteUrl, ChatMessage message) {
+    final replaced = store.read<ChatMessage>(siteUrl, message.id);
+    store.put(siteUrl, message);
+    if (replaced != null && replaced.isDeleted != message.isDeleted) {
+      _bumpStreamsHolding(siteUrl, message.id);
     }
   }
 
@@ -3201,15 +3233,11 @@ class ChatController extends FrameSafeNotifier {
           // published after the server built this window, parked because the
           // predecessor could not append it. Merge those stragglers in
           // rather than dropping them into a permanent hole at the live edge.
-          final base = _sortedIds(siteUrl, [
-            ...page.messages,
-            ...arrivedWhileLoading,
-          ]);
-          final stragglers = _pendingBeyondWindow(siteUrl, pendingIds, base);
-          messageIds = stragglers.isEmpty
-              ? base
-              : _sortedIds(siteUrl, stragglers, held: base);
-          pendingIds.clear();
+          messageIds = _withSeamStragglers(
+            siteUrl,
+            pendingIds,
+            _sortedIds(siteUrl, [...page.messages, ...arrivedWhileLoading]),
+          );
         }
         final lastReadOnOpen = target.threadId == null
             ? channel(siteUrl, target.channelId)?.membership.lastReadMessageId
@@ -3472,19 +3500,7 @@ class ChatController extends FrameSafeNotifier {
         if (pendingIds != null) {
           pendingIds.removeAll(page.messages.map((message) => message.id));
           if (!canLoadMoreFuture) {
-            // The same seam race as [_fetchWindow]: a `sent` event published
-            // after the server built the page that closes the seam is parked
-            // here, in neither the page nor the held window. Merge it or the
-            // window claims the present with that message missing forever.
-            final stragglers = _pendingBeyondWindow(
-              siteUrl,
-              pendingIds,
-              merged,
-            );
-            if (stragglers.isNotEmpty) {
-              merged = _sortedIds(siteUrl, stragglers, held: merged);
-            }
-            pendingIds.clear();
+            merged = _withSeamStragglers(siteUrl, pendingIds, merged);
           }
         }
 
