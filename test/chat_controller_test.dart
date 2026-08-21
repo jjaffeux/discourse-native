@@ -2576,7 +2576,9 @@ void main() {
       // Sent from a window that is still behind the present, so the optimistic
       // row cannot be retired on the response: its canonical id is not in the
       // held list yet.
-      await subject.chat.sendMessage(site, 9, OutgoingChatMessage.text('mine'));
+      await subject.chat
+          .sendMessage(site, 9, OutgoingChatMessage.text('mine'))!
+          .settled;
       expect(subject.chat.stream(site, 9).localMessageIds, isNotEmpty);
 
       // The echo is published after the server built the seam-closing page, so
