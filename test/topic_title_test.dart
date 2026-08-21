@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/emoji_cache.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -68,6 +69,7 @@ void main() {
     await tester.pumpWidget(
       _TestTitle(controller: controller, title: ':wave:t3::sparkles:'),
     );
+    await tester.pumpAndSettle();
 
     expect(
       tester
@@ -80,7 +82,20 @@ void main() {
 
 ShellController _controller() => ShellController(
   instanceStore: FakeInstanceStore([instance('meta.example')]),
-  api: FakeDiscourseApi(),
+  // Titles draw only what the site registers, so every shortcode these tests
+  // expect as artwork has to be a name the catalog knows.
+  api: FakeDiscourseApi(
+    emojisBySite: {
+      'https://meta.example': const [
+        SiteEmoji(
+          name: 'high_voltage',
+          url: '/images/emoji/twitter/high_voltage.png',
+        ),
+        SiteEmoji(name: 'wave', url: '/images/emoji/wave.png', tonable: true),
+        SiteEmoji(name: 'sparkles', url: '/images/emoji/sparkles.png'),
+      ],
+    },
+  ),
   authenticator: FakeAuthenticator(),
   drafts: FakeDraftStore(),
   trackers: FakeSiteTracker.reset(),

@@ -5611,6 +5611,11 @@ class ShellController extends FrameSafeNotifier {
   String emojiUrlFor(String siteUrl, String name) =>
       _presentation.emojiUrlFor(siteUrl, name);
 
+  /// Whether a shortcode names emoji this site is known to serve; see
+  /// [SitePresentationController.knowsEmoji] for what false covers.
+  bool knowsEmoji(String siteUrl, String name) =>
+      _presentation.knowsEmoji(siteUrl, name);
+
   /// Opaque identity for widgets whose presentation depends on this site's
   /// settings or custom emoji artwork.
   Object presentationTokenFor(String siteUrl) =>
@@ -6436,6 +6441,11 @@ class ShellController extends FrameSafeNotifier {
     if (canRead) {
       unawaited(_presentation.ensureConfig(instance.url));
       unawaited(_presentation.ensureCustomEmojis(instance.url));
+      // Titles draw only the shortcodes the catalog vouches for, so it is a
+      // dependency of the first topic list rather than of the composer that
+      // used to be the only thing asking. Warmed alongside the feed, it lands
+      // with the rows instead of turning every title into a second frame.
+      unawaited(_presentation.ensureEmojiCatalog(instance.url));
       unawaited(_ensureCategoriesFor(instance));
     }
     if (instance.isConnected) unawaited(resenha.ensureLoaded(instance.url));

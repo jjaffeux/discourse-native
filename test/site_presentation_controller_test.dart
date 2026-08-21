@@ -383,6 +383,30 @@ void main() {
     controller.dispose();
   });
 
+  test('knowsEmoji answers from custom uploads and the catalog', () async {
+    final api = _PresentationApi()
+      ..custom = {'partyparrot': '/uploads/parrot.png'}
+      ..emojis = const [
+        SiteEmoji(name: 'tada', url: 'tada.png'),
+        SiteEmoji(name: 'wave', url: 'wave.png', tonable: true),
+      ];
+    final controller = _controller(api);
+
+    // Nothing fetched yet: no name may fabricate an artwork address.
+    expect(controller.knowsEmoji(site, 'tada'), isFalse);
+
+    await controller.ensureCustomEmojis(site);
+    expect(controller.knowsEmoji(site, 'partyparrot'), isTrue);
+    expect(controller.knowsEmoji(site, 'tada'), isFalse);
+
+    await controller.ensureEmojiCatalog(site);
+    expect(controller.knowsEmoji(site, 'tada'), isTrue);
+    expect(controller.knowsEmoji(site, 'wave:t3'), isTrue);
+    expect(controller.knowsEmoji(site, '30'), isFalse);
+    expect(controller.knowsEmoji('https://other.example', 'tada'), isFalse);
+    controller.dispose();
+  });
+
   test('emoji index shares its request without presentation churn', () async {
     final api = _PresentationApi();
     final gate = Completer<List<SiteEmoji>>();

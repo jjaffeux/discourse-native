@@ -514,6 +514,14 @@ void main() {
         searchResults: const {
           'emoji': SearchResults(hits: [hit]),
         },
+        // Only registered shortcodes may be drawn, so the names the fixture
+        // titles carry must exist in the site's catalog.
+        emojisBySite: {
+          'https://meta.discourse.org': const [
+            SiteEmoji(name: 'sparkles', url: '/images/emoji/sparkles.png'),
+            SiteEmoji(name: 'cry', url: '/images/emoji/cry.png'),
+          ],
+        },
       );
       await pumpShell(tester, laptop, api: api);
       EmojiCache.instance = EmojiCache(
