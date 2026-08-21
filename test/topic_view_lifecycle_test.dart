@@ -603,6 +603,69 @@ void main() {
     expect(controller.currentTopicHasEarlier, isFalse);
   });
 
+  testWidgets('a scroll retries a failed next page instead of looping', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final posts = {
+      for (var number = 1; number <= 26; number++)
+        number: Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: List.filled(8, '<p>Long post $number</p>').join(),
+        ),
+    };
+    final api = _FailingOncePostsApi(posts);
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (var id = 1; id <= 26; id++) id],
+          postsCount: 26,
+        ),
+      )
+      ..putAll(site.url, [for (var id = 1; id <= 20; id++) posts[id]!]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+    expect(api.postFetches, isEmpty);
+
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+
+    // The failed page rebuilds the last post, and that rebuild must not chain
+    // straight into another copy of the same request.
+    expect(api.postFetches, [
+      [for (var id = 21; id <= 26; id++) id],
+    ]);
+    expect(controller.currentPostIds, [for (var id = 1; id <= 20; id++) id]);
+    expect(controller.currentTopicHasMore, isTrue);
+
+    final vertical = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.down,
+    );
+    await tester.drag(vertical.first, const Offset(0, -200));
+    await tester.pumpAndSettle();
+
+    expect(api.postFetches, [
+      [for (var id = 21; id <= 26; id++) id],
+      [for (var id = 21; id <= 26; id++) id],
+    ]);
+    expect(controller.currentPostIds, [for (var id = 1; id <= 26; id++) id]);
+    expect(controller.currentTopicHasMore, isFalse);
+  });
+
   testWidgets('pulling past the first post does not fetch it again', (
     tester,
   ) async {
@@ -986,5 +1049,24 @@ final class _FailingOncePostsApi extends FakeDiscourseApi {
       throw StateError('transient failure');
     }
     return ids.map((id) => postsById[id]).whereType<Post>().toList();
+  }
+
+  @override
+  Future<TopicPostsPayload> topicPosts({
+    required String siteUrl,
+    required int topicId,
+    required List<int> ids,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    postFetches.add(List.of(ids));
+    if (!_failed) {
+      _failed = true;
+      throw StateError('transient failure');
+    }
+    return (
+      posts: ids.map((id) => postsById[id]).whereType<Post>().toList(),
+      recommendations: null,
+    );
   }
 }

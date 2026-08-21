@@ -663,22 +663,37 @@ class _TopicViewState extends State<TopicView> {
       return;
     }
 
+    // The target survives the request, so a failed page — which leaves the
+    // post count unchanged — cannot be re-requested by the rebuild it causes.
+    // A landed page changes the count and with it the target.
     final target = (siteUrl, topicId, snapshot.postIds.length);
-    if (_loadMoreToken != null && _loadMoreTarget == target) return;
+    if (_loadMoreTarget == target) return;
 
     final token = Object();
     _loadMoreToken = token;
     _loadMoreTarget = target;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (identical(_loadMoreToken, token)) {
-        _loadMoreToken = null;
-        _loadMoreTarget = null;
+      if (!identical(_loadMoreToken, token)) return;
+      _loadMoreToken = null;
+      if (!mounted ||
+          !identical(ShellScope.read(context), controller) ||
+          _TopicViewSnapshot.from(controller) != snapshot) {
+        if (_loadMoreTarget == target) _loadMoreTarget = null;
+        return;
       }
-      if (!mounted) return;
-      if (!identical(ShellScope.read(context), controller)) return;
-      if (_TopicViewSnapshot.from(controller) != snapshot) return;
       unawaited(controller.loadMorePosts());
     });
+  }
+
+  void _allowLoadMoreRetry(_TopicViewSnapshot snapshot) {
+    if (_loadMoreToken != null || !snapshot.hasMore || snapshot.loadingMore) {
+      return;
+    }
+    final siteUrl = snapshot.siteUrl;
+    final topicId = snapshot.topicId;
+    if (siteUrl == null || topicId == null) return;
+    final target = (siteUrl, topicId, snapshot.postIds.length);
+    if (_loadMoreTarget == target) _loadMoreTarget = null;
   }
 
   void _scheduleLoadEarlier(
@@ -804,12 +819,13 @@ class _TopicViewState extends State<TopicView> {
           // after the scroll notification. Looking synchronously here reads
           // the previous viewport and repeatedly credits the old post.
           _scheduleLook(saveAnchor: notification is ScrollEndNotification);
-          // A failed page stays suppressed through the rebuild it causes, so
-          // it cannot retry in a tight loop. A fresh scroll deliberately
-          // re-arms that same page, including when the pane is too short to
-          // ever leave the threshold.
+          // A failed page in either direction stays suppressed through the
+          // rebuild it causes, so it cannot retry in a tight loop. A fresh
+          // scroll deliberately re-arms that same page, including when the
+          // pane is too short to ever leave the threshold.
           if (notification is ScrollStartNotification && !_restoring) {
             _allowLoadEarlierRetry(snapshot);
+            _allowLoadMoreRetry(snapshot);
           }
           if (notification.metrics.extentBefore <
               TopicView._loadPostsThreshold) {
@@ -820,6 +836,8 @@ class _TopicViewState extends State<TopicView> {
           if (notification.metrics.extentAfter <
               TopicView._loadPostsThreshold) {
             _scheduleLoadMore(controller, snapshot);
+          } else if (!snapshot.loadingMore) {
+            _allowLoadMoreRetry(snapshot);
           }
         }
         return false;
@@ -1459,6 +1477,36 @@ class _TopicPostItem extends StatelessWidget {
   }
 }
 
+const List<String> _monthNames = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+/// Today and yesterday by name, everything else by date.
+///
+/// Days are compared as calendar dates, not elapsed time: local midnights on
+/// either side of a DST change sit 23 or 25 hours apart, and a truncating
+/// duration difference would then misname the days after a transition.
+@visibleForTesting
+String topicDayLabel(DateTime day, {required DateTime now}) {
+  final today = DateTime.utc(now.year, now.month, now.day);
+  final start = DateTime.utc(day.year, day.month, day.day);
+  final delta = today.difference(start).inDays;
+  if (delta == 0) return 'Today';
+  if (delta == 1) return 'Yesterday';
+  return '${day.day} ${_monthNames[day.month - 1]} ${day.year}';
+}
+
 /// The date line in the stream and the bordered pill it becomes once pinned.
 class _TopicDaySeparator extends StatelessWidget {
   const _TopicDaySeparator({
@@ -1474,29 +1522,7 @@ class _TopicDaySeparator extends StatelessWidget {
   final VoidCallback onTap;
   final bool floating;
 
-  static const List<String> _months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-
-  String get _label {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final delta = today.difference(day).inDays;
-    if (delta == 0) return 'Today';
-    if (delta == 1) return 'Yesterday';
-    return '${day.day} ${_months[day.month - 1]} ${day.year}';
-  }
+  String get _label => topicDayLabel(day, now: DateTime.now());
 
   @override
   Widget build(BuildContext context) {
