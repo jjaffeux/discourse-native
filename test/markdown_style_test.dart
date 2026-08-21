@@ -29,6 +29,17 @@ void main() {
     }
   });
 
+  test('keeps the heading level when an inline tag shares the detail', () {
+    // `## See <kbd>x</kbd>`: the kbd span appends its name to the shared
+    // detail slot, and the level must still parse from the first component.
+    final style = markdownStyle(Md.heading | Md.htmlTag, '2,kbd', base, theme);
+
+    expect(
+      style.fontSize,
+      markdownStyle(Md.heading | Md.htmlTag, '2', base, theme).fontSize,
+    );
+  });
+
   test('keeps quoted prose in the normal cooked foreground', () {
     final style = markdownStyle(Md.quote, null, base, theme);
 
