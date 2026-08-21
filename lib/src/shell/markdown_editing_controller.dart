@@ -529,6 +529,18 @@ class MarkdownEditingController extends TextEditingController {
   Timer? _fenceHighlightTimer;
   List<({String body, String? language})> _pendingFences = const [];
 
+  /// Fence bodies already parsed once for [_parsedFenceSource].
+  ///
+  /// The highlight cache is process-wide and bounded, so a document with more
+  /// large fences than it holds evicts its own earlier entries: the rescan
+  /// after a parse round finds those bodies uncached, defers them again, and
+  /// the cycle repeats for as long as the composer is open. Remembering what
+  /// this text has already been through makes the deferred set shrink round
+  /// over round; a fence that was parsed and then evicted stays plain rather
+  /// than restarting the timer forever.
+  String? _parsedFenceSource;
+  final Set<String> _parsedFences = {};
+
   /// [buildTextSpan] is called on every keystroke, every caret move and every
   /// frame of a selection drag, while the scan only depends on the text. A
   /// fenced block is tokenized by `highlightLines`, which is expensive enough
@@ -544,7 +556,7 @@ class MarkdownEditingController extends TextEditingController {
       deferHighlight: (body, language) =>
           deferred.add((body: body, language: language)),
     );
-    _scheduleFenceHighlight(deferred);
+    _scheduleFenceHighlight(source, deferred);
     return _runs = runs;
   }
 
@@ -556,13 +568,23 @@ class MarkdownEditingController extends TextEditingController {
   /// [fenceHighlightDebounce] the parse runs off the keystroke, warms the
   /// cache, and a rescan repaints with the colour in place. The final state is
   /// always the fully highlighted one — only the in-between keystrokes skip it.
-  void _scheduleFenceHighlight(List<({String body, String? language})> fences) {
+  void _scheduleFenceHighlight(
+    String source,
+    List<({String body, String? language})> fences,
+  ) {
     _fenceHighlightTimer?.cancel();
     _fenceHighlightTimer = null;
+    if (_parsedFenceSource != source) {
+      _parsedFenceSource = source;
+      _parsedFences.clear();
+    }
     // Replaced wholesale on every scan, so a fence edited away mid-debounce is
     // never parsed on its way out.
-    _pendingFences = fences;
-    if (fences.isEmpty) return;
+    _pendingFences = [
+      for (final fence in fences)
+        if (!_parsedFences.contains(fence.body)) fence,
+    ];
+    if (_pendingFences.isEmpty) return;
     _fenceHighlightTimer = Timer(fenceHighlightDebounce, () {
       _fenceHighlightTimer = null;
       if (_disposed) return;
@@ -570,6 +592,7 @@ class MarkdownEditingController extends TextEditingController {
         // For the side effect: the tokens land in the highlight cache, where
         // the rescan below finds them and takes the synchronous path.
         highlightLines(fence.body, fence.language);
+        _parsedFences.add(fence.body);
       }
       _pendingFences = const [];
       _scanned = null;

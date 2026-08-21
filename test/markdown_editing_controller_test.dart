@@ -264,6 +264,38 @@ void main() {
       );
     });
 
+    testWidgets('more fences than the cache holds still settles', (
+      tester,
+    ) async {
+      // The highlight cache is process-wide and bounded, so a document with
+      // more large fences than it holds evicts its own earlier entries. The
+      // rescan after a parse round then finds them uncached; re-deferring
+      // those would restart the timer forever on an idle composer.
+      final crowded = [
+        for (var fence = 0; fence < syntaxHighlightCacheCapacity + 8; fence++)
+          '```dart\n${List.generate(60, (line) => 'final v$fence$line = $line;').join('\n')}\n```',
+      ].join('\n\n');
+
+      await pumpField(tester, crowded);
+
+      // Settle: each round may only parse bodies it has not parsed before, so
+      // the deferred set shrinks to nothing instead of cycling. Teardown is
+      // the assertion — flutter_test fails a test that leaves a Timer pending,
+      // which a cycling debounce always does.
+      for (var round = 0; round < 6; round++) {
+        await tester.pump(MarkdownEditingController.fenceHighlightDebounce);
+        await tester.pump();
+      }
+
+      // Settling is not the same as giving up: the fences the cache did keep
+      // are still coloured.
+      final keyword = crowded.lastIndexOf('final v');
+      expect(
+        styleAt(tester, crowded, keyword).color,
+        AppTheme.dark.code.keyword,
+      );
+    });
+
     testWidgets('disposal cancels the pending tokenization', (tester) async {
       final local = MarkdownEditingController(text: largeSource);
       await tester.pumpWidget(
