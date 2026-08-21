@@ -39,6 +39,14 @@ pin, the lockfile, and the README's Requirements line must move together.
   listening goes through `ShellScope` / `ShellSelector`.
   `shell_rebuild_isolation_test.dart` pins this; keep new state out of the
   facade's `notifyListeners()` unless it is genuinely shell-wide.
+- `shell_controller.dart` being the largest file is a consequence of that
+  facade, not a backlog item. Splitting it has been measured: the composer
+  submit path, the instance-order cluster and `_forgetSiteState` are each
+  bidirectionally wired to navigation, topic state and the sub-controllers at
+  once, and the one genuinely clean seam (the hashtag/mention identity caches)
+  is ~4% of the file. Extracting state that *does* change independently is
+  welcome — that is how the eleven existing sub-controllers got there — but
+  moving lines to shrink the file is not, and has been declined deliberately.
 - Cooked-HTML parsers (oneboxes, hashtags, polls, local dates) depend on exact
   upstream markup. The upstream sources are snapshotted under `tool/*_snapshot/`
   and checked by `dart run tool/markup_contract.dart`; when changing a parser,
