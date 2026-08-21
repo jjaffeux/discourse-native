@@ -2219,14 +2219,39 @@ class ShellController extends FrameSafeNotifier {
   /// The topic knows every post id it has; the store knows which of them have
   /// actually been fetched. An ordinary load draws the fetched prefix, while
   /// a numbered load draws the fetched window around its target.
+  ///
+  /// Memoized: every shell notification re-selects a snapshot, and each
+  /// post-frame viewport look asks again, so an uncached answer costs a store
+  /// read per loaded post per frame. The key is exactly what the derivation
+  /// reads — the site, the detail record, the route's target post, and the
+  /// site's post-change generation.
   List<int> get currentPostIds {
     final instance = currentInstance;
     final detail = currentTopic;
     if (instance == null || detail == null) return const [];
+    final key = (
+      instance.url,
+      detail,
+      currentContent?.postNumber,
+      store.generationOf<Post>(instance.url),
+    );
+    final cachedKey = _postIdsCacheKey;
+    if (cachedKey != null &&
+        cachedKey.$1 == key.$1 &&
+        identical(cachedKey.$2, key.$2) &&
+        cachedKey.$3 == key.$3 &&
+        cachedKey.$4 == key.$4) {
+      return _postIdsCache;
+    }
     final range = _loadedPostRange(instance.url, detail);
-    if (range == null) return const [];
-    return [for (final id in detail.stream.sublist(range.$1, range.$2 + 1)) id];
+    _postIdsCacheKey = key;
+    return _postIdsCache = range == null
+        ? const []
+        : [for (final id in detail.stream.sublist(range.$1, range.$2 + 1)) id];
   }
+
+  List<int> _postIdsCache = const [];
+  (String, TopicDetail, int?, int)? _postIdsCacheKey;
 
   /// The loaded window to draw.
   ///

@@ -603,6 +603,53 @@ void main() {
     expect(controller.currentTopicHasEarlier, isFalse);
   });
 
+  testWidgets('the loaded post window is derived once per change', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final posts = {
+      for (var number = 1; number <= 6; number++)
+        number: Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: '<p>Post $number</p>',
+        ),
+    };
+    final controller = _controller(site, _FailingOncePostsApi(posts));
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (var id = 1; id <= 6; id++) id],
+          postsCount: 6,
+        ),
+      )
+      ..putAll(site.url, posts.values);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    // Every shell notification re-selects a snapshot, so the derivation must
+    // not walk the store again while nothing it reads has changed.
+    final first = controller.currentPostIds;
+    expect(first, [1, 2, 3, 4, 5, 6]);
+    expect(identical(controller.currentPostIds, first), isTrue);
+
+    // Any post change on the site invalidates the memo.
+    controller.store.put(
+      site.url,
+      const Post(id: 3, postNumber: 3, username: 'sam', cooked: '<p>New</p>'),
+    );
+    final replaced = controller.currentPostIds;
+    expect(identical(replaced, first), isFalse);
+    expect(replaced, [1, 2, 3, 4, 5, 6]);
+  });
+
   testWidgets('a scroll retries a failed next page instead of looping', (
     tester,
   ) async {
