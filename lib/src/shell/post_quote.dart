@@ -73,11 +73,19 @@ final RegExp _selectionLineBreaks = RegExp(r'[\r\n]');
 
 typedef _MarkdownMark = ({String open, String close});
 
+/// Whitespace the renderer collapses to a single space outside `pre`.
+final RegExp _collapsibleWhitespace = RegExp(r'[ \t\r\n\f]+');
+
 class _CookedSelectionCharacter {
-  const _CookedSelectionCharacter(this.value, this.marks);
+  const _CookedSelectionCharacter(
+    this.value,
+    this.marks, [
+    this.preformatted = false,
+  ]);
 
   final String value;
   final List<_MarkdownMark> marks;
+  final bool preformatted;
 }
 
 class _CookedSelectionSource {
@@ -97,25 +105,35 @@ class _CookedSelectionSource {
 
     final fragment = html.parseFragment(cooked);
     final pending =
-        <({dom.Node node, List<_MarkdownMark> marks, bool exiting})>[];
-    void pushNodes(List<dom.Node> nodes, List<_MarkdownMark> marks) {
+        <
+          ({dom.Node node, List<_MarkdownMark> marks, bool exiting, bool pre})
+        >[];
+    void pushNodes(List<dom.Node> nodes, List<_MarkdownMark> marks, bool pre) {
       for (var index = nodes.length - 1; index >= 0; index--) {
-        pending.add((node: nodes[index], marks: marks, exiting: false));
+        pending.add((
+          node: nodes[index],
+          marks: marks,
+          exiting: false,
+          pre: pre,
+        ));
       }
     }
 
-    pushNodes(fragment.nodes, const []);
+    pushNodes(fragment.nodes, const [], false);
     while (pending.isNotEmpty) {
       final frame = pending.removeLast();
       final node = frame.node;
       if (node is dom.Text) {
-        final value = node.data;
+        // Markdown cooks whitespace between and inside blocks — `<p>a</p>\n`
+        // — that the renderer never draws as written. Collapse it the way CSS
+        // does so the index holds the character stream a selection reports;
+        // `pre` content keeps its indentation and line structure.
+        final value = frame.pre
+            ? node.data
+            : node.data.replaceAll(_collapsibleWhitespace, ' ');
         for (var index = 0; index < value.length; index++) {
           characters.add(
-            _CookedSelectionCharacter(
-              value.substring(index, index + 1),
-              frame.marks,
-            ),
+            _CookedSelectionCharacter(value[index], frame.marks, frame.pre),
           );
         }
         continue;
@@ -136,10 +154,43 @@ class _CookedSelectionSource {
       final childMarks = mark == null
           ? frame.marks
           : List<_MarkdownMark>.unmodifiable([...frame.marks, mark]);
-      pending.add((node: node, marks: childMarks, exiting: true));
-      pushNodes(node.nodes, childMarks);
+      final pre = frame.pre || node.localName == 'pre';
+      pending.add((node: node, marks: childMarks, exiting: true, pre: pre));
+      pushNodes(node.nodes, childMarks, pre);
     }
-    return _CookedSelectionSource(characters, breaks);
+    return _CookedSelectionSource._trimmed(characters, breaks);
+  }
+
+  /// Drops the collapsed spaces the renderer never draws: those at block
+  /// boundaries, at either end of the post, and runs left by adjacent text
+  /// nodes. What survives is exactly the rendered character stream, offset by
+  /// offset, with the break map rekeyed to match.
+  factory _CookedSelectionSource._trimmed(
+    List<_CookedSelectionCharacter> characters,
+    Map<int, int> breaks,
+  ) {
+    final kept = <_CookedSelectionCharacter>[];
+    final keptBreaks = <int, int>{};
+
+    for (var offset = 0; offset < characters.length; offset++) {
+      final lines = breaks[offset];
+      if (lines != null && kept.isNotEmpty) {
+        final current = keptBreaks[kept.length] ?? 0;
+        if (lines > current) keptBreaks[kept.length] = lines;
+      }
+      final character = characters[offset];
+      if (character.value == ' ' &&
+          !character.preformatted &&
+          (kept.isEmpty ||
+              offset == characters.length - 1 ||
+              breaks.containsKey(offset) ||
+              breaks.containsKey(offset + 1) ||
+              (kept.last.value == ' ' && !kept.last.preformatted))) {
+        continue;
+      }
+      kept.add(character);
+    }
+    return _CookedSelectionSource(kept, keptBreaks);
   }
 
   final List<_CookedSelectionCharacter> characters;
