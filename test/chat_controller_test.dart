@@ -2559,6 +2559,50 @@ void main() {
       expect(stream.atPresent, isTrue);
     });
 
+    test('a straggling own message retires the row standing in for it', () async {
+      final subject = build(
+        messages: {
+          key(9): page([message(5, minute: 5)], canLoadMoreFuture: true),
+          key(9, after: 5): page([message(6, minute: 6)]),
+        },
+        sentMessageId: 42,
+        currentUser: currentUser,
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+      // Sent from a window that is still behind the present, so the optimistic
+      // row cannot be retired on the response: its canonical id is not in the
+      // held list yet.
+      await subject.chat.sendMessage(site, 9, OutgoingChatMessage.text('mine'));
+      expect(subject.chat.stream(site, 9).localMessageIds, isNotEmpty);
+
+      // The echo is published after the server built the seam-closing page, so
+      // it parks rather than appending.
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'sent',
+        'chat_message': {
+          'id': 42,
+          'chat_channel_id': 9,
+          'cooked': '<p>mine</p>',
+          'created_at': '2026-05-05T10:07:00.000Z',
+          'user': {'id': currentUser.id, 'username': currentUser.username},
+        },
+      });
+
+      await subject.chat.loadNewer(site, 9);
+
+      // Merging the straggler admits the canonical message, so the row that
+      // was standing in for it has to go with it — otherwise the sender sees
+      // their own message twice for the life of the window.
+      final stream = subject.chat.stream(site, 9);
+      expect(stream.messageIds, [5, 6, 42]);
+      expect(stream.localMessageIds, isEmpty);
+      expect(subject.chat.messages(site, 9).map((m) => m.id), [5, 6, 42]);
+    });
+
     test(
       'an invalidated lease stops a newer page before client-id and API work',
       () async {

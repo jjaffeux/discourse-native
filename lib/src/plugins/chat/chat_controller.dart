@@ -1832,7 +1832,7 @@ class ChatController extends FrameSafeNotifier {
   /// Clearing is part of the same step and stays here with it: the park exists
   /// only until something can carry it, and emptying it before the merge — or
   /// in a caller that forgets to — is how the message is dropped.
-  List<int> _withSeamStragglers(
+  ({List<int> ids, List<ChatMessage> stragglers}) _withSeamStragglers(
     String siteUrl,
     Set<int> pendingIds,
     List<int> held,
@@ -1842,7 +1842,12 @@ class ChatController extends FrameSafeNotifier {
         ? held
         : _sortedIds(siteUrl, stragglers, held: held);
     pendingIds.clear();
-    return merged;
+    // The stragglers travel back out because arriving in the id list is only
+    // half of what a canonical message does: the sender's own optimistic row
+    // is still standing in for it, and every other route that admits an id
+    // retires that row in the same breath. A straggler that skipped it would
+    // render the reader's message twice.
+    return (ids: merged, stragglers: stragglers);
   }
 
   /// Commits a live record, reprojecting the windows holding it when the
@@ -3243,6 +3248,7 @@ class ChatController extends FrameSafeNotifier {
         store.putAll(siteUrl, page.messages);
         final pendingIds = _pendingLiveMessageIds.putIfAbsent(key, () => {});
         final List<int> messageIds;
+        var retired = page.messages;
         if (page.canLoadMoreFuture) {
           messageIds = _sortedIds(siteUrl, page.messages);
           pendingIds.addAll(arrivedWhileLoading.map((message) => message.id));
@@ -3251,11 +3257,13 @@ class ChatController extends FrameSafeNotifier {
           // published after the server built this window, parked because the
           // predecessor could not append it. Merge those stragglers in
           // rather than dropping them into a permanent hole at the live edge.
-          messageIds = _withSeamStragglers(
+          final seam = _withSeamStragglers(
             siteUrl,
             pendingIds,
             _sortedIds(siteUrl, [...page.messages, ...arrivedWhileLoading]),
           );
+          messageIds = seam.ids;
+          retired = [...page.messages, ...seam.stragglers];
         }
         final lastReadOnOpen = target.threadId == null
             ? channel(siteUrl, target.channelId)?.membership.lastReadMessageId
@@ -3264,11 +3272,7 @@ class ChatController extends FrameSafeNotifier {
           key,
           ChatStreamState(
             messageIds: messageIds,
-            localMessageIds: _retireCanonicalLocals(
-              siteUrl,
-              current,
-              page.messages,
-            ),
+            localMessageIds: _retireCanonicalLocals(siteUrl, current, retired),
             canLoadMorePast: page.canLoadMorePast,
             canLoadMoreFuture: page.canLoadMoreFuture,
             pendingNewMessages: pendingIds.length,
@@ -3515,10 +3519,13 @@ class ChatController extends FrameSafeNotifier {
         final canLoadMoreFuture =
             merged.length > current.messageIds.length && page.canLoadMoreFuture;
         final pendingIds = _pendingLiveMessageIds[key];
+        var retired = page.messages;
         if (pendingIds != null) {
           pendingIds.removeAll(page.messages.map((message) => message.id));
           if (!canLoadMoreFuture) {
-            merged = _withSeamStragglers(siteUrl, pendingIds, merged);
+            final seam = _withSeamStragglers(siteUrl, pendingIds, merged);
+            merged = seam.ids;
+            retired = [...page.messages, ...seam.stragglers];
           }
         }
 
@@ -3526,11 +3533,7 @@ class ChatController extends FrameSafeNotifier {
           key,
           current.copyWith(
             messageIds: merged,
-            localMessageIds: _retireCanonicalLocals(
-              siteUrl,
-              current,
-              page.messages,
-            ),
+            localMessageIds: _retireCanonicalLocals(siteUrl, current, retired),
             canLoadMoreFuture: canLoadMoreFuture,
             pendingNewMessages: canLoadMoreFuture
                 ? pendingIds?.length ?? current.pendingNewMessages
