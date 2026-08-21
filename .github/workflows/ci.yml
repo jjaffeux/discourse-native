@@ -106,7 +106,19 @@ jobs:
         run: flutter pub get --enforce-lockfile
 
       - name: Build macOS bundle
-        run: flutter build macos --debug
+        # `flutter build macos` has no --no-codesign, and the Xcode project now
+        # names the TestFlight team, which the runner has no certificate for.
+        # Generate the Xcode configuration, then drive xcodebuild directly with
+        # signing disabled — the same arrangement the iOS RunnerTests step uses.
+        run: |
+          set -euo pipefail
+          flutter build macos --debug --config-only
+          xcodebuild build \
+            -workspace macos/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Debug \
+            -derivedDataPath build/macos-ci \
+            CODE_SIGNING_ALLOWED=NO
 
       - name: Build iOS simulator bundle
         run: flutter build ios --simulator --debug --no-codesign
@@ -131,5 +143,5 @@ jobs:
       - name: Smoke-check native bundles
         run: |
           set -euo pipefail
-          test -x build/macos/Build/Products/Debug/Discourse.app/Contents/MacOS/Discourse
+          test -x build/macos-ci/Build/Products/Debug/Discourse.app/Contents/MacOS/Discourse
           test -d build/ios/iphonesimulator/Runner.app
