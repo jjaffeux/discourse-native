@@ -297,6 +297,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   List<int>? _projectedMessageIds;
   List<int>? _projectedLocalMessageIds;
   int? _projectedLastRead;
+  int? _projectedRevision;
   List<ChatMessage> _messages = const [];
   List<ChatStreamItem> _items = const [];
   int _focusComposerRequest = 0;
@@ -461,12 +462,14 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   void _syncProjection(ChatStreamState stream) {
     if (identical(_projectedMessageIds, stream.messageIds) &&
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
-        _projectedLastRead == stream.lastReadOnOpen) {
+        _projectedLastRead == stream.lastReadOnOpen &&
+        _projectedRevision == stream.revision) {
       return;
     }
     _projectedMessageIds = stream.messageIds;
     _projectedLocalMessageIds = stream.localMessageIds;
     _projectedLastRead = stream.lastReadOnOpen;
+    _projectedRevision = stream.revision;
     _messages = widget.chat.messagesFor(widget.siteUrl, widget.target);
     _items = buildChatStream(
       _messages,

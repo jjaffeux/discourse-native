@@ -500,6 +500,41 @@ void main() {
     );
   });
 
+  testWidgets('a live delete collapses the message in a mounted pane', (
+    tester,
+  ) async {
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [_messagesPage(1, 3)],
+      },
+    );
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    controller.store.put(firstSite, _channel(lastRead: 3));
+
+    await controller.chat.openChannel(firstSite, 9);
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Message 2', findRichText: true),
+      findsOneWidget,
+    );
+
+    final tracker = FakeSiteTracker.built.singleWhere(
+      (tracker) => tracker.siteUrl == firstSite,
+    );
+    tracker.deliverPluginMessage('/chat/9', {
+      'type': 'delete',
+      'deleted_id': 2,
+      'deleted_at': '2026-05-05T11:00:00.000Z',
+    });
+    await tester.pump();
+
+    expect(find.textContaining('Message 2', findRichText: true), findsNothing);
+    expect(find.text('1 message deleted'), findsOneWidget);
+  });
+
   testWidgets('a live message does not move a reader scrolled into history', (
     tester,
   ) async {

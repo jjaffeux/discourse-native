@@ -91,6 +91,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   List<int>? _projectedMessageIds;
   List<int>? _projectedLocalMessageIds;
   int? _projectedLastRead;
+  int? _projectedRevision;
   List<ChatStreamItem> _items = const [];
   int? _highlightMessageId;
   int _highlightRequest = 0;
@@ -318,7 +319,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     // history accumulated so far.
     if (identical(_projectedMessageIds, stream.messageIds) &&
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
-        _projectedLastRead == stream.lastReadOnOpen) {
+        _projectedLastRead == stream.lastReadOnOpen &&
+        _projectedRevision == stream.revision) {
       return;
     }
 
@@ -338,6 +340,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     _projectedMessageIds = stream.messageIds;
     _projectedLocalMessageIds = stream.localMessageIds;
     _projectedLastRead = stream.lastReadOnOpen;
+    _projectedRevision = stream.revision;
   }
 
   /// Projects an older page without walking the accumulated history again.
@@ -351,7 +354,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     final previous = _projectedMessageIds;
     if (previous == null || previous.isEmpty) return false;
     if (!identical(_projectedLocalMessageIds, stream.localMessageIds) ||
-        _projectedLastRead != stream.lastReadOnOpen) {
+        _projectedLastRead != stream.lastReadOnOpen ||
+        _projectedRevision != stream.revision) {
       return false;
     }
 

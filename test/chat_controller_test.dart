@@ -2525,6 +2525,40 @@ void main() {
       expect(subject.chat.stream(site, 9).atPresent, isTrue);
     });
 
+    test('a sent event outrunning the seam-closing page still lands', () async {
+      final subject = anchored(
+        extra: {
+          key(9, after: 5): page([message(6, minute: 6)]),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+      // Published after the server built the `after: 5` page, delivered
+      // before that page commits: the anchored window parks it as pending.
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'sent',
+        'chat_message': {
+          'id': 7,
+          'chat_channel_id': 9,
+          'cooked': '<p>7</p>',
+          'created_at': '2026-05-05T10:07:00.000Z',
+          'user': {'id': 2, 'username': 'sam'},
+        },
+      });
+      expect(subject.chat.stream(site, 9).pendingNewMessages, 1);
+
+      await subject.chat.loadNewer(site, 9);
+
+      // The window now claims the present, so the parked message must be in
+      // it — cleared unmerged it becomes a permanent hole at the live edge.
+      final stream = subject.chat.stream(site, 9);
+      expect(stream.messageIds, [5, 6, 7]);
+      expect(stream.atPresent, isTrue);
+    });
+
     test(
       'an invalidated lease stops a newer page before client-id and API work',
       () async {
@@ -2870,6 +2904,92 @@ void main() {
         expect(subject.chat.stream(site, 9).messageIds, [30, 2]);
       },
     );
+  });
+
+  group('live deletes and restores', () {
+    Map<String, dynamic> deleteEvent(int id) => {
+      'type': 'delete',
+      'deleted_id': id,
+      'deleted_at': '2026-05-05T11:00:00.000Z',
+    };
+
+    Map<String, dynamic> restoreEvent(int id) => {
+      'type': 'restore',
+      'chat_message': {
+        'id': id,
+        'chat_channel_id': 9,
+        'cooked': '<p>$id</p>',
+        'created_at': '2026-05-05T10:00:00.000Z',
+        'user': {'id': 2, 'username': 'sam'},
+      },
+    };
+
+    test('a delete reaching a held window reprojects it', () async {
+      final subject = build(
+        messages: {
+          key(9): page([message(1), message(2, minute: 1)]),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+      final emitted = <ChatStreamState>[];
+      final listenable = subject.chat.streamListenable(site, 9);
+      void record() => emitted.add(listenable.value);
+      listenable.addListener(record);
+      addTearDown(() => listenable.removeListener(record));
+      final before = subject.chat.stream(site, 9);
+
+      tracker.deliverPluginMessage('/chat/9', deleteEvent(2));
+
+      // The id list is untouched — deletes collapse in the projection, they
+      // do not open a hole — but the stream must still announce the change,
+      // or a mounted pane keeps rendering the deleted body.
+      final after = subject.chat.stream(site, 9);
+      expect(subject.store.read<ChatMessage>(site, 2)!.isDeleted, isTrue);
+      expect(after.messageIds, before.messageIds);
+      expect(after.revision, isNot(before.revision));
+      expect(emitted, isNotEmpty);
+    });
+
+    test('a restore reaching a held window reprojects it again', () async {
+      final subject = build(
+        messages: {
+          key(9): page([message(1), message(2, minute: 1)]),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+      tracker.deliverPluginMessage('/chat/9', deleteEvent(2));
+      final deleted = subject.chat.stream(site, 9);
+      tracker.deliverPluginMessage('/chat/9', restoreEvent(2));
+
+      expect(subject.store.read<ChatMessage>(site, 2)!.isDeleted, isFalse);
+      expect(subject.chat.stream(site, 9).revision, isNot(deleted.revision));
+    });
+
+    test('a delete outside every held window changes no stream', () async {
+      final subject = build(
+        messages: {
+          key(9): page([message(1), message(2, minute: 1)]),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+      subject.store.put(site, message(50, minute: 5));
+      final before = subject.chat.stream(site, 9);
+
+      tracker.deliverPluginMessage('/chat/9', deleteEvent(50));
+
+      expect(subject.store.read<ChatMessage>(site, 50)!.isDeleted, isTrue);
+      expect(subject.chat.stream(site, 9), same(before));
+    });
   });
 
   group('forgetting a disconnected site', () {
