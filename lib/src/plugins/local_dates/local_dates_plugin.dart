@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -125,7 +126,9 @@ class LocalDatesPlugin
     return [
       ComposerToolbarContribution(
         icon: DIcons.farClock,
-        label: 'Insert date/time  ⇧.',
+        label: defaultTargetPlatform == TargetPlatform.macOS
+            ? 'Insert date/time  ⌘⇧.'
+            : 'Insert date/time  Ctrl Shift .',
         onInvoke: () => unawaited(openLocalDateComposer(context, composer)),
       ),
     ];

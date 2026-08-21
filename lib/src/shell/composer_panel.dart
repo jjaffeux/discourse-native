@@ -119,14 +119,25 @@ class ComposerPanel extends StatelessWidget {
                 control: true,
               ): () =>
                   composer.toggleMark(ComposerMark.italic),
+              // The primary modifier is required: bare Shift+. is the '>'
+              // character on US layouts, and this handler runs before the
+              // text input plugin ever sees the key.
               if (controller
                   .siteConfigFor(composer.target.siteUrl)
-                  .localDatesEnabled)
+                  .localDatesEnabled) ...{
                 const SingleActivator(
                   LogicalKeyboardKey.period,
                   shift: true,
+                  meta: true,
                 ): () =>
                     insertCurrentLocalDate(context, composer),
+                const SingleActivator(
+                  LogicalKeyboardKey.period,
+                  shift: true,
+                  control: true,
+                ): () =>
+                    insertCurrentLocalDate(context, composer),
+              },
             },
             child: Column(
               children: [
@@ -1567,6 +1578,24 @@ class _ComposerEditorState extends State<ComposerEditor> {
         widget.composer.text.clearKeyboardPillSelection();
         _removePill(selectedPill);
         return KeyEventResult.handled;
+      }
+      // The ancestor CallbackShortcuts (submit, close) and focus traversal
+      // must stay reachable while a pill is selected, so Escape, Tab and
+      // modified chords pass through. Deletion chords are the exception:
+      // released to the editing shortcuts they would word-delete into the
+      // collapsed raw markup behind the pill.
+      final isDeletion =
+          event.logicalKey == LogicalKeyboardKey.backspace ||
+          event.logicalKey == LogicalKeyboardKey.delete;
+      if (event.logicalKey == LogicalKeyboardKey.escape ||
+          event.logicalKey == LogicalKeyboardKey.tab) {
+        return KeyEventResult.ignored;
+      }
+      if ((keyboard.isMetaPressed ||
+              keyboard.isControlPressed ||
+              keyboard.isAltPressed) &&
+          !isDeletion) {
+        return KeyEventResult.ignored;
       }
       return KeyEventResult.handled;
     }

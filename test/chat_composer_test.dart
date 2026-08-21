@@ -129,7 +129,7 @@ void main() {
     expect(find.byTooltip('Insert GIF'), findsNothing);
     expect(find.byTooltip('Search GIFs'), findsNothing);
     expect(find.byTooltip('Add poll'), findsNothing);
-    expect(find.byTooltip('Insert date/time  ⇧.'), findsNothing);
+    expect(find.byTooltip('Insert date/time  Ctrl Shift .'), findsNothing);
     expect(find.byTooltip('Add to message'), findsNothing);
     expect(find.byTooltip('Add emoji'), findsOneWidget);
     expect(

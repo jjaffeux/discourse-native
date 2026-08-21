@@ -179,61 +179,92 @@ void main() {
     LocalDateEnvironment.instance.setDeviceTimezone('Etc/UTC');
   });
 
-  testWidgets('local-date toolbar gating and Shift+. follow the site setting', (
-    tester,
-  ) async {
-    final disabled = await _openComposer();
-    addTearDown(disabled.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.dark,
-        home: ShellScope(
-          controller: disabled,
-          child: Scaffold(
-            body: ComposerPanel(composer: disabled.visibleComposer!),
+  testWidgets(
+    'local-date toolbar gating and Ctrl+Shift+. follow the site setting',
+    (tester) async {
+      // Tests report a non-macOS defaultTargetPlatform, so the advertised
+      // chord is the control variant.
+      const tooltip = 'Insert date/time  Ctrl Shift .';
+      final disabled = await _openComposer();
+      addTearDown(disabled.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: disabled,
+            child: Scaffold(
+              body: ComposerPanel(composer: disabled.visibleComposer!),
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
-    expect(find.byTooltip('Insert date/time  ⇧.'), findsNothing);
+      );
+      await tester.pump();
+      expect(find.byTooltip(tooltip), findsNothing);
 
-    final enabled = await _openComposer(
-      api: FakeDiscourseApi(
-        user: const DiscourseUser(id: 7, username: 'reader'),
-        feeds: const {'/latest.json': <Topic>[]},
-        topics: {7: topicPayload(id: 7, title: 'Lunch', canCreatePost: true)},
-        siteConfigs: const {_site: SiteConfig(localDatesEnabled: true)},
-      ),
-    );
-    addTearDown(enabled.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.dark,
-        home: ShellScope(
-          controller: enabled,
-          child: Scaffold(
-            body: ComposerPanel(composer: enabled.visibleComposer!),
+      final enabled = await _openComposer(
+        api: FakeDiscourseApi(
+          user: const DiscourseUser(id: 7, username: 'reader'),
+          feeds: const {'/latest.json': <Topic>[]},
+          topics: {7: topicPayload(id: 7, title: 'Lunch', canCreatePost: true)},
+          siteConfigs: const {_site: SiteConfig(localDatesEnabled: true)},
+        ),
+      );
+      addTearDown(enabled.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: enabled,
+            child: Scaffold(
+              body: ComposerPanel(composer: enabled.visibleComposer!),
+            ),
           ),
         ),
-      ),
-    );
-    for (var frame = 0; frame < 4; frame++) {
-      await tester.pump(const Duration(milliseconds: 1));
-    }
-    expect(find.byTooltip('Insert date/time  ⇧.'), findsOneWidget);
+      );
+      for (var frame = 0; frame < 4; frame++) {
+        await tester.pump(const Duration(milliseconds: 1));
+      }
+      expect(find.byTooltip(tooltip), findsOneWidget);
 
-    await tester.tap(find.byType(TextField).last);
-    await tester.pump();
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-    await tester.sendKeyEvent(LogicalKeyboardKey.period);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-    await tester.pump();
+      await tester.tap(find.byType(TextField).last);
+      await tester.pump();
 
-    expect(enabled.visibleComposer!.text.text, startsWith('[date='));
-    expect(find.byType(LocalDateComposerPill), findsOneWidget);
-    await tester.pump(const Duration(seconds: 3));
-  });
+      // Bare Shift+. is the '>' character on US layouts. The panel must not
+      // handle the key-down, so the text input plugin still receives it and
+      // delivers the character it produces.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      expect(
+        await tester.sendKeyDownEvent(
+          LogicalKeyboardKey.period,
+          character: '>',
+        ),
+        isFalse,
+      );
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.period);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+      expect(enabled.visibleComposer!.text.text, isEmpty);
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '>',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      await tester.pump();
+      expect(enabled.visibleComposer!.text.text, '>');
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.period);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      expect(enabled.visibleComposer!.text.text, contains('[date='));
+      expect(find.byType(LocalDateComposerPill), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
 
   testWidgets(
     'the Add poll action waits for and reacts to a fresh session capability',
@@ -900,8 +931,6 @@ void main() {
       LogicalKeyboardKey.arrowUp,
       LogicalKeyboardKey.arrowDown,
       LogicalKeyboardKey.delete,
-      LogicalKeyboardKey.escape,
-      LogicalKeyboardKey.tab,
       LogicalKeyboardKey.keyA,
     ]) {
       expect(
@@ -921,13 +950,12 @@ void main() {
     await tester.pump();
     expectLocked();
 
-    expect(
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft),
-      isTrue,
-    );
-    expect(await tester.sendKeyEvent(LogicalKeyboardKey.enter), isTrue);
+    // Word-delete chords stay swallowed: released to the editing shortcuts
+    // they would chew into the collapsed raw markup behind the pill.
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     expect(await tester.sendKeyEvent(LogicalKeyboardKey.backspace), isTrue);
-    expect(await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft), isTrue);
+    expect(await tester.sendKeyEvent(LogicalKeyboardKey.delete), isTrue);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pump();
     expectLocked();
 
@@ -957,6 +985,119 @@ void main() {
     }
     await tester.pump(const Duration(seconds: 3));
   });
+
+  testWidgets('Ctrl+Enter still submits while a poll pill is selected', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: const DiscourseUser(id: 7, username: 'reader', canCreatePoll: true),
+      feeds: const {'/latest.json': <Topic>[]},
+      topics: {7: topicPayload(id: 7, title: 'Lunch', canCreatePost: true)},
+      siteConfigs: const {_site: SiteConfig.unknown()},
+    );
+    final shell = await _openComposer(api: api);
+    addTearDown(shell.dispose);
+    final composer = shell.visibleComposer!;
+    composer.text.value = const TextEditingValue(
+      text: _source,
+      selection: TextSelection.collapsed(offset: _source.length),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(
+            body: ListenableBuilder(
+              listenable: shell,
+              builder: (context, _) {
+                final visible = shell.visibleComposer;
+                return visible == null
+                    ? const SizedBox.shrink()
+                    : ComposerPanel(composer: visible);
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final poll = composer.text.pollBlocks.single;
+    composer.text.selection = TextSelection.collapsed(
+      offset: composer.text.pollCaretAfter(poll),
+    );
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(composer.text.keyboardSelectedPoll, isNotNull);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    for (var frame = 0; frame < 6; frame++) {
+      await tester.pump();
+    }
+
+    expect(api.created, hasLength(1));
+    expect(api.created.single['raw'], _source);
+    expect(shell.visibleComposer, isNull);
+    expect(find.byType(ComposerPanel), findsNothing);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets(
+    'Escape still closes the composer while a poll pill is selected',
+    (tester) async {
+      final shell = await _openComposer();
+      addTearDown(shell.dispose);
+      final composer = shell.visibleComposer!;
+      composer.text.value = const TextEditingValue(
+        text: _source,
+        selection: TextSelection.collapsed(offset: _source.length),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: ListenableBuilder(
+                listenable: shell,
+                builder: (context, _) {
+                  final visible = shell.visibleComposer;
+                  return visible == null
+                      ? const SizedBox.shrink()
+                      : ComposerPanel(composer: visible);
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final poll = composer.text.pollBlocks.single;
+      composer.text.selection = TextSelection.collapsed(
+        offset: composer.text.pollCaretAfter(poll),
+      );
+      composer.focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+      expect(composer.text.keyboardSelectedPoll, isNotNull);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+
+      expect(shell.visibleComposer, isNull);
+      expect(find.byType(ComposerPanel), findsNothing);
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
 
   testWidgets('boundary deletes select an LF or CRLF poll before removing it', (
     tester,
