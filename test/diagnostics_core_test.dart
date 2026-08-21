@@ -33,6 +33,18 @@ void main() {
       );
     });
 
+    test('drops a query value whose separator is percent-encoded', () {
+      const secret = 'ENCODED_SEPARATOR_SECRET_SENTINEL';
+      final safe = DiagnosticsRedactor.uri(
+        'https://x.com/cb?code%3D$secret&state=STATE_VALUE_SENTINEL',
+      );
+
+      expect(safe, 'https://x.com/cb?code&state');
+      expect(safe, isNot(contains(secret)));
+      expect(safe, isNot(contains(Uri.encodeQueryComponent(secret))));
+      expect(safe, isNot(contains('STATE_VALUE_SENTINEL')));
+    });
+
     test(
       'redacts credentials before truncating or recovering malformed URIs',
       () {
@@ -142,6 +154,42 @@ void main() {
       expect(safe, isNot(contains(credential)));
       expect(safe, isNot(contains(queryValue)));
       expect(safe, isNot(contains('alice')));
+    });
+
+    test('scrubs credentials from scheme-relative URLs', () {
+      const secret = 'SCHEME_RELATIVE_SECRET_SENTINEL';
+      final safe = DiagnosticsRedactor.scrub(
+        'socket error //user:$secret@x.com/a?token=QUERY_VALUE_SENTINEL',
+      );
+
+      expect(safe, contains('socket error //x.com/a?token'));
+      expect(safe, isNot(contains(secret)));
+      expect(safe, isNot(contains('user:')));
+      expect(safe, isNot(contains('QUERY_VALUE_SENTINEL')));
+    });
+
+    test('redacts malformed scheme-relative authorities as a unit', () {
+      const secret = 'SCHEME_RELATIVE_MALFORMED_SENTINEL';
+      final safe = DiagnosticsRedactor.scrub(
+        'redirect //user:$secret/broken@authority.example/a'
+        '?token=QUERY_VALUE_SENTINEL',
+      );
+
+      expect(safe, contains('//<redacted-malformed-uri>'));
+      expect(safe, isNot(contains(secret)));
+      expect(safe, isNot(contains('QUERY_VALUE_SENTINEL')));
+    });
+
+    test('keeps non-URL double-slash text legible', () {
+      final safe = DiagnosticsRedactor.scrub(
+        '#0 main (file:///app/main.dart:1:1)\n'
+        'note: retry disabled // scheduler paused\n'
+        'ratio 50 m//s stays',
+      );
+
+      expect(safe, contains('(file:///app/main.dart:1:1)'));
+      expect(safe, contains('retry disabled // scheduler paused'));
+      expect(safe, contains('ratio 50 m//s stays'));
     });
   });
 

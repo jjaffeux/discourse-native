@@ -32,6 +32,13 @@ abstract final class DiagnosticsRedactor {
     r'''[A-Za-z][A-Za-z0-9+.-]{0,31}://[^\s<>"']+''',
     caseSensitive: false,
   );
+  static final RegExp _schemeRelativeUrlPattern = RegExp(
+    // Scheme-relative URLs (common in Discourse avatar templates) can carry
+    // credentials too. The lookbehind excludes `:` and `/` so the `//` inside
+    // an absolute URL already handled above is never re-matched, and excludes
+    // word characters so doubled slashes inside identifiers stay untouched.
+    r'''(?<![:\w/])//[^\s<>"']+''',
+  );
   static final RegExp _sensitiveAssignment = RegExp(
     r'''["']?\b(authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|x[-_ ]?api[-_ ]?key|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|auth[-_ ]?token|token|password|passwd|secret|credential|client[-_ ]?(?:id|secret)|ice[-_ ]?(?:pwd|password|ufrag)|livekit[-_ ]?(?:token|jwt|key|secret|credential|password)|turn[-_ ]?(?:username|token|key|secret|credential|password))\b["']?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)''',
     caseSensitive: false,
@@ -106,6 +113,10 @@ abstract final class DiagnosticsRedactor {
 
     text = text.replaceAllMapped(_urlPattern, (match) => uri(match.group(0)));
     text = text.replaceAllMapped(
+      _schemeRelativeUrlPattern,
+      (match) => uri(match.group(0)),
+    );
+    text = text.replaceAllMapped(
       _sensitiveHeader,
       (match) => '${match.group(1)}: <redacted>',
     );
@@ -158,7 +169,11 @@ abstract final class DiagnosticsRedactor {
 
   static String _safeQueryName(String rawName) {
     try {
-      return Uri.encodeQueryComponent(Uri.decodeQueryComponent(rawName));
+      // A percent-encoded `=` (`code%3DSECRET`) survives the raw `=` split as
+      // an apparent bare name, so only what precedes `=` after decoding may be
+      // retained.
+      final decoded = Uri.decodeQueryComponent(rawName);
+      return Uri.encodeQueryComponent(decoded.split('=').first);
     } on ArgumentError {
       // Keeping malformed bytes would make it too easy to accidentally retain
       // part of a value while attempting recovery. The shape still records
@@ -183,6 +198,14 @@ abstract final class DiagnosticsRedactor {
     final scheme = RegExp(r'^([A-Za-z][A-Za-z0-9+.-]*):\/\/').firstMatch(base);
     if (scheme != null) {
       final prefix = '${scheme.group(1)}://<redacted-malformed-uri>';
+      return names.isEmpty ? prefix : '$prefix?${names.join('&')}';
+    }
+
+    // A scheme-relative authority that fails to parse is just as
+    // untrustworthy: its malformed credentials can also contain `/` before
+    // their `@`, which the fallback below deliberately never matches across.
+    if (base.startsWith('//')) {
+      const prefix = '//<redacted-malformed-uri>';
       return names.isEmpty ? prefix : '$prefix?${names.join('&')}';
     }
 
