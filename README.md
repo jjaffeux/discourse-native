@@ -1099,10 +1099,15 @@ delete production's old login-keychain items. Only a distribution-signed
 release has the application identifier required by its Data Protection
 backend; a locally custom-signed release is not a runnable credential-storage
 configuration. Migration operations are serialized in-process and across app
-processes with an owner-only advisory lock. A Data Protection state item is
-made authoritative before deletion cleanup, so a legacy ACL refusal cannot
-keep a key active or resurrect it; reconnecting makes the replacement durable
-before lifting that tombstone.
+processes with an owner-only advisory lock, taken without blocking and
+retried from the event loop: a blocking `flock` stops the whole isolate, and
+the operations behind this lock can wait on a human. The legacy read is made
+outside it for that reason — it is what may raise the ACL dialog — and the
+modern namespace is re-read under the lock before anything is copied, so a
+migration or disconnect from another process in that window is not undone. A
+Data Protection state item is made authoritative before deletion cleanup, so a
+legacy ACL refusal cannot keep a key active or resurrect it; reconnecting
+makes the replacement durable before lifting that tombstone.
 
 `integration_test/keychain_test.dart` covers missing-item behavior and a real
 round trip. Unit tests verify the modern/legacy native options, migration

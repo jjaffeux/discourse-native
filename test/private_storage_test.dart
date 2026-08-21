@@ -278,6 +278,12 @@ void main() {
           'primary.read:$stateKey',
           'primary.read:$key',
           'legacy.read:$key',
+          // The legacy read happens with no lock held, so what it found is
+          // only a candidate: the modern namespace is asked again before the
+          // copy, or a migration or disconnect from another process in that
+          // window would be undone here.
+          'primary.read:$stateKey',
+          'primary.read:$key',
           'primary.write:$key',
           'primary.write:$stateKey',
         ]);
@@ -296,6 +302,8 @@ void main() {
         'primary.read:$stateKey',
         'primary.read:$key',
         'legacy.read:$key',
+        'primary.read:$stateKey',
+        'primary.read:$key',
       ]);
     });
 
@@ -334,10 +342,35 @@ void main() {
           'primary.read:$stateKey',
           'primary.read:$key',
           'legacy.read:$key',
+          'primary.read:$stateKey',
+          'primary.read:$key',
           'primary.write:$key',
         ]);
       },
     );
+
+    test('a disconnect during the legacy read is not undone', () async {
+      final events = <String>[];
+      final primary = _MemoryPrivateStorage('primary', events);
+      final legacy = _MemoryPrivateStorage('legacy', events, {key: 'old'})
+        ..gatedReadKey = key
+        ..readGate = Completer<void>()
+        ..readStarted = Completer<void>();
+      final storage = MigratingPrivateStorage(primary: primary, legacy: legacy);
+
+      final pending = storage.read(key);
+      await legacy.readStarted!.future;
+
+      // The lock is not held across the legacy read — that read can put an ACL
+      // dialog on screen — so another process can tombstone the key in this
+      // window. Standing in for one: the migration must see the tombstone on
+      // its re-check rather than copying the value it already fetched.
+      primary.values[stateKey] = 'deleted';
+      legacy.readGate!.complete();
+
+      expect(await pending, isNull);
+      expect(primary.values.containsKey(key), isFalse);
+    });
 
     test('delete durably tombstones before best-effort cleanup', () async {
       final events = <String>[];

@@ -244,32 +244,51 @@ final class MigratingPrivateStorage implements PrivateStorage {
   static String _stateKey(String key) => '$_migrationStatePrefix$key';
 
   @override
-  Future<String?> read(String key) => _serialize(() async {
+  Future<String?> read(String key) async {
+    final held = await _serialize(() => _readModern(key));
+    if (held.settled) return held.value;
+
+    // Outside the lock: reading the legacy item can put a macOS ACL password
+    // dialog on screen, and that waits on a human. Holding a lock other app
+    // processes contend for across that turns one prompt into a frozen second
+    // instance. The migration decision is retaken under the lock below.
+    final previous = await legacy.read(key);
+
+    return _serialize(() async {
+      final latest = await _readModern(key);
+      if (latest.settled) return latest.value;
+      if (previous == null) return null;
+
+      await primary.write(key, previous);
+      await primary.write(_stateKey(key), _active);
+      // Do not delete the ACL-protected item here. A user who chose plain
+      // "Allow" for the read could otherwise receive a second password prompt.
+      // The active state makes the old copy permanently non-authoritative.
+      return previous;
+    });
+  }
+
+  /// The modern namespace's answer, and whether it is the final one.
+  ///
+  /// Unsettled means only that the legacy copy still has to be consulted; it
+  /// never means "absent".
+  Future<({bool settled, String? value})> _readModern(String key) async {
     final state = await primary.read(_stateKey(key));
-    if (state == _deleted) return null;
+    if (state == _deleted) return (settled: true, value: null);
 
     final current = await primary.read(key);
     if (current != null) {
       // Repair a crash between the value write and its authoritative-state
       // write before returning the credential.
       if (state != _active) await primary.write(_stateKey(key), _active);
-      return current;
+      return (settled: true, value: current);
     }
     // A current write or prior migration makes the modern namespace
     // authoritative even if its value is unexpectedly absent. Never resurrect
     // an older bearer token after that boundary.
-    if (state == _active) return null;
-
-    final previous = await legacy.read(key);
-    if (previous == null) return null;
-
-    await primary.write(key, previous);
-    await primary.write(_stateKey(key), _active);
-    // Do not delete the ACL-protected item here. A user who chose plain
-    // "Allow" for the read could otherwise receive a second password prompt.
-    // The active state makes the old copy permanently non-authoritative.
-    return previous;
-  });
+    if (state == _active) return (settled: true, value: null);
+    return (settled: false, value: null);
+  }
 
   @override
   Future<void> write(String key, String value) => _serialize(() async {

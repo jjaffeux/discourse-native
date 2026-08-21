@@ -3670,6 +3670,16 @@ void _feedGroups() {
       expect(topic.detail.title, 'A real topic');
     });
 
+    test('encodes a slug that would otherwise end the path', () async {
+      final paths = <String>[];
+      await DiscourseApi(
+        client: serving(paths),
+      ).topic(siteUrl: 'https://example.com', slug: 'we?ird', id: 12);
+
+      // Unencoded this asks for `/t/we` with the id stranded in a query.
+      expect(paths, ['/t/we%3Fird/12.json']);
+    });
+
     test('asks by id alone when the link carried no slug', () async {
       final paths = <String>[];
       await DiscourseApi(
