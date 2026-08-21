@@ -1044,7 +1044,7 @@ void main() {
       final exits = watchAppExits(tester);
       await pumpShell(tester, phone);
 
-      await tester.tap(find.text('Messages'));
+      await tester.tap(find.text('Topics'));
       await tester.pumpAndSettle();
 
       // Content is showing, so this back unwinds in-app and must not leave.
