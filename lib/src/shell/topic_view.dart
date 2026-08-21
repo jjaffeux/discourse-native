@@ -90,6 +90,12 @@ class _TopicViewState extends State<TopicView> {
 
     _creditReaderNow();
     _disposeControllers();
+    if (!identical(_controller, controller)) {
+      // This viewport stops feeding the outgoing shell's anchors here, so a
+      // save still waiting out its debounce window is written rather than
+      // left behind on a controller no view drives any more.
+      _controller?.flushAnchorPersist();
+    }
     _controller = controller;
     _topicIdentity = topicIdentity;
     _tabId = controller.activeTabId;
@@ -220,6 +226,9 @@ class _TopicViewState extends State<TopicView> {
     _recommendationsPanelRestoreGeneration++;
     _dayJumpToken = null;
     _creditReaderNow();
+    // Nothing can move this topic's anchor once its viewport is gone, so a
+    // save still waiting out its debounce window is written now.
+    _controller?.flushAnchorPersist();
     _disposeControllers();
     super.dispose();
   }

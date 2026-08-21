@@ -133,9 +133,11 @@ class ShellController extends FrameSafeNotifier {
     this.resenhaDiagnostics = const NoopResenhaDiagnosticsRecorder(),
     this.ownsApi = true,
     this.topicLoadTimeout = const Duration(seconds: 30),
+    this.anchorPersistDebounce = const Duration(milliseconds: 500),
   }) : forumTabs = forumTabs ?? ForumTabStore.memory(),
        emojiPickerStore = emojiPickerStore ?? EmojiPickerStore(),
        assert(topicLoadTimeout > Duration.zero),
+       assert(anchorPersistDebounce >= Duration.zero),
        store = store ?? Store(),
        lifecycle = lifecycle ?? SiteLifecycle(),
        updates = UpdateController(
@@ -174,6 +176,13 @@ class ShellController extends FrameSafeNotifier {
   /// both waits so neither can leave the topic loading state alive
   /// indefinitely.
   final Duration topicLoadTimeout;
+
+  /// How long scroll-anchor churn may remain memory-only before it is written.
+  ///
+  /// Scrolling emits one anchor change per top row or top post, and each
+  /// persisted write serialises every workspace synchronously on the UI
+  /// isolate. Zero still coalesces a synchronous burst into one write.
+  final Duration anchorPersistDebounce;
 
   final Authenticator authenticator;
   final DraftStore drafts;
@@ -607,6 +616,8 @@ class ShellController extends FrameSafeNotifier {
   ({String siteUrl, String tabId})? _pendingTabSelection;
   bool _tabSelectionSettlementScheduled = false;
   bool _tabSelectionPersistencePending = false;
+  Timer? _anchorPersistTimer;
+  bool _anchorPersistencePending = false;
 
   ForumWorkspace? get currentWorkspace {
     final siteUrl = currentInstance?.url;
@@ -706,7 +717,43 @@ class ShellController extends FrameSafeNotifier {
 
   void _persistWorkspaces() {
     _tabSelectionPersistencePending = false;
+    // Any full write already carries the in-memory anchors, so a waiting
+    // anchor window has nothing left to add.
+    _anchorPersistencePending = false;
     unawaited(forumTabs.save(_forumWorkspaces.values));
+  }
+
+  /// Persists scroll anchors on a trailing edge instead of per change.
+  ///
+  /// The active tab is updated before this runs — widgets read anchors from
+  /// memory synchronously — and the eventual write serialises that live state,
+  /// so the last anchor in a window always wins regardless of how many changes
+  /// the window absorbed. Backgrounding and disposal flush the window, so a
+  /// pending anchor cannot outlive the process.
+  void _schedulePersistAnchors() {
+    _anchorPersistencePending = true;
+    if (_anchorPersistTimer != null) return;
+    _anchorPersistTimer = Timer(anchorPersistDebounce, () {
+      _anchorPersistTimer = null;
+      if (isDisposed || !_anchorPersistencePending) return;
+      _persistWorkspaces();
+    });
+  }
+
+  void _flushPendingAnchorPersist() {
+    _anchorPersistTimer?.cancel();
+    _anchorPersistTimer = null;
+    if (_anchorPersistencePending) _persistWorkspaces();
+  }
+
+  /// Writes an anchor still waiting out its debounce window.
+  ///
+  /// Views call this as their scrolled viewport unmounts: nothing can move
+  /// the anchor once the viewport is gone, so the window buys no further
+  /// coalescing and holding the write only defers durability.
+  void flushAnchorPersist() {
+    if (isDisposed) return;
+    _flushPendingAnchorPersist();
   }
 
   void _replaceTab(
@@ -1638,7 +1685,9 @@ class ShellController extends FrameSafeNotifier {
           destinationId: ForumTabAnchor(kind: 'feed', itemId: row),
         },
       ),
+      persist: false,
     );
+    _schedulePersistAnchors();
   }
 
   /// The post a remounted topic tab should reveal.
@@ -1693,7 +1742,9 @@ class ShellController extends FrameSafeNotifier {
           ),
         },
       ),
+      persist: false,
     );
+    _schedulePersistAnchors();
   }
 
   final Map<String, SiteTracker> _trackers = {};
@@ -2130,6 +2181,9 @@ class ShellController extends FrameSafeNotifier {
   void setForeground(bool foreground) {
     if (foreground == _foreground) return;
     _foreground = foreground;
+    // The OS may suspend or kill a backgrounded process before any timer
+    // fires again, so an anchor waiting out its window must be durable now.
+    if (!foreground) _flushPendingAnchorPersist();
     resenha.setForeground(foreground);
     _syncTracking();
     if (!foreground) return;
@@ -6772,12 +6826,16 @@ class ShellController extends FrameSafeNotifier {
       ).ignore();
     }
 
-    // A window can close in the frame immediately after a selection. Keep the
-    // latest local choice durable, but never start hydration while tearing the
-    // controller down.
+    // A window can close in the frame immediately after a selection or a
+    // scroll. Keep the latest local choice and anchor durable, but never start
+    // hydration while tearing the controller down.
     _pendingTabSelection = null;
     _tabSelectionSettlementScheduled = false;
-    if (_tabSelectionPersistencePending) _persistWorkspaces();
+    _anchorPersistTimer?.cancel();
+    _anchorPersistTimer = null;
+    if (_tabSelectionPersistencePending || _anchorPersistencePending) {
+      _persistWorkspaces();
+    }
     _topicReads.dispose();
     for (final instance in _instances) {
       lifecycle.invalidate(instance.url);

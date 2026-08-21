@@ -145,7 +145,7 @@ final class SiteAppearanceLoader {
       selection.baseSchemeId,
       ?selection.alternateSchemeId,
     };
-    final details = await Future.wait([
+    final schemeDetails = Future.wait([
       for (final schemeId in schemeIds)
         _loadJson(
           apiBase.resolve(
@@ -155,6 +155,25 @@ final class SiteAppearanceLoader {
           redirectOrigin: apiKey == null ? null : apiBase.origin,
         ),
     ]);
+    // The resolver returns only color definitions. Read the forum document as
+    // well to discover the selected parent theme's later common stylesheet.
+    // This request may carry credentials, but every discovered CSS request
+    // starts a separate credential-free chain below.
+    //
+    // The document depends only on the API base and is the heaviest single
+    // response of this refresh, so it must share the wire with the small
+    // scheme JSONs rather than queue behind them. It is awaited after them so
+    // failure attribution is unchanged; ignore() stops a scheme or href
+    // failure from leaving this in-flight future's error unobserved, without
+    // consuming the result the later await still needs.
+    final documentLoad = _loadText(
+      apiBase,
+      accept: 'text/html',
+      headers: forumHeaders,
+      redirectOrigin: apiKey == null ? null : apiBase.origin,
+    );
+    documentLoad.ignore();
+    final details = await schemeDetails;
 
     final stylesheetUrls = <int, Uri>{};
     for (var index = 0; index < schemeIds.length; index++) {
@@ -172,16 +191,7 @@ final class SiteAppearanceLoader {
       stylesheetUrls[schemeIds.elementAt(index)] = url;
     }
 
-    // The resolver returns only color definitions. Read the forum document as
-    // well to discover the selected parent theme's later common stylesheet.
-    // This request may carry credentials, but every discovered CSS request
-    // starts a separate credential-free chain below.
-    final document = await _loadText(
-      apiBase,
-      accept: 'text/html',
-      headers: forumHeaders,
-      redirectOrigin: apiKey == null ? null : apiBase.origin,
-    );
+    final document = await documentLoad;
     final themeStylesheetUrls = discoverSiteThemeStylesheets(
       document.source,
       documentUrl: document.url,
