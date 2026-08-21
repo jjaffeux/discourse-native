@@ -769,6 +769,19 @@ that address, so the controller consults the site's own map of them
 (`/site/emoji.json`, fetched beside the settings) before falling back
 to it.
 
+Titles, chat previews and search results are the third case: no cooked HTML,
+just prose that may contain `:shortcode:`. `SiteEmojiText` draws those, and
+draws only the names the site actually registers — the pattern for a shortcode
+also matches ordinary punctuation, so "Standup at 10:30:45" contains `:30:`,
+and an optimistic reader gave it a blank box sized to the text while it
+fetched artwork that cannot exist, reflowed once on the 404, and settled back
+to the text it started as. `SitePresentationController.knowsEmoji` answers
+from the custom-upload map and the emoji catalog; `emojiUrl` deliberately
+still answers for any name, because the standard-set address is computable
+and that is exactly why it cannot decide this. The catalog is warmed when a
+site is selected, since otherwise every title holding emoji would spend a
+frame as its own raw shortcodes.
+
 ### Links
 
 Every tapped link — in a post, a quote attribution, a onebox card — goes through
