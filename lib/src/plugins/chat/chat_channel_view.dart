@@ -1373,6 +1373,21 @@ class _JumpToPresent extends StatelessWidget {
   }
 }
 
+/// Today and yesterday by name, everything else by date.
+///
+/// Days are compared as calendar dates, not elapsed time: local midnights on
+/// either side of a DST change sit 23 or 25 hours apart, and a truncating
+/// duration difference would then misname the days after a transition.
+@visibleForTesting
+String chatDayLabel(DateTime day, {required DateTime now}) {
+  final today = DateTime.utc(now.year, now.month, now.day);
+  final start = DateTime.utc(day.year, day.month, day.day);
+  final delta = today.difference(start).inDays;
+  if (delta == 0) return 'Today';
+  if (delta == 1) return 'Yesterday';
+  return '${day.day} ${_DaySeparator._months[day.month - 1]} ${day.year}';
+}
+
 /// The line between two days of conversation.
 class _DaySeparator extends StatelessWidget {
   const _DaySeparator({super.key, required this.day, this.floating = false});
@@ -1399,14 +1414,7 @@ class _DaySeparator extends StatelessWidget {
 
   /// Today and yesterday by name, everything else by date. The reader's days,
   /// not the site's — [day] is already local midnight.
-  String get _label {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final delta = today.difference(day).inDays;
-    if (delta == 0) return 'Today';
-    if (delta == 1) return 'Yesterday';
-    return '${day.day} ${_months[day.month - 1]} ${day.year}';
-  }
+  String get _label => chatDayLabel(day, now: DateTime.now());
 
   @override
   Widget build(BuildContext context) {
