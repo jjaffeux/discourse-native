@@ -17,6 +17,7 @@ import 'hashtag.dart';
 import 'markdown_highlight.dart';
 import 'markdown_style.dart';
 import 'mention.dart';
+import 'syntax.dart';
 
 /// A field controller that draws markdown as what it means.
 ///
@@ -518,6 +519,16 @@ class MarkdownEditingController extends TextEditingController {
   @visibleForTesting
   int scans = 0;
 
+  /// How long a large fence's body must hold still before it is tokenized.
+  ///
+  /// Long enough to sit out a typing burst, short enough that the colour
+  /// arriving reads as immediate once the keys stop.
+  @visibleForTesting
+  static const Duration fenceHighlightDebounce = Duration(milliseconds: 200);
+
+  Timer? _fenceHighlightTimer;
+  List<({String body, String? language})> _pendingFences = const [];
+
   /// [buildTextSpan] is called on every keystroke, every caret move and every
   /// frame of a selection drag, while the scan only depends on the text. A
   /// fenced block is tokenized by `highlightLines`, which is expensive enough
@@ -527,7 +538,44 @@ class MarkdownEditingController extends TextEditingController {
     if (_scanned == source) return _runs!;
     scans++;
     _scanned = source;
-    return _runs = scanMarkdown(source);
+    final deferred = <({String body, String? language})>[];
+    final runs = scanMarkdown(
+      source,
+      deferHighlight: (body, language) =>
+          deferred.add((body: body, language: language)),
+    );
+    _scheduleFenceHighlight(deferred);
+    return _runs = runs;
+  }
+
+  /// Memoising the scan on the text is not enough inside a fence: the
+  /// highlight cache in `syntax.dart` keys on the exact body, so typing there
+  /// changes the key on every keystroke and reruns the parser over the whole
+  /// block — milliseconds per key on a large one. The scan instead leaves such
+  /// a fence as plain code and lands its body here; once it has held still for
+  /// [fenceHighlightDebounce] the parse runs off the keystroke, warms the
+  /// cache, and a rescan repaints with the colour in place. The final state is
+  /// always the fully highlighted one — only the in-between keystrokes skip it.
+  void _scheduleFenceHighlight(List<({String body, String? language})> fences) {
+    _fenceHighlightTimer?.cancel();
+    _fenceHighlightTimer = null;
+    // Replaced wholesale on every scan, so a fence edited away mid-debounce is
+    // never parsed on its way out.
+    _pendingFences = fences;
+    if (fences.isEmpty) return;
+    _fenceHighlightTimer = Timer(fenceHighlightDebounce, () {
+      _fenceHighlightTimer = null;
+      if (_disposed) return;
+      for (final fence in _pendingFences) {
+        // For the side effect: the tokens land in the highlight cache, where
+        // the rescan below finds them and takes the synchronous path.
+        highlightLines(fence.body, fence.language);
+      }
+      _pendingFences = const [];
+      _scanned = null;
+      _runs = null;
+      artworkArrived();
+    });
   }
 
   @override
@@ -1252,6 +1300,8 @@ class MarkdownEditingController extends TextEditingController {
   @override
   void dispose() {
     _disposed = true;
+    _fenceHighlightTimer?.cancel();
+    _fenceHighlightTimer = null;
     super.dispose();
   }
 

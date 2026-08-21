@@ -92,17 +92,10 @@ List<List<CodeToken>> highlightLines(String source, String? language) {
   final plain = [
     for (final line in lines) [CodeToken(line)],
   ];
-  if (source.length > maxHighlightedChars) return plain;
-
   final normalizedLanguage = language?.toLowerCase();
-  if (normalizedLanguage == null || normalizedLanguage.isEmpty) return plain;
-  if (normalizedLanguage == 'plaintext' ||
-      normalizedLanguage == 'text' ||
-      normalizedLanguage == 'nohighlight') {
-    return plain;
-  }
+  if (_bypassesParser(source, normalizedLanguage)) return plain;
 
-  final key = (source: source, language: normalizedLanguage);
+  final key = (source: source, language: normalizedLanguage!);
   if (_syntaxHighlightCache.remove(key) case final cached?) {
     // Removing and reinserting promotes the entry to most-recently used.
     _syntaxHighlightCache[key] = cached;
@@ -128,6 +121,30 @@ List<List<CodeToken>> highlightLines(String source, String? language) {
   final result = highlighted.length == lines.length ? highlighted : plain;
   return _remember(key, result);
 }
+
+/// Whether a [highlightLines] call would have to run the parser.
+///
+/// False when the plain path answers — no language, `plaintext`, past
+/// [maxHighlightedChars] — or when the cache already holds this exact body.
+/// Either way the call costs a split, not a parse, so a caller deciding
+/// whether to take tokenization off the current frame can ask this first.
+bool highlightNeedsParse(String source, String? language) {
+  final normalizedLanguage = language?.toLowerCase();
+  if (_bypassesParser(source, normalizedLanguage)) return false;
+  return !_syntaxHighlightCache.containsKey((
+    source: source,
+    language: normalizedLanguage!,
+  ));
+}
+
+/// The inputs [highlightLines] answers with unscoped lines and no parse.
+bool _bypassesParser(String source, String? normalizedLanguage) =>
+    source.length > maxHighlightedChars ||
+    normalizedLanguage == null ||
+    normalizedLanguage.isEmpty ||
+    normalizedLanguage == 'plaintext' ||
+    normalizedLanguage == 'text' ||
+    normalizedLanguage == 'nohighlight';
 
 List<List<CodeToken>> _remember(
   _HighlightKey key,

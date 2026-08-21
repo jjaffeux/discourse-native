@@ -107,6 +107,26 @@ void main() {
       expect(identical(second.first.first, parsedToken), isTrue);
     });
 
+    test('needs a parse only where one would actually run', () {
+      // The deferral path in `markdown_highlight.dart` asks this before taking
+      // a fence off the frame, so it must agree exactly with what
+      // `highlightLines` would do — plain path and cache key normalization
+      // included.
+      expect(highlightNeedsParse('def hello', 'ruby'), isTrue);
+
+      highlightLines('def hello', 'RUBY');
+      expect(highlightNeedsParse('def hello', 'ruby'), isFalse);
+
+      expect(highlightNeedsParse('def hello', null), isFalse);
+      expect(highlightNeedsParse('def hello', ''), isFalse);
+      expect(highlightNeedsParse('def hello', 'plaintext'), isFalse);
+      expect(highlightNeedsParse('def hello', 'nohighlight'), isFalse);
+
+      final huge = List.filled(4000, 'def hello').join('\n');
+      expect(huge.length, greaterThan(maxHighlightedChars));
+      expect(highlightNeedsParse(huge, 'ruby'), isFalse);
+    });
+
     test('evicts the least-recently used highlighted block', () {
       const retainedSource = 'def retained = 1';
       const evictedSource = 'def evicted = 2';
