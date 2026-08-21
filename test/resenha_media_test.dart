@@ -976,6 +976,45 @@ void main() {
     });
   });
 
+  test('a mute during connect is not overwritten by the connect', () async {
+    final meshJoin = _meshJoin(localUserId: 10, remoteUserId: 20);
+    final media = LiveKitResenhaMediaSession(
+      join: ResenhaJoinResponse(
+        transport: ResenhaTransport.livekit,
+        ice: meshJoin.ice,
+        room: meshJoin.room,
+        livekit: const ResenhaLiveKitCredentials(
+          url: 'wss://livekit.invalid',
+          token: 'not-used',
+        ),
+      ),
+      localUserId: 10,
+      audioPublishingAllowed: true,
+      refreshCredentials: () async =>
+          const ResenhaLiveKitCredentials(url: '', token: ''),
+      correlationId: 'livekit-call',
+    );
+
+    expect(media.shouldPublishMicrophone, isTrue);
+
+    // The call controls are live while the socket is still opening, so this
+    // is what a mute during joining looks like: the SDK call is a no-op
+    // against a localParticipant that does not exist yet, and the state it
+    // leaves behind is the only record that the reader asked for silence.
+    await media.setMuted(true);
+
+    // Connect, reconnect and stage changes all read this, so none of them can
+    // publish over the mute the way connect used to.
+    expect(media.shouldPublishMicrophone, isFalse);
+
+    await media.setAudioPublishingAllowed(true);
+    expect(media.shouldPublishMicrophone, isFalse);
+
+    await media.setMuted(false);
+    expect(media.shouldPublishMicrophone, isTrue);
+    await media.dispose();
+  });
+
   test('records typed LiveKit room and reconnect events', () {
     final diagnostics = _DiagnosticsRecorder()..captureEnabled = true;
     final meshJoin = _meshJoin(localUserId: 10, remoteUserId: 20);

@@ -1674,8 +1674,13 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   Future<void> setMuted(bool muted) => _serialize(() => _setMuted(muted));
 
   Future<void> _setMuted(bool muted) async {
-    _muted = muted;
+    // Adopted only once the capture it depends on has succeeded:
+    // `_ensureAudioTrack` can throw on a busy or refused device, and
+    // `_ensureAudioTrack` itself reads `_muted` to decide whether a freshly
+    // created track starts enabled. A field updated in front of a failure
+    // would hand a later re-publish an unmuted microphone under a muted UI.
     if (audioPublishingAllowed && !muted) await _ensureAudioTrack();
+    _muted = muted;
     for (final track
         in _localStream?.getAudioTracks() ?? const <rtc.MediaStreamTrack>[]) {
       track.enabled = !muted;
@@ -2186,6 +2191,16 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   );
   bool audioPublishingAllowed;
   bool _muted = false;
+
+  /// Whether the microphone should currently be publishing.
+  ///
+  /// One owner for a decision three paths make — the initial connect, the
+  /// reconnect ladder, and a stage change — because they diverged: connect
+  /// published unconditionally while the other two honoured [_muted], so a
+  /// mute that landed while the socket was still opening was overwritten by
+  /// the connect that followed it.
+  @visibleForTesting
+  bool get shouldPublishMicrophone => audioPublishingAllowed && !_muted;
   bool _closing = false;
   bool _pollingRawStats = false;
   bool _deviceInventoryCaptured = false;
@@ -2284,7 +2299,11 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
     try {
       await _connectRoom(credentials);
       if (_closing || disposed) return;
-      if (audioPublishingAllowed) {
+      // The controls are live from the moment the call exists, so a mute — by
+      // hand, by CallKit, or by a stage change — can land while this connect
+      // is still in flight, and its own setMicrophoneEnabled was a no-op
+      // against a localParticipant that did not exist yet.
+      if (shouldPublishMicrophone) {
         await _room.localParticipant?.setMicrophoneEnabled(true);
         if (_closing || disposed) return;
       }
@@ -2463,7 +2482,7 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
     if (_closing || disposed || _reconnect.cancelled) return;
     await _connectRoom(credentials);
     if (_closing || disposed || _reconnect.cancelled) return;
-    if (audioPublishingAllowed && !_muted) {
+    if (shouldPublishMicrophone) {
       await _room.localParticipant?.setMicrophoneEnabled(true);
     }
   }
@@ -2753,7 +2772,7 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
 
   @override
   Future<void> selectAudioInput(String deviceId) async {
-    final enabled = audioPublishingAllowed && !_muted;
+    final enabled = shouldPublishMicrophone;
     await _room.localParticipant?.setMicrophoneEnabled(false);
     if (enabled) {
       await _room.localParticipant?.setMicrophoneEnabled(
@@ -2773,10 +2792,15 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
 
   @override
   Future<void> setMuted(bool muted) async {
-    _muted = muted;
+    // Recorded after the fact, not before it. A capture that throws leaves the
+    // controller rolling its snapshot back to what was true, and a session
+    // that had already adopted the failed value would disagree with it — the
+    // next `setAudioPublishingAllowed` reads this field and would open a
+    // microphone the UI still shows as muted.
     await _room.localParticipant?.setMicrophoneEnabled(
       audioPublishingAllowed && !muted,
     );
+    _muted = muted;
     changed();
   }
 
