@@ -500,6 +500,63 @@ void main() {
     );
   });
 
+  testWidgets('a live message does not move a reader scrolled into history', (
+    tester,
+  ) async {
+    final api = _ChatApi(openPages: const {});
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    final messages = [for (var id = 1; id <= 40; id++) _message(id)];
+    controller.store
+      ..put(firstSite, _channel(lastRead: 40))
+      ..putAll(firstSite, messages);
+
+    await tester.pumpWidget(
+      _TestStreamView(
+        controller: controller,
+        messages: messages,
+        stream: ChatStreamState(
+          messageIds: [for (final message in messages) message.id],
+          fetchedOnce: true,
+          fetches: 1,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    tester.state<ScrollableState>(_verticalChatScroll()).position.jumpTo(600);
+    await tester.pump();
+    final held = tester
+        .state<ScrollableState>(_verticalChatScroll())
+        .position
+        .pixels;
+    expect(held, greaterThan(0));
+
+    // A live append arrives on a window already at the present: same fetch
+    // generation, no future to load, one more newest id. The reversed
+    // viewport keeps the reader in place on its own; nothing may reposition.
+    final live = _message(41);
+    controller.store.put(firstSite, live);
+    await tester.pumpWidget(
+      _TestStreamView(
+        controller: controller,
+        messages: [...messages, live],
+        stream: ChatStreamState(
+          messageIds: [for (var id = 1; id <= 41; id++) id],
+          fetchedOnce: true,
+          fetches: 1,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      tester.state<ScrollableState>(_verticalChatScroll()).position.pixels,
+      held,
+    );
+  });
+
   testWidgets('the day crossing the top of chat stays pinned', (tester) async {
     final api = _ChatApi(openPages: const {});
     final controller = await _controller(api, sites: const [firstSite]);

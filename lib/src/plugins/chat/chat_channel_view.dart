@@ -562,6 +562,12 @@ class _StreamState extends State<ChatMessageStream>
         oldWidget.target != widget.target) {
       return;
     }
+    // A forward page can only land when the old window had more future to
+    // load. A window already at the present grows its newest id by live
+    // appends instead, and those must not move the reader: the reversed
+    // viewport keeps a scrolled-up reader in place on its own, and a reader
+    // at the bottom edge sticks to it naturally.
+    if (!oldWidget.stream.canLoadMoreFuture) return;
     final was = oldWidget.stream.newestId;
     // A replaced window is not a page, and positions itself: see
     // [_anchorIfFresh].
