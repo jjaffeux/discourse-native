@@ -8,6 +8,7 @@ import 'package:html/dom.dart' as dom;
 import '../data/emoji_cache.dart';
 import '../foundation/diagnostic_errors.dart';
 import 'image_decode.dart';
+import 'site_url.dart';
 
 /// One emoji, drawn from the image the site serves for it.
 ///
@@ -168,12 +169,16 @@ Widget? emojiWidgetBuilder(
 ///
 /// Three shapes reach here, depending on whether the site has a CDN and where
 /// its custom emoji are uploaded: absolute, protocol-relative, and — the usual
-/// one — root-relative. Null when there is nothing to resolve it against, which
-/// is not an error; see [emojiWidgetBuilder].
+/// one — root-relative. A root-relative src already carries a subfolder site's
+/// base path, so it must resolve against the origin rather than being appended
+/// to the stored site URL. Null when there is nothing to resolve it against,
+/// which is not an error; see [emojiWidgetBuilder].
 String? absoluteEmojiUrl(String? src, String? siteUrl) {
   if (src == null || src.isEmpty) return null;
-  if (src.startsWith('//')) return 'https:$src';
-  if (src.startsWith('http://') || src.startsWith('https://')) return src;
-  if (siteUrl == null || siteUrl.isEmpty) return null;
-  return '$siteUrl${src.startsWith('/') ? '' : '/'}$src';
+  final resolved = resolveSiteUrl(src, siteUrl);
+  // Without a site, [resolveSiteUrl] leaves a site-relative src unresolved,
+  // and an unresolved src cannot be fetched; the shortcode stands instead.
+  final uri = Uri.tryParse(resolved);
+  if (uri == null || !uri.hasScheme) return null;
+  return resolved;
 }

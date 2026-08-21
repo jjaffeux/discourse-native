@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -64,11 +65,24 @@ class UserCardTarget extends StatelessWidget {
 /// The username a Discourse profile link points at, or null for anything else.
 ///
 /// Only the profile root counts: `/u/someone/messages` is a page of its own,
-/// not a person, and belongs in the browser.
-String? usernameFromProfileUrl(Uri url) {
+/// not a person, and belongs in the browser. On a subfolder install the root
+/// is `<base>/u/someone`, so the segments before the trailing pair must be
+/// exactly [siteUrl]'s base path — anything else, like a topic whose slug
+/// happens to be `u`, is not a profile. Without a site, only `/u/someone`
+/// itself can be trusted.
+String? usernameFromProfileUrl(Uri url, {String? siteUrl}) {
   final segments = url.pathSegments;
-  if (segments.length != 2 || segments.first != 'u') return null;
-  return segments[1].isEmpty ? null : segments[1];
+  if (segments.length < 2 || segments[segments.length - 2] != 'u') return null;
+  final username = segments.last;
+  if (username.isEmpty) return null;
+
+  final base = siteUrl == null
+      ? const <String>[]
+      : (Uri.tryParse(siteUrl)?.pathSegments ?? const [])
+            .where((segment) => segment.isNotEmpty)
+            .toList();
+  final leading = segments.sublist(0, segments.length - 2);
+  return listEquals(leading, base) ? username : null;
 }
 
 /// Handles a tapped link that turns out to be a mention.
@@ -87,7 +101,7 @@ bool showUserCardForUrl(BuildContext context, String url, {String? siteUrl}) {
   final uri = Uri.tryParse(url);
   if (uri == null || !instance.serves(uri)) return false;
 
-  final username = usernameFromProfileUrl(uri);
+  final username = usernameFromProfileUrl(uri, siteUrl: instance.url);
   if (username == null) return false;
 
   unawaited(
