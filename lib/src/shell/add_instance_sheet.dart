@@ -249,7 +249,12 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           return;
         }
         if (added) {
-          Navigator.of(context).pop();
+          // The barrier and Escape stay live while connecting, and a dismissed
+          // route keeps this State mounted for its exit animation. A success
+          // landing in that window must not pop whatever route is on top now.
+          if (ModalRoute.of(context)?.isCurrent == true) {
+            Navigator.of(context).pop();
+          }
           return;
         }
         failure = "Couldn't save this site. Try again.";

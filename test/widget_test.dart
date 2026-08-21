@@ -205,6 +205,30 @@ List<String> watchClipboard(WidgetTester tester) {
   return copied;
 }
 
+/// Catches the app-exit requests a root back gesture hands to the platform.
+List<MethodCall> watchAppExits(WidgetTester tester) {
+  final exits = <MethodCall>[];
+  final messenger = tester.binding.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method == 'SystemNavigator.pop') exits.add(call);
+    return null;
+  });
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+  );
+  return exits;
+}
+
+/// Delivers the platform's back event the way Android does: through the
+/// navigation channel, not by tapping an in-app affordance.
+Future<void> systemBack(WidgetTester tester) async {
+  await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+    SystemChannels.navigation.name,
+    const JSONMethodCodec().encodeMethodCall(const MethodCall('popRoute')),
+    (_) {},
+  );
+}
+
 final class _GatedUserCardApi extends FakeDiscourseApi {
   _GatedUserCardApi({
     required this.cardGate,
@@ -1012,6 +1036,28 @@ void main() {
       // First back pops the stack; the sidebar is still not showing.
       expect(find.byType(MainContent), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
+    });
+
+    testWidgets('a system back at the root hands the gesture to the platform', (
+      tester,
+    ) async {
+      final exits = watchAppExits(tester);
+      await pumpShell(tester, phone);
+
+      await tester.tap(find.text('Messages'));
+      await tester.pumpAndSettle();
+
+      // Content is showing, so this back unwinds in-app and must not leave.
+      await systemBack(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(InstanceSidebar), findsOneWidget);
+      expect(exits, isEmpty);
+
+      // Nothing left to unwind. The shell's own PopScope swallowed the event,
+      // so leaving the app has to be an explicit request to the platform.
+      await systemBack(tester);
+      await tester.pumpAndSettle();
+      expect(exits, hasLength(1));
     });
 
     testWidgets('the avatar follows whichever pane is showing', (tester) async {
@@ -2333,6 +2379,55 @@ void main() {
           lessThan(tester.getTopLeft(meta).dy),
         );
         expect(find.text('Discourse Team'), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
+    testWidgets('a drop lands harmlessly after the dragged site is removed', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final store = FakeInstanceStore([
+          ...twoSites,
+          instance('community.example', title: 'Community'),
+        ]);
+        await pumpShell(tester, desktop, store: store);
+
+        final meta = railItem('meta.discourse.org');
+        final controller = ShellScope.read(tester.element(meta));
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(meta));
+        await mouse.down(tester.getCenter(meta));
+        await tester.pump();
+        for (var step = 0; step < 2; step++) {
+          await mouse.moveBy(const Offset(0, 16));
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        // A background flow takes the dragged site away mid-drag. The drag
+        // avatar outlives its Draggable, so the drop still arrives — over a
+        // rail that no longer contains the dragged site.
+        expect(
+          await controller.removeInstance(controller.instances.first),
+          isTrue,
+        );
+        await tester.pump();
+        await mouse.moveBy(const Offset(0, 8));
+        await tester.pump();
+        await mouse.up();
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect((await store.load()).map((site) => site.url), [
+          'https://team.discourse.org',
+          'https://community.example',
+        ]);
       } finally {
         debugDefaultTargetPlatformOverride = previous;
       }

@@ -111,11 +111,17 @@ class InstanceRail extends StatelessWidget {
                                       onWillAcceptWithDetails: (details) =>
                                           details.data != instance.url,
                                       onAcceptWithDetails: (details) {
+                                        // A background flow can remove the
+                                        // dragged site mid-drag while its
+                                        // avatar lives on, so the drop must
+                                        // tolerate the site being gone.
                                         final dragged = state.instances
-                                            .firstWhere(
+                                            .where(
                                               (item) =>
                                                   item.url == details.data,
-                                            );
+                                            )
+                                            .firstOrNull;
+                                        if (dragged == null) return;
                                         _moveInstance(
                                           context,
                                           controller,
