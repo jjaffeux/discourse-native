@@ -45,9 +45,6 @@ void main() {
       markdownStyle(Md.htmlTag, 'small', base, theme).fontSize,
       DiscourseTypography.base * 0.75,
     );
-    expect(
-      markdownStyle(Md.codeBlock, null, base, theme).fontSize,
-      14,
-    );
+    expect(markdownStyle(Md.codeBlock, null, base, theme).fontSize, 14);
   });
 }
