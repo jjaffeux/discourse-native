@@ -503,6 +503,7 @@ class _StreamState extends State<ChatMessageStream>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _list.addListener(_noteExtentsChanged);
     _acceptHighlightRequest();
     _scheduleLook();
   }
@@ -541,10 +542,11 @@ class _StreamState extends State<ChatMessageStream>
         oldWidget.stream.atPresent &&
         widget.stream.atPresent &&
         oldWidget.stream.newestId != widget.stream.newestId) {
-      final previous = oldWidget.stream.messageIds.toSet();
-      _unseenLiveMessages += widget.stream.messageIds
-          .where((id) => !previous.contains(id))
-          .length;
+      // Within one fetch generation an at-present window only ever gains
+      // ids, so the growth is the count of live arrivals — no need to build
+      // an O(n) set difference per incoming message.
+      _unseenLiveMessages +=
+          widget.stream.messageIds.length - oldWidget.stream.messageIds.length;
     }
 
     _holdStillThroughForwardPage(oldWidget);
@@ -915,15 +917,16 @@ class _StreamState extends State<ChatMessageStream>
     return widget.items[widget.items.length - 1 - index];
   }
 
-  /// Pins the date whose messages currently cross the top of the viewport.
+  /// The day separators in the current projection, newest-last by row.
   ///
-  /// Chat's list is reversed: row zero is at the bottom and larger rows head
-  /// into the past. A separator's normal top is therefore measured from the
-  /// bottom of the viewport. Once that top has passed above zero, its date
-  /// floats until the next (newer) separator pushes it out.
-  void _syncFloatingDay() {
-    if (!_list.isAttached || !_scroll.hasClients) return;
-
+  /// Derived per projection rather than per frame: [_syncFloatingDay] runs on
+  /// every scroll notification, and the items list is replaced — never
+  /// mutated — so its identity is an exact cache key.
+  List<({DateTime day, int row})> _daySeparatorRows() {
+    if (identical(_daySeparatorsFor, widget.items) &&
+        _daySeparatorsLeadingRows == _leadingRows) {
+      return _daySeparators;
+    }
     final days = <({DateTime day, int row})>[];
     for (var index = 0; index < widget.items.length; index++) {
       if (widget.items[index] case ChatStreamDay(:final day)) {
@@ -933,24 +936,60 @@ class _StreamState extends State<ChatMessageStream>
         ));
       }
     }
+    _daySeparators = days;
+    _daySeparatorsFor = widget.items;
+    _daySeparatorsLeadingRows = _leadingRows;
+    _dayExtentSums = null;
+    return days;
+  }
+
+  List<({DateTime day, int row})> _daySeparators = const [];
+  List<ChatStreamItem>? _daySeparatorsFor;
+  int _daySeparatorsLeadingRows = 0;
+
+  /// Cumulative extent through each separator row, valid until the list
+  /// re-measures something. The list controller notifies exactly when an
+  /// extent is modified during layout, so scroll frames over already-measured
+  /// rows — every frame of a steady reading scroll, and every live-message
+  /// tick while parked — reuse the sums instead of re-walking the window.
+  Map<int, double>? _dayExtentSums;
+
+  void _noteExtentsChanged() => _dayExtentSums = null;
+
+  /// Pins the date whose messages currently cross the top of the viewport.
+  ///
+  /// Chat's list is reversed: row zero is at the bottom and larger rows head
+  /// into the past. A separator's normal top is therefore measured from the
+  /// bottom of the viewport. Once that top has passed above zero, its date
+  /// floats until the next (newer) separator pushes it out.
+  void _syncFloatingDay() {
+    if (!_list.isAttached || !_scroll.hasClients) return;
+
+    final days = _daySeparatorRows();
     if (days.isEmpty) {
       _setFloatingDay(null, 0);
       return;
     }
 
-    final dayRows = {for (final entry in days) entry.row};
-    final tops = <int, double>{};
-    var extentThroughRow = 0.0;
-    for (var row = 0; row <= days.first.row; row++) {
-      extentThroughRow += _list.extentForIndex(row).$1;
-      if (dayRows.contains(row)) {
-        tops[row] =
+    var sums = _dayExtentSums;
+    if (sums == null) {
+      sums = <int, double>{};
+      final dayRows = {for (final entry in days) entry.row};
+      var extentThroughRow = 0.0;
+      for (var row = 0; row <= days.first.row; row++) {
+        extentThroughRow += _list.extentForIndex(row).$1;
+        if (dayRows.contains(row)) sums[row] = extentThroughRow;
+      }
+      _dayExtentSums = sums;
+    }
+    final tops = {
+      for (final entry in sums.entries)
+        entry.key:
             _scroll.position.viewportDimension -
             _streamPadding.bottom -
-            extentThroughRow +
-            _scroll.position.pixels;
-      }
-    }
+            entry.value +
+            _scroll.position.pixels,
+    };
 
     double topOf(int row) => tops[row]!;
 
