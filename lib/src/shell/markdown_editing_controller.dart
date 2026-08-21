@@ -1013,8 +1013,15 @@ class MarkdownEditingController extends TextEditingController {
           // _failedImageUrls is reserved for URLs the site resolved to
           // nothing; a transport error only releases the batch so the next
           // repaint asks again.
+          //
+          // It invalidates without announcing, which is the whole difference
+          // between waiting for a repaint and being one. Nothing resolved, so
+          // there is nothing new to draw; notifying would rebuild, the rebuild
+          // would ask for these URLs again, and an unreachable site would buy
+          // a request and a full relayout on every frame for as long as the
+          // composer stayed open.
           _resolvingImageUrls.removeAll(fresh);
-          if (!_disposed) artworkArrived();
+          if (!_disposed) _artwork++;
         },
       ),
     );
@@ -1046,6 +1053,9 @@ class MarkdownEditingController extends TextEditingController {
   /// value has not changed (`undo_history.dart:185`), and `ComposerController`
   /// guards on the text being different — so an answer arriving is not read as
   /// a keystroke by the typing clock or the draft timer.
+  /// Bumping [_artwork] alone drops the cached span so the next rebuild
+  /// recomputes it; this also asks for that rebuild. A failed lookup wants the
+  /// first without the second — see [_resolveImageUrls].
   void artworkArrived() {
     if (_disposed) return;
     _artwork++;

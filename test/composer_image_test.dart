@@ -154,6 +154,39 @@ void main() {
     expect(controller.collapsedImageAtOffset(projected.end), isNull);
   });
 
+  testWidgets('a failing short-url lookup does not retry every frame', (
+    tester,
+  ) async {
+    var attempts = 0;
+    final controller = MarkdownEditingController(
+      text: source,
+      resolveUploadUrls: (urls) {
+        attempts++;
+        return Future<Map<String, String>>.error(StateError('offline'));
+      },
+    );
+    addTearDown(controller.dispose);
+
+    // A live field, because the loop needs a listener: announcing artwork from
+    // the failure handler drops the span cache, the rebuild asks again, and an
+    // unreachable site pays a request and a relayout per frame.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: TextField(controller: controller)),
+      ),
+    );
+    for (var frame = 0; frame < 10; frame++) {
+      await tester.pump();
+    }
+
+    expect(attempts, 1);
+
+    // A real edit is still allowed to ask again.
+    await tester.enterText(find.byType(TextField), '$source ');
+    await tester.pump();
+    expect(attempts, greaterThan(1));
+  });
+
   testWidgets('a thrown short-url lookup is retried on a later repaint', (
     tester,
   ) async {
