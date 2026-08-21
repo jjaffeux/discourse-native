@@ -337,6 +337,22 @@ final class SitePresentationController extends FrameSafeNotifier {
   Future<SiteEmojiCatalog?> ensureEmojiCatalog(String siteUrl) =>
       _emojiCatalogRequest(siteUrl, refresh: false);
 
+  /// Warms the catalog for a site the reader has just opened, retrying a
+  /// failure from earlier in the session.
+  ///
+  /// [ensureEmojiCatalog] gives up permanently once a site has failed, which
+  /// suited its original caller: the emoji picker is opened deliberately and
+  /// can be opened again. Prose emoji now depend on the same catalog, and a
+  /// single failed fetch deciding that every title on the site reads as its
+  /// own raw shortcode for the rest of the session is not a trade worth
+  /// making. Selecting a site is deliberate and bounded, so it is the right
+  /// moment to try again; a catalog already held is returned untouched.
+  Future<SiteEmojiCatalog?> warmEmojiCatalog(String siteUrl) {
+    final held = _emojiCatalogs[siteUrl];
+    if (held != null) return Future.value(held);
+    return refreshEmojiCatalog(siteUrl);
+  }
+
   Future<SiteEmojiCatalog?> refreshEmojiCatalog(String siteUrl) =>
       _emojiCatalogRequest(siteUrl, refresh: true);
 

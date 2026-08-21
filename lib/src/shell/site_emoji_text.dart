@@ -107,6 +107,11 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
   /// because a permanently failed catalog answers null immediately, and asking
   /// again from the rebuild that follows each answer would loop build →
   /// microtask → build for as long as the row is on screen.
+  ///
+  /// A null answer releases the guard without asking again. Nothing rebuilds
+  /// from here, so there is no loop to start; it only means that if a catalog
+  /// reaches the site by some other route — reselecting it retries the fetch —
+  /// the next rebuild is allowed to notice.
   void _requestCatalog(ShellController controller) {
     if (identical(_askedController, controller) &&
         _askedSite == widget.siteUrl) {
@@ -116,7 +121,14 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
     _askedSite = widget.siteUrl;
     unawaited(
       controller.ensureEmojiCatalog(widget.siteUrl).then((catalog) {
-        if (mounted && catalog != null) setState(() {});
+        if (!mounted) return;
+        if (catalog != null) {
+          setState(() {});
+        } else if (identical(_askedController, controller) &&
+            _askedSite == widget.siteUrl) {
+          _askedController = null;
+          _askedSite = null;
+        }
       }),
     );
   }

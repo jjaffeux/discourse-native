@@ -513,6 +513,34 @@ void main() {
     },
   );
 
+  test('warming the catalog retries a failure but reuses a hit', () async {
+    await _installDiagnostics('emoji-catalog-warm');
+    final api = _PresentationApi()
+      ..emojiError = StateError('catalog unavailable');
+    final controller = _controller(api);
+
+    expect(await controller.ensureEmojiCatalog(site), isNull);
+    expect(api.emojiCalls, 1);
+
+    // Prose emoji depend on this catalog, so opening the site again has to be
+    // able to recover; an ensure would keep answering the session-long null.
+    expect(await controller.ensureEmojiCatalog(site), isNull);
+    expect(api.emojiCalls, 1);
+
+    api
+      ..emojiError = null
+      ..emojis = const [SiteEmoji(name: 'wave', url: 'wave.png')];
+
+    expect(await controller.warmEmojiCatalog(site), isNotNull);
+    expect(api.emojiCalls, 2);
+    expect(controller.knowsEmoji(site, 'wave'), isTrue);
+
+    // Held catalogs are not refetched every time a site is selected.
+    expect(await controller.warmEmojiCatalog(site), isNotNull);
+    expect(api.emojiCalls, 2);
+    controller.dispose();
+  });
+
   test(
     'failed emoji metadata returns null and explicit refresh can recover',
     () async {

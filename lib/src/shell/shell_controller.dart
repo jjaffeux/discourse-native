@@ -6450,8 +6450,10 @@ class ShellController extends FrameSafeNotifier {
       // Titles draw only the shortcodes the catalog vouches for, so it is a
       // dependency of the first topic list rather than of the composer that
       // used to be the only thing asking. Warmed alongside the feed, it lands
-      // with the rows instead of turning every title into a second frame.
-      unawaited(_presentation.ensureEmojiCatalog(instance.url));
+      // with the rows instead of turning every title into a second frame, and
+      // warming retries a failure rather than inheriting the picker's
+      // give-up-for-the-session verdict.
+      unawaited(_presentation.warmEmojiCatalog(instance.url));
       unawaited(_ensureCategoriesFor(instance));
     }
     if (instance.isConnected) unawaited(resenha.ensureLoaded(instance.url));
