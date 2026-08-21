@@ -348,6 +348,70 @@ void main() {
     expect(composer.canSubmit, isTrue);
   });
 
+  test('a failed edit body load keeps sending disabled until the body '
+      'arrives', () {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 7,
+        slug: 'a-topic',
+        topicTitle: 'A topic',
+        editingPostId: 11,
+        editingPostNumber: 2,
+      ),
+    );
+    addTearDown(composer.dispose);
+    expect(composer.target.mode, ComposerMode.postEdit);
+
+    composer.beginLoadingBody();
+    composer.bodyLoadFailed();
+    composer.text.text = 'typed into the empty field';
+    expect(
+      composer.canSubmit,
+      isFalse,
+      reason: 'sending now would replace the whole post with the typed text',
+    );
+
+    composer.loadedBody('Original body');
+    expect(composer.raw, 'Original body');
+    expect(composer.canSubmit, isFalse);
+
+    composer.text.text = 'Original body, amended';
+    expect(composer.canSubmit, isTrue);
+  });
+
+  test('a failed body load blocks a topic edit even when only metadata '
+      'changed', () {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 7,
+        slug: 'a-topic',
+        topicTitle: 'Original',
+        editingPostId: 11,
+        editingPostNumber: 1,
+        mode: ComposerMode.topicEdit,
+      ),
+    );
+    addTearDown(composer.dispose);
+
+    composer.beginLoadingBody();
+    composer.bodyLoadFailed();
+    composer.title.text = 'Changed title';
+    expect(composer.metadataChanged, isTrue);
+    expect(
+      composer.canSubmit,
+      isFalse,
+      reason:
+          'the submit path follows a metadata save with a body update '
+          'whenever the field differs from the baseline, and with no '
+          'baseline that would blank the first post',
+    );
+
+    composer.loadedBody('Original body');
+    expect(composer.canSubmit, isTrue);
+  });
+
   group('emoji insertion', () {
     test('replaces an incomplete shortcode at the caret', () {
       final composer = ComposerController(_target);

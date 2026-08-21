@@ -4545,6 +4545,16 @@ class ShellController extends FrameSafeNotifier {
   ) async {
     final lease = lifecycle.capture(target.siteUrl);
     composer.beginSubmit();
+    // Both modes that reach here opened on an existing post, so a null
+    // baseline means the body fetch failed and `raw` is whatever was typed
+    // into the empty field, not the post. Sending it would replace the whole
+    // post, and with no originalText the site's edit-conflict check would
+    // not run either. `canSubmit` already refuses this, but that gate is
+    // UI-level; the request must be impossible to build, not just to press.
+    if (composer.originalRaw == null) {
+      composer.failed(const WriteException(WriteFailure.unreachable));
+      return;
+    }
     final credential = await _credentialForWrite(target.siteUrl);
     if (!lease.isCurrent) return;
     if (credential.failure case final failure?) {
