@@ -525,6 +525,76 @@ void main() {
     });
   });
 
+  group('markdownBlocks', () {
+    List<String> textsOf(
+      String source, {
+      Iterable<(int, int)> excluding = const [],
+    }) => [
+      for (final block in markdownBlocks(source, excluding: excluding))
+        block.text,
+    ];
+
+    test('splits on a blank line and keeps the offsets honest', () {
+      const source = 'one\n\ntwo\n\n\nthree';
+      expect(textsOf(source), ['one', 'two', 'three']);
+      for (final block in markdownBlocks(source)) {
+        expect(
+          source.substring(block.offset, block.offset + block.text.length),
+          block.text,
+        );
+      }
+    });
+
+    test('splits around what it is told to exclude', () {
+      const source = 'before\nFENCE\nafter';
+      expect(textsOf(source, excluding: [(7, 12)]), ['before\n', '\nafter']);
+    });
+
+    test('a source that is one block stays one block', () {
+      expect(textsOf('a\nb\nc'), ['a\nb\nc']);
+      expect(textsOf(''), isEmpty);
+      expect(textsOf('\n\n'), isEmpty);
+    });
+  });
+
+  group('markdownPairs', () {
+    List<(int, int)> pairs(
+      String text,
+      String delimiter, {
+      bool word = false,
+    }) => markdownPairs(text, delimiter, wordBounded: word).toList();
+
+    test('takes the leftmost opener and its shortest closer', () {
+      expect(pairs('*a*b*c*', '*'), [(0, 3), (4, 7)]);
+    });
+
+    test('refuses a space against the inside of either delimiter', () {
+      expect(pairs('* a*', '*'), isEmpty);
+      expect(pairs('*a *', '*'), isEmpty);
+      // A no-break space is space here as it is to a regexp.
+      expect(pairs('*\u{00a0}a*', '*'), isEmpty);
+    });
+
+    test('needs something between the delimiters', () {
+      expect(pairs('**', '*'), isEmpty);
+      expect(pairs('****', '**'), isEmpty);
+    });
+
+    test('honours the word boundary on both outsides', () {
+      expect(pairs('_a_', '_', word: true), [(0, 3)]);
+      expect(pairs('x_a_', '_', word: true), isEmpty);
+      expect(pairs('_a_x', '_', word: true), isEmpty);
+      // The inner `_` cannot close — a word character follows it — so the
+      // opener reaches past it to the one that can.
+      expect(pairs('_a_x _b_', '_', word: true), [(0, 8)]);
+    });
+
+    test('gives up on the block once an opener runs out of closers', () {
+      // The property the scan is built on, and the reason it is linear.
+      expect(pairs('_a _b _c', '_', word: true), isEmpty);
+    });
+  });
+
   group('the invariant', () {
     test('paints every character of the source, and no others', () {
       for (final source in samples) {
