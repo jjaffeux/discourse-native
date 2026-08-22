@@ -72,6 +72,28 @@ void main() {
     expect(reloaded.events.map((event) => event.id), ['first']);
   });
 
+  test('an unterminated last line does not swallow the next event', () async {
+    final persistence = FileDiagnosticsPersistence(file);
+    await persistence.appendEvents([_error('first', 1, now)], nowUtc: now);
+    await persistence.close();
+    // What a kill mid-write leaves behind: a record with no newline after it.
+    await file.writeAsString(
+      '{"version":1,"record":"event","event":',
+      mode: FileMode.append,
+    );
+
+    final next = FileDiagnosticsPersistence(file);
+    await next.load(nowUtc: now);
+    await next.appendEvents([_error('second', 2, now)], nowUtc: now);
+    await next.close();
+
+    // Appended onto the fragment, the new record would be spliced into an
+    // unparseable line and lost with it — and the file would stay a line out
+    // of step for every write after that.
+    final reloaded = await FileDiagnosticsPersistence(file).load(nowUtc: now);
+    expect(reloaded.events.map((event) => event.id), ['first', 'second']);
+  });
+
   test('streams past an oversized corrupt line and compacts it away', () async {
     await file.parent.create(recursive: true);
     final sink = file.openWrite();

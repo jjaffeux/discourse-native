@@ -332,11 +332,31 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
   Future<void> _appendLines(List<Map<String, Object?>> lines) async {
     if (lines.isEmpty) return;
     await ensurePrivateFile(file);
+    // A kill mid-write can leave the file ending without its newline. The
+    // decoder already tolerates that one torn line, but appending straight
+    // onto it would splice the next record into the fragment and lose that
+    // record too — and the file would stay one line out of step until an
+    // unrelated compaction. Close the torn line first; it costs a byte and
+    // bounds the damage to the record that was actually interrupted.
+    final terminator = await _needsLineTerminator() ? '\n' : '';
     await file.writeAsString(
-      '${lines.map(jsonEncode).join('\n')}\n',
+      '$terminator${lines.map(jsonEncode).join('\n')}\n',
       mode: FileMode.append,
       flush: true,
     );
+  }
+
+  Future<bool> _needsLineTerminator() async {
+    final length = await file.length();
+    if (length == 0) return false;
+    final handle = await file.open();
+    try {
+      await handle.setPosition(length - 1);
+      final last = await handle.readByte();
+      return last != 0x0a;
+    } finally {
+      await handle.close();
+    }
   }
 
   Future<void> _compactNow(
