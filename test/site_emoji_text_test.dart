@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/data/emoji_cache.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -12,11 +13,17 @@ import 'package:http/testing.dart';
 import 'support/fakes.dart';
 
 void main() {
+  final artworkRequests = <Uri>[];
   setUp(() {
     // Resolving a shortcode must never give this focused rendering test a
-    // socket. A miss keeps the fallback deterministic after the first frame.
+    // socket. A miss keeps the fallback deterministic after the first frame,
+    // and the log proves which tokens fetched artwork at all.
+    artworkRequests.clear();
     EmojiCache.instance = EmojiCache(
-      client: MockClient((_) async => http.Response('', 404)),
+      client: MockClient((request) async {
+        artworkRequests.add(request.url);
+        return http.Response('', 404);
+      }),
     );
   });
   tearDown(EmojiCache.instance.clear);
@@ -190,16 +197,88 @@ void main() {
       'First second',
     );
   });
+
+  testWidgets('a registered shortcode becomes an emoji span', (tester) async {
+    await _pump(tester, runs: const [SiteEmojiTextRun('Party :tada: time')]);
+
+    final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
+    expect(emoji.name, 'tada');
+    expect(find.bySemanticsLabel('Party :tada: time'), findsOneWidget);
+  });
+
+  testWidgets('unregistered tokens stay literal text with no request', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      runs: const [SiteEmojiTextRun('Standup at 10:30:45 UTC')],
+    );
+
+    expect(find.byType(SiteEmojiImage), findsNothing);
+    final text = tester.widget<Text>(find.text('Standup at 10:30:45 UTC'));
+    // Plain data, not spans: nothing colon-delimited earned a placeholder.
+    expect(text.data, 'Standup at 10:30:45 UTC');
+    expect(text.textSpan, isNull);
+    expect(artworkRequests, isEmpty);
+  });
+
+  testWidgets('a site custom emoji still resolves', (tester) async {
+    await _pump(tester, runs: const [SiteEmojiTextRun('Hi :partyparrot:!')]);
+
+    final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
+    expect(emoji.name, 'partyparrot');
+    expect(find.bySemanticsLabel('Hi :partyparrot:!'), findsOneWidget);
+  });
+
+  testWidgets('a skin-tone variant of a registered emoji resolves', (
+    tester,
+  ) async {
+    await _pump(tester, runs: const [SiteEmojiTextRun('Bye :wave:t3:')]);
+
+    final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
+    expect(emoji.name, 'wave:t3');
+  });
+
+  testWidgets('shortcodes stay literal until the catalog answers', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      runs: const [SiteEmojiTextRun('Party :tada: time')],
+      settle: false,
+    );
+
+    expect(find.byType(SiteEmojiImage), findsNothing);
+    expect(find.text('Party :tada: time'), findsOneWidget);
+    expect(artworkRequests, isEmpty);
+
+    await tester.pumpAndSettle();
+
+    final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
+    expect(emoji.name, 'tada');
+  });
 }
 
 Future<void> _pump(
   WidgetTester tester, {
   required List<SiteEmojiTextRun> runs,
   List<Widget> trailing = const [],
+  bool settle = true,
 }) async {
   final controller = ShellController(
     instanceStore: FakeInstanceStore([instance('meta.example')]),
-    api: FakeDiscourseApi(),
+    api: FakeDiscourseApi(
+      emojisBySite: {
+        // What this site's `/emojis.json` registers, custom uploads included.
+        // Everything a test draws must be here; anything else stays text.
+        'https://meta.example': const [
+          SiteEmoji(name: 'sparkles', url: '/images/emoji/sparkles.png'),
+          SiteEmoji(name: 'tada', url: '/images/emoji/tada.png'),
+          SiteEmoji(name: 'wave', url: '/images/emoji/wave.png', tonable: true),
+          SiteEmoji(name: 'partyparrot', url: '/uploads/parrot.png'),
+        ],
+      },
+    ),
     authenticator: FakeAuthenticator(),
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
@@ -220,6 +299,9 @@ Future<void> _pump(
       ),
     ),
   );
+  // The catalog request the first shortcode starts is answered by the fake in
+  // microtasks; settling renders the artwork pass those tests are about.
+  if (settle) await tester.pumpAndSettle();
 }
 
 String _plainText(Iterable<SiteEmojiTextRun> runs) =>

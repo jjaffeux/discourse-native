@@ -72,17 +72,15 @@ void main() {
       await pumpEventQueue();
     }
 
-    expect(
-      api.totalsSites,
-      [firstUrl, secondUrl],
-      reason: 'rapid A/B switching reuses the five-minute totals snapshots',
-    );
+    expect(api.totalsSites, [
+      firstUrl,
+      secondUrl,
+    ], reason: 'rapid A/B switching reuses the five-minute totals snapshots');
     expect(api.sessionSites, [firstUrl, secondUrl]);
-    expect(
-      api.sidebarSites,
-      [firstUrl, secondUrl],
-      reason: 'an empty custom-sidebar response is still a loaded snapshot',
-    );
+    expect(api.sidebarSites, [
+      firstUrl,
+      secondUrl,
+    ], reason: 'an empty custom-sidebar response is still a loaded snapshot');
   });
 
   test(
@@ -120,11 +118,9 @@ void main() {
       api.firstTotals.complete(const NotificationTotals());
       firstSession.complete();
       await pumpEventQueue();
-      expect(
-        api.sidebarSites,
-        [secondUrl],
-        reason: 'the late selected-site continuation was cancelled',
-      );
+      expect(api.sidebarSites, [
+        secondUrl,
+      ], reason: 'the late selected-site continuation was cancelled');
 
       shell.selectInstance(0);
       await pumpEventQueue();

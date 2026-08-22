@@ -295,7 +295,7 @@ class LocalDateFormatter {
         final l10n = RelativeTime.locale(locale).localizations;
         return l10n.secondsPast(0, l10n.digit0, 'false');
       }
-      return _countdown(source.difference(now), locale);
+      return _countdown(source.difference(now));
     }
 
     if (sameLocalDayAsFrom) {
@@ -374,36 +374,23 @@ class LocalDateFormatter {
         continue;
       }
       if (_isAsciiLetter(format.codeUnitAt(index)) &&
-          !const {
-            'Y',
-            'M',
-            'D',
-            'd',
-            'e',
-            'E',
-            'w',
-            'W',
-            'g',
-            'G',
-            'Q',
-            'H',
-            'h',
-            'k',
-            'm',
-            's',
-            'S',
-            'A',
-            'a',
-            'Z',
-            'z',
-            'X',
-            'x',
-            'L',
-            'l',
-          }.contains(format[index])) {
+          !_tokenLetters.contains(format[index])) {
         var end = index + 1;
-        while (end < format.length && _isAsciiLetter(format.codeUnitAt(end))) {
+        while (end < format.length &&
+            _isAsciiLetter(format.codeUnitAt(end)) &&
+            !_tokenLetters.contains(format[end])) {
           end += 1;
+        }
+        // Moment passes a lone unrecognized letter through and keeps
+        // formatting the token letters after it (the T in YYYY-MM-DDTHH:mm).
+        // A run of two or more unrecognized letters marks a literal word, so
+        // the rest of that word stays literal too: unescaped words such as
+        // FUTURE must survive intact even when they end in a token letter.
+        if (end - index > 1) {
+          while (end < format.length &&
+              _isAsciiLetter(format.codeUnitAt(end))) {
+            end += 1;
+          }
         }
         output.write(format.substring(index, end));
         index = end;
@@ -519,38 +506,34 @@ class LocalDateFormatter {
     };
   }
 
-  static String _countdown(Duration duration, Locale locale) {
-    final l10n = RelativeTime.locale(locale).localizations;
-    final seconds = duration.inSeconds;
-    final (count, formatter) = switch (seconds) {
-      >= 31536000 => (seconds ~/ 31536000, l10n.yearsFuture),
-      >= 2592000 => (seconds ~/ 2592000, l10n.monthsFuture),
-      >= 604800 => (seconds ~/ 604800, l10n.weeksFuture),
-      >= 86400 => (seconds ~/ 86400, l10n.daysFuture),
-      >= 3600 => (seconds ~/ 3600, l10n.hoursFuture),
-      >= 60 => (seconds ~/ 60, l10n.minutesFuture),
-      _ => (math.max(1, seconds), l10n.secondsFuture),
-    };
-    return formatter(count, _localizedDigits(count, l10n), 'true');
-  }
-
-  static String _localizedDigits(
-    int value,
-    RelativeTimeLocalizations localizations,
-  ) {
-    final digits = [
-      localizations.digit0,
-      localizations.digit1,
-      localizations.digit2,
-      localizations.digit3,
-      localizations.digit4,
-      localizations.digit5,
-      localizations.digit6,
-      localizations.digit7,
-      localizations.digit8,
-      localizations.digit9,
-    ];
-    return '$value'.split('').map((digit) => digits[int.parse(digit)]).join();
+  // Upstream renders countdowns with moment.duration(diff).humanize(): per-
+  // unit totals rounded and compared against moment's default thresholds
+  // (44s, 45min, 22h, 26d, 11 months, no weeks bucket) with no "in" prefix.
+  // The CLDR strings in package:relative_time cannot express that bare form
+  // (their numeric variants always carry a prefix), so the moment default-
+  // locale strings are emitted directly.
+  static String _countdown(Duration duration) {
+    final milliseconds = duration.inMilliseconds;
+    final seconds = (milliseconds / 1000).round();
+    final minutes = (milliseconds / 60000).round();
+    final hours = (milliseconds / 3600000).round();
+    final days = (milliseconds / 86400000).round();
+    // Moment converts days to months with the mean Gregorian month: 146097
+    // days per 400 years of 4800 months.
+    final monthsExact = milliseconds / 86400000 * 4800 / 146097;
+    final months = monthsExact.round();
+    final years = (monthsExact / 12).round();
+    if (seconds <= 44) return 'a few seconds';
+    if (minutes <= 1) return 'a minute';
+    if (minutes < 45) return '$minutes minutes';
+    if (hours <= 1) return 'an hour';
+    if (hours < 22) return '$hours hours';
+    if (days <= 1) return 'a day';
+    if (days < 26) return '$days days';
+    if (months <= 1) return 'a month';
+    if (months < 11) return '$months months';
+    if (years <= 1) return 'a year';
+    return '$years years';
   }
 
   static int _calendarDayDifference(DateTime value, DateTime reference) =>
@@ -723,23 +706,33 @@ class LocalDateFormatter {
   static int _daysInMonth(int year, int month) =>
       DateTime.utc(year, month + 1, 0).day;
 
+  // Moment derives day-of-year and ISO-week values from calendar fields, so
+  // these helpers must too: [value] carries a displayed-zone wall clock, and
+  // instant arithmetic against device-local dates (or exact 24h day steps
+  // across a DST change) lands on the wrong calendar day. Rebuilding the
+  // wall date in UTC keeps every day exactly 24h and no zone involved.
   static int _dayOfYear(DateTime value) =>
-      value.difference(DateTime(value.year)).inDays + 1;
+      DateTime.utc(
+        value.year,
+        value.month,
+        value.day,
+      ).difference(DateTime.utc(value.year)).inDays +
+      1;
 
   static int _isoWeek(DateTime value) {
-    final thursday = DateTime(
+    final thursday = DateTime.utc(
       value.year,
       value.month,
       value.day,
     ).add(Duration(days: 4 - value.weekday));
-    final firstThursday = DateTime(thursday.year, 1, 4);
+    final firstThursday = DateTime.utc(thursday.year, 1, 4);
     return 1 +
         (thursday.difference(firstThursday).inDays -
                 (4 - firstThursday.weekday)) ~/
             7;
   }
 
-  static int _isoWeekYear(DateTime value) => DateTime(
+  static int _isoWeekYear(DateTime value) => DateTime.utc(
     value.year,
     value.month,
     value.day,
@@ -773,6 +766,36 @@ class LocalDateFormatter {
 
   static bool _isAsciiLetter(int value) =>
       (value >= 65 && value <= 90) || (value >= 97 && value <= 122);
+
+  /// Letters that can begin a moment formatting token handled by
+  /// [_formatToken] or the localized aliases.
+  static const Set<String> _tokenLetters = {
+    'Y',
+    'M',
+    'D',
+    'd',
+    'e',
+    'E',
+    'w',
+    'W',
+    'g',
+    'G',
+    'Q',
+    'H',
+    'h',
+    'k',
+    'm',
+    's',
+    'S',
+    'A',
+    'a',
+    'Z',
+    'z',
+    'X',
+    'x',
+    'L',
+    'l',
+  };
 
   static String _localeName(Locale locale) => locale.countryCode == null
       ? locale.languageCode

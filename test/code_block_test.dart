@@ -101,6 +101,14 @@ void main() {
 
       expect(lines.map((line) => line.text), ['only']);
     });
+
+    test('keeps the blank lines the author wrote', () {
+      // One newline at each end is the markup's; everything past that is
+      // spacing somebody typed, and a fence that ends on it kept it.
+      final lines = parseBlock('<pre><code>\na\n\nb\n\n\n</code></pre>').lines;
+
+      expect(lines.map((line) => line.text), ['a', '', 'b', '', '']);
+    });
   });
 
   group('CodeBlock', () {

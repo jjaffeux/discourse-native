@@ -172,8 +172,18 @@ final class EmojiPickerStore {
       owner: _persistence,
       key: canonicalSiteUrl,
       operation: () async {
-        final current =
-            _preferences[canonicalSiteUrl] ?? await _read(canonicalSiteUrl);
+        var current = _preferences[canonicalSiteUrl];
+        if (current == null || _unreadable.contains(canonicalSiteUrl)) {
+          // Either never read, or read into a stand-in after a failure. Ask
+          // again rather than mutate something that was never the document.
+          current = await _read(canonicalSiteUrl);
+          _preferences[canonicalSiteUrl] = current;
+        }
+        // Still unreadable: drop this change instead of saving over a
+        // document that is intact on disk and unknown here. Losing one
+        // recorded pick is recoverable; overwriting a reader's tone and
+        // history with an empty default is not.
+        if (_unreadable.contains(canonicalSiteUrl)) return;
         final updated = change(current);
         _preferences[canonicalSiteUrl] = updated;
         if (identical(updated, current)) return;
@@ -182,14 +192,25 @@ final class EmojiPickerStore {
     );
   }
 
+  /// Sites whose stored document could not be read this session.
+  ///
+  /// A failed read still answers the empty default, because the picker has to
+  /// open. What it must not do is let that default become the basis of a
+  /// write: the stored document is intact and unread, so building on the
+  /// stand-in and saving it would replace a reader's tone and history with
+  /// nothing.
+  final Set<String> _unreadable = {};
+
   Future<_EmojiPickerPreferences> _read(String siteUrl) async {
     try {
       final encoded = await _persistence.readPreferences(siteUrl: siteUrl);
+      _unreadable.remove(siteUrl);
       if (encoded == null || encoded.isEmpty) {
         return _EmojiPickerPreferences.empty;
       }
       return _EmojiPickerPreferences.fromEncoded(encoded);
     } catch (error, stackTrace) {
+      _unreadable.add(siteUrl);
       _report(error, stackTrace, 'emojiPicker.read');
       return _EmojiPickerPreferences.empty;
     }

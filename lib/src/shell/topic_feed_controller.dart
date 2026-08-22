@@ -321,7 +321,13 @@ final class TopicFeedController extends FrameSafeNotifier {
           topicIds: [...held.topicIds, ...fresh],
           loadingMore: false,
           nextPagePath: next.nextPagePath,
-          clearNextPage: next.nextPagePath == null || fresh.isEmpty,
+          // A page whose topics were all already on the list — routine after
+          // the incoming banner prepends them — still advances the cursor.
+          // Pagination ends only when the server stops supplying one or
+          // repeats the cursor just requested, which would loop forever.
+          clearNextPage:
+              next.nextPagePath == null ||
+              next.nextPagePath == feed.nextPagePath,
           clearError: true,
         );
       });

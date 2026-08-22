@@ -66,11 +66,12 @@ class CodeBlockData {
   static List<CodeLine> _plain(String text) {
     final lines = text.split('\n');
     // `<pre>` swallows one newline after the open tag, and cooked code fences
-    // carry a trailing one. Neither is a line the author wrote.
-    if (lines.isNotEmpty && lines.first.trim().isEmpty) lines.removeAt(0);
-    while (lines.isNotEmpty && lines.last.trim().isEmpty) {
-      lines.removeLast();
-    }
+    // carry a trailing one. Neither is a line the author wrote — but only one
+    // of each, and only a truly empty one. Blank lines beyond that, and lines
+    // holding whitespace, are the author's: a fence that ends on deliberate
+    // spacing kept it, and a stripping pass cannot tell that from padding.
+    if (lines.isNotEmpty && lines.first.isEmpty) lines.removeAt(0);
+    if (lines.isNotEmpty && lines.last.isEmpty) lines.removeLast();
     return [
       for (final line in lines) CodeLine(tokens: [CodeToken(line)]),
     ];

@@ -61,6 +61,23 @@ class Store {
   /// and no formatting on every lookup.
   final Map<(String, Type, Object), Ref<Object>> _refs = {};
 
+  /// How many times any record of a type has changed on a site.
+  ///
+  /// A derivation over many records — the loaded window of a topic, say — has
+  /// no single ref to watch, and re-deriving on every read costs a store
+  /// lookup per record. This is its cache key: unchanged generation means no
+  /// record of that type changed, so the previous answer still holds.
+  final Map<(String, Type), int> _generations = {};
+
+  /// The current change generation for records of type [T] on [siteUrl].
+  int generationOf<T extends Storable<T>>(String siteUrl) =>
+      _generations[(siteUrl, T)] ?? 0;
+
+  void _bump(String siteUrl, Type type) {
+    final key = (siteUrl, type);
+    _generations[key] = (_generations[key] ?? 0) + 1;
+  }
+
   /// The ref for a record, whether or not it has been fetched.
   ///
   /// Stable until [forget] is called for this site, so a widget can hold on to
@@ -91,6 +108,7 @@ class Store {
     final cell = _cell<T>(siteUrl, record.storeId);
     final held = cell.value;
     final merged = held == null ? record : held.merge(record);
+    if (!identical(held, merged)) _bump(siteUrl, T);
     cell._set(merged);
     return merged;
   }
@@ -113,7 +131,9 @@ class Store {
     final cell = _refs[(siteUrl, T, id)] as Ref<T>?;
     final held = cell?.value;
     if (cell == null || held == null) return;
-    cell._set(change(held));
+    final next = change(held);
+    if (!identical(held, next)) _bump(siteUrl, T);
+    cell._set(next);
   }
 
   /// Drops a record the site no longer serves.
@@ -121,7 +141,9 @@ class Store {
   /// The ref stays, holding null: something may still be watching it, and what
   /// it should now be told is that the record is gone.
   void remove<T extends Storable<T>>(String siteUrl, Object id) {
-    (_refs[(siteUrl, T, id)] as Ref<T>?)?._set(null);
+    final cell = _refs[(siteUrl, T, id)] as Ref<T>?;
+    if (cell?.value != null) _bump(siteUrl, T);
+    cell?._set(null);
   }
 
   /// Forgets everything belonging to one site.
@@ -131,6 +153,7 @@ class Store {
   /// than disposed — a widget may still be listening while the frame that
   /// removes it is drawn, and a disposed notifier it re-listens to would throw.
   void forget(String siteUrl) {
+    final _ = _generations.removeWhere((key, _) => key.$1 == siteUrl);
     final forgotten = <Ref<Object>>[];
     _refs.removeWhere((key, ref) {
       if (key.$1 != siteUrl) return false;

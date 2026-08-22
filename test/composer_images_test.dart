@@ -86,6 +86,22 @@ void main() {
     }
   });
 
+  test('a comma-scale suffix only counts after explicit dimensions', () {
+    // Discourse only reads ", N%" after "|WxH"; without dimensions the
+    // suffix is the author's alt text and must survive a round trip.
+    const bare = '![photo, 50%](upload://x)';
+    final image = parseComposerImages(bare).single;
+    expect(image.alt, 'photo, 50%');
+    expect((image.width, image.height, image.scale), (null, null, null));
+    expect(image.toMarkdown(), bare);
+
+    final sized = parseComposerImages(
+      '![photo|690x388, 50%](upload://x)',
+    ).single;
+    expect(sized.alt, 'photo');
+    expect((sized.width, sized.height, sized.scale), (690, 388, 50));
+  });
+
   test('escaped alt text round trips through serialization', () {
     final image = parseComposerImages(
       r'![a \[label\] and \\ slash|640x480](upload://abc)',

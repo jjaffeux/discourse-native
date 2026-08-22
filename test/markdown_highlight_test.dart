@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:discourse_native/src/shell/markdown_highlight.dart';
+import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The source with each run wrapped in what it was marked as, so a failure
@@ -181,6 +182,67 @@ void main() {
         body.map((r) => source.substring(r.start, r.end)).join(),
         'unterminated',
       );
+    });
+  });
+
+  group('deferred fence highlighting', () {
+    setUp(clearSyntaxHighlightCacheForTesting);
+
+    // As `_highlightFence` sees it: everything between the fence lines, the
+    // newline that closed the last body line included.
+    final largeBody =
+        '${List.generate(40, (i) => 'final value$i = "line $i";').join('\n')}'
+        '\n';
+    final largeSource = '```dart\n$largeBody```';
+
+    Iterable<MarkdownRun> scoped(List<MarkdownRun> runs) =>
+        runs.where((run) => run.has(Md.codeBlock) && run.detail != null);
+
+    test('the fixture is big enough to be worth deferring', () {
+      expect(largeBody.length, greaterThan(maxSynchronousFenceChars));
+    });
+
+    test('a small fence is tokenized synchronously even with the callback', () {
+      var deferred = 0;
+      final runs = scanMarkdown(
+        '```dart\nfinal x = 1;\n```',
+        deferHighlight: (_, _) => deferred++,
+      );
+
+      expect(deferred, 0);
+      expect(scoped(runs), isNotEmpty);
+    });
+
+    test('a large unparsed fence is left plain and handed back', () {
+      final deferred = <(String, String?)>[];
+      final runs = scanMarkdown(
+        largeSource,
+        deferHighlight: (body, language) => deferred.add((body, language)),
+      );
+
+      expect(deferred, [(largeBody, 'dart')]);
+      // Still code — monospace, code colour — just without scopes yet.
+      expect(runs.where((run) => run.has(Md.codeBlock)), isNotEmpty);
+      expect(scoped(runs), isEmpty);
+    });
+
+    test('a large fence already in the cache keeps its colour', () {
+      // What the debounce owes the scan: exactly this call, with exactly the
+      // body it was handed.
+      highlightLines(largeBody, 'dart');
+
+      var deferred = 0;
+      final runs = scanMarkdown(
+        largeSource,
+        deferHighlight: (_, _) => deferred++,
+      );
+
+      expect(deferred, 0);
+      expect(scoped(runs), isNotEmpty);
+    });
+
+    test('without the callback every fence tokenizes in place', () {
+      expect(scoped(scanMarkdown(largeSource)), isNotEmpty);
     });
   });
 

@@ -13,11 +13,12 @@ abstract class FrameSafeNotifier extends ChangeNotifier {
   void notifySafely() {
     if (_disposed) return;
 
-    if (SchedulerBinding.instance.schedulerPhase ==
-        SchedulerPhase.persistentCallbacks) {
+    final scheduler = _schedulerOrNull;
+    if (scheduler != null &&
+        scheduler.schedulerPhase == SchedulerPhase.persistentCallbacks) {
       if (_scheduled) return;
       _scheduled = true;
-      SchedulerBinding.instance.addPostFrameCallback((_) {
+      scheduler.addPostFrameCallback((_) {
         _scheduled = false;
         if (!_disposed) notifyListeners();
       });
@@ -25,6 +26,33 @@ abstract class FrameSafeNotifier extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  /// The scheduler binding, or null in a pure-Dart context (VM tests, tools,
+  /// secondary isolates). With no frames to coalesce against, notifying
+  /// synchronously is the frame-safe behavior.
+  ///
+  /// `SchedulerBinding.instance` reports an absent binding differently per
+  /// build mode: `BindingBase.checkInstance` raises its explanatory
+  /// [FlutterError] from inside an `assert`, so a release build falls through
+  /// to `instance!` and raises [TypeError] instead. Catching [Error] covers
+  /// both — catching only the debug one would leave release crashing on the
+  /// path this exists to keep working.
+  ///
+  /// A binding never goes away once built, so a found one is kept. A missing
+  /// one is asked for again, because a notifier may be constructed before
+  /// `ensureInitialized`, and a stale "none" would notify straight into a
+  /// layout pass.
+  static SchedulerBinding? _scheduler;
+
+  static SchedulerBinding? get _schedulerOrNull {
+    final held = _scheduler;
+    if (held != null) return held;
+    try {
+      return _scheduler = SchedulerBinding.instance;
+    } on Error {
+      return null;
+    }
   }
 
   @override

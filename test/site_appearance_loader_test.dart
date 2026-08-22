@@ -209,6 +209,47 @@ void main() {
       expect(themeRequest.headers['accept'], 'text/css');
     });
 
+    test('reads the forum document concurrently with scheme JSON', () async {
+      final documentRequested = Completer<void>();
+      final client = _Client((request) async {
+        final path = request.url.path;
+        if (path == '/site.json') {
+          return _response(
+            request,
+            _siteJson(includeAlternate: false),
+            contentType: 'application/json',
+          );
+        }
+        if (path == '/color-scheme-stylesheet/10/5.json') {
+          // Held until the forum document request is observed. A loader that
+          // serialises the document behind this batch deadlocks here and
+          // fails through its transport timeout.
+          await documentRequested.future;
+          return _response(
+            request,
+            _details('/styles/colors.css'),
+            contentType: 'application/json',
+          );
+        }
+        if (path == '/') {
+          documentRequested.complete();
+          return _response(request, _themeDocument(), contentType: 'text/html');
+        }
+        if (path == '/styles/colors.css') {
+          return _response(request, _paletteCss, contentType: 'text/css');
+        }
+        throw StateError('Unexpected request: ${request.url}');
+      });
+
+      expect(
+        await SiteAppearanceLoader(
+          client: client,
+          timeout: const Duration(seconds: 1),
+        ).load(siteUrl: 'https://forum.example'),
+        isNotNull,
+      );
+    });
+
     test('returns null when modern site theme metadata is absent', () async {
       final client = _Client(
         (request) async =>
@@ -448,7 +489,9 @@ void main() {
         ).load(siteUrl: 'https://forum.example'),
         _failsWith(SiteAppearanceLoadFailure.malformed),
       );
-      expect(client.requests, hasLength(2));
+      // The forum document starts alongside the resolver JSON, so three
+      // requests exist by the time the missing href is diagnosed.
+      expect(client.requests, hasLength(3));
     });
   });
 
@@ -520,6 +563,11 @@ void main() {
             contentType: 'application/json',
           );
         }
+        if (request.url.path == '/') {
+          // The forum document legitimately starts alongside the resolver
+          // JSON; only CSS subresources must wait for prevalidation.
+          return _response(request, _themeDocument(), contentType: 'text/html');
+        }
         throw StateError('No CSS request should start: ${request.url}');
       });
 
@@ -529,7 +577,7 @@ void main() {
         ).load(siteUrl: 'https://forum.example'),
         _failsWith(SiteAppearanceLoadFailure.unsafeUrl),
       );
-      expect(client.requests, hasLength(3));
+      expect(client.requests, hasLength(4));
     });
 
     test('prevalidates a parent theme href before any CSS request', () async {

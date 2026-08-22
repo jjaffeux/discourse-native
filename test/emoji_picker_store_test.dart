@@ -49,6 +49,47 @@ void main() {
     },
   );
 
+  test('a failed read never overwrites the stored document', () async {
+    final persistence = _FailingReadPersistence();
+    persistence.values[meta] = jsonEncode({
+      'version': 1,
+      'tone': 't5',
+      'history': {
+        'topic': ['wave', 'heart'],
+      },
+    });
+    final stored = persistence.values[meta];
+
+    final store = EmojiPickerStore(persistence: persistence);
+    persistence.failReads = true;
+    await store.ensureLoaded(siteUrl: meta);
+
+    // The picker still opens on the safe default — but that default is a
+    // stand-in for a document that is intact and simply was not read, so
+    // building on it and saving would erase the reader's tone and history.
+    expect(store.skinToneFor(siteUrl: meta), EmojiSkinTone.neutral);
+
+    await store.trackEmoji(
+      siteUrl: meta,
+      context: EmojiPickerContext.topic,
+      emoji: ':smile:',
+    );
+
+    expect(persistence.values[meta], stored);
+
+    // Once the store can read again, writes resume against the real document.
+    persistence.failReads = false;
+    await store.trackEmoji(
+      siteUrl: meta,
+      context: EmojiPickerContext.topic,
+      emoji: ':smile:',
+    );
+
+    final reloaded = EmojiPickerStore(persistence: persistence);
+    await reloaded.ensureLoaded(siteUrl: meta);
+    expect(reloaded.skinToneFor(siteUrl: meta), EmojiSkinTone.t5);
+  });
+
   test('favorites rank by frequency and then most recent use', () async {
     final store = EmojiPickerStore(persistence: _MemoryPersistence());
     for (final emoji in [
@@ -344,5 +385,15 @@ final class _ControlledPersistence extends _MemoryPersistence {
       await firstWriteGate.future;
     }
     return super.writePreferences(siteUrl: siteUrl, encoded: encoded);
+  }
+}
+
+final class _FailingReadPersistence extends _MemoryPersistence {
+  bool failReads = false;
+
+  @override
+  Future<String?> readPreferences({required String siteUrl}) async {
+    if (failReads) throw StateError('preferences unavailable');
+    return super.readPreferences(siteUrl: siteUrl);
   }
 }

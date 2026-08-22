@@ -445,11 +445,9 @@ void main() {
       authenticator.release();
       await pumpEventQueue();
 
-      expect(
-        FakeSiteTracker.built.map((tracker) => tracker.siteUrl),
-        [secondUrl],
-        reason: 'the deselected pending site must not spend a poll',
-      );
+      expect(FakeSiteTracker.built.map((tracker) => tracker.siteUrl), [
+        secondUrl,
+      ], reason: 'the deselected pending site must not spend a poll');
 
       shell.selectInstance(0);
       await pumpEventQueue();

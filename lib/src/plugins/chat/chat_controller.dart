@@ -76,6 +76,7 @@ class ChatStreamState {
     this.notice,
     this.error,
     this.threadUnavailable = false,
+    this.revision = 0,
   });
 
   /// Oldest first, and **contiguous** — there is never a hole in the middle.
@@ -156,6 +157,15 @@ class ChatStreamState {
   /// that disappeared from a temporarily unavailable site.
   final bool threadUnavailable;
 
+  /// Bumped when a held message changes shape without the id list changing.
+  ///
+  /// A live delete or restore rewrites a store record in place: the ids stay
+  /// identical, but the grouped projection the view derives from them —
+  /// collapsed deleted runs, chaining — is stale. The view keys its
+  /// projection cache on the id list precisely so paging flags stay cheap, so
+  /// this is its cue to derive the rows again.
+  final int revision;
+
   bool get isEmpty =>
       fetchedOnce &&
       error == null &&
@@ -188,6 +198,7 @@ class ChatStreamState {
     String? notice,
     bool clearNotice = false,
     bool? threadUnavailable,
+    int? revision,
   }) => ChatStreamState(
     messageIds: messageIds ?? this.messageIds,
     localMessageIds: localMessageIds ?? this.localMessageIds,
@@ -206,6 +217,7 @@ class ChatStreamState {
     notice: clearNotice ? null : (notice ?? this.notice),
     error: clearError ? null : (error ?? this.error),
     threadUnavailable: threadUnavailable ?? this.threadUnavailable,
+    revision: revision ?? this.revision,
   );
 
   @override
@@ -226,7 +238,8 @@ class ChatStreamState {
           other.anchorMessageId == anchorMessageId &&
           other.notice == notice &&
           other.error == error &&
-          other.threadUnavailable == threadUnavailable;
+          other.threadUnavailable == threadUnavailable &&
+          other.revision == revision;
 
   @override
   int get hashCode => Object.hash(
@@ -245,6 +258,7 @@ class ChatStreamState {
     notice,
     error,
     threadUnavailable,
+    revision,
   );
 }
 
@@ -1683,7 +1697,7 @@ class ChatController extends FrameSafeNotifier {
         // A root original may carry its thread id and nested preview, while a
         // reply carries a thread id without that nested root summary.
         if (message.threadId != null && message.thread == null) return;
-        store.put(siteUrl, message);
+        _putLiveMessage(siteUrl, message);
         final target = ChatChannelTarget(channelId);
         final key = _targetKey(siteUrl, target);
         final window = streamFor(siteUrl, target);
@@ -1785,7 +1799,7 @@ class ChatController extends FrameSafeNotifier {
         // applying either incremental copy here would double reactions and
         // other non-idempotent updates while both panes are mounted.
         if (message.id == originalId) return;
-        store.put(siteUrl, message);
+        _putLiveMessage(siteUrl, message);
         if (data['type'] == 'sent' && !window.messageIds.contains(message.id)) {
           _applyLiveMessage(siteUrl, key, window, message);
         }
@@ -1807,6 +1821,71 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
+  /// Folds messages parked beyond a window into the list that closes its seam.
+  ///
+  /// A `sent` event can outrun the response reaching the present: published
+  /// after the server built that page, parked because the window it would
+  /// have joined could not yet append it. It is in neither the page nor the
+  /// held list, so a seam that closes without it claims the present with that
+  /// message missing forever.
+  ///
+  /// Clearing is part of the same step and stays here with it: the park exists
+  /// only until something can carry it, and emptying it before the merge — or
+  /// in a caller that forgets to — is how the message is dropped.
+  ({List<int> ids, List<ChatMessage> stragglers}) _withSeamStragglers(
+    String siteUrl,
+    Set<int> pendingIds,
+    List<int> held,
+  ) {
+    final stragglers = _pendingBeyondWindow(siteUrl, pendingIds, held);
+    final merged = stragglers.isEmpty
+        ? held
+        : _sortedIds(siteUrl, stragglers, held: held);
+    pendingIds.clear();
+    // The stragglers travel back out because arriving in the id list is only
+    // half of what a canonical message does: the sender's own optimistic row
+    // is still standing in for it, and every other route that admits an id
+    // retires that row in the same breath. A straggler that skipped it would
+    // render the reader's message twice.
+    return (ids: merged, stragglers: stragglers);
+  }
+
+  /// Commits a live record, reprojecting the windows holding it when the
+  /// change is one an id list cannot express.
+  ///
+  /// The single owner of that rule on purpose: a window's projection is keyed
+  /// on its id list, so a record that flips between deleted and present
+  /// changes the rendered shape without changing any list. Any future handler
+  /// that puts a [ChatMessage] goes through here rather than rediscovering
+  /// that a store write alone leaves mounted panes stale.
+  void _putLiveMessage(String siteUrl, ChatMessage message) {
+    final replaced = store.read<ChatMessage>(siteUrl, message.id);
+    store.put(siteUrl, message);
+    if (replaced != null && replaced.isDeleted != message.isDeleted) {
+      _bumpStreamsHolding(siteUrl, message.id);
+    }
+  }
+
+  /// Reprojects every held window containing [messageId].
+  ///
+  /// Deletes and restores rewrite a store record without touching any
+  /// window's id list, and the views key their grouped projections on that
+  /// list — deliberately, so paging flags stay cheap. Bumping the revision is
+  /// what carries the shape change to a mounted pane.
+  void _bumpStreamsHolding(String siteUrl, int messageId) {
+    final prefix = '$siteUrl~';
+    final stale = [
+      for (final entry in _streams.entries)
+        if (entry.key.startsWith(prefix) &&
+            entry.value.messageIds.contains(messageId))
+          entry.key,
+    ];
+    for (final key in stale) {
+      final window = _streams[key]!;
+      _setStream(key, window.copyWith(revision: window.revision + 1));
+    }
+  }
+
   void _applyDeleteEvent(
     String siteUrl,
     Map<String, dynamic> data, {
@@ -1820,6 +1899,7 @@ class ChatController extends FrameSafeNotifier {
         siteUrl,
         message.withDeletedAt(jsonDate(data['deleted_at']) ?? _clock().toUtc()),
       );
+      if (!message.isDeleted) _bumpStreamsHolding(siteUrl, deletedId);
     }
     if (thread == null) return;
 
@@ -1862,10 +1942,29 @@ class ChatController extends FrameSafeNotifier {
             jsonDate(data['deleted_at']) ?? _clock().toUtc(),
           ),
         );
+        if (!message.isDeleted) _bumpStreamsHolding(siteUrl, deletedId);
       }
     }
   }
 
+  /// Applies one `reaction` event to a stored message.
+  ///
+  /// Reaction events are the only non-idempotent thing this channel carries:
+  /// `sent` dedupes on the id list and `edit`/`delete` write whole records,
+  /// while a reaction is a +1/-1 delta. That matters because a subscription is
+  /// resumed from a stored cursor, so anything published since is replayed —
+  /// and a replayed delta lands on top of a window fetch that already counted
+  /// it.
+  ///
+  /// The cursor is kept as fresh as the server allows: it advances on every
+  /// event processed here and is raised again from each channel-list load. The
+  /// gap that remains is between that position and the window fetch, and it
+  /// cannot be closed from this side. `Chat::MessagesSerializer` publishes no
+  /// bus position for a window to adopt, and the event names its actor while
+  /// the stored reaction keeps only a count and this reader's own bit — so
+  /// there is no reactor set to test the actor against, the way Discourse's
+  /// web client can. Reactions on a remounted channel can therefore sit one
+  /// out until the next fetch replaces them.
   void _applyReactionEvent(String siteUrl, Map<String, dynamic> data) {
     final messageId = jsonIntOrNull(data['chat_message_id']);
     final emoji = jsonText(data['emoji']);
@@ -3147,14 +3246,24 @@ class ChatController extends FrameSafeNotifier {
               ?store.read<ChatMessage>(siteUrl, id),
         ];
         store.putAll(siteUrl, page.messages);
-        final messageIds = page.canLoadMoreFuture
-            ? _sortedIds(siteUrl, page.messages)
-            : _sortedIds(siteUrl, [...page.messages, ...arrivedWhileLoading]);
         final pendingIds = _pendingLiveMessageIds.putIfAbsent(key, () => {});
+        final List<int> messageIds;
+        var retired = page.messages;
         if (page.canLoadMoreFuture) {
+          messageIds = _sortedIds(siteUrl, page.messages);
           pendingIds.addAll(arrivedWhileLoading.map((message) => message.id));
         } else {
-          pendingIds.clear();
+          // A `sent` event can outrun the response that reaches the present:
+          // published after the server built this window, parked because the
+          // predecessor could not append it. Merge those stragglers in
+          // rather than dropping them into a permanent hole at the live edge.
+          final seam = _withSeamStragglers(
+            siteUrl,
+            pendingIds,
+            _sortedIds(siteUrl, [...page.messages, ...arrivedWhileLoading]),
+          );
+          messageIds = seam.ids;
+          retired = [...page.messages, ...seam.stragglers];
         }
         final lastReadOnOpen = target.threadId == null
             ? channel(siteUrl, target.channelId)?.membership.lastReadMessageId
@@ -3163,11 +3272,7 @@ class ChatController extends FrameSafeNotifier {
           key,
           ChatStreamState(
             messageIds: messageIds,
-            localMessageIds: _retireCanonicalLocals(
-              siteUrl,
-              current,
-              page.messages,
-            ),
+            localMessageIds: _retireCanonicalLocals(siteUrl, current, retired),
             canLoadMorePast: page.canLoadMorePast,
             canLoadMoreFuture: page.canLoadMoreFuture,
             pendingNewMessages: pendingIds.length,
@@ -3406,7 +3511,7 @@ class ChatController extends FrameSafeNotifier {
         }
         store.putAll(siteUrl, page.messages);
         final current = _streams[key] ?? const ChatStreamState();
-        final merged = _mergePageIds(
+        var merged = _mergePageIds(
           page.messages,
           held: current.messageIds,
           prepend: false,
@@ -3414,20 +3519,21 @@ class ChatController extends FrameSafeNotifier {
         final canLoadMoreFuture =
             merged.length > current.messageIds.length && page.canLoadMoreFuture;
         final pendingIds = _pendingLiveMessageIds[key];
+        var retired = page.messages;
         if (pendingIds != null) {
           pendingIds.removeAll(page.messages.map((message) => message.id));
-          if (!canLoadMoreFuture) pendingIds.clear();
+          if (!canLoadMoreFuture) {
+            final seam = _withSeamStragglers(siteUrl, pendingIds, merged);
+            merged = seam.ids;
+            retired = [...page.messages, ...seam.stragglers];
+          }
         }
 
         _setStream(
           key,
           current.copyWith(
             messageIds: merged,
-            localMessageIds: _retireCanonicalLocals(
-              siteUrl,
-              current,
-              page.messages,
-            ),
+            localMessageIds: _retireCanonicalLocals(siteUrl, current, retired),
             canLoadMoreFuture: canLoadMoreFuture,
             pendingNewMessages: canLoadMoreFuture
                 ? pendingIds?.length ?? current.pendingNewMessages
@@ -3749,6 +3855,43 @@ class ChatController extends FrameSafeNotifier {
   /// a page that overlaps one already held must give the identical list — and a
   /// comparator that can return zero cannot promise that. `(created_at, id)` is
   /// the site's own `ORDER BY`.
+  /// The parked live records that belong at the live edge of [ids].
+  ///
+  /// Pending ids are messages published while the window could not append
+  /// them. A window that now claims the present already holds any of them the
+  /// server saw when it built the response — only those published after that
+  /// are still missing, and they are exactly the ones that sort after
+  /// everything held. Older leftovers sit behind the window's past edge,
+  /// where merging them would fake contiguity over a gap.
+  List<ChatMessage> _pendingBeyondWindow(
+    String siteUrl,
+    Set<int> pendingIds,
+    List<int> ids,
+  ) {
+    if (pendingIds.isEmpty) return const [];
+    final newestId = ids.lastOrNull;
+    if (newestId == null) {
+      return [
+        for (final id in pendingIds) ?store.read<ChatMessage>(siteUrl, id),
+      ];
+    }
+    final newestAt =
+        store.read<ChatMessage>(siteUrl, newestId)?.createdAt ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    return [
+      for (final id in pendingIds)
+        if (store.read<ChatMessage>(siteUrl, id) case final message?)
+          if (switch ((message.createdAt ??
+                  DateTime.fromMillisecondsSinceEpoch(0))
+              .compareTo(newestAt)) {
+            > 0 => true,
+            0 => message.id > newestId,
+            _ => false,
+          })
+            message,
+    ];
+  }
+
   List<int> _sortedIds(
     String siteUrl,
     Iterable<ChatMessage> arrived, {

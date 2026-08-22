@@ -238,6 +238,68 @@ void main() {
       },
     );
 
+    test('dismissed suggestions reopen for the same input', () async {
+      final controller = TopicFilterController(
+        initialQuery: 'tag:bu',
+        submitQuery: (_) async {},
+        engine: engine(
+          tags: (_) async => const [TopicFilterLookupValue(name: 'bug')],
+        ),
+      );
+      addTearDown(controller.dispose);
+
+      await controller.openSuggestions();
+      expect(controller.isOpen, isTrue);
+      expect(
+        controller.suggestions.map((item) => item.name),
+        contains('tag:bug'),
+      );
+
+      controller.dismiss();
+      expect(controller.isOpen, isFalse);
+      expect(controller.suggestions, isEmpty);
+
+      await controller.openSuggestions();
+
+      expect(controller.isOpen, isTrue);
+      expect(
+        controller.suggestions.map((item) => item.name),
+        contains('tag:bug'),
+      );
+    });
+
+    test(
+      'a lookup that threw is retried by the next ensureFreshSuggestions',
+      () async {
+        var lookups = 0;
+        final controller = TopicFilterController(
+          initialQuery: 'tag:bug',
+          submitQuery: (_) async {},
+          engine: engine(
+            tags: (_) {
+              lookups++;
+              if (lookups == 1) return Future.error(StateError('offline'));
+              return Future.value(const [TopicFilterLookupValue(name: 'bug')]);
+            },
+          ),
+        );
+        addTearDown(controller.dispose);
+
+        await controller.openSuggestions();
+        expect(lookups, 1);
+        expect(controller.isOpen, isFalse);
+
+        await controller.ensureFreshSuggestions();
+
+        expect(lookups, 2);
+        expect(controller.isOpen, isTrue);
+        expect(
+          controller.suggestions.map((item) => item.name),
+          contains('tag:bug'),
+        );
+      },
+    );
+
     test(
       'dispose settles the active lookup and ignores later refreshes',
       () async {

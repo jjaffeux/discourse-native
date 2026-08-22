@@ -34,6 +34,9 @@ class _TopicListViewState extends State<TopicListView> {
   Object? _loadMoreToken;
   bool _restored = false;
 
+  /// Held for [dispose], which cannot look the shell up through the tree.
+  ShellController? _controller;
+
   /// Rebuilds the scroll controllers when the list underneath them changes, so
   /// each destination starts at its own remembered row rather than inheriting
   /// the previous one's.
@@ -99,6 +102,10 @@ class _TopicListViewState extends State<TopicListView> {
 
   @override
   void dispose() {
+    // Rows are handed to the shell as they change, but the latest may still
+    // be waiting out its debounce window. The torn-down list cannot move it
+    // any more, so it is written now.
+    _controller?.flushAnchorPersist();
     _disposeControllers();
     super.dispose();
   }
@@ -175,6 +182,12 @@ class _TopicListViewState extends State<TopicListView> {
 
   Widget _build(BuildContext context, _TopicListSnapshot state) {
     final controller = ShellScope.read(context);
+    if (!identical(_controller, controller)) {
+      // A replaced shell keeps its own pending anchor window; this list no
+      // longer feeds it, so the window is written rather than left behind.
+      _controller?.flushAnchorPersist();
+    }
+    _controller = controller;
     final destination = state.destination;
     final feedIdentity = state.feedIdentity;
 

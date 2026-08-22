@@ -310,6 +310,35 @@ void main() {
       expect(calls, 2);
     });
 
+    testWidgets('closing the coordinator makes an in-flight 429 inert', (
+      tester,
+    ) async {
+      final coordinator = DiscourseRequestCoordinator();
+      final response = Completer<http.Response>();
+      final limited = coordinator.run(
+        Uri.parse('https://example.com/limited.json'),
+        () => response.future,
+      );
+
+      coordinator.close();
+      response.complete(
+        http.Response('{}', 429, headers: {'retry-after': '3600'}),
+      );
+      await tester.pump();
+
+      // The caller keeps the response it already earned; what must not
+      // survive is the hour-long origin wake timer, which close() has no
+      // queue left to cancel. testWidgets fails on any timer still pending.
+      expect((await limited).statusCode, 429);
+      await expectLater(
+        coordinator.run(
+          Uri.parse('https://example.com/later.json'),
+          () async => http.Response('{}', 200),
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+
     test('cross-origin credentials are rejected before delegation', () async {
       var delegated = 0;
       final transport = DiscourseTransport(

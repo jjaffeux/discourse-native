@@ -62,6 +62,54 @@ void main() {
     );
   });
 
+  test('matches selections across the newlines markdown cooks between '
+      'blocks', () {
+    // Real cooked HTML separates blocks with `\n` text nodes the renderer
+    // never draws. The selection stream carries no such character, so the
+    // index must not either.
+    expect(
+      postQuoteContentsFromSelection(
+        '<p>First <strong>bold</strong> thought.</p>\n'
+            '<p>Second <em>formatted</em> line.</p>',
+        'First bold thought.Second formatted line.',
+      ),
+      'First **bold** thought.\n\nSecond *formatted* line.',
+    );
+    expect(
+      postQuoteContentsFromSelection(
+        '<ul>\n<li>one</li>\n<li>two</li>\n</ul>',
+        'onetwo',
+      ),
+      'one\n\ntwo',
+    );
+  });
+
+  test('collapses cooked whitespace the way the renderer draws it', () {
+    // A soft line break inside a paragraph renders as a single space.
+    expect(
+      postQuoteContentsFromSelection('<p>hello\nworld</p>', 'hello world'),
+      'hello world',
+    );
+    // Whitespace between inline elements is drawn, so it stays indexed.
+    expect(
+      postQuoteContentsFromSelection(
+        '<p><strong>a</strong>\n<em>b</em></p>',
+        'a b',
+      ),
+      '**a** *b*',
+    );
+  });
+
+  test('preserves preformatted whitespace inside code blocks', () {
+    expect(
+      postQuoteContentsFromSelection(
+        '<pre><code>code\n  indented more</code></pre>',
+        'code\n  indented more',
+      ),
+      '`code\n  indented more`',
+    );
+  });
+
   test('restores deeply nested cooked formatting without recursion', () {
     const depth = 1000;
     final cooked =

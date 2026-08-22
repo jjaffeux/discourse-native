@@ -731,7 +731,11 @@ class DiscourseApi
     final path = [
       siteUrl,
       't',
-      if (slug.isNotEmpty) slug,
+      // A slug reaches here decoded, straight out of `Uri.pathSegments`, so a
+      // `?` or `#` in one would end the path and take the topic id with it
+      // into a query or fragment — the request would ask for `/t/we` and no
+      // topic at all.
+      if (slug.isNotEmpty) Uri.encodeComponent(slug),
       '$id',
       if (slug.isNotEmpty && postNumber != null) '$postNumber',
     ].join('/');

@@ -17,6 +17,7 @@ import 'hashtag.dart';
 import 'markdown_highlight.dart';
 import 'markdown_style.dart';
 import 'mention.dart';
+import 'syntax.dart';
 
 /// A field controller that draws markdown as what it means.
 ///
@@ -518,6 +519,28 @@ class MarkdownEditingController extends TextEditingController {
   @visibleForTesting
   int scans = 0;
 
+  /// How long a large fence's body must hold still before it is tokenized.
+  ///
+  /// Long enough to sit out a typing burst, short enough that the colour
+  /// arriving reads as immediate once the keys stop.
+  @visibleForTesting
+  static const Duration fenceHighlightDebounce = Duration(milliseconds: 200);
+
+  Timer? _fenceHighlightTimer;
+  List<({String body, String? language})> _pendingFences = const [];
+
+  /// Fence bodies already parsed once for [_parsedFenceSource].
+  ///
+  /// The highlight cache is process-wide and bounded, so a document with more
+  /// large fences than it holds evicts its own earlier entries: the rescan
+  /// after a parse round finds those bodies uncached, defers them again, and
+  /// the cycle repeats for as long as the composer is open. Remembering what
+  /// this text has already been through makes the deferred set shrink round
+  /// over round; a fence that was parsed and then evicted stays plain rather
+  /// than restarting the timer forever.
+  String? _parsedFenceSource;
+  final Set<String> _parsedFences = {};
+
   /// [buildTextSpan] is called on every keystroke, every caret move and every
   /// frame of a selection drag, while the scan only depends on the text. A
   /// fenced block is tokenized by `highlightLines`, which is expensive enough
@@ -527,7 +550,55 @@ class MarkdownEditingController extends TextEditingController {
     if (_scanned == source) return _runs!;
     scans++;
     _scanned = source;
-    return _runs = scanMarkdown(source);
+    final deferred = <({String body, String? language})>[];
+    final runs = scanMarkdown(
+      source,
+      deferHighlight: (body, language) =>
+          deferred.add((body: body, language: language)),
+    );
+    _scheduleFenceHighlight(source, deferred);
+    return _runs = runs;
+  }
+
+  /// Memoising the scan on the text is not enough inside a fence: the
+  /// highlight cache in `syntax.dart` keys on the exact body, so typing there
+  /// changes the key on every keystroke and reruns the parser over the whole
+  /// block — milliseconds per key on a large one. The scan instead leaves such
+  /// a fence as plain code and lands its body here; once it has held still for
+  /// [fenceHighlightDebounce] the parse runs off the keystroke, warms the
+  /// cache, and a rescan repaints with the colour in place. The final state is
+  /// always the fully highlighted one — only the in-between keystrokes skip it.
+  void _scheduleFenceHighlight(
+    String source,
+    List<({String body, String? language})> fences,
+  ) {
+    _fenceHighlightTimer?.cancel();
+    _fenceHighlightTimer = null;
+    if (_parsedFenceSource != source) {
+      _parsedFenceSource = source;
+      _parsedFences.clear();
+    }
+    // Replaced wholesale on every scan, so a fence edited away mid-debounce is
+    // never parsed on its way out.
+    _pendingFences = [
+      for (final fence in fences)
+        if (!_parsedFences.contains(fence.body)) fence,
+    ];
+    if (_pendingFences.isEmpty) return;
+    _fenceHighlightTimer = Timer(fenceHighlightDebounce, () {
+      _fenceHighlightTimer = null;
+      if (_disposed) return;
+      for (final fence in _pendingFences) {
+        // For the side effect: the tokens land in the highlight cache, where
+        // the rescan below finds them and takes the synchronous path.
+        highlightLines(fence.body, fence.language);
+        _parsedFences.add(fence.body);
+      }
+      _pendingFences = const [];
+      _scanned = null;
+      _runs = null;
+      artworkArrived();
+    });
   }
 
   @override
@@ -961,9 +1032,19 @@ class MarkdownEditingController extends TextEditingController {
           artworkArrived();
         },
         onError: (_) {
+          // A failed batch says nothing about the URLs themselves.
+          // _failedImageUrls is reserved for URLs the site resolved to
+          // nothing; a transport error only releases the batch so the next
+          // repaint asks again.
+          //
+          // It invalidates without announcing, which is the whole difference
+          // between waiting for a repaint and being one. Nothing resolved, so
+          // there is nothing new to draw; notifying would rebuild, the rebuild
+          // would ask for these URLs again, and an unreachable site would buy
+          // a request and a full relayout on every frame for as long as the
+          // composer stayed open.
           _resolvingImageUrls.removeAll(fresh);
-          _failedImageUrls.addAll(fresh);
-          if (!_disposed) artworkArrived();
+          if (!_disposed) _artwork++;
         },
       ),
     );
@@ -995,6 +1076,9 @@ class MarkdownEditingController extends TextEditingController {
   /// value has not changed (`undo_history.dart:185`), and `ComposerController`
   /// guards on the text being different — so an answer arriving is not read as
   /// a keystroke by the typing clock or the draft timer.
+  /// Bumping [_artwork] alone drops the cached span so the next rebuild
+  /// recomputes it; this also asks for that rebuild. A failed lookup wants the
+  /// first without the second — see [_resolveImageUrls].
   void artworkArrived() {
     if (_disposed) return;
     _artwork++;
@@ -1249,6 +1333,8 @@ class MarkdownEditingController extends TextEditingController {
   @override
   void dispose() {
     _disposed = true;
+    _fenceHighlightTimer?.cancel();
+    _fenceHighlightTimer = null;
     super.dispose();
   }
 

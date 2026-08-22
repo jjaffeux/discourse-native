@@ -162,6 +162,21 @@ void main() {
     expect(tester.getTopLeft(find.byKey(const ValueKey(21))).dy, viewport.top);
     expect(find.byKey(ValueKey(('topic-day', targetDay))), findsOneWidget);
   });
+
+  test('day labels compare calendar days, not elapsed hours', () {
+    final now = DateTime(2026, 3, 9, 14, 30);
+
+    expect(topicDayLabel(DateTime(2026, 3, 9), now: now), 'Today');
+    expect(topicDayLabel(DateTime(2026, 3, 8), now: now), 'Yesterday');
+    expect(topicDayLabel(DateTime(2026, 3, 7), now: now), '7 March 2026');
+
+    // Across a spring-forward transition, consecutive local midnights sit 23
+    // hours apart, not 24. A day start one hour past midnight reproduces that
+    // gap in any test timezone: an elapsed-duration difference truncates it
+    // to zero whole days and relabels yesterday as Today.
+    expect(topicDayLabel(DateTime(2026, 3, 8, 1), now: now), 'Yesterday');
+    expect(topicDayLabel(DateTime(2026, 3, 7, 1), now: now), '7 March 2026');
+  });
 }
 
 Post _post(int id, {required DateTime day, bool long = false}) => Post(

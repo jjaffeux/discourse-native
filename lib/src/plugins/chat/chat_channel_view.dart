@@ -91,6 +91,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   List<int>? _projectedMessageIds;
   List<int>? _projectedLocalMessageIds;
   int? _projectedLastRead;
+  int? _projectedRevision;
   List<ChatStreamItem> _items = const [];
   int? _highlightMessageId;
   int _highlightRequest = 0;
@@ -318,7 +319,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     // history accumulated so far.
     if (identical(_projectedMessageIds, stream.messageIds) &&
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
-        _projectedLastRead == stream.lastReadOnOpen) {
+        _projectedLastRead == stream.lastReadOnOpen &&
+        _projectedRevision == stream.revision) {
       return;
     }
 
@@ -338,6 +340,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     _projectedMessageIds = stream.messageIds;
     _projectedLocalMessageIds = stream.localMessageIds;
     _projectedLastRead = stream.lastReadOnOpen;
+    _projectedRevision = stream.revision;
   }
 
   /// Projects an older page without walking the accumulated history again.
@@ -351,7 +354,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     final previous = _projectedMessageIds;
     if (previous == null || previous.isEmpty) return false;
     if (!identical(_projectedLocalMessageIds, stream.localMessageIds) ||
-        _projectedLastRead != stream.lastReadOnOpen) {
+        _projectedLastRead != stream.lastReadOnOpen ||
+        _projectedRevision != stream.revision) {
       return false;
     }
 
@@ -499,6 +503,7 @@ class _StreamState extends State<ChatMessageStream>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _list.addListener(_noteExtentsChanged);
     _acceptHighlightRequest();
     _scheduleLook();
   }
@@ -537,10 +542,11 @@ class _StreamState extends State<ChatMessageStream>
         oldWidget.stream.atPresent &&
         widget.stream.atPresent &&
         oldWidget.stream.newestId != widget.stream.newestId) {
-      final previous = oldWidget.stream.messageIds.toSet();
-      _unseenLiveMessages += widget.stream.messageIds
-          .where((id) => !previous.contains(id))
-          .length;
+      // Within one fetch generation an at-present window only ever gains
+      // ids, so the growth is the count of live arrivals — no need to build
+      // an O(n) set difference per incoming message.
+      _unseenLiveMessages +=
+          widget.stream.messageIds.length - oldWidget.stream.messageIds.length;
     }
 
     _holdStillThroughForwardPage(oldWidget);
@@ -562,6 +568,12 @@ class _StreamState extends State<ChatMessageStream>
         oldWidget.target != widget.target) {
       return;
     }
+    // A forward page can only land when the old window had more future to
+    // load. A window already at the present grows its newest id by live
+    // appends instead, and those must not move the reader: the reversed
+    // viewport keeps a scrolled-up reader in place on its own, and a reader
+    // at the bottom edge sticks to it naturally.
+    if (!oldWidget.stream.canLoadMoreFuture) return;
     final was = oldWidget.stream.newestId;
     // A replaced window is not a page, and positions itself: see
     // [_anchorIfFresh].
@@ -905,15 +917,16 @@ class _StreamState extends State<ChatMessageStream>
     return widget.items[widget.items.length - 1 - index];
   }
 
-  /// Pins the date whose messages currently cross the top of the viewport.
+  /// The day separators in the current projection, newest-last by row.
   ///
-  /// Chat's list is reversed: row zero is at the bottom and larger rows head
-  /// into the past. A separator's normal top is therefore measured from the
-  /// bottom of the viewport. Once that top has passed above zero, its date
-  /// floats until the next (newer) separator pushes it out.
-  void _syncFloatingDay() {
-    if (!_list.isAttached || !_scroll.hasClients) return;
-
+  /// Derived per projection rather than per frame: [_syncFloatingDay] runs on
+  /// every scroll notification, and the items list is replaced — never
+  /// mutated — so its identity is an exact cache key.
+  List<({DateTime day, int row})> _daySeparatorRows() {
+    if (identical(_daySeparatorsFor, widget.items) &&
+        _daySeparatorsLeadingRows == _leadingRows) {
+      return _daySeparators;
+    }
     final days = <({DateTime day, int row})>[];
     for (var index = 0; index < widget.items.length; index++) {
       if (widget.items[index] case ChatStreamDay(:final day)) {
@@ -923,26 +936,61 @@ class _StreamState extends State<ChatMessageStream>
         ));
       }
     }
+    _daySeparators = days;
+    _daySeparatorsFor = widget.items;
+    _daySeparatorsLeadingRows = _leadingRows;
+    _dayExtentSums = null;
+    return days;
+  }
+
+  List<({DateTime day, int row})> _daySeparators = const [];
+  List<ChatStreamItem>? _daySeparatorsFor;
+  int _daySeparatorsLeadingRows = 0;
+
+  /// Cumulative extent through each separator row, valid until the list
+  /// re-measures something. The list controller notifies exactly when an
+  /// extent is modified during layout, so scroll frames over already-measured
+  /// rows — every frame of a steady reading scroll, and every live-message
+  /// tick while parked — reuse the sums instead of re-walking the window.
+  Map<int, double>? _dayExtentSums;
+
+  void _noteExtentsChanged() => _dayExtentSums = null;
+
+  /// Pins the date whose messages currently cross the top of the viewport.
+  ///
+  /// Chat's list is reversed: row zero is at the bottom and larger rows head
+  /// into the past. A separator's normal top is therefore measured from the
+  /// bottom of the viewport. Once that top has passed above zero, its date
+  /// floats until the next (newer) separator pushes it out.
+  void _syncFloatingDay() {
+    if (!_list.isAttached || !_scroll.hasClients) return;
+
+    final days = _daySeparatorRows();
     if (days.isEmpty) {
       _setFloatingDay(null, 0);
       return;
     }
 
-    final dayRows = {for (final entry in days) entry.row};
-    final tops = <int, double>{};
-    var extentThroughRow = 0.0;
-    for (var row = 0; row <= days.first.row; row++) {
-      extentThroughRow += _list.extentForIndex(row).$1;
-      if (dayRows.contains(row)) {
-        tops[row] =
-            _scroll.position.viewportDimension -
-            _streamPadding.bottom -
-            extentThroughRow +
-            _scroll.position.pixels;
+    var sums = _dayExtentSums;
+    if (sums == null) {
+      sums = <int, double>{};
+      final dayRows = {for (final entry in days) entry.row};
+      var extentThroughRow = 0.0;
+      for (var row = 0; row <= days.first.row; row++) {
+        extentThroughRow += _list.extentForIndex(row).$1;
+        if (dayRows.contains(row)) sums[row] = extentThroughRow;
       }
+      _dayExtentSums = sums;
     }
+    // Every separator's top is the same scalar minus its own cached sum, so
+    // the scroll position enters the arithmetic once rather than through a
+    // rebuilt map on each of these — one runs per scroll frame.
+    final fromBottom =
+        _scroll.position.viewportDimension -
+        _streamPadding.bottom +
+        _scroll.position.pixels;
 
-    double topOf(int row) => tops[row]!;
+    double topOf(int row) => fromBottom - sums![row]!;
 
     var candidateIndex = -1;
     for (var index = 0; index < days.length; index++) {
@@ -1363,6 +1411,21 @@ class _JumpToPresent extends StatelessWidget {
   }
 }
 
+/// Today and yesterday by name, everything else by date.
+///
+/// Days are compared as calendar dates, not elapsed time: local midnights on
+/// either side of a DST change sit 23 or 25 hours apart, and a truncating
+/// duration difference would then misname the days after a transition.
+@visibleForTesting
+String chatDayLabel(DateTime day, {required DateTime now}) {
+  final today = DateTime.utc(now.year, now.month, now.day);
+  final start = DateTime.utc(day.year, day.month, day.day);
+  final delta = today.difference(start).inDays;
+  if (delta == 0) return 'Today';
+  if (delta == 1) return 'Yesterday';
+  return '${day.day} ${_DaySeparator._months[day.month - 1]} ${day.year}';
+}
+
 /// The line between two days of conversation.
 class _DaySeparator extends StatelessWidget {
   const _DaySeparator({super.key, required this.day, this.floating = false});
@@ -1389,14 +1452,7 @@ class _DaySeparator extends StatelessWidget {
 
   /// Today and yesterday by name, everything else by date. The reader's days,
   /// not the site's — [day] is already local midnight.
-  String get _label {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final delta = today.difference(day).inDays;
-    if (delta == 0) return 'Today';
-    if (delta == 1) return 'Yesterday';
-    return '${day.day} ${_months[day.month - 1]} ${day.year}';
-  }
+  String get _label => chatDayLabel(day, now: DateTime.now());
 
   @override
   Widget build(BuildContext context) {

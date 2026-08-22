@@ -117,15 +117,41 @@ class MarkdownRun {
   String toString() => '[$start,$end) ${mask.toRadixString(2)} $detail $token';
 }
 
+/// A fence body the scan left as plain code instead of tokenizing.
+///
+/// The receiver owes the fence a later `highlightLines(body, language)` — that
+/// warms the cache in `syntax.dart` — and a rescan, after which the same fence
+/// tokenizes synchronously.
+typedef DeferredFenceHighlight = void Function(String body, String? language);
+
+/// At or under this many characters, a fence body is tokenized synchronously
+/// even when the caller offered to defer.
+///
+/// A small block parses in well under a frame, and deferring it would flash
+/// plain code where the highlight used to be immediate.
+const int maxSynchronousFenceChars = 512;
+
 /// Reads [source] and reports how to draw it.
 ///
 /// Pure, so the fiddly part — what counts as a marker and what is just an
 /// asterisk — is testable without pumping a widget, the same bargain
 /// `toggleMarkdownMark` makes.
-List<MarkdownRun> scanMarkdown(String source) {
+///
+/// [deferHighlight] takes fence tokenization off the caller's frame. Typing
+/// inside a fence changes its body on every keystroke, so the highlight cache
+/// misses every time and the parser reruns over the whole block — milliseconds
+/// per key on a large one. With the callback set, a fence body longer than
+/// [maxSynchronousFenceChars] whose parse is not already cached is reported
+/// instead of tokenized, and its runs come back as unscoped [Md.codeBlock] —
+/// plain code styling, never unstyled text. Without it, every fence is
+/// tokenized in place, exactly as callers with no repaint path require.
+List<MarkdownRun> scanMarkdown(
+  String source, {
+  DeferredFenceHighlight? deferHighlight,
+}) {
   if (source.isEmpty) return const [];
 
-  final scan = _Scan(source);
+  final scan = _Scan(source, deferHighlight);
   scan.blocks();
   scan.inlines();
   return scan.runs();
@@ -133,13 +159,14 @@ List<MarkdownRun> scanMarkdown(String source) {
 
 /// The masks being built up, one slot per character.
 class _Scan {
-  _Scan(this.source)
+  _Scan(this.source, this._deferHighlight)
     : mask = List<int>.filled(source.length, 0),
       detail = List<String?>.filled(source.length, null),
       tokens = List<String?>.filled(source.length, null),
       _closed = List<bool>.filled(source.length, false);
 
   final String source;
+  final DeferredFenceHighlight? _deferHighlight;
   final List<int> mask;
   final List<String?> detail;
 
@@ -311,6 +338,16 @@ class _Scan {
 
     _mark(start, start + body.length, Md.codeBlock);
     _close(start, start + body.length);
+
+    // Only a body whose parse would actually run may be deferred: a cached or
+    // plain-path body costs a split, and skipping it would flash plain code on
+    // every scan a *different* part of the source triggered.
+    if (_deferHighlight case final defer?
+        when body.length > maxSynchronousFenceChars &&
+            highlightNeedsParse(body, language)) {
+      defer(body, language);
+      return;
+    }
 
     var at = start;
     for (final tokens in highlightLines(body, language)) {

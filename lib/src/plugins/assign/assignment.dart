@@ -225,8 +225,13 @@ class Assignments {
     Map<int, Assignment> postAssignments = const {},
   }) : postAssignments = Map.unmodifiable(postAssignments);
 
-  /// The maximum active assignments core permits across a topic and its posts.
-  static const int maximumPerTopic = 5;
+  /// Defensive ceiling on parsed assignments across a topic and its posts.
+  ///
+  /// This is not the server's limit: `max_assignments_per_topic` is a raisable
+  /// discourse-assign site setting, so every assignment under any realistic
+  /// configuration must fit. The bound exists only so a pathological payload
+  /// cannot allocate an unbounded assignment map.
+  static const int maximumPerTopic = 50;
 
   static const _payloadKeys = {
     'can_assign',

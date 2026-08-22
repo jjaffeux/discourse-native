@@ -263,8 +263,9 @@ class _PostActionsState extends State<PostActions> {
     if (!mounted || !identical(ShellScope.maybeRead(context), controller)) {
       return;
     }
-    ScaffoldMessenger.maybeOf(context)
-        ?.showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Surfaces a refusal. Success says nothing — the post itself changes, which

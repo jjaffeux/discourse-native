@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/mention.dart';
+import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -137,23 +138,23 @@ void main() {
     expect(controller.scans, greaterThan(before));
   });
 
-  group('what gets drawn', () {
-    /// The style the character at [offset] is painted with.
-    TextStyle styleAt(WidgetTester tester, String source, int offset) {
-      var at = 0;
-      TextStyle? found;
-      painted(tester).visitChildren((span) {
-        final text = (span as TextSpan).text ?? '';
-        if (offset >= at && offset < at + text.length) {
-          found = span.style;
-          return false;
-        }
-        at += text.length;
-        return true;
-      });
-      return found!;
-    }
+  /// The style the character at [offset] is painted with.
+  TextStyle styleAt(WidgetTester tester, String source, int offset) {
+    var at = 0;
+    TextStyle? found;
+    painted(tester).visitChildren((span) {
+      final text = (span as TextSpan).text ?? '';
+      if (offset >= at && offset < at + text.length) {
+        found = span.style;
+        return false;
+      }
+      at += text.length;
+      return true;
+    });
+    return found!;
+  }
 
+  group('what gets drawn', () {
     testWidgets('bold text is bold and its markers are dimmed', (tester) async {
       const source = 'say **hello** now';
       await pumpField(tester, source);
@@ -200,6 +201,119 @@ void main() {
         );
         return true;
       });
+    });
+  });
+
+  group('deferred fence highlighting', () {
+    setUp(clearSyntaxHighlightCacheForTesting);
+
+    final largeBody = List.generate(
+      40,
+      (i) => 'final value$i = "line $i";',
+    ).join('\n');
+    final largeSource = '```dart\n$largeBody\n```';
+
+    testWidgets('a small fence is highlighted on the frame it is scanned', (
+      tester,
+    ) async {
+      const source = '```dart\nfinal x = 1;\n```';
+      await pumpField(tester, source);
+
+      // No debounce to pump past: a small fence must never flash plain.
+      expect(
+        styleAt(tester, source, source.indexOf('final')).color,
+        AppTheme.dark.code.keyword,
+      );
+    });
+
+    testWidgets('typing in a large fence paints plain now, colour later', (
+      tester,
+    ) async {
+      await pumpField(tester, largeSource);
+      await tester.pump(MarkdownEditingController.fenceHighlightDebounce);
+      await tester.pump();
+
+      final keyword = largeSource.indexOf('final value7');
+      expect(
+        styleAt(tester, largeSource, keyword).color,
+        AppTheme.dark.code.keyword,
+      );
+
+      // A keystroke inside the fence. The frame it causes must not pay for a
+      // parse of the whole body, so the fence drops to plain code styling —
+      // monospace and the code block's default foreground, never bare prose.
+      final edited = largeSource.replaceFirst('line 7', 'line 07');
+      controller.value = TextEditingValue(
+        text: edited,
+        selection: TextSelection.collapsed(offset: edited.indexOf('07') + 1),
+      );
+      await tester.pump();
+
+      final plain = styleAt(tester, edited, keyword);
+      expect(plain.fontFamily, monospaceFontFamily);
+      expect(plain.color, AppTheme.dark.colorScheme.onSurface);
+
+      // Once the body has held still for the debounce, the highlighted spans
+      // are back: the final state is always the fully coloured one.
+      await tester.pump(MarkdownEditingController.fenceHighlightDebounce);
+      await tester.pump();
+
+      expect(
+        styleAt(tester, edited, keyword).color,
+        AppTheme.dark.code.keyword,
+      );
+    });
+
+    testWidgets('more fences than the cache holds still settles', (
+      tester,
+    ) async {
+      // The highlight cache is process-wide and bounded, so a document with
+      // more large fences than it holds evicts its own earlier entries. The
+      // rescan after a parse round then finds them uncached; re-deferring
+      // those would restart the timer forever on an idle composer.
+      final crowded = [
+        for (var fence = 0; fence < syntaxHighlightCacheCapacity + 8; fence++)
+          '```dart\n${List.generate(60, (line) => 'final v$fence$line = $line;').join('\n')}\n```',
+      ].join('\n\n');
+
+      await pumpField(tester, crowded);
+
+      // Settle: each round may only parse bodies it has not parsed before, so
+      // the deferred set shrinks to nothing instead of cycling. Teardown is
+      // the assertion — flutter_test fails a test that leaves a Timer pending,
+      // which a cycling debounce always does.
+      for (var round = 0; round < 6; round++) {
+        await tester.pump(MarkdownEditingController.fenceHighlightDebounce);
+        await tester.pump();
+      }
+
+      // Settling is not the same as giving up: the fences the cache did keep
+      // are still coloured.
+      final keyword = crowded.lastIndexOf('final v');
+      expect(
+        styleAt(tester, crowded, keyword).color,
+        AppTheme.dark.code.keyword,
+      );
+    });
+
+    testWidgets('disposal cancels the pending tokenization', (tester) async {
+      final local = MarkdownEditingController(text: largeSource);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: SizedBox(
+              width: 600,
+              child: TextField(controller: local, maxLines: null),
+            ),
+          ),
+        ),
+      );
+
+      // The debounce is pending now. Take the field down and dispose mid-wait
+      // — the test harness fails on any timer still pending when this ends.
+      await tester.pumpWidget(const SizedBox());
+      local.dispose();
     });
   });
 

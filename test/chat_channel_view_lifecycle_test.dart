@@ -500,6 +500,113 @@ void main() {
     );
   });
 
+  testWidgets('a live delete collapses the message in a mounted pane', (
+    tester,
+  ) async {
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [_messagesPage(1, 3)],
+      },
+    );
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    controller.store.put(firstSite, _channel(lastRead: 3));
+
+    await controller.chat.openChannel(firstSite, 9);
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Message 2', findRichText: true),
+      findsOneWidget,
+    );
+
+    final tracker = FakeSiteTracker.built.singleWhere(
+      (tracker) => tracker.siteUrl == firstSite,
+    );
+    tracker.deliverPluginMessage('/chat/9', {
+      'type': 'delete',
+      'deleted_id': 2,
+      'deleted_at': '2026-05-05T11:00:00.000Z',
+    });
+    await tester.pump();
+
+    expect(find.textContaining('Message 2', findRichText: true), findsNothing);
+    expect(find.text('1 message deleted'), findsOneWidget);
+  });
+
+  testWidgets('a live message does not move a reader scrolled into history', (
+    tester,
+  ) async {
+    final api = _ChatApi(openPages: const {});
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    final messages = [for (var id = 1; id <= 40; id++) _message(id)];
+    controller.store
+      ..put(firstSite, _channel(lastRead: 40))
+      ..putAll(firstSite, messages);
+
+    await tester.pumpWidget(
+      _TestStreamView(
+        controller: controller,
+        messages: messages,
+        stream: ChatStreamState(
+          messageIds: [for (final message in messages) message.id],
+          fetchedOnce: true,
+          fetches: 1,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    tester.state<ScrollableState>(_verticalChatScroll()).position.jumpTo(600);
+    await tester.pump();
+    final held = tester
+        .state<ScrollableState>(_verticalChatScroll())
+        .position
+        .pixels;
+    expect(held, greaterThan(0));
+
+    // A live append arrives on a window already at the present: same fetch
+    // generation, no future to load, one more newest id. The reversed
+    // viewport keeps the reader in place on its own; nothing may reposition.
+    final live = _message(41);
+    controller.store.put(firstSite, live);
+    await tester.pumpWidget(
+      _TestStreamView(
+        controller: controller,
+        messages: [...messages, live],
+        stream: ChatStreamState(
+          messageIds: [for (var id = 1; id <= 41; id++) id],
+          fetchedOnce: true,
+          fetches: 1,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      tester.state<ScrollableState>(_verticalChatScroll()).position.pixels,
+      held,
+    );
+  });
+
+  test('day labels compare calendar days, not elapsed hours', () {
+    final now = DateTime(2026, 3, 9, 14, 30);
+
+    expect(chatDayLabel(DateTime(2026, 3, 9), now: now), 'Today');
+    expect(chatDayLabel(DateTime(2026, 3, 8), now: now), 'Yesterday');
+    expect(chatDayLabel(DateTime(2026, 3, 7), now: now), '7 March 2026');
+
+    // Across a spring-forward transition, consecutive local midnights sit 23
+    // hours apart, not 24. A day start one hour past midnight reproduces that
+    // gap in any test timezone: an elapsed-duration difference truncates it
+    // to zero whole days and relabels yesterday as Today.
+    expect(chatDayLabel(DateTime(2026, 3, 8, 1), now: now), 'Yesterday');
+    expect(chatDayLabel(DateTime(2026, 3, 7, 1), now: now), '7 March 2026');
+  });
+
   testWidgets('the day crossing the top of chat stays pinned', (tester) async {
     final api = _ChatApi(openPages: const {});
     final controller = await _controller(api, sites: const [firstSite]);

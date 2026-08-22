@@ -61,9 +61,15 @@ abstract interface class DiagnosticsPersistence {
 }
 
 /// Applies all three rolling-history limits to an already-folded event list.
+///
+/// [bytesOf] supplies a size a caller has already measured. Sizing an event
+/// means encoding it, and the decode that produced these events did that work
+/// off the main isolate deliberately; recomputing it here would put the whole
+/// history's worth of `jsonEncode` back on the isolate that draws.
 List<DiagnosticEvent> retainDiagnosticEvents(
   Iterable<DiagnosticEvent> events, {
   required DateTime nowUtc,
+  int Function(DiagnosticEvent event)? bytesOf,
 }) {
   final cutoff = nowUtc.toUtc().subtract(diagnosticsRetentionAge);
   final chronological =
@@ -76,7 +82,8 @@ List<DiagnosticEvent> retainDiagnosticEvents(
   var bytes = 0;
   final retainedNewestFirst = <DiagnosticEvent>[];
   for (final event in countLimited.reversed) {
-    final eventBytes = diagnosticEventSerializedBytes(event);
+    final eventBytes =
+        bytesOf?.call(event) ?? diagnosticEventSerializedBytes(event);
     if (eventBytes > diagnosticsEventBudgetBytes) {
       continue;
     }
@@ -123,10 +130,17 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
       _serialize(() async {
         await _loadFromDisk(nowUtc: nowUtc);
         return DiagnosticsPersistenceState(
-          events: retainDiagnosticEvents(_events.values, nowUtc: nowUtc),
+          events: retainDiagnosticEvents(
+            _events.values,
+            nowUtc: nowUtc,
+            bytesOf: _serializedBytesOf,
+          ),
           lastSeenSequence: _lastSeenSequence,
         );
       });
+
+  int _serializedBytesOf(DiagnosticEvent event) =>
+      _eventBytes[event.id] ?? diagnosticEventSerializedBytes(event);
 
   @override
   Future<void> appendEvents(
@@ -140,6 +154,11 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
     }
     final evicted = _retainInMemory(nowUtc);
     await _appendLines([for (final event in events) _eventLine(event)]);
+    // Deliberately eager, and deliberately not amortised on file growth: a
+    // record dropped by the retention age has to leave the disk when it is
+    // dropped, not once the file happens to be worth rewriting. Diagnostics
+    // hold captured request data, so the age limit is a promise about what is
+    // stored, and `test/diagnostics_persistence_test.dart` pins it.
     if (evicted || await file.length() > diagnosticsRetentionBytes) {
       await _compactNow(nowUtc);
     }
@@ -332,11 +351,31 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
   Future<void> _appendLines(List<Map<String, Object?>> lines) async {
     if (lines.isEmpty) return;
     await ensurePrivateFile(file);
+    // A kill mid-write can leave the file ending without its newline. The
+    // decoder already tolerates that one torn line, but appending straight
+    // onto it would splice the next record into the fragment and lose that
+    // record too — and the file would stay one line out of step until an
+    // unrelated compaction. Close the torn line first; it costs a byte and
+    // bounds the damage to the record that was actually interrupted.
+    final terminator = await _needsLineTerminator() ? '\n' : '';
     await file.writeAsString(
-      '${lines.map(jsonEncode).join('\n')}\n',
+      '$terminator${lines.map(jsonEncode).join('\n')}\n',
       mode: FileMode.append,
       flush: true,
     );
+  }
+
+  Future<bool> _needsLineTerminator() async {
+    final length = await file.length();
+    if (length == 0) return false;
+    final handle = await file.open();
+    try {
+      await handle.setPosition(length - 1);
+      final last = await handle.readByte();
+      return last != 0x0a;
+    } finally {
+      await handle.close();
+    }
   }
 
   Future<void> _compactNow(

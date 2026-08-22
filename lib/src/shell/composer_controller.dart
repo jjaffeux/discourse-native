@@ -840,20 +840,29 @@ class ComposerController extends ChangeNotifier {
 
   String? _originalRaw;
 
-  /// The body an edit opened with, used only to distinguish a published poll
-  /// from one newly inserted during this edit.
+  /// The body an edit opened with: the baseline changes are measured against,
+  /// and what the site checks for edit conflicts as `original_text`. Null
+  /// until [loadedBody] supplies it — including after a failed fetch.
   String? get originalRaw => _originalRaw;
+
+  /// Latched by [bodyLoadFailed], cleared only when [loadedBody] supplies the
+  /// baseline. While set, the field holds typed-over emptiness rather than
+  /// the post, so a submit would replace the whole post with it — and with no
+  /// [originalRaw] to send, without the site's edit-conflict check either.
+  bool _missingEditBody = false;
 
   /// Whether there is anything worth sending. Blank is not a post, and neither
   /// is an edit nobody has changed — the site refuses that anyway.
   ///
   /// An edit has one more way of being not worth sending: the body may not
-  /// have arrived yet, and saving then would replace the post with nothing.
+  /// have arrived yet — or may have failed to arrive at all — and saving then
+  /// would replace the post with whatever little the field holds.
   bool get canSubmit =>
       _canSubmit &&
       _state == ComposerState.editing &&
       !_rateLimited &&
       !_loadingBody &&
+      !_missingEditBody &&
       !hasActiveUploads;
 
   /// Marks an edit composer as waiting for the post it is going to rewrite.
@@ -867,6 +876,7 @@ class ComposerController extends ChangeNotifier {
   void loadedBody(String raw) {
     if (_disposed) return;
     _loadingBody = false;
+    _missingEditBody = false;
     _originalRaw = raw.trim();
     _replaceDocument(
       TextEditingValue(
@@ -878,10 +888,16 @@ class ComposerController extends ChangeNotifier {
   }
 
   /// The post could not be fetched, so there is nothing to edit. Sending stays
-  /// disabled: an empty field here would blank the post rather than leave it.
+  /// disabled until [loadedBody] supplies the body: an empty field here would
+  /// blank the post rather than leave it, and text typed over the emptiness
+  /// would replace the post rather than amend it. Metadata-only topic edits
+  /// are held back with it, because the submit path follows a metadata save
+  /// with a body update whenever the field differs from the baseline — and
+  /// with no baseline, "unchanged" cannot be told from "missing".
   void bodyLoadFailed() {
     if (_disposed) return;
     _loadingBody = false;
+    _missingEditBody = true;
     _error = const WriteException(WriteFailure.unreachable);
     _notify();
   }

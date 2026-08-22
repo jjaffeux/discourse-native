@@ -133,9 +133,11 @@ class ShellController extends FrameSafeNotifier {
     this.resenhaDiagnostics = const NoopResenhaDiagnosticsRecorder(),
     this.ownsApi = true,
     this.topicLoadTimeout = const Duration(seconds: 30),
+    this.anchorPersistDebounce = const Duration(milliseconds: 500),
   }) : forumTabs = forumTabs ?? ForumTabStore.memory(),
        emojiPickerStore = emojiPickerStore ?? EmojiPickerStore(),
        assert(topicLoadTimeout > Duration.zero),
+       assert(anchorPersistDebounce >= Duration.zero),
        store = store ?? Store(),
        lifecycle = lifecycle ?? SiteLifecycle(),
        updates = UpdateController(
@@ -174,6 +176,13 @@ class ShellController extends FrameSafeNotifier {
   /// both waits so neither can leave the topic loading state alive
   /// indefinitely.
   final Duration topicLoadTimeout;
+
+  /// How long scroll-anchor churn may remain memory-only before it is written.
+  ///
+  /// Scrolling emits one anchor change per top row or top post, and each
+  /// persisted write serialises every workspace synchronously on the UI
+  /// isolate. Zero still coalesces a synchronous burst into one write.
+  final Duration anchorPersistDebounce;
 
   final Authenticator authenticator;
   final DraftStore drafts;
@@ -607,6 +616,8 @@ class ShellController extends FrameSafeNotifier {
   ({String siteUrl, String tabId})? _pendingTabSelection;
   bool _tabSelectionSettlementScheduled = false;
   bool _tabSelectionPersistencePending = false;
+  Timer? _anchorPersistTimer;
+  bool _anchorPersistencePending = false;
 
   ForumWorkspace? get currentWorkspace {
     final siteUrl = currentInstance?.url;
@@ -706,7 +717,49 @@ class ShellController extends FrameSafeNotifier {
 
   void _persistWorkspaces() {
     _tabSelectionPersistencePending = false;
+    // Any full write already carries the in-memory anchors, so a waiting
+    // anchor window has nothing left to add.
+    _anchorPersistencePending = false;
     unawaited(forumTabs.save(_forumWorkspaces.values));
+  }
+
+  /// Persists scroll anchors once per window instead of once per change.
+  ///
+  /// A fixed window, deliberately, not a window each change restarts: an
+  /// uninterrupted scroll emits anchors continuously, and a restarting window
+  /// would defer every write to whenever it happened to stop. What
+  /// [anchorPersistDebounce] promises is a bound on how stale the persisted
+  /// anchor may be, which only a fixed window gives.
+  ///
+  /// The active tab is updated before this runs — widgets read anchors from
+  /// memory synchronously — and the eventual write serialises that live state,
+  /// so the last anchor in a window always wins regardless of how many changes
+  /// the window absorbed. Backgrounding and disposal flush the window, so a
+  /// pending anchor cannot outlive the process.
+  void _schedulePersistAnchors() {
+    _anchorPersistencePending = true;
+    if (_anchorPersistTimer != null) return;
+    _anchorPersistTimer = Timer(anchorPersistDebounce, () {
+      _anchorPersistTimer = null;
+      if (isDisposed || !_anchorPersistencePending) return;
+      _persistWorkspaces();
+    });
+  }
+
+  void _flushPendingAnchorPersist() {
+    _anchorPersistTimer?.cancel();
+    _anchorPersistTimer = null;
+    if (_anchorPersistencePending) _persistWorkspaces();
+  }
+
+  /// Writes an anchor still waiting out its debounce window.
+  ///
+  /// Views call this as their scrolled viewport unmounts: nothing can move
+  /// the anchor once the viewport is gone, so the window buys no further
+  /// coalescing and holding the write only defers durability.
+  void flushAnchorPersist() {
+    if (isDisposed) return;
+    _flushPendingAnchorPersist();
   }
 
   void _replaceTab(
@@ -1638,7 +1691,9 @@ class ShellController extends FrameSafeNotifier {
           destinationId: ForumTabAnchor(kind: 'feed', itemId: row),
         },
       ),
+      persist: false,
     );
+    _schedulePersistAnchors();
   }
 
   /// The post a remounted topic tab should reveal.
@@ -1693,7 +1748,9 @@ class ShellController extends FrameSafeNotifier {
           ),
         },
       ),
+      persist: false,
     );
+    _schedulePersistAnchors();
   }
 
   final Map<String, SiteTracker> _trackers = {};
@@ -2130,6 +2187,9 @@ class ShellController extends FrameSafeNotifier {
   void setForeground(bool foreground) {
     if (foreground == _foreground) return;
     _foreground = foreground;
+    // The OS may suspend or kill a backgrounded process before any timer
+    // fires again, so an anchor waiting out its window must be durable now.
+    if (!foreground) _flushPendingAnchorPersist();
     resenha.setForeground(foreground);
     _syncTracking();
     if (!foreground) return;
@@ -2165,14 +2225,39 @@ class ShellController extends FrameSafeNotifier {
   /// The topic knows every post id it has; the store knows which of them have
   /// actually been fetched. An ordinary load draws the fetched prefix, while
   /// a numbered load draws the fetched window around its target.
+  ///
+  /// Memoized: every shell notification re-selects a snapshot, and each
+  /// post-frame viewport look asks again, so an uncached answer costs a store
+  /// read per loaded post per frame. The key is exactly what the derivation
+  /// reads — the site, the detail record, the route's target post, and the
+  /// site's post-change generation.
   List<int> get currentPostIds {
     final instance = currentInstance;
     final detail = currentTopic;
     if (instance == null || detail == null) return const [];
+    final key = (
+      instance.url,
+      detail,
+      currentContent?.postNumber,
+      store.generationOf<Post>(instance.url),
+    );
+    final cachedKey = _postIdsCacheKey;
+    if (cachedKey != null &&
+        cachedKey.$1 == key.$1 &&
+        identical(cachedKey.$2, key.$2) &&
+        cachedKey.$3 == key.$3 &&
+        cachedKey.$4 == key.$4) {
+      return _postIdsCache;
+    }
     final range = _loadedPostRange(instance.url, detail);
-    if (range == null) return const [];
-    return [for (final id in detail.stream.sublist(range.$1, range.$2 + 1)) id];
+    _postIdsCacheKey = key;
+    return _postIdsCache = range == null
+        ? const []
+        : [for (final id in detail.stream.sublist(range.$1, range.$2 + 1)) id];
   }
+
+  List<int> _postIdsCache = const [];
+  (String, TopicDetail, int?, int)? _postIdsCacheKey;
 
   /// The loaded window to draw.
   ///
@@ -4545,6 +4630,16 @@ class ShellController extends FrameSafeNotifier {
   ) async {
     final lease = lifecycle.capture(target.siteUrl);
     composer.beginSubmit();
+    // Both modes that reach here opened on an existing post, so a null
+    // baseline means the body fetch failed and `raw` is whatever was typed
+    // into the empty field, not the post. Sending it would replace the whole
+    // post, and with no originalText the site's edit-conflict check would
+    // not run either. `canSubmit` already refuses this, but that gate is
+    // UI-level; the request must be impossible to build, not just to press.
+    if (composer.originalRaw == null) {
+      composer.failed(const WriteException(WriteFailure.unreachable));
+      return;
+    }
     final credential = await _credentialForWrite(target.siteUrl);
     if (!lease.isCurrent) return;
     if (credential.failure case final failure?) {
@@ -5522,6 +5617,11 @@ class ShellController extends FrameSafeNotifier {
   String emojiUrlFor(String siteUrl, String name) =>
       _presentation.emojiUrlFor(siteUrl, name);
 
+  /// Whether a shortcode names emoji this site is known to serve; see
+  /// [SitePresentationController.knowsEmoji] for what false covers.
+  bool knowsEmoji(String siteUrl, String name) =>
+      _presentation.knowsEmoji(siteUrl, name);
+
   /// Opaque identity for widgets whose presentation depends on this site's
   /// settings or custom emoji artwork.
   Object presentationTokenFor(String siteUrl) =>
@@ -6347,6 +6447,13 @@ class ShellController extends FrameSafeNotifier {
     if (canRead) {
       unawaited(_presentation.ensureConfig(instance.url));
       unawaited(_presentation.ensureCustomEmojis(instance.url));
+      // Titles draw only the shortcodes the catalog vouches for, so it is a
+      // dependency of the first topic list rather than of the composer that
+      // used to be the only thing asking. Warmed alongside the feed, it lands
+      // with the rows instead of turning every title into a second frame, and
+      // warming retries a failure rather than inheriting the picker's
+      // give-up-for-the-session verdict.
+      unawaited(_presentation.warmEmojiCatalog(instance.url));
       unawaited(_ensureCategoriesFor(instance));
     }
     if (instance.isConnected) unawaited(resenha.ensureLoaded(instance.url));
@@ -6762,12 +6869,16 @@ class ShellController extends FrameSafeNotifier {
       ).ignore();
     }
 
-    // A window can close in the frame immediately after a selection. Keep the
-    // latest local choice durable, but never start hydration while tearing the
-    // controller down.
+    // A window can close in the frame immediately after a selection or a
+    // scroll. Keep the latest local choice and anchor durable, but never start
+    // hydration while tearing the controller down.
     _pendingTabSelection = null;
     _tabSelectionSettlementScheduled = false;
-    if (_tabSelectionPersistencePending) _persistWorkspaces();
+    _anchorPersistTimer?.cancel();
+    _anchorPersistTimer = null;
+    if (_tabSelectionPersistencePending || _anchorPersistencePending) {
+      _persistWorkspaces();
+    }
     _topicReads.dispose();
     for (final instance in _instances) {
       lifecycle.invalidate(instance.url);

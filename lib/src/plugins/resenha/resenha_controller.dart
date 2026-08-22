@@ -706,7 +706,13 @@ final class ResenhaController extends ChangeNotifier {
     final call = _call;
     if (call != null && call.siteUrl == siteUrl && call.room.id == roomId) {
       final userId = userIdFor(siteUrl);
+      // Room subscriptions are cursored from the directory load, not from the
+      // join response, so a roster published before join.json committed can
+      // still be delivered while the join settles. The local user's absence
+      // from such a roster is not evidence of removal until the call has
+      // connected.
       if (call.status != ResenhaCallStatus.leaving &&
+          call.status != ResenhaCallStatus.joining &&
           userId != null &&
           !participants.any((participant) => participant.id == userId)) {
         _observe(
@@ -1355,12 +1361,16 @@ final class ResenhaController extends ChangeNotifier {
       _updateMediaState(
         media: (call) => call.media.setMuted(muted),
         update: (call) => call.copyWith(muted: muted),
+        rollback: (current, previous) =>
+            current.copyWith(muted: previous.muted),
         system: syncSystem ? () => systemCall.setMuted(muted) : null,
       );
 
   Future<void> setDeafened(bool deafened) => _updateMediaState(
     media: (call) => call.media.setDeafened(deafened),
     update: (call) => call.copyWith(deafened: deafened),
+    rollback: (current, previous) =>
+        current.copyWith(deafened: previous.deafened),
   );
 
   Future<void> setCameraEnabled(bool enabled, {String? deviceId}) =>
@@ -1370,6 +1380,8 @@ final class ResenhaController extends ChangeNotifier {
           deviceId: deviceId ?? _cameraDeviceId,
         ),
         update: (call) => call.copyWith(cameraEnabled: enabled),
+        rollback: (current, previous) =>
+            current.copyWith(cameraEnabled: previous.cameraEnabled),
       );
 
   Future<List<rtc.MediaDeviceInfo>> mediaDevices() =>
@@ -1697,24 +1709,39 @@ final class ResenhaController extends ChangeNotifier {
   Future<void> setScreenSharing(bool enabled) => _updateMediaState(
     media: (call) => call.media.setScreenShareEnabled(enabled),
     update: (call) => call.copyWith(screenSharing: enabled),
+    rollback: (current, previous) =>
+        current.copyWith(screenSharing: previous.screenSharing),
   );
 
   Future<void> _updateMediaState({
     required Future<void> Function(ResenhaCallSnapshot call) media,
     required ResenhaCallSnapshot Function(ResenhaCallSnapshot call) update,
+    required ResenhaCallSnapshot Function(
+      ResenhaCallSnapshot current,
+      ResenhaCallSnapshot previous,
+    )
+    rollback,
     Future<void> Function()? system,
   }) async {
     if (_disposed) return;
     final call = _call;
     if (call == null) return;
-    final previous = call;
     _call = update(call);
     notifyListeners();
     try {
       await media(call);
     } catch (error, stackTrace) {
-      if (!_disposed && identical(_call?.media, call.media)) {
-        _call = previous.copyWith(error: 'The media setting was not applied.');
+      final current = _call;
+      if (!_disposed &&
+          current != null &&
+          identical(current.media, call.media)) {
+        // Roster, status, and recording updates can land while the media call
+        // is in flight; restoring the pre-toggle snapshot would erase them.
+        // Revert only the toggled field on the current snapshot.
+        _call = rollback(
+          current,
+          call,
+        ).copyWith(error: 'The media setting was not applied.');
         notifyListeners();
       }
       _report(error, stackTrace, 'resenha.mediaState');
@@ -2524,7 +2551,16 @@ final class ResenhaController extends ChangeNotifier {
           ResenhaCallStatus.reconnecting,
         ResenhaMediaConnectionState.failed => ResenhaCallStatus.failed,
       };
-      if (status != call.status && call.status != ResenhaCallStatus.leaving) {
+      // Only a call that has already settled takes its status from the media
+      // layer. A join reaches `connected` at the end of its own sequence —
+      // after the state sync, the saved devices and the platform call — and
+      // the transports notify from inside `connect()`, so letting media
+      // promote a `joining` call would announce the call before any of that
+      // ran and would lift the guard that keeps a roster published before
+      // join.json committed from tearing the call down.
+      if (status != call.status &&
+          call.status != ResenhaCallStatus.leaving &&
+          call.status != ResenhaCallStatus.joining) {
         _record(
           'call.status_changed',
           correlationId: _correlationFor(call),
@@ -2559,6 +2595,13 @@ final class ResenhaController extends ChangeNotifier {
         updated = updated.copyWith(screenSharing: false);
       }
       _call = updated;
+      // A heartbeat that fires while the call is away from connected declines
+      // to reschedule itself, so a recovered connection must restart the chain
+      // or server presence expires and the roster prunes the local user.
+      if (updated.status == ResenhaCallStatus.connected &&
+          call.status != ResenhaCallStatus.connected) {
+        _startHeartbeat();
+      }
       if (screenShareEnded) unawaited(_requestStateSync());
     }
     notifyListeners();

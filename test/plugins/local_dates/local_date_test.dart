@@ -194,6 +194,28 @@ void main() {
       expect(elapsed!.formatted, 'now');
     });
 
+    test('countdown matches upstream humanize buckets without a prefix', () {
+      String countdown(DateTime now) => formatter
+          .resolve(
+            const LocalDateSpec(
+              date: '2026-01-11',
+              time: '00:00:00',
+              timezone: 'UTC',
+              countdown: true,
+              fallbackText: '',
+            ),
+            locale: const Locale('en'),
+            now: now,
+          )!
+          .formatted;
+
+      expect(countdown(DateTime.utc(2026, 1, 10, 23, 59, 40)), 'a few seconds');
+      expect(countdown(DateTime.utc(2026, 1, 10, 23, 30)), '30 minutes');
+      expect(countdown(DateTime.utc(2026, 1, 10, 23, 15)), 'an hour');
+      expect(countdown(DateTime.utc(2026, 1, 1)), '10 days');
+      expect(countdown(DateTime.utc(2025, 12, 12)), 'a month');
+    });
+
     test('previews preserve order while deduplicating zones and offsets', () {
       environment.setDeviceTimezone('Etc/UTC');
       final previews = formatter.previews(
@@ -278,6 +300,87 @@ void main() {
           const Locale('en'),
         ),
         'prefix FUTURE',
+      );
+    });
+
+    test(
+      'a lone unknown letter stays literal while adjacent tokens format',
+      () {
+        final time = tz.TZDateTime(
+          tz.getLocation('Etc/UTC'),
+          2026,
+          8,
+          21,
+          14,
+          30,
+        );
+
+        expect(
+          LocalDateFormatter.formatMoment(
+            time,
+            'YYYY-MM-DDTHH:mm',
+            const Locale('en'),
+          ),
+          '2026-08-21T14:30',
+        );
+        expect(
+          LocalDateFormatter.formatMoment(time, 'THH', const Locale('en')),
+          'T14',
+        );
+        expect(
+          LocalDateFormatter.formatMoment(time, 'FUTURE', const Locale('en')),
+          'FUTURE',
+        );
+      },
+    );
+
+    test('day-of-year and ISO week follow the displayed wall clock', () {
+      const locale = Locale('en');
+      final newYork = tz.getLocation('America/New_York');
+
+      // Late evening in New York is already the next day in UTC and most
+      // device zones; the rendered values must track the displayed date.
+      final yearEnd = tz.TZDateTime(newYork, 2026, 12, 31, 23);
+      expect(LocalDateFormatter.formatMoment(yearEnd, 'DDD', locale), '365');
+      expect(LocalDateFormatter.formatMoment(yearEnd, 'w', locale), '53');
+      expect(LocalDateFormatter.formatMoment(yearEnd, 'gggg', locale), '2026');
+
+      // First wall-clock morning after Sydney's 2026-10-04 spring forward.
+      final afterSpringForward = tz.TZDateTime(
+        tz.getLocation('Australia/Sydney'),
+        2026,
+        10,
+        4,
+        3,
+        30,
+      );
+      expect(
+        LocalDateFormatter.formatMoment(afterSpringForward, 'DDD', locale),
+        '277',
+      );
+      expect(
+        LocalDateFormatter.formatMoment(afterSpringForward, 'w', locale),
+        '40',
+      );
+
+      // A summer date whose ISO-week span crosses the displayed zone's
+      // northern-hemisphere DST change.
+      final midYear = tz.TZDateTime(
+        tz.getLocation('Europe/Paris'),
+        2026,
+        7,
+        1,
+        12,
+      );
+      expect(LocalDateFormatter.formatMoment(midYear, 'DDD', locale), '182');
+      expect(LocalDateFormatter.formatMoment(midYear, 'w', locale), '27');
+
+      // The last Monday of 2025 belongs to ISO week 1 of 2026.
+      final isoRollover = tz.TZDateTime(newYork, 2025, 12, 29, 12);
+      expect(LocalDateFormatter.formatMoment(isoRollover, 'w', locale), '1');
+      expect(
+        LocalDateFormatter.formatMoment(isoRollover, 'gggg', locale),
+        '2026',
       );
     });
   });

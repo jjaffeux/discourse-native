@@ -383,6 +383,30 @@ void main() {
     controller.dispose();
   });
 
+  test('knowsEmoji answers from custom uploads and the catalog', () async {
+    final api = _PresentationApi()
+      ..custom = {'partyparrot': '/uploads/parrot.png'}
+      ..emojis = const [
+        SiteEmoji(name: 'tada', url: 'tada.png'),
+        SiteEmoji(name: 'wave', url: 'wave.png', tonable: true),
+      ];
+    final controller = _controller(api);
+
+    // Nothing fetched yet: no name may fabricate an artwork address.
+    expect(controller.knowsEmoji(site, 'tada'), isFalse);
+
+    await controller.ensureCustomEmojis(site);
+    expect(controller.knowsEmoji(site, 'partyparrot'), isTrue);
+    expect(controller.knowsEmoji(site, 'tada'), isFalse);
+
+    await controller.ensureEmojiCatalog(site);
+    expect(controller.knowsEmoji(site, 'tada'), isTrue);
+    expect(controller.knowsEmoji(site, 'wave:t3'), isTrue);
+    expect(controller.knowsEmoji(site, '30'), isFalse);
+    expect(controller.knowsEmoji('https://other.example', 'tada'), isFalse);
+    controller.dispose();
+  });
+
   test('emoji index shares its request without presentation churn', () async {
     final api = _PresentationApi();
     final gate = Completer<List<SiteEmoji>>();
@@ -488,6 +512,34 @@ void main() {
       controller.dispose();
     },
   );
+
+  test('warming the catalog retries a failure but reuses a hit', () async {
+    await _installDiagnostics('emoji-catalog-warm');
+    final api = _PresentationApi()
+      ..emojiError = StateError('catalog unavailable');
+    final controller = _controller(api);
+
+    expect(await controller.ensureEmojiCatalog(site), isNull);
+    expect(api.emojiCalls, 1);
+
+    // Prose emoji depend on this catalog, so opening the site again has to be
+    // able to recover; an ensure would keep answering the session-long null.
+    expect(await controller.ensureEmojiCatalog(site), isNull);
+    expect(api.emojiCalls, 1);
+
+    api
+      ..emojiError = null
+      ..emojis = const [SiteEmoji(name: 'wave', url: 'wave.png')];
+
+    expect(await controller.warmEmojiCatalog(site), isNotNull);
+    expect(api.emojiCalls, 2);
+    expect(controller.knowsEmoji(site, 'wave'), isTrue);
+
+    // Held catalogs are not refetched every time a site is selected.
+    expect(await controller.warmEmojiCatalog(site), isNotNull);
+    expect(api.emojiCalls, 2);
+    controller.dispose();
+  });
 
   test(
     'failed emoji metadata returns null and explicit refresh can recover',

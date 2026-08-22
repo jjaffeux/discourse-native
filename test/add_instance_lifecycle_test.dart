@@ -230,6 +230,35 @@ void main() {
     expect(store.saveCount, 0);
   });
 
+  testWidgets('a success landing during dismissal cannot pop the route below', (
+    tester,
+  ) async {
+    final store = FakeInstanceStore();
+    final api = _GatedLookupApi();
+    final controller = _controller(store, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    await tester.pumpWidget(_app(controller));
+    await _startLookup(tester, api);
+
+    // Dismissal is underway, but the exit animation keeps the form mounted:
+    // exactly the window in which the connect may still complete.
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+    api.lookupGate.complete();
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    // The add itself lands; only the form's own pop must be skipped, because
+    // its route is already gone and a pop would take whatever is on top now.
+    expect(controller.instances.map((site) => site.url), [
+      'https://meta.example',
+    ]);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('Add site'), findsOneWidget);
+  });
+
   testWidgets('a pending lookup cannot mutate a replacement shell', (
     tester,
   ) async {

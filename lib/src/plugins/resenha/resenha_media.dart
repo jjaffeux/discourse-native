@@ -1674,8 +1674,13 @@ final class MeshResenhaMediaSession extends _ResenhaMediaNotifier {
   Future<void> setMuted(bool muted) => _serialize(() => _setMuted(muted));
 
   Future<void> _setMuted(bool muted) async {
-    _muted = muted;
+    // Adopted only once the capture it depends on has succeeded:
+    // `_ensureAudioTrack` can throw on a busy or refused device, and
+    // `_ensureAudioTrack` itself reads `_muted` to decide whether a freshly
+    // created track starts enabled. A field updated in front of a failure
+    // would hand a later re-publish an unmuted microphone under a muted UI.
     if (audioPublishingAllowed && !muted) await _ensureAudioTrack();
+    _muted = muted;
     for (final track
         in _localStream?.getAudioTracks() ?? const <rtc.MediaStreamTrack>[]) {
       track.enabled = !muted;
@@ -2186,6 +2191,40 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   );
   bool audioPublishingAllowed;
   bool _muted = false;
+
+  /// Whether the microphone should currently be publishing.
+  ///
+  /// One owner for a decision three paths make — the initial connect, the
+  /// reconnect ladder, and a stage change — because they diverged: connect
+  /// published unconditionally while the other two honoured [_muted], so a
+  /// mute that landed while the socket was still opening was overwritten by
+  /// the connect that followed it.
+  @visibleForTesting
+  bool get shouldPublishMicrophone => audioPublishingAllowed && !_muted;
+
+  /// Whether remote audio is currently refused.
+  ///
+  /// Held rather than applied once and forgotten: the room subscribes new
+  /// publications automatically, so anyone who joins, republishes, or comes
+  /// back through the reconnect ladder arrives subscribed. Without this the
+  /// reader hears them while the control still reads deafened.
+  bool _deafened = false;
+
+  @visibleForTesting
+  bool get deafened => _deafened;
+
+  /// The camera state to restore after a reconnect, and the device it was on.
+  ///
+  /// A disconnect drops every local publication. The microphone is
+  /// re-published below from [shouldPublishMicrophone] and screen share
+  /// self-heals through the controller's own comparison, but nothing carried
+  /// the camera: it came back unpublished while the app and the server both
+  /// still reported video on.
+  bool _cameraEnabled = false;
+  String? _cameraDeviceId;
+
+  @visibleForTesting
+  bool get cameraEnabled => _cameraEnabled;
   bool _closing = false;
   bool _pollingRawStats = false;
   bool _deviceInventoryCaptured = false;
@@ -2269,6 +2308,14 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
       adapter.listenToRoomEvents((event) {
         _recordRoomEvent(event);
         changed();
+        // Auto-subscribe means a new publication arrives audible, so a
+        // deafened reader has to refuse each one as it appears.
+        if (_deafened &&
+            (event is lk.TrackPublishedEvent ||
+                event is lk.TrackSubscribedEvent ||
+                event is lk.ParticipantConnectedEvent)) {
+          unawaited(_applyDeafened());
+        }
         if (event is lk.RoomDisconnectedEvent && !_closing) {
           _startReconnect(reason: event.reason);
         }
@@ -2284,7 +2331,11 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
     try {
       await _connectRoom(credentials);
       if (_closing || disposed) return;
-      if (audioPublishingAllowed) {
+      // The controls are live from the moment the call exists, so a mute — by
+      // hand, by CallKit, or by a stage change — can land while this connect
+      // is still in flight, and its own setMicrophoneEnabled was a no-op
+      // against a localParticipant that did not exist yet.
+      if (shouldPublishMicrophone) {
         await _room.localParticipant?.setMicrophoneEnabled(true);
         if (_closing || disposed) return;
       }
@@ -2463,8 +2514,14 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
     if (_closing || disposed || _reconnect.cancelled) return;
     await _connectRoom(credentials);
     if (_closing || disposed || _reconnect.cancelled) return;
-    if (audioPublishingAllowed && !_muted) {
+    if (shouldPublishMicrophone) {
       await _room.localParticipant?.setMicrophoneEnabled(true);
+    }
+    // The rebuilt room subscribes everything again, so a reader who was
+    // deafened before the drop would come back hearing the room.
+    await _applyDeafened();
+    if (_cameraEnabled) {
+      await _publishCamera(true, deviceId: _cameraDeviceId);
     }
   }
 
@@ -2753,7 +2810,7 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
 
   @override
   Future<void> selectAudioInput(String deviceId) async {
-    final enabled = audioPublishingAllowed && !_muted;
+    final enabled = shouldPublishMicrophone;
     await _room.localParticipant?.setMicrophoneEnabled(false);
     if (enabled) {
       await _room.localParticipant?.setMicrophoneEnabled(
@@ -2773,42 +2830,65 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
 
   @override
   Future<void> setMuted(bool muted) async {
-    _muted = muted;
+    // Recorded after the fact, not before it. A capture that throws leaves the
+    // controller rolling its snapshot back to what was true, and a session
+    // that had already adopted the failed value would disagree with it — the
+    // next `setAudioPublishingAllowed` reads this field and would open a
+    // microphone the UI still shows as muted.
     await _room.localParticipant?.setMicrophoneEnabled(
       audioPublishingAllowed && !muted,
     );
+    _muted = muted;
     changed();
   }
 
   @override
   Future<void> setDeafened(bool deafened) async {
+    _deafened = deafened;
+    await _applyDeafened();
+    changed();
+  }
+
+  /// Brings every remote audio publication in line with [_deafened].
+  ///
+  /// Run again whenever the set of publications can have changed — a track
+  /// published, a participant joined, a reconnect rebuilt the room — because
+  /// each of those arrives auto-subscribed.
+  Future<void> _applyDeafened() async {
     for (final participant in _room.remoteParticipants.values) {
       for (final publication in participant.audioTrackPublications) {
-        if (deafened) {
+        if (_deafened) {
           await publication.unsubscribe();
         } else {
           await publication.subscribe();
         }
       }
     }
-    changed();
   }
 
   @override
   Future<void> setCameraEnabled(bool enabled, {String? deviceId}) async {
-    await _room.localParticipant?.setCameraEnabled(
-      enabled,
-      cameraCaptureOptions: lk.CameraCaptureOptions(
-        deviceId: deviceId,
-        params: switch (join.room.maxQualityProfile) {
-          ResenhaQualityProfile.standard => lk.VideoParametersPresets.h360_169,
-          ResenhaQualityProfile.high => lk.VideoParametersPresets.h720_169,
-          ResenhaQualityProfile.maximum => lk.VideoParametersPresets.h1080_169,
-        },
-      ),
-    );
+    await _publishCamera(enabled, deviceId: deviceId);
+    _cameraEnabled = enabled;
+    if (enabled) _cameraDeviceId = deviceId;
     changed();
   }
+
+  Future<void> _publishCamera(bool enabled, {String? deviceId}) =>
+      _room.localParticipant?.setCameraEnabled(
+        enabled,
+        cameraCaptureOptions: lk.CameraCaptureOptions(
+          deviceId: deviceId,
+          params: switch (join.room.maxQualityProfile) {
+            ResenhaQualityProfile.standard =>
+              lk.VideoParametersPresets.h360_169,
+            ResenhaQualityProfile.high => lk.VideoParametersPresets.h720_169,
+            ResenhaQualityProfile.maximum =>
+              lk.VideoParametersPresets.h1080_169,
+          },
+        ),
+      ) ??
+      Future<void>.value();
 
   @override
   Future<void> setScreenShareEnabled(bool enabled) async {

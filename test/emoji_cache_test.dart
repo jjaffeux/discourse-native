@@ -30,6 +30,19 @@ void main() {
       );
     });
 
+    test('resolves a subfolder install without doubling its base path', () {
+      // A subfolder site cooks its base path into the src already, so the
+      // src resolves against the origin; appending it to the stored site URL
+      // would fetch /forum/forum/... and 404 every standard emoji.
+      expect(
+        absoluteEmojiUrl(
+          '/forum/images/emoji/twitter/tada.png?v=15',
+          'https://example.com/forum',
+        ),
+        'https://example.com/forum/images/emoji/twitter/tada.png?v=15',
+      );
+    });
+
     test('leaves an absolute src alone, for a site behind a CDN', () {
       const url = 'https://cdn.example/images/emoji/twitter/tada.png';
       expect(absoluteEmojiUrl(url, 'https://meta.discourse.org'), url);

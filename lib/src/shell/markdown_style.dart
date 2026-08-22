@@ -27,7 +27,9 @@ TextStyle markdownStyle(
   }
 
   if (mask & Md.heading != 0) {
-    final level = int.tryParse(detail ?? '1') ?? 1;
+    // The detail slot is shared: an inline HTML tag inside a heading appends
+    // its name after a comma, so the level is the first component.
+    final level = int.tryParse((detail ?? '1').split(',').first) ?? 1;
     scale *= _headingScale(level);
     style = style.copyWith(
       fontWeight: FontWeight.w700,

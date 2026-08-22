@@ -53,12 +53,28 @@ final _FlockDart _nativeFlock = DynamicLibrary.process()
 final _CloseDart _nativeClose = DynamicLibrary.process()
     .lookupFunction<_CloseNative, _CloseDart>('close');
 
+/// How long a contended private lock is waited for before giving up.
+///
+/// Long enough to outlast any operation this lock guards, short enough that a
+/// wedged holder surfaces as an error rather than a permanent hang.
+const Duration _lockTimeout = Duration(seconds: 20);
+
+/// How often a contended lock is retried. `flock` has no asynchronous form, so
+/// waiting is polling; this is the compromise between latency on release and
+/// wake-ups while waiting.
+const Duration _lockRetryInterval = Duration(milliseconds: 25);
+
 /// Runs [operation] while holding a process-aware exclusive `flock` on [file].
 ///
 /// Dart's `RandomAccessFile.lock` uses process-scoped record locks on these
 /// platforms, which do not coordinate independent isolates in one process.
 /// `flock` is tied to the opened file description, so it covers both isolates
 /// and separate app processes.
+///
+/// The lock is taken without blocking and retried from the event loop. A
+/// blocking `flock` stops the calling isolate outright — no frames, no timers,
+/// nothing — for as long as another process holds it, and the holders here can
+/// be slow by design: a macOS Keychain ACL prompt waits on a human.
 Future<T> withPrivateAdvisoryFileLock<T>(
   File file,
   Future<T> Function() operation,
@@ -77,8 +93,16 @@ Future<T> withPrivateAdvisoryFileLock<T>(
   }
 
   try {
-    if (_nativeFlock(descriptor, 0x0002) != 0) {
-      throw FileSystemException('Could not lock private file', file.path);
+    // LOCK_EX | LOCK_NB.
+    final deadline = DateTime.now().add(_lockTimeout);
+    while (_nativeFlock(descriptor, 0x0002 | 0x0004) != 0) {
+      // Every plausible failure here is contention: the descriptor was just
+      // opened, so the remaining errno values are not states a retry could
+      // reach. The deadline is what keeps that assumption from hanging.
+      if (!DateTime.now().isBefore(deadline)) {
+        throw FileSystemException('Could not lock private file', file.path);
+      }
+      await Future<void>.delayed(_lockRetryInterval);
     }
     return await operation();
   } finally {

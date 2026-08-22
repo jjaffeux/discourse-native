@@ -823,7 +823,12 @@ class _CompactShell extends StatelessWidget {
           diagnostics!.closePanel();
           return;
         }
-        ShellScope.read(context).handleBack();
+        // canPop: false claims every back event before the platform sees it,
+        // so once the shell has nothing left to unwind, leaving the app has
+        // to be an explicit request rather than a fall-through.
+        if (!ShellScope.read(context).handleBack()) {
+          unawaited(SystemNavigator.pop());
+        }
       },
       child: Row(
         children: [

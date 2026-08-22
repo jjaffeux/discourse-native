@@ -220,6 +220,84 @@ void main() {
     expect(recovered.hasMore, isFalse);
   });
 
+  test('a page of already-known topics still advances the cursor', () async {
+    final site = instance('one.example');
+    final initial = controller.load(
+      instance: site,
+      destinationId: 'latest',
+      path: '/latest.json',
+      incoming: null,
+    );
+    await pumpEventQueue();
+    api.requests.single.response.complete(
+      _page(1, moreTopicsUrl: '/latest?page=1'),
+    );
+    await initial;
+
+    // The whole page is already on the list — the shape a busy feed takes
+    // after the incoming-topics banner prepends the same topics.
+    final familiarPage = controller.loadMore(
+      instance: site,
+      destinationId: 'latest',
+    );
+    await pumpEventQueue();
+    expect(api.requests, hasLength(2));
+    api.requests.last.response.complete(
+      _page(1, moreTopicsUrl: '/latest?page=2'),
+    );
+    await familiarPage;
+
+    final advanced = controller.feedFor(site.url, 'latest')!;
+    expect(advanced.topicIds, [1]);
+    expect(advanced.hasMore, isTrue);
+
+    final nextPage = controller.loadMore(
+      instance: site,
+      destinationId: 'latest',
+    );
+    await pumpEventQueue();
+    expect(api.requests, hasLength(3));
+    expect(api.requests.last.path, contains('page=2'));
+    api.requests.last.response.complete(_page(2));
+    await nextPage;
+
+    final done = controller.feedFor(site.url, 'latest')!;
+    expect(done.topicIds, [1, 2]);
+    expect(done.hasMore, isFalse);
+  });
+
+  test('a page that repeats its own cursor ends pagination', () async {
+    final site = instance('one.example');
+    final initial = controller.load(
+      instance: site,
+      destinationId: 'latest',
+      path: '/latest.json',
+      incoming: null,
+    );
+    await pumpEventQueue();
+    api.requests.single.response.complete(
+      _page(1, moreTopicsUrl: '/latest?page=1'),
+    );
+    await initial;
+
+    final stuckPage = controller.loadMore(
+      instance: site,
+      destinationId: 'latest',
+    );
+    await pumpEventQueue();
+    api.requests.last.response.complete(
+      _page(2, moreTopicsUrl: '/latest?page=1'),
+    );
+    await stuckPage;
+
+    final stalled = controller.feedFor(site.url, 'latest')!;
+    expect(stalled.topicIds, [1, 2]);
+    expect(stalled.hasMore, isFalse);
+
+    await controller.loadMore(instance: site, destinationId: 'latest');
+    expect(api.requests, hasLength(2));
+  });
+
   test(
     'incoming topics are requested and cleared one server page at a time',
     () async {

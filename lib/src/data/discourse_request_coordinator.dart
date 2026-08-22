@@ -127,7 +127,10 @@ final class DiscourseRequestCoordinator {
   ) async {
     try {
       final response = await pending.send();
-      if (response.statusCode == 429) {
+      // An in-flight response may outlive close(). It must not re-arm the
+      // origin cooldown: close() has already dropped the queue, so a wake
+      // timer set now could never be cancelled.
+      if (response.statusCode == 429 && !_closed) {
         final delay = explicitRetryAfter(response) ?? defaultRateLimitCooldown;
         final until = DateTime.now().add(delay);
         if (queue.blockedUntil case final held? when held.isAfter(until)) {

@@ -224,6 +224,85 @@ void main() {
     expect(controller.topicScrollPostNumber(303), 4);
   });
 
+  test('rapid anchor saves coalesce into one trailing write', () async {
+    final anchorTabs = FakeForumTabStore();
+    final scrolling = ShellController(
+      instanceStore: FakeInstanceStore(forums),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      forumTabs: anchorTabs,
+      trackers: FakeSiteTracker.reset(),
+      // Zero still defers to the next event-loop turn, so a synchronous
+      // scroll burst shares one window without slowing the test down.
+      anchorPersistDebounce: Duration.zero,
+    );
+    addTearDown(scrolling.dispose);
+    await scrolling.load();
+    scrolling.pushContent(_topic(303, 'Scrolled topic'));
+    final savesBeforeScroll = anchorTabs.saveCount;
+
+    scrolling.saveFeedScrollRow('latest', 4);
+    scrolling.saveTopicScrollPost(303, 2);
+    scrolling.saveTopicScrollPost(303, 9);
+    scrolling.saveTopicScrollPost(303, 27, viewportOffset: -12);
+
+    // The tab already carries the anchors; only the write waits.
+    expect(scrolling.topicScrollPostNumber(303), 27);
+    expect(anchorTabs.saveCount, savesBeforeScroll);
+
+    await Future<void>.delayed(Duration.zero);
+
+    expect(anchorTabs.saveCount, savesBeforeScroll + 1);
+    final anchors = anchorTabs.workspaces.single.activeTab.anchors;
+    expect(anchors['latest']?.itemId, 4);
+    expect(anchors['topic-303']?.itemId, 27);
+    expect(anchors['topic-303']?.offset, -12);
+
+    await Future<void>.delayed(Duration.zero);
+    expect(anchorTabs.saveCount, savesBeforeScroll + 1);
+  });
+
+  test('disposing flushes a pending anchor write', () async {
+    final anchorTabs = FakeForumTabStore();
+    final closing = ShellController(
+      instanceStore: FakeInstanceStore(forums),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      forumTabs: anchorTabs,
+      trackers: FakeSiteTracker.reset(),
+    );
+    await closing.load();
+    closing.pushContent(_topic(606, 'Closed topic'));
+    final savesBeforeScroll = anchorTabs.saveCount;
+    closing.saveTopicScrollPost(606, 21);
+    expect(anchorTabs.saveCount, savesBeforeScroll);
+
+    closing.dispose();
+
+    expect(anchorTabs.saveCount, savesBeforeScroll + 1);
+    expect(
+      anchorTabs.workspaces.single.activeTab.anchors['topic-606']?.itemId,
+      21,
+    );
+  });
+
+  test('backgrounding flushes a pending anchor write', () async {
+    controller.pushContent(_topic(707, 'Background topic'));
+    final savesBeforeScroll = forumTabs.saveCount;
+    controller.saveTopicScrollPost(707, 12);
+    expect(forumTabs.saveCount, savesBeforeScroll);
+
+    controller.setForeground(false);
+
+    expect(forumTabs.saveCount, savesBeforeScroll + 1);
+    expect(
+      forumTabs.workspaces.single.activeTab.anchors['topic-707']?.itemId,
+      12,
+    );
+  });
+
   test('restores tab order, active stack, and anchors after restart', () async {
     final firstTabId = controller.activeTabId!;
     controller.saveFeedScrollRow('latest', 8);

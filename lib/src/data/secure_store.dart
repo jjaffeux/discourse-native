@@ -174,13 +174,13 @@ class SecureStore {
       } catch (error, stackTrace) {
         if (!identical(_apiKeyVersions[siteUrl], version) ||
             !identical(_apiKeyRequests[siteUrl], request)) {
-          return _readApiKeyAfterCurrentMutation(siteUrl);
+          return await _readApiKeyAfterCurrentMutation(siteUrl);
         }
         Error.throwWithStackTrace(error, stackTrace);
       }
       if (!identical(_apiKeyVersions[siteUrl], version) ||
           !identical(_apiKeyRequests[siteUrl], request)) {
-        return _readApiKeyAfterCurrentMutation(siteUrl);
+        return await _readApiKeyAfterCurrentMutation(siteUrl);
       }
       _apiKeys[siteUrl] = key;
       return key;

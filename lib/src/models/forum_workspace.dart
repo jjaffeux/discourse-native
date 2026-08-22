@@ -202,7 +202,12 @@ final class ForumTab {
     id,
     rootDestinationId,
     Object.hashAll(contentStack),
-    Object.hashAll(anchors.entries),
+    // MapEntry hashes by identity while == uses mapEquals, so the anchors
+    // must be hashed by key/value pairs, order-independently, to keep equal
+    // tabs — such as one snapshot decoded twice — on one hash code.
+    Object.hashAllUnordered([
+      for (final entry in anchors.entries) Object.hash(entry.key, entry.value),
+    ]),
   );
 }
 

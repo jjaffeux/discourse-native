@@ -102,6 +102,12 @@ void main() {
     expect(decoded.quaternary, const Color(0x12345678));
   });
 
+  test('ResolvedSitePalette reads all-digit six-char color text as hex', () {
+    final json = palette().toJson()..['primary'] = '222222';
+
+    expect(ResolvedSitePalette.fromJson(json).primary, const Color(0xFF222222));
+  });
+
   test('ResolvedSitePalette rejects oversized color text before parsing', () {
     final oversized = List.filled(200000, '9').join();
     final optional = palette().toJson()..['quaternary'] = oversized;

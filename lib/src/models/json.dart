@@ -123,6 +123,22 @@ bool _isHighSurrogate(int value) => value >= 0xD800 && value <= 0xDBFF;
 
 bool _isLowSurrogate(int value) => value >= 0xDC00 && value <= 0xDFFF;
 
+/// Resolves a Discourse category color field into an opaque ARGB value.
+///
+/// Category colors are hex digits normally sent without a leading `#`, but
+/// sites also produce `#`-prefixed and CSS three-digit shorthand forms. Every
+/// serializer that carries a category color must resolve it through this one
+/// helper; anything unrecognized becomes Discourse's default category gray.
+int categoryColorValue(String color) {
+  var hex = color.trim();
+  if (hex.startsWith('#')) hex = hex.substring(1);
+  if (hex.length == 3) {
+    hex = [for (final digit in hex.split('')) '$digit$digit'].join();
+  }
+  if (hex.length != 6) return 0xFF888888;
+  return int.tryParse('FF$hex', radix: 16) ?? 0xFF888888;
+}
+
 /// Resolves a Discourse avatar template into an image URL for this site.
 ///
 /// Templates are normally site-relative and carry a `{size}` placeholder,

@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
@@ -446,6 +447,14 @@ Future<_Fixture> _pump(
     ],
     feeds: const {'/latest.json': []},
     creatableFeedPaths: const {'/latest.json'},
+    // Only registered shortcodes may be drawn, so the names the draft
+    // fixtures carry must exist in the site's catalog.
+    emojisBySite: {
+      _siteUrl: const [
+        SiteEmoji(name: 'sparkles', url: '/images/emoji/sparkles.png'),
+        SiteEmoji(name: 'smiley', url: '/images/emoji/smiley.png'),
+      ],
+    },
   );
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
   await tester.pumpWidget(

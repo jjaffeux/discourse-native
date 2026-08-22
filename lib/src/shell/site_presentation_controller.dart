@@ -201,6 +201,24 @@ final class SitePresentationController extends FrameSafeNotifier {
     return configFor(siteUrl).emojiUrl(name, siteUrl: siteUrl);
   }
 
+  /// Whether [name] — a bare shortcode value, `:tN` tone suffix included — is
+  /// an emoji this site is known to serve artwork for.
+  ///
+  /// [emojiUrlFor] answers for every name, registered or not, because the
+  /// standard-set address is deterministic. Prose that finds `:30:` in a time
+  /// needs the narrower question, and false covers both a name the catalog
+  /// rules out and a catalog not fetched yet: fabricating artwork for either
+  /// is a guaranteed 404. Custom uploads answer from their eagerly loaded map
+  /// so they need no catalog to resolve.
+  bool knowsEmoji(String siteUrl, String name) {
+    final tone = _toneSuffix.firstMatch(name);
+    final base = tone == null ? name : name.substring(0, tone.start);
+    if (_customEmojis[siteUrl]?.containsKey(base) ?? false) return true;
+    return _emojiCatalogs[siteUrl]?.byName.containsKey(base) ?? false;
+  }
+
+  static final RegExp _toneSuffix = RegExp(r':t[1-6]$');
+
   Future<void> ensureConfig(String siteUrl) =>
       _configRequest(siteUrl, refresh: false);
 
@@ -318,6 +336,22 @@ final class SitePresentationController extends FrameSafeNotifier {
 
   Future<SiteEmojiCatalog?> ensureEmojiCatalog(String siteUrl) =>
       _emojiCatalogRequest(siteUrl, refresh: false);
+
+  /// Warms the catalog for a site the reader has just opened, retrying a
+  /// failure from earlier in the session.
+  ///
+  /// [ensureEmojiCatalog] gives up permanently once a site has failed, which
+  /// suited its original caller: the emoji picker is opened deliberately and
+  /// can be opened again. Prose emoji now depend on the same catalog, and a
+  /// single failed fetch deciding that every title on the site reads as its
+  /// own raw shortcode for the rest of the session is not a trade worth
+  /// making. Selecting a site is deliberate and bounded, so it is the right
+  /// moment to try again; a catalog already held is returned untouched.
+  Future<SiteEmojiCatalog?> warmEmojiCatalog(String siteUrl) {
+    final held = _emojiCatalogs[siteUrl];
+    if (held != null) return Future.value(held);
+    return refreshEmojiCatalog(siteUrl);
+  }
 
   Future<SiteEmojiCatalog?> refreshEmojiCatalog(String siteUrl) =>
       _emojiCatalogRequest(siteUrl, refresh: true);

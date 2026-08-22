@@ -7,7 +7,7 @@ planned; see [Adding a platform](#adding-a-platform).
 
 ## Requirements
 
-- Flutter 3.44.8 (the exact SDK used by CI and releases is pinned in `.fvmrc`)
+- Flutter 3.47.0 (the exact SDK used by CI and releases is pinned in `.fvmrc`)
 - Xcode 26+ with the command line tools, for the iOS and macOS builds
 - For the Linux build, on Debian or Ubuntu:
 
@@ -769,6 +769,19 @@ that address, so the controller consults the site's own map of them
 (`/site/emoji.json`, fetched beside the settings) before falling back
 to it.
 
+Titles, chat previews and search results are the third case: no cooked HTML,
+just prose that may contain `:shortcode:`. `SiteEmojiText` draws those, and
+draws only the names the site actually registers — the pattern for a shortcode
+also matches ordinary punctuation, so "Standup at 10:30:45" contains `:30:`,
+and an optimistic reader gave it a blank box sized to the text while it
+fetched artwork that cannot exist, reflowed once on the 404, and settled back
+to the text it started as. `SitePresentationController.knowsEmoji` answers
+from the custom-upload map and the emoji catalog; `emojiUrl` deliberately
+still answers for any name, because the standard-set address is computable
+and that is exactly why it cannot decide this. The catalog is warmed when a
+site is selected, since otherwise every title holding emoji would spend a
+frame as its own raw shortcodes.
+
 ### Links
 
 Every tapped link — in a post, a quote attribution, a onebox card — goes through
@@ -1099,10 +1112,15 @@ delete production's old login-keychain items. Only a distribution-signed
 release has the application identifier required by its Data Protection
 backend; a locally custom-signed release is not a runnable credential-storage
 configuration. Migration operations are serialized in-process and across app
-processes with an owner-only advisory lock. A Data Protection state item is
-made authoritative before deletion cleanup, so a legacy ACL refusal cannot
-keep a key active or resurrect it; reconnecting makes the replacement durable
-before lifting that tombstone.
+processes with an owner-only advisory lock, taken without blocking and
+retried from the event loop: a blocking `flock` stops the whole isolate, and
+the operations behind this lock can wait on a human. The legacy read is made
+outside it for that reason — it is what may raise the ACL dialog — and the
+modern namespace is re-read under the lock before anything is copied, so a
+migration or disconnect from another process in that window is not undone. A
+Data Protection state item is made authoritative before deletion cleanup, so a
+legacy ACL refusal cannot keep a key active or resurrect it; reconnecting
+makes the replacement durable before lifting that tombstone.
 
 `integration_test/keychain_test.dart` covers missing-item behavior and a real
 round trip. Unit tests verify the modern/legacy native options, migration
@@ -1136,7 +1154,17 @@ flutter test
 
 CI also builds a debug Linux bundle after those checks and verifies that its
 executable has no unresolved shared libraries. That keeps the native WebRTC,
-LiveKit and desktop plugin graph compiling between release builds.
+LiveKit and desktop plugin graph compiling between release builds. The macOS
+and iOS bundles are compiled on every change for the same reason, together
+with the `RunnerTests` covering the CallKit and audio-session code Dart tests
+cannot type-check.
+
+The macOS build there is driven as `flutter build macos --debug --config-only`
+followed by `xcodebuild ... CODE_SIGNING_ALLOWED=NO`, because
+`flutter build macos` has no `--no-codesign` and the runner holds no
+certificate for the team the project names. Signing stays configured for Debug
+on purpose — development builds are custom-signed, see [macOS
+keychain](#macos-keychain) — so it is CI that opts out, not the project.
 
 Two suites need more than that:
 

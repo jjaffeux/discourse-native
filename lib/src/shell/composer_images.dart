@@ -43,8 +43,10 @@ final RegExp _imagePattern = RegExp(
   caseSensitive: false,
 );
 
+// The ", N%" scale is only syntax after "|WxH", mirroring Discourse's own
+// image-scale pattern; without dimensions the suffix is the author's alt text.
 final RegExp _labelPattern = RegExp(
-  r'^(.*?)(?:\|(\d{1,4})x(\d{1,4}))?(?:,\s*(\d{1,3})%)?(?:\|.*)?$',
+  r'^(.*?)(?:\|(\d{1,4})x(\d{1,4})(?:,\s*(\d{1,3})%)?)?(?:\|.*)?$',
 );
 
 List<ComposerImageBlock> parseComposerImages(String source) {
