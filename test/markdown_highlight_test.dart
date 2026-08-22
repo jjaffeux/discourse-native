@@ -88,6 +88,23 @@ const List<String> samples = [
   '@',
   ':',
   '**unterminated',
+  '*over\ntwo lines*',
+  '*open\n\nclosed*',
+  '*open\n```\ncode\n```\nclosed*',
+  '* not italic *',
+  '*a*b*c*',
+  '**a**b**c**',
+  '_a_b_c_',
+  'a_b_c',
+  '_a\u{00a0}b_',
+  '~~a~~~~b~~',
+  '***a**b*',
+  '**',
+  '__',
+  '_ x _',
+  'x*y*z',
+  '<kbd>Esc\n\nlater</kbd>',
+  '<kbd>a\n```\ncode\n```\nb</kbd>',
 ];
 
 void main() {
@@ -138,6 +155,51 @@ void main() {
 
     test('leaves an unterminated marker as text', () {
       expect(annotate('**unterminated'), '**unterminated');
+    });
+
+    test('needs something other than space against each marker', () {
+      expect(annotate('* not italic *'), '* not italic *');
+      expect(annotate('_ x _'), '_ x _');
+      expect(annotate('~~ x ~~'), '~~ x ~~');
+      // A no-break space is space to the scanner, as it is to a regexp.
+      expect(annotate('*\u{00a0}x\u{00a0}*'), '*\u{00a0}x\u{00a0}*');
+    });
+
+    test('pairs markers left to right and shortest first', () {
+      expect(
+        annotate('*a*b*c*'),
+        '<m>*</><i>a</><m>*</>b<m>*</><i>c</><m>*</>',
+      );
+    });
+
+    test('needs a word boundary either side of an underscore pair', () {
+      // Only the outer pair has a boundary on the far side of it, so the
+      // inner underscores are ordinary characters inside the emphasis.
+      expect(annotate('_a_b_c_'), '<m>_</><i>a_b_c</><m>_</>');
+      expect(annotate('x_y_z'), 'x_y_z');
+      expect(annotate('_a_ b'), '<m>_</><i>a</><m>_</> b');
+    });
+
+    test('lets a mark wrap a line break inside its paragraph', () {
+      expect(
+        annotate('*over\ntwo lines*'),
+        '<m>*</><i>over\ntwo lines</><m>*</>',
+      );
+    });
+
+    test('stops a mark at a paragraph break', () {
+      expect(annotate('*open\n\nclosed*'), '*open\n\nclosed*');
+    });
+
+    test('stops a mark at a fenced block', () {
+      // A fence ends the paragraph around it, so the asterisks either side of
+      // one are two stray characters rather than a pair. Letting them pair up
+      // italicised the code between them, and made every opener before a large
+      // fence rescan the whole of it on the next keystroke.
+      expect(
+        annotate('*open\n```\ncode\n```\nclosed*'),
+        '*open\n<m>```</>\n<block>code\n</><m>```</>\nclosed*',
+      );
     });
   });
 
@@ -450,6 +512,87 @@ void main() {
       ).where((run) => run.has(Md.htmlTag)).map((run) => run.detail).toSet();
       expect(tags, containsAll(<String>['mark', 'mark,kbd']));
     });
+
+    test('does not reach across a paragraph break for its closing tag', () {
+      expect(annotate('<kbd>Esc\n\nlater</kbd>'), '<kbd>Esc\n\nlater</kbd>');
+    });
+
+    test('does not wrap a fenced block', () {
+      expect(
+        annotate('<kbd>a\n```\ncode\n```\nb</kbd>'),
+        '<kbd>a\n<m>```</>\n<block>code\n</><m>```</>\nb</kbd>',
+      );
+    });
+  });
+
+  group('markdownBlocks', () {
+    List<String> textsOf(
+      String source, {
+      Iterable<(int, int)> excluding = const [],
+    }) => [
+      for (final block in markdownBlocks(source, excluding: excluding))
+        block.text,
+    ];
+
+    test('splits on a blank line and keeps the offsets honest', () {
+      const source = 'one\n\ntwo\n\n\nthree';
+      expect(textsOf(source), ['one', 'two', 'three']);
+      for (final block in markdownBlocks(source)) {
+        expect(
+          source.substring(block.offset, block.offset + block.text.length),
+          block.text,
+        );
+      }
+    });
+
+    test('splits around what it is told to exclude', () {
+      const source = 'before\nFENCE\nafter';
+      expect(textsOf(source, excluding: [(7, 12)]), ['before\n', '\nafter']);
+    });
+
+    test('a source that is one block stays one block', () {
+      expect(textsOf('a\nb\nc'), ['a\nb\nc']);
+      expect(textsOf(''), isEmpty);
+      expect(textsOf('\n\n'), isEmpty);
+    });
+  });
+
+  group('markdownPairs', () {
+    List<(int, int)> pairs(
+      String text,
+      String delimiter, {
+      bool word = false,
+    }) => markdownPairs(text, delimiter, wordBounded: word).toList();
+
+    test('takes the leftmost opener and its shortest closer', () {
+      expect(pairs('*a*b*c*', '*'), [(0, 3), (4, 7)]);
+    });
+
+    test('refuses a space against the inside of either delimiter', () {
+      expect(pairs('* a*', '*'), isEmpty);
+      expect(pairs('*a *', '*'), isEmpty);
+      // A no-break space is space here as it is to a regexp.
+      expect(pairs('*\u{00a0}a*', '*'), isEmpty);
+    });
+
+    test('needs something between the delimiters', () {
+      expect(pairs('**', '*'), isEmpty);
+      expect(pairs('****', '**'), isEmpty);
+    });
+
+    test('honours the word boundary on both outsides', () {
+      expect(pairs('_a_', '_', word: true), [(0, 3)]);
+      expect(pairs('x_a_', '_', word: true), isEmpty);
+      expect(pairs('_a_x', '_', word: true), isEmpty);
+      // The inner `_` cannot close — a word character follows it — so the
+      // opener reaches past it to the one that can.
+      expect(pairs('_a_x _b_', '_', word: true), [(0, 8)]);
+    });
+
+    test('gives up on the block once an opener runs out of closers', () {
+      // The property the scan is built on, and the reason it is linear.
+      expect(pairs('_a _b _c', '_', word: true), isEmpty);
+    });
   });
 
   group('the invariant', () {
@@ -535,6 +678,51 @@ void main() {
         }
         expect(at, source.length, reason: 'ran short of: $source');
       }
+    });
+
+    test('scales with the length of what is pasted, not its square', () {
+      // A stack trace is the shape that used to be quadratic: one block with
+      // no blank line in it, and one `_private` opener per frame that never
+      // finds a closer. Every keystroke rescans the whole document, so an
+      // opener that walks to the end of the block for each of its peers is
+      // felt as the composer freezing.
+      //
+      // Timed rather than counted because the cost is inside the regexp
+      // engine, so the tolerance is wide: eight times the input is eight times
+      // the work when this is linear and sixty-four when it is not.
+      String paste(int frames) {
+        final buffer = StringBuffer('Getting this on launch:\n\n```\n');
+        for (var i = 0; i < frames; i += 1) {
+          buffer.writeln(
+            '#$i      _SiteTracker._onMessage (package:app/src/data/'
+            'site_tracker.dart:${100 + i}:${i % 40})',
+          );
+        }
+        return (buffer..writeln('```')).toString();
+      }
+
+      // The best of several runs, so a garbage collection landing in one of
+      // them cannot decide the result.
+      int cost(String source) {
+        var best = -1;
+        for (var run = 0; run < 3; run += 1) {
+          final elapsed = Stopwatch()..start();
+          scanMarkdown(source);
+          elapsed.stop();
+          final taken = elapsed.elapsedMicroseconds;
+          if (best < 0 || taken < best) best = taken;
+        }
+        return best;
+      }
+
+      final small = cost(paste(100));
+      final large = cost(paste(800));
+
+      expect(
+        large,
+        lessThan(small * 25),
+        reason: 'eight times the paste took ${large / small} times as long',
+      );
     });
   });
 }

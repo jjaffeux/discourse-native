@@ -394,6 +394,30 @@ reflows under the caret mid-word and a name the site does not have 404s once and
 stays text. Put the caret strictly inside and the characters come back to edit,
 the way Obsidian's live preview does.
 
+The scan runs on every text change, over the whole document, so what it costs
+per character is a typing budget rather than a startup one. Two things keep it
+linear, and both are easy to lose:
+
+- **Inline passes search one block at a time.** A block is a paragraph, minus
+  any fence inside it — the two things a mark cannot span. Expressing that as a
+  lookahead on every character a pattern consumes instead makes the scan
+  quadratic: an opener with no closer after it walks to the end of the document
+  before giving up, and the engine cannot know the next opener will fail for
+  the same reason. `_blocks()` is where that rule lives, and `_pairs` and
+  `_htmlTags` are its two readers.
+- **Emphasis is paired by scanning, not by a lazy pattern.** Even within one
+  block the pattern re-walks it per opener, and a paste with no blank line in
+  it is one block. The scan uses what the engine cannot: the closers after a
+  later opener are a subset of the closers after an earlier one, so the first
+  opener to run out of them is the last one worth trying.
+
+The shape that finds this is a pasted stack trace — thousands of characters, no
+blank line, and one `_private` name per frame that opens a mark nothing closes.
+It cost hundreds of milliseconds a keystroke twice, once for each of the above.
+`markdown_highlight_test.dart` times a paste against its own eightfold to keep
+the growth honest, since the cost is inside the regexp engine and cannot be
+counted from outside.
+
 `@`, `#` and `:` open a completion list. Trigger detection is pure
 (`composer_triggers.dart`) and refuses more than it accepts — an email address
 is not a mention, a lone colon is punctuation, a `#` inside a word is not a

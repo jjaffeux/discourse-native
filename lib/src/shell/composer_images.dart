@@ -51,17 +51,10 @@ final RegExp _labelPattern = RegExp(
 
 List<ComposerImageBlock> parseComposerImages(String source) {
   if (source.isEmpty) return const [];
-  final runs = scanMarkdown(source);
+  final code = CodeRanges.of(scanMarkdown(source));
   final images = <ComposerImageBlock>[];
   for (final match in _imagePattern.allMatches(source)) {
-    if (runs.any(
-      (run) =>
-          run.start < match.end &&
-          run.end > match.start &&
-          (run.has(Md.code) || run.has(Md.codeBlock)),
-    )) {
-      continue;
-    }
+    if (code.overlaps(match.start, match.end)) continue;
     final label = _labelPattern.firstMatch(match.group(1)!);
     if (label == null) continue;
     final width = int.tryParse(label.group(2) ?? '');

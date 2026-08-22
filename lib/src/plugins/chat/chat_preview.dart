@@ -111,7 +111,7 @@ final class ChatPreviewEngine {
       return _fallback(request, ChatPreviewFallbackReason.ambiguousSyntax);
     }
 
-    final codeRanges = _codeRanges(runs);
+    final codeRanges = CodeRanges.of(runs);
     if (_hasUnsupportedSourceSyntax(grammarSource, codeRanges, fences)) {
       return _fallback(request, ChatPreviewFallbackReason.unsupportedSyntax);
     }
@@ -415,59 +415,47 @@ String _replaceClaims(String source, List<ChatPreviewClaim> claims) {
 /// Extends the composer scanner's deliberately smaller paint dialect with the
 /// other stable spelling of strong emphasis, without changing source offsets.
 String _normalizeChatDialect(String source) {
-  final codeRanges = _codeRanges(scanMarkdown(source));
-  var normalized = _replaceUnderscorePair(
-    source,
-    _tripleUnderscore,
-    3,
-    codeRanges,
-  );
-  normalized = _replaceUnderscorePair(
-    normalized,
-    _doubleUnderscore,
-    2,
-    codeRanges,
-  );
-  return normalized;
+  final codeRanges = CodeRanges.of(scanMarkdown(source));
+  final tripled = _replaceUnderscorePair(source, '___', codeRanges);
+  return _replaceUnderscorePair(tripled, '__', codeRanges);
 }
 
+/// Rewrites one underscore spelling into the asterisk one the scanner paints,
+/// character for character, so [excluded] and every offset around it still
+/// describe the same places.
+///
+/// The pairing is [markdownPairs] rather than a lazy pattern for the reason
+/// given there: chat takes twenty thousand characters, and a paste of code
+/// with dunder names that do not pair made every one of them walk the rest of
+/// the message.
 String _replaceUnderscorePair(
   String source,
-  RegExp pattern,
-  int width,
-  List<SourceRange> excluded,
+  String delimiter,
+  CodeRanges excluded,
 ) {
+  final width = delimiter.length;
   final units = List<int>.of(source.codeUnits);
-  for (final match in pattern.allMatches(source)) {
-    final range = SourceRange(match.start, match.end);
-    if (excluded.any((excludedRange) => excludedRange.overlaps(range))) {
-      continue;
-    }
-    for (var index = 0; index < width; index++) {
-      units[match.start + index] = 0x2A;
-      units[match.end - width + index] = 0x2A;
+  for (final block in markdownBlocks(source)) {
+    for (final (open, close) in markdownPairs(
+      block.text,
+      delimiter,
+      wordBounded: true,
+    )) {
+      final start = block.offset + open;
+      final end = block.offset + close;
+      if (excluded.overlaps(start, end)) continue;
+      for (var index = 0; index < width; index++) {
+        units[start + index] = 0x2A;
+        units[end - width + index] = 0x2A;
+      }
     }
   }
   return String.fromCharCodes(units);
 }
 
-const String _inlineWithin = r'(?:(?!\n\s*\n)[\s\S])*?';
-final RegExp _tripleUnderscore = RegExp(
-  '(?<![\\w_])___(?=\\S)($_inlineWithin\\S)___(?![\\w_])',
-);
-final RegExp _doubleUnderscore = RegExp(
-  '(?<![\\w_])__(?=\\S)($_inlineWithin\\S)__(?![\\w_])',
-);
-
-List<SourceRange> _codeRanges(List<MarkdownRun> runs) => [
-  for (final run in runs)
-    if (run.has(Md.code) || run.has(Md.codeBlock))
-      SourceRange(run.start, run.end),
-];
-
 bool _hasUnsupportedSourceSyntax(
   String source,
-  List<SourceRange> codeRanges,
+  CodeRanges codeRanges,
   List<_FenceBlock> fences,
 ) {
   // Indented code is a different CommonMark construct from the deliberately
@@ -480,8 +468,8 @@ bool _hasUnsupportedSourceSyntax(
   if (_indentedCode.hasMatch(String.fromCharCodes(outsideFences))) return true;
 
   final visible = List<int>.of(source.codeUnits);
-  for (final range in codeRanges) {
-    _maskRange(visible, range);
+  for (final (start, end) in codeRanges.ranges) {
+    _mask(visible, start, end);
   }
   final outsideCode = String.fromCharCodes(visible);
 
@@ -500,8 +488,11 @@ bool _hasUnsupportedSourceSyntax(
       _emailLink.hasMatch(outsideCode);
 }
 
-void _maskRange(List<int> units, SourceRange range) {
-  for (var offset = range.start; offset < range.end; offset++) {
+void _maskRange(List<int> units, SourceRange range) =>
+    _mask(units, range.start, range.end);
+
+void _mask(List<int> units, int start, int end) {
+  for (var offset = start; offset < end; offset++) {
     if (units[offset] != 0x0A && units[offset] != 0x0D) {
       units[offset] = 0x20;
     }

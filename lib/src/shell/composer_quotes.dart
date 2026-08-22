@@ -63,17 +63,14 @@ List<ComposerQuoteBlock> parseComposerQuotes(String source) {
     return const [];
   }
 
-  final codeRanges = [
-    for (final run in scanMarkdown(source))
-      if (run.has(Md.code) || run.has(Md.codeBlock)) (run.start, run.end),
-  ];
+  final codeRanges = CodeRanges.of(scanMarkdown(source));
   final blocks = <ComposerQuoteBlock>[];
   var offset = 0;
 
   while (offset < source.length) {
     final opening = source.indexOf('[', offset);
     if (opening == -1) break;
-    if (_insideAny(opening, codeRanges) || !_startsBlock(source, opening)) {
+    if (codeRanges.contains(opening) || !_startsBlock(source, opening)) {
       offset = opening + 1;
       continue;
     }
@@ -433,17 +430,13 @@ String? _closingQuote(String character) => switch (character) {
   _ => null,
 };
 
-_QuoteTag? _matchingClose(
-  String source,
-  int offset,
-  List<(int, int)> codeRanges,
-) {
+_QuoteTag? _matchingClose(String source, int offset, CodeRanges codeRanges) {
   var depth = 1;
   while (offset < source.length) {
     final next = source.indexOf('[', offset);
     if (next == -1) return null;
     offset = next + 1;
-    if (_insideAny(next, codeRanges)) continue;
+    if (codeRanges.contains(next)) continue;
     final tag = _quoteTagAt(source, next);
     if (tag == null) continue;
     if (tag.closing) {
@@ -461,13 +454,6 @@ bool _startsBlock(String source, int offset) {
   final lineStart = offset == 0 ? 0 : source.lastIndexOf('\n', offset - 1) + 1;
   final prefix = source.substring(lineStart, offset);
   return prefix.length <= 3 && prefix.trim().isEmpty;
-}
-
-bool _insideAny(int offset, Iterable<(int, int)> ranges) {
-  for (final (start, end) in ranges) {
-    if (offset >= start && offset < end) return true;
-  }
-  return false;
 }
 
 class _QuoteMetadata {
