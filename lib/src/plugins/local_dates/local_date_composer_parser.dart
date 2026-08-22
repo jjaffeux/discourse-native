@@ -122,22 +122,13 @@ class LocalDateComposerBlock {
 /// Ambiguous, malformed, or duplicate-attribute tokens remain ordinary text.
 List<LocalDateComposerBlock> parseLocalDateComposerBlocks(String source) {
   if (source.isEmpty) return const [];
-  final codeRanges = [
-    for (final run in scanMarkdown(source))
-      if (run.has(Md.code) || run.has(Md.codeBlock)) (run.start, run.end),
-  ];
+  final codeRanges = CodeRanges.of(scanMarkdown(source));
   final blocks = <LocalDateComposerBlock>[];
   var offset = 0;
-  var codeRangeIndex = 0;
   while (offset < source.length) {
     final opening = source.indexOf('[', offset);
     if (opening == -1) break;
-    while (codeRangeIndex < codeRanges.length &&
-        codeRanges[codeRangeIndex].$2 <= opening) {
-      codeRangeIndex += 1;
-    }
-    if (codeRangeIndex < codeRanges.length &&
-        opening >= codeRanges[codeRangeIndex].$1) {
+    if (codeRanges.contains(opening)) {
       offset = opening + 1;
       continue;
     }
@@ -147,9 +138,7 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(String source) {
       continue;
     }
     final close = _closingBracket(source, header.contentStart);
-    if (close == null ||
-        (codeRangeIndex < codeRanges.length &&
-            codeRanges[codeRangeIndex].$1 < close + 1)) {
+    if (close == null || codeRanges.overlaps(opening, close + 1)) {
       offset = opening + 1;
       continue;
     }

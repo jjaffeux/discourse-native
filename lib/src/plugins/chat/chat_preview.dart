@@ -111,7 +111,7 @@ final class ChatPreviewEngine {
       return _fallback(request, ChatPreviewFallbackReason.ambiguousSyntax);
     }
 
-    final codeRanges = _codeRanges(runs);
+    final codeRanges = CodeRanges.of(runs);
     if (_hasUnsupportedSourceSyntax(grammarSource, codeRanges, fences)) {
       return _fallback(request, ChatPreviewFallbackReason.unsupportedSyntax);
     }
@@ -415,7 +415,7 @@ String _replaceClaims(String source, List<ChatPreviewClaim> claims) {
 /// Extends the composer scanner's deliberately smaller paint dialect with the
 /// other stable spelling of strong emphasis, without changing source offsets.
 String _normalizeChatDialect(String source) {
-  final codeRanges = _codeRanges(scanMarkdown(source));
+  final codeRanges = CodeRanges.of(scanMarkdown(source));
   var normalized = _replaceUnderscorePair(
     source,
     _tripleUnderscore,
@@ -435,14 +435,11 @@ String _replaceUnderscorePair(
   String source,
   RegExp pattern,
   int width,
-  List<SourceRange> excluded,
+  CodeRanges excluded,
 ) {
   final units = List<int>.of(source.codeUnits);
   for (final match in pattern.allMatches(source)) {
-    final range = SourceRange(match.start, match.end);
-    if (excluded.any((excludedRange) => excludedRange.overlaps(range))) {
-      continue;
-    }
+    if (excluded.overlaps(match.start, match.end)) continue;
     for (var index = 0; index < width; index++) {
       units[match.start + index] = 0x2A;
       units[match.end - width + index] = 0x2A;
@@ -459,15 +456,9 @@ final RegExp _doubleUnderscore = RegExp(
   '(?<![\\w_])__(?=\\S)($_inlineWithin\\S)__(?![\\w_])',
 );
 
-List<SourceRange> _codeRanges(List<MarkdownRun> runs) => [
-  for (final run in runs)
-    if (run.has(Md.code) || run.has(Md.codeBlock))
-      SourceRange(run.start, run.end),
-];
-
 bool _hasUnsupportedSourceSyntax(
   String source,
-  List<SourceRange> codeRanges,
+  CodeRanges codeRanges,
   List<_FenceBlock> fences,
 ) {
   // Indented code is a different CommonMark construct from the deliberately
@@ -480,8 +471,8 @@ bool _hasUnsupportedSourceSyntax(
   if (_indentedCode.hasMatch(String.fromCharCodes(outsideFences))) return true;
 
   final visible = List<int>.of(source.codeUnits);
-  for (final range in codeRanges) {
-    _maskRange(visible, range);
+  for (final (start, end) in codeRanges.ranges) {
+    _mask(visible, start, end);
   }
   final outsideCode = String.fromCharCodes(visible);
 
@@ -500,8 +491,11 @@ bool _hasUnsupportedSourceSyntax(
       _emailLink.hasMatch(outsideCode);
 }
 
-void _maskRange(List<int> units, SourceRange range) {
-  for (var offset = range.start; offset < range.end; offset++) {
+void _maskRange(List<int> units, SourceRange range) =>
+    _mask(units, range.start, range.end);
+
+void _mask(List<int> units, int start, int end) {
+  for (var offset = start; offset < end; offset++) {
     if (units[offset] != 0x0A && units[offset] != 0x0D) {
       units[offset] = 0x20;
     }

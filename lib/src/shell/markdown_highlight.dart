@@ -131,6 +131,79 @@ typedef DeferredFenceHighlight = void Function(String body, String? language);
 /// plain code where the highlight used to be immediate.
 const int maxSynchronousFenceChars = 512;
 
+/// Which parts of a scanned document are code, in order and merged.
+///
+/// Every parser reading composer source has to ignore what code contains — a
+/// `[quote` inside a fence opens nothing, an `![alt](...)` inside one is not an
+/// image — and each of them was deriving that from the same scan, as its own
+/// list, and then asking it one candidate at a time by walking the whole list.
+///
+/// Both halves of that are worth owning here. A scan emits a run per change of
+/// style, so a highlighted fence is one run per token: merging the adjacent
+/// ones turns hundreds of ranges into one. And a document with many candidates
+/// asked the question many times, which made the walk the product of the two —
+/// a post full of images, or a paste full of brackets, paid for its own size
+/// twice over.
+final class CodeRanges {
+  const CodeRanges._(this._starts, this._ends);
+
+  factory CodeRanges.of(List<MarkdownRun> runs) {
+    final starts = <int>[];
+    final ends = <int>[];
+    for (final run in runs) {
+      if (!run.has(Md.code) && !run.has(Md.codeBlock)) continue;
+      // Runs are ordered and contiguous, so a neighbour extends in place.
+      if (ends.isNotEmpty && ends.last == run.start) {
+        ends[ends.length - 1] = run.end;
+      } else {
+        starts.add(run.start);
+        ends.add(run.end);
+      }
+    }
+    return CodeRanges._(starts, ends);
+  }
+
+  static const CodeRanges none = CodeRanges._([], []);
+
+  final List<int> _starts;
+  final List<int> _ends;
+
+  bool get isEmpty => _starts.isEmpty;
+
+  int get length => _starts.length;
+
+  /// The merged ranges, ascending, for a caller that walks all of them rather
+  /// than asking about one offset.
+  Iterable<(int, int)> get ranges sync* {
+    for (var index = 0; index < _starts.length; index += 1) {
+      yield (_starts[index], _ends[index]);
+    }
+  }
+
+  /// Whether the character at [offset] is code.
+  bool contains(int offset) => overlaps(offset, offset + 1);
+
+  /// Whether `[start, end)` meets any code at all.
+  bool overlaps(int start, int end) {
+    if (_starts.isEmpty || end <= start) return false;
+    // The last range opening at or before [start] is the only earlier one that
+    // can still be open there; the first one after it is the only later one
+    // that can begin before [end].
+    var low = 0;
+    var high = _starts.length;
+    while (low < high) {
+      final middle = low + ((high - low) >> 1);
+      if (_starts[middle] <= start) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    if (low > 0 && _ends[low - 1] > start) return true;
+    return low < _starts.length && _starts[low] < end;
+  }
+}
+
 /// Reads [source] and reports how to draw it.
 ///
 /// Pure, so the fiddly part — what counts as a marker and what is just an
