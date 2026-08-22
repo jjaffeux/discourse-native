@@ -2341,7 +2341,12 @@ void main() {
 
         expect(
           subject.store.read<ChatMessage>(site, 1)!.reactions.single,
-          const ChatReaction(emoji: 'clap', count: 2, reacted: true),
+          const ChatReaction(
+            emoji: 'clap',
+            count: 2,
+            reacted: true,
+            reactorIds: [7],
+          ),
         );
       },
     );
@@ -2482,6 +2487,136 @@ void main() {
         expect(subject.api.chatReactionsSet, isEmpty);
       },
     );
+
+    /// A channel resumes its `/chat/{id}` subscription from the bus position
+    /// its channel-list snapshot carried, and that snapshot can be hours older
+    /// than the page the reader is looking at. Everything published in between
+    /// is replayed straight after a fetch that already counted it, and
+    /// `/chat/api/channels/{id}/messages.json` serves no bus position to cut
+    /// the replay off at — `Chat::MessagesSerializer` answers only
+    /// `target_message_id` and the two `can_load_more` flags. So the page's
+    /// reactor names are what tell a replay from a reaction.
+    ({ChatController chat, FakeDiscourseApi api, Store store}) reacted(
+      List<ChatReaction> reactions,
+    ) => build(
+      currentUser: currentUser,
+      messages: {
+        key(9): page([message(1, reactions: reactions)]),
+      },
+    );
+
+    Future<FakeSiteTracker> watching(ChatController chat) async {
+      final tracker = attachTracker(chat);
+      await chat.openChannel(site, 9);
+      final view = chat.beginViewingChannel(site, 9);
+      addTearDown(() => chat.endViewingChannel(site, 9, view));
+      return tracker;
+    }
+
+    void react(
+      FakeSiteTracker tracker, {
+      required String action,
+      required int userId,
+    }) => tracker.deliverPluginMessage('/chat/9', {
+      'type': 'reaction',
+      'chat_message_id': 1,
+      'emoji': 'clap',
+      'action': action,
+      'user': {'id': userId, 'username': 'sam'},
+    });
+
+    test('a replayed add from a named reactor is not counted again', () async {
+      final subject = reacted(const [
+        ChatReaction(emoji: 'clap', count: 1, reactorIds: [8]),
+      ]);
+      final tracker = await watching(subject.chat);
+
+      react(tracker, action: 'add', userId: 8);
+
+      expect(
+        subject.store.read<ChatMessage>(site, 1)!.reactions.single,
+        const ChatReaction(emoji: 'clap', count: 1, reactorIds: [8]),
+      );
+    });
+
+    test('a first reaction from somebody else still counts', () async {
+      final subject = reacted(const [
+        ChatReaction(emoji: 'clap', count: 1, reactorIds: [8]),
+      ]);
+      final tracker = await watching(subject.chat);
+
+      react(tracker, action: 'add', userId: 11);
+
+      expect(
+        subject.store.read<ChatMessage>(site, 1)!.reactions.single,
+        const ChatReaction(emoji: 'clap', count: 2, reactorIds: [8, 11]),
+      );
+    });
+
+    test(
+      'a replayed remove is dropped when the page named everyone left',
+      () async {
+        // The page already answered without user 8: one reactor, and it is
+        // named, so the removal it replays has been accounted for.
+        final subject = reacted(const [
+          ChatReaction(emoji: 'clap', count: 1, reactorIds: [11]),
+        ]);
+        final tracker = await watching(subject.chat);
+
+        react(tracker, action: 'remove', userId: 8);
+
+        expect(
+          subject.store.read<ChatMessage>(site, 1)!.reactions.single,
+          const ChatReaction(emoji: 'clap', count: 1, reactorIds: [11]),
+        );
+      },
+    );
+
+    test(
+      'a remove from an unnamed reactor still counts while the roll is short',
+      () async {
+        // The site names five reactors per emoji however many gave it, so on
+        // a sixth reactor "not named" no longer means "did not react" — and a
+        // live channel going one too high beats one that ignores departures.
+        final subject = reacted(const [
+          ChatReaction(
+            emoji: 'clap',
+            count: 6,
+            reactorIds: [8, 11, 12, 13, 14],
+          ),
+        ]);
+        final tracker = await watching(subject.chat);
+
+        react(tracker, action: 'remove', userId: 20);
+
+        expect(
+          subject.store.read<ChatMessage>(site, 1)!.reactions.single,
+          const ChatReaction(
+            emoji: 'clap',
+            count: 5,
+            reactorIds: [8, 11, 12, 13, 14],
+          ),
+        );
+      },
+    );
+
+    test('the same add delivered twice is counted once', () async {
+      // Resubscribing replays from a position rather than from a set, so one
+      // event can arrive again on its own. The reactor it names is in the row
+      // by the second delivery, which is the whole of the test.
+      final subject = reacted(const [
+        ChatReaction(emoji: 'clap', count: 1, reactorIds: [11]),
+      ]);
+      final tracker = await watching(subject.chat);
+
+      react(tracker, action: 'add', userId: 8);
+      react(tracker, action: 'add', userId: 8);
+
+      expect(
+        subject.store.read<ChatMessage>(site, 1)!.reactions.single,
+        const ChatReaction(emoji: 'clap', count: 2, reactorIds: [11, 8]),
+      );
+    });
   });
 
   group('paging towards the present', () {

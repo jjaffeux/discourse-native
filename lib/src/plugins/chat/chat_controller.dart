@@ -752,7 +752,11 @@ class ChatController extends FrameSafeNotifier {
         .where((reaction) => reaction.emoji == emoji)
         .firstOrNull;
     final adding = !(held?.reacted ?? false);
-    store.put(siteUrl, message.withReaction(emoji, reacted: adding));
+    final readerId = _currentUserFor(siteUrl)?.id;
+    store.put(
+      siteUrl,
+      message.withReaction(emoji, reacted: adding, userId: readerId),
+    );
 
     bool ownsRequest() =>
         !isDisposed &&
@@ -764,7 +768,10 @@ class ChatController extends FrameSafeNotifier {
       lease.commit(() {
         final latest = store.read<ChatMessage>(siteUrl, messageId);
         if (latest != null) {
-          store.put(siteUrl, latest.withReaction(emoji, reacted: !adding));
+          store.put(
+            siteUrl,
+            latest.withReaction(emoji, reacted: !adding, userId: readerId),
+          );
         }
       });
     }
@@ -790,7 +797,10 @@ class ChatController extends FrameSafeNotifier {
       lease.commit(() {
         final latest = store.read<ChatMessage>(siteUrl, messageId);
         if (latest != null) {
-          store.put(siteUrl, latest.withReaction(emoji, reacted: adding));
+          store.put(
+            siteUrl,
+            latest.withReaction(emoji, reacted: adding, userId: readerId),
+          );
         }
       });
       return null;
@@ -1970,6 +1980,7 @@ class ChatController extends FrameSafeNotifier {
     final emoji = jsonText(data['emoji']);
     final action = jsonText(data['action']);
     if (messageId == null || emoji == null || action == null) return;
+    if (action != 'add' && action != 'remove') return;
     final message = store.read<ChatMessage>(siteUrl, messageId);
     if (message == null) return;
 
@@ -1989,11 +2000,41 @@ class ChatController extends FrameSafeNotifier {
             (action == 'remove' && existing?.reacted != true))) {
       return;
     }
+    // Everybody else's events need the same treatment, for a longer reason. A
+    // channel subscribes from the bus position its channel-list snapshot
+    // carried, and that snapshot can predate opening the channel by hours — so
+    // everything published while the channel was unmounted is replayed just
+    // after an HTTP page that already counted all of it. The replay cannot be
+    // cut off by bus id, because the page carries no position to cut at:
+    // `Chat::MessagesSerializer` answers `target_message_id` and the two
+    // `can_load_more` flags and nothing else, and `channel_message_bus_last_id`
+    // is served by the channel endpoints instead. What the page does carry is
+    // who reacted, and every reaction event names its actor, so a replay is
+    // recognised by identity rather than by position. This is what Discourse's
+    // own client does with the same field.
+    //
+    // The roll is only conclusive while it accounts for the whole count: the
+    // site names five reactors per emoji, so on a more popular reaction an
+    // unnamed actor may be either a replay or a reactor the site left out.
+    // An `add` from somebody already named is a duplicate either way; a
+    // `remove` from somebody unnamed is only a duplicate when nobody is
+    // missing from the roll. Beyond that the count still moves, which is the
+    // pre-existing behaviour and errs towards a live channel staying live.
+    if (actorId != null && existing != null && !isCurrentUser) {
+      if (action == 'add' && existing.hasReactor(actorId)) return;
+      if (action == 'remove' &&
+          !existing.hasReactor(actorId) &&
+          existing.namesEveryReactor) {
+        return;
+      }
+    }
     if (action == 'add') {
       final next = ChatReaction(
         emoji: emoji,
         count: (existing?.count ?? 0) + 1,
         reacted: (existing?.reacted ?? false) || isCurrentUser,
+        reactorIds:
+            existing?.reactorIdsWith(actorId, reacted: true) ?? [?actorId],
       );
       if (index < 0) {
         if (reactions.length >= ChatMessage.maximumReactionsPerMessage) return;
@@ -2001,7 +2042,7 @@ class ChatController extends FrameSafeNotifier {
       } else {
         reactions[index] = next;
       }
-    } else if (action == 'remove' && existing != null) {
+    } else if (existing != null) {
       if (existing.count <= 1) {
         reactions.removeAt(index);
       } else {
@@ -2009,6 +2050,7 @@ class ChatController extends FrameSafeNotifier {
           emoji: emoji,
           count: existing.count - 1,
           reacted: isCurrentUser ? false : existing.reacted,
+          reactorIds: existing.reactorIdsWith(actorId, reacted: false),
         );
       }
     } else {
