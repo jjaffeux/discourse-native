@@ -9,11 +9,22 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  // Mounting the shell starts optional preference reads that nothing awaits:
+  // the sidebar and diagnostics panel widths, the sidebar sections, and the
+  // Resenha device selection. Without an in-memory store they cross the real
+  // platform channel, whose reply arrives whenever the host process gets to
+  // it. Under full-suite load that is after the widget tests' fake clock has
+  // stopped, so the awaits holding those stores' catch blocks never resume and
+  // the channel's MissingPluginException is reported as an unhandled error
+  // against a test that has already completed.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test('failed loads are coalesced and a later attempt can recover', () async {
     final first = Completer<List<DiscourseInstance>>();
