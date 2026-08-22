@@ -893,10 +893,20 @@ class _CategoryBadge extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 5),
-        Text(
-          category.name,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+        // Same 200px cap as a tag, and flexible on top of it: a category name
+        // long enough to fill the metadata row must ellipsize, not overflow.
+        Flexible(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 200),
+            child: Text(
+              category.name,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
         ),
       ],
