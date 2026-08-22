@@ -43,6 +43,7 @@ class SiteConfig {
     this.minSearchTermLength = defaultMinSearchTermLength,
     this.logSearchQueries = true,
     this.taggingEnabled = true,
+    this.maxTagSearchResults = defaultMaxTagSearchResults,
     this.usePgHeadlinesForExcerpt = false,
     this.fixedCategoryPositions = false,
     this.allowUncategorizedTopics = false,
@@ -101,6 +102,9 @@ class SiteConfig {
     'jxl',
   };
   static const int defaultMinSearchTermLength = 3;
+
+  /// `max_tag_search_results`' own default, server side.
+  static const int defaultMaxTagSearchResults = 5;
 
   /// Reads `GET /site/settings.json`, which is `SiteSetting.client_settings_json`
   /// — every setting marked `client: true`, core's and every plugin's alike.
@@ -167,6 +171,10 @@ class SiteConfig {
           defaultMinSearchTermLength,
       logSearchQueries: json['log_search_queries'] != false,
       taggingEnabled: json['tagging_enabled'] != false,
+      maxTagSearchResults: _positiveInt(
+        json['max_tag_search_results'],
+        defaultMaxTagSearchResults,
+      ),
       usePgHeadlinesForExcerpt: json['use_pg_headlines_for_excerpt'] == true,
       fixedCategoryPositions: json['fixed_category_positions'] == true,
       allowUncategorizedTopics: json['allow_uncategorized_topics'] == true,
@@ -229,6 +237,10 @@ class SiteConfig {
         defaultMinSearchTermLength,
     logSearchQueries: json['logSearchQueries'] != false,
     taggingEnabled: json['taggingEnabled'] != false,
+    maxTagSearchResults: _positiveInt(
+      json['maxTagSearchResults'],
+      defaultMaxTagSearchResults,
+    ),
     usePgHeadlinesForExcerpt: json['usePgHeadlinesForExcerpt'] == true,
     fixedCategoryPositions: json['fixedCategoryPositions'] == true,
     allowUncategorizedTopics: json['allowUncategorizedTopics'] == true,
@@ -269,6 +281,7 @@ class SiteConfig {
     'minSearchTermLength': minSearchTermLength,
     'logSearchQueries': logSearchQueries,
     'taggingEnabled': taggingEnabled,
+    'maxTagSearchResults': maxTagSearchResults,
     'usePgHeadlinesForExcerpt': usePgHeadlinesForExcerpt,
     'fixedCategoryPositions': fixedCategoryPositions,
     'allowUncategorizedTopics': allowUncategorizedTopics,
@@ -347,6 +360,15 @@ class SiteConfig {
   final int minSearchTermLength;
   final bool logSearchQueries;
   final bool taggingEnabled;
+
+  /// The largest tag page `/tags/filter/search.json` will accept.
+  ///
+  /// Core validates the request's `limit` against this setting and answers 400
+  /// when it is larger, so this is a request parameter and not only a display
+  /// cap. It defaults to 5, which is well under any limit a client would pick
+  /// on its own.
+  final int maxTagSearchResults;
+
   final bool usePgHeadlinesForExcerpt;
 
   /// How core orders category navigation, and which categories anonymous
@@ -473,6 +495,7 @@ class SiteConfig {
       other.minSearchTermLength == minSearchTermLength &&
       other.logSearchQueries == logSearchQueries &&
       other.taggingEnabled == taggingEnabled &&
+      other.maxTagSearchResults == maxTagSearchResults &&
       other.usePgHeadlinesForExcerpt == usePgHeadlinesForExcerpt &&
       other.fixedCategoryPositions == fixedCategoryPositions &&
       other.allowUncategorizedTopics == allowUncategorizedTopics &&
@@ -512,6 +535,7 @@ class SiteConfig {
     minSearchTermLength,
     logSearchQueries,
     taggingEnabled,
+    maxTagSearchResults,
     usePgHeadlinesForExcerpt,
     fixedCategoryPositions,
     allowUncategorizedTopics,

@@ -591,6 +591,9 @@ class FakeDiscourseApi implements DiscourseApi {
   final List<int> categoryPagesRequested = [];
   final List<String> topicComposerCapabilityRequests = [];
   final Map<String, TopicTagSearch> topicTagSearches;
+
+  /// The `limit` each tag search asked for, in call order.
+  final List<int> topicTagSearchLimits = [];
   final Map<String, ComposerDraft> serverDrafts;
   final List<UserDraft> userDraftList;
   final Completer<void>? userDraftGate;
@@ -1250,9 +1253,12 @@ class FakeDiscourseApi implements DiscourseApi {
     required String term,
     int? categoryId,
     Iterable<int> selectedTagIds = const [],
-    int limit = 20,
+    int limit = SiteConfig.defaultMaxTagSearchResults,
     String? clientId,
-  }) async => topicTagSearches[term] ?? const TopicTagSearch();
+  }) async {
+    topicTagSearchLimits.add(limit);
+    return topicTagSearches[term] ?? const TopicTagSearch();
+  }
 
   @override
   Future<SiteConfig> siteConfig({
