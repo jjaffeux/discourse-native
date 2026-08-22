@@ -88,6 +88,9 @@ const List<String> samples = [
   '@',
   ':',
   '**unterminated',
+  '*over\ntwo lines*',
+  '*open\n\nclosed*',
+  '*open\n```\ncode\n```\nclosed*',
 ];
 
 void main() {
@@ -138,6 +141,28 @@ void main() {
 
     test('leaves an unterminated marker as text', () {
       expect(annotate('**unterminated'), '**unterminated');
+    });
+
+    test('lets a mark wrap a line break inside its paragraph', () {
+      expect(
+        annotate('*over\ntwo lines*'),
+        '<m>*</><i>over\ntwo lines</><m>*</>',
+      );
+    });
+
+    test('stops a mark at a paragraph break', () {
+      expect(annotate('*open\n\nclosed*'), '*open\n\nclosed*');
+    });
+
+    test('stops a mark at a fenced block', () {
+      // A fence ends the paragraph around it, so the asterisks either side of
+      // one are two stray characters rather than a pair. Letting them pair up
+      // italicised the code between them, and made every opener before a large
+      // fence rescan the whole of it on the next keystroke.
+      expect(
+        annotate('*open\n```\ncode\n```\nclosed*'),
+        '*open\n<m>```</>\n<block>code\n</><m>```</>\nclosed*',
+      );
     });
   });
 
@@ -535,6 +560,51 @@ void main() {
         }
         expect(at, source.length, reason: 'ran short of: $source');
       }
+    });
+
+    test('scales with the length of what is pasted, not its square', () {
+      // A stack trace is the shape that used to be quadratic: one block with
+      // no blank line in it, and one `_private` opener per frame that never
+      // finds a closer. Every keystroke rescans the whole document, so an
+      // opener that walks to the end of the block for each of its peers is
+      // felt as the composer freezing.
+      //
+      // Timed rather than counted because the cost is inside the regexp
+      // engine, so the tolerance is wide: eight times the input is eight times
+      // the work when this is linear and sixty-four when it is not.
+      String paste(int frames) {
+        final buffer = StringBuffer('Getting this on launch:\n\n```\n');
+        for (var i = 0; i < frames; i += 1) {
+          buffer.writeln(
+            '#$i      _SiteTracker._onMessage (package:app/src/data/'
+            'site_tracker.dart:${100 + i}:${i % 40})',
+          );
+        }
+        return (buffer..writeln('```')).toString();
+      }
+
+      // The best of several runs, so a garbage collection landing in one of
+      // them cannot decide the result.
+      int cost(String source) {
+        var best = -1;
+        for (var run = 0; run < 3; run += 1) {
+          final elapsed = Stopwatch()..start();
+          scanMarkdown(source);
+          elapsed.stop();
+          final taken = elapsed.elapsedMicroseconds;
+          if (best < 0 || taken < best) best = taken;
+        }
+        return best;
+      }
+
+      final small = cost(paste(100));
+      final large = cost(paste(800));
+
+      expect(
+        large,
+        lessThan(small * 25),
+        reason: 'eight times the paste took ${large / small} times as long',
+      );
     });
   });
 }

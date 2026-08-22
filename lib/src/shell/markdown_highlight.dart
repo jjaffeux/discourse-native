@@ -185,12 +185,28 @@ class _Scan {
   /// per run would then draw one picture over two shortcodes.
   final Set<int> _cuts = {};
 
+  /// Fenced regions, in order, recorded by [blocks] for [_emphasisBlocks].
+  ///
+  /// A fence ends the paragraph around it, so no mark reaches across one. That
+  /// is not merely a nicety here: a fence is the one construct that routinely
+  /// holds thousands of characters with no blank line in them.
+  final List<(int, int)> _fences = [];
+
   /// Any run of characters that does not cross a blank line.
   ///
-  /// A mark cannot span a paragraph break — an unclosed `*` at the end of one
-  /// paragraph would otherwise reach forward and italicise everything down to
-  /// the next asterisk anywhere in the post.
-  static const String _within = r'(?:(?!\n\s*\n)[\s\S])*?';
+  /// A mark's content, which [_pairs] only ever searches within one block.
+  ///
+  /// The rule this expresses — a mark cannot span a paragraph break, or an
+  /// unclosed `*` at the end of one paragraph would reach forward and
+  /// italicise everything down to the next asterisk anywhere in the post — is
+  /// enforced by where the search runs rather than by the pattern. Spelling it
+  /// as a lookahead per consumed character instead made the scan quadratic:
+  /// every opener with no closer after it walks to the end of the block, and
+  /// the engine cannot know the opener after it will fail for the same reason.
+  /// A pasted stack trace is exactly that shape — one blank-line-free block,
+  /// one `_private` opener per frame — and it cost hundreds of milliseconds
+  /// per keystroke.
+  static const String _within = r'[\s\S]*?';
 
   // A scan runs on every text change. Keep the compiled expressions with the
   // scanner type rather than rebuilding them for every line and every pass.
@@ -272,6 +288,7 @@ class _Scan {
   void blocks() {
     var offset = 0;
     var bodyStart = -1;
+    var fenceStart = -1;
     _Fence? openingFence;
     String? language;
 
@@ -285,7 +302,9 @@ class _Scan {
           _mark(offset, end, Md.marker);
           _close(offset, end);
           _highlightFence(bodyStart, offset, language);
+          _fences.add((fenceStart, end));
           bodyStart = -1;
+          fenceStart = -1;
           openingFence = null;
           language = null;
         }
@@ -294,6 +313,7 @@ class _Scan {
         _close(offset, end);
         openingFence = fence;
         language = fence.info.isEmpty ? null : fence.info;
+        fenceStart = offset;
         bodyStart = end + 1;
       } else {
         _lineBlock(offset, line);
@@ -307,6 +327,7 @@ class _Scan {
     // whole block in as someone finishes the line.
     if (bodyStart >= 0) {
       _highlightFence(bodyStart, source.length, language);
+      _fences.add((fenceStart, source.length));
     }
   }
 
@@ -506,28 +527,70 @@ class _Scan {
   /// Longest marker first, or the opening `**` of a bold run is read as an
   /// italic `*` followed by a stray one.
   void _emphasis() {
-    _pairs(_boldItalicPattern, 3, Md.bold | Md.italic);
-    _pairs(_boldPattern, 2, Md.bold);
-    _pairs(_asteriskItalicPattern, 1, Md.italic);
-    _pairs(_strikethroughPattern, 2, Md.strikethrough);
+    final blocks = _emphasisBlocks();
+    _pairs(_boldItalicPattern, 3, Md.bold | Md.italic, blocks);
+    _pairs(_boldPattern, 2, Md.bold, blocks);
+    _pairs(_asteriskItalicPattern, 1, Md.italic, blocks);
+    _pairs(_strikethroughPattern, 2, Md.strikethrough, blocks);
     // Underscores only between word boundaries: `snake_case_name` is a name.
-    _pairs(_underscoreItalicPattern, 1, Md.italic);
+    _pairs(_underscoreItalicPattern, 1, Md.italic, blocks);
   }
 
-  void _pairs(RegExp pattern, int width, int flag) {
-    for (final match in pattern.allMatches(source)) {
-      // Only the delimiters have to be unclaimed. The content may hold
-      // anything — `**bold with `code` inside**` is bold all the way across,
-      // and the backticks inside it were spoken for by an earlier pass.
-      if (!_free(match.start, match.start + width)) continue;
-      if (!_free(match.end - width, match.end)) continue;
-      _mark(match.start, match.start + width, Md.marker);
-      _mark(match.start + width, match.end - width, flag);
-      _mark(match.end - width, match.end, Md.marker);
-      // Only the delimiters are closed — the content stays open so a mark
-      // inside another one still lands.
-      _close(match.start, match.start + width);
-      _close(match.end - width, match.end);
+  static final RegExp _paragraphBreakPattern = RegExp(r'\n\s*\n');
+
+  /// The ranges a mark may live inside: a paragraph, minus any fence in it.
+  ///
+  /// Searching these rather than the whole document is what keeps [_within]
+  /// free of a per-character lookahead, and it is what stops one unclosed
+  /// delimiter from making every later one walk the rest of the document.
+  ///
+  /// Every boundary here falls on a newline or an end of the source, so the
+  /// word-boundary lookarounds on the underscore pattern read the same
+  /// character they would have read in the whole document.
+  List<({int offset, String text})> _emphasisBlocks() {
+    final breaks = <(int, int)>[
+      ..._fences,
+      for (final match in _paragraphBreakPattern.allMatches(source))
+        (match.start, match.end),
+    ]..sort((left, right) => left.$1.compareTo(right.$1));
+
+    final blocks = <({int offset, String text})>[];
+    void add(int start, int end) {
+      blocks.add((offset: start, text: source.substring(start, end)));
+    }
+
+    var start = 0;
+    for (final (breakStart, breakEnd) in breaks) {
+      if (breakStart > start) add(start, breakStart);
+      if (breakEnd > start) start = breakEnd;
+    }
+    if (start < source.length) add(start, source.length);
+    return blocks;
+  }
+
+  void _pairs(
+    RegExp pattern,
+    int width,
+    int flag,
+    List<({int offset, String text})> blocks,
+  ) {
+    for (final block in blocks) {
+      for (final match in pattern.allMatches(block.text)) {
+        final matchStart = block.offset + match.start;
+        final matchEnd = block.offset + match.end;
+        // Only the delimiters have to be unclaimed. The content may hold
+        // anything — `**bold with `code` inside**` is bold all the way across,
+        // and the backticks inside it were spoken for by an earlier pass.
+        if (!_free(matchStart, matchStart + width)) continue;
+        if (!_free(matchEnd - width, matchEnd)) continue;
+        _mark(matchStart, matchStart + width, Md.marker);
+        _mark(matchStart + width, matchEnd - width, flag);
+        _mark(matchEnd - width, matchEnd, Md.marker);
+        // Only the delimiters are closed — the content stays open so a mark
+        // inside another one still lands.
+        _close(matchStart, matchStart + width);
+        _close(matchEnd - width, matchEnd);
+      }
     }
   }
 
