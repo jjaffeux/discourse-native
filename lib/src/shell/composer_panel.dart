@@ -683,6 +683,7 @@ class _TopicTaxonomy extends StatelessWidget {
                       onPressed: () => showShellSheet<void>(
                         context: context,
                         title: 'Tags',
+                        dialogOnDesktop: true,
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
                         builder: (_) => _TagPickerSheet(
                           composer: composer,
@@ -738,6 +739,7 @@ class _TopicTaxonomy extends StatelessWidget {
     final selected = await showShellSheet<int>(
       context: context,
       title: 'Choose category',
+      dialogOnDesktop: true,
       padding: EdgeInsets.zero,
       builder: (sheetContext) => Column(
         children: [

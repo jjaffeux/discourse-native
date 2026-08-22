@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'platform.dart';
 
 /// Shows secondary content *over* the shell rather than replacing the main
-/// region. Always slides up from the bottom and is drag-dismissable; on wide
-/// windows it is capped and centered rather than stretched edge to edge.
+/// region. Slides up from the bottom and is drag-dismissable; on wide windows
+/// it is capped and centered rather than stretched edge to edge.
 ///
 /// Use it for anything the user should be able to dismiss without losing their
 /// place — composing, quick actions, pickers.
@@ -14,16 +15,42 @@ import '../theme/d_icons.dart';
 /// Sheets nest: opening one from inside another leaves the first in place
 /// behind it. Pass [nested] so the second one is headed by a way back to the
 /// first rather than by a way out of both.
+///
+/// Pass [dialogOnDesktop] for a picker that belongs next to what opened it
+/// rather than at the far bottom edge of a large window: on a pointer platform
+/// it is then centered as a dialog, and stays a sheet everywhere a finger is
+/// the only way in.
 Future<T?> showShellSheet<T>({
   required BuildContext context,
   required String title,
   required WidgetBuilder builder,
   bool nested = false,
+  bool dialogOnDesktop = false,
   EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
     horizontal: 24,
     vertical: 16,
   ),
 }) {
+  if (dialogOnDesktop && !context.isTouch) {
+    return showDialog<T>(
+      context: context,
+      builder: (context) => Dialog(
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 560),
+          child: _SheetBody(
+            title: title,
+            builder: builder,
+            nested: nested,
+            padding: padding,
+            // A dialog is already lifted clear of the keyboard and of the
+            // screen edges by its own inset padding.
+            insetsBottom: false,
+          ),
+        ),
+      ),
+    );
+  }
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
@@ -44,6 +71,7 @@ class _SheetBody extends StatelessWidget {
     required this.builder,
     required this.nested,
     required this.padding,
+    this.insetsBottom = true,
   });
 
   final String title;
@@ -51,10 +79,16 @@ class _SheetBody extends StatelessWidget {
   final bool nested;
   final EdgeInsetsGeometry padding;
 
+  /// Whether this body has to keep itself clear of the keyboard and of the
+  /// bottom edge, as a sheet running to that edge does.
+  final bool insetsBottom;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final keyboardInset = insetsBottom
+        ? MediaQuery.viewInsetsOf(context).bottom
+        : 0.0;
 
     return AnimatedPadding(
       key: const ValueKey('shell-sheet-keyboard-inset'),
@@ -100,7 +134,7 @@ class _SheetBody extends StatelessWidget {
               // The sheet runs to the bottom edge, so the last row of a full one
               // would otherwise sit under the home indicator.
               padding: EdgeInsets.only(
-                bottom: MediaQuery.paddingOf(context).bottom,
+                bottom: insetsBottom ? MediaQuery.paddingOf(context).bottom : 0,
               ),
               child: Padding(padding: padding, child: builder(context)),
             ),

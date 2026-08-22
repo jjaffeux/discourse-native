@@ -1237,9 +1237,12 @@ Three ways to show something, and they are not interchangeable:
 - **Swap the pane** (compact only) — picking a sidebar entry hands the area next
   to the rail over to the main content. Back returns to the sidebar.
 - **A sheet over the shell** — for anything dismissable that should not cost the
-  user their place. `showShellSheet` always slides up from the bottom and is
+  user their place. `showShellSheet` slides up from the bottom and is
   drag-dismissable; on wide windows it is capped and centered rather than
-  stretched edge to edge.
+  stretched edge to edge. A picker that belongs to the surface that opened it
+  rather than to the shell — the composer's category and tag pickers — passes
+  `dialogOnDesktop`, which centers it as a dialog on a pointer platform and
+  leaves it a sheet wherever a finger is the only way in.
 
 Back unwinds the content stack first, and only then returns to the sidebar.
 
