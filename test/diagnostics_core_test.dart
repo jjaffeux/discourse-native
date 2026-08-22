@@ -1103,6 +1103,81 @@ void main() {
     },
   );
 
+  test(
+    'expiry rebases the unseen count and the next expiry on what it kept',
+    () async {
+      var now = DateTime.utc(2026, 8, 8, 9);
+      final delays = <Duration>[];
+      late _ManualTimer expiry;
+      final controller = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        clock: () => now,
+        timerFactory: (duration, callback) {
+          delays.add(duration);
+          expiry = _ManualTimer(callback);
+          return expiry;
+        },
+        sessionId: 'expiry-rebase',
+      );
+      addTearDown(controller.close);
+
+      controller.reportError(StateError('aged out'), StackTrace.current);
+      now = now.add(const Duration(hours: 20));
+      controller.reportError(StateError('still here'), StackTrace.current);
+      expect(controller.unseenErrorCountListenable.value, 2);
+
+      now = now.add(const Duration(hours: 5));
+      expiry.fire();
+      await controller.flush();
+
+      // The count is what survived, not what was ever recorded.
+      expect(controller.events.whereType<ErrorDiagnosticEvent>(), hasLength(1));
+      expect(controller.unseenErrorCountListenable.value, 1);
+
+      // And the next expiry is measured from the oldest event still held. Timing
+      // it off the evicted one would ask for a timer that has already elapsed,
+      // and the history would re-expire itself every turn from then on.
+      expect(delays.last, diagnosticsRetentionAge - const Duration(hours: 5));
+    },
+  );
+
+  test('one request that fails counts as one unseen error', () async {
+    final now = DateTime.utc(2026, 8, 8, 9);
+    final controller = await DiagnosticsController.create(
+      persistence: MemoryDiagnosticsPersistence(),
+      clock: () => now,
+      sessionId: 'failing-request',
+    );
+    addTearDown(controller.close);
+
+    controller.recordHttp(
+      _httpRecord(now, HttpDiagnosticPhase.started, eventId: 'request-1'),
+    );
+    expect(controller.unseenErrorCountListenable.value, 0);
+
+    controller.recordHttp(
+      _httpRecord(
+        now,
+        HttpDiagnosticPhase.responseHeaders,
+        eventId: 'request-1',
+        statusCode: 500,
+      ),
+    );
+    controller.recordHttp(
+      _httpRecord(
+        now,
+        HttpDiagnosticPhase.completed,
+        eventId: 'request-1',
+        statusCode: 500,
+      ),
+    );
+
+    // Every phase rewrites the one row the request owns, so the badge counts
+    // the request rather than the phases it went through.
+    expect(controller.events.whereType<HttpDiagnosticEvent>(), hasLength(1));
+    expect(controller.unseenErrorCountListenable.value, 1);
+  });
+
   test('an HTTP request cannot reappear after retention evicts it', () async {
     var now = DateTime.utc(2026, 8, 8, 9);
     late _ManualTimer expiry;

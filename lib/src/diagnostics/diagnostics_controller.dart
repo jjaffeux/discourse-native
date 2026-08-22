@@ -17,6 +17,35 @@ enum DiagnosticsKindFilter { all, requests, errors }
 typedef DiagnosticsTimerFactory =
     Timer Function(Duration duration, void Function() callback);
 
+/// A retained event and what it costs against the size budget.
+typedef _RetainedEvent = ({DiagnosticEvent event, int bytes});
+
+/// The published view of the recorder's history.
+///
+/// Copying the history is what makes a published snapshot immutable while the
+/// recorder keeps mutating its own list, but the history changes several times
+/// per request and is read at most once per frame — and not at all while the
+/// panel is closed. So the copy is deferred to the read.
+///
+/// This is not weaker than copying eagerly: every mutation invalidates, so a
+/// materialized snapshot is only ever handed out for the state that is current
+/// when it is asked for, and it is never the list that goes on changing.
+final class _EventHistoryListenable extends FrameSafeNotifier
+    implements ValueListenable<List<DiagnosticEvent>> {
+  _EventHistoryListenable(this._history);
+
+  final List<DiagnosticEvent> _history;
+  List<DiagnosticEvent>? _published;
+
+  @override
+  List<DiagnosticEvent> get value => _published ??= List.unmodifiable(_history);
+
+  void invalidate() {
+    _published = null;
+    notifySafely();
+  }
+}
+
 @immutable
 final class DiagnosticsPanelState {
   DiagnosticsPanelState({
@@ -212,11 +241,10 @@ final class DiagnosticsController
     required List<DiagnosticEvent> events,
   }) : _sequence = initialSequence,
        _events = events.toList(),
-       _eventsNotifier = FrameSafeValueNotifier(List.unmodifiable(events)),
        _panelStateNotifier = FrameSafeValueNotifier(DiagnosticsPanelState()),
        _panelOpenNotifier = FrameSafeValueNotifier(false),
        _unseenErrorCountNotifier = FrameSafeValueNotifier(0) {
-    _rebuildEventSizes();
+    _reindexEvents();
   }
 
   static const Duration ordinaryWriteDelay = Duration(milliseconds: 150);
@@ -226,12 +254,23 @@ final class DiagnosticsController
   final DateTime Function() _clock;
   final DiagnosticsTimerFactory _timerFactory;
   final List<DiagnosticEvent> _events;
-  final FrameSafeValueNotifier<List<DiagnosticEvent>> _eventsNotifier;
+  late final _EventHistoryListenable _eventsNotifier = _EventHistoryListenable(
+    _events,
+  );
   final FrameSafeValueNotifier<DiagnosticsPanelState> _panelStateNotifier;
   final FrameSafeValueNotifier<bool> _panelOpenNotifier;
   final FrameSafeValueNotifier<int> _unseenErrorCountNotifier;
   final Map<String, int> _httpGenerations = {};
-  final Map<String, int> _eventBytes = {};
+
+  /// The retained events by id, mirroring [_events] exactly.
+  ///
+  /// [_events] is ordered — by sequence, so the panel reads a stable timeline —
+  /// and this is the index onto it. Every hot path here is keyed by id and
+  /// runs per HTTP phase, three times a request: without the index each of
+  /// them walks the whole retained history, which is thousands of events on a
+  /// session that has been up for a while.
+  final Map<String, _RetainedEvent> _byId = {};
+
   final List<(DiagnosticEvent, int)> _pendingWrites = [];
 
   Expando<Object> _reportedErrorEpochs = Expando<Object>(
@@ -246,6 +285,16 @@ final class DiagnosticsController
   int _sequence;
   int _lastSeenSequence;
   int _totalEventBytes = 0;
+  int _unseenErrorCount = 0;
+
+  /// The oldest [DiagnosticEvent.timestampUtc] held, or null when that is not
+  /// currently known. Age retention is the only reader, and it asks on every
+  /// recorded event; recomputing it is a full scan, so it is kept rather than
+  /// derived. An update reuses the timestamp of the event it replaces, so only
+  /// eviction can invalidate it.
+  DateTime? _oldestTimestamp;
+  bool _oldestTimestampKnown = true;
+
   int _generation = 0;
   bool _persistenceFailed = false;
   bool _closed = false;
@@ -410,17 +459,21 @@ final class DiagnosticsController
       _setPanelState(panelState.copyWith(selectedEventId: eventId));
 
   void markSeen() {
-    final latestErrorSequence = _events.where((event) => event.isError).fold(
-      _lastSeenSequence,
-      (latest, event) {
-        return event.sequence > latest ? event.sequence : latest;
-      },
-    );
-    if (latestErrorSequence == _lastSeenSequence &&
-        _unseenErrorCountNotifier.value == 0) {
+    // Ascending by sequence, so the newest error is the last one in the list.
+    var latestErrorSequence = _lastSeenSequence;
+    for (var index = _events.length - 1; index >= 0; index -= 1) {
+      final event = _events[index];
+      if (event.sequence <= latestErrorSequence) break;
+      if (event.isError) {
+        latestErrorSequence = event.sequence;
+        break;
+      }
+    }
+    if (latestErrorSequence == _lastSeenSequence && _unseenErrorCount == 0) {
       return;
     }
     _lastSeenSequence = latestErrorSequence;
+    _unseenErrorCount = 0;
     _unseenErrorCountNotifier.value = 0;
     _queuePersistence(
       () => _persistence.writeLastSeenSequence(latestErrorSequence),
@@ -667,11 +720,14 @@ final class DiagnosticsController
     _persistenceFailed = false;
     _resetErrorDeduplication();
     _events.clear();
-    _eventBytes.clear();
+    _byId.clear();
     _totalEventBytes = 0;
+    _unseenErrorCount = 0;
+    _oldestTimestamp = null;
+    _oldestTimestampKnown = true;
     _frozenEvents = panelState.frozen ? const [] : null;
     _lastSeenSequence = _sequence;
-    _eventsNotifier.value = const [];
+    _eventsNotifier.invalidate();
     _unseenErrorCountNotifier.value = 0;
     selectEvent(null);
     final generation = _generation;
@@ -784,7 +840,7 @@ final class DiagnosticsController
       _schedulePersist(interrupted);
     }
     _events.sort((left, right) => left.sequence.compareTo(right.sequence));
-    _rebuildEventSizes();
+    _reindexEvents();
     _publishEvents(now);
   }
 
@@ -825,9 +881,15 @@ final class DiagnosticsController
 
   void _publishEvents(DateTime nowUtc) {
     final cutoff = nowUtc.toUtc().subtract(diagnosticsRetentionAge);
-    for (var index = _events.length - 1; index >= 0; index -= 1) {
-      if (!_events[index].timestampUtc.isAfter(cutoff)) {
-        _removeEventAt(index, invalidateHttp: true);
+    // Every recorded event asks whether anything has aged out. Almost always
+    // nothing has, and the oldest timestamp answers that without walking the
+    // history; only once it is past the cutoff is a sweep worth the walk.
+    final oldest = _oldestEventTimestamp();
+    if (oldest != null && !oldest.isAfter(cutoff)) {
+      for (var index = _events.length - 1; index >= 0; index -= 1) {
+        if (!_events[index].timestampUtc.isAfter(cutoff)) {
+          _removeEventAt(index, invalidateHttp: true);
+        }
       }
     }
     while (_events.length > diagnosticsRetentionCount ||
@@ -836,9 +898,9 @@ final class DiagnosticsController
       _removeEventAt(0, invalidateHttp: true);
     }
     _pruneFrozenEvents();
-    _eventsNotifier.value = List.unmodifiable(_events);
+    _eventsNotifier.invalidate();
     final selected = panelState.selectedEventId;
-    if (selected != null && !_events.any((event) => event.id == selected)) {
+    if (selected != null && !_byId.containsKey(selected)) {
       selectEvent(null);
     }
     _scheduleExpiry(nowUtc);
@@ -847,9 +909,8 @@ final class DiagnosticsController
   void _pruneFrozenEvents() {
     final frozen = _frozenEvents;
     if (frozen == null) return;
-    final retainedIds = _events.map((event) => event.id).toSet();
     _frozenEvents = List.unmodifiable(
-      frozen.where((event) => retainedIds.contains(event.id)),
+      frozen.where((event) => _byId.containsKey(event.id)),
     );
   }
 
@@ -857,10 +918,8 @@ final class DiagnosticsController
     _expiryTimer?.cancel();
     _expiryTimer = null;
     if (_closed || _events.isEmpty) return;
-    var oldest = _events.first.timestampUtc;
-    for (final event in _events.skip(1)) {
-      if (event.timestampUtc.isBefore(oldest)) oldest = event.timestampUtc;
-    }
+    final oldest = _oldestEventTimestamp();
+    if (oldest == null) return;
     final delay = oldest
         .add(diagnosticsRetentionAge)
         .difference(nowUtc.toUtc());
@@ -886,9 +945,19 @@ final class DiagnosticsController
   }
 
   void _updateUnseenCount() {
-    _unseenErrorCountNotifier.value = _events
-        .where((event) => event.isError && event.sequence > _lastSeenSequence)
-        .length;
+    _unseenErrorCountNotifier.value = _unseenErrorCount;
+  }
+
+  void _recountUnseenErrors() {
+    var unseen = 0;
+    // Ascending by sequence, so everything unseen is a suffix: walk back from
+    // the newest and stop at the first event the reader has already seen.
+    for (var index = _events.length - 1; index >= 0; index -= 1) {
+      final event = _events[index];
+      if (event.sequence <= _lastSeenSequence) break;
+      if (event.isError) unseen += 1;
+    }
+    _unseenErrorCount = unseen;
   }
 
   bool get _isShowingLiveEvents => isPanelOpen && !panelState.frozen;
@@ -899,21 +968,24 @@ final class DiagnosticsController
   }
 
   HttpDiagnosticEvent? _eventById(String eventId) {
-    for (final event in _events.reversed) {
-      if (event.id == eventId && event is HttpDiagnosticEvent) return event;
-    }
-    return null;
+    final event = _byId[eventId]?.event;
+    return event is HttpDiagnosticEvent ? event : null;
   }
 
   void _putEvent(DiagnosticEvent event) {
-    final existingIndex = _events.indexWhere((item) => item.id == event.id);
-    if (existingIndex >= 0) {
-      _removeEventAt(existingIndex);
-    }
+    final existing = _byId[event.id];
+    if (existing != null) _removeEventAt(_indexOf(existing.event));
     final bytes = diagnosticEventSerializedBytes(event);
     _events.insert(_insertionIndexFor(event.sequence), event);
-    _eventBytes[event.id] = bytes;
+    _byId[event.id] = (event: event, bytes: bytes);
     _totalEventBytes += bytes;
+    if (event.isError && event.sequence > _lastSeenSequence) {
+      _unseenErrorCount += 1;
+    }
+    final oldest = _oldestTimestamp;
+    if (oldest == null || event.timestampUtc.isBefore(oldest)) {
+      _oldestTimestamp = event.timestampUtc;
+    }
   }
 
   int _insertionIndexFor(int sequence) {
@@ -930,6 +1002,33 @@ final class DiagnosticsController
     return lower;
   }
 
+  /// Where [event] sits in [_events], which is ascending by sequence.
+  ///
+  /// Sequences are all but unique — only an update reuses one, and it replaces
+  /// the event it took it from — so the equal-sequence walk is bounded in
+  /// practice, and the scan is a guard for a history that somehow is not
+  /// ordered rather than an expected cost.
+  int _indexOf(DiagnosticEvent event) {
+    var lower = 0;
+    var upper = _events.length;
+    while (lower < upper) {
+      final middle = lower + ((upper - lower) >> 1);
+      if (_events[middle].sequence < event.sequence) {
+        lower = middle + 1;
+      } else {
+        upper = middle;
+      }
+    }
+    for (
+      var index = lower;
+      index < _events.length && _events[index].sequence == event.sequence;
+      index += 1
+    ) {
+      if (_events[index].id == event.id) return index;
+    }
+    return _events.indexWhere((item) => item.id == event.id);
+  }
+
   void _removeEventAt(int index, {bool invalidateHttp = false}) {
     final removed = _events.removeAt(index);
     if (invalidateHttp && removed is HttpDiagnosticEvent) {
@@ -938,18 +1037,46 @@ final class DiagnosticsController
       // later and recreate itself after TTL/count/size eviction.
       _httpGenerations.remove(removed.id);
     }
-    final bytes = _eventBytes.remove(removed.id);
-    if (bytes != null) _totalEventBytes -= bytes;
+    final retained = _byId.remove(removed.id);
+    if (retained != null) _totalEventBytes -= retained.bytes;
+    if (removed.isError && removed.sequence > _lastSeenSequence) {
+      _unseenErrorCount -= 1;
+    }
+    if (_oldestTimestamp == removed.timestampUtc) _oldestTimestampKnown = false;
   }
 
-  void _rebuildEventSizes() {
-    _eventBytes.clear();
+  /// The oldest retained timestamp, recomputed only when an eviction dropped
+  /// the event that held it.
+  DateTime? _oldestEventTimestamp() {
+    if (_oldestTimestampKnown) return _oldestTimestamp;
+    DateTime? oldest;
+    for (final event in _events) {
+      if (oldest == null || event.timestampUtc.isBefore(oldest)) {
+        oldest = event.timestampUtc;
+      }
+    }
+    _oldestTimestamp = oldest;
+    _oldestTimestampKnown = true;
+    return oldest;
+  }
+
+  /// Rebuilds everything derived from [_events], for the paths that rewrite it
+  /// in place rather than through [_putEvent] and [_removeEventAt].
+  void _reindexEvents() {
+    _byId.clear();
     _totalEventBytes = 0;
+    DateTime? oldest;
     for (final event in _events) {
       final bytes = diagnosticEventSerializedBytes(event);
-      _eventBytes[event.id] = bytes;
+      _byId[event.id] = (event: event, bytes: bytes);
       _totalEventBytes += bytes;
+      if (oldest == null || event.timestampUtc.isBefore(oldest)) {
+        oldest = event.timestampUtc;
+      }
     }
+    _oldestTimestamp = oldest;
+    _oldestTimestampKnown = true;
+    _recountUnseenErrors();
   }
 
   int _nextSequence() => ++_sequence;
