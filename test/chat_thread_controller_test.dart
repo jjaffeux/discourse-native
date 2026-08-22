@@ -821,7 +821,7 @@ void main() {
     });
 
     expect(subject.store.read<ChatMessage>(site, 30)?.reactions, const [
-      ChatReaction(emoji: 'heart', count: 2, reacted: true),
+      ChatReaction(emoji: 'heart', count: 2, reacted: true, reactorIds: [7, 8]),
     ]);
     expect(api.callOrder, isEmpty);
 
@@ -833,7 +833,7 @@ void main() {
       'user': {'id': currentUser.id, 'username': currentUser.username},
     });
     expect(subject.store.read<ChatMessage>(site, 30)?.reactions, const [
-      ChatReaction(emoji: 'heart', count: 1),
+      ChatReaction(emoji: 'heart', count: 1, reactorIds: [8]),
     ]);
   });
 
@@ -916,7 +916,7 @@ void main() {
     tracker.deliverPluginMessage('/chat/9/thread/22', event, messageId: 703);
 
     expect(subject.store.read<ChatMessage>(site, 100)?.reactions, const [
-      ChatReaction(emoji: 'heart', count: 1),
+      ChatReaction(emoji: 'heart', count: 1, reactorIds: [8]),
     ]);
   });
 

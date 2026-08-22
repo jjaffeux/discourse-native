@@ -86,6 +86,52 @@ void main() {
       ]);
     });
 
+    test('names this reader in the rows it moves, and only there', () {
+      const named = ChatMessage(
+        id: 1,
+        channelId: 9,
+        cooked: '<p>hello</p>',
+        author: author,
+        reactions: [
+          ChatReaction(emoji: 'heart', count: 1, reactorIds: [8]),
+          ChatReaction(emoji: 'clap', count: 1, reactorIds: [8]),
+        ],
+      );
+
+      final added = named.withReaction('clap', reacted: true, userId: 7);
+      expect(added.reactions, const [
+        ChatReaction(emoji: 'heart', count: 1, reactorIds: [8]),
+        ChatReaction(
+          emoji: 'clap',
+          count: 2,
+          reacted: true,
+          reactorIds: [8, 7],
+        ),
+      ]);
+
+      // Rolling the same write back takes the reader's name with it, so the
+      // row is exactly what it was before the optimistic projection.
+      expect(
+        added.withReaction('clap', reacted: false, userId: 7).reactions,
+        named.reactions,
+      );
+    });
+
+    test('appends this reader to a reaction the message did not hold', () {
+      final added = message.withReaction('tada', reacted: true, userId: 7);
+
+      expect(
+        added.reactions.last,
+        const ChatReaction(
+          emoji: 'tada',
+          count: 1,
+          reacted: true,
+          reactorIds: [7],
+        ),
+      );
+      expect(added.reactions.last.namesEveryReactor, isTrue);
+    });
+
     test('removes only this reader and drops an empty reaction row', () {
       final decremented = message.withReaction('heart', reacted: false);
       final dropped = const ChatMessage(
@@ -224,11 +270,39 @@ void main() {
 
         expect(read.reactions.single.emoji, 'heart');
         // Three gave it, and the site named at most five of them. The count is
-        // the true total and the names are only ever a sample.
+        // the true total and the names are only ever a sample — which is why
+        // the sample says so rather than passing for the whole roll.
         expect(read.reactions.single.count, 3);
         expect(read.reactions.single.reacted, isTrue);
+        expect(read.reactions.single.reactorIds, const [2]);
+        expect(read.reactions.single.namesEveryReactor, isFalse);
       },
     );
+
+    test('names every reactor once the sample accounts for the count', () {
+      final read = messageFrom(
+        message(
+          reactions: const [
+            {
+              'emoji': 'heart',
+              'count': 2,
+              'users': [
+                {'id': 2, 'username': 'sam'},
+                {'id': 0, 'username': 'nobody'},
+                {'id': 8, 'username': 'ada'},
+              ],
+            },
+          ],
+        ),
+      );
+
+      // The unusable id is dropped rather than retained as a reactor nobody
+      // can match an event against.
+      expect(read.reactions.single.reactorIds, const [2, 8]);
+      expect(read.reactions.single.namesEveryReactor, isTrue);
+      expect(read.reactions.single.hasReactor(8), isTrue);
+      expect(read.reactions.single.hasReactor(9), isFalse);
+    });
 
     test('reads uploads, which the cooked body does not carry', () {
       // Chat cooks the raw message rather than the markdown-with-uploads, so

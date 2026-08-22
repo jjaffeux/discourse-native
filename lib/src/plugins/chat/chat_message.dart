@@ -124,21 +124,35 @@ class ChatMessageAuthor {
 /// One emoji on a message, and how many gave it.
 ///
 /// The site serialises at most five of the accounts behind each emoji while
-/// [count] is the true total, so the two disagree on any popular reaction. Only
-/// [count] is read here: the names are for a panel this step does not draw.
+/// [count] is the true total, so the two disagree on any popular reaction.
+/// [reactorIds] is not what draws the reactor panel — that has an endpoint of
+/// its own — it is what lets a live reaction event be recognised as one this
+/// row has already counted. See `ChatController._applyReactionEvent`.
 @immutable
 class ChatReaction {
   const ChatReaction({
     required this.emoji,
     required this.count,
     this.reacted = false,
+    this.reactorIds = const [],
   });
 
   factory ChatReaction.fromJson(Map<String, dynamic> json) => ChatReaction(
     emoji: jsonString(json['emoji']),
     count: jsonInt(json['count']),
     reacted: json['reacted'] == true,
+    reactorIds: List.unmodifiable([
+      for (final user in jsonObjects(json['users']).take(maximumReactorsNamed))
+        if (jsonIntOrNull(user['id']) case final id? when id > 0) id,
+    ]),
   );
+
+  /// Maximum accounts retained for one reaction row.
+  ///
+  /// The site names five and live events append the rest, so this bounds a
+  /// long-lived popular reaction rather than a malformed response. Reaching it
+  /// costs nothing but [namesEveryReactor], which is already false by then.
+  static const int maximumReactorsNamed = 50;
 
   final String emoji;
   final int count;
@@ -146,12 +160,46 @@ class ChatReaction {
   /// Whether this reader is one of them.
   final bool reacted;
 
-  ChatReaction withReacted(bool value) {
+  /// The accounts behind [count] this row can name, newest last.
+  ///
+  /// Truncated by the site, and left behind by any event that moved [count]
+  /// without naming an account, so it is a subset rather than the roll.
+  final List<int> reactorIds;
+
+  /// Whether [reactorIds] accounts for all of [count].
+  ///
+  /// Only then does "this row does not name them" mean "they did not react".
+  /// While the list is short of [count], somebody unnamed may still be one of
+  /// the reactors the site declined to serialise.
+  bool get namesEveryReactor => reactorIds.length >= count;
+
+  /// Whether this row already counts [userId] among its reactors.
+  bool hasReactor(int userId) => reactorIds.contains(userId);
+
+  /// This row with [userId] added or dropped, bounded by
+  /// [maximumReactorsNamed]. A null id leaves the roll alone, which reads as
+  /// truncation and so keeps the row on the counting path.
+  List<int> reactorIdsWith(int? userId, {required bool reacted}) {
+    if (userId == null) return reactorIds;
+    if (!reacted) {
+      return List.unmodifiable([
+        for (final id in reactorIds)
+          if (id != userId) id,
+      ]);
+    }
+    if (hasReactor(userId) || reactorIds.length >= maximumReactorsNamed) {
+      return reactorIds;
+    }
+    return List.unmodifiable([...reactorIds, userId]);
+  }
+
+  ChatReaction withReacted(bool value, {int? userId}) {
     final nextCount = value == reacted ? count : count + (value ? 1 : -1);
     return ChatReaction(
       emoji: emoji,
       count: nextCount < 0 ? 0 : nextCount,
       reacted: value,
+      reactorIds: reactorIdsWith(userId, reacted: value),
     );
   }
 
@@ -160,10 +208,12 @@ class ChatReaction {
       other is ChatReaction &&
       other.emoji == emoji &&
       other.count == count &&
-      other.reacted == reacted;
+      other.reacted == reacted &&
+      listEquals(other.reactorIds, reactorIds);
 
   @override
-  int get hashCode => Object.hash(emoji, count, reacted);
+  int get hashCode =>
+      Object.hash(emoji, count, reacted, Object.hashAll(reactorIds));
 }
 
 /// What kind of thing an upload is, which decides how it is drawn.
@@ -782,19 +832,29 @@ class ChatMessage with Storable<ChatMessage> {
   /// so this is both the optimistic projection and the state retained after a
   /// successful request. Applying the same state twice is intentionally a
   /// no-op, which makes rollback and a repeated UI callback harmless.
-  ChatMessage withReaction(String emoji, {required bool reacted}) {
+  ///
+  /// [userId] is this reader's account, and naming it keeps
+  /// [ChatReaction.reactorIds] whole across the reader's own write — without
+  /// it the projection would report a roll one short of [ChatReaction.count]
+  /// and read as truncated for every event that followed.
+  ChatMessage withReaction(String emoji, {required bool reacted, int? userId}) {
     final index = reactions.indexWhere((reaction) => reaction.emoji == emoji);
     if (index < 0) {
       if (!reacted) return this;
       return _withReactions([
         ...reactions,
-        ChatReaction(emoji: emoji, count: 1, reacted: true),
+        ChatReaction(
+          emoji: emoji,
+          count: 1,
+          reacted: true,
+          reactorIds: [?userId],
+        ),
       ]);
     }
 
     final held = reactions[index];
     if (held.reacted == reacted) return this;
-    final updated = held.withReacted(reacted);
+    final updated = held.withReacted(reacted, userId: userId);
     final next = [...reactions];
     if (updated.count == 0) {
       next.removeAt(index);
