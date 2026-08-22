@@ -6,6 +6,7 @@ import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/topic_recommendations_panel_store.dart';
+import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
 import 'package:discourse_native/src/data/updater.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
@@ -4146,6 +4147,80 @@ void main() {
 
       expect(find.byTooltip('Show more topics'), findsOneWidget);
       expect(find.text('Remembered suggestion'), findsNothing);
+    });
+
+    testWidgets('remembers the more topics tab for the forum', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      addTearDown(() => SharedPreferences.setMockInitialValues({}));
+      const recommendations = TopicRecommendations(
+        suggested: [
+          Topic(id: 8, title: 'A suggested topic', slug: 'a-suggested-topic'),
+        ],
+        related: [
+          Topic(id: 9, title: 'An AI related topic', slug: 'an-ai-topic'),
+        ],
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(recommendations: recommendations)},
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+      expect(find.text('A suggested topic'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('related-topics-tab')));
+      await tester.pumpAndSettle();
+      expect(find.text('An AI related topic'), findsOneWidget);
+      // The UI intentionally fires this optional preference write without
+      // blocking. Read through the same serialized store boundary so the
+      // replacement below cannot overtake that write.
+      expect(
+        await const TopicRecommendationsTabStore().read(
+          siteUrl: 'https://meta.discourse.org',
+        ),
+        TopicRecommendationsTab.related,
+      );
+
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        key: const ValueKey('restored-topics-tab'),
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('An AI related topic'), findsOneWidget);
+      expect(find.text('A suggested topic'), findsNothing);
+    });
+
+    testWidgets('falls back when the remembered tab has no topics', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      addTearDown(() => SharedPreferences.setMockInitialValues({}));
+      await const TopicRecommendationsTabStore().write(
+        siteUrl: 'https://meta.discourse.org',
+        tab: TopicRecommendationsTab.related,
+      );
+      const recommendations = TopicRecommendations(
+        suggested: [
+          Topic(id: 8, title: 'Only suggestion', slug: 'only-suggestion'),
+        ],
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(recommendations: recommendations)},
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Only suggestion'), findsOneWidget);
+      expect(find.byKey(const ValueKey('related-topics-tab')), findsNothing);
     });
 
     testWidgets('keeps recommendations below the posts on narrow layouts', (

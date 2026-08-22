@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../data/topic_recommendations_panel_store.dart';
+import '../data/topic_recommendations_tab_store.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
 import '../plugins/site_plugin.dart';
@@ -31,6 +32,7 @@ class TopicView extends StatefulWidget {
     super.key,
     this.showRecommendationsPanel = false,
     this.recommendationsPanelStore = const TopicRecommendationsPanelStore(),
+    this.recommendationsTabStore = const TopicRecommendationsTabStore(),
   });
 
   /// Start fetching the next batch about a screen before either end.
@@ -41,6 +43,8 @@ class TopicView extends StatefulWidget {
   final bool showRecommendationsPanel;
 
   final TopicRecommendationsPanelStore recommendationsPanelStore;
+
+  final TopicRecommendationsTabStore recommendationsTabStore;
 
   @override
   State<TopicView> createState() => _TopicViewState();
@@ -68,9 +72,12 @@ class _TopicViewState extends State<TopicView> {
   bool _lookScheduled = false;
   bool _saveAnchorAfterLook = false;
   int? _savedAnchorPostNumber;
-  String? _recommendationsPanelSiteUrl;
+  String? _recommendationsSiteUrl;
   bool _recommendationsPanelCollapsed = false;
   int _recommendationsPanelRestoreGeneration = 0;
+  TopicRecommendationsTab _recommendationsTab =
+      TopicRecommendationsTab.suggested;
+  int _recommendationsTabRestoreGeneration = 0;
   List<_TopicDayStart> _laidOutDayStarts = const [];
   DateTime? _floatingDay;
   double _floatingDayOffset = 0;
@@ -224,6 +231,7 @@ class _TopicViewState extends State<TopicView> {
   @override
   void dispose() {
     _recommendationsPanelRestoreGeneration++;
+    _recommendationsTabRestoreGeneration++;
     _dayJumpToken = null;
     _creditReaderNow();
     // Nothing can move this topic's anchor once its viewport is gone, so a
@@ -233,11 +241,13 @@ class _TopicViewState extends State<TopicView> {
     super.dispose();
   }
 
-  void _syncRecommendationsPanelSite(String siteUrl) {
-    if (_recommendationsPanelSiteUrl == siteUrl) return;
-    _recommendationsPanelSiteUrl = siteUrl;
+  void _syncRecommendationsSite(String siteUrl) {
+    if (_recommendationsSiteUrl == siteUrl) return;
+    _recommendationsSiteUrl = siteUrl;
     _recommendationsPanelCollapsed = false;
+    _recommendationsTab = TopicRecommendationsTab.suggested;
     unawaited(_restoreRecommendationsPanel(siteUrl));
+    unawaited(_restoreRecommendationsTab(siteUrl));
   }
 
   Future<void> _restoreRecommendationsPanel(String siteUrl) async {
@@ -247,7 +257,7 @@ class _TopicViewState extends State<TopicView> {
     );
     if (!mounted ||
         generation != _recommendationsPanelRestoreGeneration ||
-        _recommendationsPanelSiteUrl != siteUrl) {
+        _recommendationsSiteUrl != siteUrl) {
       return;
     }
     if (collapsed != _recommendationsPanelCollapsed) {
@@ -255,8 +265,21 @@ class _TopicViewState extends State<TopicView> {
     }
   }
 
+  Future<void> _restoreRecommendationsTab(String siteUrl) async {
+    final generation = ++_recommendationsTabRestoreGeneration;
+    final tab = await widget.recommendationsTabStore.read(siteUrl: siteUrl);
+    if (!mounted ||
+        generation != _recommendationsTabRestoreGeneration ||
+        _recommendationsSiteUrl != siteUrl) {
+      return;
+    }
+    if (tab != _recommendationsTab) {
+      setState(() => _recommendationsTab = tab);
+    }
+  }
+
   void _setRecommendationsPanelCollapsed(bool collapsed) {
-    final siteUrl = _recommendationsPanelSiteUrl;
+    final siteUrl = _recommendationsSiteUrl;
     if (siteUrl == null || collapsed == _recommendationsPanelCollapsed) return;
     _recommendationsPanelRestoreGeneration++;
     setState(() => _recommendationsPanelCollapsed = collapsed);
@@ -266,6 +289,14 @@ class _TopicViewState extends State<TopicView> {
         collapsed: collapsed,
       ),
     );
+  }
+
+  void _setRecommendationsTab(TopicRecommendationsTab tab) {
+    final siteUrl = _recommendationsSiteUrl;
+    if (siteUrl == null || tab == _recommendationsTab) return;
+    _recommendationsTabRestoreGeneration++;
+    setState(() => _recommendationsTab = tab);
+    unawaited(widget.recommendationsTabStore.write(siteUrl: siteUrl, tab: tab));
   }
 
   /// Measures the viewport after layout. This also covers short topics that
@@ -836,7 +867,7 @@ class _TopicViewState extends State<TopicView> {
     // one tile rather than walking the whole stream.
     final postIds = snapshot.postIds;
     final siteUrl = snapshot.siteUrl!;
-    _syncRecommendationsPanelSite(siteUrl);
+    _syncRecommendationsSite(siteUrl);
     final topicIdentity = (siteUrl, snapshot.topicId!);
     _syncControllers(controller, topicIdentity);
     final dayStarts = _dayStarts(controller, siteUrl, postIds);
@@ -938,6 +969,8 @@ class _TopicViewState extends State<TopicView> {
             return _MoreTopics(
               key: ValueKey((siteUrl, snapshot.topicId, 'more-topics')),
               recommendations: snapshot.recommendations!,
+              selected: _recommendationsTab,
+              onSelected: _setRecommendationsTab,
             );
           }
 
@@ -991,6 +1024,8 @@ class _TopicViewState extends State<TopicView> {
           _TopicRecommendationsPanel(
             collapsed: _recommendationsPanelCollapsed,
             recommendations: snapshot.recommendations!,
+            selected: _recommendationsTab,
+            onSelected: _setRecommendationsTab,
             onCollapsedChanged: _setRecommendationsPanelCollapsed,
           ),
       ],
@@ -1227,12 +1262,12 @@ class _TopicViewSnapshot {
   );
 }
 
-enum _MoreTopicsTab { suggested, related }
-
 class _TopicRecommendationsPanel extends StatelessWidget {
   const _TopicRecommendationsPanel({
     required this.collapsed,
     required this.recommendations,
+    required this.selected,
+    required this.onSelected,
     required this.onCollapsedChanged,
   });
 
@@ -1241,6 +1276,8 @@ class _TopicRecommendationsPanel extends StatelessWidget {
 
   final bool collapsed;
   final TopicRecommendations recommendations;
+  final TopicRecommendationsTab selected;
+  final ValueChanged<TopicRecommendationsTab> onSelected;
   final ValueChanged<bool> onCollapsedChanged;
 
   @override
@@ -1292,6 +1329,8 @@ class _TopicRecommendationsPanel extends StatelessWidget {
                     child: _MoreTopics(
                       key: const ValueKey('topic-recommendations-panel-list'),
                       recommendations: recommendations,
+                      selected: selected,
+                      onSelected: onSelected,
                     ),
                   ),
                 ),
@@ -1303,38 +1342,44 @@ class _TopicRecommendationsPanel extends StatelessWidget {
 
 /// Core's more-topics footer. Suggested topics are always a core feature;
 /// related topics appear when discourse-ai's semantic recommendations are on.
-class _MoreTopics extends StatefulWidget {
-  const _MoreTopics({super.key, required this.recommendations});
+///
+/// The reader's tab choice is remembered per forum, so it is owned by the
+/// topic view rather than by this widget, which a new topic rebuilds.
+class _MoreTopics extends StatelessWidget {
+  const _MoreTopics({
+    super.key,
+    required this.recommendations,
+    required this.selected,
+    required this.onSelected,
+  });
 
   final TopicRecommendations recommendations;
+  final TopicRecommendationsTab selected;
+  final ValueChanged<TopicRecommendationsTab> onSelected;
 
-  @override
-  State<_MoreTopics> createState() => _MoreTopicsState();
-}
-
-class _MoreTopicsState extends State<_MoreTopics> {
-  _MoreTopicsTab _selected = _MoreTopicsTab.suggested;
-
-  _MoreTopicsTab get _effectiveSelection {
-    if (_selected == _MoreTopicsTab.suggested &&
-        widget.recommendations.suggested.isNotEmpty) {
-      return _MoreTopicsTab.suggested;
+  /// The remembered choice only holds while that list has topics; a forum
+  /// without discourse-ai, or a topic with no semantic matches, falls back to
+  /// whichever list is there rather than showing an empty tab.
+  TopicRecommendationsTab get _effectiveSelection {
+    if (selected == TopicRecommendationsTab.suggested &&
+        recommendations.suggested.isNotEmpty) {
+      return TopicRecommendationsTab.suggested;
     }
-    if (widget.recommendations.related.isNotEmpty) {
-      return _MoreTopicsTab.related;
+    if (recommendations.related.isNotEmpty) {
+      return TopicRecommendationsTab.related;
     }
-    return _MoreTopicsTab.suggested;
+    return TopicRecommendationsTab.suggested;
   }
 
   @override
   Widget build(BuildContext context) {
-    final suggested = widget.recommendations.suggested.isNotEmpty;
-    final related = widget.recommendations.related.isNotEmpty;
+    final suggested = recommendations.suggested.isNotEmpty;
+    final related = recommendations.related.isNotEmpty;
     final hasTabs = suggested && related;
     final selection = _effectiveSelection;
     final topics = switch (selection) {
-      _MoreTopicsTab.suggested => widget.recommendations.suggested,
-      _MoreTopicsTab.related => widget.recommendations.related,
+      TopicRecommendationsTab.suggested => recommendations.suggested,
+      TopicRecommendationsTab.related => recommendations.related,
     };
     final theme = Theme.of(context);
 
@@ -1354,9 +1399,9 @@ class _MoreTopicsState extends State<_MoreTopics> {
                     child: _MoreTopicsTabButton(
                       key: const ValueKey('suggested-topics-tab'),
                       label: 'Suggested',
-                      selected: selection == _MoreTopicsTab.suggested,
+                      selected: selection == TopicRecommendationsTab.suggested,
                       onPressed: () =>
-                          setState(() => _selected = _MoreTopicsTab.suggested),
+                          onSelected(TopicRecommendationsTab.suggested),
                     ),
                   ),
                   Expanded(
@@ -1364,9 +1409,9 @@ class _MoreTopicsState extends State<_MoreTopics> {
                       key: const ValueKey('related-topics-tab'),
                       label: 'Related',
                       icon: DIcons.discourseSparkles,
-                      selected: selection == _MoreTopicsTab.related,
+                      selected: selection == TopicRecommendationsTab.related,
                       onPressed: () =>
-                          setState(() => _selected = _MoreTopicsTab.related),
+                          onSelected(TopicRecommendationsTab.related),
                     ),
                   ),
                 ],
