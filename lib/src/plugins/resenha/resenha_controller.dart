@@ -2551,7 +2551,16 @@ final class ResenhaController extends ChangeNotifier {
           ResenhaCallStatus.reconnecting,
         ResenhaMediaConnectionState.failed => ResenhaCallStatus.failed,
       };
-      if (status != call.status && call.status != ResenhaCallStatus.leaving) {
+      // Only a call that has already settled takes its status from the media
+      // layer. A join reaches `connected` at the end of its own sequence —
+      // after the state sync, the saved devices and the platform call — and
+      // the transports notify from inside `connect()`, so letting media
+      // promote a `joining` call would announce the call before any of that
+      // ran and would lift the guard that keeps a roster published before
+      // join.json committed from tearing the call down.
+      if (status != call.status &&
+          call.status != ResenhaCallStatus.leaving &&
+          call.status != ResenhaCallStatus.joining) {
         _record(
           'call.status_changed',
           correlationId: _correlationFor(call),
