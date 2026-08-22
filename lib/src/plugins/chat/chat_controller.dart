@@ -339,6 +339,10 @@ class ChatController extends FrameSafeNotifier {
   /// would be a dead end for the life of the session.
   static const int maxChannelAttempts = 3;
 
+  /// Where a message with no wire date sorts: before every message that has
+  /// one, and among its own kind by id.
+  static final DateTime _wireEpoch = DateTime.fromMillisecondsSinceEpoch(0);
+
   /// Facts about requests rather than about records, which is why they are here
   /// and not in the [Store]: a channel that has never been fetched has nowhere
   /// to hold them.
@@ -2081,7 +2085,7 @@ class ChatController extends FrameSafeNotifier {
     _setStream(
       key,
       window.copyWith(
-        messageIds: _sortedIds(siteUrl, [message], held: window.messageIds),
+        messageIds: _admitLiveId(siteUrl, message, window.messageIds),
         localMessageIds: _retireCanonicalLocals(siteUrl, window, [message]),
         clearError: true,
       ),
@@ -3882,21 +3886,24 @@ class ChatController extends FrameSafeNotifier {
     notifySafely();
   }
 
-  /// Union by id, ordered by `(createdAt, id)`.
+  /// The order chat ids are held in, for one pair.
   ///
-  /// Deduping by id and not by identity, because the same message arrives twice
-  /// whenever a page overlaps a boundary; the store has already merged the two
-  /// copies into one record, and the list must not name it twice or the row is
-  /// built twice.
-  ///
-  /// The tiebreak is load-bearing rather than tidy. `created_at` is serialised
-  /// as iso8601, so two messages written in the same second carry equal dates
-  /// on the wire; Dart's sort is unstable, so a date-only comparator lets those
-  /// two swap places every time a page is merged and the list visibly
-  /// reshuffles under the reader. The merge also has to be idempotent — folding
-  /// a page that overlaps one already held must give the identical list — and a
-  /// comparator that can return zero cannot promise that. `(created_at, id)` is
-  /// the site's own `ORDER BY`.
+  /// `(created_at, id)` is the site's own `ORDER BY`, and the tiebreak is
+  /// load-bearing rather than tidy: `created_at` is serialised as iso8601, so
+  /// two messages written in the same second carry equal dates on the wire.
+  bool _sortsAfter(
+    ChatMessage message, {
+    required DateTime at,
+    required int id,
+  }) => switch ((message.createdAt ?? _wireEpoch).compareTo(at)) {
+    > 0 => true,
+    0 => message.id > id,
+    _ => false,
+  };
+
+  DateTime _sortDateOf(String siteUrl, int messageId) =>
+      store.read<ChatMessage>(siteUrl, messageId)?.createdAt ?? _wireEpoch;
+
   /// The parked live records that belong at the live edge of [ids].
   ///
   /// Pending ids are messages published while the window could not append
@@ -3917,23 +3924,52 @@ class ChatController extends FrameSafeNotifier {
         for (final id in pendingIds) ?store.read<ChatMessage>(siteUrl, id),
       ];
     }
-    final newestAt =
-        store.read<ChatMessage>(siteUrl, newestId)?.createdAt ??
-        DateTime.fromMillisecondsSinceEpoch(0);
+    final newestAt = _sortDateOf(siteUrl, newestId);
     return [
       for (final id in pendingIds)
         if (store.read<ChatMessage>(siteUrl, id) case final message?)
-          if (switch ((message.createdAt ??
-                  DateTime.fromMillisecondsSinceEpoch(0))
-              .compareTo(newestAt)) {
-            > 0 => true,
-            0 => message.id > newestId,
-            _ => false,
-          })
-            message,
+          if (_sortsAfter(message, at: newestAt, id: newestId)) message,
     ];
   }
 
+  /// Where a live arrival joins a window that already claims the present.
+  ///
+  /// Deriving that position means re-reading and re-sorting every message the
+  /// reader has paged back through, which is what [_mergePageIds] exists to
+  /// avoid — and here it is wasted work as well, because a message published
+  /// to a window at the live edge sorts after everything already in it. Only a
+  /// sender whose clock disagrees can land elsewhere: Discourse adopts
+  /// `client_created_at` when it is reasonable. That case still gets the full
+  /// derivation.
+  ///
+  /// The caller has already established that [message] is not held, so this
+  /// does not have to dedupe the way [_sortedIds] does.
+  List<int> _admitLiveId(String siteUrl, ChatMessage message, List<int> held) {
+    final newestId = held.lastOrNull;
+    if (newestId != null &&
+        !_sortsAfter(
+          message,
+          at: _sortDateOf(siteUrl, newestId),
+          id: newestId,
+        )) {
+      return _sortedIds(siteUrl, [message], held: held);
+    }
+    return List.unmodifiable([...held, message.id]);
+  }
+
+  /// Union by id, ordered by `(createdAt, id)`.
+  ///
+  /// Deduping by id and not by identity, because the same message arrives twice
+  /// whenever a page overlaps a boundary; the store has already merged the two
+  /// copies into one record, and the list must not name it twice or the row is
+  /// built twice.
+  ///
+  /// Dart's sort is unstable, so a date-only comparator lets two messages
+  /// carrying the same wire second swap places every time a page is merged and
+  /// the list visibly reshuffles under the reader. The merge also has to be
+  /// idempotent — folding a page that overlaps one already held must give the
+  /// identical list — and a comparator that can return zero cannot promise
+  /// that. Hence the [_sortsAfter] tiebreak.
   List<int> _sortedIds(
     String siteUrl,
     Iterable<ChatMessage> arrived, {
@@ -3942,9 +3978,9 @@ class ChatController extends FrameSafeNotifier {
     final dates = <int, DateTime>{
       for (final id in held)
         if (store.read<ChatMessage>(siteUrl, id) case final message?)
-          id: message.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+          id: message.createdAt ?? _wireEpoch,
       for (final message in arrived)
-        message.id: message.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+        message.id: message.createdAt ?? _wireEpoch,
     };
 
     return dates.keys.toList()..sort((a, b) {
@@ -3968,8 +4004,7 @@ class ChatController extends FrameSafeNotifier {
     final dates = <int, DateTime>{
       for (final message in arrived)
         if (!heldIds.contains(message.id))
-          message.id:
-              message.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+          message.id: message.createdAt ?? _wireEpoch,
     };
     final fresh = dates.keys.toList()
       ..sort((a, b) {

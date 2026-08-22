@@ -2660,6 +2660,38 @@ void main() {
       expect(subject.chat.stream(site, 9).atPresent, isTrue);
     });
 
+    test(
+      'a live message dated behind the window still sorts into it',
+      () async {
+        final subject = build(
+          messages: {
+            key(9): page([message(5, minute: 5), message(8, minute: 8)]),
+          },
+        );
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        // Discourse adopts the sender's own `client_created_at` when it is
+        // reasonable, so a message published now can carry a date behind the
+        // newest one held. Appending it would put the window out of the order
+        // every other merge keeps it in.
+        tracker.deliverPluginMessage('/chat/9', {
+          'type': 'sent',
+          'chat_message': {
+            'id': 6,
+            'chat_channel_id': 9,
+            'cooked': '<p>6</p>',
+            'created_at': '2026-05-05T10:06:00.000Z',
+            'user': {'id': 2, 'username': 'sam'},
+          },
+        });
+
+        expect(subject.chat.stream(site, 9).messageIds, [5, 6, 8]);
+      },
+    );
+
     test('a sent event outrunning the seam-closing page still lands', () async {
       final subject = anchored(
         extra: {
