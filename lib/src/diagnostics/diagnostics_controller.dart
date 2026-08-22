@@ -974,7 +974,17 @@ final class DiagnosticsController
 
   void _putEvent(DiagnosticEvent event) {
     final existing = _byId[event.id];
-    if (existing != null) _removeEventAt(_indexOf(existing.event));
+    if (existing != null) {
+      final index = _indexOf(existing.event);
+      // The index and the list are written together, so the row is always
+      // there. Diagnostics still must not be the thing that throws: recording
+      // an event is on the path of whatever it is observing.
+      if (index >= 0) {
+        _removeEventAt(index);
+      } else {
+        _forget(existing.event);
+      }
+    }
     final bytes = diagnosticEventSerializedBytes(event);
     _events.insert(_insertionIndexFor(event.sequence), event);
     _byId[event.id] = (event: event, bytes: bytes);
@@ -1037,6 +1047,11 @@ final class DiagnosticsController
       // later and recreate itself after TTL/count/size eviction.
       _httpGenerations.remove(removed.id);
     }
+    _forget(removed);
+  }
+
+  /// Drops everything [_events] is indexed by for one event.
+  void _forget(DiagnosticEvent removed) {
     final retained = _byId.remove(removed.id);
     if (retained != null) _totalEventBytes -= retained.bytes;
     if (removed.isError && removed.sequence > _lastSeenSequence) {

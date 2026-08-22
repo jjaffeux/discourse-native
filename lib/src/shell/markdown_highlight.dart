@@ -704,6 +704,9 @@ class _Scan {
   /// The first place at or after [from] where [delimiter] could close a mark:
   /// preceded by a non-space, and for the word-bounded rule not followed by a
   /// word character.
+  ///
+  /// [from] is past an opener and its one character of content, so it is never
+  /// zero and the preceding character is always there to read.
   static int _nextCloser(
     String text,
     String delimiter,
@@ -716,7 +719,6 @@ class _Scan {
       at >= 0;
       at = text.indexOf(delimiter, at + 1)
     ) {
-      if (at + width > text.length) return -1;
       if (_isWhitespace(text.codeUnitAt(at - 1))) continue;
       if (wordBounded &&
           at + width < text.length &&
