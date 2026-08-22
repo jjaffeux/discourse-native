@@ -91,6 +91,20 @@ const List<String> samples = [
   '*over\ntwo lines*',
   '*open\n\nclosed*',
   '*open\n```\ncode\n```\nclosed*',
+  '* not italic *',
+  '*a*b*c*',
+  '**a**b**c**',
+  '_a_b_c_',
+  'a_b_c',
+  '_a\u{00a0}b_',
+  '~~a~~~~b~~',
+  '***a**b*',
+  '**',
+  '__',
+  '_ x _',
+  'x*y*z',
+  '<kbd>Esc\n\nlater</kbd>',
+  '<kbd>a\n```\ncode\n```\nb</kbd>',
 ];
 
 void main() {
@@ -141,6 +155,29 @@ void main() {
 
     test('leaves an unterminated marker as text', () {
       expect(annotate('**unterminated'), '**unterminated');
+    });
+
+    test('needs something other than space against each marker', () {
+      expect(annotate('* not italic *'), '* not italic *');
+      expect(annotate('_ x _'), '_ x _');
+      expect(annotate('~~ x ~~'), '~~ x ~~');
+      // A no-break space is space to the scanner, as it is to a regexp.
+      expect(annotate('*\u{00a0}x\u{00a0}*'), '*\u{00a0}x\u{00a0}*');
+    });
+
+    test('pairs markers left to right and shortest first', () {
+      expect(
+        annotate('*a*b*c*'),
+        '<m>*</><i>a</><m>*</>b<m>*</><i>c</><m>*</>',
+      );
+    });
+
+    test('needs a word boundary either side of an underscore pair', () {
+      // Only the outer pair has a boundary on the far side of it, so the
+      // inner underscores are ordinary characters inside the emphasis.
+      expect(annotate('_a_b_c_'), '<m>_</><i>a_b_c</><m>_</>');
+      expect(annotate('x_y_z'), 'x_y_z');
+      expect(annotate('_a_ b'), '<m>_</><i>a</><m>_</> b');
     });
 
     test('lets a mark wrap a line break inside its paragraph', () {
@@ -474,6 +511,17 @@ void main() {
         '<mark>look <kbd>here</kbd></mark>',
       ).where((run) => run.has(Md.htmlTag)).map((run) => run.detail).toSet();
       expect(tags, containsAll(<String>['mark', 'mark,kbd']));
+    });
+
+    test('does not reach across a paragraph break for its closing tag', () {
+      expect(annotate('<kbd>Esc\n\nlater</kbd>'), '<kbd>Esc\n\nlater</kbd>');
+    });
+
+    test('does not wrap a fenced block', () {
+      expect(
+        annotate('<kbd>a\n```\ncode\n```\nb</kbd>'),
+        '<kbd>a\n<m>```</>\n<block>code\n</><m>```</>\nb</kbd>',
+      );
     });
   });
 
