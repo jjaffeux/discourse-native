@@ -3218,6 +3218,11 @@ class ShellController extends FrameSafeNotifier {
       term: term,
       categoryId: composer.categoryId,
       selectedTagIds: composer.tags.map((tag) => tag.id).whereType<int>(),
+      // Core rejects a page larger than the site's own setting outright, so
+      // the site sets this and the client only caps what it will render.
+      limit: siteConfigFor(
+        target.siteUrl,
+      ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
     );
   }
 

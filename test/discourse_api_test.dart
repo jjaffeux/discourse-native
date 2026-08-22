@@ -2133,6 +2133,10 @@ void _feedGroups() {
       expect(sent.path, '/tags/filter/search.json');
       expect(sent.queryParameters['categoryId'], '4');
       expect(sent.queryParametersAll['selected_tag_ids[]'], ['2', '3']);
+      // Core validates `limit` against `max_tag_search_results` and answers
+      // 400 above it, so an unsupplied limit has to be core's own default —
+      // 5 — and not this client's autocomplete ceiling.
+      expect(sent.queryParameters['limit'], '5');
       expect(
         result.results.single.disabledReason,
         'Not allowed in this category',

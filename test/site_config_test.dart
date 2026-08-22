@@ -21,6 +21,7 @@ Map<String, dynamic> settings({
   int? minSearchTermLength,
   bool? logSearchQueries,
   bool? taggingEnabled,
+  int? maxTagSearchResults,
   bool? usePgHeadlinesForExcerpt,
   bool? fixedCategoryPositions,
   bool? allowUncategorizedTopics,
@@ -53,6 +54,7 @@ Map<String, dynamic> settings({
   'min_search_term_length': ?minSearchTermLength,
   'log_search_queries': ?logSearchQueries,
   'tagging_enabled': ?taggingEnabled,
+  'max_tag_search_results': ?maxTagSearchResults,
   'use_pg_headlines_for_excerpt': ?usePgHeadlinesForExcerpt,
   'fixed_category_positions': ?fixedCategoryPositions,
   'allow_uncategorized_topics': ?allowUncategorizedTopics,
@@ -100,6 +102,7 @@ void main() {
       expect(unknown.minSearchTermLength, 3);
       expect(unknown.logSearchQueries, isTrue);
       expect(unknown.taggingEnabled, isTrue);
+      expect(unknown.maxTagSearchResults, 5);
       expect(unknown.usePgHeadlinesForExcerpt, isFalse);
       expect(unknown.gifsEnabled, isFalse);
       expect(unknown.gifFileDetail, SiteConfig.defaultGifFileDetail);
@@ -134,6 +137,24 @@ void main() {
       expect(config.logSearchQueries, isFalse);
       expect(config.taggingEnabled, isFalse);
       expect(config.usePgHeadlinesForExcerpt, isTrue);
+    });
+
+    test('reads the tag search page the site will accept', () {
+      // Core validates the composer's `limit` against this setting and answers
+      // 400 above it, so a wrong value here is a broken tag picker rather than
+      // a longer list.
+      expect(
+        SiteConfig.fromSettings(
+          settings(maxTagSearchResults: 30),
+        ).maxTagSearchResults,
+        30,
+      );
+      expect(
+        SiteConfig.fromSettings(
+          settings(maxTagSearchResults: 0),
+        ).maxTagSearchResults,
+        SiteConfig.defaultMaxTagSearchResults,
+      );
     });
 
     test('reads category navigation ordering and anonymous defaults', () {
@@ -452,6 +473,7 @@ void main() {
         minSearchTermLength: 5,
         logSearchQueries: false,
         taggingEnabled: false,
+        maxTagSearchResults: 30,
         usePgHeadlinesForExcerpt: true,
         fixedCategoryPositions: true,
         allowUncategorizedTopics: true,

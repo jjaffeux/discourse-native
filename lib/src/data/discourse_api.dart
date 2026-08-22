@@ -1611,13 +1611,18 @@ class DiscourseApi
   }
 
   /// Tags available for the selected category in the topic composer.
+  ///
+  /// [limit] is not a local display cap: core validates it against the site's
+  /// `max_tag_search_results` and answers 400 for anything larger, so callers
+  /// pass that setting through. Its default is core's own, not this client's
+  /// autocomplete ceiling, so an unaware caller cannot be rejected.
   Future<TopicTagSearch> searchTopicTags({
     required String siteUrl,
     required String apiKey,
     required String term,
     int? categoryId,
     Iterable<int> selectedTagIds = const [],
-    int limit = 20,
+    int limit = SiteConfig.defaultMaxTagSearchResults,
     String? clientId,
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
