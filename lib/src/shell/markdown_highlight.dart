@@ -204,6 +204,142 @@ final class CodeRanges {
   }
 }
 
+/// The stretches of [source] an inline construct may live inside.
+///
+/// A mark cannot span a paragraph break — an unclosed `*` at the end of one
+/// paragraph would otherwise reach forward and italicise everything down to
+/// the next asterisk anywhere in the post — and it cannot span anything named
+/// in [excluding], which is how a fence is kept out: a fence ends the
+/// paragraph around it, and it is the one construct that routinely holds
+/// thousands of characters with no blank line in them.
+///
+/// Every boundary falls on a newline or an end of [source], so a rule about
+/// the character outside a delimiter reads the same one it would have read had
+/// the whole document been a single block.
+List<({int offset, String text})> markdownBlocks(
+  String source, {
+  Iterable<(int, int)> excluding = const [],
+}) {
+  final breaks = <(int, int)>[
+    ...excluding,
+    for (final match in _paragraphBreakPattern.allMatches(source))
+      (match.start, match.end),
+  ]..sort((left, right) => left.$1.compareTo(right.$1));
+
+  final blocks = <({int offset, String text})>[];
+  void add(int start, int end) {
+    blocks.add((offset: start, text: source.substring(start, end)));
+  }
+
+  var start = 0;
+  for (final (breakStart, breakEnd) in breaks) {
+    if (breakStart > start) add(start, breakStart);
+    if (breakEnd > start) start = breakEnd;
+  }
+  if (start < source.length) add(start, source.length);
+  return blocks;
+}
+
+final RegExp _paragraphBreakPattern = RegExp(r'\n\s*\n');
+
+/// Where [delimiter] pairs up inside [text], leftmost and shortest first.
+///
+/// Markdown's emphasis rules: a non-space against the inside of each
+/// delimiter, at least one character between them, and — with [wordBounded],
+/// which is the underscore's — a word boundary on the outside of each, so that
+/// `snake_case_name` stays a name.
+///
+/// A scan rather than `allMatches` of a lazy pattern, because the two disagree
+/// about what an unclosed delimiter costs. The pattern has to walk to the end
+/// of [text] before it can report that an opener has no closer, and has to do
+/// it again for the next opener, and the one after that. This knows something
+/// the engine cannot: the closers after a later opener are a subset of the
+/// closers after an earlier one, so the first opener to run out of them is the
+/// last one worth trying. On a block with no blank line in it — which is what
+/// a pasted stack trace is — that is linear against quadratic.
+Iterable<(int, int)> markdownPairs(
+  String text,
+  String delimiter, {
+  bool wordBounded = false,
+}) sync* {
+  final width = delimiter.length;
+  var cursor = 0;
+  while (cursor + width * 2 < text.length) {
+    final open = _nextOpener(text, delimiter, cursor, wordBounded);
+    if (open < 0) return;
+    final close = _nextCloser(text, delimiter, open + width + 1, wordBounded);
+    if (close < 0) return;
+    cursor = close + width;
+    yield (open, cursor);
+  }
+}
+
+/// The first place at or after [from] where [delimiter] could open a mark:
+/// followed by a non-space, and for the word-bounded rule not preceded by a
+/// word character.
+int _nextOpener(String text, String delimiter, int from, bool wordBounded) {
+  final width = delimiter.length;
+  for (
+    var at = text.indexOf(delimiter, from);
+    at >= 0;
+    at = text.indexOf(delimiter, at + 1)
+  ) {
+    if (at + width >= text.length) return -1;
+    if (_isWhitespace(text.codeUnitAt(at + width))) continue;
+    if (wordBounded && at > 0 && _isWordCharacter(text.codeUnitAt(at - 1))) {
+      continue;
+    }
+    return at;
+  }
+  return -1;
+}
+
+/// The first place at or after [from] where [delimiter] could close a mark:
+/// preceded by a non-space, and for the word-bounded rule not followed by a
+/// word character.
+///
+/// [from] is past an opener and its one character of content, so it is never
+/// zero and the preceding character is always there to read.
+int _nextCloser(String text, String delimiter, int from, bool wordBounded) {
+  final width = delimiter.length;
+  for (
+    var at = text.indexOf(delimiter, from);
+    at >= 0;
+    at = text.indexOf(delimiter, at + 1)
+  ) {
+    if (_isWhitespace(text.codeUnitAt(at - 1))) continue;
+    if (wordBounded &&
+        at + width < text.length &&
+        _isWordCharacter(text.codeUnitAt(at + width))) {
+      continue;
+    }
+    return at;
+  }
+  return -1;
+}
+
+/// `\s` as Dart's regexps read it, so the scan agrees with the passes that are
+/// still written as patterns.
+bool _isWhitespace(int unit) =>
+    unit == 0x20 ||
+    (unit >= 0x09 && unit <= 0x0D) ||
+    unit == 0xA0 ||
+    unit == 0x1680 ||
+    (unit >= 0x2000 && unit <= 0x200A) ||
+    unit == 0x2028 ||
+    unit == 0x2029 ||
+    unit == 0x202F ||
+    unit == 0x205F ||
+    unit == 0x3000 ||
+    unit == 0xFEFF;
+
+/// `[\w_]`, which is `\w`: the underscore is already in it.
+bool _isWordCharacter(int unit) =>
+    (unit >= 0x30 && unit <= 0x39) ||
+    (unit >= 0x41 && unit <= 0x5A) ||
+    (unit >= 0x61 && unit <= 0x7A) ||
+    unit == 0x5F;
+
 /// Reads [source] and reports how to draw it.
 ///
 /// Pure, so the fiddly part — what counts as a marker and what is just an
@@ -587,53 +723,10 @@ class _Scan {
     _pairs('_', Md.italic, blocks, wordBounded: true);
   }
 
-  static final RegExp _paragraphBreakPattern = RegExp(r'\n\s*\n');
+  List<({int offset, String text})> _blocks() =>
+      markdownBlocks(source, excluding: _fences);
 
-  /// The ranges an inline construct may live inside: a paragraph, minus any
-  /// fence in it.
-  ///
-  /// A mark cannot span a paragraph break — an unclosed `*` at the end of one
-  /// paragraph would otherwise reach forward and italicise everything down to
-  /// the next asterisk anywhere in the post — and it cannot span a fence,
-  /// which ends the paragraph around it. Both are the same rule about where a
-  /// block ends, so both are expressed here, once, as where [_pairs] looks.
-  ///
-  /// Every boundary falls on a newline or an end of the source, so the
-  /// word-boundary rules read the same character they would have read had the
-  /// whole document been one block.
-  List<({int offset, String text})> _blocks() {
-    final breaks = <(int, int)>[
-      ..._fences,
-      for (final match in _paragraphBreakPattern.allMatches(source))
-        (match.start, match.end),
-    ]..sort((left, right) => left.$1.compareTo(right.$1));
-
-    final blocks = <({int offset, String text})>[];
-    void add(int start, int end) {
-      blocks.add((offset: start, text: source.substring(start, end)));
-    }
-
-    var start = 0;
-    for (final (breakStart, breakEnd) in breaks) {
-      if (breakStart > start) add(start, breakStart);
-      if (breakEnd > start) start = breakEnd;
-    }
-    if (start < source.length) add(start, source.length);
-    return blocks;
-  }
-
-  /// Pairs up one delimiter across [blocks], leftmost and shortest first.
-  ///
-  /// Written as a scan rather than as `allMatches` of a lazy pattern because
-  /// the two disagree about what an unclosed delimiter costs. The pattern has
-  /// to walk to the end of the block before it can report that an opener has
-  /// no closer, and it has to do it again for the next opener, and the one
-  /// after that. A scan knows something the engine cannot: the closers after
-  /// a later opener are a subset of the closers after an earlier one, so once
-  /// an opener runs out of them the rest of the block has run out too.
-  ///
-  /// [wordBounded] is the underscore rule — `snake_case_name` is a name, not
-  /// three words with emphasis between them.
+  /// Applies one delimiter's pairs across [blocks].
   void _pairs(
     String delimiter,
     int flag,
@@ -642,22 +735,13 @@ class _Scan {
   }) {
     final width = delimiter.length;
     for (final block in blocks) {
-      final text = block.text;
-      var cursor = 0;
-      while (cursor + width * 2 < text.length) {
-        final open = _nextOpener(text, delimiter, cursor, wordBounded);
-        if (open < 0) break;
-        final close = _nextCloser(
-          text,
-          delimiter,
-          open + width + 1,
-          wordBounded,
-        );
-        if (close < 0) break;
-
+      for (final (open, close) in markdownPairs(
+        block.text,
+        delimiter,
+        wordBounded: wordBounded,
+      )) {
         final start = block.offset + open;
-        final end = block.offset + close + width;
-        cursor = close + width;
+        final end = block.offset + close;
         // Only the delimiters have to be unclaimed. The content may hold
         // anything — `**bold with `code` inside**` is bold all the way across,
         // and the backticks inside it were spoken for by an earlier pass. A
@@ -675,82 +759,6 @@ class _Scan {
       }
     }
   }
-
-  /// The first place at or after [from] where [delimiter] could open a mark:
-  /// followed by a non-space, and for the word-bounded rule not preceded by a
-  /// word character.
-  static int _nextOpener(
-    String text,
-    String delimiter,
-    int from,
-    bool wordBounded,
-  ) {
-    final width = delimiter.length;
-    for (
-      var at = text.indexOf(delimiter, from);
-      at >= 0;
-      at = text.indexOf(delimiter, at + 1)
-    ) {
-      if (at + width >= text.length) return -1;
-      if (_isWhitespace(text.codeUnitAt(at + width))) continue;
-      if (wordBounded && at > 0 && _isWordCharacter(text.codeUnitAt(at - 1))) {
-        continue;
-      }
-      return at;
-    }
-    return -1;
-  }
-
-  /// The first place at or after [from] where [delimiter] could close a mark:
-  /// preceded by a non-space, and for the word-bounded rule not followed by a
-  /// word character.
-  ///
-  /// [from] is past an opener and its one character of content, so it is never
-  /// zero and the preceding character is always there to read.
-  static int _nextCloser(
-    String text,
-    String delimiter,
-    int from,
-    bool wordBounded,
-  ) {
-    final width = delimiter.length;
-    for (
-      var at = text.indexOf(delimiter, from);
-      at >= 0;
-      at = text.indexOf(delimiter, at + 1)
-    ) {
-      if (_isWhitespace(text.codeUnitAt(at - 1))) continue;
-      if (wordBounded &&
-          at + width < text.length &&
-          _isWordCharacter(text.codeUnitAt(at + width))) {
-        continue;
-      }
-      return at;
-    }
-    return -1;
-  }
-
-  /// `\s` as Dart's regexps read it, so the scan agrees with the passes that
-  /// are still written as patterns.
-  static bool _isWhitespace(int unit) =>
-      unit == 0x20 ||
-      (unit >= 0x09 && unit <= 0x0D) ||
-      unit == 0xA0 ||
-      unit == 0x1680 ||
-      (unit >= 0x2000 && unit <= 0x200A) ||
-      unit == 0x2028 ||
-      unit == 0x2029 ||
-      unit == 0x202F ||
-      unit == 0x205F ||
-      unit == 0x3000 ||
-      unit == 0xFEFF;
-
-  /// `[\w_]`, which is `\w`: the underscore is already in it.
-  static bool _isWordCharacter(int unit) =>
-      (unit >= 0x30 && unit <= 0x39) ||
-      (unit >= 0x41 && unit <= 0x5A) ||
-      (unit >= 0x61 && unit <= 0x7A) ||
-      unit == 0x5F;
 
   /// What may sit immediately before a sigil.
   ///

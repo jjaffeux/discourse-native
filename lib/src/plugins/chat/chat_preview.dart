@@ -416,45 +416,42 @@ String _replaceClaims(String source, List<ChatPreviewClaim> claims) {
 /// other stable spelling of strong emphasis, without changing source offsets.
 String _normalizeChatDialect(String source) {
   final codeRanges = CodeRanges.of(scanMarkdown(source));
-  var normalized = _replaceUnderscorePair(
-    source,
-    _tripleUnderscore,
-    3,
-    codeRanges,
-  );
-  normalized = _replaceUnderscorePair(
-    normalized,
-    _doubleUnderscore,
-    2,
-    codeRanges,
-  );
-  return normalized;
+  final tripled = _replaceUnderscorePair(source, '___', codeRanges);
+  return _replaceUnderscorePair(tripled, '__', codeRanges);
 }
 
+/// Rewrites one underscore spelling into the asterisk one the scanner paints,
+/// character for character, so [excluded] and every offset around it still
+/// describe the same places.
+///
+/// The pairing is [markdownPairs] rather than a lazy pattern for the reason
+/// given there: chat takes twenty thousand characters, and a paste of code
+/// with dunder names that do not pair made every one of them walk the rest of
+/// the message.
 String _replaceUnderscorePair(
   String source,
-  RegExp pattern,
-  int width,
+  String delimiter,
   CodeRanges excluded,
 ) {
+  final width = delimiter.length;
   final units = List<int>.of(source.codeUnits);
-  for (final match in pattern.allMatches(source)) {
-    if (excluded.overlaps(match.start, match.end)) continue;
-    for (var index = 0; index < width; index++) {
-      units[match.start + index] = 0x2A;
-      units[match.end - width + index] = 0x2A;
+  for (final block in markdownBlocks(source)) {
+    for (final (open, close) in markdownPairs(
+      block.text,
+      delimiter,
+      wordBounded: true,
+    )) {
+      final start = block.offset + open;
+      final end = block.offset + close;
+      if (excluded.overlaps(start, end)) continue;
+      for (var index = 0; index < width; index++) {
+        units[start + index] = 0x2A;
+        units[end - width + index] = 0x2A;
+      }
     }
   }
   return String.fromCharCodes(units);
 }
-
-const String _inlineWithin = r'(?:(?!\n\s*\n)[\s\S])*?';
-final RegExp _tripleUnderscore = RegExp(
-  '(?<![\\w_])___(?=\\S)($_inlineWithin\\S)___(?![\\w_])',
-);
-final RegExp _doubleUnderscore = RegExp(
-  '(?<![\\w_])__(?=\\S)($_inlineWithin\\S)__(?![\\w_])',
-);
 
 bool _hasUnsupportedSourceSyntax(
   String source,
