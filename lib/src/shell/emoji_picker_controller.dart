@@ -85,9 +85,15 @@ final class EmojiPickerController extends ChangeNotifier {
     final catalog = _catalog;
     if (catalog == null) return const [];
     final favorites = <FavoriteSiteEmoji>[];
+    // Deduped on the resolved code rather than the recorded one. History keeps
+    // `wave` and `wave:t5` apart, but an untoned entry is drawn in the tone
+    // that is current, so under t5 both become the same cell — twice over, and
+    // spending two of the row's slots on one emoji.
+    final drawn = <String>{};
     for (final code in _favoriteCodes) {
       final favorite = _favoriteWithCurrentTone(code, catalog);
-      if (favorite != null) favorites.add(favorite);
+      if (favorite == null || !drawn.add(favorite.code)) continue;
+      favorites.add(favorite);
     }
     return List.unmodifiable(favorites);
   }

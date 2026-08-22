@@ -137,6 +137,37 @@ void main() {
     expect(controller.tone, EmojiSkinTone.t5);
   });
 
+  test('a toned and untoned favorite draw as one cell', () async {
+    final store = EmojiPickerStore(persistence: _MemoryPersistence());
+    // What the picker records when the same emoji is chosen under two tones:
+    // the composer tracks the untoned name, the picker the toned one.
+    await store.trackEmoji(
+      siteUrl: _siteUrl,
+      context: EmojiPickerContext.topic,
+      emoji: 'wave',
+    );
+    await store.trackEmoji(
+      siteUrl: _siteUrl,
+      context: EmojiPickerContext.topic,
+      emoji: 'wave:t5',
+    );
+    await store.writeSkinTone(siteUrl: _siteUrl, tone: EmojiSkinTone.t5);
+    final controller = _controller(
+      store: store,
+      catalog: _catalog(const [
+        SiteEmoji(name: 'wave', url: 'wave.png', tonable: true),
+      ]),
+    );
+    addTearDown(controller.dispose);
+
+    await controller.load();
+
+    // The untoned entry is drawn in the current tone, so both resolve to the
+    // same artwork — two identical cells, each spending one of the row's
+    // twenty slots.
+    expect(controller.favorites.map((favorite) => favorite.code), ['wave:t5']);
+  });
+
   test('retry refreshes a failed catalog', () async {
     var calls = 0;
     final catalog = _catalog(const [SiteEmoji(name: 'wave', url: 'wave.png')]);
