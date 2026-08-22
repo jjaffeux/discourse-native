@@ -1015,6 +1015,47 @@ void main() {
     await media.dispose();
   });
 
+  test('deafening is remembered, not applied once', () async {
+    final meshJoin = _meshJoin(localUserId: 10, remoteUserId: 20);
+    final media = LiveKitResenhaMediaSession(
+      join: ResenhaJoinResponse(
+        transport: ResenhaTransport.livekit,
+        ice: meshJoin.ice,
+        room: meshJoin.room,
+        livekit: const ResenhaLiveKitCredentials(
+          url: 'wss://livekit.invalid',
+          token: 'not-used',
+        ),
+      ),
+      localUserId: 10,
+      audioPublishingAllowed: true,
+      refreshCredentials: () async =>
+          const ResenhaLiveKitCredentials(url: '', token: ''),
+      correlationId: 'livekit-call',
+    );
+
+    expect(media.deafened, isFalse);
+
+    // The room auto-subscribes, so unsubscribing the publications that happen
+    // to exist right now is not the same as refusing remote audio: anyone who
+    // joins, republishes, or returns through the reconnect ladder arrives
+    // audible unless the state outlives the call.
+    await media.setDeafened(true);
+    expect(media.deafened, isTrue);
+
+    await media.setDeafened(false);
+    expect(media.deafened, isFalse);
+
+    // The camera is remembered for the same reason: a disconnect drops every
+    // local publication, and only state that outlives it can republish.
+    expect(media.cameraEnabled, isFalse);
+    await media.setCameraEnabled(true);
+    expect(media.cameraEnabled, isTrue);
+    await media.setCameraEnabled(false);
+    expect(media.cameraEnabled, isFalse);
+    await media.dispose();
+  });
+
   test('records typed LiveKit room and reconnect events', () {
     final diagnostics = _DiagnosticsRecorder()..captureEnabled = true;
     final meshJoin = _meshJoin(localUserId: 10, remoteUserId: 20);
