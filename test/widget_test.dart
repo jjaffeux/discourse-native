@@ -3208,6 +3208,27 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('a long category name ellipsizes instead of overflowing', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': latest},
+        categoryList: [
+          TopicCategory(
+            id: 5,
+            name: 'Feature ${List.filled(30, 'requests-').join()}',
+            color: '0088CC',
+          ),
+        ],
+      );
+
+      await pumpShell(tester, phone, api: api);
+      await tester.tap(sidebarDestination('Topics'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('many topic tags stay inline and wrap from the row edge', (
       tester,
     ) async {
