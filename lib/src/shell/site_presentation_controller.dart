@@ -499,11 +499,13 @@ final class SitePresentationController extends FrameSafeNotifier {
     if (catalog == null) return const [];
 
     final needle = query.toLowerCase();
+    // Ranked insertion below decides the whole result from (rank, name), and
+    // names are unique in the catalog, so the answer does not depend on the
+    // order the catalog is walked in. Sorting a copy of every emoji the site
+    // has first only spent a keystroke's budget arriving back where it was.
     final best = <(int, SiteEmoji)>[];
-    final available = catalog.byName.values.toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
     final aliases = _emojiSearchAliases[siteUrl] ?? const {};
-    for (final emoji in available) {
+    for (final emoji in catalog.byName.values) {
       final name = emoji.name.toLowerCase();
       final rank = name.startsWith(needle)
           ? 0

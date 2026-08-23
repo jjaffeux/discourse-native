@@ -142,16 +142,33 @@ final class SiteEmojiCatalog {
       immutableGroups,
       all,
       Map<String, SiteEmoji>.unmodifiable(byName),
+      List<SiteEmoji>.unmodifiable(
+        byName.values.toList()..sort((a, b) => a.name.compareTo(b.name)),
+      ),
     );
   }
 
-  const SiteEmojiCatalog._(this.groups, this.all, this.byName);
+  const SiteEmojiCatalog._(
+    this.groups,
+    this.all,
+    this.byName,
+    this.alphabetical,
+  );
 
   static final empty = SiteEmojiCatalog(groups: const []);
 
   final List<SiteEmojiGroup> groups;
   final List<SiteEmoji> all;
   final Map<String, SiteEmoji> byName;
+
+  /// Every distinct emoji in name order.
+  ///
+  /// Picker search reads the whole site's artwork in this order on each
+  /// keystroke and the order never changes, so it is derived once here with
+  /// the catalog's other index rather than sorted again per query. Duplicate
+  /// names collapse exactly as [byName] collapses them, so a malformed second
+  /// row cannot displace the artwork the site listed first.
+  final List<SiteEmoji> alphabetical;
 
   bool get isEmpty => all.isEmpty;
   bool get isNotEmpty => all.isNotEmpty;

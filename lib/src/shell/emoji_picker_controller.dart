@@ -262,8 +262,7 @@ final class EmojiPickerController extends ChangeNotifier {
     String query,
     Map<String, List<String>> aliases,
   ) {
-    final alphabetical = [...catalog.all]
-      ..sort((left, right) => left.name.compareTo(right.name));
+    final alphabetical = catalog.alphabetical;
     final found = <String>{};
     final results = <SiteEmoji>[];
 
