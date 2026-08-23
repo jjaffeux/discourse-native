@@ -680,14 +680,15 @@ void main() {
       }
     });
 
-    test('a line of brackets costs its length, not its square', () {
+    test('a line of openers costs its length, not its square', () {
       // The other quadratic shape, and it needs no fence: one long line with
-      // many `[` on it. The link pattern's text class excludes `]`, so the
+      // many openers on it. The link pattern's text class excludes `]`, so the
       // closer is always the first one on the line, but the engine walked to
       // the end of the line at every bracket and gave the characters back one
-      // at a time looking for a `]` it had already ruled out. A minified array
-      // pasted on one line, or a log line that opens a bracket and never
-      // closes it, cost that walk per bracket.
+      // at a time looking for a `]` it had already ruled out. An inline tag's
+      // body is lazy with nothing to stop it and cost the same walk. A
+      // minified array pasted on one line, a log line that opens a bracket and
+      // never closes it, or a paste full of `<del>`, is that shape.
       int cost(String source) {
         var best = -1;
         for (var run = 0; run < 3; run += 1) {
@@ -701,7 +702,7 @@ void main() {
         return best;
       }
 
-      for (final unit in const ['[abc ', '[abc] ', '[abc](x) ']) {
+      for (final unit in const ['[abc ', '[abc] ', '[abc](x) ', '<kbd>x ']) {
         final small = cost(unit * 800);
         final large = cost(unit * 6400);
         expect(

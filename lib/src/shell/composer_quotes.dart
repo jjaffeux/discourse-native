@@ -450,10 +450,22 @@ _QuoteTag? _matchingClose(String source, int offset, CodeRanges codeRanges) {
   return null;
 }
 
+/// Whether the opener at [offset] begins its line, allowing core's three
+/// spaces of indentation.
+///
+/// Walks back at most those three characters rather than searching for the
+/// line start. Only the three before the opener can be indentation, so
+/// anything earlier cannot change the answer — and searching for the newline
+/// instead walks to the top of the document at every `[`, which on one long
+/// line is quadratic in a scan the composer runs per keystroke.
 bool _startsBlock(String source, int offset) {
-  final lineStart = offset == 0 ? 0 : source.lastIndexOf('\n', offset - 1) + 1;
-  final prefix = source.substring(lineStart, offset);
-  return prefix.length <= 3 && prefix.trim().isEmpty;
+  final earliest = offset < 3 ? 0 : offset - 3;
+  for (var index = offset - 1; index >= earliest; index--) {
+    final character = source[index];
+    if (character == '\n') return true;
+    if (character.trim().isNotEmpty) return false;
+  }
+  return earliest == 0;
 }
 
 class _QuoteMetadata {

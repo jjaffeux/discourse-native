@@ -611,6 +611,11 @@ class _Scan {
   /// nothing to stop it, so left to the whole document each one walks the rest
   /// of it before giving up.
   void _htmlTags(String text, int offset) {
+    // Every match needs a `</`, and the body between the tags is lazy with
+    // nothing to stop it: without one, each opener walks the rest of the block
+    // before giving up, and a line of unclosed `<del>` is quadratic. One
+    // substring search answers for all of them.
+    if (!text.contains('</')) return;
     for (final match in _tagPattern.allMatches(text)) {
       final tag = match.group(1)!.toLowerCase();
       final start = offset + match.start;

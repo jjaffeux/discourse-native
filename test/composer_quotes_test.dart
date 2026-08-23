@@ -4,6 +4,21 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('parseComposerQuotes', () {
+    test('a line of openers costs its length, not its square', () {
+      // `_startsBlock` searched backwards for the line start at every `[`,
+      // which on a line that has none walks to the top of the document. The
+      // composer rescans on every keystroke, so that is felt as a freeze.
+      const unit = '[quote="s, post:1, topic:2"] ';
+      final small = _bestOf(() => parseComposerQuotes(unit * 800));
+      final large = _bestOf(() => parseComposerQuotes(unit * 6400));
+
+      expect(
+        large,
+        lessThan(small * 25),
+        reason: 'eight times the openers took ${large / small} times as long',
+      );
+    });
+
     test('reads the metadata emitted by core buildQuote', () {
       const source =
           'Before\n\n'
@@ -112,4 +127,17 @@ void main() {
     );
     expect(formatter.formatEditUpdate(old, removed), removed);
   });
+}
+
+int _bestOf(void Function() body) {
+  var best = -1;
+  for (var run = 0; run < 3; run += 1) {
+    final elapsed = Stopwatch()..start();
+    body();
+    elapsed.stop();
+    if (best < 0 || elapsed.elapsedMicroseconds < best) {
+      best = elapsed.elapsedMicroseconds;
+    }
+  }
+  return best;
 }
