@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:discourse_native/src/models/bookmark.dart';
@@ -193,7 +194,11 @@ void main() {
       probe('FoundGroup', () => FoundGroup.fromJson(json, site), json);
       probe('FoundHashtag', () => FoundHashtag.fromJson(json), json);
       probe('FoundUser', () => FoundUser.fromJson(json, site), json);
-      probe('Notification', () => DiscourseNotification.fromJson(json), json);
+      probe(
+        'DiscourseNotification',
+        () => DiscourseNotification.fromJson(json),
+        json,
+      );
       probe(
         'NotificationTotals',
         () => NotificationTotals.fromJson(json),
@@ -243,6 +248,7 @@ void main() {
       probe('TopicTag', () => TopicTag.parse(loose), loose);
 
       probe('ChatUser', () => ChatUser.fromJson(json, site), json);
+      probe('ChatMembership', () => ChatMembership.fromJson(loose), loose);
       probe('ChatTracking', () => ChatTracking.fromJson(json), json);
       probe('ChatPresence', () => ChatPresence.fromJson(loose), loose);
       probe('ChatChannel', () => ChatChannel.fromJson(json, site), json);
@@ -271,6 +277,11 @@ void main() {
         loose,
       );
       probe('ChatThread', () => ChatThread.fromJson(json, site), json);
+      probe(
+        'ChatThreadNotificationLevel',
+        () => ChatThreadNotificationLevel.fromJson(loose),
+        loose,
+      );
 
       probe(
         'AssignmentSuggestions',
@@ -349,5 +360,84 @@ void main() {
     }
 
     expect(failures.values, isEmpty);
+  });
+  // The instruction above — add every new wire parser here — is only as good
+  // as somebody remembering it, and the parser it is forgotten for is the one
+  // nothing else covers either. So it is checked against the source rather
+  // than asked for: every type in `lib/` declaring a `fromJson` is either
+  // probed above or named below with why it is not a site payload.
+  test('every parser that reads a payload is in the corpus', () {
+    const notSitePayloads = {
+      // This app's own storage. Their callers are written around the throw:
+      // `InstanceStore` catches per entry so one damaged site cannot erase
+      // the rail, and a workspace with an unreadable anchor keeps its tabs.
+      'ContentRoute',
+      'DiscourseInstance',
+      'DiscourseUser',
+      'ForumTabAnchor',
+      'ResolvedSitePalette',
+      'ComposerGeometryPreference',
+      // The diagnostics store reading back what it wrote.
+      'DiagnosticEvent',
+      'DiagnosticLogEvent',
+      'DiagnosticRedirect',
+      'DiagnosticSessionEvent',
+      'ErrorDiagnosticEvent',
+      'HttpDiagnosticEvent',
+      '_CommonFields',
+      // The one wire parser that joins them: a join answered with a transport
+      // this client cannot speak is a failed join rather than a degraded one.
+      'ResenhaJoinResponse',
+    };
+
+    final declaring = <String, String>{};
+    final declaration = RegExp(
+      r'^\s*(?:@\w+\s+)*'
+      r'(?:abstract\s+|final\s+|sealed\s+|base\s+|interface\s+|mixin\s+)*'
+      r'(?:class|enum)\s+(\w+)',
+    );
+    final parser = RegExp(
+      r'factory\s+\w+\.fromJson|\bstatic\s+.*\bfromJson\s*\(',
+    );
+    for (final entity in Directory('lib').listSync(recursive: true)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      String? enclosing;
+      for (final line in entity.readAsLinesSync()) {
+        final declared = declaration.firstMatch(line);
+        if (declared != null) enclosing = declared.group(1);
+        if (enclosing != null && parser.hasMatch(line)) {
+          declaring.putIfAbsent(enclosing, () => entity.path);
+        }
+      }
+    }
+    // The scan is a heuristic over source text, so a corpus it stopped finding
+    // parsers in would pass while checking nothing.
+    expect(declaring.length, greaterThan(60));
+
+    final probed = RegExp(r"probe\(\s*'(\w+)'")
+        .allMatches(
+          File('test/wire_payload_totality_test.dart').readAsStringSync(),
+        )
+        .map((match) => match.group(1)!)
+        .toSet();
+
+    final unaccounted = {
+      for (final entry in declaring.entries)
+        if (!probed.contains(entry.key) && !notSitePayloads.contains(entry.key))
+          entry.key: entry.value,
+    };
+    expect(
+      unaccounted,
+      isEmpty,
+      reason: 'add these to the probes above, or to notSitePayloads with why',
+    );
+
+    // The other direction: an exemption for a type that no longer declares a
+    // parser is a claim nobody is checking any more.
+    expect(
+      notSitePayloads.difference(declaring.keys.toSet()),
+      isEmpty,
+      reason: 'these no longer declare a fromJson',
+    );
   });
 }
