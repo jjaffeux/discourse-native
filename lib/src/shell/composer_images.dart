@@ -34,7 +34,7 @@ class ComposerImageBlock {
     final dimensions = nextWidth != null && nextHeight != null
         ? '|${nextWidth}x$nextHeight${nextScale == null ? '' : ', $nextScale%'}'
         : '';
-    return '![${escapeImageAlt(alt ?? this.alt)}$dimensions]($url)';
+    return '![${composerImageAlt(alt ?? this.alt)}$dimensions]($url)';
   }
 }
 
@@ -133,18 +133,45 @@ ComposerImageBlock? imageAtComposerOffset(
 String uploadImageMarkdown(ComposerUploadResult upload) {
   final filename = upload.originalFilename;
   final dot = filename.lastIndexOf('.');
+  // Brackets are dropped from a *filename* rather than escaped: the alt is a
+  // caption the app invented from a name, and a name is better read without
+  // them than with backslashes through it.
   final base = (dot > 0 ? filename.substring(0, dot) : filename).replaceAll(
-    RegExp(r'[\[\]\|]'),
+    RegExp(r'[\[\]]'),
     '',
   );
   final width = upload.markdownWidth;
   final height = upload.markdownHeight;
   final dimensions = width == null || height == null ? '' : '|${width}x$height';
-  return '![${escapeImageAlt(base)}$dimensions](${upload.shortUrl})';
+  return '![${composerImageAlt(base)}$dimensions](${upload.shortUrl})';
 }
+
+/// [value] with what cannot appear inside an image alt taken out.
+///
+/// Two different questions, and both have to be answered before an alt is
+/// written. A bracket, a backtick or a backslash survives a round trip,
+/// because [escapeImageAlt] writes it and the parser reads it back. A `|` and
+/// a line ending have no such spelling: the first opens the `|WxH` suffix, so
+/// everything after it is read as dimensions and the rest of the alt is lost,
+/// and the second ends the image outright — the markdown stops being an image
+/// at all, to the site and to this composer's own projection. So they come out
+/// here rather than going in.
+///
+/// Both become a space rather than nothing, because both were separating
+/// something, and runs of space are then collapsed so a name that had a
+/// bracket and a bar next to each other does not come out with a gap in it.
+String flattenImageAlt(String value) =>
+    value.replaceAll(_altSeparators, ' ').replaceAll(_altSpaceRuns, ' ').trim();
+
+/// [value] as an image alt: flattened, then escaped. Every writer of one goes
+/// through here — an upload's filename and a GIF's title are the same problem.
+String composerImageAlt(String value) => escapeImageAlt(flattenImageAlt(value));
 
 String escapeImageAlt(String value) =>
     value.replaceAllMapped(RegExp(r'[\\\[\]`]'), (match) => '\\${match[0]}');
 
 String unescapeImageAlt(String value) =>
     value.replaceAllMapped(RegExp(r'\\([\\\[\]`])'), (match) => match[1]!);
+
+final RegExp _altSeparators = RegExp(r'[|\r\n]+');
+final RegExp _altSpaceRuns = RegExp(r' {2,}');
