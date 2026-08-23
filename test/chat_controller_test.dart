@@ -3319,11 +3319,14 @@ void main() {
     }
 
     Map<String, dynamic> anyEvent(Random random) {
+      // Every key any handler reads, so the generator's budget goes past the
+      // first guard rather than into rejections.
       final event = <String, dynamic>{
         'type': types[random.nextInt(types.length)],
         'channel_id': 9,
         'chat_message': anyMessage(random),
         'message': anyMessage(random),
+        if (random.nextBool()) 'chat_message_id': random.nextInt(6),
         if (random.nextBool()) 'staged_id': 'staged-${random.nextInt(3)}',
         if (random.nextBool()) 'deleted_id': random.nextInt(6),
         if (random.nextBool())
@@ -3331,10 +3334,29 @@ void main() {
             for (var i = random.nextInt(3); i > 0; i--) random.nextInt(6),
           ],
         if (random.nextBool()) 'deleted_at': stampFor(random.nextInt(6)),
+        if (random.nextBool())
+          'latest_not_deleted_message_id': random.nextInt(6),
         if (random.nextBool()) 'thread_id': random.nextInt(3),
         if (random.nextBool()) 'original_message_id': random.nextInt(6),
+        if (random.nextBool()) 'preview': anyMessage(random),
         if (random.nextBool()) 'emoji': 'heart',
         if (random.nextBool()) 'action': random.nextBool() ? 'add' : 'remove',
+        if (random.nextBool()) 'force_thread': random.nextBool(),
+        if (random.nextBool()) 'unread_count': random.nextInt(4) - 1,
+        if (random.nextBool()) 'mention_count': random.nextInt(4) - 1,
+        if (random.nextBool())
+          'watched_threads_unread_count': random.nextInt(4) - 1,
+        if (random.nextBool()) 'last_read_message_id': random.nextInt(6),
+        if (random.nextBool())
+          'thread_tracking': {
+            'unread_count': random.nextInt(3),
+            'mention_count': random.nextInt(3),
+          },
+        if (random.nextBool())
+          'unread_thread_overview': {
+            '${random.nextInt(3)}': stampFor(random.nextInt(6)),
+          },
+        if (random.nextBool()) 'channel': {'id': 9, 'title': 'Bugs'},
         if (random.nextBool()) 'user': {'id': 2, 'username': 'sam'},
       };
       if (random.nextInt(3) != 0) return event;
