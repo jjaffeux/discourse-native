@@ -132,6 +132,7 @@ void main() {
       r'\',
       '[',
       ']',
+      '`',
       '|',
       'a',
       'b',
@@ -182,26 +183,18 @@ void main() {
     expect(flattened, greaterThan(1000));
   });
 
-  test(
-    'a backtick in an alt is escaped, and the scan does not read it yet',
-    () {
-      // Backticks are escaped because Discourse needs them escaped: a bare one
-      // in an alt opens a code span in the cooked post. `scanMarkdown` does not
-      // honour backslash escapes when it looks for inline code, though, so a
-      // pair of them still reads as code here and the image keeps its raw
-      // markdown instead of collapsing to a preview.
-      //
-      // A divergence from CommonMark rather than a lost image — the site cooks
-      // it correctly either way — and closing it means teaching escapes to the
-      // one pattern on the composer's per-keystroke path that is still a
-      // pattern. Written down rather than fixed.
-      final base = parseComposerImages('![x|10x20](upload://abc)').single;
-      final markdown = base.toMarkdown(alt: 'a `b` c');
+  test('a backtick in an alt is escaped, and read back through the escape', () {
+    // Backticks are escaped because Discourse needs them escaped: a bare one
+    // in an alt opens a code span in the cooked post. `scanMarkdown` honours
+    // the escape when it looks for inline code, so the image is still an image
+    // here — a pair of them used to read as code between them and leave the
+    // raw markdown where the preview should have been.
+    final base = parseComposerImages('![x|10x20](upload://abc)').single;
+    final markdown = base.toMarkdown(alt: 'a `b` c');
 
-      expect(markdown, r'![a \`b\` c|10x20](upload://abc)');
-      expect(parseComposerImages(markdown), isEmpty);
-    },
-  );
+    expect(markdown, r'![a \`b\` c|10x20](upload://abc)');
+    expect(parseComposerImages(markdown).single.alt, 'a `b` c');
+  });
 
   test('does not project image syntax inside inline or fenced code', () {
     final images = parseComposerImages('''

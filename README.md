@@ -395,8 +395,8 @@ stays text. Put the caret strictly inside and the characters come back to edit,
 the way Obsidian's live preview does.
 
 The scan runs on every text change, over the whole document, so what it costs
-per character is a typing budget rather than a startup one. Three things keep
-it linear, and all three are easy to lose:
+per character is a typing budget rather than a startup one. Four things keep
+it linear, and all four are easy to lose:
 
 - **Inline passes search one block at a time.** A block is a paragraph, minus
   any fence inside it — the two things a mark cannot span. Expressing that as a
@@ -414,6 +414,16 @@ it linear, and all three are easy to lose:
   it is one block. The scan uses what the engine cannot: the closers after a
   later opener are a subset of the closers after an earlier one, so the first
   opener to run out of them is the last one worth trying.
+- **Code spans are paired by walking the backtick runs.** The pattern this
+  replaced had a lazy body and a backreference, and got two rules wrong on the
+  way: it read a backslash-escaped backtick as a delimiter, though CommonMark's
+  escapes work everywhere except *inside* a code span — so `` \` `` drew a
+  whole sentence as code and closed it to every later pass, hiding the bold
+  and the mentions the site really cooks. And the backreference could take the
+  first backtick of a longer run as a closer, so `` `a`` `` became a code span
+  the site leaves as text. A delimiter is a maximal run of unescaped
+  backticks; `_backtickRuns` finds them in one pass and `_codeSpans` pairs
+  them.
 - **A link's closing bracket is found by `indexOf`, not by a pattern.** The
   same trap in the other bracket: a link's text class excludes `]`, so the
   closer can only be the first one on the line, and the engine consumed to the

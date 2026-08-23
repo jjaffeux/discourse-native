@@ -106,6 +106,12 @@ const List<String> samples = [
   '<kbd>Esc\n\nlater</kbd>',
   '<kbd>a\n```\ncode\n```\nb</kbd>',
   'a `b\n\nc` d',
+  r'a \`b\` c',
+  r'a \\`code`',
+  '`a``',
+  '``a`',
+  r'\`',
+  r'`\`',
   'a `b\n\n**bold** and @sam\n\nc` d',
   'let `x = 1`\n\nand ``y``',
   'one `two\nthree` four',
@@ -215,6 +221,31 @@ void main() {
 
     test('lets a longer fence hold a backtick', () {
       expect(annotate('``a ` b``'), '<m>``</><code>a ` b</><m>``</>');
+    });
+
+    test('an escaped backtick opens nothing', () {
+      // CommonMark's escapes work everywhere except *inside* a code span, so
+      // `\`` is a literal backtick. Reading it as a delimiter drew a whole
+      // sentence as code — and closed it to every later pass, so the bold and
+      // the mention the site really cooks were not drawn at all.
+      expect(annotate(r'a \`b\` c'), r'a \`b\` c');
+      expect(
+        annotate(r'say \`this **bold** stays\` bold'),
+        r'say \`this <m>**</><b>bold</><m>**</> stays\` bold',
+      );
+    });
+
+    test('a backslash spends itself on the next character', () {
+      // `\\` is an escaped backslash, so the backtick after it is free.
+      expect(annotate(r'a \\`code`'), r'a \\<m>`</><code>code</><m>`</>');
+    });
+
+    test('a delimiter is a whole run of backticks, not a prefix of one', () {
+      // One backtick and then two is no code span at all: the closer has to
+      // be a run of the same length. A backreference could take the first of
+      // the pair instead and closed a span the site leaves as text.
+      expect(annotate('`a``'), '`a``');
+      expect(annotate('``a`'), '``a`');
     });
 
     test('wraps a line break inside its paragraph', () {
@@ -834,7 +865,19 @@ void main() {
         return best;
       }
 
-      for (final unit in const ['[abc ', '[abc] ', '[abc](x) ', '<kbd>x ']) {
+      for (final unit in const [
+        '[abc ',
+        '[abc] ',
+        '[abc](x) ',
+        '<kbd>x ',
+        // Backtick runs, paired and unpaired, escaped and not: the pairing is
+        // a scan over the runs and the run walk is one pass over the block,
+        // so neither may grow on the number of either.
+        '`abc ',
+        '`abc` ',
+        r'\`abc\` ',
+        '``abc`` ',
+      ]) {
         final small = cost(unit * 800);
         final large = cost(unit * 6400);
         expect(

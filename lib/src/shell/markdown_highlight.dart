@@ -405,9 +405,6 @@ class _Scan {
   // scanner type rather than rebuilding them for every line and every pass.
   static final RegExp _headingPattern = RegExp(r'^(#{1,6})(\s+)');
   static final RegExp _quotePattern = RegExp(r'^(>+)(\s?)');
-  static final RegExp _inlineCodePattern = RegExp(
-    r'(`+)([^`]|[^`][\s\S]*?[^`])\1',
-  );
   static final RegExp _linkAddressPattern = RegExp(r'[^)\s]*\)');
   static final RegExp _bareUrlPattern = RegExp(r'https?://[^\s<>\[\]()]+');
   static final RegExp _mentionPattern = RegExp(
@@ -596,17 +593,83 @@ class _Scan {
   /// code and closed to every later pass.
   void _inlineCode(List<({int offset, String text})> blocks) {
     for (final block in blocks) {
-      for (final match in _inlineCodePattern.allMatches(block.text)) {
-        final start = block.offset + match.start;
-        final end = block.offset + match.end;
+      for (final (open, width, close) in _codeSpans(block.text)) {
+        final start = block.offset + open;
+        final end = block.offset + close + width;
         if (!_free(start, end)) continue;
-        final ticks = match.group(1)!.length;
-        _mark(start, start + ticks, Md.marker);
-        _mark(start + ticks, end - ticks, Md.code);
-        _mark(end - ticks, end, Md.marker);
+        _mark(start, start + width, Md.marker);
+        _mark(start + width, end - width, Md.code);
+        _mark(end - width, end, Md.marker);
         _close(start, end);
       }
     }
+  }
+
+  /// The code spans in one block, as `(opener, width, closer)` offsets into it.
+  ///
+  /// Two rules, and the pattern this replaces got both slightly wrong.
+  ///
+  /// A backslash-escaped backtick is not a delimiter. CommonMark's escapes
+  /// work everywhere except *inside* a code span, so `\`` is a literal
+  /// backtick that cannot open one — and treating it as a delimiter drew a
+  /// whole sentence as code, with the bold and the mentions in it closed to
+  /// every later pass, that the site cooks as ordinary prose. An escaped
+  /// backtick also ends the run it is in rather than lengthening it, because
+  /// the run either side of it is what a closer has to match.
+  ///
+  /// And a delimiter is a *maximal* run: `` `a`` `` opens with one backtick
+  /// and the only run after it is two, so it is not a code span at all. The
+  /// backreference could take the first backtick of that longer run instead,
+  /// and closed a span the site leaves as text.
+  static Iterable<(int, int, int)> _codeSpans(String text) sync* {
+    final runs = _backtickRuns(text);
+    var index = 0;
+    while (index < runs.length) {
+      final (open, width) = runs[index];
+      var paired = false;
+      for (var next = index + 1; next < runs.length; next += 1) {
+        final (close, closeWidth) = runs[next];
+        // Equal length, and at least one character of content between them.
+        if (closeWidth != width || close <= open + width) continue;
+        yield (open, width, close);
+        index = next + 1;
+        paired = true;
+        break;
+      }
+      if (!paired) index += 1;
+    }
+  }
+
+  /// The maximal runs of unescaped backticks in [text], as `(start, length)`.
+  static List<(int, int)> _backtickRuns(String text) {
+    final runs = <(int, int)>[];
+    var start = -1;
+    var index = 0;
+    void endRun() {
+      if (start < 0) return;
+      runs.add((start, index - start));
+      start = -1;
+    }
+
+    while (index < text.length) {
+      final unit = text.codeUnitAt(index);
+      if (unit == 0x5C) {
+        // A backslash spends itself on the next character, whatever it is —
+        // so `\\` leaves a backtick after it free to open a span.
+        endRun();
+        index += 2;
+        continue;
+      }
+      if (unit == 0x60) {
+        if (start < 0) start = index;
+        index += 1;
+        continue;
+      }
+      endRun();
+      index += 1;
+    }
+    endRun();
+    return runs;
   }
 
   static final RegExp _tagPattern = RegExp(
