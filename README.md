@@ -1176,6 +1176,14 @@ flutter analyze
 flutter test
 ```
 
+`flutter analyze` runs `flutter_lints` plus the rules in
+`analysis_options.yaml`, which are there to catch a class of mistake rather
+than to enforce a style: an unclosed subscription or sink, a `Future` nobody
+waits for, a `dynamic` call, an equality or `contains` between unrelated types,
+a `hashCode` that disagrees with `==`. Anything the analyzer reports fails the
+gate, `info` level included — so run it bare, with no path argument and no
+grep, or a file-scoped run will hide exactly those.
+
 CI also builds a debug Linux bundle after those checks and verifies that its
 executable has no unresolved shared libraries. That keeps the native WebRTC,
 LiveKit and desktop plugin graph compiling between release builds. The macOS

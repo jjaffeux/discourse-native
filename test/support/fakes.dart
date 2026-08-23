@@ -395,7 +395,7 @@ class FakeSiteTracker implements SiteTracker {
   void deliverPluginMessage(String channel, Object? data, {int messageId = 1}) {
     _deliveredPluginMessageId = messageId;
     for (final callback in List.of(
-      pluginChannelCallbacks[channel] ?? const [],
+      pluginChannelCallbacks[channel] ?? const <void Function(Object?)>[],
     )) {
       callback(data);
     }
