@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/image_grid.dart';
@@ -10,6 +11,8 @@ import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/quote.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
@@ -365,5 +368,47 @@ void main() {
     // test still passed, so the generated corpus has to keep reaching all of
     // them. The seed is fixed, so these counts are not a race.
     expect(built.keys, unorderedEquals(_builders));
+  });
+  // A builder that answers null has declined; a builder that answers a widget
+  // has promised one that draws. Those are different claims, and only the
+  // first was being made here — the corpus never reached a frame, so nothing
+  // said the widget a half-written onebox produces survives being laid out and
+  // painted. Two widths, because the narrow one is where a fixed-size lead
+  // image or a row of pills has nowhere to go.
+  testWidgets('and a post draws whatever the site cooked', (tester) async {
+    final random = Random(20260823);
+    const site = 'https://example.com';
+    final failures = <String, Object>{};
+
+    for (var round = 0; round < 600; round++) {
+      final html = _fragment(random, 0);
+      if (html.isEmpty) continue;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: SizedBox(
+                width: round.isEven ? 600 : 200,
+                child: CookedHtml(html: html, siteUrl: site),
+              ),
+            ),
+          ),
+        ),
+      );
+      Object? thrown = tester.takeException();
+      if (thrown == null) {
+        // Artwork arrives asynchronously; the frame it lands on is another
+        // chance to throw.
+        await tester.pump(const Duration(milliseconds: 16));
+        thrown = tester.takeException();
+      }
+      if (thrown != null) failures[html] = thrown;
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      tester.takeException();
+    }
+
+    expect(failures, isEmpty);
   });
 }
