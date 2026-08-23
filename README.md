@@ -480,6 +480,14 @@ one. `markdownPairs` takes a `spokenFor` predicate and skips such a delimiter
 instead — which also stops emphasis inside a code span eating the emphasis
 after it.
 
+The mention pattern is transcribed from core's own `mentionRegex`
+(`frontend/pretty-text/addon/mentions.js`, snapshotted with the rest of the
+hashtag markup), and its tail is the part worth knowing: a name may not *end*
+in a dot, a dash or an underscore. `thanks @sam.` mentions `sam`. Reading the
+period as part of the name asked the site about `sam.`, was told no, and drew
+no pill on a mention the post really has — which is how most sentences that
+end in one are written.
+
 `@`, `#` and `:` open a completion list. Trigger detection is pure
 (`composer_triggers.dart`) and refuses more than it accepts — an email address
 is not a mention, a lone colon is punctuation, a `#` inside a word is not a

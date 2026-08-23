@@ -5,6 +5,14 @@ import 'package:discourse_native/src/shell/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+/// The token of the first run carrying one, which is what a pill is asked for.
+String? tokenOf(String source) {
+  for (final run in scanMarkdown(source)) {
+    if (run.token != null) return run.token;
+  }
+  return null;
+}
+
 /// The source with each run wrapped in what it was marked as, so a failure
 /// reads as what someone would see rather than as a list of offsets.
 ///
@@ -125,6 +133,10 @@ const List<String> samples = [
   'snake__case__name',
   '__a__b__c__',
   '___',
+  'thanks @sam.',
+  '@sam-',
+  '@_x',
+  '@a',
   'a `b\n\n**bold** and @sam\n\nc` d',
   'let `x = 1`\n\nand ``y``',
   'one `two\nthree` four',
@@ -523,6 +535,30 @@ void main() {
     test('finds people', () {
       expect(annotate('hey @sam'), 'hey <at>@sam</>');
       expect(annotate('hey @martin.j'), 'hey <at>@martin.j</>');
+    });
+
+    test('a name may not end in a dot, a dash or an underscore', () {
+      // Core's own rule (`frontend/pretty-text/addon/mentions.js`, snapshotted
+      // beside the hashtag markup): `@(\w[\w.-]{0,58}[^\W_])|@(\w)`. Reading
+      // the period as part of the name asked the site about `sam.`, was told
+      // no, and drew no pill on a mention the post really has — which is how
+      // most sentences that end in one are written.
+      expect(annotate('thanks @sam.'), 'thanks <at>@sam</>.');
+      expect(annotate('@sam-'), '<at>@sam</>-');
+      expect(annotate('@sam_'), '<at>@sam</>_');
+      expect(tokenOf('thanks @sam.'), 'sam');
+    });
+
+    test('a one-character name is core’s second alternative', () {
+      expect(annotate('@a'), '<at>@a</>');
+      expect(annotate('@_'), '<at>@_</>');
+      expect(tokenOf('@a'), 'a');
+      expect(tokenOf('@_'), '_');
+    });
+
+    test('a name stops at sixty characters, as the site does', () {
+      final long = 'a' * 80;
+      expect(tokenOf('@$long'), 'a' * 60);
     });
 
     test('does not read an email address as a mention', () {

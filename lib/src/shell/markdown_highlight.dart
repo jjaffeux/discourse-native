@@ -463,8 +463,20 @@ class _Scan {
   static final RegExp _quotePattern = RegExp(r'^(>+)(\s?)');
   static final RegExp _linkAddressPattern = RegExp(r'[^)\s]*\)');
   static final RegExp _bareUrlPattern = RegExp(r'https?://[^\s<>\[\]()]+');
+
+  /// Transcribed from core's own `mentionRegex`
+  /// (`frontend/pretty-text/addon/mentions.js`), which is what decides whether
+  /// the site will cook this as a mention at all — the ASCII branch, since the
+  /// unicode-username one is not implemented here either.
+  ///
+  /// The tail is the part worth naming: a name may not *end* in a dot, a dash
+  /// or an underscore, so `thanks @sam.` mentions `sam`. Reading the period as
+  /// part of the name asked the site about `sam.`, was told no, and drew no
+  /// pill on a mention the post really has — which is how most sentences that
+  /// end in one are written. The second alternative is core's, for the
+  /// one-character name the first cannot express.
   static final RegExp _mentionPattern = RegExp(
-    r'@([a-zA-Z0-9_][a-zA-Z0-9_.-]*)',
+    r'@(\w[\w.-]{0,58}[^\W_])|@(\w)',
   );
   static final RegExp _hashtagPattern = RegExp(
     r'(?<!/)#([\wÀ-῿Ⰰ-퟿:-]'
@@ -892,7 +904,9 @@ class _Scan {
       if (!_free(match.start, match.end)) continue;
       // `joffrey@example.com` is an address, not a mention of `example`.
       if (match.start > 0 && !_isBoundary(source[match.start - 1])) continue;
-      _markToken(match.start, match.end, Md.mention, match.group(1)!);
+      // Core reads it as `matches[1] || matches[2]` for the same reason.
+      final name = match.group(1) ?? match.group(2)!;
+      _markToken(match.start, match.end, Md.mention, name);
       _close(match.start, match.end);
       // As for a shortcode: two of these side by side are two pills, and
       // collapsed by mask alone they would be one run and one pill over both.

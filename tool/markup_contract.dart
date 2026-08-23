@@ -108,6 +108,11 @@ const List<String> hashtagWatched = [
   // allow-list that decides which of them survive sanitising.
   'frontend/discourse-markdown-it/src/features/hashtag-autocomplete.js',
   'frontend/discourse-markdown-it/src/features/mentions.js',
+  // The pattern that decides what a mention *is*, which the one in
+  // `markdown_highlight.dart` is transcribed from. Its tail is the part that
+  // matters: a name may not end in a dot, a dash or an underscore, so
+  // `thanks @sam.` mentions `sam` and not `sam.`.
+  'frontend/pretty-text/addon/mentions.js',
   // What turns a `span.mention` into an anchor, and what an unresolved one
   // stays as.
   'lib/pretty_text.rb',
