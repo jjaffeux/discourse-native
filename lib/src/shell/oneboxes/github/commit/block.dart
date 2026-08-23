@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../../../theme/app_theme.dart';
+import '../../../cooked_dom.dart';
 import '../../../relative_time.dart';
 import '../../onebox.dart';
 import '../github.dart';
@@ -129,34 +130,34 @@ class GithubCommitData {
 
   static GithubCommitData from(dom.Element aside) {
     final article =
-        githubDescendant(aside, (e) => e.classes.contains('onebox-body')) ??
+        descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
         aside;
     final row = article.children
         .where((e) => e.classes.contains('github-row'))
         .firstOrNull;
     final scope = row ?? article;
 
-    final titleLink = githubDescendant(
+    final titleLink = descendantWhere(
       scope,
       (e) => e.localName == 'h4',
     )?.children.where((e) => e.localName == 'a').firstOrNull;
 
-    final info = githubDescendant(
+    final info = descendantWhere(
       scope,
       (e) => e.classes.contains('github-info'),
     );
     final dateEl = info == null
         ? null
-        : githubDescendant(info, (e) => e.classes.contains('date'));
+        : descendantWhere(info, (e) => e.classes.contains('date'));
     final userEl = info == null
         ? null
-        : githubDescendant(info, (e) => e.classes.contains('user'));
+        : descendantWhere(info, (e) => e.classes.contains('user'));
     final userLink = userEl == null
         ? null
-        : githubDescendant(userEl, (e) => e.localName == 'a');
+        : descendantWhere(userEl, (e) => e.localName == 'a');
     final linesEl = info == null
         ? null
-        : githubDescendant(info, (e) => e.classes.contains('lines'));
+        : descendantWhere(info, (e) => e.classes.contains('lines'));
 
     return GithubCommitData(
       title: (titleLink?.text ?? scope.text).trim(),
@@ -166,7 +167,7 @@ class GithubCommitData {
       authorLogin: userLink?.text.trim(),
       authorAvatarUrl: userLink == null
           ? null
-          : githubDescendant(
+          : descendantWhere(
               userLink,
               (e) => e.classes.contains('onebox-avatar-inline'),
             )?.attributes['src'],
@@ -179,10 +180,7 @@ class GithubCommitData {
 
   static int? _count(dom.Element? linesEl, String className) {
     if (linesEl == null) return null;
-    final span = githubDescendant(
-      linesEl,
-      (e) => e.classes.contains(className),
-    );
+    final span = descendantWhere(linesEl, (e) => e.classes.contains(className));
     return int.tryParse(span?.text.replaceAll(RegExp(r'[^\d]'), '') ?? '');
   }
 }

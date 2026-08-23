@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
+import 'cooked_dom.dart';
 import 'image_decode.dart';
 import 'open_link.dart';
 import 'platform.dart';
@@ -108,8 +109,8 @@ class LightboxImage {
         anchor.attributes['href'].orNull;
     if (fullSrc == null) return null;
 
-    final img = _descendant(anchor, (e) => e.localName == 'img');
-    final informations = _descendant(
+    final img = descendantWhere(anchor, (e) => e.localName == 'img');
+    final informations = descendantWhere(
       anchor,
       (e) => e.classes.contains('informations'),
     );
@@ -170,26 +171,6 @@ class LightboxImage {
     // for the tapped one.
     return images.isEmpty ? [LightboxImage.from(anchor)!] : images;
   }
-
-  static dom.Element? _descendant(
-    dom.Element root,
-    bool Function(dom.Element) test,
-  ) {
-    final pending = <dom.Element>[];
-    void pushReversed(List<dom.Element> children) {
-      for (var index = children.length - 1; index >= 0; index--) {
-        pending.add(children[index]);
-      }
-    }
-
-    pushReversed(root.children);
-    while (pending.isNotEmpty) {
-      final child = pending.removeLast();
-      if (test(child)) return child;
-      pushReversed(child.children);
-    }
-    return null;
-  }
 }
 
 /// Hero tags, keyed by the anchor they belong to so they survive a rebuild and
@@ -207,8 +188,10 @@ Object _heroTag(dom.Element anchor) => _heroTags[anchor] ??= Object();
 /// wrapper at all.
 Widget? lightboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
   final anchor = switch (element) {
-    _ when element.classes.contains('lightbox-wrapper') =>
-      LightboxImage._descendant(element, (e) => e.classes.contains('lightbox')),
+    _ when element.classes.contains('lightbox-wrapper') => descendantWhere(
+      element,
+      (e) => e.classes.contains('lightbox'),
+    ),
     _ when element.localName == 'a' && element.classes.contains('lightbox') =>
       element,
     _ => null,

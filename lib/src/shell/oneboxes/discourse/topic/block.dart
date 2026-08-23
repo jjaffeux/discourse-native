@@ -4,6 +4,7 @@ import 'package:html/dom.dart' as dom;
 import '../../../../foundation/diagnostic_errors.dart';
 import '../../../../theme/d_icon.dart';
 import '../../../../theme/d_icons.dart';
+import '../../../cooked_dom.dart';
 import '../../../image_decode.dart';
 import '../../../site_url.dart';
 import '../../onebox.dart';
@@ -172,18 +173,19 @@ class DiscourseTopicData {
 
   static DiscourseTopicData from(dom.Element aside, OneboxData envelope) {
     final article =
-        _descendant(aside, (e) => e.classes.contains('onebox-body')) ?? aside;
+        descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
+        aside;
 
     final categories = <DiscourseTopicCategory>[];
-    for (final badge in _descendants(
+    for (final badge in descendantsWhere(
       article,
       (e) => e.classes.contains('badge-wrapper'),
     )) {
-      final bg = _descendant(
+      final bg = descendantWhere(
         badge,
         (e) => e.classes.contains('badge-category-bg'),
       );
-      final name = _descendant(
+      final name = descendantWhere(
         badge,
         (e) => e.classes.contains('category-name'),
       )?.text.trim();
@@ -194,7 +196,7 @@ class DiscourseTopicData {
     }
 
     final tags =
-        _descendant(article, (e) => e.classes.contains('discourse-tags'))
+        descendantWhere(article, (e) => e.classes.contains('discourse-tags'))
             ?.children
             .where((e) => e.classes.contains('discourse-tag'))
             .map((e) => e.text.trim())
@@ -208,7 +210,7 @@ class DiscourseTopicData {
         .where(
           (e) =>
               e.localName == 'p' &&
-              _descendant(e, (c) => c.classes.contains('label1')) == null,
+              descendantWhere(e, (c) => c.classes.contains('label1')) == null,
         )
         .map((e) => e.text.replaceAll(RegExp(r'\s+'), ' ').trim())
         .where((text) => text.isNotEmpty)
@@ -231,47 +233,6 @@ class DiscourseTopicData {
     if (match == null) return null;
     final value = int.tryParse(match.group(1)!, radix: 16);
     return value == null ? null : Color(0xFF000000 | value);
-  }
-
-  static dom.Element? _descendant(
-    dom.Element root,
-    bool Function(dom.Element) test,
-  ) {
-    final pending = <dom.Element>[];
-    void pushReversed(List<dom.Element> children) {
-      for (var index = children.length - 1; index >= 0; index--) {
-        pending.add(children[index]);
-      }
-    }
-
-    pushReversed(root.children);
-    while (pending.isNotEmpty) {
-      final child = pending.removeLast();
-      if (test(child)) return child;
-      pushReversed(child.children);
-    }
-    return null;
-  }
-
-  static List<dom.Element> _descendants(
-    dom.Element root,
-    bool Function(dom.Element) test,
-  ) {
-    final found = <dom.Element>[];
-    final pending = <dom.Element>[];
-    void pushReversed(List<dom.Element> children) {
-      for (var index = children.length - 1; index >= 0; index--) {
-        pending.add(children[index]);
-      }
-    }
-
-    pushReversed(root.children);
-    while (pending.isNotEmpty) {
-      final child = pending.removeLast();
-      if (test(child)) found.add(child);
-      pushReversed(child.children);
-    }
-    return found;
   }
 }
 
