@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/shell/cooked_dom.dart';
 import 'package:discourse_native/src/shell/oneboxes/github/commit/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/github/github.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
@@ -65,11 +66,11 @@ void main() {
 
     expect(githubBody(article), 'deep body');
     expect(
-      githubDescendant(article, (element) => element.text == 'deep body'),
+      descendantWhere(article, (element) => element.text == 'deep body'),
       isNotNull,
     );
     expect(
-      githubDescendants(article, (element) => element.localName == 'span'),
+      descendantsWhere(article, (element) => element.localName == 'span'),
       hasLength(depth),
     );
   });

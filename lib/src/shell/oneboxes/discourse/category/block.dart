@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../../cooked_dom.dart';
 import '../../onebox.dart';
 
 /// A category on the site the post was written on:
@@ -111,30 +112,32 @@ class DiscourseCategoryData {
 
   static DiscourseCategoryData from(dom.Element aside) {
     final article =
-        _descendant(aside, (e) => e.classes.contains('onebox-body')) ?? aside;
+        descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
+        aside;
 
     final name =
-        _descendant(
+        descendantWhere(
           article,
           (e) => e.classes.contains('badge-category__name'),
         )?.text.trim() ??
-        (_descendant(article, (e) => e.localName == 'h3')?.text ?? '').trim();
+        (descendantWhere(article, (e) => e.localName == 'h3')?.text ?? '')
+            .trim();
 
-    final description = _descendant(
+    final description = descendantWhere(
       article,
       (e) => e.classes.contains('description'),
     )?.text.replaceAll(RegExp(r'\s+'), ' ').trim().nullIfEmpty;
 
     final subcategories = <DiscourseSubcategory>[];
-    for (final entry in _descendants(
+    for (final entry in descendantsWhere(
       article,
       (e) => e.classes.contains('subcategory'),
     )) {
-      final bg = _descendant(
+      final bg = descendantWhere(
         entry,
         (e) => e.classes.contains('badge-category-bg'),
       );
-      final name = _descendant(
+      final name = descendantWhere(
         entry,
         (e) => e.classes.contains('category-name'),
       )?.text.trim();
@@ -169,47 +172,6 @@ class DiscourseCategoryData {
     if (match == null) return null;
     final value = int.tryParse(match.group(1)!, radix: 16);
     return value == null ? null : Color(0xFF000000 | value);
-  }
-
-  static dom.Element? _descendant(
-    dom.Element root,
-    bool Function(dom.Element) test,
-  ) {
-    final pending = <dom.Element>[];
-    void pushReversed(List<dom.Element> children) {
-      for (var index = children.length - 1; index >= 0; index--) {
-        pending.add(children[index]);
-      }
-    }
-
-    pushReversed(root.children);
-    while (pending.isNotEmpty) {
-      final child = pending.removeLast();
-      if (test(child)) return child;
-      pushReversed(child.children);
-    }
-    return null;
-  }
-
-  static List<dom.Element> _descendants(
-    dom.Element root,
-    bool Function(dom.Element) test,
-  ) {
-    final found = <dom.Element>[];
-    final pending = <dom.Element>[];
-    void pushReversed(List<dom.Element> children) {
-      for (var index = children.length - 1; index >= 0; index--) {
-        pending.add(children[index]);
-      }
-    }
-
-    pushReversed(root.children);
-    while (pending.isNotEmpty) {
-      final child = pending.removeLast();
-      if (test(child)) found.add(child);
-      pushReversed(child.children);
-    }
-    return found;
   }
 }
 

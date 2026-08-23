@@ -2610,7 +2610,7 @@ void main() {
       await join();
       firstTracker.deliverPluginMessage('/resenha/rooms/index', {
         'type': 'destroyed',
-        'room': fixture('directory')['rooms'][0],
+        'room': (fixture('directory')['rooms'] as List<dynamic>).first,
       });
       await Future<void>.delayed(Duration.zero);
       expect(controller.call, isNull);

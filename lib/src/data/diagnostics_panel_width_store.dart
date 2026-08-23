@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import 'serial_operation_queue.dart';
+import 'store_diagnostics.dart';
 
 /// Diagnostics panel width persistence.
 ///
@@ -53,7 +53,7 @@ final class DiagnosticsPanelWidthStore {
     try {
       return await _persistence.readWidth();
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'diagnosticsPanel.readWidth');
+      reportStorageFailure(error, stackTrace, 'diagnosticsPanel.readWidth');
       return null;
     }
   }
@@ -70,19 +70,7 @@ final class DiagnosticsPanelWidthStore {
         throw StateError('Could not persist the diagnostics panel width.');
       }
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'diagnosticsPanel.writeWidth');
+      reportStorageFailure(error, stackTrace, 'diagnosticsPanel.writeWidth');
     }
-  }
-
-  static void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
   }
 }

@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/private_file_permissions.dart';
 import 'private_storage.dart';
+import 'store_diagnostics.dart';
 
 typedef DraftPersistenceRead = ({String? value, bool allowPreferenceFallback});
 
@@ -309,23 +310,6 @@ class DraftStore {
   final DraftPersistence _persistence;
   final Map<String, Future<void>> _siteOperations = {};
 
-  static void _report(
-    Object error,
-    StackTrace stackTrace,
-    String operation, {
-    DiagnosticSeverity severity = DiagnosticSeverity.warning,
-  }) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: severity,
-      handled: true,
-      degraded: true,
-    );
-  }
-
   static String _key(String siteUrl, String draftKey) =>
       '$_prefix$siteUrl::$draftKey';
 
@@ -339,7 +323,7 @@ class DraftStore {
     try {
       stored = await _persistence.read(key);
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'draft.readSecure');
+      reportStorageFailure(error, stackTrace, 'draft.readSecure');
       // A failed read means durable key/site blockers are also unknown. Fail
       // closed: a preference value could belong to an account that was cleared
       // while this backend was healthy. Leave it untouched for a later retry.
@@ -363,7 +347,7 @@ class DraftStore {
       await _persistence.write(key, legacy);
       await prefs?.remove(key);
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'draft.migrateLegacy');
+      reportStorageFailure(error, stackTrace, 'draft.migrateLegacy');
     }
     return legacy;
   }
@@ -391,7 +375,7 @@ class DraftStore {
     try {
       await _persistence.write(key, data);
     } catch (error, stackTrace) {
-      _report(
+      reportStorageFailure(
         error,
         stackTrace,
         'draft.writeSecure',
@@ -402,7 +386,7 @@ class DraftStore {
     try {
       await prefs?.remove(key);
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'draft.removeLegacy');
+      reportStorageFailure(error, stackTrace, 'draft.removeLegacy');
     }
   }
 
@@ -427,12 +411,12 @@ class DraftStore {
     try {
       await _persistence.delete(key);
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'draft.clearSecure');
+      reportStorageFailure(error, stackTrace, 'draft.clearSecure');
     }
     try {
       await prefs?.remove(key);
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'draft.clearLegacy');
+      reportStorageFailure(error, stackTrace, 'draft.clearLegacy');
     }
   }
 
@@ -447,7 +431,7 @@ class DraftStore {
     try {
       await _persistence.deletePrefix(prefix);
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'draft.clearSiteSecure');
+      reportStorageFailure(error, stackTrace, 'draft.clearSiteSecure');
       // This is an account boundary. Continuing without a durable site blocker
       // could expose the previous account's text after reconnecting.
       Error.throwWithStackTrace(error, stackTrace);
@@ -459,7 +443,7 @@ class DraftStore {
             if (key.startsWith(prefix)) prefs.remove(key),
         ]);
       } catch (error, stackTrace) {
-        _report(error, stackTrace, 'draft.clearSiteLegacy');
+        reportStorageFailure(error, stackTrace, 'draft.clearSiteLegacy');
       }
     }
   }
@@ -468,7 +452,7 @@ class DraftStore {
     try {
       return await SharedPreferences.getInstance();
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'draft.openPreferences');
+      reportStorageFailure(error, stackTrace, 'draft.openPreferences');
       return null;
     }
   }
@@ -478,7 +462,7 @@ class DraftStore {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(key);
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'draft.removeLegacy');
+      reportStorageFailure(error, stackTrace, 'draft.removeLegacy');
     }
   }
 

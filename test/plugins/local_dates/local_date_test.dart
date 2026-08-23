@@ -150,6 +150,42 @@ void main() {
       },
     );
 
+    test('leaves a recurrence nobody could mean where the server put it', () {
+      environment.setDeviceTimezone('Europe/Paris');
+      LocalDateResolved? resolve(String recurring) => formatter.resolve(
+        LocalDateSpec(
+          date: '2021-11-22',
+          time: '11:00:00',
+          timezone: 'Europe/Paris',
+          recurring: recurring,
+          calendar: false,
+          format: 'YYYY-MM-DD HH:mm',
+          fallbackText: '',
+        ),
+        locale: const Locale('en'),
+        now: DateTime.utc(2022, 4, 5, 20),
+      );
+
+      // The digits in front of the unit are author-written and unbounded. One
+      // wider than an int used to throw out of the middle of a post's markup;
+      // one merely enormous wrapped its own Duration and advanced the date to
+      // a moment that never existed. Both stay on the cooked wall time.
+      for (final recurring in const [
+        '99999999999999999999999.days',
+        '900000000000.days',
+        '99999999999999999999999999.milliseconds',
+      ]) {
+        expect(
+          resolve(recurring)?.formatted,
+          '2021-11-22 11:00',
+          reason: recurring,
+        );
+      }
+
+      // The bound is on the step, not on recurrence: an ordinary one advances.
+      expect(resolve('1.weeks')?.formatted, '2022-04-11 11:00');
+    });
+
     test(
       'uses localized natural day labels and explicit formats disable them',
       () {

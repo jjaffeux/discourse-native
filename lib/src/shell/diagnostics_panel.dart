@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
+import 'diagnostics_text.dart';
 import 'resenha_diagnostics_view.dart';
 
 /// The initial width used by both the docked diagnostics sidebar and the
@@ -647,7 +648,7 @@ class _MultiSelectMenu extends StatelessWidget {
           CheckedPopupMenuItem(
             value: value,
             checked: selected.contains(value),
-            child: Text(_sentenceCase(value)),
+            child: Text(sentenceCase(value)),
           ),
       ],
       child: Semantics(
@@ -667,7 +668,7 @@ class _MultiSelectMenu extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  _sentenceCase(description),
+                  sentenceCase(description),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -732,7 +733,7 @@ class _EventRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${_formatTimestamp(event.timestampUtc)}  ·  ${event.source}',
+                      '${diagnosticTimeText(event.timestampUtc)}  ·  ${event.source}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -804,7 +805,7 @@ class _EventDetail extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${_sentenceCase(event.severity.name)} · ${event.source}',
+                    '${sentenceCase(event.severity.name)} · ${event.source}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -842,7 +843,7 @@ class _DetailField extends StatelessWidget {
         name.toLowerCase().contains('stack') ||
         value is Map ||
         value is Iterable;
-    final rendered = _renderValue(value);
+    final rendered = diagnosticValueText(value);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -850,7 +851,7 @@ class _DetailField extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _sentenceCase(_splitIdentifier(name)),
+            sentenceCase(splitIdentifier(name)),
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w700,
@@ -951,10 +952,10 @@ String _eventTitle(DiagnosticEvent event) {
 String _eventStatus(DiagnosticEvent event) {
   return switch (event) {
     HttpDiagnosticEvent(:final statusCode?) => '$statusCode',
-    HttpDiagnosticEvent(:final state) => _sentenceCase(state.name),
-    DiagnosticLogEvent() => _sentenceCase(event.severity.name),
-    ErrorDiagnosticEvent() => _sentenceCase(event.severity.name),
-    DiagnosticSessionEvent(:final state) => _sentenceCase(state.name),
+    HttpDiagnosticEvent(:final state) => sentenceCase(state.name),
+    DiagnosticLogEvent() => sentenceCase(event.severity.name),
+    ErrorDiagnosticEvent() => sentenceCase(event.severity.name),
+    DiagnosticSessionEvent(:final state) => sentenceCase(state.name),
   };
 }
 
@@ -974,32 +975,6 @@ String _eventSemantics(DiagnosticEvent event) => [
   _eventStatus(event),
   _eventDuration(event),
 ].where((part) => part.isNotEmpty).join(', ');
-
-String _renderValue(Object? value) {
-  if (value is Map || value is Iterable) {
-    return const JsonEncoder.withIndent('  ').convert(value);
-  }
-  return '$value';
-}
-
-String _formatTimestamp(DateTime timestamp) {
-  final utc = timestamp.toUtc();
-  String two(int value) => value.toString().padLeft(2, '0');
-  String three(int value) => value.toString().padLeft(3, '0');
-  return '${two(utc.hour)}:${two(utc.minute)}:${two(utc.second)}.${three(utc.millisecond)}';
-}
-
-String _splitIdentifier(String value) => value
-    .replaceAll('_', ' ')
-    .replaceAllMapped(
-      RegExp(r'([a-z0-9])([A-Z])'),
-      (match) => '${match[1]} ${match[2]}',
-    );
-
-String _sentenceCase(String value) {
-  if (value.isEmpty) return value;
-  return '${value[0].toUpperCase()}${value.substring(1)}';
-}
 
 List<Map<String, Object?>> _resenhaTimelineEvents(
   List<ResenhaDiagnosticRecord> deepEvents,

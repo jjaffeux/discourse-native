@@ -586,9 +586,13 @@ class LocalDateFormatter {
   ) {
     final match = _recurrencePattern.firstMatch(recurring);
     if (match == null) return null;
-    final amount = int.parse(match.group(1)!);
-    if (amount <= 0) return null;
+    final amount = int.tryParse(match.group(1)!);
     final unit = match.group(2)!;
+    if (amount == null ||
+        amount <= 0 ||
+        amount > _maximumRecurrenceAmount(unit)) {
+      return null;
+    }
     var repetitions = _estimatedRepetitions(start, now, amount, unit);
     repetitions = math.max(1, repetitions);
     var candidate = _addWall(start, amount * repetitions, unit);
@@ -604,6 +608,37 @@ class LocalDateFormatter {
     }
     return candidate;
   }
+
+  /// The furthest one recurrence step may reach, in days.
+  ///
+  /// `recurring` is author-written markup that arrives here verbatim, and the
+  /// digits in front of the unit are unbounded. Beyond this the arithmetic
+  /// below stops saying anything true: `int.parse` throws on a number wider
+  /// than 64 bits, and a `Duration` built from a merely enormous one wraps
+  /// rather than overflows, so the advance loop compares against a date it
+  /// invented. A hundred thousand years is far past any recurrence anyone
+  /// means and still leaves every intermediate inside its own range — the
+  /// source year is capped at four digits by [_wallDatePattern], so the
+  /// furthest step lands around the year 110,000, well short of the roughly
+  /// 273,000 `DateTime` allows.
+  static const int _maximumRecurrenceDays = 100000 * 366;
+
+  /// The largest [_maximumRecurrenceDays]-worth of [unit], never multiplied
+  /// out so the bound itself cannot overflow what it is bounding.
+  static int _maximumRecurrenceAmount(String unit) => switch (unit) {
+    final value when value.startsWith('year') => _maximumRecurrenceDays ~/ 366,
+    final value when value.startsWith('quarter') =>
+      _maximumRecurrenceDays ~/ 92,
+    final value when value.startsWith('month') => _maximumRecurrenceDays ~/ 31,
+    final value when value.startsWith('week') => _maximumRecurrenceDays ~/ 7,
+    final value when value.startsWith('day') => _maximumRecurrenceDays,
+    final value when value.startsWith('hour') => _maximumRecurrenceDays * 24,
+    final value when value.startsWith('minute') =>
+      _maximumRecurrenceDays * 1440,
+    final value when value.startsWith('second') =>
+      _maximumRecurrenceDays * 86400,
+    _ => _maximumRecurrenceDays * 86400000,
+  };
 
   static int _estimatedRepetitions(
     tz.TZDateTime start,

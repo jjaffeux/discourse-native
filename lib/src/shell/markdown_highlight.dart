@@ -408,7 +408,7 @@ class _Scan {
   static final RegExp _inlineCodePattern = RegExp(
     r'(`+)([^`]|[^`][\s\S]*?[^`])\1',
   );
-  static final RegExp _linkPattern = RegExp(r'\[([^\]\n]*)\]\(([^)\s]*)\)');
+  static final RegExp _linkAddressPattern = RegExp(r'[^)\s]*\)');
   static final RegExp _bareUrlPattern = RegExp(r'https?://[^\s<>\[\]()]+');
   static final RegExp _mentionPattern = RegExp(
     r'@([a-zA-Z0-9_][a-zA-Z0-9_.-]*)',
@@ -611,6 +611,11 @@ class _Scan {
   /// nothing to stop it, so left to the whole document each one walks the rest
   /// of it before giving up.
   void _htmlTags(String text, int offset) {
+    // Every match needs a `</`, and the body between the tags is lazy with
+    // nothing to stop it: without one, each opener walks the rest of the block
+    // before giving up, and a line of unclosed `<del>` is quadratic. One
+    // substring search answers for all of them.
+    if (!text.contains('</')) return;
     for (final match in _tagPattern.allMatches(text)) {
       final tag = match.group(1)!.toLowerCase();
       final start = offset + match.start;
@@ -629,27 +634,81 @@ class _Scan {
     }
   }
 
+  /// `[text](url)`, found by scanning rather than by a pattern.
+  ///
+  /// The pattern this replaces was `\[([^\]\n]*)\]\(([^)\s]*)\)`, and the
+  /// text class excludes `]`, so the closing bracket is always the first one
+  /// on the line — but the engine cannot know that. At every `[` it consumed
+  /// to the end of the line and then gave the characters back one at a time
+  /// looking for a `]` that the class it just matched had already ruled out.
+  /// One line holding many `[` and no `]` — a pasted log line, a minified
+  /// array — cost that walk per bracket. The scan below finds the same
+  /// bracket with `indexOf`, and when a line has none it says so once instead
+  /// of rediscovering it at every `[` after that.
   void _links() {
-    for (final match in _linkPattern.allMatches(source)) {
-      final textStart = match.start + 1;
-      final textEnd = textStart + match.group(1)!.length;
-      final urlStart = textEnd + 2;
-      final urlEnd = urlStart + match.group(2)!.length;
-      // The brackets and the address have to be unclaimed; the link text is
-      // prose and may already carry a mark.
-      if (!_free(match.start, textStart) || !_free(textEnd, match.end)) {
+    // The end of a line already shown to hold no `]` after it.
+    var barrenTo = -1;
+    // The newline ending the line the bracket under consideration is on.
+    // Carried, because openings only move forward: looking it up per bracket
+    // would walk to the end of a newline-free document at every one of them,
+    // which is the cost this scan exists to remove.
+    var lineEnd = -1;
+    var offset = 0;
+    while (offset < source.length) {
+      final open = source.indexOf('[', offset);
+      if (open < 0) break;
+      if (open < barrenTo) {
+        offset = open + 1;
+        continue;
+      }
+      if (open >= lineEnd) {
+        final next = source.indexOf('\n', open + 1);
+        lineEnd = next < 0 ? source.length : next;
+      }
+
+      final close = source.indexOf(']', open + 1);
+      if (close < 0) {
+        // Nothing later can close either.
+        break;
+      }
+      if (close > lineEnd) {
+        barrenTo = lineEnd;
+        offset = open + 1;
+        continue;
+      }
+      if (close + 1 >= source.length || source[close + 1] != '(') {
+        offset = open + 1;
         continue;
       }
 
-      _mark(match.start, textStart, Md.marker);
+      final urlStart = close + 2;
+      final address = _linkAddressPattern.matchAsPrefix(source, urlStart);
+      if (address == null) {
+        offset = open + 1;
+        continue;
+      }
+
+      final textStart = open + 1;
+      final textEnd = close;
+      final urlEnd = address.end - 1;
+      final end = address.end;
+      // The brackets and the address have to be unclaimed; the link text is
+      // prose and may already carry a mark.
+      if (!_free(open, textStart) || !_free(textEnd, end)) {
+        offset = open + 1;
+        continue;
+      }
+
+      _mark(open, textStart, Md.marker);
       _mark(textStart, textEnd, Md.linkText);
       _mark(textEnd, urlStart, Md.marker);
       _mark(urlStart, urlEnd, Md.linkUrl);
-      _mark(urlEnd, match.end, Md.marker);
+      _mark(urlEnd, end, Md.marker);
       // The URL is spoken for — an underscore in it is not italic — but the
       // link text is ordinary prose and may be marked up.
-      _close(match.start, textStart);
-      _close(textEnd, match.end);
+      _close(open, textStart);
+      _close(textEnd, end);
+      offset = end;
     }
   }
 

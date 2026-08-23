@@ -4,6 +4,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../../foundation/diagnostic_errors.dart';
 import '../../theme/app_theme.dart';
+import '../cooked_dom.dart';
 import '../cooked_html.dart';
 import '../image_decode.dart';
 import '../open_link.dart';
@@ -62,29 +63,30 @@ class OneboxData {
 
   /// Reads [aside], which must be the `aside.onebox` element itself.
   static OneboxData from(dom.Element aside) {
-    final header = _descendant(aside, (e) => e.localName == 'header');
+    final header = descendantWhere(aside, (e) => e.localName == 'header');
     final article =
-        _descendant(aside, (e) => e.classes.contains('onebox-body')) ?? aside;
+        descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
+        aside;
 
     final iconImg = header == null
         ? null
-        : _descendant(
+        : descendantWhere(
             header,
             (e) => e.localName == 'img' && e.classes.contains('site-icon'),
           );
     final siteLink = header == null
         ? null
-        : _descendant(header, (e) => e.localName == 'a');
+        : descendantWhere(header, (e) => e.localName == 'a');
 
-    final titleEl = _descendant(
+    final titleEl = descendantWhere(
       article,
       (e) => const {'h1', 'h2', 'h3', 'h4'}.contains(e.localName),
     );
     final titleLink = titleEl == null
         ? null
-        : _descendant(titleEl, (e) => e.localName == 'a');
+        : descendantWhere(titleEl, (e) => e.localName == 'a');
 
-    final thumbImg = _descendant(article, _isThumbnail);
+    final thumbImg = descendantWhere(article, _isThumbnail);
     final thumbnail = thumbImg == null ? null : OneboxThumbnail.from(thumbImg);
 
     // Serialize the rest of the body rather than removing nodes from it: the
@@ -133,26 +135,6 @@ class OneboxData {
       current = current.parent!;
     }
     return current;
-  }
-
-  static dom.Element? _descendant(
-    dom.Element root,
-    bool Function(dom.Element) test,
-  ) {
-    final pending = <dom.Element>[];
-    void pushReversed(List<dom.Element> children) {
-      for (var index = children.length - 1; index >= 0; index--) {
-        pending.add(children[index]);
-      }
-    }
-
-    pushReversed(root.children);
-    while (pending.isNotEmpty) {
-      final child = pending.removeLast();
-      if (test(child)) return child;
-      pushReversed(child.children);
-    }
-    return null;
   }
 
   static String _serialize(dom.Node node) =>

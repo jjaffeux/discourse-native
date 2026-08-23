@@ -128,6 +128,31 @@ void main() {
     expect(images.map((image) => image.alt), ['visible']);
   });
 
+  test('an escaped alt cannot be read two ways', () {
+    // `\\.` and the alt class both used to accept a backslash, so a run of
+    // them had one parse per backslash and the engine tried every one before
+    // an alt with no `](` after it could fail. Forty backslashes took minutes,
+    // in a scan the composer runs on every keystroke.
+    final elapsed = Stopwatch()..start();
+    expect(parseComposerImages('![${'\\' * 60} '), isEmpty);
+    elapsed.stop();
+
+    expect(elapsed.elapsedMilliseconds, lessThan(500));
+  });
+
+  test('a line of openers costs its length, not its square', () {
+    // No `]` anywhere on the line, so no image can match — but the pattern
+    // walked to the line's end at every `![` before agreeing.
+    final small = _bestOf(() => parseComposerImages('![alt ' * 800));
+    final large = _bestOf(() => parseComposerImages('![alt ' * 6400));
+
+    expect(
+      large,
+      lessThan(small * 25),
+      reason: 'eight times the openers took ${large / small} times as long',
+    );
+  });
+
   test('finds offsets through the complete raw token', () {
     const source = 'x ![photo](upload://abc) y';
     final image = parseComposerImages(source).single;
@@ -136,4 +161,17 @@ void main() {
     expect(imageAtComposerOffset([image], image.end), image);
     expect(imageAtComposerOffset([image], 0), isNull);
   });
+}
+
+int _bestOf(void Function() body) {
+  var best = -1;
+  for (var run = 0; run < 3; run += 1) {
+    final elapsed = Stopwatch()..start();
+    body();
+    elapsed.stop();
+    if (best < 0 || elapsed.elapsedMicroseconds < best) {
+      best = elapsed.elapsedMicroseconds;
+    }
+  }
+  return best;
 }

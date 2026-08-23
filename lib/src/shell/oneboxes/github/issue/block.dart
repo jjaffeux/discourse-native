@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../../../theme/app_theme.dart';
+import '../../../cooked_dom.dart';
 import '../../../relative_time.dart';
 import '../../onebox.dart';
 import '../github.dart';
@@ -167,33 +168,33 @@ class GithubIssueData {
 
   static GithubIssueData from(dom.Element aside) {
     final article =
-        githubDescendant(aside, (e) => e.classes.contains('onebox-body')) ??
+        descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
         aside;
     final row = article.children
         .where((e) => e.classes.contains('github-row'))
         .firstOrNull;
     final scope = row ?? article;
 
-    final titleLink = githubDescendant(
+    final titleLink = descendantWhere(
       scope,
       (e) => e.localName == 'h4',
     )?.children.where((e) => e.localName == 'a').firstOrNull;
 
-    final info = githubDescendant(
+    final info = descendantWhere(
       scope,
       (e) => e.classes.contains('github-info'),
     );
     final dates = info == null
         ? <dom.Element>[]
-        : githubDescendants(info, (e) => e.classes.contains('date'));
+        : descendantsWhere(info, (e) => e.classes.contains('date'));
     final userEl = info == null
         ? null
-        : githubDescendant(info, (e) => e.classes.contains('user'));
+        : descendantWhere(info, (e) => e.classes.contains('user'));
     final userLink = userEl == null
         ? null
-        : githubDescendant(userEl, (e) => e.localName == 'a');
+        : descendantWhere(userEl, (e) => e.localName == 'a');
 
-    final labelsEl = githubDescendant(
+    final labelsEl = descendantWhere(
       scope,
       (e) => e.classes.contains('labels'),
     );
@@ -215,7 +216,7 @@ class GithubIssueData {
       userLogin: userLink?.text.trim(),
       userAvatarUrl: userLink == null
           ? null
-          : githubDescendant(
+          : descendantWhere(
               userLink,
               (e) => e.classes.contains('onebox-avatar-inline'),
             )?.attributes['src'],

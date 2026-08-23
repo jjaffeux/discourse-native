@@ -4,6 +4,7 @@ import 'package:html/dom.dart' as dom;
 import '../../../../theme/app_theme.dart';
 import '../../../../theme/d_icon.dart';
 import '../../../code_block.dart' show monospaceTextStyle;
+import '../../../cooked_dom.dart';
 import '../../../relative_time.dart';
 import '../../onebox.dart';
 import '../github.dart';
@@ -209,23 +210,23 @@ class GithubPullRequestData {
 
   static GithubPullRequestData from(dom.Element aside) {
     final article =
-        githubDescendant(aside, (e) => e.classes.contains('onebox-body')) ??
+        descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
         aside;
     final rows = article.children
         .where((e) => e.classes.contains('github-row'))
         .toList();
     final row = rows.isNotEmpty ? rows.first : article;
 
-    final titleLink = githubDescendant(
+    final titleLink = descendantWhere(
       row,
       (e) => e.localName == 'h4',
     )?.children.where((e) => e.localName == 'a').firstOrNull;
 
-    final iconContainer = githubDescendant(
+    final iconContainer = descendantWhere(
       row,
       (e) => e.classes.contains('github-icon-container'),
     );
-    final branches = githubDescendant(
+    final branches = descendantWhere(
       row,
       (e) => e.classes.contains('branches'),
     );
@@ -233,22 +234,19 @@ class GithubPullRequestData {
         ? <dom.Element>[]
         : branches.children.where((e) => e.localName == 'code').toList();
 
-    final info = githubDescendant(
-      row,
-      (e) => e.classes.contains('github-info'),
-    );
+    final info = descendantWhere(row, (e) => e.classes.contains('github-info'));
     final dateEl = info == null
         ? null
-        : githubDescendant(info, (e) => e.classes.contains('date'));
+        : descendantWhere(info, (e) => e.classes.contains('date'));
     final userEl = info == null
         ? null
-        : githubDescendant(info, (e) => e.classes.contains('user'));
+        : descendantWhere(info, (e) => e.classes.contains('user'));
     final userLink = userEl == null
         ? null
-        : githubDescendant(userEl, (e) => e.localName == 'a');
+        : descendantWhere(userEl, (e) => e.localName == 'a');
     final linesEl = info == null
         ? null
-        : githubDescendant(info, (e) => e.classes.contains('lines'));
+        : descendantWhere(info, (e) => e.classes.contains('lines'));
 
     // The deep-link shape writes one `<span>` of free text where the PR
     // shape writes its cells.
@@ -269,7 +267,7 @@ class GithubPullRequestData {
       userLogin: userLink?.text.trim(),
       userAvatarUrl: userLink == null
           ? null
-          : githubDescendant(
+          : descendantWhere(
               userLink,
               (e) => e.classes.contains('onebox-avatar-inline'),
             )?.attributes['src'],
@@ -284,10 +282,7 @@ class GithubPullRequestData {
   /// `+123` in a `.added` span, as a number.
   static int? _count(dom.Element? linesEl, String className) {
     if (linesEl == null) return null;
-    final span = githubDescendant(
-      linesEl,
-      (e) => e.classes.contains(className),
-    );
+    final span = descendantWhere(linesEl, (e) => e.classes.contains(className));
     return int.tryParse(span?.text.replaceAll(RegExp(r'[^\d]'), '') ?? '');
   }
 }

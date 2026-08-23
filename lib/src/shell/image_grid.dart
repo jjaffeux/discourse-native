@@ -9,6 +9,7 @@ import '../foundation/diagnostic_errors.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'cooked_dom.dart';
 import 'cooked_html.dart';
 import 'image_decode.dart';
 import 'lightbox.dart';
@@ -78,7 +79,7 @@ class ImageGridItem {
     if (isLightbox) return null;
     final img = element.localName == 'img'
         ? element
-        : _descendant(element, (e) => e.localName == 'img');
+        : descendantWhere(element, (e) => e.localName == 'img');
     final src = img?.attributes['src'];
     return (src == null || src.isEmpty) ? null : src;
   }
@@ -178,17 +179,17 @@ class ImageGridData {
     final anchor =
         element.localName == 'a' && element.classes.contains('lightbox')
         ? element
-        : _descendant(element, (e) => e.classes.contains('lightbox'));
+        : descendantWhere(element, (e) => e.classes.contains('lightbox'));
     final img = element.localName == 'img'
         ? element
-        : _descendant(element, (e) => e.localName == 'img');
+        : descendantWhere(element, (e) => e.localName == 'img');
 
     final declared = parseSafeImageLayoutSize(
       img?.attributes['width'],
       img?.attributes['height'],
     );
 
-    final informations = _descendant(
+    final informations = descendantWhere(
       element,
       (e) => e.classes.contains('informations'),
     );
@@ -832,23 +833,6 @@ class _Counter extends StatelessWidget {
       ),
     );
   }
-}
-
-dom.Element? _descendant(dom.Element root, bool Function(dom.Element) test) {
-  final pending = <dom.Element>[];
-  void pushReversed(List<dom.Element> children) {
-    for (var index = children.length - 1; index >= 0; index--) {
-      pending.add(children[index]);
-    }
-  }
-
-  pushReversed(root.children);
-  while (pending.isNotEmpty) {
-    final child = pending.removeLast();
-    if (test(child)) return child;
-    pushReversed(child.children);
-  }
-  return null;
 }
 
 dom.Element? _ancestor(dom.Element node, bool Function(dom.Element) test) {

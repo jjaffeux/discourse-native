@@ -6,6 +6,7 @@ import '../../../theme/app_theme.dart';
 import '../../../theme/d_icon.dart';
 import '../../avatar_image.dart';
 import '../../code_block.dart' show monospaceTextStyle;
+import '../../cooked_dom.dart';
 import '../../open_link.dart';
 import '../../site_url.dart';
 
@@ -336,54 +337,11 @@ class GithubBodyText extends StatelessWidget {
 
 // --- DOM reading shared by the GitHub engines.
 
-/// First descendant of [root] matching [test], in document order.
-dom.Element? githubDescendant(
-  dom.Element root,
-  bool Function(dom.Element) test,
-) {
-  final pending = <dom.Element>[];
-  void pushReversed(List<dom.Element> children) {
-    for (var index = children.length - 1; index >= 0; index--) {
-      pending.add(children[index]);
-    }
-  }
-
-  pushReversed(root.children);
-  while (pending.isNotEmpty) {
-    final child = pending.removeLast();
-    if (test(child)) return child;
-    pushReversed(child.children);
-  }
-  return null;
-}
-
-/// All descendants of [root] matching [test], in document order.
-List<dom.Element> githubDescendants(
-  dom.Element root,
-  bool Function(dom.Element) test,
-) {
-  final found = <dom.Element>[];
-  final pending = <dom.Element>[];
-  void pushReversed(List<dom.Element> children) {
-    for (var index = children.length - 1; index >= 0; index--) {
-      pending.add(children[index]);
-    }
-  }
-
-  pushReversed(root.children);
-  while (pending.isNotEmpty) {
-    final child = pending.removeLast();
-    if (test(child)) found.add(child);
-    pushReversed(child.children);
-  }
-  return found;
-}
-
 /// The `discourse-local-date` span carries the real moment in `data-date` and
 /// `data-time`; the text the server wrote as a fallback is a fixed-time
 /// string nobody asked for.
 DateTime? githubLocalDate(dom.Element scope) {
-  final span = githubDescendant(
+  final span = descendantWhere(
     scope,
     (e) => e.classes.contains('discourse-local-date'),
   );
@@ -407,7 +365,7 @@ String? githubDateVerb(dom.Element dateEl) {
 }
 
 String githubLocalDateText(dom.Element dateEl) {
-  final span = githubDescendant(
+  final span = descendantWhere(
     dateEl,
     (e) => e.classes.contains('discourse-local-date'),
   );
@@ -417,7 +375,7 @@ String githubLocalDateText(dom.Element dateEl) {
 /// The issue/PR/commit body, minus the "show more" link and the hidden
 /// excerpt the template appends for the web's expander.
 String? githubBody(dom.Element article) {
-  final p = githubDescendant(
+  final p = descendantWhere(
     article,
     (e) => e.classes.contains('github-body-container'),
   );

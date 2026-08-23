@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import 'serial_operation_queue.dart';
+import 'store_diagnostics.dart';
 
 /// App-wide sidebar width persistence.
 ///
@@ -50,7 +50,7 @@ final class SidebarWidthStore {
     try {
       return await _persistence.readWidth();
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'sidebar.readWidth');
+      reportStorageFailure(error, stackTrace, 'sidebar.readWidth');
       return null;
     }
   }
@@ -67,19 +67,7 @@ final class SidebarWidthStore {
         throw StateError('Could not persist the sidebar width.');
       }
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'sidebar.writeWidth');
+      reportStorageFailure(error, stackTrace, 'sidebar.writeWidth');
     }
-  }
-
-  static void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
   }
 }

@@ -1128,7 +1128,10 @@ double? _hue(String source) {
     r'^([+-]?(?:\d+(?:\.\d*)?|\.\d+))(deg|grad|rad|turn)?$',
   ).firstMatch(value);
   if (match == null) return null;
-  final number = double.parse(match.group(1)!);
+  // The pattern bounds the shape of the number, not its width, and an
+  // infinite hue reaches `sector.floor()` below as NaN, which throws.
+  final number = _finiteDouble(match.group(1)!);
+  if (number == null) return null;
   final degrees = switch (match.group(2)) {
     'grad' => number * 0.9,
     'rad' => number * 180 / math.pi,
@@ -1136,8 +1139,4 @@ double? _hue(String source) {
     _ => number,
   };
   return (degrees % 360 + 360) % 360;
-}
-
-extension<T> on List<T> {
-  T? elementAtOrNull(int index) => index < length ? this[index] : null;
 }

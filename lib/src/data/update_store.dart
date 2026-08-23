@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import 'serial_operation_queue.dart';
+import 'store_diagnostics.dart';
 import 'updater.dart';
 
 /// Raw, non-secret update preferences.
@@ -61,18 +61,6 @@ class UpdateStore {
 
   final UpdatePersistence _persistence;
 
-  static void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
-  }
-
   Future<UpdateChannel?> readChannel() async {
     try {
       // byName rather than values.byName: a channel this build no longer has
@@ -84,7 +72,7 @@ class UpdateStore {
       );
       return UpdateChannel.byName(name);
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'updates.readChannel');
+      reportStorageFailure(error, stackTrace, 'updates.readChannel');
       return null;
     }
   }
@@ -100,7 +88,7 @@ class UpdateStore {
         throw StateError('Could not persist the update channel.');
       }
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'updates.writeChannel');
+      reportStorageFailure(error, stackTrace, 'updates.writeChannel');
       return;
     }
   }
@@ -116,7 +104,7 @@ class UpdateStore {
           ? null
           : DateTime.fromMillisecondsSinceEpoch(millis);
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'updates.readLastChecked');
+      reportStorageFailure(error, stackTrace, 'updates.readLastChecked');
       return null;
     }
   }
@@ -133,7 +121,7 @@ class UpdateStore {
         throw StateError('Could not persist the last update check.');
       }
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'updates.writeLastChecked');
+      reportStorageFailure(error, stackTrace, 'updates.writeLastChecked');
       return;
     }
   }

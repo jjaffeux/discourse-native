@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import 'serial_operation_queue.dart';
+import 'store_diagnostics.dart';
 
 /// Per-forum sidebar collapse-state persistence.
 ///
@@ -78,7 +78,7 @@ final class SidebarSectionStore {
           ) ??
           false;
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'sidebarSections.readCollapsed');
+      reportStorageFailure(error, stackTrace, 'sidebarSections.readCollapsed');
       return false;
     }
   }
@@ -112,19 +112,7 @@ final class SidebarSectionStore {
       );
       if (!saved) throw StateError('Could not persist sidebar section state.');
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'sidebarSections.writeCollapsed');
+      reportStorageFailure(error, stackTrace, 'sidebarSections.writeCollapsed');
     }
-  }
-
-  static void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
   }
 }

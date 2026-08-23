@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../theme/app_theme.dart';
+import 'cooked_dom.dart';
 import 'syntax.dart';
 
 /// Renders `<pre>` natively, for both post code fences and oneboxes.
@@ -24,10 +25,10 @@ class CodeBlockData {
 
   /// Reads [pre], which must be the `<pre>` element itself.
   static CodeBlockData from(dom.Element pre) {
-    final code = _descendant(pre, (e) => e.localName == 'code');
+    final code = descendantWhere(pre, (e) => e.localName == 'code');
     final language = _language(code ?? pre);
 
-    final ol = _descendant(pre, (e) => e.localName == 'ol');
+    final ol = descendantWhere(pre, (e) => e.localName == 'ol');
     final lines = ol != null ? _numbered(ol) : _plain((code ?? pre).text);
 
     return CodeBlockData(
@@ -97,26 +98,6 @@ class CodeBlockData {
           isSelected: line.isSelected,
         ),
     ];
-  }
-
-  static dom.Element? _descendant(
-    dom.Element root,
-    bool Function(dom.Element) test,
-  ) {
-    final pending = <dom.Element>[];
-    void pushReversed(List<dom.Element> children) {
-      for (var index = children.length - 1; index >= 0; index--) {
-        pending.add(children[index]);
-      }
-    }
-
-    pushReversed(root.children);
-    while (pending.isNotEmpty) {
-      final child = pending.removeLast();
-      if (test(child)) return child;
-      pushReversed(child.children);
-    }
-    return null;
   }
 }
 

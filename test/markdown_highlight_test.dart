@@ -680,6 +680,136 @@ void main() {
       }
     });
 
+    test('the link scan agrees with the pattern it replaced', () {
+      // `_links` used to be `\[([^\]\n]*)\]\(([^)\s]*)\)`. It is a scan now,
+      // for the growth reason above, and the two have to agree on what a link
+      // is. The alphabet leaves out backticks and inline tags: those claim
+      // characters in an earlier pass, and a candidate whose brackets are
+      // already claimed is the one place the scan deliberately differs — it
+      // resumes after the opening bracket rather than past the whole rejected
+      // candidate, which is what lets `` `[` `` stop hiding a real link after
+      // it. The case below that pins that difference.
+      final pattern = RegExp(r'\[([^\]\n]*)\]\(([^)\s]*)\)');
+      const alphabet = [
+        '[',
+        ']',
+        '(',
+        ')',
+        'a',
+        ' ',
+        '\n',
+        'https://x/',
+        '*',
+        r'\',
+        'b',
+        '](',
+        ')[',
+        '[a](b)',
+        '\t',
+        '_',
+        '![',
+        '|',
+      ];
+      final random = Random(20260823);
+
+      for (var attempt = 0; attempt < 20000; attempt += 1) {
+        final buffer = StringBuffer();
+        for (var i = random.nextInt(24); i > 0; i -= 1) {
+          buffer.write(alphabet[random.nextInt(alphabet.length)]);
+        }
+        final source = buffer.toString();
+
+        // An empty link text leaves no run behind, so it cannot be compared.
+        final expected = [
+          for (final match in pattern.allMatches(source))
+            if (match.group(1)!.isNotEmpty)
+              '${match.start + 1}:${match.start + 1 + match.group(1)!.length}',
+        ];
+
+        // `Md.linkText` is set by `_links` and nothing else. Adjacent runs of
+        // it are one link's text split by whatever marked up the prose.
+        final found = <String>[];
+        int? start;
+        int? end;
+        for (final run in scanMarkdown(source)) {
+          if (!run.has(Md.linkText)) continue;
+          if (end == run.start) {
+            end = run.end;
+            continue;
+          }
+          if (start != null) found.add('$start:$end');
+          start = run.start;
+          end = run.end;
+        }
+        if (start != null) found.add('$start:$end');
+
+        expect(found, expected, reason: 'differed on ${source.codeUnits}');
+      }
+    });
+
+    test('a claimed bracket does not hide the link after it', () {
+      const source = '`code [` and [text](https://x/) end';
+      final marked = [
+        for (final run in scanMarkdown(source))
+          if (run.has(Md.linkText) || run.has(Md.linkUrl))
+            source.substring(run.start, run.end),
+      ];
+
+      expect(marked, ['text', 'https://x/']);
+    });
+
+    test('deferring a fence does not move where code is', () {
+      // The composer shares one scan's `CodeRanges` with every projection
+      // parser instead of letting each run its own. That only holds while a
+      // fence left untokenized still reports its body as code.
+      final body = List.generate(
+        400,
+        (index) => 'var x$index = $index;',
+      ).join('\n');
+      final source = 'before\n\n```dart\n$body\n```\n\nafter `x` end';
+
+      final direct = CodeRanges.of(scanMarkdown(source));
+      final deferred = CodeRanges.of(
+        scanMarkdown(source, deferHighlight: (_, _) {}),
+      );
+
+      expect(direct.isEmpty, isFalse);
+      expect(deferred.ranges.toList(), direct.ranges.toList());
+    });
+
+    test('a line of openers costs its length, not its square', () {
+      // The other quadratic shape, and it needs no fence: one long line with
+      // many openers on it. The link pattern's text class excludes `]`, so the
+      // closer is always the first one on the line, but the engine walked to
+      // the end of the line at every bracket and gave the characters back one
+      // at a time looking for a `]` it had already ruled out. An inline tag's
+      // body is lazy with nothing to stop it and cost the same walk. A
+      // minified array pasted on one line, a log line that opens a bracket and
+      // never closes it, or a paste full of `<del>`, is that shape.
+      int cost(String source) {
+        var best = -1;
+        for (var run = 0; run < 3; run += 1) {
+          final elapsed = Stopwatch()..start();
+          scanMarkdown(source);
+          elapsed.stop();
+          if (best < 0 || elapsed.elapsedMicroseconds < best) {
+            best = elapsed.elapsedMicroseconds;
+          }
+        }
+        return best;
+      }
+
+      for (final unit in const ['[abc ', '[abc] ', '[abc](x) ', '<kbd>x ']) {
+        final small = cost(unit * 800);
+        final large = cost(unit * 6400);
+        expect(
+          large,
+          lessThan(small * 25),
+          reason: 'eight times "$unit" took ${large / small} times as long',
+        );
+      }
+    });
+
     test('scales with the length of what is pasted, not its square', () {
       // A stack trace is the shape that used to be quadratic: one block with
       // no blank line in it, and one `_private` opener per frame that never

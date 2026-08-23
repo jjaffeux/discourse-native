@@ -38,8 +38,14 @@ class ComposerImageBlock {
   }
 }
 
+// The alt class excludes the backslash on purpose. Letting it match there as
+// well as through `\\.` gives a run of backslashes one parse per backslash,
+// and the engine tries all of them before an alt with no `](` after it can
+// fail: forty of them in a composer that rescans on every keystroke is a
+// freeze, not a slow frame. Excluding it also reads `\]` the way CommonMark
+// does — as an escaped bracket that does not close the alt.
 final RegExp _imagePattern = RegExp(
-  r'!\[((?:\\.|[^\]\n])*)\]\(((?:upload://|https?://)[^)\s]+)(?:\s+"[^"]*")?\)',
+  r'!\[((?:\\.|[^\\\]\n])*)\]\(((?:upload://|https?://)[^)\s]+)(?:\s+"[^"]*")?\)',
   caseSensitive: false,
 );
 
@@ -49,11 +55,50 @@ final RegExp _labelPattern = RegExp(
   r'^(.*?)(?:\|(\d{1,4})x(\d{1,4})(?:,\s*(\d{1,3})%)?)?(?:\|.*)?$',
 );
 
-List<ComposerImageBlock> parseComposerImages(String source) {
+/// [codeRanges] lets a caller that has already scanned [source] hand its
+/// answer over. The scan is the expensive half of this, and the composer runs
+/// it once for its own highlighting before asking any of these parsers
+/// anything — without this each of them would repeat it on every keystroke.
+List<ComposerImageBlock> parseComposerImages(
+  String source, {
+  CodeRanges? codeRanges,
+}) {
   if (source.isEmpty) return const [];
-  final code = CodeRanges.of(scanMarkdown(source));
+  final code = codeRanges ?? CodeRanges.of(scanMarkdown(source));
   final images = <ComposerImageBlock>[];
-  for (final match in _imagePattern.allMatches(source)) {
+  // Matched one opener at a time rather than with `allMatches`, so a line
+  // shown to hold no `]` is not rediscovered at every `![` on it. The alt
+  // cannot cross a newline, so a `]` somewhere on the line is necessary for a
+  // match; without one the pattern would still walk to the line's end per
+  // opener, which on one long line is quadratic.
+  var offset = 0;
+  var barrenTo = -1;
+  var lineEnd = -1;
+  while (offset < source.length) {
+    final start = source.indexOf('![', offset);
+    if (start < 0) break;
+    if (start < barrenTo) {
+      offset = start + 1;
+      continue;
+    }
+    if (start >= lineEnd) {
+      final next = source.indexOf('\n', start + 1);
+      lineEnd = next < 0 ? source.length : next;
+    }
+    final bracket = source.indexOf(']', start + 2);
+    if (bracket < 0) break;
+    if (bracket > lineEnd) {
+      barrenTo = lineEnd;
+      offset = start + 1;
+      continue;
+    }
+
+    final match = _imagePattern.matchAsPrefix(source, start);
+    if (match == null) {
+      offset = start + 1;
+      continue;
+    }
+    offset = match.end;
     if (code.overlaps(match.start, match.end)) continue;
     final label = _labelPattern.firstMatch(match.group(1)!);
     if (label == null) continue;

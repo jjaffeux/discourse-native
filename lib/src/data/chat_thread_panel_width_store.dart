@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import 'serial_operation_queue.dart';
+import 'store_diagnostics.dart';
 
 abstract interface class ChatThreadPanelWidthPersistence {
   Future<double?> readWidth();
@@ -46,7 +46,7 @@ final class ChatThreadPanelWidthStore {
         final width = await _persistence.readWidth();
         return width != null && width.isFinite && width > 0 ? width : null;
       } catch (error, stackTrace) {
-        _report(error, stackTrace, 'chatThreadPanel.readWidth');
+        reportStorageFailure(error, stackTrace, 'chatThreadPanel.readWidth');
         return null;
       }
     },
@@ -63,21 +63,9 @@ final class ChatThreadPanelWidthStore {
             throw StateError('Could not persist the thread panel width.');
           }
         } catch (error, stackTrace) {
-          _report(error, stackTrace, 'chatThreadPanel.writeWidth');
+          reportStorageFailure(error, stackTrace, 'chatThreadPanel.writeWidth');
         }
       },
-    );
-  }
-
-  static void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
     );
   }
 }

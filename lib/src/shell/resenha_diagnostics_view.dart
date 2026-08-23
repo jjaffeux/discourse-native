@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
+import 'diagnostics_text.dart';
 
 const int resenhaDiagnosticsClipboardByteLimit = 10 * 1024 * 1024;
 
@@ -430,7 +431,7 @@ class _CaptureControls extends StatelessWidget {
                     ),
                   if (state.startedAtUtc != null)
                     _MetadataChip(
-                      label: 'Since ${_formatTimestamp(state.startedAtUtc!)}',
+                      label: 'Since ${diagnosticTimeText(state.startedAtUtc!)}',
                     ),
                   if (state.captureId != null)
                     _MetadataChip(
@@ -572,7 +573,7 @@ class _CaptureEventRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     [
-                      _formatTimestamp(event.timestampUtc),
+                      diagnosticTimeText(event.timestampUtc),
                       event.component,
                       event.message,
                     ].whereType<String>().join(' · '),
@@ -631,7 +632,7 @@ class _CaptureEventDetail extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${_sentenceCase(event.severity.name)} · ${event.component}',
+                    '${sentenceCase(event.severity.name)} · ${event.component}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -656,7 +657,7 @@ class _CaptureEventDetail extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _sentenceCase(_splitIdentifier(entry.key)),
+                    sentenceCase(splitIdentifier(entry.key)),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
@@ -664,7 +665,7 @@ class _CaptureEventDetail extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   SelectableText(
-                    _renderValue(entry.value),
+                    diagnosticValueText(entry.value),
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontFamily: entry.value is Map || entry.value is Iterable
                           ? 'monospace'
@@ -803,30 +804,4 @@ String _formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KiB';
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB';
-}
-
-String _renderValue(Object? value) {
-  if (value is Map || value is Iterable) {
-    return const JsonEncoder.withIndent('  ').convert(value);
-  }
-  return '$value';
-}
-
-String _formatTimestamp(DateTime timestamp) {
-  final utc = timestamp.toUtc();
-  String two(int value) => value.toString().padLeft(2, '0');
-  String three(int value) => value.toString().padLeft(3, '0');
-  return '${two(utc.hour)}:${two(utc.minute)}:${two(utc.second)}.${three(utc.millisecond)}';
-}
-
-String _splitIdentifier(String value) => value
-    .replaceAll('_', ' ')
-    .replaceAllMapped(
-      RegExp(r'([a-z0-9])([A-Z])'),
-      (match) => '${match[1]} ${match[2]}',
-    );
-
-String _sentenceCase(String value) {
-  if (value.isEmpty) return value;
-  return '${value[0].toUpperCase()}${value.substring(1)}';
 }

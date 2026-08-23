@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import 'serial_operation_queue.dart';
+import 'store_diagnostics.dart';
 
 /// Per-forum topic-recommendations panel persistence.
 abstract interface class TopicRecommendationsPanelPersistence {
@@ -67,7 +67,11 @@ final class TopicRecommendationsPanelStore {
     try {
       return await _persistence.readCollapsed(siteUrl: siteUrl) ?? false;
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'topicRecommendationsPanel.readCollapsed');
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'topicRecommendationsPanel.readCollapsed',
+      );
       return false;
     }
   }
@@ -106,20 +110,12 @@ final class TopicRecommendationsPanelStore {
         );
       }
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'topicRecommendationsPanel.writeCollapsed');
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'topicRecommendationsPanel.writeCollapsed',
+      );
     }
-  }
-
-  static void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
   }
 }
 

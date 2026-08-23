@@ -3,6 +3,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../../../../theme/app_theme.dart';
 import '../../../avatar_image.dart';
+import '../../../cooked_dom.dart';
 import '../../../open_link.dart';
 import '../../../site_url.dart';
 import '../../onebox.dart';
@@ -139,22 +140,23 @@ class DiscourseUserData {
 
   static DiscourseUserData from(dom.Element aside) {
     final article =
-        _descendant(aside, (e) => e.classes.contains('user-onebox')) ?? aside;
+        descendantWhere(aside, (e) => e.classes.contains('user-onebox')) ??
+        aside;
 
-    final avatar = _descendant(article, (e) => e.localName == 'img');
-    final profileLink = _descendant(
+    final avatar = descendantWhere(article, (e) => e.localName == 'img');
+    final profileLink = descendantWhere(
       article,
       (e) => e.localName == 'h3',
     )?.children.where((e) => e.localName == 'a').firstOrNull;
 
     // The template marks the website link with a globe icon; the location
     // cell has no anchor of its own, so its svg is the way in.
-    final websiteLink = _descendant(
+    final websiteLink = descendantWhere(
       article,
       (e) => e.classes.contains('d-icon-earth-americas'),
     )?.parent?.children.where((e) => e.localName == 'a').firstOrNull;
 
-    final locationEl = _descendant(
+    final locationEl = descendantWhere(
       article,
       (e) => e.classes.contains('location'),
     );
@@ -162,7 +164,7 @@ class DiscourseUserData {
     return DiscourseUserData(
       username: (profileLink?.text ?? '').trim().replaceFirst('@', ''),
       avatarUrl: avatar?.attributes['src'],
-      name: _descendant(
+      name: descendantWhere(
         article,
         (e) => e.classes.contains('full-name'),
       )?.text.trim().nullIfEmpty,
@@ -174,31 +176,11 @@ class DiscourseUserData {
           .map((e) => e.text.replaceAll(RegExp(r'\s+'), ' ').trim())
           .where((text) => text.isNotEmpty)
           .firstOrNull,
-      joined: _descendant(
+      joined: descendantWhere(
         article,
         (e) => e.classes.contains('user-onebox--joined'),
       )?.text.trim().nullIfEmpty,
     );
-  }
-
-  static dom.Element? _descendant(
-    dom.Element root,
-    bool Function(dom.Element) test,
-  ) {
-    final pending = <dom.Element>[];
-    void pushReversed(List<dom.Element> children) {
-      for (var index = children.length - 1; index >= 0; index--) {
-        pending.add(children[index]);
-      }
-    }
-
-    pushReversed(root.children);
-    while (pending.isNotEmpty) {
-      final child = pending.removeLast();
-      if (test(child)) return child;
-      pushReversed(child.children);
-    }
-    return null;
   }
 }
 

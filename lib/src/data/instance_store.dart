@@ -7,6 +7,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
 import 'http_transport.dart';
 import 'serial_operation_queue.dart';
+import 'store_diagnostics.dart';
 
 abstract interface class InstancePersistence {
   Future<String?> read();
@@ -62,7 +63,7 @@ class InstanceStore {
     try {
       decoded = jsonDecode(raw);
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'instances.decode');
+      reportStorageFailure(error, stackTrace, 'instances.decode');
       return const [];
     }
     if (decoded is! List<dynamic>) return const [];
@@ -81,7 +82,7 @@ class InstanceStore {
         });
         if (seenUrls.add(instance.url)) instances.add(instance);
       } catch (error, stackTrace) {
-        _report(error, stackTrace, 'instances.decodeEntry');
+        reportStorageFailure(error, stackTrace, 'instances.decodeEntry');
         // A stale or damaged entry must not erase the other connected sites.
       }
     }
@@ -112,23 +113,6 @@ class InstanceStore {
     // `DiscourseInstance.url` is both identity and base URL. Keep one stable
     // spelling even when an older entry persisted the origin's root slash.
     return safe.origin;
-  }
-
-  static void _report(
-    Object error,
-    StackTrace stackTrace,
-    String operation, {
-    DiagnosticSeverity severity = DiagnosticSeverity.warning,
-  }) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: severity,
-      handled: true,
-      degraded: true,
-    );
   }
 
   Future<void> save(List<DiscourseInstance> instances) {
@@ -162,7 +146,7 @@ class InstanceStore {
             operation: () => _persistence.write(encoded),
           );
         } catch (error, stackTrace) {
-          _report(
+          reportStorageFailure(
             error,
             stackTrace,
             'instances.save',

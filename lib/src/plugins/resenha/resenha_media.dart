@@ -2913,7 +2913,8 @@ final class LiveKitResenhaMediaSession extends _ResenhaMediaNotifier {
   @override
   Future<void> setParticipantVolume(int participantId, double volume) async {
     final participant = _participant(participantId);
-    for (final publication in participant?.audioTrackPublications ?? const []) {
+    if (participant == null) return;
+    for (final publication in participant.audioTrackPublications) {
       final track = publication.track;
       if (track is lk.RemoteAudioTrack) {
         await rtc.Helper.setVolume(volume.clamp(0, 1), track.mediaStreamTrack);

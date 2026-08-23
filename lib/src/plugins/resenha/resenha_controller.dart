@@ -2927,30 +2927,18 @@ final class ResenhaController extends ChangeNotifier {
 }
 
 extension on ResenhaRoom {
-  ResenhaRoom copyWithPrivileged(ResenhaRoom held) => ResenhaRoom(
-    id: id,
-    name: name,
-    slug: slug,
-    description: description,
-    cookedDescription: cookedDescription,
-    isPublic: isPublic,
-    ephemeral: ephemeral,
-    type: type,
-    maxParticipants: maxParticipants,
-    memberCount: memberCount,
-    messageBusLastId: messageBusLastId,
-    participants: participants,
-    creatorId: creatorId,
+  /// A refreshed room, keeping whatever the held copy could see that this one
+  /// could not. A directory listing is answered to whoever asked for it, so a
+  /// room fetched anonymously omits the management and chat fields the joined
+  /// copy already carries.
+  ResenhaRoom copyWithPrivileged(ResenhaRoom held) => copyWith(
     canManage: canManage || held.canManage,
-    videoEnabled: videoEnabled,
-    videoAllowed: videoAllowed,
     chatAvailable: chatAvailable || held.chatAvailable,
     chatChannelId: chatChannelId ?? held.chatChannelId,
     chatIdleMinutes: chatIdleMinutes ?? held.chatIdleMinutes,
     chatThreadTitleTemplate:
         chatThreadTitleTemplate ?? held.chatThreadTitleTemplate,
     livekitEnabled: livekitEnabled ?? held.livekitEnabled,
-    maxQualityProfile: maxQualityProfile,
     membership: membership ?? held.membership,
     recording: recording ?? held.recording,
   );

@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
+import 'cooked_dom.dart';
 import 'cooked_html.dart';
 import 'open_link.dart';
 import 'quote_panel.dart';
@@ -53,21 +54,21 @@ class QuoteData {
   static QuoteData from(dom.Element element) {
     final isAside = element.localName == 'aside';
     final titleEl = isAside
-        ? _descendant(element, (e) => e.classes.contains('title'))
+        ? descendantWhere(element, (e) => e.classes.contains('title'))
         : null;
     final blockquote = isAside
-        ? _descendant(element, (e) => e.localName == 'blockquote')
+        ? descendantWhere(element, (e) => e.localName == 'blockquote')
         : element;
 
     final avatar = titleEl == null
         ? null
-        : _descendant(
+        : descendantWhere(
             titleEl,
             (e) => e.localName == 'img' && e.classes.contains('avatar'),
           );
     final link = titleEl == null
         ? null
-        : _descendant(titleEl, (e) => e.localName == 'a');
+        : descendantWhere(titleEl, (e) => e.localName == 'a');
 
     return QuoteData(
       username: element.attributes['data-username']?.nullIfEmpty,
@@ -96,26 +97,6 @@ class QuoteData {
         ? text.substring(0, text.length - 1).trim()
         : text;
     return trimmed.nullIfEmpty;
-  }
-
-  static dom.Element? _descendant(
-    dom.Element root,
-    bool Function(dom.Element) test,
-  ) {
-    final pending = <dom.Element>[];
-    void pushReversed(List<dom.Element> children) {
-      for (var index = children.length - 1; index >= 0; index--) {
-        pending.add(children[index]);
-      }
-    }
-
-    pushReversed(root.children);
-    while (pending.isNotEmpty) {
-      final child = pending.removeLast();
-      if (test(child)) return child;
-      pushReversed(child.children);
-    }
-    return null;
   }
 }
 

@@ -50,7 +50,21 @@ pin, the lockfile, and the README's Requirements line must move together.
 - Cooked-HTML parsers (oneboxes, hashtags, polls, local dates) depend on exact
   upstream markup. The upstream sources are snapshotted under `tool/*_snapshot/`
   and checked by `dart run tool/markup_contract.dart`; when changing a parser,
-  check the snapshot, not your memory of Discourse markup.
+  check the snapshot, not your memory of Discourse markup. Search a cooked DOM
+  through `cooked_dom.dart`, never by indexing `Element.children` — that is a
+  `FilteredElementList` which rebuilds itself out of `nodes` on every `length`
+  and every `[]`.
+- A parser that reads a site payload answers with a default rather than
+  throwing, and a `customWidgetBuilder` declines markup it does not recognise
+  by answering null. Both are stated as generated-corpus tests
+  (`wire_payload_totality_test.dart`, `cooked_markup_totality_test.dart`); add
+  new parsers and builders to them.
+- The composer scan is a typing budget, so its growth is timed rather than
+  trusted: `markdown_highlight_test.dart` runs each pathological paste shape
+  against its own eightfold. Every one of them was a lazy or backtracking
+  pattern where a scan knows something the engine cannot — see the README's
+  "Composing" section. When adding one, time it at two sizes; a single ratio
+  hides the second-order cases.
 - Credentials never go in `shared_preferences`; they live behind
   `PrivateStorage` (Keychain on Apple, mode-0600 XDG file on Linux).
   Diagnostics exports must stay redacted — anything captured by
@@ -65,5 +79,9 @@ pin, the lockfile, and the README's Requirements line must move together.
   local_dates, gifs, assign; each is optional per site.
 - `lib/src/diagnostics/`, `lib/src/foundation/` — error capture, shared
   primitives.
+- Things with exactly one owner, because a second copy drifts:
+  `store_diagnostics.dart` (how a persistence failure is classified),
+  `cooked_dom.dart` (searching a cooked post's DOM), `diagnostics_text.dart`
+  (how a captured field is drawn).
 - `test/` mirrors these by name; a change to `foo.dart` almost always has a
   `foo_test.dart` to extend.
