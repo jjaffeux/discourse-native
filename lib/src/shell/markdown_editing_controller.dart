@@ -231,11 +231,12 @@ class MarkdownEditingController extends TextEditingController {
   List<ComposerImageBlock> _imageBlocksFor(String source) {
     if (_imageScanned == source) return _imageBlocks;
     _imageScanned = source;
-    _imageKeys.clear();
-    return _imageBlocks = parseComposerImages(
+    final blocks = parseComposerImages(
       source,
       codeRanges: _codeRangesFor(source),
     );
+    _retainPillKeys(_imageKeys, _imageBlocks, blocks, (block) => block.start);
+    return _imageBlocks = blocks;
   }
 
   String? _pollScanned;
@@ -340,22 +341,10 @@ class MarkdownEditingController extends TextEditingController {
 
   List<PollComposerBlock> _pollBlocksFor(String source) {
     if (_pollScanned == source) return _pollBlocks;
-    final previousByStart = {
-      for (final block in _pollBlocks) block.start: block,
-    };
-    final nextBlocks = parsePollComposerBlocks(source);
-    final nextByStart = {for (final block in nextBlocks) block.start: block};
-    // A following line can be appended at EOF before the next pointer-down,
-    // but before layout. Preserve geometry only for the exact same projection.
-    _pollPillKeys.removeWhere((start, _) {
-      final previous = previousByStart[start];
-      final next = nextByStart[start];
-      return previous == null ||
-          next == null ||
-          !_sameProjection(previous, next);
-    });
+    final blocks = parsePollComposerBlocks(source);
+    _retainPillKeys(_pollPillKeys, _pollBlocks, blocks, (block) => block.start);
     _pollScanned = source;
-    return _pollBlocks = nextBlocks;
+    return _pollBlocks = blocks;
   }
 
   String? _localDateScanned;
@@ -414,11 +403,17 @@ class MarkdownEditingController extends TextEditingController {
   List<LocalDateComposerBlock> _localDateBlocksFor(String source) {
     if (_localDateScanned == source) return _localDateBlocks;
     _localDateScanned = source;
-    _localDatePillKeys.clear();
-    return _localDateBlocks = parseLocalDateComposerBlocks(
+    final blocks = parseLocalDateComposerBlocks(
       source,
       knownCodeRanges: _codeRangesFor(source),
     );
+    _retainPillKeys(
+      _localDatePillKeys,
+      _localDateBlocks,
+      blocks,
+      (block) => block.start,
+    );
+    return _localDateBlocks = blocks;
   }
 
   String? _quoteScanned;
@@ -490,19 +485,16 @@ class MarkdownEditingController extends TextEditingController {
       source,
       knownCodeRanges: _codeRangesFor(source),
     );
-    // Pruned to what is still there rather than emptied. These are the
-    // `GlobalKey`s the quote previews hang off, and a new one for the same
-    // quote is a different subtree: the element, its render objects and
-    // everything memoised below it are thrown away and built again. Typing a
-    // reply *under* a quote does not move it, so on the ordinary path there is
-    // nothing to rebuild — and a reply is mostly quotation often enough that
-    // rebuilding it per keystroke was the largest thing on that path.
-    final starts = {for (final block in blocks) block.start};
-    _quoteKeys.removeWhere((start, _) => !starts.contains(start));
-    _quoteRemoveKeys.removeWhere((start, _) => !starts.contains(start));
-    // Not pruned: this holds what a resolver said about the block that *was*
-    // at each offset, and a quote whose contents changed under a start that
-    // did not is exactly what it must not answer for.
+    _retainPillKeys(_quoteKeys, _quoteBlocks, blocks, (block) => block.start);
+    _retainPillKeys(
+      _quoteRemoveKeys,
+      _quoteBlocks,
+      blocks,
+      (block) => block.start,
+    );
+    // Cleared rather than retained: this holds what a resolver said about the
+    // block that *was* at each offset, and a quote whose contents changed
+    // under a start that did not is exactly what it must not answer for.
     _displayedQuoteContents.clear();
     return _quoteBlocks = blocks;
   }
@@ -1130,8 +1122,37 @@ class MarkdownEditingController extends TextEditingController {
           a.start == b.start && a.end == b.end && a.source == b.source,
         (LocalDateComposerBlock a, LocalDateComposerBlock b) =>
           a.start == b.start && a.end == b.end && a.source == b.source,
+        (ComposerQuoteBlock a, ComposerQuoteBlock b) =>
+          a.start == b.start && a.end == b.end && a.source == b.source,
         _ => false,
       };
+
+  /// Keeps the pill keys whose projection has not changed, and drops the rest.
+  ///
+  /// A pill's `GlobalKey` is what decides whether a keystroke *rebuilds* its
+  /// subtree or *recreates* it, and a recreation throws away the element, its
+  /// render objects, and everything they had measured or memoised. Every
+  /// keystroke rebuilds the span tree, so emptying these maps meant paying
+  /// that for every image, date, poll and quote in the document, per key —
+  /// which for a document that is mostly projections is nearly all of what
+  /// typing costs.
+  ///
+  /// Preserving a key for a *different* projection at the same offset is the
+  /// other error, and the reason this compares the whole block rather than
+  /// only the offset: a following line can be appended at EOF before the next
+  /// pointer-down but before layout, and a key kept across that would
+  /// hit-test the geometry of what used to be there.
+  static void _retainPillKeys<T>(
+    Map<int, GlobalKey> keys,
+    Iterable<T> previous,
+    Iterable<T> next,
+    int Function(T) startOf,
+  ) {
+    if (keys.isEmpty) return;
+    final was = {for (final block in previous) startOf(block): block};
+    final now = {for (final block in next) startOf(block): block};
+    keys.removeWhere((start, _) => !_sameProjection(was[start], now[start]));
+  }
 
   static bool _stillContainsPoll(String source, PollComposerBlock block) =>
       block.start >= 0 &&

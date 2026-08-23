@@ -423,13 +423,19 @@ it linear, and all three are easy to lose:
   and remembers a line it has already shown holds no `]`.
 
 A fourth rule is about the widgets the scan produces rather than the scan
-itself. A quote in the composer is a `WidgetSpan`, so its child is rebuilt
-with the span tree on every keystroke — and the controller's `GlobalKey` for
-it decides whether that is a rebuild or a *recreation*. Minting a fresh key
-per text change threw away the element, its render objects and its own scan of
-the quoted text; keys are pruned to the quotes still present instead, so
-typing a reply under one leaves it alone. A reply that quotes several posts
-was spending forty per cent of its typing budget rebuilding what it quoted.
+itself. An image, a date, a poll and a quote each collapse into a
+`WidgetSpan`, so their children come along with the span tree every keystroke
+rebuilds — and the `GlobalKey` the controller holds for each one decides
+whether that is a *rebuild* or a *recreation*. A recreation throws away the
+element, its render objects and everything they had measured or memoised, so
+minting fresh keys per text change meant paying for every projection in the
+document on every key. `_retainPillKeys` keeps the ones whose projection is
+unchanged, which on the ordinary path — typing at the end — is all of them.
+Comparing the whole block rather than only its offset is the other half of the
+rule: a following line can be appended at EOF before the next pointer-down but
+before layout, and a key kept across that would hit-test what used to be
+there. Measured per keystroke on a debug frame, twenty images in a document
+went from 15.7ms to 5.9ms and six quoted posts from 17.2ms to 10.3ms.
 
 The shape that finds this is a paste with no blank line in it — a stack trace
 with a `_private` name per frame, a log line or a minified array with a bracket

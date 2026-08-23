@@ -4,8 +4,12 @@ import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
+import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
+import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_pills.dart';
+import 'package:discourse_native/src/shell/composer_quotes.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
@@ -712,6 +716,64 @@ void main() {
         'filed under #bug',
       );
     });
+  });
+
+  testWidgets('typing leaves the pills already in the document alone', (
+    tester,
+  ) async {
+    // Every keystroke rebuilds the span tree, and every projection in it is a
+    // `WidgetSpan` whose child comes along. Whether that child is rebuilt or
+    // *recreated* is decided by the `GlobalKey` the controller holds for it —
+    // and a recreation throws away the element, its render objects and
+    // whatever they had measured. Typing at the end of a document moves none
+    // of them, so none of them should move.
+    const source =
+        '![shot|400x300](https://example.com/a.png)\n'
+        '\n'
+        'Meeting [date=2026-01-02 time=10:00 timezone="UTC"] here.\n'
+        '\n'
+        '[poll name=lunch]\n'
+        '# Question\n'
+        '* one\n'
+        '* two\n'
+        '[/poll]\n'
+        '\n'
+        '[quote="sam, post:1, topic:2"]\n'
+        'Quoted line.\n'
+        '[/quote]\n'
+        '\n';
+
+    await pumpField(tester, source);
+    await tester.pump();
+
+    final finders = <String, Finder>{
+      'image': find.byType(ComposerImagePreview),
+      'date': find.byType(LocalDateComposerPill),
+      'poll': find.byType(PollComposerPill),
+      'quote': find.byType(ComposerQuotePreview),
+    };
+    final before = <String, Element>{};
+    for (final entry in finders.entries) {
+      expect(entry.value, findsOneWidget, reason: entry.key);
+      before[entry.key] = tester.element(entry.value);
+    }
+
+    for (final typed in const ['R', 'Re', 'Rep', 'Repl', 'Reply']) {
+      final text = '$source$typed';
+      controller.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+      await tester.pump();
+    }
+
+    for (final entry in finders.entries) {
+      expect(
+        tester.element(entry.value),
+        same(before[entry.key]),
+        reason: 'the ${entry.key} pill was recreated rather than left alone',
+      );
+    }
   });
 
   group('the invariant, with everything substituting at once', () {
