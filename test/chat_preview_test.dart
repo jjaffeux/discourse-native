@@ -299,7 +299,7 @@ void main() {
       expect(image.url.toString(), 'https://media.example/party.gif');
       expect(image.title, 'party');
       expect(image.fallbackText, raw);
-      expect(image.range, SourceRange(0, raw.length));
+      expect(image.range, const SourceRange(0, raw.length));
     });
 
     test('rejects an invalid trusted seed without throwing', () {

@@ -39,3 +39,13 @@ linter:
     unnecessary_await_in_return: true
     unnecessary_statements: true
     unrelated_type_equality_checks: true
+    prefer_const_constructors: true
+    prefer_const_constructors_in_immutables: true
+    prefer_const_literals_to_create_immutables: true
+    prefer_const_declarations: true
+    avoid_unnecessary_containers: true
+    sized_box_for_whitespace: true
+    use_colored_box: true
+    use_decorated_box: true
+    sort_child_properties_last: true
+    use_string_buffers: true

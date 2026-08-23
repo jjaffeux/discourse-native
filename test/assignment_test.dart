@@ -233,7 +233,7 @@ void main() {
   test('suggestions retain only the six raw slots core can return', () {
     final suggestions = AssignmentSuggestions.fromJson({
       'suggestions': [
-        {'id': 1, 'username': 'user-1'},
+        const {'id': 1, 'username': 'user-1'},
         false,
         for (var id = 2; id <= 7; id += 1) {'id': id, 'username': 'user-$id'},
       ],

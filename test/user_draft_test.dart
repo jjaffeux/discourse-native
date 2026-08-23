@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('a new-topic draft gets its title and excerpt from composer data', () {
-    final draft = UserDraft.fromJson({
+    final draft = UserDraft.fromJson(const {
       'draft_key': 'new_topic',
       'sequence': 3,
       'data': {
@@ -23,7 +23,7 @@ void main() {
   });
 
   test('wire parsing caches its whitespace-normalized excerpt', () {
-    final draft = UserDraft.fromJson({
+    final draft = UserDraft.fromJson(const {
       'draft_key': 'topic_42',
       'sequence': 4,
       'topic_id': 42,
@@ -47,7 +47,7 @@ void main() {
   });
 
   test('an edit draft remains visible but is not resumed as a reply', () {
-    final draft = UserDraft.fromJson({
+    final draft = UserDraft.fromJson(const {
       'draft_key': 'edit_topic_42',
       'sequence': 2,
       'data': '{"reply":"Changed text","action":"editPost"}',

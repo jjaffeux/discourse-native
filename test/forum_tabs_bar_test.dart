@@ -345,8 +345,17 @@ void main() {
   });
 }
 
-BoxDecoration _decoration(WidgetTester tester, Finder finder) =>
-    tester.widget<Container>(finder).decoration! as BoxDecoration;
+/// The painted decoration, whichever box is carrying it.
+///
+/// A box that only decorates is a `DecoratedBox`; one that also pads or sizes
+/// is a `Container`. Which of the two a given piece of chrome needs is a
+/// layout decision, not something a test about colour should have to track.
+BoxDecoration _decoration(WidgetTester tester, Finder finder) => switch (tester
+    .widget(finder)) {
+  final Container box => box.decoration! as BoxDecoration,
+  final DecoratedBox box => box.decoration as BoxDecoration,
+  final widget => throw StateError('${widget.runtimeType} decorates nothing'),
+};
 
 ScrollableState _scrollable(WidgetTester tester) =>
     tester.state<ScrollableState>(

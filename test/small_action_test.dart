@@ -40,7 +40,7 @@ Future<void> pumpAction(WidgetTester tester, Post post) async {
 void main() {
   group('parsing', () {
     test('a small action carries its action code', () {
-      final post = Post.fromJson({
+      final post = Post.fromJson(const {
         'id': 5,
         'post_number': 3,
         'username': 'martin',
@@ -54,7 +54,7 @@ void main() {
     });
 
     test('a regular post is not a small action', () {
-      final post = Post.fromJson({
+      final post = Post.fromJson(const {
         'id': 5,
         'post_number': 3,
         'username': 'martin',
@@ -67,7 +67,7 @@ void main() {
     });
 
     test('a blank action_code_who is dropped', () {
-      final post = Post.fromJson({
+      final post = Post.fromJson(const {
         'id': 5,
         'post_number': 3,
         'username': 'martin',
@@ -102,7 +102,7 @@ void main() {
     });
 
     test('a regular post has no description', () {
-      final post = Post(
+      const post = Post(
         id: 1,
         postNumber: 1,
         username: 'a',

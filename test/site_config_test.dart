@@ -518,7 +518,7 @@ void main() {
 
   group('Resenha client settings', () {
     test('parses enabled capabilities and native quality caps', () {
-      final resenha = SiteConfig.fromSettings({
+      final resenha = SiteConfig.fromSettings(const {
         'resenha_enabled': true,
         'resenha_video_enabled': true,
         'resenha_video_max_publishers': 12,
@@ -548,7 +548,7 @@ void main() {
     });
 
     test('defaults unknown values defensively and survives storage', () {
-      final config = SiteConfig.fromSettings({
+      final config = SiteConfig.fromSettings(const {
         'resenha_enabled': true,
         'resenha_video_max_publishers': 1000,
         'resenha_max_voice_quality': 'future-ultra',

@@ -1183,7 +1183,7 @@ final class _MergingResenhaReportSink implements StringSink {
 
   final StringSink output;
   final List<_ResenhaReportRecord> ordinaryEvents;
-  String _pending = '';
+  final StringBuffer _pending = StringBuffer();
   var _ordinaryIndex = 0;
   var _lineIndex = 0;
   var _finished = false;
@@ -1196,16 +1196,15 @@ final class _MergingResenhaReportSink implements StringSink {
     while (offset < chunk.length) {
       final newline = chunk.indexOf('\n', offset);
       if (newline < 0) {
-        _pending += chunk.substring(offset);
+        _pending.write(chunk.substring(offset));
         return;
       }
-      _pending += chunk.substring(offset, newline);
+      _pending.write(chunk.substring(offset, newline));
+      final line = _pending.toString();
+      _pending.clear();
       _emitLine(
-        _pending.endsWith('\r')
-            ? _pending.substring(0, _pending.length - 1)
-            : _pending,
+        line.endsWith('\r') ? line.substring(0, line.length - 1) : line,
       );
-      _pending = '';
       offset = newline + 1;
     }
   }
@@ -1231,12 +1230,12 @@ final class _MergingResenhaReportSink implements StringSink {
 
   void finish() {
     if (_finished) return;
-    if (_pending.isNotEmpty) _emitLine(_pending);
+    if (_pending.isNotEmpty) _emitLine(_pending.toString());
     while (_ordinaryIndex < ordinaryEvents.length) {
       output.writeln(ordinaryEvents[_ordinaryIndex].line);
       _ordinaryIndex += 1;
     }
-    _pending = '';
+    _pending.clear();
     _finished = true;
   }
 

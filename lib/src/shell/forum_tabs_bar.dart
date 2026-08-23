@@ -460,7 +460,7 @@ class _ForumTabState extends State<_ForumTab> {
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
-        child: Container(
+        child: DecoratedBox(
           key: ValueKey('forum-tab-item-${widget.item.id}'),
           decoration: BoxDecoration(
             color: widget.selected

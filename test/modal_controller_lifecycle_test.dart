@@ -438,7 +438,7 @@ void main() {
       'discourse_reactions_enabled_reactions': 'heart',
     });
     final site = instance('meta.example').copyWith(config: config);
-    final post = Post.fromJson({
+    final post = Post.fromJson(const {
       'id': 1,
       'post_number': 1,
       'username': 'author',
@@ -446,7 +446,7 @@ void main() {
       'actions_summary': [
         {'id': Post.likeActionId, 'can_act': true},
       ],
-      'reactions': const <Object>[],
+      'reactions': <Object>[],
       'reaction_users_count': 0,
     }, _siteUrl);
     final gate = Completer<void>();

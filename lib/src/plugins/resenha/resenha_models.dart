@@ -412,7 +412,7 @@ class ResenhaJoinResponse {
   factory ResenhaJoinResponse.fromJson(Map<String, dynamic> json) {
     final transport = ResenhaTransport.parse(json['transport']);
     if (transport == null) {
-      throw FormatException('Unsupported Resenha transport');
+      throw const FormatException('Unsupported Resenha transport');
     }
     final roomJson = jsonObject(json['room']);
     if (roomJson.isEmpty) throw const FormatException('Missing Resenha room');

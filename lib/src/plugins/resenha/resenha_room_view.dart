@@ -836,12 +836,12 @@ Future<void> _showMediaSettings(
                       await controller.setPushToTalkEnabled(value);
                     },
                   ),
-                ListTile(
-                  title: const Text('Native noise suppression'),
-                  subtitle: const Text(
+                const ListTile(
+                  title: Text('Native noise suppression'),
+                  subtitle: Text(
                     'Echo cancellation, noise suppression, and automatic gain control are active.',
                   ),
-                  trailing: const DIcon(DIcons.check, size: 18),
+                  trailing: DIcon(DIcons.check, size: 18),
                 ),
                 FilledButton.tonalIcon(
                   onPressed: testing

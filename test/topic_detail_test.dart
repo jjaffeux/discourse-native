@@ -229,10 +229,10 @@ void main() {
       const recommendations = TopicRecommendations(
         suggested: [Topic(id: 8, title: 'Suggested', slug: 'suggested')],
       );
-      final held = TopicDetail(
+      const held = TopicDetail(
         id: 7,
         title: 'A real topic',
-        stream: const [1],
+        stream: [1],
         recommendations: recommendations,
       );
 

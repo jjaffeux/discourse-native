@@ -6,7 +6,7 @@ const _siteUrl = 'https://meta.discourse.org';
 void main() {
   test('reads chat reactor users in the shared presentation shape', () {
     final page = ChatMessageReactors.parse(
-      {
+      const {
         'users': [
           {
             'id': 3,

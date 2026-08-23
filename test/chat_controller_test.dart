@@ -1248,13 +1248,13 @@ void main() {
     test('builds the same aggregate header indicators as core', () async {
       final subject = build(
         channels: {
-          site: ChatChannels(
+          site: const ChatChannels(
             public: [
               ChatChannel(
                 id: 9,
                 title: 'Bugs',
                 kind: ChatChannelKind.category,
-                tracking: const ChatTracking(
+                tracking: ChatTracking(
                   unreadCount: 7,
                   mentionCount: 2,
                   watchedThreadsUnreadCount: 1,
@@ -1266,7 +1266,7 @@ void main() {
                 id: 12,
                 title: 'hawk',
                 kind: ChatChannelKind.directMessage,
-                tracking: const ChatTracking(
+                tracking: ChatTracking(
                   unreadCount: 100,
                   watchedThreadsUnreadCount: 2,
                 ),
@@ -1366,8 +1366,8 @@ void main() {
         channels: {
           site: ChatChannels(
             public: [channel(9)],
-            direct: [
-              const ChatChannel(
+            direct: const [
+              ChatChannel(
                 id: 12,
                 title: 'hawk',
                 kind: ChatChannelKind.directMessage,
@@ -1387,8 +1387,8 @@ void main() {
         channels: {
           site: ChatChannels(
             public: [channel(9)],
-            direct: [
-              const ChatChannel(
+            direct: const [
+              ChatChannel(
                 id: 12,
                 title: 'hawk',
                 kind: ChatChannelKind.directMessage,

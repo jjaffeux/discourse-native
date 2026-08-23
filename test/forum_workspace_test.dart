@@ -231,7 +231,7 @@ void main() {
     });
 
     test('bounds restored tabs and routes while preserving active history', () {
-      final activeTabIndex = ForumWorkspace.maximumTabs + 3;
+      const activeTabIndex = ForumWorkspace.maximumTabs + 3;
       final restored = ForumWorkspace.tryFromJson({
         'site_url': 'https://forum.example',
         'account_identity': 'anonymous',

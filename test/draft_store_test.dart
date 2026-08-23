@@ -58,8 +58,8 @@ void main() {
         await diagnostics.close();
       });
       final privateStore = DraftStore(
-        persistence: _ThrowingDraftPersistence(
-          const FormatException('secure write failed', secretDraft, 1),
+        persistence: const _ThrowingDraftPersistence(
+          FormatException('secure write failed', secretDraft, 1),
         ),
       );
 
@@ -206,7 +206,7 @@ void main() {
   });
 
   test('site clearing fails closed when its blocker is not durable', () async {
-    final error = FileSystemException('draft file unavailable');
+    const error = FileSystemException('draft file unavailable');
     await store.write(siteUrl, draftKey, 'previous account text');
     persistence.deletePrefixError = error;
 

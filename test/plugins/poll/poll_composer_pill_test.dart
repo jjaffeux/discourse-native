@@ -407,7 +407,7 @@ void main() {
     addTearDown(controller.dispose);
     controller.selectPillForKeyboard(controller.pollBlocks.single);
 
-    controller.value = TextEditingValue(
+    controller.value = const TextEditingValue(
       text: '$source!',
       selection: TextSelection.collapsed(offset: source.length + 1),
     );

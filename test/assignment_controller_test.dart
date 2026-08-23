@@ -73,7 +73,7 @@ void main() {
   test('successful assignment reloads the complete owning topic', () async {
     final error = await controller.assign(
       _site,
-      AssignmentTarget.post(12, topicId: 7),
+      const AssignmentTarget.post(12, topicId: 7),
       const AssignmentGroup(name: 'triage'),
       note: 'Please investigate',
       status: 'New',

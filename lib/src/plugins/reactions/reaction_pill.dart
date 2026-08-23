@@ -209,7 +209,7 @@ class ReactionUsersPanel extends StatelessWidget {
       elevation: 8,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: theme.shell.divider),

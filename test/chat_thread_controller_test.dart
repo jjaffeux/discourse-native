@@ -644,13 +644,13 @@ void main() {
       );
       subject.store.put(
         site,
-        ChatMessage(
+        const ChatMessage(
           id: 100,
           channelId: 9,
           threadId: 22,
           cooked: '<p>Original</p>',
-          author: const ChatMessageAuthor(id: 2, username: 'sam'),
-          thread: const ChatThreadPreview(threadId: 22, replyCount: 3),
+          author: ChatMessageAuthor(id: 2, username: 'sam'),
+          thread: ChatThreadPreview(threadId: 22, replyCount: 3),
         ),
       );
       subject.store.put(site, threadDetail(replyCount: 3));
@@ -888,13 +888,13 @@ void main() {
 
   test('dual-delivered original reactions are applied exactly once', () {
     final api = _AdversarialThreadApi(detail: threadDetail());
-    final original = ChatMessage(
+    const original = ChatMessage(
       id: 100,
       channelId: 9,
       threadId: 22,
       cooked: '<p>Original</p>',
-      author: const ChatMessageAuthor(id: 2, username: 'sam'),
-      thread: const ChatThreadPreview(threadId: 22, replyCount: 3),
+      author: ChatMessageAuthor(id: 2, username: 'sam'),
+      thread: ChatThreadPreview(threadId: 22, replyCount: 3),
     );
     final store = Store()
       ..put(site, followedChannel())

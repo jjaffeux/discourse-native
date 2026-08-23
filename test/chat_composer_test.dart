@@ -752,7 +752,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
       title: 'design',
       kind: ChatChannelKind.category,
       status: channelStatus,
-      membership: ChatMembership(following: true),
+      membership: const ChatMembership(following: true),
     ),
   );
   shell.store.put(

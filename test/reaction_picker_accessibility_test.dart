@@ -47,18 +47,18 @@ void main() {
     await controller.load();
     addTearDown(controller.dispose);
 
-    final post = Post.fromJson({
+    final post = Post.fromJson(const {
       'id': 1,
       'post_number': 1,
       'username': 'author',
       'cooked': '<p>Post</p>',
-      'actions_summary': const [
+      'actions_summary': [
         {'id': Post.likeActionId, 'can_act': true},
       ],
-      'reactions': const [
+      'reactions': [
         {'id': 'clap', 'count': 1},
       ],
-      'current_user_reaction': const {'id': 'clap', 'can_undo': true},
+      'current_user_reaction': {'id': 'clap', 'can_undo': true},
       'reaction_users_count': 1,
     }, _siteUrl);
 

@@ -335,7 +335,7 @@ void main() {
         expect(result.value.text, '$poll\n');
         expect(
           result.value.selection,
-          TextSelection.collapsed(offset: poll.length + 1),
+          const TextSelection.collapsed(offset: poll.length + 1),
         );
 
         final typed = result.value.text.replaceRange(
@@ -407,7 +407,7 @@ void main() {
     test('a changed document safely refuses to apply', () {
       const source = 'before\n\n$poll';
       final block = parsePollComposerBlocks(source).single;
-      final current = const TextEditingValue(text: 'changed\n\n$poll');
+      const current = TextEditingValue(text: 'changed\n\n$poll');
 
       final result = replaceVerifiedPoll(
         current: current,
