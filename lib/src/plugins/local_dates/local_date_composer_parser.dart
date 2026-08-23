@@ -426,3 +426,32 @@ bool _namePart(int codeUnit) =>
     _nameStart(codeUnit) ||
     codeUnit == 0x2D ||
     (codeUnit >= 0x30 && codeUnit <= 0x39);
+
+/// Every option this client can read out of `[date]` markup, in the order it
+/// writes them back.
+///
+/// Upstream's `local-dates` can grow one at a time, and what this client does
+/// with an option it has never heard of is refuse to touch the block — the
+/// editor declines to open it, and chat preview declines to draw it — rather
+/// than rewrite it without the part it did not understand. Three places asked
+/// that question and each carried its own copy of the answer, so a new option
+/// taught to one of them was a block silently rewritten by another.
+const List<String> localDateAttributesInWriteOrder = [
+  'date',
+  'time',
+  'from',
+  'to',
+  'timezone',
+  'format',
+  'recurring',
+  'timezones',
+  'countdown',
+  'displayedTimezone',
+  'calendar',
+];
+
+/// [localDateAttributesInWriteOrder] as [LocalDateComposerAttribute.normalizedName]
+/// spells them, which is what an author's arbitrary casing is matched against.
+final Set<String> localDateAttributeNames = {
+  for (final name in localDateAttributesInWriteOrder) name.toLowerCase(),
+};

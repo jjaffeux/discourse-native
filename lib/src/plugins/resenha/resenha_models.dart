@@ -266,7 +266,25 @@ class ResenhaRoom {
   final ResenhaMembership? membership;
   final ResenhaRecording? recording;
 
-  ResenhaRoom withParticipants(List<ResenhaParticipant> value) => ResenhaRoom(
+  /// The fields anything here replaces, over the twenty-odd it does not.
+  ///
+  /// Written once. Three callers used to spell the whole record out, so a
+  /// field added to [ResenhaRoom] was a field one of them silently dropped.
+  /// Nulling follows the shape `DiscourseInstance.copyWith` uses: a null
+  /// argument means "unchanged", and the one field anything actually clears
+  /// says so with a flag.
+  ResenhaRoom copyWith({
+    List<ResenhaParticipant>? participants,
+    bool? canManage,
+    bool? chatAvailable,
+    int? chatChannelId,
+    int? chatIdleMinutes,
+    String? chatThreadTitleTemplate,
+    bool? livekitEnabled,
+    ResenhaMembership? membership,
+    ResenhaRecording? recording,
+    bool clearRecording = false,
+  }) => ResenhaRoom(
     id: id,
     name: name,
     slug: slug,
@@ -278,47 +296,27 @@ class ResenhaRoom {
     maxParticipants: maxParticipants,
     memberCount: memberCount,
     messageBusLastId: messageBusLastId,
-    participants: List.unmodifiable(value),
+    participants: participants ?? this.participants,
     creatorId: creatorId,
-    canManage: canManage,
+    canManage: canManage ?? this.canManage,
     videoEnabled: videoEnabled,
     videoAllowed: videoAllowed,
-    chatAvailable: chatAvailable,
-    chatChannelId: chatChannelId,
-    chatIdleMinutes: chatIdleMinutes,
-    chatThreadTitleTemplate: chatThreadTitleTemplate,
-    livekitEnabled: livekitEnabled,
+    chatAvailable: chatAvailable ?? this.chatAvailable,
+    chatChannelId: chatChannelId ?? this.chatChannelId,
+    chatIdleMinutes: chatIdleMinutes ?? this.chatIdleMinutes,
+    chatThreadTitleTemplate:
+        chatThreadTitleTemplate ?? this.chatThreadTitleTemplate,
+    livekitEnabled: livekitEnabled ?? this.livekitEnabled,
     maxQualityProfile: maxQualityProfile,
-    membership: membership,
-    recording: recording,
+    membership: membership ?? this.membership,
+    recording: clearRecording ? null : (recording ?? this.recording),
   );
 
-  ResenhaRoom withRecording(ResenhaRecording? value) => ResenhaRoom(
-    id: id,
-    name: name,
-    slug: slug,
-    description: description,
-    cookedDescription: cookedDescription,
-    isPublic: isPublic,
-    ephemeral: ephemeral,
-    type: type,
-    maxParticipants: maxParticipants,
-    memberCount: memberCount,
-    messageBusLastId: messageBusLastId,
-    participants: participants,
-    creatorId: creatorId,
-    canManage: canManage,
-    videoEnabled: videoEnabled,
-    videoAllowed: videoAllowed,
-    chatAvailable: chatAvailable,
-    chatChannelId: chatChannelId,
-    chatIdleMinutes: chatIdleMinutes,
-    chatThreadTitleTemplate: chatThreadTitleTemplate,
-    livekitEnabled: livekitEnabled,
-    maxQualityProfile: maxQualityProfile,
-    membership: membership,
-    recording: value,
-  );
+  ResenhaRoom withParticipants(List<ResenhaParticipant> value) =>
+      copyWith(participants: List.unmodifiable(value));
+
+  ResenhaRoom withRecording(ResenhaRecording? value) =>
+      copyWith(recording: value, clearRecording: value == null);
 }
 
 @immutable

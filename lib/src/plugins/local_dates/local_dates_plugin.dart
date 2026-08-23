@@ -43,7 +43,7 @@ class LocalDatesPlugin
     final forwardIncompatible = blocks.where(
       (block) => block.attributes.any(
         (attribute) =>
-            !_knownPreviewAttributes.contains(attribute.normalizedName),
+            !localDateAttributeNames.contains(attribute.normalizedName),
       ),
     );
     if (forwardIncompatible.isNotEmpty) {
@@ -190,20 +190,6 @@ final RegExp _localDateOpening = RegExp(
   r'\[(?:date-range|date)(?==|\s|\])',
   caseSensitive: false,
 );
-
-const Set<String> _knownPreviewAttributes = {
-  'date',
-  'time',
-  'from',
-  'to',
-  'timezone',
-  'format',
-  'recurring',
-  'timezones',
-  'countdown',
-  'displayedtimezone',
-  'calendar',
-};
 
 Future<void> openLocalDateComposer(
   BuildContext context,

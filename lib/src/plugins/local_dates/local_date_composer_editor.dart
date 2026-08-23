@@ -252,7 +252,8 @@ class LocalDateComposerDraft {
 
   String _serializeCanonical() {
     final unknown = sourceBlock?.attributes.where(
-      (attribute) => !_knownAttributes.contains(attribute.normalizedName),
+      (attribute) =>
+          !localDateAttributeNames.contains(attribute.normalizedName),
     );
     final attributes = <String>[];
     if (isRange) {
@@ -345,7 +346,7 @@ class LocalDateComposerDraft {
     final rendered = StringBuffer();
     for (final attribute in block.attributes) {
       final key = attribute.normalizedName;
-      if (!_knownAttributes.contains(key)) {
+      if (!localDateAttributeNames.contains(key)) {
         rendered.write(attribute.raw);
         continue;
       }
@@ -354,7 +355,7 @@ class LocalDateComposerDraft {
       rendered.write(attribute.withValue(replacement));
       seen.add(key);
     }
-    for (final name in _canonicalOrder) {
+    for (final name in localDateAttributesInWriteOrder) {
       final value = desired[name.toLowerCase()];
       if (value == null || seen.contains(name.toLowerCase())) continue;
       rendered.write(' $name=${_render(value)}');
@@ -393,32 +394,6 @@ class _LocalDateDraftSnapshot {
 }
 
 const Object _unset = Object();
-const Set<String> _knownAttributes = {
-  'date',
-  'time',
-  'from',
-  'to',
-  'timezone',
-  'format',
-  'recurring',
-  'timezones',
-  'countdown',
-  'displayedtimezone',
-  'calendar',
-};
-const List<String> _canonicalOrder = [
-  'date',
-  'time',
-  'from',
-  'to',
-  'timezone',
-  'format',
-  'recurring',
-  'timezones',
-  'countdown',
-  'displayedTimezone',
-  'calendar',
-];
 
 @immutable
 class LocalDateComposerMutation {
