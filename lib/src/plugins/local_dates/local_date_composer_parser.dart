@@ -125,6 +125,11 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(String source) {
   final codeRanges = CodeRanges.of(scanMarkdown(source));
   final blocks = <LocalDateComposerBlock>[];
   var offset = 0;
+  // The end of a stretch already shown to hold no closer, and the offset it
+  // was shown from. Without it, a line of openers that never close re-walks
+  // the rest of that line once per opener.
+  var barrenFrom = -1;
+  var barrenTo = -1;
   while (offset < source.length) {
     final opening = source.indexOf('[', offset);
     if (opening == -1) break;
@@ -137,8 +142,23 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(String source) {
       offset = opening + 1;
       continue;
     }
-    final close = _closingBracket(source, header.contentStart);
-    if (close == null || codeRanges.overlaps(opening, close + 1)) {
+    if (header.contentStart >= barrenFrom && header.contentStart <= barrenTo) {
+      offset = opening + 1;
+      continue;
+    }
+    final (:close, :firstQuoteAt, :scannedTo) = _closingBracket(
+      source,
+      header.contentStart,
+    );
+    if (close == null) {
+      // Conclusive only as far as the first quote: a scan starting inside one
+      // would begin outside it, and could find a `]` this one skipped.
+      barrenFrom = header.contentStart;
+      barrenTo = firstQuoteAt ?? scannedTo;
+      offset = opening + 1;
+      continue;
+    }
+    if (codeRanges.overlaps(opening, close + 1)) {
       offset = opening + 1;
       continue;
     }
@@ -203,10 +223,28 @@ _TagHeader? _tagAt(String source, int opening) {
   return null;
 }
 
-int? _closingBracket(String source, int start) {
+/// The `]` closing a tag whose attributes start at [start].
+///
+/// Bounded to the line, because upstream's matchers are `/\[date=.+?\]/` and
+/// `/\[date-range .+?\]/` with no `s` flag: a tag broken over a newline is
+/// not a tag on the server, so it must not be one here either. Only a quoted
+/// attribute value could previously hold one open across a break, and only
+/// this client would then have drawn it.
+///
+/// [firstQuoteAt] is where the scan first opened a quote and [scannedTo] how
+/// far it reached. A caller that found no closer has thereby shown every
+/// offset up to [firstQuoteAt] barren too, since a scan starting in that
+/// stretch reads the same characters in the same state.
+({int? close, int? firstQuoteAt, int scannedTo}) _closingBracket(
+  String source,
+  int start,
+) {
   String? closeQuote;
-  for (var offset = start; offset < source.length; offset++) {
+  int? firstQuoteAt;
+  var offset = start;
+  for (; offset < source.length; offset++) {
     final character = source[offset];
+    if (character == '\n') break;
     if (closeQuote != null) {
       if (character == closeQuote) closeQuote = null;
       continue;
@@ -218,9 +256,15 @@ int? _closingBracket(String source, int start) {
       '‘' => '’',
       _ => null,
     };
-    if (closeQuote == null && character == ']') return offset;
+    if (closeQuote != null) {
+      firstQuoteAt ??= offset;
+      continue;
+    }
+    if (character == ']') {
+      return (close: offset, firstQuoteAt: firstQuoteAt, scannedTo: offset);
+    }
   }
-  return null;
+  return (close: null, firstQuoteAt: firstQuoteAt, scannedTo: offset);
 }
 
 @immutable
