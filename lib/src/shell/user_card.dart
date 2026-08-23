@@ -122,21 +122,13 @@ Future<void> showUserCard({
   final controller = ShellScope.read(context);
   final targetSite = siteUrl ?? controller.currentInstance?.url;
   if (targetSite == null) return Future<void>.value();
-  final box = context.findRenderObject() as RenderBox?;
-  final overlay =
-      Navigator.of(context).overlay?.context.findRenderObject() as RenderBox?;
-
   // Without a laid-out anchor there is nothing to attach to; fall back to the
   // middle of the screen rather than dropping the tap.
-  final anchor = (box == null || overlay == null || !box.hasSize)
-      ? null
-      : Rect.fromPoints(
-          box.localToGlobal(Offset.zero, ancestor: overlay),
-          box.localToGlobal(
-            box.size.bottomRight(Offset.zero),
-            ancestor: overlay,
-          ),
-        );
+  final anchor = anchorRect(
+    anchor: context.findRenderObject() as RenderBox?,
+    overlay:
+        Navigator.of(context).overlay?.context.findRenderObject() as RenderBox?,
+  );
 
   return showGeneralDialog<void>(
     context: context,

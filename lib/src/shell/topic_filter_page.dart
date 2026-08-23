@@ -113,16 +113,10 @@ class _TopicFilterPageState extends State<TopicFilterPage> {
     }
   }
 
-  Rect? _anchorRect() {
-    final box = _anchorKey.currentContext?.findRenderObject() as RenderBox?;
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (box == null || overlay == null || !box.hasSize) return null;
-    return Rect.fromPoints(
-      box.localToGlobal(Offset.zero, ancestor: overlay),
-      box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
-    );
-  }
+  Rect? _anchorRect() => anchorRect(
+    anchor: _anchorKey.currentContext?.findRenderObject() as RenderBox?,
+    overlay: Overlay.of(context).context.findRenderObject() as RenderBox?,
+  );
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {

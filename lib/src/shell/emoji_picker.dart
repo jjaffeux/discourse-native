@@ -202,26 +202,15 @@ const String _frequentGroup = '__frequently-used';
 double _pickerHeight(BuildContext context) =>
     (MediaQuery.sizeOf(context).height * 0.7).clamp(360.0, 540.0).toDouble();
 
-Rect? _anchorRect(BuildContext context) {
-  final box = context.findRenderObject() as RenderBox?;
-  final overlay =
+Rect? _anchorRect(BuildContext context) => anchorRect(
+  anchor: context.findRenderObject() as RenderBox?,
+  overlay:
       Navigator.of(
             context,
             rootNavigator: true,
           ).overlay?.context.findRenderObject()
-          as RenderBox?;
-  if (box == null ||
-      overlay == null ||
-      !box.attached ||
-      !box.hasSize ||
-      !overlay.attached) {
-    return null;
-  }
-  return Rect.fromPoints(
-    box.localToGlobal(Offset.zero, ancestor: overlay),
-    box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
-  );
-}
+          as RenderBox?,
+);
 
 class _DesktopPickerCard extends StatelessWidget {
   const _DesktopPickerCard({
