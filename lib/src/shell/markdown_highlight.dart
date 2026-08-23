@@ -308,6 +308,7 @@ int _nextOpener(
     if (wordBounded && at > 0 && _isWordCharacter(text.codeUnitAt(at - 1))) {
       continue;
     }
+    if (_insideLongerRun(text, delimiter, at)) continue;
     if (spokenFor != null && spokenFor(at)) continue;
     return at;
   }
@@ -339,10 +340,29 @@ int _nextCloser(
         _isWordCharacter(text.codeUnitAt(at + width))) {
       continue;
     }
+    if (_insideLongerRun(text, delimiter, at)) continue;
     if (spokenFor != null && spokenFor(at)) continue;
     return at;
   }
   return -1;
+}
+
+/// Whether a one-character delimiter at [at] is really part of a longer run.
+///
+/// Markdown matches delimiters by run, not by character: `a ** b ** c` is two
+/// runs of two, neither of which can open or close because of the spaces
+/// against them, and taking one asterisk out of each gave a pair that
+/// italicised a sentence the site leaves alone. The longer delimiters run
+/// first and close what they took, so anything still adjacent to its own
+/// character here is a run no pass above was able to use.
+///
+/// Only for a one-character delimiter: the ladder above `*` and `_` is what
+/// answers for the longer runs, and `~~` has none.
+bool _insideLongerRun(String text, String delimiter, int at) {
+  if (delimiter.length != 1) return false;
+  final unit = delimiter.codeUnitAt(0);
+  if (at > 0 && text.codeUnitAt(at - 1) == unit) return true;
+  return at + 1 < text.length && text.codeUnitAt(at + 1) == unit;
 }
 
 /// `\s` as Dart's regexps read it, so the scan agrees with the passes that are
@@ -920,12 +940,22 @@ class _Scan {
   ///
   /// Longest marker first, or the opening `**` of a bold run is read as an
   /// italic `*` followed by a stray one.
+  /// Longest delimiter first, so a run of three is one mark and not three.
+  ///
+  /// Each pass closes the delimiters it took, and the passes below skip a
+  /// character something already owns — which is what makes the ladder a
+  /// ladder rather than three passes fighting over the same asterisks.
+  ///
+  /// The underscore has the same ladder as the asterisk, because Discourse
+  /// reads it the same way: `__bold__` is bold, not an italic `_bold_`. Only
+  /// between word boundaries, though — `snake_case_name` is a name.
   void _emphasis(List<({int offset, String text})> blocks) {
     _pairs('***', Md.bold | Md.italic, blocks);
     _pairs('**', Md.bold, blocks);
     _pairs('*', Md.italic, blocks);
     _pairs('~~', Md.strikethrough, blocks);
-    // Underscores only between word boundaries: `snake_case_name` is a name.
+    _pairs('___', Md.bold | Md.italic, blocks, wordBounded: true);
+    _pairs('__', Md.bold, blocks, wordBounded: true);
     _pairs('_', Md.italic, blocks, wordBounded: true);
   }
 

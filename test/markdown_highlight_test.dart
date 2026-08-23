@@ -118,6 +118,13 @@ const List<String> samples = [
   r'a \\*italic* b',
   r'trailing \',
   r'\n',
+  '__bold__',
+  '___both___',
+  'a ** b ** c',
+  'a __ b __ c',
+  'snake__case__name',
+  '__a__b__c__',
+  '___',
   'a `b\n\n**bold** and @sam\n\nc` d',
   'let `x = 1`\n\nand ``y``',
   'one `two\nthree` four',
@@ -155,6 +162,33 @@ void main() {
         '<m>**</><b>bold with </><m+b>`</><b+code>code</><m+b>`</>'
         '<b> inside</><m>**</>',
       );
+    });
+
+    test('reads a double underscore the way the site does', () {
+      // `__bold__` is bold on Discourse, and was drawn here as an italic
+      // `_bold_` — the wrong mark, with the inner underscores shown as if
+      // they were content.
+      expect(annotate('__bold__'), '<m>__</><b>bold</><m>__</>');
+      expect(annotate('___both___'), '<m>___</><b+i>both</><m>___</>');
+      expect(
+        annotate('__bold__ and _italic_'),
+        '<m>__</><b>bold</><m>__</> and <m>_</><i>italic</><m>_</>',
+      );
+      // The word-boundary rule the single underscore has, unchanged.
+      expect(annotate('snake__case__name'), 'snake__case__name');
+    });
+
+    test('a run of delimiters is one mark or none, never a piece of one', () {
+      // Markdown matches delimiters by run. `a ** b ** c` is two runs of two,
+      // neither able to open or close because of the spaces against them —
+      // and taking one asterisk out of each italicised a sentence the site
+      // leaves alone.
+      expect(annotate('a ** b ** c'), 'a ** b ** c');
+      expect(annotate('****'), '****');
+      expect(annotate('a __ b __ c'), 'a __ b __ c');
+      // What the ladder above still claims, unchanged.
+      expect(annotate('***both***'), '<m>***</><b+i>both</><m>***</>');
+      expect(annotate('*a**b*'), '<m>*</><i>a**b</><m>*</>');
     });
 
     test('does not mistake arithmetic for emphasis', () {

@@ -409,6 +409,16 @@ it linear, and all four are easy to lose:
   paragraph pairs with the next one anywhere below it, and the composer then
   draws a page of prose as code that the site is about to cook as bold,
   mentions and headings.
+Emphasis is a ladder — `***`, `**`, `*`, then the underscore's `___`, `__`,
+`_` — longest first, each pass closing what it took so the ones below skip it.
+The underscore has the same rungs as the asterisk because Discourse reads it
+the same way: `__bold__` is bold, not an italic `_bold_` with its underscores
+showing. And a one-character delimiter still adjacent to its own character
+after the ladder has run is a run nothing could use, so it is refused —
+`a ** b ** c` is two runs of two, neither able to open or close for the spaces
+against them, and taking one asterisk out of each italicised a sentence the
+site leaves alone.
+
 - **Emphasis is paired by scanning, not by a lazy pattern.** Even within one
   block the pattern re-walks it per opener, and a paste with no blank line in
   it is one block. The scan uses what the engine cannot: the closers after a
