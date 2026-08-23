@@ -22,6 +22,47 @@ void main() {
     }
   });
 
+  test('a document that could not be read is never written over', () async {
+    final persistence = _ControlledPersistence()
+      ..stored = jsonEncode({
+        'version': ForumTabStore.formatVersion,
+        'workspaces': [_workspace('persisted').toJson()],
+      })
+      ..readError = StateError('preferences unavailable');
+    final store = ForumTabStore(persistence: persistence);
+
+    // The shell cannot tell "no tabs stored" from "tabs unreadable": it opens
+    // fresh Topics tabs for either, and saves the first time one is touched.
+    expect(await store.load(), isEmpty);
+    await store.save([_workspace('fresh')]);
+    expect(persistence.writeCount, 0);
+    expect(
+      persistence.stored,
+      jsonEncode({
+        'version': ForumTabStore.formatVersion,
+        'workspaces': [_workspace('persisted').toJson()],
+      }),
+    );
+
+    // A retried load that reads clears it, and saving resumes.
+    persistence.readError = null;
+    expect(await store.load(), [_workspace('persisted')]);
+    await store.save([_workspace('fresh')]);
+    expect(persistence.writeCount, 1);
+    expect(await store.load(), [_workspace('fresh')]);
+  });
+
+  test('content the reader cannot use is written over', () async {
+    final persistence = _ControlledPersistence()..stored = 'not json at all';
+    final store = ForumTabStore(persistence: persistence);
+
+    expect(await store.load(), isEmpty);
+    await store.save([_workspace('fresh')]);
+
+    expect(persistence.writeCount, 1);
+    expect(await store.load(), [_workspace('fresh')]);
+  });
+
   test('overlapping saves coalesce to the latest snapshot', () async {
     final gate = Completer<void>();
     final persistence = _ControlledPersistence(firstWriteGate: gate);
@@ -114,12 +155,14 @@ final class _ControlledPersistence implements ForumTabPersistence {
   final Completer<void> firstWriteStarted = Completer<void>();
 
   String? stored;
+  Object? readError;
   int readCount = 0;
   int writeCount = 0;
 
   @override
   Future<String?> read() async {
     readCount++;
+    if (readError case final error?) throw error;
     return stored;
   }
 

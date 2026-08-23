@@ -45,7 +45,8 @@ final class MemoryForumTabPersistence implements ForumTabPersistence {
 /// Versioned persistence for local, forum-scoped workspaces.
 ///
 /// This is presentation state: a storage failure degrades to fresh Topics tabs
-/// and must never stop the shell from opening.
+/// and must never stop the shell from opening. What it must also never do is
+/// save those fresh tabs over the ones it could not read — see [_unreadable].
 class ForumTabStore {
   ForumTabStore({ForumTabPersistence? persistence})
     : _persistence =
@@ -62,13 +63,35 @@ class ForumTabStore {
   Completer<void>? _pendingResult;
   bool _saving = false;
 
+  /// Whether the stored document could not be read.
+  ///
+  /// A read that fails leaves the document intact and unknown, which is not
+  /// the same as there being none. The shell cannot tell the two apart — both
+  /// answer with no workspaces, and it opens fresh Topics tabs either way —
+  /// and the first thing it does with a tab is save. So the distinction is
+  /// kept here, and it is what stops one unreadable launch from replacing
+  /// every forum's tabs and back stacks with what this session happened to
+  /// fall back to. A later [load] that succeeds clears it.
+  bool _unreadable = false;
+
   Future<List<ForumWorkspace>> load() async {
+    final String? raw;
     try {
-      final raw = await _operations.run<String?>(
+      raw = await _operations.run<String?>(
         owner: _persistence,
         key: storageKey,
         operation: _persistence.read,
       );
+      _unreadable = false;
+    } catch (error, stackTrace) {
+      _unreadable = true;
+      _report(error, stackTrace, 'forumTabs.load');
+      return const [];
+    }
+
+    // Past here the document was read. Whatever it holds is either usable or
+    // already lost, so a save over it is the repair rather than the damage.
+    try {
       if (raw == null || raw.isEmpty) return const [];
       final decoded = jsonDecode(raw);
       if (decoded is! Map || decoded['version'] != formatVersion) {
@@ -87,12 +110,13 @@ class ForumTabStore {
       }
       return workspaces;
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'forumTabs.load');
+      _report(error, stackTrace, 'forumTabs.decode');
       return const [];
     }
   }
 
   Future<void> save(Iterable<ForumWorkspace> workspaces) {
+    if (_unreadable) return Future<void>.value();
     _pendingSave = jsonEncode({
       'version': formatVersion,
       'workspaces': [for (final workspace in workspaces) workspace.toJson()],
