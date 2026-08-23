@@ -395,8 +395,8 @@ stays text. Put the caret strictly inside and the characters come back to edit,
 the way Obsidian's live preview does.
 
 The scan runs on every text change, over the whole document, so what it costs
-per character is a typing budget rather than a startup one. Two things keep it
-linear, and both are easy to lose:
+per character is a typing budget rather than a startup one. Three things keep
+it linear, and all three are easy to lose:
 
 - **Inline passes search one block at a time.** A block is a paragraph, minus
   any fence inside it — the two things a mark cannot span. Expressing that as a
@@ -410,13 +410,20 @@ linear, and both are easy to lose:
   it is one block. The scan uses what the engine cannot: the closers after a
   later opener are a subset of the closers after an earlier one, so the first
   opener to run out of them is the last one worth trying.
+- **A link's closing bracket is found by `indexOf`, not by a pattern.** The
+  same trap in the other bracket: a link's text class excludes `]`, so the
+  closer can only be the first one on the line, and the engine consumed to the
+  end of the line at every `[` and then handed the characters back one at a
+  time looking for what that class had already ruled out. `_links` finds it
+  directly, carries the line end forward instead of re-finding it per bracket,
+  and remembers a line it has already shown holds no `]`.
 
-The shape that finds this is a pasted stack trace — thousands of characters, no
-blank line, and one `_private` name per frame that opens a mark nothing closes.
-It cost hundreds of milliseconds a keystroke twice, once for each of the above.
-`markdown_highlight_test.dart` times a paste against its own eightfold to keep
-the growth honest, since the cost is inside the regexp engine and cannot be
-counted from outside.
+The shape that finds this is a paste with no blank line in it — a stack trace
+with a `_private` name per frame, a log line or a minified array with a bracket
+per entry. Each of the three cost hundreds of milliseconds a keystroke.
+`markdown_highlight_test.dart` times both shapes against their own eightfold to
+keep the growth honest, since the cost is inside the regexp engine and cannot
+be counted from outside.
 
 `@`, `#` and `:` open a completion list. Trigger detection is pure
 (`composer_triggers.dart`) and refuses more than it accepts — an email address
