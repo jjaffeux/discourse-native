@@ -1,0 +1,353 @@
+import 'dart:math';
+
+import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/composer_draft.dart';
+import 'package:discourse_native/src/models/found_group.dart';
+import 'package:discourse_native/src/models/found_hashtag.dart';
+import 'package:discourse_native/src/models/found_user.dart';
+import 'package:discourse_native/src/models/list_link.dart';
+import 'package:discourse_native/src/models/notification.dart';
+import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/post_creation.dart';
+import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/search_results.dart';
+import 'package:discourse_native/src/models/site_appearance.dart';
+import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_filter.dart';
+import 'package:discourse_native/src/models/topic_link.dart';
+import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/plugins/assign/assignment.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/gifs/gif.dart';
+import 'package:discourse_native/src/plugins/poll/poll.dart';
+import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_models.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+/// Keys taken from the payloads these parsers actually read, so the generator
+/// spends its budget on fields with code behind them rather than on names
+/// nothing looks up.
+const _keys = [
+  'id',
+  'name',
+  'title',
+  'fancy_title',
+  'slug',
+  'username',
+  'url',
+  'user',
+  'created_at',
+  'updated_at',
+  'bumped_at',
+  'last_posted_at',
+  'posts_count',
+  'reply_count',
+  'like_count',
+  'cooked',
+  'raw',
+  'post_number',
+  'topic_id',
+  'category_id',
+  'tags',
+  'posters',
+  'users',
+  'topic_list',
+  'topics',
+  'avatar_template',
+  'notification_type',
+  'data',
+  'read',
+  'unread',
+  'actions_summary',
+  'can_act',
+  'acted',
+  'count',
+  'color',
+  'text_color',
+  'bookmarkable_url',
+  'bookmarkable_type',
+  'more_topics_url',
+  'archetype',
+  'site_settings',
+  'primary_group_name',
+  'flair_url',
+  'chat_notifications',
+  'topic_tracking',
+  'unread_notifications',
+  'type',
+  'ref',
+  'relative_url',
+  'description',
+  'group',
+  'grouped_search_result',
+  'posts',
+  'categories',
+  'sequence',
+  'draft_key',
+  'results',
+  'suggestions',
+  'options',
+  'votes',
+  'chatable',
+  'chatable_type',
+  'last_message',
+  'meta',
+  'thread',
+  'threads',
+  'memberships',
+  'reactions',
+  'uploads',
+  'in_reply_to',
+  'chat_message',
+  'rooms',
+  'participants',
+  'ice_servers',
+  'livekit',
+  'recording',
+  'writerId',
+  'timestampUtc',
+  'captureId',
+  'event',
+  'next',
+  'suggested_topics',
+  'related_topics',
+  'emoji',
+  'status',
+  'assigned_to_user',
+  'ranked_choice',
+];
+
+Object? _value(Random random, int depth) => switch (random.nextInt(
+  depth > 2 ? 8 : 11,
+)) {
+  0 => null,
+  1 => random.nextBool(),
+  2 => random.nextInt(1 << 32) - (1 << 31),
+  3 => random.nextDouble() * 1e9,
+  4 => '',
+  5 => _keys[random.nextInt(_keys.length)],
+  6 => '9' * (random.nextInt(40) + 1),
+  7 => const [
+    '2020-01-01T00:00:00Z',
+    'not-a-date',
+    '#abc',
+    'ff0000',
+    '/t/x/1',
+    '{size}/a.png',
+    '-1',
+    '1e400',
+    '😀',
+  ][random.nextInt(9)],
+  8 => [for (var i = random.nextInt(3); i > 0; i--) _value(random, depth + 1)],
+  9 => _object(random, depth + 1),
+  _ => <String, dynamic>{},
+};
+
+Map<String, dynamic> _object(Random random, int depth) => {
+  for (var i = random.nextInt(6); i > 0; i--)
+    _keys[random.nextInt(_keys.length)]: _value(random, depth),
+};
+
+void main() {
+  // `json.dart` states the rule the whole model layer is written to: "Every
+  // parser answers that with a default rather than a throw — a field the site
+  // did not send is a field left at its default." Nothing pinned it, and a
+  // parser that throws does not degrade one field, it takes down whatever
+  // screen was reading the payload.
+  //
+  // Deliberately absent, because they read this app's own storage rather than
+  // a site and their callers are written around the throw: `ContentRoute`,
+  // `ForumTabAnchor` and `ResolvedSitePalette` raise FormatException on an
+  // unusable record, and `DiscourseInstance`/`DiscourseUser` cast, which
+  // `InstanceStore` catches per entry so one damaged site cannot erase the
+  // rail. `ResenhaJoinResponse` is the one wire parser that joins them: a join
+  // answered with a transport this client cannot speak is a failed join rather
+  // than a degraded one, and `ResenhaController` turns the throw into the
+  // call's error state.
+  test('no wire parser throws on a payload it did not expect', () {
+    final random = Random(20260823);
+    const site = 'https://example.com';
+    final failures = <String, String>{};
+
+    void probe(String label, void Function() body, Object? json) {
+      try {
+        body();
+      } catch (error) {
+        failures.putIfAbsent(label, () => '$label threw $error on $json');
+      }
+    }
+
+    for (var run = 0; run < 4000; run++) {
+      final json = _object(random, 0);
+      final loose = _value(random, 0);
+
+      probe('Bookmark', () => Bookmark.fromJson(json), json);
+      probe('ComposerDraft', () => ComposerDraft.fromJson(json), json);
+      probe('FoundGroup', () => FoundGroup.fromJson(json, site), json);
+      probe('FoundHashtag', () => FoundHashtag.fromJson(json), json);
+      probe('FoundUser', () => FoundUser.fromJson(json, site), json);
+      probe('Notification', () => DiscourseNotification.fromJson(json), json);
+      probe(
+        'NotificationTotals',
+        () => NotificationTotals.fromJson(json),
+        json,
+      );
+      probe('Post', () => Post.fromJson(json, site), json);
+      probe('PostCreation', () => PostCreation.fromJson(json, site), json);
+      probe('PostLiker', () => PostLiker.fromJson(json, site), json);
+      probe('SearchResults', () => SearchResults.fromJson(json, site), json);
+      probe('SearchCategoryHit', () => SearchCategoryHit.fromJson(json), json);
+      probe('SearchTagHit', () => SearchTagHit.fromJson(json), json);
+      probe('SearchUserHit', () => SearchUserHit.fromJson(json, site), json);
+      probe('SearchGroupHit', () => SearchGroupHit.fromJson(json, site), json);
+      probe('SiteAppearance', () => SiteAppearance.fromJson(json), json);
+      probe('SiteConfig', () => SiteConfig.fromJson(json), json);
+      probe(
+        'ResenhaClientConfig',
+        () => ResenhaClientConfig.fromJson(json),
+        json,
+      );
+      probe(
+        'TopicFilterModifier',
+        () => TopicFilterModifier.fromJson(json),
+        json,
+      );
+      probe('UserCard', () => UserCard.fromJson(json, site), json);
+      probe('UserDraft', () => UserDraft.fromJson(json), json);
+      probe('Topic', () => Topic.fromJson(json, const {}, site), json);
+      probe('TopicList', () => TopicList.fromJson(json, site), json);
+      probe(
+        'TopicRecommendations',
+        () => TopicRecommendations.fromJson(json, site),
+        json,
+      );
+      probe(
+        'CategoryFeaturedTopic',
+        () => CategoryFeaturedTopic.fromJson(json),
+        json,
+      );
+      probe('TopicCategory', () => TopicCategory.fromJson(json), json);
+      probe(
+        'TopicComposerCapabilities',
+        () => TopicComposerCapabilities.fromJson(json),
+        json,
+      );
+      probe('TopicTagSearch', () => TopicTagSearch.fromJson(json), json);
+      probe('TopicTag', () => TopicTag.parse(loose), loose);
+
+      probe('ChatUser', () => ChatUser.fromJson(json, site), json);
+      probe('ChatTracking', () => ChatTracking.fromJson(json), json);
+      probe('ChatPresence', () => ChatPresence.fromJson(loose), loose);
+      probe('ChatChannel', () => ChatChannel.fromJson(json, site), json);
+      probe(
+        'ChatMessageAuthor',
+        () => ChatMessageAuthor.fromJson(loose, site),
+        loose,
+      );
+      probe('ChatReaction', () => ChatReaction.fromJson(json), json);
+      probe('ChatUpload', () => ChatUpload.fromJson(json), json);
+      probe('ChatReplyTo', () => ChatReplyTo.fromJson(json, site), json);
+      probe(
+        'ChatThreadPreview',
+        () => ChatThreadPreview.fromJson(loose, site),
+        loose,
+      );
+      probe('ChatMessage', () => ChatMessage.fromJson(json, site), json);
+      probe(
+        'ChatThreadMembership',
+        () => ChatThreadMembership.fromJson(loose),
+        loose,
+      );
+      probe(
+        'ChatThreadOriginalMessage',
+        () => ChatThreadOriginalMessage.fromJson(loose, site),
+        loose,
+      );
+      probe('ChatThread', () => ChatThread.fromJson(json, site), json);
+
+      probe(
+        'AssignmentSuggestions',
+        () => AssignmentSuggestions.fromJson(json, site),
+        json,
+      );
+      probe('GifCategory', () => GifCategory.fromJson(loose), loose);
+      probe(
+        'GifResult',
+        () => GifResult.fromJson(loose, fileDetail: 'gif'),
+        loose,
+      );
+      probe(
+        'GifSearchPage',
+        () => GifSearchPage.fromJson(json, fileDetail: 'gif'),
+        json,
+      );
+      probe('PollOption', () => PollOption.fromJson(loose), loose);
+      probe(
+        'PollSelection',
+        () => PollSelection.fromJson(loose, type: PollType.regular),
+        loose,
+      );
+      probe(
+        'PollRankedCandidate',
+        () => PollRankedCandidate.fromJson(loose),
+        loose,
+      );
+      probe('PollRankedRound', () => PollRankedRound.fromJson(loose), loose);
+      probe(
+        'RankedChoiceOutcome',
+        () => RankedChoiceOutcome.fromJson(loose),
+        loose,
+      );
+      probe('PollClosedBy', () => PollClosedBy.fromJson(loose, site), loose);
+      probe('Poll', () => Poll.fromJson(loose, site), loose);
+      probe('Polls', () => Polls.fromJson(json, site), json);
+      probe('PostReactor', () => PostReactor.fromJson(json, site), json);
+      probe('Reaction', () => Reaction.fromJson(loose), loose);
+      probe('Reactions', () => Reactions.fromJson(json), json);
+
+      probe(
+        'ResenhaParticipant',
+        () => ResenhaParticipant.fromJson(json),
+        json,
+      );
+      probe('ResenhaMembership', () => ResenhaMembership.fromJson(json), json);
+      probe('ResenhaRecording', () => ResenhaRecording.fromJson(json), json);
+      probe('ResenhaRoom', () => ResenhaRoom.fromJson(json), json);
+      probe('ResenhaDirectory', () => ResenhaDirectory.fromJson(json), json);
+      probe('ResenhaIceServer', () => ResenhaIceServer.fromJson(json), json);
+      probe(
+        'ResenhaIceConfiguration',
+        () => ResenhaIceConfiguration.fromJson(json),
+        json,
+      );
+      probe(
+        'ResenhaLiveKitCredentials',
+        () => ResenhaLiveKitCredentials.fromJson(json),
+        json,
+      );
+      probe(
+        'ResenhaChatSession',
+        () => ResenhaChatSession.fromJson(json),
+        json,
+      );
+      probe('ResenhaRoomEvent', () => ResenhaRoomEvent.fromJson(json), json);
+      probe(
+        'ResenhaDiagnosticRecord',
+        () => ResenhaDiagnosticRecord.fromJson(loose),
+        loose,
+      );
+
+      probe('TopicLink', () => TopicLink.parse('$loose'), loose);
+      probe('ListLink', () => ListLink.parse('$loose'), loose);
+    }
+
+    expect(failures.values, isEmpty);
+  });
+}
