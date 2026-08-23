@@ -120,6 +120,11 @@ const List<String> hashtagWatched = [
   // `markdown_highlight.dart` binds only the rules above that one.
   'frontend/pretty-text/addon/text-replace.js',
   'frontend/discourse-markdown-it/src/features/text-post-process.js',
+  // The third thing that rides `textPostProcess`, and the only one whose
+  // matcher is a trie walk rather than a pattern: `getEmojiName` bounds the
+  // name and refuses a shortcode whose opening colon has an ordinary
+  // character before it, which is what keeps `10:30:45` from holding one.
+  'frontend/discourse-markdown-it/src/features/emoji.js',
   // What turns a `span.mention` into an anchor, and what an unresolved one
   // stays as.
   'lib/pretty_text.rb',

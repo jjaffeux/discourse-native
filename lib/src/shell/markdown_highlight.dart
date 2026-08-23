@@ -488,7 +488,14 @@ class _Scan {
     r'(?:[\wÀ-῿Ⰰ-퟿:.-]{0,99}'
     r'[\wÀ-῿Ⰰ-퟿:-])?)',
   );
-  static final RegExp _emojiPattern = RegExp(r':([a-z0-9_+-]+(?::t[1-6])?):');
+
+  /// Core's `MAX_NAME_LENGTH` is 60 and it refuses a name that reaches it, so
+  /// fifty-nine is the longest one it will draw. The class is this app's own
+  /// and narrower than core's, which takes anything up to the next colon and
+  /// lets the emoji lookup refuse it.
+  static final RegExp _emojiPattern = RegExp(
+    r':([a-z0-9_+-]{1,59}(?::t[1-6])?):',
+  );
   static final RegExp _boundaryPattern = RegExp(r'[\w@#./-]');
 
   void _mark(int start, int end, int flag, [String? note]) {
@@ -966,6 +973,14 @@ class _Scan {
   void _emoji() {
     for (final match in _emojiPattern.allMatches(source)) {
       if (!_free(match.start, match.end)) continue;
+      // Core's `getEmojiName` refuses a shortcode whose opening colon has an
+      // ordinary character before it, which is what keeps `10:30:45` from
+      // containing an emoji called `30` — and what stops the composer drawing
+      // a picture where the site leaves `word:smile:` as text. The rule is
+      // switched off by the `inline emoji` site setting, which is off by
+      // default and is not a setting this scan can see; drawing the default is
+      // the side that cannot invent markup.
+      if (match.start > 0 && !_opensEmoji(source[match.start - 1])) continue;
       // The name goes in the token so whatever draws this does not have to
       // parse the colons back off it.
       _markToken(match.start, match.end, Md.emoji, match.group(1)!);
@@ -975,11 +990,11 @@ class _Scan {
     }
   }
 
-  /// `***x***`, `**x**`, `*x*`, `_x_` and `~~x~~`.
+  /// `***x***`, `**x**`, `*x*`, `___x___`, `__x__`, `_x_` and `~~x~~`.
   ///
-  /// Longest marker first, or the opening `**` of a bold run is read as an
-  /// italic `*` followed by a stray one.
-  /// Longest delimiter first, so a run of three is one mark and not three.
+  /// Longest delimiter first, so a run of three is one mark and not three, and
+  /// the opening `**` of a bold run is not read as an italic `*` followed by a
+  /// stray one.
   ///
   /// Each pass closes the delimiters it took, and the passes below skip a
   /// character something already owns — which is what makes the ladder a
@@ -1036,6 +1051,23 @@ class _Scan {
       }
     }
   }
+
+  /// What may sit immediately before a shortcode's opening colon.
+  ///
+  /// Core's `isValidEmojiPrecedingChar`: whitespace, punctuation, or a
+  /// zero-width space. Its whitespace test is markdown-it's, which is a tab or
+  /// a space — a line ending never reaches it because a soft break is its own
+  /// token — so this reads a line ending as whitespace, which is the same
+  /// position in a document that has not been split into tokens yet.
+  static bool _opensEmoji(String character) =>
+      character == '\u200B' ||
+      _isWhitespace(character.codeUnitAt(0)) ||
+      _punctuationPattern.hasMatch(character);
+
+  static final RegExp _punctuationPattern = RegExp(
+    r'[\p{P}\p{S}]',
+    unicode: true,
+  );
 
   /// What may sit immediately before a sigil.
   ///

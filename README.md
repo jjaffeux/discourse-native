@@ -496,6 +496,15 @@ period as part of the name asked the site about `sam.`, was told no, and drew
 no pill on a mention the post really has — which is how most sentences that
 end in one are written.
 
+A shortcode needs a boundary before its opening colon, which is core's
+`getEmojiName` rule and the reason `Standup at 10:30:45` holds no emoji called
+`30`. It is switched off by an inline-emoji site setting, which is off by
+default and is not a setting the scan can see — so the scan draws the default,
+which is the side that cannot invent markup. `SiteEmojiText` is the other half
+of that story and keeps its own answer: it draws prose the site has not cooked
+and only draws names the site registers, which is a stronger filter than a
+boundary.
+
 `@`, `#` and `:` open a completion list. Trigger detection is pure
 (`composer_triggers.dart`) and refuses more than it accepts — an email address
 is not a mention, a lone colon is punctuation, a `#` inside a word is not a

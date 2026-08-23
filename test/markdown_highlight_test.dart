@@ -137,6 +137,10 @@ const List<String> samples = [
   '@sam-',
   '@_x',
   '@a',
+  'word:smile: here',
+  'Standup at 10:30:45',
+  '(:smile:)',
+  'a-:smile:',
   'a `b\n\n**bold** and @sam\n\nc` d',
   'let `x = 1`\n\nand ``y``',
   'one `two\nthree` four',
@@ -618,6 +622,32 @@ void main() {
       ).firstWhere((run) => run.has(Md.emoji));
       expect(run.token, 'smile');
       expect(run.detail, 'kbd');
+    });
+
+    test('a shortcode needs a boundary before its opening colon', () {
+      // Core's `getEmojiName` refuses one whose opening colon has an ordinary
+      // character before it, which is what keeps `10:30:45` from holding an
+      // emoji called `30` — and what stops the composer drawing a picture
+      // where the site leaves `word:smile:` as text. Switched off by the
+      // inline-emoji site setting, which is off by default and is not a
+      // setting this scan can see; drawing the default is the side that cannot
+      // invent markup.
+      expect(annotate('word:smile: here'), 'word:smile: here');
+      expect(annotate('Standup at 10:30:45'), 'Standup at 10:30:45');
+      // Whitespace, punctuation, and the start of the source all open one.
+      expect(annotate('a :smile: b'), 'a <emoji>:smile:</> b');
+      expect(annotate(':smile:'), '<emoji>:smile:</>');
+      expect(annotate('(:smile:)'), '(<emoji>:smile:</>)');
+      expect(annotate('a-:smile:'), 'a-<emoji>:smile:</>');
+      expect(annotate('a\n:smile:'), 'a\n<emoji>:smile:</>');
+      // And the closing colon of one opens the next.
+      expect(annotate(':smile::smile:'), '<emoji>:smile:</><emoji>:smile:</>');
+    });
+
+    test('a name stops where core stops reading one', () {
+      // `MAX_NAME_LENGTH` is 60 and core refuses a name that reaches it.
+      expect(annotate(':${'a' * 70}:'), ':${'a' * 70}:');
+      expect(annotate(':${'a' * 59}:'), '<emoji>:${'a' * 59}:</>');
     });
 
     test('leaves a lone colon alone', () {
