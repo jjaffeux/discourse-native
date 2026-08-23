@@ -113,6 +113,13 @@ const List<String> hashtagWatched = [
   // matters: a name may not end in a dot, a dash or an underscore, so
   // `thanks @sam.` mentions `sam` and not `sam.`.
   'frontend/pretty-text/addon/mentions.js',
+  // Which tokens Discourse's own post-processing rules — mentions, hashtags
+  // and emoji — are run over, which is what decides that a backslash does not
+  // stop any of them: `textReplace` visits `text` tokens of the *finished*
+  // inline pass, by which point `\@sam` is the text `@sam`. `_escapes` in
+  // `markdown_highlight.dart` binds only the rules above that one.
+  'frontend/pretty-text/addon/text-replace.js',
+  'frontend/discourse-markdown-it/src/features/text-post-process.js',
   // What turns a `span.mention` into an anchor, and what an unresolved one
   // stays as.
   'lib/pretty_text.rb',
