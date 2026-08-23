@@ -514,10 +514,11 @@ error state because there is nothing worth telling a reader about.
 It is fetched from `loadTopic`, **before** its early returns, and remembered on
 the instance across launches. Before the guards, deliberately: both of them
 return early on the ordinary path, so a fetch that only ran on a cache miss
-would get one attempt per session with no way back if it failed — which is the
-shape `_ensureCategories` has, and it is a session-long dead end there. A count
-bounds the retries instead. Signing out drops it: on a `login_required` site the
-settings were only readable as that account.
+would get one attempt per session with no way back if it failed. A count bounds
+the retries instead. `_ensureCategories` answers the same question with the
+other shape — its once-per-site guard is released again in its own failure
+path, so the next thing that asks for categories retries. Signing out drops the
+settings: on a `login_required` site they were only readable as that account.
 
 Adding the next one is a module under `lib/src/plugins/<name>/` owning its
 models, its state and its widgets, the narrow capability interfaces it actually
