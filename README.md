@@ -403,8 +403,12 @@ it linear, and all three are easy to lose:
   lookahead on every character a pattern consumes instead makes the scan
   quadratic: an opener with no closer after it walks to the end of the document
   before giving up, and the engine cannot know the next opener will fail for
-  the same reason. `_blocks()` is where that rule lives, and `_pairs` and
-  `_htmlTags` are its two readers.
+  the same reason. `_blocks()` is where that rule lives, and `_pairs`,
+  `_htmlTags` and `_inlineCode` are its three readers. It is a correctness
+  rule before it is a speed one: a backtick left open at the end of a
+  paragraph pairs with the next one anywhere below it, and the composer then
+  draws a page of prose as code that the site is about to cook as bold,
+  mentions and headings.
 - **Emphasis is paired by scanning, not by a lazy pattern.** Even within one
   block the pattern re-walks it per opener, and a paste with no blank line in
   it is one block. The scan uses what the engine cannot: the closers after a

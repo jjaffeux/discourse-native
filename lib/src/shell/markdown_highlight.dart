@@ -570,7 +570,7 @@ class _Scan {
   /// cannot eat a URL's underscores or a shortcode's colons.
   void inlines() {
     final blocks = _blocks();
-    _inlineCode();
+    _inlineCode(blocks);
     for (final block in blocks) {
       _htmlTags(block.text, block.offset);
     }
@@ -586,14 +586,26 @@ class _Scan {
     _emphasis(blocks);
   }
 
-  void _inlineCode() {
-    for (final match in _inlineCodePattern.allMatches(source)) {
-      if (!_free(match.start, match.end)) continue;
-      final ticks = match.group(1)!.length;
-      _mark(match.start, match.start + ticks, Md.marker);
-      _mark(match.start + ticks, match.end - ticks, Md.code);
-      _mark(match.end - ticks, match.end, Md.marker);
-      _close(match.start, match.end);
+  /// Searched one block at a time, for the reason [_htmlTags] is.
+  ///
+  /// A code span is an inline construct, and inline parsing runs inside one
+  /// block: the blank line that ends a paragraph is also what stops a backtick
+  /// reaching the next one. Over the whole document an unclosed backtick pairs
+  /// with the next one anywhere below it, and everything in between — the
+  /// bold, the mentions, the headings the site will really cook — is drawn as
+  /// code and closed to every later pass.
+  void _inlineCode(List<({int offset, String text})> blocks) {
+    for (final block in blocks) {
+      for (final match in _inlineCodePattern.allMatches(block.text)) {
+        final start = block.offset + match.start;
+        final end = block.offset + match.end;
+        if (!_free(start, end)) continue;
+        final ticks = match.group(1)!.length;
+        _mark(start, start + ticks, Md.marker);
+        _mark(start + ticks, end - ticks, Md.code);
+        _mark(end - ticks, end, Md.marker);
+        _close(start, end);
+      }
     }
   }
 

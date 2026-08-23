@@ -105,6 +105,11 @@ const List<String> samples = [
   'x*y*z',
   '<kbd>Esc\n\nlater</kbd>',
   '<kbd>a\n```\ncode\n```\nb</kbd>',
+  'a `b\n\nc` d',
+  'a `b\n\n**bold** and @sam\n\nc` d',
+  'let `x = 1`\n\nand ``y``',
+  'one `two\nthree` four',
+  'tick ` alone\n\n# Heading\n\nother ` tick',
 ];
 
 void main() {
@@ -210,6 +215,36 @@ void main() {
 
     test('lets a longer fence hold a backtick', () {
       expect(annotate('``a ` b``'), '<m>``</><code>a ` b</><m>``</>');
+    });
+
+    test('wraps a line break inside its paragraph', () {
+      expect(
+        annotate('one `two\nthree` four'),
+        'one <m>`</><code>two\nthree</><m>`</> four',
+      );
+    });
+
+    test(
+      'does not reach across a paragraph break for its closing backtick',
+      () {
+        // Inline parsing runs inside one block, so the blank line ending a
+        // paragraph is also what stops a backtick pairing with the next one
+        // below it. Left to the whole document the span swallowed everything in
+        // between and closed it to every later pass, so the composer drew none
+        // of the markup the site was about to cook.
+        expect(annotate('a `b\n\nc` d'), 'a `b\n\nc` d');
+        expect(
+          annotate('a `b\n\n**bold** and @sam\n\nc` d'),
+          'a `b\n\n<m>**</><b>bold</><m>**</> and <at>@sam</>\n\nc` d',
+        );
+      },
+    );
+
+    test('each paragraph pairs its own backticks', () {
+      expect(
+        annotate('let `x = 1`\n\nand ``y``'),
+        'let <m>`</><code>x = 1</><m>`</>\n\nand <m>``</><code>y</><m>``</>',
+      );
     });
 
     test('claims a whole fenced block', () {
