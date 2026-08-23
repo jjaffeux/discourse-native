@@ -656,14 +656,6 @@ class _Scan {
     _emphasis(blocks);
   }
 
-  /// Searched one block at a time, for the reason [_htmlTags] is.
-  ///
-  /// A code span is an inline construct, and inline parsing runs inside one
-  /// block: the blank line that ends a paragraph is also what stops a backtick
-  /// reaching the next one. Over the whole document an unclosed backtick pairs
-  /// with the next one anywhere below it, and everything in between — the
-  /// bold, the mentions, the headings the site will really cook — is drawn as
-  /// code and closed to every later pass.
   /// Claims each `\x` so no later pass can read the `x` as syntax.
   ///
   /// This is the whole of CommonMark's escaping rule, spent in one place: a
@@ -695,6 +687,14 @@ class _Scan {
     }
   }
 
+  /// Searched one block at a time, for the reason [_htmlTags] is.
+  ///
+  /// A code span is an inline construct, and inline parsing runs inside one
+  /// block: the blank line that ends a paragraph is also what stops a backtick
+  /// reaching the next one. Over the whole document an unclosed backtick pairs
+  /// with the next one anywhere below it, and everything in between — the
+  /// bold, the mentions, the headings the site will really cook — is drawn as
+  /// code and closed to every later pass.
   void _inlineCode(List<({int offset, String text})> blocks) {
     for (final block in blocks) {
       for (final (open, width, close) in _codeSpans(block.text)) {
