@@ -431,11 +431,12 @@ void main() {
   group('escapes', () {
     // A backslash before ASCII punctuation makes that character literal, and
     // the composer was drawing several of them as markup the site cooks as the
-    // characters themselves — which is the field claiming something the post
-    // will not do. One pass claims each `\x` and every later pass already
-    // declines to touch a character something else owns, so the rule is spent
-    // once rather than taught to six patterns.
-    test('an escaped delimiter opens nothing', () {
+    // characters themselves. But a backslash protects *some* of what this scan
+    // finds and not all of it, and the two cases below are the difference.
+    test('an escaped delimiter opens nothing markdown-it would open', () {
+      // Emphasis, links, code spans and inline HTML are markdown-it's own
+      // inline rules, and the escape has consumed the character before they
+      // run.
       expect(
         annotate(r'a \*not italic\* b'),
         r'a <m>\</>*not italic<m>\</>* b',
@@ -448,12 +449,26 @@ void main() {
         annotate(r'a \~~not struck\~~ b'),
         r'a <m>\</>~~not struck<m>\</>~~ b',
       );
-      expect(annotate(r'a \@sam b'), r'a <m>\</>@sam b');
-      expect(annotate(r'a \#tag b'), r'a <m>\</>#tag b');
+      expect(
+        annotate(r'a \[text](https://e.com) b'),
+        r'a <m>\</>[text](<url>https://e.com</>) b',
+      );
       expect(
         annotate(r'a \<kbd>x\</kbd> b'),
         r'a <m>\</><kbd>x<m>\</></kbd> b',
       );
+    });
+
+    test('and not what Discourse decides after the escape is gone', () {
+      // Mentions, hashtags and emoji are Discourse's own, added through
+      // `textPostProcess` — and `pretty-text/text-replace.js` runs that over
+      // the *text tokens of the finished inline pass*, by which point `\@sam`
+      // is the text `@sam` and matches. The site draws that mention, so this
+      // does too. The backslash is dimmed either way: markdown-it consumed it
+      // and the post does not show it.
+      expect(annotate(r'a \@sam b'), r'a <m>\</><at>@sam</> b');
+      expect(annotate(r'a \#tag b'), r'a <m>\</><hash>#tag</> b');
+      expect(annotate(r'a \:smile: b'), r'a <m>\</><emoji>:smile:</> b');
     });
 
     test('an escaped delimiter does not consume the real one after it', () {

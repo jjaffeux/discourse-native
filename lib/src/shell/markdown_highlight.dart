@@ -428,7 +428,8 @@ class _Scan {
     : mask = List<int>.filled(source.length, 0),
       detail = List<String?>.filled(source.length, null),
       tokens = List<String?>.filled(source.length, null),
-      _closed = List<bool>.filled(source.length, false);
+      _closed = List<bool>.filled(source.length, false),
+      _escaped = List<bool>.filled(source.length, false);
 
   final String source;
   final DeferredFenceHighlight? _deferHighlight;
@@ -442,6 +443,10 @@ class _Scan {
   /// Characters no further pass may claim. Code is the whole reason this
   /// exists: `` `**x**` `` is four literal asterisks, not bold.
   final List<bool> _closed;
+
+  /// Characters a backslash made literal, which is a *narrower* claim than
+  /// [_closed] — see [_escapes] for which passes it binds and why.
+  final List<bool> _escaped;
 
   /// Offsets a run may never span.
   ///
@@ -656,21 +661,28 @@ class _Scan {
     _emphasis(blocks);
   }
 
-  /// Claims each `\x` so no later pass can read the `x` as syntax.
+  /// Records each `\x`, so the passes a backslash really protects can decline
+  /// to read the `x` as syntax.
   ///
-  /// This is the whole of CommonMark's escaping rule, spent in one place: a
-  /// backslash before ASCII punctuation makes that character literal, and the
-  /// passes below already decline to claim a character something else owns. So
-  /// `\*not italic\*` stops pairing, `\[text](url)` stops being a link and
-  /// `\@sam` stops being a mention — each of which the composer was drawing
-  /// as markup that the site cooks as the characters themselves.
+  /// A backslash before ASCII punctuation makes that character literal, and
+  /// the composer was drawing several such characters as markup the site cooks
+  /// as themselves. But it protects *some* of what this scan finds and not
+  /// all of it, and the difference is where in Discourse's pipeline each thing
+  /// is decided.
   ///
-  /// Only where the offsets are free, which is what keeps it out of a fenced
-  /// block and a code span: a backslash in either is a backslash, and the
-  /// reader is shown it.
+  /// Emphasis, links, code spans and inline HTML are markdown-it's own inline
+  /// rules, and the escape has already consumed the character by the time they
+  /// run. Mentions, hashtags and emoji are Discourse's, added through
+  /// `textPostProcess`, which `pretty-text/text-replace.js` runs over the
+  /// **text tokens of the finished inline pass** — by which point `\@sam` is
+  /// the text `@sam` and matches. So the site draws that mention, and so does
+  /// this. The backslash is dimmed either way, because markdown-it consumed it
+  /// and the post does not show it.
   ///
-  /// The backslash is dimmed and the character it protects is not, because the
-  /// post will show one and not the other.
+  /// Recorded only where the offsets are free, which is what keeps it out of a
+  /// fenced block and a code span: a backslash in either is a backslash, and
+  /// the reader is shown it. [_inlineCode] answers for its own delimiters in
+  /// [_backtickRuns], since it runs before this.
   void _escapes() {
     var index = 0;
     while (index + 1 < source.length) {
@@ -681,10 +693,19 @@ class _Scan {
       }
       if (_free(index, index + 2)) {
         _mark(index, index + 1, Md.marker);
-        _close(index, index + 2);
+        _escaped[index] = true;
+        _escaped[index + 1] = true;
       }
       index += 2;
     }
+  }
+
+  /// Whether nothing in `[start, end)` was made literal by a backslash.
+  bool _unescaped(int start, int end) {
+    for (var i = start; i < end && i < source.length; i++) {
+      if (_escaped[i]) return false;
+    }
+    return true;
   }
 
   /// Searched one block at a time, for the reason [_htmlTags] is.
@@ -803,6 +824,7 @@ class _Scan {
       final close = end - tag.length - 3;
       // As with emphasis, only the tags themselves must be unclaimed.
       if (!_free(start, open) || !_free(close, end)) continue;
+      if (!_unescaped(start, open) || !_unescaped(close, end)) continue;
       _mark(start, open, Md.marker);
       _addTag(open, close, tag);
       _mark(close, end, Md.marker);
@@ -873,7 +895,10 @@ class _Scan {
       final end = address.end;
       // The brackets and the address have to be unclaimed; the link text is
       // prose and may already carry a mark.
-      if (!_free(open, textStart) || !_free(textEnd, end)) {
+      if (!_free(open, textStart) ||
+          !_free(textEnd, end) ||
+          !_unescaped(open, textStart) ||
+          !_unescaped(textEnd, end)) {
         offset = open + 1;
         continue;
       }
@@ -989,7 +1014,8 @@ class _Scan {
         block.text,
         delimiter,
         wordBounded: wordBounded,
-        spokenFor: (offset) => _closed[block.offset + offset],
+        spokenFor: (offset) =>
+            _closed[block.offset + offset] || _escaped[block.offset + offset],
       )) {
         final start = block.offset + open;
         final end = block.offset + close;

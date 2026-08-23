@@ -464,16 +464,24 @@ per entry. Each of the three cost hundreds of milliseconds a keystroke.
 keep the growth honest, since the cost is inside the regexp engine and cannot
 be counted from outside.
 
-A backslash before ASCII punctuation makes that character literal, and that is
-one pass rather than a rule in six. `_escapes` claims each `\x` — dimming the
-backslash, since the post shows the character and not it — and every later pass
-already declines to touch a character something else owns. So `\*not italic\*`
-stops pairing, `\[text](url)` stops being a link, `\@sam` stops being a
-mention. It runs after the code passes and only where the offsets are free,
-because a backslash inside a fence or a code span is a backslash and the reader
-is shown it.
+A backslash before ASCII punctuation makes that character literal, and
+`_escapes` records each `\x` in one pass — dimming the backslash, since
+markdown-it consumes it and the post does not show it. What it *binds* is the
+part worth knowing, because a backslash protects some of what this scan finds
+and not all of it:
 
-Claiming the offsets rather than checking afterwards is what makes the
+| Escaped                          | Because                                  |
+| -------------------------------- | ---------------------------------------- |
+| emphasis, links, code, inline HTML | markdown-it's own inline rules — the escape has consumed the character before they run |
+| mentions, hashtags, emoji        | **not** escaped: these are Discourse's, added through `textPostProcess`, which `pretty-text/text-replace.js` runs over the text tokens of the *finished* inline pass — by which point `\@sam` is the text `@sam` and matches |
+
+So `\*not italic\*` stops pairing and `\[text](url)` stops being a link,
+while `\@sam` still draws its pill, because the site still draws that mention.
+The pass runs after the code passes and only where the offsets are free, since
+a backslash inside a fence or a code span is a backslash and the reader is
+shown it.
+
+Recording the offsets rather than checking afterwards is what makes the
 emphasis case work: a pair that is found and then refused has already consumed
 its closer, so `real *italic* after \*escaped\* one` would have lost the real
 one. `markdownPairs` takes a `spokenFor` predicate and skips such a delimiter
