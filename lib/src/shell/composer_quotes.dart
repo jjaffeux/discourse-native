@@ -57,13 +57,19 @@ typedef ComposerQuoteContentsResolver =
 /// features: up to three spaces of indentation, paired straight/curly quote
 /// marks around the default value, legacy unquoted values, nested quotes, and
 /// the display-name/username metadata emitted by `buildQuote`.
-List<ComposerQuoteBlock> parseComposerQuotes(String source) {
+/// [knownCodeRanges] lets a caller that has already scanned [source] hand its
+/// answer over rather than have the scan repeated here; see
+/// [parseComposerImages].
+List<ComposerQuoteBlock> parseComposerQuotes(
+  String source, {
+  CodeRanges? knownCodeRanges,
+}) {
   if (source.isEmpty ||
       !RegExp(r'\[quote', caseSensitive: false).hasMatch(source)) {
     return const [];
   }
 
-  final codeRanges = CodeRanges.of(scanMarkdown(source));
+  final codeRanges = knownCodeRanges ?? CodeRanges.of(scanMarkdown(source));
   final blocks = <ComposerQuoteBlock>[];
   var offset = 0;
 

@@ -120,9 +120,15 @@ class LocalDateComposerBlock {
 
 /// Losslessly recognizes inline local-date markup outside inline/fenced code.
 /// Ambiguous, malformed, or duplicate-attribute tokens remain ordinary text.
-List<LocalDateComposerBlock> parseLocalDateComposerBlocks(String source) {
+///
+/// [knownCodeRanges] lets a caller that has already scanned [source] hand its
+/// answer over rather than have the scan repeated here.
+List<LocalDateComposerBlock> parseLocalDateComposerBlocks(
+  String source, {
+  CodeRanges? knownCodeRanges,
+}) {
   if (source.isEmpty) return const [];
-  final codeRanges = CodeRanges.of(scanMarkdown(source));
+  final codeRanges = knownCodeRanges ?? CodeRanges.of(scanMarkdown(source));
   final blocks = <LocalDateComposerBlock>[];
   var offset = 0;
   // The end of a stretch already shown to hold no closer, and the offset it

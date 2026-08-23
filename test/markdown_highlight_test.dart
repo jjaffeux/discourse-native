@@ -680,6 +680,25 @@ void main() {
       }
     });
 
+    test('deferring a fence does not move where code is', () {
+      // The composer shares one scan's `CodeRanges` with every projection
+      // parser instead of letting each run its own. That only holds while a
+      // fence left untokenized still reports its body as code.
+      final body = List.generate(
+        400,
+        (index) => 'var x$index = $index;',
+      ).join('\n');
+      final source = 'before\n\n```dart\n$body\n```\n\nafter `x` end';
+
+      final direct = CodeRanges.of(scanMarkdown(source));
+      final deferred = CodeRanges.of(
+        scanMarkdown(source, deferHighlight: (_, _) {}),
+      );
+
+      expect(direct.isEmpty, isFalse);
+      expect(deferred.ranges.toList(), direct.ranges.toList());
+    });
+
     test('a line of openers costs its length, not its square', () {
       // The other quadratic shape, and it needs no fence: one long line with
       // many openers on it. The link pattern's text class excludes `]`, so the

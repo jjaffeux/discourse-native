@@ -55,9 +55,16 @@ final RegExp _labelPattern = RegExp(
   r'^(.*?)(?:\|(\d{1,4})x(\d{1,4})(?:,\s*(\d{1,3})%)?)?(?:\|.*)?$',
 );
 
-List<ComposerImageBlock> parseComposerImages(String source) {
+/// [codeRanges] lets a caller that has already scanned [source] hand its
+/// answer over. The scan is the expensive half of this, and the composer runs
+/// it once for its own highlighting before asking any of these parsers
+/// anything — without this each of them would repeat it on every keystroke.
+List<ComposerImageBlock> parseComposerImages(
+  String source, {
+  CodeRanges? codeRanges,
+}) {
   if (source.isEmpty) return const [];
-  final code = CodeRanges.of(scanMarkdown(source));
+  final code = codeRanges ?? CodeRanges.of(scanMarkdown(source));
   final images = <ComposerImageBlock>[];
   // Matched one opener at a time rather than with `allMatches`, so a line
   // shown to hold no `]` is not rediscovered at every `![` on it. The alt

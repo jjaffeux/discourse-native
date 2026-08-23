@@ -232,7 +232,10 @@ class MarkdownEditingController extends TextEditingController {
     if (_imageScanned == source) return _imageBlocks;
     _imageScanned = source;
     _imageKeys.clear();
-    return _imageBlocks = parseComposerImages(source);
+    return _imageBlocks = parseComposerImages(
+      source,
+      codeRanges: _codeRangesFor(source),
+    );
   }
 
   String? _pollScanned;
@@ -412,7 +415,10 @@ class MarkdownEditingController extends TextEditingController {
     if (_localDateScanned == source) return _localDateBlocks;
     _localDateScanned = source;
     _localDatePillKeys.clear();
-    return _localDateBlocks = parseLocalDateComposerBlocks(source);
+    return _localDateBlocks = parseLocalDateComposerBlocks(
+      source,
+      knownCodeRanges: _codeRangesFor(source),
+    );
   }
 
   String? _quoteScanned;
@@ -483,7 +489,10 @@ class MarkdownEditingController extends TextEditingController {
     _quoteKeys.clear();
     _quoteRemoveKeys.clear();
     _displayedQuoteContents.clear();
-    return _quoteBlocks = parseComposerQuotes(source);
+    return _quoteBlocks = parseComposerQuotes(
+      source,
+      knownCodeRanges: _codeRangesFor(source),
+    );
   }
 
   String _displayedContentsFor(ComposerQuoteBlock block) =>
@@ -546,6 +555,22 @@ class MarkdownEditingController extends TextEditingController {
   /// fenced block is tokenized by `highlightLines`, which is expensive enough
   /// that `syntax.dart` refuses to run it past 20k characters — rescanning per
   /// caret move would spend that on nothing.
+  String? _codeRangesScanned;
+  CodeRanges _codeRanges = CodeRanges.none;
+
+  /// Where code is in [source], derived from the scan this controller already
+  /// ran rather than from one of its own.
+  ///
+  /// Every projection parser needs it, and each would otherwise scan the whole
+  /// document again to get it: four scans a keystroke where one will do. The
+  /// deferred-fence path does not change the answer — a fence left untokenized
+  /// still comes back as `Md.codeBlock`.
+  CodeRanges _codeRangesFor(String source) {
+    if (_codeRangesScanned == source) return _codeRanges;
+    _codeRangesScanned = source;
+    return _codeRanges = CodeRanges.of(_runsFor(source));
+  }
+
   List<MarkdownRun> _runsFor(String source) {
     if (_scanned == source) return _runs!;
     scans++;
