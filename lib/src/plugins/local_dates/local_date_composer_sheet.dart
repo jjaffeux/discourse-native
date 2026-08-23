@@ -456,7 +456,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
 
   String _previewText(LocalDateComposerDraft draft) {
     final locale = Localizations.localeOf(context);
-    final formatter = const LocalDateFormatter();
+    const formatter = LocalDateFormatter();
     final start = formatter.resolve(
       LocalDateSpec(
         date: draft.startDate,

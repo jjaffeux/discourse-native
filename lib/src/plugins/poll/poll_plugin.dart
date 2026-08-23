@@ -73,11 +73,18 @@ class PollPlugin
   @override
   Polls? mergeAfterPostEdit(Polls? held, Polls? incoming) => incoming;
 
-  @override
-  List<String> topicChannels(int topicId) => ['/polls/$topicId'];
+  static String _channelFor(int topicId) => '/polls/$topicId';
 
   @override
+  List<String> topicChannels(int topicId) => [_channelFor(topicId)];
+
+  /// Only its own channel: every plugin's hook is asked about every message on
+  /// every topic channel, and `post_id` is not a key one feature may read out
+  /// of another's payload. Assign publishes one for a post-level assignment,
+  /// which is nothing to do with a poll.
+  @override
   List<int> stalePosts(String channel, Object? data) {
+    if (!channel.startsWith('/polls/')) return const [];
     if (data is! Map<Object?, Object?>) return const [];
     return switch (data['post_id']) {
       final num id => [id.toInt()],

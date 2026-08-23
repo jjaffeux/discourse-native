@@ -259,7 +259,7 @@ void main() {
 
     test('does not persist credentials when reply validation fails', () async {
       final store = _FakeSecureStore();
-      final protocolError = const UserApiAuthException(
+      const protocolError = UserApiAuthException(
         UserApiAuthFailure.badReply,
         'invalid payload',
       );

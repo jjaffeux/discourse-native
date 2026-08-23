@@ -592,21 +592,6 @@ void main() {
     );
   });
 
-  test('day labels compare calendar days, not elapsed hours', () {
-    final now = DateTime(2026, 3, 9, 14, 30);
-
-    expect(chatDayLabel(DateTime(2026, 3, 9), now: now), 'Today');
-    expect(chatDayLabel(DateTime(2026, 3, 8), now: now), 'Yesterday');
-    expect(chatDayLabel(DateTime(2026, 3, 7), now: now), '7 March 2026');
-
-    // Across a spring-forward transition, consecutive local midnights sit 23
-    // hours apart, not 24. A day start one hour past midnight reproduces that
-    // gap in any test timezone: an elapsed-duration difference truncates it
-    // to zero whole days and relabels yesterday as Today.
-    expect(chatDayLabel(DateTime(2026, 3, 8, 1), now: now), 'Yesterday');
-    expect(chatDayLabel(DateTime(2026, 3, 7, 1), now: now), '7 March 2026');
-  });
-
   testWidgets('the day crossing the top of chat stays pinned', (tester) async {
     final api = _ChatApi(openPages: const {});
     final controller = await _controller(api, sites: const [firstSite]);

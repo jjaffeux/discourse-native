@@ -1237,7 +1237,7 @@ void _feedGroups() {
   group('searchPosts', () {
     test('rejects an oversized private query before transport', () async {
       var requestCount = 0;
-      final secret = 'private-search-marker';
+      const secret = 'private-search-marker';
       final api = DiscourseApi(
         client: MockClient((_) async {
           requestCount += 1;
@@ -1817,7 +1817,7 @@ void _feedGroups() {
     });
 
     test('presentation fields default safely when malformed', () {
-      final category = TopicCategory.fromJson({
+      final category = TopicCategory.fromJson(const {
         'id': 1,
         'name': 'Feature',
         'style_type': false,

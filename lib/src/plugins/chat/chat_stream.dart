@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../foundation/calendar_day.dart';
 import 'chat_message.dart';
 
 /// One row of a channel, in the order it is read.
@@ -122,8 +123,8 @@ List<ChatStreamItem> buildChatStream(
   }
 
   for (final message in messages) {
-    final day = _startOfDay(message.createdAt);
-    final previousDay = _startOfDay(previous?.createdAt);
+    final day = calendarDay(message.createdAt);
+    final previousDay = calendarDay(previous?.createdAt);
     final dayChanged = day != null && day != previousDay;
 
     if (dayChanged) {
@@ -246,10 +247,4 @@ bool _chains(ChatMessage message, ChatMessage? previous) {
   }
 
   return true;
-}
-
-DateTime? _startOfDay(DateTime? at) {
-  if (at == null) return null;
-  final local = at.toLocal();
-  return DateTime(local.year, local.month, local.day);
 }

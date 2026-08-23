@@ -9,6 +9,7 @@ import '../../code_block.dart' show monospaceTextStyle;
 import '../../cooked_dom.dart';
 import '../../open_link.dart';
 import '../../site_url.dart';
+import '../markup.dart';
 
 /// The shared visual language of GitHub's oneboxes.
 ///
@@ -17,6 +18,14 @@ import '../../site_url.dart';
 /// request statuses from `plugins/discourse-github/.../github-pr-status.scss`.
 /// The shapes below are taken verbatim from those files, so a onebox here
 /// carries the same glyph and the same status color as on the web.
+
+/// `+123` or `-45` from a `.lines` block, as a number.
+///
+/// The pull request and the commit engines read the same block of the same
+/// template, and it writes the sign and the label in with the digits.
+int? githubLineCount(dom.Element? lines, String className) => lines == null
+    ? null
+    : digitsIn(descendantWhere(lines, (e) => e.classes.contains(className)));
 
 // --- Icons, path data taken from the upstream templates.
 

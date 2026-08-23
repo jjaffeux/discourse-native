@@ -35,7 +35,7 @@ void main() {
       // `hand-point-right` is 448x512, so a widget that passed the viewBox
       // through would not be square.
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Center(child: DIcon(DIcons.handPointRight, size: 32)),
         ),
       );

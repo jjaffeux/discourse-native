@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../../foundation/calendar_day.dart';
 import '../../shell/loading_skeleton.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
@@ -1411,21 +1412,6 @@ class _JumpToPresent extends StatelessWidget {
   }
 }
 
-/// Today and yesterday by name, everything else by date.
-///
-/// Days are compared as calendar dates, not elapsed time: local midnights on
-/// either side of a DST change sit 23 or 25 hours apart, and a truncating
-/// duration difference would then misname the days after a transition.
-@visibleForTesting
-String chatDayLabel(DateTime day, {required DateTime now}) {
-  final today = DateTime.utc(now.year, now.month, now.day);
-  final start = DateTime.utc(day.year, day.month, day.day);
-  final delta = today.difference(start).inDays;
-  if (delta == 0) return 'Today';
-  if (delta == 1) return 'Yesterday';
-  return '${day.day} ${_DaySeparator._months[day.month - 1]} ${day.year}';
-}
-
 /// The line between two days of conversation.
 class _DaySeparator extends StatelessWidget {
   const _DaySeparator({super.key, required this.day, this.floating = false});
@@ -1435,24 +1421,9 @@ class _DaySeparator extends StatelessWidget {
   final DateTime day;
   final bool floating;
 
-  static const List<String> _months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-
   /// Today and yesterday by name, everything else by date. The reader's days,
   /// not the site's — [day] is already local midnight.
-  String get _label => chatDayLabel(day, now: DateTime.now());
+  String get _label => dayLabel(day, now: DateTime.now());
 
   @override
   Widget build(BuildContext context) {

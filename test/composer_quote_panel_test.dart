@@ -218,6 +218,72 @@ void main() {
     expect(caretTop, greaterThanOrEqualTo(previewBottom));
   });
 
+  testWidgets('typing under a quote does not rebuild it', (tester) async {
+    // Every keystroke rebuilds the composer's span tree, and each quote in it
+    // is a `WidgetSpan` whose child comes with it. The controller used to mint
+    // a fresh `GlobalKey` per quote on every text change, so that child was not
+    // rebuilt but *recreated* — new element, new render objects, and every
+    // memo below them thrown away, including the scan of the quoted text. A
+    // reply is mostly quotation often enough for that to be the largest thing
+    // on the typing path.
+    //
+    // Typing under a quote does not move it, so nothing about it has changed.
+    final composer = ComposerController(_target);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.text = '$_longQuote\n\n';
+
+    await _pumpPanel(tester, shell, composer);
+    final preview = tester.element(find.byType(ComposerQuotePreview));
+    final scansAfterFirstBuild = ComposerQuotePreview.scans;
+    expect(scansAfterFirstBuild, greaterThan(0));
+
+    for (final typed in const ['T', 'Ty', 'Typ', 'Type', 'Typed']) {
+      final text = '$_longQuote\n\n$typed';
+      composer.text.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+      await tester.pump();
+    }
+
+    expect(ComposerQuotePreview.scans, scansAfterFirstBuild);
+    expect(
+      tester.element(find.byType(ComposerQuotePreview)),
+      same(preview),
+      reason: 'the quote was recreated rather than left alone',
+    );
+  });
+
+  testWidgets('a quote that moves is still drawn from its own text', (
+    tester,
+  ) async {
+    // The other half: keys are pruned to the quotes that are there, so text
+    // typed *above* one gives it a new start and a new key. What must not
+    // happen is a preview reusing an element and going on showing the text of
+    // whatever used to be at that offset.
+    final composer = ComposerController(_target);
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    composer.text.text = '$_longQuote\n\n';
+
+    await _pumpPanel(tester, shell, composer);
+    expect(find.text(_longQuoteBody), findsOneWidget);
+
+    const before = 'Before.\n\n';
+    const moved = '$before$_longQuote\n\n';
+    composer.text.value = const TextEditingValue(
+      text: moved,
+      selection: TextSelection.collapsed(offset: moved.length),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(_longQuoteBody), findsOneWidget);
+    expect(composer.text.quoteBlocks.single.start, before.length);
+  });
+
   testWidgets('renders quote Markdown without exposing its markers', (
     tester,
   ) async {

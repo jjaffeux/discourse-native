@@ -1,10 +1,15 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
+import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
+import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_pills.dart';
+import 'package:discourse_native/src/shell/composer_quotes.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
@@ -710,6 +715,272 @@ void main() {
         editable(tester).textEditingValue.text.substring(0, 16),
         'filed under #bug',
       );
+    });
+  });
+
+  testWidgets('typing leaves the pills already in the document alone', (
+    tester,
+  ) async {
+    // Every keystroke rebuilds the span tree, and every projection in it is a
+    // `WidgetSpan` whose child comes along. Whether that child is rebuilt or
+    // *recreated* is decided by the `GlobalKey` the controller holds for it —
+    // and a recreation throws away the element, its render objects and
+    // whatever they had measured. Typing at the end of a document moves none
+    // of them, so none of them should move.
+    const source =
+        '![shot|400x300](https://example.com/a.png)\n'
+        '\n'
+        'Meeting [date=2026-01-02 time=10:00 timezone="UTC"] here.\n'
+        '\n'
+        '[poll name=lunch]\n'
+        '# Question\n'
+        '* one\n'
+        '* two\n'
+        '[/poll]\n'
+        '\n'
+        '[quote="sam, post:1, topic:2"]\n'
+        'Quoted line.\n'
+        '[/quote]\n'
+        '\n';
+
+    await pumpField(tester, source);
+    await tester.pump();
+
+    final finders = <String, Finder>{
+      'image': find.byType(ComposerImagePreview),
+      'date': find.byType(LocalDateComposerPill),
+      'poll': find.byType(PollComposerPill),
+      'quote': find.byType(ComposerQuotePreview),
+    };
+    final before = <String, Element>{};
+    for (final entry in finders.entries) {
+      expect(entry.value, findsOneWidget, reason: entry.key);
+      before[entry.key] = tester.element(entry.value);
+    }
+
+    for (final typed in const ['R', 'Re', 'Rep', 'Repl', 'Reply']) {
+      final text = '$source$typed';
+      controller.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+      await tester.pump();
+    }
+
+    for (final entry in finders.entries) {
+      expect(
+        tester.element(entry.value),
+        same(before[entry.key]),
+        reason: 'the ${entry.key} pill was recreated rather than left alone',
+      );
+    }
+  });
+
+  group('the invariant, with everything substituting at once', () {
+    /// Every shape that turns into a `WidgetSpan`, plus the ones that must
+    /// not, plus the delimiters that decide where a run ends.
+    const pieces = [
+      ':smile:',
+      ':wave:',
+      ':smile:t3:',
+      '@sam',
+      '@nobody',
+      '#bug',
+      '#none',
+      '#parent:child',
+      '**',
+      '*',
+      '_',
+      '`',
+      '``',
+      '~~',
+      '[',
+      ']',
+      '(',
+      ')',
+      'a',
+      'b',
+      ' ',
+      '\n',
+      '\n\n',
+      '<kbd>',
+      '</kbd>',
+      '#',
+      '@',
+      ':',
+      'x',
+      'https://e.com',
+      '```\n',
+      '```',
+      '> ',
+      '# ',
+    ];
+
+    const bug = FoundHashtag(
+      type: 'category',
+      ref: 'bug',
+      slug: 'bug',
+      text: 'Bug',
+      id: 5,
+      colors: ['0088CC'],
+    );
+    const child = FoundHashtag(
+      type: 'category',
+      ref: 'parent:child',
+      slug: 'child',
+      text: 'Child',
+      id: 6,
+      colors: ['FF0000'],
+    );
+
+    String urlFor(String name) => 'https://meta.discourse.org/$name.png';
+
+    testWidgets('every placeholder is worth exactly one code unit', (
+      tester,
+    ) async {
+      // The fixed sources above hold the invariant with nothing substituted.
+      // This is the state that can actually break it: artwork in the cache,
+      // both kinds of pill resolved, and runs of them meeting each other and
+      // the marks around them. A `WidgetSpan` is worth one `0xFFFC` code unit
+      // however wide it draws, so one standing in for the seven characters of
+      // `:smile:` would silently put every later offset out by six — and
+      // Flutter neither asserts nor converts, it just means one string by the
+      // other.
+      final previous = EmojiCache.instance;
+      addTearDown(() => EmojiCache.instance = previous);
+      EmojiCache.instance = EmojiCache(
+        client: MockClient((request) async {
+          if (request.url.path.contains('smile')) {
+            return http.Response.bytes(_pngBytes, 200);
+          }
+          return http.Response('nope', 404);
+        }),
+      );
+      await EmojiCache.instance.load(urlFor('smile'));
+      await EmojiCache.instance.load(urlFor('smile:t3'));
+
+      final ComposerPills pills = (
+        hashtag: (ref) => switch (ref) {
+          'bug' => bug,
+          'parent:child' => child,
+          _ => null,
+        },
+        mention: (name) => switch (name) {
+          'sam' => true,
+          'nobody' => false,
+          _ => null,
+        },
+        resolve: (refs, names) {},
+      );
+
+      final random = Random(31337);
+      for (var round = 0; round < 400; round++) {
+        final buffer = StringBuffer();
+        for (var i = 0; i < random.nextInt(40); i++) {
+          buffer.write(pieces[random.nextInt(pieces.length)]);
+        }
+        final source = buffer.toString();
+
+        await pumpField(tester, source, resolveEmoji: urlFor, pills: pills);
+
+        // Both ends and the middle: a caret touching a run is what keeps it
+        // as characters, so each offset paints a different set of spans.
+        for (final caret in <int>{0, source.length ~/ 2, source.length}) {
+          controller.selection = TextSelection.collapsed(offset: caret);
+          await tester.pump();
+
+          final painted = editable(tester).renderEditable.plainText;
+          expect(
+            painted.length,
+            source.length,
+            reason:
+                'caret $caret on ${jsonEncode(source)} painted '
+                '${jsonEncode(painted)}',
+          );
+          for (var i = 0; i < painted.length; i++) {
+            if (painted.codeUnitAt(i) == 0xFFFC) continue;
+            expect(
+              painted[i],
+              source[i],
+              reason:
+                  'offset $i, caret $caret on ${jsonEncode(source)} '
+                  'painted ${jsonEncode(painted)}',
+            );
+          }
+        }
+      }
+    });
+    testWidgets('so does every block a pill stands in for', (tester) async {
+      // The block projections are the other half: a quote, an image, a poll
+      // and a local date each replace a whole range with one pill and then
+      // account for every remaining code unit themselves — as a transparent
+      // line ending, as zero-size text, or as a zero-size widget. The
+      // arithmetic differs per kind and each is only as right as the shapes
+      // it was written against, so the shapes are generated instead.
+      //
+      // Painting is asserted as well as length: `TextPainter` anchors an
+      // end-of-text caret to the paragraph's last glyph whenever the
+      // paragraph ends in a space separator, so a projection that hides a
+      // trailing space at `fontSize: 0` leaves it nothing to measure.
+      const blocks = [
+        '[quote="sam, post:1, topic:2"]\nquoted\n[/quote]\n\n',
+        '[quote="a"]\nx\n[/quote]\n\n',
+        '![alt|10x20](upload://abc.png)',
+        '![a](https://e.com/a.png)',
+        '[date=2026-01-02 time=10:00 timezone="UTC"]',
+        '[poll type=regular]\n* one\n* two\n[/poll]',
+        '[poll type=regular]\n* one\n* two\n[/poll] ',
+        '[poll type=regular]\n* one\n* two\n[/poll]\t\t',
+        '[/quote]',
+        '[/poll]',
+        '[quote',
+        '[poll',
+        '![',
+        '](',
+        ')',
+        ']',
+        'a',
+        ' ',
+        '\t',
+        '\n',
+        '\n\n',
+        '**',
+        '`',
+        '```\n',
+        '```',
+        '> ',
+      ];
+
+      final random = Random(4242);
+      for (var round = 0; round < 300; round++) {
+        final buffer = StringBuffer();
+        for (var i = 0; i < random.nextInt(10); i++) {
+          buffer.write(blocks[random.nextInt(blocks.length)]);
+        }
+        final source = buffer.toString();
+
+        await pumpField(tester, source);
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'building ${jsonEncode(source)}',
+        );
+
+        for (final caret in <int>{0, source.length ~/ 2, source.length}) {
+          controller.selection = TextSelection.collapsed(offset: caret);
+          await tester.pump();
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'caret $caret on ${jsonEncode(source)}',
+          );
+          expect(
+            editable(tester).renderEditable.plainText.length,
+            source.length,
+            reason: 'caret $caret on ${jsonEncode(source)}',
+          );
+        }
+      }
     });
   });
 }

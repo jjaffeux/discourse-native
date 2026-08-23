@@ -131,6 +131,48 @@ void main() {
     }
   });
 
+  testWidgets('a space typed after a poll still anchors the caret', (
+    tester,
+  ) async {
+    // `[/poll]   ` keeps its trailing whitespace: the block owns it, byte for
+    // byte, so the editor can write it back. Projected as `fontSize: 0` text
+    // that made the document end in a space with no glyph, and `TextPainter`
+    // anchors an end-of-text caret to the paragraph's last glyph whenever the
+    // paragraph ends in a space separator. It asserted in debug and had
+    // nothing to measure in release.
+    for (final trailing in const [' ', '  ', '\t', ' \t ']) {
+      final text = '$source$trailing';
+      final controller = MarkdownEditingController(text: text);
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: SizedBox(
+              width: 600,
+              child: TextField(controller: controller, maxLines: null),
+            ),
+          ),
+        ),
+      );
+      expect(
+        parsePollComposerBlocks(text).single.end,
+        text.length,
+        reason: 'the block is expected to own $trailing',
+      );
+
+      controller.selection = TextSelection.collapsed(offset: text.length);
+      await tester.pump();
+
+      expect(tester.takeException(), isNull, reason: 'trailing $trailing');
+      final render = tester
+          .state<EditableTextState>(find.byType(EditableText))
+          .renderEditable;
+      expect(render.plainText.length, text.length);
+      expect(find.byType(PollComposerPill), findsOneWidget);
+    }
+  });
+
   testWidgets('the selected focus ring stays inside the pill bounds', (
     tester,
   ) async {
@@ -407,7 +449,7 @@ void main() {
     addTearDown(controller.dispose);
     controller.selectPillForKeyboard(controller.pollBlocks.single);
 
-    controller.value = TextEditingValue(
+    controller.value = const TextEditingValue(
       text: '$source!',
       selection: TextSelection.collapsed(offset: source.length + 1),
     );

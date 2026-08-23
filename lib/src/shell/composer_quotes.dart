@@ -261,7 +261,7 @@ class ComposerQuoteInputFormatter extends TextInputFormatter {
 /// colours as [QuoteBlock] in `quote.dart`. Selected native post text is plain
 /// text, so keeping the body as text here is both safe and faithful; the raw
 /// BBCode remains underneath for the server to cook on submission.
-class ComposerQuotePreview extends StatelessWidget {
+class ComposerQuotePreview extends StatefulWidget {
   const ComposerQuotePreview({
     super.key,
     required this.block,
@@ -275,8 +275,42 @@ class ComposerQuotePreview extends StatelessWidget {
   final TextStyle baseStyle;
   final Key? removeKey;
 
+  /// How many times any preview has read its contents, so a test can hold the
+  /// memoisation to account rather than trusting it. The twin of
+  /// `MarkdownEditingController.scans`, and for the same reason.
+  @visibleForTesting
+  static int scans = 0;
+
+  @override
+  State<ComposerQuotePreview> createState() => _ComposerQuotePreviewState();
+}
+
+/// Stateful only to hold the scan.
+///
+/// Every keystroke rebuilds the composer's span tree, and every quote in it is
+/// a `WidgetSpan` whose child is rebuilt with it — so scanning here is scanning
+/// the quoted half of the document a second time, once per key. A reply that
+/// is mostly quotation therefore paid for its own length twice, which is the
+/// same thing `_codeRangesFor` was written to stop the projection parsers
+/// doing. The `GlobalKey` the controller puts above this keeps the element
+/// alive across those rebuilds, so the memo survives them.
+class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
+  String? _scanned;
+  List<MarkdownRun> _runs = const [];
+
+  List<MarkdownRun> get _contentRuns {
+    if (_scanned == widget.contents) return _runs;
+    _scanned = widget.contents;
+    ComposerQuotePreview.scans += 1;
+    return _runs = scanMarkdown(widget.contents);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final block = widget.block;
+    final contents = widget.contents;
+    final baseStyle = widget.baseStyle;
+    final removeKey = widget.removeKey;
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     final title = block.title;
@@ -287,7 +321,7 @@ class ComposerQuotePreview extends StatelessWidget {
     final quoteBody = Text.rich(
       TextSpan(
         children: [
-          for (final run in scanMarkdown(contents))
+          for (final run in _contentRuns)
             if (!run.has(Md.marker))
               TextSpan(
                 text: contents.substring(run.start, run.end),

@@ -173,18 +173,10 @@ class HoverPanelState extends State<HoverPanel> {
 
   /// The anchor's rectangle, in the coordinates the overlay lays its children
   /// out in. Null before it has been laid out, or once it no longer is.
-  Rect? _anchorRect() {
-    final box = _anchorKey.currentContext?.findRenderObject() as RenderBox?;
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (box == null || overlay == null || !box.hasSize || !box.attached) {
-      return null;
-    }
-    return Rect.fromPoints(
-      box.localToGlobal(Offset.zero, ancestor: overlay),
-      box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
-    );
-  }
+  Rect? _anchorRect() => anchorRect(
+    anchor: _anchorKey.currentContext?.findRenderObject() as RenderBox?,
+    overlay: Overlay.of(context).context.findRenderObject() as RenderBox?,
+  );
 
   @override
   void dispose() {

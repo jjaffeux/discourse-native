@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../models/json.dart';
+import '../../shell/composer_images.dart';
 
 /// One featured Klipy category returned by Discourse's GIF proxy.
 @immutable
@@ -80,7 +81,7 @@ final class GifResult {
 
   /// The exact image markdown Discourse's web picker inserts and sends.
   String get markdown =>
-      '\n![${_escapeImageAlt(_gifTitle(title))}|${width}x$height]($url)\n';
+      '\n![${escapeImageAlt(_gifTitle(title))}|${width}x$height]($url)\n';
 
   @override
   bool operator ==(Object other) =>
@@ -161,10 +162,6 @@ String? _httpUrl(Object? value) {
 }
 
 String _gifTitle(Object? value) {
-  final title = value is String ? value : '';
-  final singleLine = title.replaceAll(RegExp(r'[\r\n|]+'), ' ').trim();
-  return singleLine.isEmpty ? 'GIF' : singleLine;
+  final flattened = flattenImageAlt(value is String ? value : '');
+  return flattened.isEmpty ? 'GIF' : flattened;
 }
-
-String _escapeImageAlt(String value) =>
-    value.replaceAllMapped(RegExp(r'[\\\[\]`]'), (match) => '\\${match[0]}');

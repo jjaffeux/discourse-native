@@ -51,6 +51,14 @@ int _generatedOptionCount({
 /// block, the second code unit is projected as one transparent line ending.
 /// The pill therefore remains block-shaped at EOF without changing the raw
 /// Markdown used for copying, undo, drafts, and submission.
+///
+/// The spaces and tabs a closing `[/poll]` line carries are projected as
+/// widgets too, for a reason that has nothing to do with blank lines. The
+/// block keeps that whitespace byte for byte because the editor writes it
+/// back, and `TextPainter` anchors an end-of-text caret to the paragraph's
+/// last glyph whenever the paragraph ends in a space separator — asserting
+/// that the glyph has bounds, which a `fontSize: 0` space has not. Typing a
+/// space after a poll is the ordinary way to reach that.
 List<InlineSpan> buildCollapsedPollSpans({
   required PollComposerBlock block,
   required TextStyle baseStyle,
@@ -83,10 +91,18 @@ List<InlineSpan> buildCollapsedPollSpans({
       ),
   ];
   final hiddenFrom = projectsLineBreak ? 2 : 1;
+  // Where the trailing whitespace of the closing line begins.
+  var trailingFrom = source.length;
+  while (trailingFrom > hiddenFrom &&
+      _isHorizontalSpace(source.codeUnitAt(trailingFrom - 1))) {
+    trailingFrom--;
+  }
   var textStart = hiddenFrom;
   for (var offset = hiddenFrom; offset < source.length; offset++) {
     final codeUnit = source.codeUnitAt(offset);
-    if (codeUnit != 0x0A && codeUnit != 0x0D) continue;
+    final projectsWidget =
+        codeUnit == 0x0A || codeUnit == 0x0D || offset >= trailingFrom;
+    if (!projectsWidget) continue;
     if (textStart < offset) {
       spans.add(
         TextSpan(
@@ -118,6 +134,8 @@ List<InlineSpan> buildCollapsedPollSpans({
   );
   return spans;
 }
+
+bool _isHorizontalSpace(int codeUnit) => codeUnit == 0x20 || codeUnit == 0x09;
 
 class PollComposerPill extends StatelessWidget {
   const PollComposerPill({

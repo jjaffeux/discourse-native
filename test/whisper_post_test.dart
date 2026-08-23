@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('recognizes Discourse whisper posts', () {
-    final post = Post.fromJson({
+    final post = Post.fromJson(const {
       'id': 5,
       'post_number': 3,
       'username': 'sam',

@@ -172,16 +172,10 @@ class GithubCommitData {
               (e) => e.classes.contains('onebox-avatar-inline'),
             )?.attributes['src'],
       authorUrl: userLink?.attributes['href'],
-      additions: _count(linesEl, 'added'),
-      deletions: _count(linesEl, 'removed'),
+      additions: githubLineCount(linesEl, 'added'),
+      deletions: githubLineCount(linesEl, 'removed'),
       body: githubBody(article),
     );
-  }
-
-  static int? _count(dom.Element? linesEl, String className) {
-    if (linesEl == null) return null;
-    final span = descendantWhere(linesEl, (e) => e.classes.contains(className));
-    return int.tryParse(span?.text.replaceAll(RegExp(r'[^\d]'), '') ?? '');
   }
 }
 

@@ -85,9 +85,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     LogicalKeyboardKey.digit9,
   ];
 
-  final DiagnosticsPanelWidthStore _diagnosticsWidthStore =
+  static const DiagnosticsPanelWidthStore _diagnosticsWidthStore =
       DiagnosticsPanelWidthStore();
-  final SidebarWidthStore _sidebarWidthStore = SidebarWidthStore();
+  static const SidebarWidthStore _sidebarWidthStore = SidebarWidthStore();
   double _diagnosticsWidth = diagnosticsPanelWidth;
   double _sidebarWidth = AdaptiveShell.sidebarWidth;
   bool _diagnosticsWidthChanged = false;

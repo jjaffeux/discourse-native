@@ -2,6 +2,30 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+/// The rect an anchor occupies in the coordinates [overlay] lays its children
+/// out in, or null when there is nothing laid out to point at.
+///
+/// Which overlay is the caller's to decide — an [OverlayPortal]'s enclosing
+/// one, a route's, the root navigator's — but what a rect in it means is not,
+/// and five callers had each written this out with a different idea of when
+/// there is no rect to give. The union of their guards is the right one:
+/// `localToGlobal` walks the render tree from [anchor] up to [overlay], and a
+/// detached box has no path to walk — it asserts rather than answering. That
+/// is the state a panel is in for the frame after whatever it hangs off has
+/// gone, which is exactly when this is asked; answering null there is what
+/// puts [AnchoredLayout] on its centered fallback.
+Rect? anchorRect({required RenderBox? anchor, required RenderBox? overlay}) {
+  if (anchor == null || overlay == null) return null;
+  if (!anchor.attached || !anchor.hasSize || !overlay.attached) return null;
+  return Rect.fromPoints(
+    anchor.localToGlobal(Offset.zero, ancestor: overlay),
+    anchor.localToGlobal(
+      anchor.size.bottomRight(Offset.zero),
+      ancestor: overlay,
+    ),
+  );
+}
+
 /// Places a floating panel under whatever it is about, flipping above it when
 /// there is no room below and sliding along the edge rather than off it.
 ///

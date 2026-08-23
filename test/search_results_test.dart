@@ -263,7 +263,7 @@ void main() {
 
   test('bounds every header-search section before parsing its entries', () {
     const limit = SearchResults.maximumResultsPerSection;
-    final oversized = limit + 1;
+    const oversized = limit + 1;
     final results = SearchResults.fromJson({
       'topics': List.generate(oversized, (index) {
         final id = index + 1;
@@ -295,7 +295,7 @@ void main() {
       'groups': List.generate(oversized, (index) {
         return {'id': 5000 + index, 'name': 'group-$index'};
       }),
-      'grouped_search_result': {
+      'grouped_search_result': const {
         'more_posts': true,
         'more_categories': true,
         'more_users': true,

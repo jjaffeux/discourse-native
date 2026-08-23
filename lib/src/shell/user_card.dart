@@ -122,21 +122,13 @@ Future<void> showUserCard({
   final controller = ShellScope.read(context);
   final targetSite = siteUrl ?? controller.currentInstance?.url;
   if (targetSite == null) return Future<void>.value();
-  final box = context.findRenderObject() as RenderBox?;
-  final overlay =
-      Navigator.of(context).overlay?.context.findRenderObject() as RenderBox?;
-
   // Without a laid-out anchor there is nothing to attach to; fall back to the
   // middle of the screen rather than dropping the tap.
-  final anchor = (box == null || overlay == null || !box.hasSize)
-      ? null
-      : Rect.fromPoints(
-          box.localToGlobal(Offset.zero, ancestor: overlay),
-          box.localToGlobal(
-            box.size.bottomRight(Offset.zero),
-            ancestor: overlay,
-          ),
-        );
+  final anchor = anchorRect(
+    anchor: context.findRenderObject() as RenderBox?,
+    overlay:
+        Navigator.of(context).overlay?.context.findRenderObject() as RenderBox?,
+  );
 
   return showGeneralDialog<void>(
     context: context,
@@ -279,6 +271,10 @@ class _CardSurface extends StatelessWidget {
       elevation: 8,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
+      // A `Container`, not a `DecoratedBox`: a bordered decoration's
+      // dimensions are padding a `Container` applies and a `DecoratedBox`
+      // does not, so the panel's contents would sit under its own border and
+      // be clipped by the rounded `Material` around it.
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),

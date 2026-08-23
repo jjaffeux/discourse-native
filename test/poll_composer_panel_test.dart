@@ -311,9 +311,9 @@ void main() {
     final shell = await _openComposer();
     addTearDown(shell.dispose);
     final composer = shell.visibleComposer!;
-    composer.text.value = TextEditingValue(
+    composer.text.value = const TextEditingValue(
       text: _source,
-      selection: const TextSelection.collapsed(offset: _source.length),
+      selection: TextSelection.collapsed(offset: _source.length),
     );
 
     await tester.pumpWidget(
@@ -572,9 +572,9 @@ void main() {
     final shell = await _openComposer();
     addTearDown(shell.dispose);
     final composer = shell.visibleComposer!;
-    composer.text.value = TextEditingValue(
+    composer.text.value = const TextEditingValue(
       text: _source,
-      selection: const TextSelection.collapsed(offset: _source.length),
+      selection: TextSelection.collapsed(offset: _source.length),
     );
 
     await tester.pumpWidget(
@@ -618,9 +618,9 @@ void main() {
     final shell = await _openComposer();
     addTearDown(shell.dispose);
     final composer = shell.visibleComposer!;
-    composer.text.value = TextEditingValue(
+    composer.text.value = const TextEditingValue(
       text: _source,
-      selection: const TextSelection.collapsed(offset: _source.length),
+      selection: TextSelection.collapsed(offset: _source.length),
     );
 
     await tester.pumpWidget(
@@ -812,7 +812,7 @@ void main() {
     expect(composer.text.text, '$poll\n');
     expect(composer.text.selection.extentOffset, poll.length + 1);
     tester.testTextInput.updateEditingValue(
-      TextEditingValue(
+      const TextEditingValue(
         text: '$poll\nNext line',
         selection: TextSelection.collapsed(offset: '$poll\nNext line'.length),
       ),
@@ -880,9 +880,9 @@ void main() {
     final shell = await _openComposer();
     addTearDown(shell.dispose);
     final composer = shell.visibleComposer!;
-    composer.text.value = TextEditingValue(
+    composer.text.value = const TextEditingValue(
       text: _source,
-      selection: const TextSelection.collapsed(offset: _source.length),
+      selection: TextSelection.collapsed(offset: _source.length),
     );
 
     await tester.pumpWidget(
@@ -1188,9 +1188,9 @@ void main() {
     final shell = await _openComposer();
     addTearDown(shell.dispose);
     final composer = shell.visibleComposer!;
-    composer.text.value = TextEditingValue(
+    composer.text.value = const TextEditingValue(
       text: _source,
-      selection: const TextSelection.collapsed(offset: _source.length),
+      selection: TextSelection.collapsed(offset: _source.length),
     );
 
     await tester.pumpWidget(
@@ -1241,9 +1241,9 @@ void main() {
     final shell = await _openComposer();
     addTearDown(shell.dispose);
     final composer = shell.visibleComposer!;
-    composer.text.value = TextEditingValue(
+    composer.text.value = const TextEditingValue(
       text: _source,
-      selection: const TextSelection.collapsed(offset: _source.length),
+      selection: TextSelection.collapsed(offset: _source.length),
     );
 
     await tester.pumpWidget(

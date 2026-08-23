@@ -104,7 +104,7 @@ void main() {
     });
 
     test('bounds timestamp text before parsing', () {
-      final legal = '2026-08-07T09:30:00.123456+02:00';
+      const legal = '2026-08-07T09:30:00.123456+02:00';
       expect(jsonDate(legal), DateTime.parse(legal));
       expect(
         jsonDate(List.filled(maximumJsonDateCodeUnits + 1, '2').join()),

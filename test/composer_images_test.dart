@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/shell/composer_images.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -112,6 +115,85 @@ void main() {
       image.toMarkdown(alt: r'new [alt] \ value'),
       r'![new \[alt\] \\ value|640x480](upload://abc)',
     );
+  });
+
+  test('an alt is written so that it parses back, whatever it contains', () {
+    // The alt is the one part of an image the app does not choose: it comes
+    // from a filename, a GIF's title, or what somebody typed into the image
+    // editor. Two of the characters that can appear there have no spelling
+    // inside an alt — a `|` opens the `|WxH` suffix, so everything after it
+    // is read as dimensions and the rest of the alt is lost, and a line
+    // ending stops the markdown being an image at all. `flattenImageAlt`
+    // takes those out; everything else is escaped and survives.
+    //
+    // Stated as: writing an alt always produces something that parses, and
+    // parsing it and writing it again says exactly the same thing.
+    const pieces = [
+      r'\',
+      '[',
+      ']',
+      '`',
+      '|',
+      'a',
+      'b',
+      ' ',
+      '.',
+      '(',
+      ')',
+      '!',
+      '\u{1F600}',
+      '\u{00e9}',
+      '"',
+      "'",
+      '*',
+      '#',
+      '\n',
+      '\r',
+      ', 50%',
+      'x',
+    ];
+    final random = Random(555);
+    final base = parseComposerImages('![x|10x20](upload://abc)').single;
+    var flattened = 0;
+
+    for (var round = 0; round < 20000; round++) {
+      final buffer = StringBuffer();
+      for (var piece = 0; piece < 1 + random.nextInt(8); piece++) {
+        buffer.write(pieces[random.nextInt(pieces.length)]);
+      }
+      final alt = buffer.toString();
+      if (flattenImageAlt(alt) != alt) flattened++;
+
+      final markdown = base.toMarkdown(alt: alt);
+      final blocks = parseComposerImages(markdown);
+      expect(
+        blocks,
+        hasLength(1),
+        reason: '${jsonEncode(alt)} wrote ${jsonEncode(markdown)}',
+      );
+      expect(
+        blocks.single.toMarkdown(),
+        markdown,
+        reason: 'writing ${jsonEncode(markdown)} again changed it',
+      );
+    }
+
+    // A corpus of alts that never needed flattening would pass while testing
+    // only the escaping. The seed is fixed, so this is not a race.
+    expect(flattened, greaterThan(1000));
+  });
+
+  test('a backtick in an alt is escaped, and read back through the escape', () {
+    // Backticks are escaped because Discourse needs them escaped: a bare one
+    // in an alt opens a code span in the cooked post. `scanMarkdown` honours
+    // the escape when it looks for inline code, so the image is still an image
+    // here — a pair of them used to read as code between them and leave the
+    // raw markdown where the preview should have been.
+    final base = parseComposerImages('![x|10x20](upload://abc)').single;
+    final markdown = base.toMarkdown(alt: 'a `b` c');
+
+    expect(markdown, r'![a \`b\` c|10x20](upload://abc)');
+    expect(parseComposerImages(markdown).single.alt, 'a `b` c');
   });
 
   test('does not project image syntax inside inline or fenced code', () {

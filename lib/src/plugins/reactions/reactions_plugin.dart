@@ -78,9 +78,11 @@ class ReactionsPlugin
   /// is not in the default enabled list — so guessing it on a site whose admin
   /// chose `+1` earns a 422 whose body says only "Sorry, an error has
   /// occurred." A slower first interaction is better than a wrong write.
+  static String _channelFor(int topicId) => '/topic/$topicId/reactions';
+
   /// The plugin publishes here whenever anyone reacts to a post in the topic.
   @override
-  List<String> topicChannels(int topicId) => ['/topic/$topicId/reactions'];
+  List<String> topicChannels(int topicId) => [_channelFor(topicId)];
 
   /// `{post_id, reactions: [reaction, previous_reaction]}`.
   ///
@@ -88,8 +90,15 @@ class ReactionsPlugin
   /// reading again. Which is the better answer anyway: the topic route builds
   /// `reactions` from the preloaded query, and that is the one whose numbers
   /// agree with what the row is already drawing.
+  /// Only its own channel: every plugin's hook is asked about every message on
+  /// every topic channel, and `post_id` is not a key one feature may read out
+  /// of another's payload. Assign publishes one for a post-level assignment,
+  /// which is nothing to do with a reaction.
   @override
   List<int> stalePosts(String channel, Object? data) {
+    if (!channel.startsWith('/topic/') || !channel.endsWith('/reactions')) {
+      return const [];
+    }
     if (data is! Map) return const [];
     return switch (data['post_id']) {
       final num id => [id.toInt()],

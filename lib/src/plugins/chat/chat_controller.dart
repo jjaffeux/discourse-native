@@ -1677,7 +1677,12 @@ class ChatController extends FrameSafeNotifier {
       _setStream(
         key,
         window.copyWith(
-          messageIds: List.unmodifiable([...window.messageIds, messageId]),
+          // Through [_admitLiveId], not by appending: this is the same live
+          // arrival the root channel publishes, and which of the two channels
+          // delivers it first is a race. A message whose adopted
+          // `client_created_at` sorts before the newest one held has to land
+          // in the same place either way.
+          messageIds: _admitLiveId(siteUrl, canonical, window.messageIds),
           localMessageIds: _retireCanonicalLocals(siteUrl, window, [canonical]),
         ),
       );

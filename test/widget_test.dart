@@ -2660,7 +2660,7 @@ void main() {
             id: 7,
             title: 'A real topic',
             posts: [
-              Post(
+              const Post(
                 id: 1,
                 postNumber: 1,
                 username: 'sam',
@@ -5273,7 +5273,7 @@ void main() {
             id: 7,
             title: 'Better image handling',
             posts: [
-              Post(
+              const Post(
                 id: 1,
                 postNumber: 1,
                 username: 'sam',
@@ -5495,7 +5495,7 @@ void main() {
             id: 7,
             title: 'Thinking about the next project',
             posts: [
-              Post(
+              const Post(
                 id: 1,
                 postNumber: 1,
                 username: 'sam',
@@ -7871,7 +7871,7 @@ void main() {
       // likeable — on a post they have in fact already liked.
       final api = await openTopic(
         tester,
-        first: Post(
+        first: const Post(
           id: 1,
           postNumber: 1,
           username: 'sam',

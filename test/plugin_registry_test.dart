@@ -47,6 +47,39 @@ void main() {
     expect(registry.staleTopic(41, '/topic/42/two', null), isFalse);
   });
 
+  test('every shipped plugin reads only the channels it asked for', () {
+    // `stalePosts` is asked of every plugin for every message on every topic
+    // channel, so a hook that reads `post_id` without checking the channel
+    // claims other features' payloads. Assign publishes one for a post-level
+    // assignment; a poll and a reactions hook that answered it would each buy
+    // a `/t/{id}/posts.json` read that neither feature needs, and would be
+    // reading a key out of a payload that is none of their business.
+    const topicId = 42;
+    const payload = {'post_id': 9, 'topic_id': topicId};
+
+    for (final plugin in sitePlugins.whereType<TopicLivePlugin>()) {
+      final own = plugin.topicChannels(topicId);
+      for (final other in sitePlugins.whereType<TopicLivePlugin>()) {
+        for (final channel in other.topicChannels(topicId)) {
+          if (own.contains(channel)) continue;
+          expect(
+            plugin.stalePosts(channel, payload),
+            isEmpty,
+            reason: '$plugin claimed a post out of $channel',
+          );
+        }
+      }
+    }
+
+    // And the ones that do own a channel still read it.
+    final claiming = [
+      for (final plugin in sitePlugins.whereType<TopicLivePlugin>())
+        for (final channel in plugin.topicChannels(topicId))
+          ...plugin.stalePosts(channel, payload),
+    ];
+    expect(claiming, isNotEmpty);
+  });
+
   testWidgets('aggregates menu entries and replacement policy in order', (
     tester,
   ) async {

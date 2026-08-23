@@ -249,6 +249,12 @@ final RegExp _paragraphBreakPattern = RegExp(r'\n\s*\n');
 /// which is the underscore's — a word boundary on the outside of each, so that
 /// `snake_case_name` stays a name.
 ///
+/// [spokenFor] is asked about a delimiter's first character and skips it when
+/// something already owns that offset — a code span, or the backslash that
+/// escapes it. Skipping rather than rejecting afterwards is what matters:
+/// a pair that is found and then refused has already consumed its closer, and
+/// the emphasis after it loses one.
+///
 /// A scan rather than `allMatches` of a lazy pattern, because the two disagree
 /// about what an unclosed delimiter costs. The pattern has to walk to the end
 /// of [text] before it can report that an opener has no closer, and has to do
@@ -261,13 +267,20 @@ Iterable<(int, int)> markdownPairs(
   String text,
   String delimiter, {
   bool wordBounded = false,
+  bool Function(int offset)? spokenFor,
 }) sync* {
   final width = delimiter.length;
   var cursor = 0;
   while (cursor + width * 2 < text.length) {
-    final open = _nextOpener(text, delimiter, cursor, wordBounded);
+    final open = _nextOpener(text, delimiter, cursor, wordBounded, spokenFor);
     if (open < 0) return;
-    final close = _nextCloser(text, delimiter, open + width + 1, wordBounded);
+    final close = _nextCloser(
+      text,
+      delimiter,
+      open + width + 1,
+      wordBounded,
+      spokenFor,
+    );
     if (close < 0) return;
     cursor = close + width;
     yield (open, cursor);
@@ -277,7 +290,13 @@ Iterable<(int, int)> markdownPairs(
 /// The first place at or after [from] where [delimiter] could open a mark:
 /// followed by a non-space, and for the word-bounded rule not preceded by a
 /// word character.
-int _nextOpener(String text, String delimiter, int from, bool wordBounded) {
+int _nextOpener(
+  String text,
+  String delimiter,
+  int from,
+  bool wordBounded,
+  bool Function(int offset)? spokenFor,
+) {
   final width = delimiter.length;
   for (
     var at = text.indexOf(delimiter, from);
@@ -289,6 +308,8 @@ int _nextOpener(String text, String delimiter, int from, bool wordBounded) {
     if (wordBounded && at > 0 && _isWordCharacter(text.codeUnitAt(at - 1))) {
       continue;
     }
+    if (_insideLongerRun(text, delimiter, at)) continue;
+    if (spokenFor != null && spokenFor(at)) continue;
     return at;
   }
   return -1;
@@ -300,7 +321,13 @@ int _nextOpener(String text, String delimiter, int from, bool wordBounded) {
 ///
 /// [from] is past an opener and its one character of content, so it is never
 /// zero and the preceding character is always there to read.
-int _nextCloser(String text, String delimiter, int from, bool wordBounded) {
+int _nextCloser(
+  String text,
+  String delimiter,
+  int from,
+  bool wordBounded,
+  bool Function(int offset)? spokenFor,
+) {
   final width = delimiter.length;
   for (
     var at = text.indexOf(delimiter, from);
@@ -313,9 +340,29 @@ int _nextCloser(String text, String delimiter, int from, bool wordBounded) {
         _isWordCharacter(text.codeUnitAt(at + width))) {
       continue;
     }
+    if (_insideLongerRun(text, delimiter, at)) continue;
+    if (spokenFor != null && spokenFor(at)) continue;
     return at;
   }
   return -1;
+}
+
+/// Whether a one-character delimiter at [at] is really part of a longer run.
+///
+/// Markdown matches delimiters by run, not by character: `a ** b ** c` is two
+/// runs of two, neither of which can open or close because of the spaces
+/// against them, and taking one asterisk out of each gave a pair that
+/// italicised a sentence the site leaves alone. The longer delimiters run
+/// first and close what they took, so anything still adjacent to its own
+/// character here is a run no pass above was able to use.
+///
+/// Only for a one-character delimiter: the ladder above `*` and `_` is what
+/// answers for the longer runs, and `~~` has none.
+bool _insideLongerRun(String text, String delimiter, int at) {
+  if (delimiter.length != 1) return false;
+  final unit = delimiter.codeUnitAt(0);
+  if (at > 0 && text.codeUnitAt(at - 1) == unit) return true;
+  return at + 1 < text.length && text.codeUnitAt(at + 1) == unit;
 }
 
 /// `\s` as Dart's regexps read it, so the scan agrees with the passes that are
@@ -332,6 +379,15 @@ bool _isWhitespace(int unit) =>
     unit == 0x205F ||
     unit == 0x3000 ||
     unit == 0xFEFF;
+
+/// The characters a backslash may escape, which is every ASCII punctuation
+/// mark and nothing else — a backslash before a letter, a digit or a line
+/// ending is a literal backslash.
+bool _isAsciiPunctuation(int unit) =>
+    (unit >= 0x21 && unit <= 0x2F) ||
+    (unit >= 0x3A && unit <= 0x40) ||
+    (unit >= 0x5B && unit <= 0x60) ||
+    (unit >= 0x7B && unit <= 0x7E);
 
 /// `[\w_]`, which is `\w`: the underscore is already in it.
 bool _isWordCharacter(int unit) =>
@@ -372,7 +428,8 @@ class _Scan {
     : mask = List<int>.filled(source.length, 0),
       detail = List<String?>.filled(source.length, null),
       tokens = List<String?>.filled(source.length, null),
-      _closed = List<bool>.filled(source.length, false);
+      _closed = List<bool>.filled(source.length, false),
+      _escaped = List<bool>.filled(source.length, false);
 
   final String source;
   final DeferredFenceHighlight? _deferHighlight;
@@ -386,6 +443,10 @@ class _Scan {
   /// Characters no further pass may claim. Code is the whole reason this
   /// exists: `` `**x**` `` is four literal asterisks, not bold.
   final List<bool> _closed;
+
+  /// Characters a backslash made literal, which is a *narrower* claim than
+  /// [_closed] — see [_escapes] for which passes it binds and why.
+  final List<bool> _escaped;
 
   /// Offsets a run may never span.
   ///
@@ -405,20 +466,36 @@ class _Scan {
   // scanner type rather than rebuilding them for every line and every pass.
   static final RegExp _headingPattern = RegExp(r'^(#{1,6})(\s+)');
   static final RegExp _quotePattern = RegExp(r'^(>+)(\s?)');
-  static final RegExp _inlineCodePattern = RegExp(
-    r'(`+)([^`]|[^`][\s\S]*?[^`])\1',
-  );
   static final RegExp _linkAddressPattern = RegExp(r'[^)\s]*\)');
   static final RegExp _bareUrlPattern = RegExp(r'https?://[^\s<>\[\]()]+');
+
+  /// Transcribed from core's own `mentionRegex`
+  /// (`frontend/pretty-text/addon/mentions.js`), which is what decides whether
+  /// the site will cook this as a mention at all — the ASCII branch, since the
+  /// unicode-username one is not implemented here either.
+  ///
+  /// The tail is the part worth naming: a name may not *end* in a dot, a dash
+  /// or an underscore, so `thanks @sam.` mentions `sam`. Reading the period as
+  /// part of the name asked the site about `sam.`, was told no, and drew no
+  /// pill on a mention the post really has — which is how most sentences that
+  /// end in one are written. The second alternative is core's, for the
+  /// one-character name the first cannot express.
   static final RegExp _mentionPattern = RegExp(
-    r'@([a-zA-Z0-9_][a-zA-Z0-9_.-]*)',
+    r'@(\w[\w.-]{0,58}[^\W_])|@(\w)',
   );
   static final RegExp _hashtagPattern = RegExp(
     r'(?<!/)#([\wÀ-῿Ⰰ-퟿:-]'
     r'(?:[\wÀ-῿Ⰰ-퟿:.-]{0,99}'
     r'[\wÀ-῿Ⰰ-퟿:-])?)',
   );
-  static final RegExp _emojiPattern = RegExp(r':([a-z0-9_+-]+(?::t[1-6])?):');
+
+  /// Core's `MAX_NAME_LENGTH` is 60 and it refuses a name that reaches it, so
+  /// fifty-nine is the longest one it will draw. The class is this app's own
+  /// and narrower than core's, which takes anything up to the next colon and
+  /// lets the emoji lookup refuse it.
+  static final RegExp _emojiPattern = RegExp(
+    r':([a-z0-9_+-]{1,59}(?::t[1-6])?):',
+  );
   static final RegExp _boundaryPattern = RegExp(r'[\w@#./-]');
 
   void _mark(int start, int end, int flag, [String? note]) {
@@ -570,7 +647,12 @@ class _Scan {
   /// cannot eat a URL's underscores or a shortcode's colons.
   void inlines() {
     final blocks = _blocks();
-    _inlineCode();
+    // Before the escapes, and it has to be: a backslash inside a code span is
+    // a literal backslash, so the span has to be claimed before anything can
+    // read one as syntax. `_codeSpans` has its own escape rule for the
+    // backticks that delimit it.
+    _inlineCode(blocks);
+    _escapes();
     for (final block in blocks) {
       _htmlTags(block.text, block.offset);
     }
@@ -586,15 +668,140 @@ class _Scan {
     _emphasis(blocks);
   }
 
-  void _inlineCode() {
-    for (final match in _inlineCodePattern.allMatches(source)) {
-      if (!_free(match.start, match.end)) continue;
-      final ticks = match.group(1)!.length;
-      _mark(match.start, match.start + ticks, Md.marker);
-      _mark(match.start + ticks, match.end - ticks, Md.code);
-      _mark(match.end - ticks, match.end, Md.marker);
-      _close(match.start, match.end);
+  /// Records each `\x`, so the passes a backslash really protects can decline
+  /// to read the `x` as syntax.
+  ///
+  /// A backslash before ASCII punctuation makes that character literal, and
+  /// the composer was drawing several such characters as markup the site cooks
+  /// as themselves. But it protects *some* of what this scan finds and not
+  /// all of it, and the difference is where in Discourse's pipeline each thing
+  /// is decided.
+  ///
+  /// Emphasis, links, code spans and inline HTML are markdown-it's own inline
+  /// rules, and the escape has already consumed the character by the time they
+  /// run. Mentions, hashtags and emoji are Discourse's, added through
+  /// `textPostProcess`, which `pretty-text/text-replace.js` runs over the
+  /// **text tokens of the finished inline pass** — by which point `\@sam` is
+  /// the text `@sam` and matches. So the site draws that mention, and so does
+  /// this. The backslash is dimmed either way, because markdown-it consumed it
+  /// and the post does not show it.
+  ///
+  /// Recorded only where the offsets are free, which is what keeps it out of a
+  /// fenced block and a code span: a backslash in either is a backslash, and
+  /// the reader is shown it. [_inlineCode] answers for its own delimiters in
+  /// [_backtickRuns], since it runs before this.
+  void _escapes() {
+    var index = 0;
+    while (index + 1 < source.length) {
+      if (source.codeUnitAt(index) != 0x5C ||
+          !_isAsciiPunctuation(source.codeUnitAt(index + 1))) {
+        index += 1;
+        continue;
+      }
+      if (_free(index, index + 2)) {
+        _mark(index, index + 1, Md.marker);
+        _escaped[index] = true;
+        _escaped[index + 1] = true;
+      }
+      index += 2;
     }
+  }
+
+  /// Whether nothing in `[start, end)` was made literal by a backslash.
+  bool _unescaped(int start, int end) {
+    for (var i = start; i < end && i < source.length; i++) {
+      if (_escaped[i]) return false;
+    }
+    return true;
+  }
+
+  /// Searched one block at a time, for the reason [_htmlTags] is.
+  ///
+  /// A code span is an inline construct, and inline parsing runs inside one
+  /// block: the blank line that ends a paragraph is also what stops a backtick
+  /// reaching the next one. Over the whole document an unclosed backtick pairs
+  /// with the next one anywhere below it, and everything in between — the
+  /// bold, the mentions, the headings the site will really cook — is drawn as
+  /// code and closed to every later pass.
+  void _inlineCode(List<({int offset, String text})> blocks) {
+    for (final block in blocks) {
+      for (final (open, width, close) in _codeSpans(block.text)) {
+        final start = block.offset + open;
+        final end = block.offset + close + width;
+        if (!_free(start, end)) continue;
+        _mark(start, start + width, Md.marker);
+        _mark(start + width, end - width, Md.code);
+        _mark(end - width, end, Md.marker);
+        _close(start, end);
+      }
+    }
+  }
+
+  /// The code spans in one block, as `(opener, width, closer)` offsets into it.
+  ///
+  /// Two rules, and the pattern this replaces got both slightly wrong.
+  ///
+  /// A backslash-escaped backtick is not a delimiter. CommonMark's escapes
+  /// work everywhere except *inside* a code span, so `\`` is a literal
+  /// backtick that cannot open one — and treating it as a delimiter drew a
+  /// whole sentence as code, with the bold and the mentions in it closed to
+  /// every later pass, that the site cooks as ordinary prose. An escaped
+  /// backtick also ends the run it is in rather than lengthening it, because
+  /// the run either side of it is what a closer has to match.
+  ///
+  /// And a delimiter is a *maximal* run: `` `a`` `` opens with one backtick
+  /// and the only run after it is two, so it is not a code span at all. The
+  /// backreference could take the first backtick of that longer run instead,
+  /// and closed a span the site leaves as text.
+  static Iterable<(int, int, int)> _codeSpans(String text) sync* {
+    final runs = _backtickRuns(text);
+    var index = 0;
+    while (index < runs.length) {
+      final (open, width) = runs[index];
+      var paired = false;
+      for (var next = index + 1; next < runs.length; next += 1) {
+        final (close, closeWidth) = runs[next];
+        // Equal length, and at least one character of content between them.
+        if (closeWidth != width || close <= open + width) continue;
+        yield (open, width, close);
+        index = next + 1;
+        paired = true;
+        break;
+      }
+      if (!paired) index += 1;
+    }
+  }
+
+  /// The maximal runs of unescaped backticks in [text], as `(start, length)`.
+  static List<(int, int)> _backtickRuns(String text) {
+    final runs = <(int, int)>[];
+    var start = -1;
+    var index = 0;
+    void endRun() {
+      if (start < 0) return;
+      runs.add((start, index - start));
+      start = -1;
+    }
+
+    while (index < text.length) {
+      final unit = text.codeUnitAt(index);
+      if (unit == 0x5C) {
+        // A backslash spends itself on the next character, whatever it is —
+        // so `\\` leaves a backtick after it free to open a span.
+        endRun();
+        index += 2;
+        continue;
+      }
+      if (unit == 0x60) {
+        if (start < 0) start = index;
+        index += 1;
+        continue;
+      }
+      endRun();
+      index += 1;
+    }
+    endRun();
+    return runs;
   }
 
   static final RegExp _tagPattern = RegExp(
@@ -624,6 +831,7 @@ class _Scan {
       final close = end - tag.length - 3;
       // As with emphasis, only the tags themselves must be unclaimed.
       if (!_free(start, open) || !_free(close, end)) continue;
+      if (!_unescaped(start, open) || !_unescaped(close, end)) continue;
       _mark(start, open, Md.marker);
       _addTag(open, close, tag);
       _mark(close, end, Md.marker);
@@ -694,7 +902,10 @@ class _Scan {
       final end = address.end;
       // The brackets and the address have to be unclaimed; the link text is
       // prose and may already carry a mark.
-      if (!_free(open, textStart) || !_free(textEnd, end)) {
+      if (!_free(open, textStart) ||
+          !_free(textEnd, end) ||
+          !_unescaped(open, textStart) ||
+          !_unescaped(textEnd, end)) {
         offset = open + 1;
         continue;
       }
@@ -725,7 +936,9 @@ class _Scan {
       if (!_free(match.start, match.end)) continue;
       // `joffrey@example.com` is an address, not a mention of `example`.
       if (match.start > 0 && !_isBoundary(source[match.start - 1])) continue;
-      _markToken(match.start, match.end, Md.mention, match.group(1)!);
+      // Core reads it as `matches[1] || matches[2]` for the same reason.
+      final name = match.group(1) ?? match.group(2)!;
+      _markToken(match.start, match.end, Md.mention, name);
       _close(match.start, match.end);
       // As for a shortcode: two of these side by side are two pills, and
       // collapsed by mask alone they would be one run and one pill over both.
@@ -760,6 +973,14 @@ class _Scan {
   void _emoji() {
     for (final match in _emojiPattern.allMatches(source)) {
       if (!_free(match.start, match.end)) continue;
+      // Core's `getEmojiName` refuses a shortcode whose opening colon has an
+      // ordinary character before it, which is what keeps `10:30:45` from
+      // containing an emoji called `30` — and what stops the composer drawing
+      // a picture where the site leaves `word:smile:` as text. The rule is
+      // switched off by the `inline emoji` site setting, which is off by
+      // default and is not a setting this scan can see; drawing the default is
+      // the side that cannot invent markup.
+      if (match.start > 0 && !_opensEmoji(source[match.start - 1])) continue;
       // The name goes in the token so whatever draws this does not have to
       // parse the colons back off it.
       _markToken(match.start, match.end, Md.emoji, match.group(1)!);
@@ -769,16 +990,26 @@ class _Scan {
     }
   }
 
-  /// `***x***`, `**x**`, `*x*`, `_x_` and `~~x~~`.
+  /// `***x***`, `**x**`, `*x*`, `___x___`, `__x__`, `_x_` and `~~x~~`.
   ///
-  /// Longest marker first, or the opening `**` of a bold run is read as an
-  /// italic `*` followed by a stray one.
+  /// Longest delimiter first, so a run of three is one mark and not three, and
+  /// the opening `**` of a bold run is not read as an italic `*` followed by a
+  /// stray one.
+  ///
+  /// Each pass closes the delimiters it took, and the passes below skip a
+  /// character something already owns — which is what makes the ladder a
+  /// ladder rather than three passes fighting over the same asterisks.
+  ///
+  /// The underscore has the same ladder as the asterisk, because Discourse
+  /// reads it the same way: `__bold__` is bold, not an italic `_bold_`. Only
+  /// between word boundaries, though — `snake_case_name` is a name.
   void _emphasis(List<({int offset, String text})> blocks) {
     _pairs('***', Md.bold | Md.italic, blocks);
     _pairs('**', Md.bold, blocks);
     _pairs('*', Md.italic, blocks);
     _pairs('~~', Md.strikethrough, blocks);
-    // Underscores only between word boundaries: `snake_case_name` is a name.
+    _pairs('___', Md.bold | Md.italic, blocks, wordBounded: true);
+    _pairs('__', Md.bold, blocks, wordBounded: true);
     _pairs('_', Md.italic, blocks, wordBounded: true);
   }
 
@@ -798,6 +1029,8 @@ class _Scan {
         block.text,
         delimiter,
         wordBounded: wordBounded,
+        spokenFor: (offset) =>
+            _closed[block.offset + offset] || _escaped[block.offset + offset],
       )) {
         final start = block.offset + open;
         final end = block.offset + close;
@@ -818,6 +1051,23 @@ class _Scan {
       }
     }
   }
+
+  /// What may sit immediately before a shortcode's opening colon.
+  ///
+  /// Core's `isValidEmojiPrecedingChar`: whitespace, punctuation, or a
+  /// zero-width space. Its whitespace test is markdown-it's, which is a tab or
+  /// a space — a line ending never reaches it because a soft break is its own
+  /// token — so this reads a line ending as whitespace, which is the same
+  /// position in a document that has not been split into tokens yet.
+  static bool _opensEmoji(String character) =>
+      character == '\u200B' ||
+      _isWhitespace(character.codeUnitAt(0)) ||
+      _punctuationPattern.hasMatch(character);
+
+  static final RegExp _punctuationPattern = RegExp(
+    r'[\p{P}\p{S}]',
+    unicode: true,
+  );
 
   /// What may sit immediately before a sigil.
   ///

@@ -5,6 +5,14 @@ import 'package:discourse_native/src/shell/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+/// The token of the first run carrying one, which is what a pill is asked for.
+String? tokenOf(String source) {
+  for (final run in scanMarkdown(source)) {
+    if (run.token != null) return run.token;
+  }
+  return null;
+}
+
 /// The source with each run wrapped in what it was marked as, so a failure
 /// reads as what someone would see rather than as a list of offsets.
 ///
@@ -105,6 +113,38 @@ const List<String> samples = [
   'x*y*z',
   '<kbd>Esc\n\nlater</kbd>',
   '<kbd>a\n```\ncode\n```\nb</kbd>',
+  'a `b\n\nc` d',
+  r'a \`b\` c',
+  r'a \\`code`',
+  '`a``',
+  '``a`',
+  r'\`',
+  r'`\`',
+  r'a \*not italic\* b',
+  r'a \@sam \#tag b',
+  r'a \[text](url) b',
+  r'a \\*italic* b',
+  r'trailing \',
+  r'\n',
+  '__bold__',
+  '___both___',
+  'a ** b ** c',
+  'a __ b __ c',
+  'snake__case__name',
+  '__a__b__c__',
+  '___',
+  'thanks @sam.',
+  '@sam-',
+  '@_x',
+  '@a',
+  'word:smile: here',
+  'Standup at 10:30:45',
+  '(:smile:)',
+  'a-:smile:',
+  'a `b\n\n**bold** and @sam\n\nc` d',
+  'let `x = 1`\n\nand ``y``',
+  'one `two\nthree` four',
+  'tick ` alone\n\n# Heading\n\nother ` tick',
 ];
 
 void main() {
@@ -138,6 +178,33 @@ void main() {
         '<m>**</><b>bold with </><m+b>`</><b+code>code</><m+b>`</>'
         '<b> inside</><m>**</>',
       );
+    });
+
+    test('reads a double underscore the way the site does', () {
+      // `__bold__` is bold on Discourse, and was drawn here as an italic
+      // `_bold_` — the wrong mark, with the inner underscores shown as if
+      // they were content.
+      expect(annotate('__bold__'), '<m>__</><b>bold</><m>__</>');
+      expect(annotate('___both___'), '<m>___</><b+i>both</><m>___</>');
+      expect(
+        annotate('__bold__ and _italic_'),
+        '<m>__</><b>bold</><m>__</> and <m>_</><i>italic</><m>_</>',
+      );
+      // The word-boundary rule the single underscore has, unchanged.
+      expect(annotate('snake__case__name'), 'snake__case__name');
+    });
+
+    test('a run of delimiters is one mark or none, never a piece of one', () {
+      // Markdown matches delimiters by run. `a ** b ** c` is two runs of two,
+      // neither able to open or close because of the spaces against them —
+      // and taking one asterisk out of each italicised a sentence the site
+      // leaves alone.
+      expect(annotate('a ** b ** c'), 'a ** b ** c');
+      expect(annotate('****'), '****');
+      expect(annotate('a __ b __ c'), 'a __ b __ c');
+      // What the ladder above still claims, unchanged.
+      expect(annotate('***both***'), '<m>***</><b+i>both</><m>***</>');
+      expect(annotate('*a**b*'), '<m>*</><i>a**b</><m>*</>');
     });
 
     test('does not mistake arithmetic for emphasis', () {
@@ -210,6 +277,63 @@ void main() {
 
     test('lets a longer fence hold a backtick', () {
       expect(annotate('``a ` b``'), '<m>``</><code>a ` b</><m>``</>');
+    });
+
+    test('an escaped backtick opens nothing', () {
+      // CommonMark's escapes work everywhere except *inside* a code span, so
+      // `\`` is a literal backtick. Reading it as a delimiter drew a whole
+      // sentence as code — and closed it to every later pass, so the bold and
+      // the mention the site really cooks were not drawn at all.
+      // The backslash is dimmed and the backtick it protects is not: the
+      // post shows one and not the other.
+      expect(annotate(r'a \`b\` c'), r'a <m>\</>`b<m>\</>` c');
+      expect(
+        annotate(r'say \`this **bold** stays\` bold'),
+        r'say <m>\</>`this <m>**</><b>bold</><m>**</> stays<m>\</>` bold',
+      );
+    });
+
+    test('a backslash spends itself on the next character', () {
+      // `\\` is an escaped backslash, so the backtick after it is free.
+      expect(annotate(r'a \\`code`'), r'a <m>\</>\<m>`</><code>code</><m>`</>');
+    });
+
+    test('a delimiter is a whole run of backticks, not a prefix of one', () {
+      // One backtick and then two is no code span at all: the closer has to
+      // be a run of the same length. A backreference could take the first of
+      // the pair instead and closed a span the site leaves as text.
+      expect(annotate('`a``'), '`a``');
+      expect(annotate('``a`'), '``a`');
+    });
+
+    test('wraps a line break inside its paragraph', () {
+      expect(
+        annotate('one `two\nthree` four'),
+        'one <m>`</><code>two\nthree</><m>`</> four',
+      );
+    });
+
+    test(
+      'does not reach across a paragraph break for its closing backtick',
+      () {
+        // Inline parsing runs inside one block, so the blank line ending a
+        // paragraph is also what stops a backtick pairing with the next one
+        // below it. Left to the whole document the span swallowed everything in
+        // between and closed it to every later pass, so the composer drew none
+        // of the markup the site was about to cook.
+        expect(annotate('a `b\n\nc` d'), 'a `b\n\nc` d');
+        expect(
+          annotate('a `b\n\n**bold** and @sam\n\nc` d'),
+          'a `b\n\n<m>**</><b>bold</><m>**</> and <at>@sam</>\n\nc` d',
+        );
+      },
+    );
+
+    test('each paragraph pairs its own backticks', () {
+      expect(
+        annotate('let `x = 1`\n\nand ``y``'),
+        'let <m>`</><code>x = 1</><m>`</>\n\nand <m>``</><code>y</><m>``</>',
+      );
     });
 
     test('claims a whole fenced block', () {
@@ -308,6 +432,84 @@ void main() {
     });
   });
 
+  group('escapes', () {
+    // A backslash before ASCII punctuation makes that character literal, and
+    // the composer was drawing several of them as markup the site cooks as the
+    // characters themselves. But a backslash protects *some* of what this scan
+    // finds and not all of it, and the two cases below are the difference.
+    test('an escaped delimiter opens nothing markdown-it would open', () {
+      // Emphasis, links, code spans and inline HTML are markdown-it's own
+      // inline rules, and the escape has consumed the character before they
+      // run.
+      expect(
+        annotate(r'a \*not italic\* b'),
+        r'a <m>\</>*not italic<m>\</>* b',
+      );
+      expect(
+        annotate(r'a \_not italic\_ b'),
+        r'a <m>\</>_not italic<m>\</>_ b',
+      );
+      expect(
+        annotate(r'a \~~not struck\~~ b'),
+        r'a <m>\</>~~not struck<m>\</>~~ b',
+      );
+      expect(
+        annotate(r'a \[text](https://e.com) b'),
+        r'a <m>\</>[text](<url>https://e.com</>) b',
+      );
+      expect(
+        annotate(r'a \<kbd>x\</kbd> b'),
+        r'a <m>\</><kbd>x<m>\</></kbd> b',
+      );
+    });
+
+    test('and not what Discourse decides after the escape is gone', () {
+      // Mentions, hashtags and emoji are Discourse's own, added through
+      // `textPostProcess` — and `pretty-text/text-replace.js` runs that over
+      // the *text tokens of the finished inline pass*, by which point `\@sam`
+      // is the text `@sam` and matches. The site draws that mention, so this
+      // does too. The backslash is dimmed either way: markdown-it consumed it
+      // and the post does not show it.
+      expect(annotate(r'a \@sam b'), r'a <m>\</><at>@sam</> b');
+      expect(annotate(r'a \#tag b'), r'a <m>\</><hash>#tag</> b');
+      expect(annotate(r'a \:smile: b'), r'a <m>\</><emoji>:smile:</> b');
+    });
+
+    test('an escaped delimiter does not consume the real one after it', () {
+      // The reason the rule is a claim on the offsets rather than a check
+      // after the fact: a pair that is found and then refused has already
+      // taken its closer, and the emphasis after it loses one.
+      expect(
+        annotate(r'real *italic* after \*escaped\* one'),
+        r'real <m>*</><i>italic</><m>*</> after <m>\</>*escaped<m>\</>* one',
+      );
+    });
+
+    test('a backslash spends itself, and only on punctuation', () {
+      // `\\` is an escaped backslash, so the delimiter after it is free.
+      expect(
+        annotate(r'a \\*italic* b'),
+        r'a <m>\</>\<m>*</><i>italic</><m>*</> b',
+      );
+      // Before a letter or at the end of the source it is just a backslash.
+      expect(annotate(r'a \n not punctuation'), r'a \n not punctuation');
+      expect(annotate(r'trailing backslash \'), r'trailing backslash \');
+    });
+
+    test('a backslash inside code is a backslash', () {
+      // CommonMark's escapes do not work inside a code span or a fence, and
+      // the reader is shown the character.
+      expect(
+        annotate(r'`not \* escaped in code`'),
+        r'<m>`</><code>not \* escaped in code</><m>`</>',
+      );
+      expect(
+        annotate('```\nnot \\* escaped\n```'),
+        '<m>```</>\n<block>not \\* escaped\n</><m>```</>',
+      );
+    });
+  });
+
   group('blocks', () {
     test('dims the hashes and lifts the heading', () {
       expect(annotate('# A heading'), '<m># </><h>A heading</>');
@@ -354,6 +556,30 @@ void main() {
       expect(annotate('hey @martin.j'), 'hey <at>@martin.j</>');
     });
 
+    test('a name may not end in a dot, a dash or an underscore', () {
+      // Core's own rule (`frontend/pretty-text/addon/mentions.js`, snapshotted
+      // beside the hashtag markup): `@(\w[\w.-]{0,58}[^\W_])|@(\w)`. Reading
+      // the period as part of the name asked the site about `sam.`, was told
+      // no, and drew no pill on a mention the post really has — which is how
+      // most sentences that end in one are written.
+      expect(annotate('thanks @sam.'), 'thanks <at>@sam</>.');
+      expect(annotate('@sam-'), '<at>@sam</>-');
+      expect(annotate('@sam_'), '<at>@sam</>_');
+      expect(tokenOf('thanks @sam.'), 'sam');
+    });
+
+    test('a one-character name is core’s second alternative', () {
+      expect(annotate('@a'), '<at>@a</>');
+      expect(annotate('@_'), '<at>@_</>');
+      expect(tokenOf('@a'), 'a');
+      expect(tokenOf('@_'), '_');
+    });
+
+    test('a name stops at sixty characters, as the site does', () {
+      final long = 'a' * 80;
+      expect(tokenOf('@$long'), 'a' * 60);
+    });
+
     test('does not read an email address as a mention', () {
       expect(
         annotate('joffrey@example.com is an address'),
@@ -396,6 +622,32 @@ void main() {
       ).firstWhere((run) => run.has(Md.emoji));
       expect(run.token, 'smile');
       expect(run.detail, 'kbd');
+    });
+
+    test('a shortcode needs a boundary before its opening colon', () {
+      // Core's `getEmojiName` refuses one whose opening colon has an ordinary
+      // character before it, which is what keeps `10:30:45` from holding an
+      // emoji called `30` — and what stops the composer drawing a picture
+      // where the site leaves `word:smile:` as text. Switched off by the
+      // inline-emoji site setting, which is off by default and is not a
+      // setting this scan can see; drawing the default is the side that cannot
+      // invent markup.
+      expect(annotate('word:smile: here'), 'word:smile: here');
+      expect(annotate('Standup at 10:30:45'), 'Standup at 10:30:45');
+      // Whitespace, punctuation, and the start of the source all open one.
+      expect(annotate('a :smile: b'), 'a <emoji>:smile:</> b');
+      expect(annotate(':smile:'), '<emoji>:smile:</>');
+      expect(annotate('(:smile:)'), '(<emoji>:smile:</>)');
+      expect(annotate('a-:smile:'), 'a-<emoji>:smile:</>');
+      expect(annotate('a\n:smile:'), 'a\n<emoji>:smile:</>');
+      // And the closing colon of one opens the next.
+      expect(annotate(':smile::smile:'), '<emoji>:smile:</><emoji>:smile:</>');
+    });
+
+    test('a name stops where core stops reading one', () {
+      // `MAX_NAME_LENGTH` is 60 and core refuses a name that reaches it.
+      expect(annotate(':${'a' * 70}:'), ':${'a' * 70}:');
+      expect(annotate(':${'a' * 59}:'), '<emoji>:${'a' * 59}:</>');
     });
 
     test('leaves a lone colon alone', () {
@@ -689,6 +941,12 @@ void main() {
       // resumes after the opening bracket rather than past the whole rejected
       // candidate, which is what lets `` `[` `` stop hiding a real link after
       // it. The case below that pins that difference.
+      //
+      // No backslash in the alphabet, for the second one: the pattern reads
+      // `\[` as an opening bracket and the scan does not, and a rejected
+      // escaped bracket does not hide the link after it either. That is two
+      // deliberate differences, each with its own case below, and neither is
+      // something an exact comparison can express.
       final pattern = RegExp(r'\[([^\]\n]*)\]\(([^)\s]*)\)');
       const alphabet = [
         '[',
@@ -700,7 +958,6 @@ void main() {
         '\n',
         'https://x/',
         '*',
-        r'\',
         'b',
         '](',
         ')[',
@@ -758,6 +1015,20 @@ void main() {
       expect(marked, ['text', 'https://x/']);
     });
 
+    test(
+      'an escaped bracket is not a link, and does not hide the next one',
+      () {
+        const source = r'a \[not a link](x) and [text](https://x/) end';
+        final marked = [
+          for (final run in scanMarkdown(source))
+            if (run.has(Md.linkText) || run.has(Md.linkUrl))
+              source.substring(run.start, run.end),
+        ];
+
+        expect(marked, ['text', 'https://x/']);
+      },
+    );
+
     test('deferring a fence does not move where code is', () {
       // The composer shares one scan's `CodeRanges` with every projection
       // parser instead of letting each run its own. That only holds while a
@@ -799,7 +1070,25 @@ void main() {
         return best;
       }
 
-      for (final unit in const ['[abc ', '[abc] ', '[abc](x) ', '<kbd>x ']) {
+      for (final unit in const [
+        '[abc ',
+        '[abc] ',
+        '[abc](x) ',
+        '<kbd>x ',
+        // Backtick runs, paired and unpaired, escaped and not: the pairing is
+        // a scan over the runs and the run walk is one pass over the block,
+        // so neither may grow on the number of either.
+        '`abc ',
+        '`abc` ',
+        r'\`abc\` ',
+        '``abc`` ',
+        // Backslashes, which the escape pass walks and every delimiter scan
+        // then asks about.
+        r'\* ',
+        r'\\ ',
+        r'a\*b ',
+        r'\[a\] ',
+      ]) {
         final small = cost(unit * 800);
         final large = cost(unit * 6400);
         expect(

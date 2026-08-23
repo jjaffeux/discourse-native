@@ -17,7 +17,7 @@ const siteUrl = 'https://meta.discourse.org';
 void main() {
   group('malformed nested payloads', () {
     test('topic lists skip malformed records and default malformed fields', () {
-      final list = TopicList.fromJson({
+      final list = TopicList.fromJson(const {
         'users': [
           null,
           {'id': 3, 'avatar_template': 42},
@@ -102,7 +102,7 @@ void main() {
             for (var id = 1; id <= TopicList.maximumUsersPerPage + 1; id += 1)
               {'id': id, 'avatar_template': '/avatars/$id/{size}.png'},
           ],
-          'topic_list': {
+          'topic_list': const {
             'topics': [
               {
                 'id': 7,
@@ -211,7 +211,7 @@ void main() {
           'id': 7,
           'posters': [
             'not an object',
-            {'user_id': 999},
+            const {'user_id': 999},
             for (var id = 1; id <= 5; id++) {'user_id': id},
           ],
         },
@@ -221,9 +221,9 @@ void main() {
       final recommendation = Topic.fromRecommendationJson({
         'id': 8,
         'posters': [
-          {'user': 'not an object'},
-          {
-            'user': const {'id': 999},
+          const {'user': 'not an object'},
+          const {
+            'user': {'id': 999},
           },
           for (var id = 1; id <= 5; id++)
             {
@@ -249,16 +249,16 @@ void main() {
     });
 
     test('free-form notification and bookmark data default safely', () {
-      final notification = DiscourseNotification.fromJson({
+      final notification = DiscourseNotification.fromJson(const {
         'id': 1,
         'slug': 42,
         'data': ['not an object'],
       });
-      final bookmark = Bookmark.fromJson({
+      final bookmark = Bookmark.fromJson(const {
         'id': 2,
         'user': ['not an object'],
       });
-      final totals = NotificationTotals.fromJson({
+      final totals = NotificationTotals.fromJson(const {
         'topic_tracking': ['not an object'],
         'username': 42,
       });

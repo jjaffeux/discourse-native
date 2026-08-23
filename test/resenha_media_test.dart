@@ -1593,10 +1593,10 @@ MeshResenhaMediaSession _meshSession({
 
 LiveKitResenhaMediaSession _liveKitSession(ResenhaLiveKitRoomAdapter adapter) =>
     LiveKitResenhaMediaSession(
-      join: ResenhaJoinResponse(
+      join: const ResenhaJoinResponse(
         transport: ResenhaTransport.livekit,
-        ice: const ResenhaIceConfiguration(servers: [], relayOnly: false),
-        room: const ResenhaRoom(
+        ice: ResenhaIceConfiguration(servers: [], relayOnly: false),
+        room: ResenhaRoom(
           id: 1,
           name: 'Room',
           slug: 'room',
@@ -1611,7 +1611,7 @@ LiveKitResenhaMediaSession _liveKitSession(ResenhaLiveKitRoomAdapter adapter) =>
             ),
           ],
         ),
-        livekit: const ResenhaLiveKitCredentials(
+        livekit: ResenhaLiveKitCredentials(
           url: 'wss://localhost:3000',
           token: 'local-test-token',
         ),

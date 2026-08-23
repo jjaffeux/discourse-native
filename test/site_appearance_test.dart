@@ -48,7 +48,7 @@ void main() {
 
     test('keeps a usable palette when its sibling is damaged', () {
       final decoded = SiteAppearance.fromJson({
-        'base': {'primary': 'not-a-color'},
+        'base': const {'primary': 'not-a-color'},
         'alternate': palette(brightness: Brightness.dark).toJson(),
         'mode': 'alternate',
       });

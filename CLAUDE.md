@@ -55,10 +55,15 @@ pin, the lockfile, and the README's Requirements line must move together.
   `FilteredElementList` which rebuilds itself out of `nodes` on every `length`
   and every `[]`.
 - A parser that reads a site payload answers with a default rather than
-  throwing, and a `customWidgetBuilder` declines markup it does not recognise
-  by answering null. Both are stated as generated-corpus tests
-  (`wire_payload_totality_test.dart`, `cooked_markup_totality_test.dart`); add
-  new parsers and builders to them.
+  throwing, a `customWidgetBuilder` declines markup it does not recognise by
+  answering null, and the chat preview projector declines a message it cannot
+  read rather than mishandling it. All three are stated as generated-corpus
+  tests (`wire_payload_totality_test.dart`, `cooked_markup_totality_test.dart`,
+  `chat_preview_totality_test.dart`). Each also asserts that its corpus still
+  *reaches* every parser, builder or node kind — a guard that stops matching
+  would otherwise leave its code untested with the test still green — and the
+  wire one reads `lib/` to check that every `fromJson` is either in its corpus
+  or named as not being a site payload, so a new parser cannot be forgotten.
 - The composer scan is a typing budget, so its growth is timed rather than
   trusted: `markdown_highlight_test.dart` runs each pathological paste shape
   against its own eightfold. Every one of them was a lazy or backtracking
@@ -82,6 +87,7 @@ pin, the lockfile, and the README's Requirements line must move together.
 - Things with exactly one owner, because a second copy drifts:
   `store_diagnostics.dart` (how a persistence failure is classified),
   `cooked_dom.dart` (searching a cooked post's DOM), `diagnostics_text.dart`
-  (how a captured field is drawn).
+  (how a captured field is drawn), `foundation/calendar_day.dart` (what day a
+  moment falls on, and what that day is called).
 - `test/` mirrors these by name; a change to `foo.dart` almost always has a
   `foo_test.dart` to extend.

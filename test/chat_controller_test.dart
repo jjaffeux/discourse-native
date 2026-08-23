@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -1248,13 +1249,13 @@ void main() {
     test('builds the same aggregate header indicators as core', () async {
       final subject = build(
         channels: {
-          site: ChatChannels(
+          site: const ChatChannels(
             public: [
               ChatChannel(
                 id: 9,
                 title: 'Bugs',
                 kind: ChatChannelKind.category,
-                tracking: const ChatTracking(
+                tracking: ChatTracking(
                   unreadCount: 7,
                   mentionCount: 2,
                   watchedThreadsUnreadCount: 1,
@@ -1266,7 +1267,7 @@ void main() {
                 id: 12,
                 title: 'hawk',
                 kind: ChatChannelKind.directMessage,
-                tracking: const ChatTracking(
+                tracking: ChatTracking(
                   unreadCount: 100,
                   watchedThreadsUnreadCount: 2,
                 ),
@@ -1366,8 +1367,8 @@ void main() {
         channels: {
           site: ChatChannels(
             public: [channel(9)],
-            direct: [
-              const ChatChannel(
+            direct: const [
+              ChatChannel(
                 id: 12,
                 title: 'hawk',
                 kind: ChatChannelKind.directMessage,
@@ -1387,8 +1388,8 @@ void main() {
         channels: {
           site: ChatChannels(
             public: [channel(9)],
-            direct: [
-              const ChatChannel(
+            direct: const [
+              ChatChannel(
                 id: 12,
                 title: 'hawk',
                 kind: ChatChannelKind.directMessage,
@@ -3117,6 +3118,65 @@ void main() {
         expect(subject.chat.stream(site, 9).messageIds, [30, 2]);
       },
     );
+    testWidgets(
+      'a live arrival lands in the same place whichever channel brings it',
+      (tester) async {
+        // The same message reaches an open pane twice: once on the channel's
+        // own stream and once on its new-messages stream, and which arrives
+        // first is a race between two MessageBus channels. A message whose
+        // adopted `client_created_at` sorts before the newest one held —
+        // which is the case `_admitLiveId` exists for — has to land in the
+        // same place either way, or the pane's order depends on the network.
+        Future<List<int>> arrivingOn(String busChannel, Object? event) async {
+          final subject = build(
+            channels: {
+              site: ChatChannels(
+                public: [channel(9, lastRead: 3, lastMessageId: 3)],
+                newMessageBusLastIds: const {9: 70},
+                channelMessageBusLastIds: const {9: 80},
+              ),
+            },
+            messages: {
+              key(9): page([message(1), message(3, minute: 2)]),
+            },
+            currentUser: currentUser,
+          );
+          addTearDown(subject.chat.dispose);
+          final tracker = attachTracker(subject.chat);
+          await subject.chat.loadChannels(site);
+          await subject.chat.openChannel(site, 9);
+          subject.chat.beginViewingChannel(site, 9);
+          expect(subject.chat.stream(site, 9).messageIds, [1, 3]);
+
+          tracker.deliverPluginMessage(busChannel, event);
+          return subject.chat.stream(site, 9).messageIds;
+        }
+
+        const between = '2026-05-05T10:01:00.000Z';
+        final viaNewMessages = await arrivingOn(
+          '/chat/9/new-messages',
+          newMessageEvent(
+            channelId: 9,
+            messageId: 4,
+            authorId: 2,
+            createdAt: between,
+          ),
+        );
+        final viaChannel = await arrivingOn('/chat/9', {
+          'type': 'sent',
+          'chat_message': {
+            'id': 4,
+            'chat_channel_id': 9,
+            'cooked': '<p>live</p>',
+            'created_at': between,
+            'user': {'id': 2, 'username': 'sam'},
+          },
+        });
+
+        expect(viaNewMessages, [1, 4, 3]);
+        expect(viaChannel, viaNewMessages);
+      },
+    );
   });
 
   group('live deletes and restores', () {
@@ -3203,6 +3263,188 @@ void main() {
       expect(subject.store.read<ChatMessage>(site, 50)!.isDeleted, isTrue);
       expect(subject.chat.stream(site, 9), same(before));
     });
+  });
+
+  group('a bus payload the site should never send', () {
+    // The handlers are the only code here reading something the app did not
+    // ask for. Every example test below names a shape; this names none, and
+    // checks instead that whatever arrives, the window a reader is looking at
+    // stays a window: unique ids, ordered by `(createdAt, id)` — which is the
+    // order paging cursors, day separators and message runs are all derived
+    // from — and no local id leaking into the server half of it.
+    //
+    // The events are built out of the real shapes and then mangled, the way
+    // `cooked_markup_totality_test.dart` mangles markup: a payload rejected at
+    // its first key tests nothing. Timestamps stay a function of the id,
+    // because a site does not republish a message under a different one, and
+    // a window is ordered when it is merged — inventing a history where it
+    // does would only prove that.
+    const types = [
+      'sent',
+      'processed',
+      'edit',
+      'refresh',
+      'restore',
+      'delete',
+      'bulk_delete',
+      'reaction',
+      'thread_created',
+      'update_thread_original_message',
+      'channel',
+      'thread',
+      'nonsense',
+    ];
+    const stamps = [
+      '2026-05-05T10:00:00.000Z',
+      '2026-05-05T10:00:00.000Z',
+      '2026-05-05T10:00:01.000Z',
+      '2026-05-05T10:01:00.000Z',
+      '2026-05-05T10:01:00.000Z',
+      '2026-05-05T11:00:00.000Z',
+    ];
+    String stampFor(int id) => stamps[id.clamp(0, stamps.length - 1)];
+
+    Map<String, dynamic> anyMessage(Random random) {
+      final id = random.nextInt(8) - 2;
+      return {
+        'id': id,
+        'chat_channel_id': random.nextInt(4) == 0 ? random.nextInt(3) + 8 : 9,
+        'cooked': '<p>live</p>',
+        'created_at': stampFor(id),
+        'user': {'id': random.nextInt(3) + 1, 'username': 'sam'},
+        if (random.nextInt(4) == 0) 'thread_id': random.nextInt(3),
+        if (random.nextInt(6) == 0)
+          'thread': {'id': random.nextInt(3), 'original_message_id': 1},
+      };
+    }
+
+    Map<String, dynamic> anyEvent(Random random) {
+      // Every key any handler reads, so the generator's budget goes past the
+      // first guard rather than into rejections.
+      final event = <String, dynamic>{
+        'type': types[random.nextInt(types.length)],
+        'channel_id': 9,
+        'chat_message': anyMessage(random),
+        'message': anyMessage(random),
+        if (random.nextBool()) 'chat_message_id': random.nextInt(6),
+        if (random.nextBool()) 'staged_id': 'staged-${random.nextInt(3)}',
+        if (random.nextBool()) 'deleted_id': random.nextInt(6),
+        if (random.nextBool())
+          'deleted_ids': [
+            for (var i = random.nextInt(3); i > 0; i--) random.nextInt(6),
+          ],
+        if (random.nextBool()) 'deleted_at': stampFor(random.nextInt(6)),
+        if (random.nextBool())
+          'latest_not_deleted_message_id': random.nextInt(6),
+        if (random.nextBool()) 'thread_id': random.nextInt(3),
+        if (random.nextBool()) 'original_message_id': random.nextInt(6),
+        if (random.nextBool()) 'preview': anyMessage(random),
+        if (random.nextBool()) 'emoji': 'heart',
+        if (random.nextBool()) 'action': random.nextBool() ? 'add' : 'remove',
+        if (random.nextBool()) 'force_thread': random.nextBool(),
+        if (random.nextBool()) 'unread_count': random.nextInt(4) - 1,
+        if (random.nextBool()) 'mention_count': random.nextInt(4) - 1,
+        if (random.nextBool())
+          'watched_threads_unread_count': random.nextInt(4) - 1,
+        if (random.nextBool()) 'last_read_message_id': random.nextInt(6),
+        if (random.nextBool())
+          'thread_tracking': {
+            'unread_count': random.nextInt(3),
+            'mention_count': random.nextInt(3),
+          },
+        if (random.nextBool())
+          'unread_thread_overview': {
+            '${random.nextInt(3)}': stampFor(random.nextInt(6)),
+          },
+        if (random.nextBool()) 'channel': {'id': 9, 'title': 'Bugs'},
+        if (random.nextBool()) 'user': {'id': 2, 'username': 'sam'},
+      };
+      if (random.nextInt(3) != 0) return event;
+      final victim = event.keys.elementAt(random.nextInt(event.length));
+      switch (random.nextInt(3)) {
+        case 0:
+          event.remove(victim);
+        case 1:
+          event[victim] = null;
+        default:
+          event[victim] = 'x';
+      }
+      return event;
+    }
+
+    for (final seed in const [2718, 31415, 1618, 4669, 6022]) {
+      testWidgets('leaves the window a window ($seed)', (tester) async {
+        final subject = build(
+          channels: {
+            site: ChatChannels(
+              public: [channel(9)],
+              newMessageBusLastIds: const {9: 70},
+              channelMessageBusLastIds: const {9: 80},
+            ),
+          },
+          messages: {
+            key(9): page([
+              for (final id in [1, 2, 3])
+                ChatMessage(
+                  id: id,
+                  channelId: 9,
+                  cooked: '<p>$id</p>',
+                  author: const ChatMessageAuthor(id: 2, username: 'sam'),
+                  createdAt: DateTime.parse(stampFor(id)),
+                ),
+            ]),
+          },
+          currentUser: currentUser,
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        await subject.chat.openChannel(site, 9);
+        subject.chat.beginViewingChannel(site, 9);
+
+        final random = Random(seed);
+        final busChannels = tracker.pluginChannelCallbacks.keys.toList();
+        final failures = <String, Object>{};
+        var admitted = 0;
+
+        for (var round = 0; round < 3000; round++) {
+          final busChannel = busChannels[random.nextInt(busChannels.length)];
+          final event = anyEvent(random);
+          final before = subject.chat.stream(site, 9).messageIds.length;
+          tracker.deliverPluginMessage(busChannel, event);
+
+          final window = subject.chat.stream(site, 9);
+          final ids = window.messageIds;
+          if (ids.length > before) admitted++;
+
+          void fail(String what, Object detail) => failures.putIfAbsent(
+            what,
+            () => '$detail after $busChannel $event',
+          );
+
+          if (ids.toSet().length != ids.length) fail('a duplicate id', ids);
+          if (ids.any((id) => id <= 0)) fail('a local id in the window', ids);
+          if (window.localMessageIds.any((id) => id >= 0)) {
+            fail('a server id among the locals', window.localMessageIds);
+          }
+          for (var i = 1; i < ids.length; i++) {
+            final earlier = subject.store.read<ChatMessage>(site, ids[i - 1]);
+            final later = subject.store.read<ChatMessage>(site, ids[i]);
+            if (earlier == null || later == null) continue;
+            final byDate = earlier.createdAt!.compareTo(later.createdAt!);
+            if (byDate > 0 || (byDate == 0 && earlier.id > later.id)) {
+              fail('an out-of-order pair', ids);
+            }
+          }
+        }
+
+        expect(failures, isEmpty);
+        // A corpus the window never accepted anything from would pass while
+        // exercising only the rejections. The seed is fixed, so this is not a
+        // race.
+        expect(admitted, greaterThan(0));
+      });
+    }
   });
 
   group('forgetting a disconnected site', () {

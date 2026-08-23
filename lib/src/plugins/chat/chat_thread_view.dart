@@ -75,7 +75,7 @@ class ChatThreadWorkspace extends StatelessWidget {
               siteUrl: source.siteUrl,
               target: target,
               chat: source.chat,
-              widthStore: panelWidthStore ?? ChatThreadPanelWidthStore(),
+              widthStore: panelWidthStore ?? const ChatThreadPanelWidthStore(),
             );
           },
         );

@@ -222,7 +222,7 @@ void main() {
   test(
     'disconnect aborts before credential removal when drafts cannot clear',
     () async {
-      final error = FileSystemException('draft boundary unavailable');
+      const error = FileSystemException('draft boundary unavailable');
       drafts.clearSiteError = error;
 
       expect(await controller.disconnectInstance(_siteUrl), isFalse);
@@ -237,7 +237,7 @@ void main() {
   test(
     'removal aborts before credential removal when drafts cannot clear',
     () async {
-      final error = FileSystemException('draft boundary unavailable');
+      const error = FileSystemException('draft boundary unavailable');
       drafts.clearSiteError = error;
 
       expect(

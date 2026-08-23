@@ -239,7 +239,7 @@ void main() {
     test('floors the counts at zero', () {
       // Numbers the site sent, and a count read a moment before somebody
       // else's undo would otherwise draw -1.
-      final stale = const Reactions(
+      const stale = Reactions(
         entries: [],
         mine: Reaction(id: 'clap', canUndo: true),
       );
@@ -279,7 +279,7 @@ void main() {
 
   group('withMainReaction', () {
     test('presses the heart only for the reaction that is a like', () {
-      final held = const Reactions(mine: Reaction(id: 'heart', canUndo: true));
+      const held = Reactions(mine: Reaction(id: 'heart', canUndo: true));
 
       expect(held.withMainReaction('heart').usedMainReaction, isTrue);
       expect(held.withMainReaction('+1').usedMainReaction, isFalse);

@@ -395,21 +395,45 @@ stays text. Put the caret strictly inside and the characters come back to edit,
 the way Obsidian's live preview does.
 
 The scan runs on every text change, over the whole document, so what it costs
-per character is a typing budget rather than a startup one. Three things keep
-it linear, and all three are easy to lose:
+per character is a typing budget rather than a startup one. Four things keep
+it linear, and all four are easy to lose:
 
 - **Inline passes search one block at a time.** A block is a paragraph, minus
   any fence inside it — the two things a mark cannot span. Expressing that as a
   lookahead on every character a pattern consumes instead makes the scan
   quadratic: an opener with no closer after it walks to the end of the document
   before giving up, and the engine cannot know the next opener will fail for
-  the same reason. `_blocks()` is where that rule lives, and `_pairs` and
-  `_htmlTags` are its two readers.
+  the same reason. `_blocks()` is where that rule lives, and `_pairs`,
+  `_htmlTags` and `_inlineCode` are its three readers. It is a correctness
+  rule before it is a speed one: a backtick left open at the end of a
+  paragraph pairs with the next one anywhere below it, and the composer then
+  draws a page of prose as code that the site is about to cook as bold,
+  mentions and headings.
+Emphasis is a ladder — `***`, `**`, `*`, then the underscore's `___`, `__`,
+`_` — longest first, each pass closing what it took so the ones below skip it.
+The underscore has the same rungs as the asterisk because Discourse reads it
+the same way: `__bold__` is bold, not an italic `_bold_` with its underscores
+showing. And a one-character delimiter still adjacent to its own character
+after the ladder has run is a run nothing could use, so it is refused —
+`a ** b ** c` is two runs of two, neither able to open or close for the spaces
+against them, and taking one asterisk out of each italicised a sentence the
+site leaves alone.
+
 - **Emphasis is paired by scanning, not by a lazy pattern.** Even within one
   block the pattern re-walks it per opener, and a paste with no blank line in
   it is one block. The scan uses what the engine cannot: the closers after a
   later opener are a subset of the closers after an earlier one, so the first
   opener to run out of them is the last one worth trying.
+- **Code spans are paired by walking the backtick runs.** The pattern this
+  replaced had a lazy body and a backreference, and got two rules wrong on the
+  way: it read a backslash-escaped backtick as a delimiter, though CommonMark's
+  escapes work everywhere except *inside* a code span — so `` \` `` drew a
+  whole sentence as code and closed it to every later pass, hiding the bold
+  and the mentions the site really cooks. And the backreference could take the
+  first backtick of a longer run as a closer, so `` `a`` `` became a code span
+  the site leaves as text. A delimiter is a maximal run of unescaped
+  backticks; `_backtickRuns` finds them in one pass and `_codeSpans` pairs
+  them.
 - **A link's closing bracket is found by `indexOf`, not by a pattern.** The
   same trap in the other bracket: a link's text class excludes `]`, so the
   closer can only be the first one on the line, and the engine consumed to the
@@ -418,12 +442,68 @@ it linear, and all three are easy to lose:
   directly, carries the line end forward instead of re-finding it per bracket,
   and remembers a line it has already shown holds no `]`.
 
+A fourth rule is about the widgets the scan produces rather than the scan
+itself. An image, a date, a poll and a quote each collapse into a
+`WidgetSpan`, so their children come along with the span tree every keystroke
+rebuilds — and the `GlobalKey` the controller holds for each one decides
+whether that is a *rebuild* or a *recreation*. A recreation throws away the
+element, its render objects and everything they had measured or memoised, so
+minting fresh keys per text change meant paying for every projection in the
+document on every key. `_retainPillKeys` keeps the ones whose projection is
+unchanged, which on the ordinary path — typing at the end — is all of them.
+Comparing the whole block rather than only its offset is the other half of the
+rule: a following line can be appended at EOF before the next pointer-down but
+before layout, and a key kept across that would hit-test what used to be
+there. Measured per keystroke on a debug frame, twenty images in a document
+went from 15.7ms to 5.9ms and six quoted posts from 17.2ms to 10.3ms.
+
 The shape that finds this is a paste with no blank line in it — a stack trace
 with a `_private` name per frame, a log line or a minified array with a bracket
 per entry. Each of the three cost hundreds of milliseconds a keystroke.
 `markdown_highlight_test.dart` times both shapes against their own eightfold to
 keep the growth honest, since the cost is inside the regexp engine and cannot
 be counted from outside.
+
+A backslash before ASCII punctuation makes that character literal, and
+`_escapes` records each `\x` in one pass — dimming the backslash, since
+markdown-it consumes it and the post does not show it. What it *binds* is the
+part worth knowing, because a backslash protects some of what this scan finds
+and not all of it:
+
+| Escaped                          | Because                                  |
+| -------------------------------- | ---------------------------------------- |
+| emphasis, links, code, inline HTML | markdown-it's own inline rules — the escape has consumed the character before they run |
+| mentions, hashtags, emoji        | **not** escaped: these are Discourse's, added through `textPostProcess`, which `pretty-text/text-replace.js` runs over the text tokens of the *finished* inline pass — by which point `\@sam` is the text `@sam` and matches |
+
+So `\*not italic\*` stops pairing and `\[text](url)` stops being a link,
+while `\@sam` still draws its pill, because the site still draws that mention.
+The pass runs after the code passes and only where the offsets are free, since
+a backslash inside a fence or a code span is a backslash and the reader is
+shown it.
+
+Recording the offsets rather than checking afterwards is what makes the
+emphasis case work: a pair that is found and then refused has already consumed
+its closer, so `real *italic* after \*escaped\* one` would have lost the real
+one. `markdownPairs` takes a `spokenFor` predicate and skips such a delimiter
+instead — which also stops emphasis inside a code span eating the emphasis
+after it.
+
+The mention pattern is transcribed from core's own `mentionRegex`
+(`frontend/pretty-text/addon/mentions.js`, snapshotted with the rest of the
+hashtag markup), and its tail is the part worth knowing: a name may not *end*
+in a dot, a dash or an underscore. `thanks @sam.` mentions `sam`. Reading the
+period as part of the name asked the site about `sam.`, was told no, and drew
+no pill on a mention the post really has — which is how most sentences that
+end in one are written.
+
+A shortcode needs a boundary before its opening colon, which is core's
+`getEmojiName` rule and the reason `Standup at 10:30:45` holds no emoji called
+`30`. It is switched off by an inline-emoji site setting, which is off by
+default and is not a setting the scan can see — so the scan draws the default,
+which is the side that cannot invent markup. `SiteEmojiText` is the other half
+of that story and keeps its own answer: it draws prose the site has not cooked
+and only draws names the site registers, which is a stronger filter than a
+boundary.
 
 `@`, `#` and `:` open a completion list. Trigger detection is pure
 (`composer_triggers.dart`) and refuses more than it accepts — an email address
