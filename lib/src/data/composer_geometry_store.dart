@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import 'serial_operation_queue.dart';
+import 'store_diagnostics.dart';
 
 /// Encoded composer geometry persistence.
 ///
@@ -116,7 +116,7 @@ final class ComposerGeometryStore {
       if (encoded == null) return null;
       return ComposerGeometryPreference.fromJson(jsonDecode(encoded));
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'composer.readGeometry');
+      reportStorageFailure(error, stackTrace, 'composer.readGeometry');
       return null;
     }
   }
@@ -137,19 +137,7 @@ final class ComposerGeometryStore {
       );
       if (!saved) throw StateError('Could not persist composer geometry.');
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'composer.writeGeometry');
+      reportStorageFailure(error, stackTrace, 'composer.writeGeometry');
     }
-  }
-
-  static void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
   }
 }

@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import 'serial_operation_queue.dart';
+import 'store_diagnostics.dart';
 
 /// Which list the more-topics footer shows when both are available.
 enum TopicRecommendationsTab {
@@ -84,7 +84,11 @@ final class TopicRecommendationsTabStore {
       return await _persistence.readTab(siteUrl: siteUrl) ??
           TopicRecommendationsTab.suggested;
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'topicRecommendationsTab.readTab');
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'topicRecommendationsTab.readTab',
+      );
       return TopicRecommendationsTab.suggested;
     }
   }
@@ -121,20 +125,12 @@ final class TopicRecommendationsTabStore {
         throw StateError('Could not persist the more topics tab.');
       }
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'topicRecommendationsTab.writeTab');
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'topicRecommendationsTab.writeTab',
+      );
     }
-  }
-
-  static void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
   }
 }
 

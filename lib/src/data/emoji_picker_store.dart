@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import '../models/site_emoji.dart';
 import 'serial_operation_queue.dart';
+import 'store_diagnostics.dart';
 
 /// The composer surface whose emoji usage is being remembered.
 ///
@@ -211,7 +211,7 @@ final class EmojiPickerStore {
       return _EmojiPickerPreferences.fromEncoded(encoded);
     } catch (error, stackTrace) {
       _unreadable.add(siteUrl);
-      _report(error, stackTrace, 'emojiPicker.read');
+      reportStorageFailure(error, stackTrace, 'emojiPicker.read');
       return _EmojiPickerPreferences.empty;
     }
   }
@@ -229,7 +229,7 @@ final class EmojiPickerStore {
         throw StateError('Could not persist emoji picker preferences.');
       }
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'emojiPicker.write');
+      reportStorageFailure(error, stackTrace, 'emojiPicker.write');
     }
   }
 
@@ -258,18 +258,6 @@ final class EmojiPickerStore {
       });
     return List<String>.unmodifiable(
       ranked.take(maxFavoriteEmoji).map((entry) => entry.key),
-    );
-  }
-
-  static void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
     );
   }
 }

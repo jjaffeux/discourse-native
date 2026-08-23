@@ -3,9 +3,9 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import '../models/forum_workspace.dart';
 import 'serial_operation_queue.dart';
+import 'store_diagnostics.dart';
 
 abstract interface class ForumTabPersistence {
   Future<String?> read();
@@ -85,7 +85,7 @@ class ForumTabStore {
       _unreadable = false;
     } catch (error, stackTrace) {
       _unreadable = true;
-      _report(error, stackTrace, 'forumTabs.load');
+      reportStorageFailure(error, stackTrace, 'forumTabs.load');
       return const [];
     }
 
@@ -110,7 +110,7 @@ class ForumTabStore {
       }
       return workspaces;
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'forumTabs.decode');
+      reportStorageFailure(error, stackTrace, 'forumTabs.decode');
       return const [];
     }
   }
@@ -148,7 +148,7 @@ class ForumTabStore {
           );
           if (!saved) throw StateError('Could not persist forum tabs.');
         } catch (error, stackTrace) {
-          _report(error, stackTrace, 'forumTabs.save');
+          reportStorageFailure(error, stackTrace, 'forumTabs.save');
         }
         if (!result.isCompleted) result.complete();
       }
@@ -159,17 +159,5 @@ class ForumTabStore {
         unawaited(_drain());
       }
     }
-  }
-
-  static void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
   }
 }

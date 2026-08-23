@@ -3,9 +3,9 @@ import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import 'private_storage.dart';
 import 'serial_operation_queue.dart';
+import 'store_diagnostics.dart';
 
 abstract interface class ClientIdPersistence {
   Future<String?> read();
@@ -64,18 +64,6 @@ class SecureStore {
   final Map<String, Future<String?>> _apiKeyRequests = {};
   final Map<String, Future<void>> _apiKeyMutations = {};
   final Map<String, Object> _apiKeyVersions = {};
-
-  static void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'storage',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
-  }
 
   static String _apiKeyEntry(String siteUrl) => 'api_key::$siteUrl';
 
@@ -263,7 +251,7 @@ class SecureStore {
     try {
       await previous;
     } catch (error, stackTrace) {
-      _report(error, stackTrace, 'credentials.previousMutation');
+      reportStorageFailure(error, stackTrace, 'credentials.previousMutation');
       // A newer credential operation must still get a chance to repair state.
     }
   }
