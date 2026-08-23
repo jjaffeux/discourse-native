@@ -249,6 +249,12 @@ final RegExp _paragraphBreakPattern = RegExp(r'\n\s*\n');
 /// which is the underscore's — a word boundary on the outside of each, so that
 /// `snake_case_name` stays a name.
 ///
+/// [spokenFor] is asked about a delimiter's first character and skips it when
+/// something already owns that offset — a code span, or the backslash that
+/// escapes it. Skipping rather than rejecting afterwards is what matters:
+/// a pair that is found and then refused has already consumed its closer, and
+/// the emphasis after it loses one.
+///
 /// A scan rather than `allMatches` of a lazy pattern, because the two disagree
 /// about what an unclosed delimiter costs. The pattern has to walk to the end
 /// of [text] before it can report that an opener has no closer, and has to do
@@ -261,13 +267,20 @@ Iterable<(int, int)> markdownPairs(
   String text,
   String delimiter, {
   bool wordBounded = false,
+  bool Function(int offset)? spokenFor,
 }) sync* {
   final width = delimiter.length;
   var cursor = 0;
   while (cursor + width * 2 < text.length) {
-    final open = _nextOpener(text, delimiter, cursor, wordBounded);
+    final open = _nextOpener(text, delimiter, cursor, wordBounded, spokenFor);
     if (open < 0) return;
-    final close = _nextCloser(text, delimiter, open + width + 1, wordBounded);
+    final close = _nextCloser(
+      text,
+      delimiter,
+      open + width + 1,
+      wordBounded,
+      spokenFor,
+    );
     if (close < 0) return;
     cursor = close + width;
     yield (open, cursor);
@@ -277,7 +290,13 @@ Iterable<(int, int)> markdownPairs(
 /// The first place at or after [from] where [delimiter] could open a mark:
 /// followed by a non-space, and for the word-bounded rule not preceded by a
 /// word character.
-int _nextOpener(String text, String delimiter, int from, bool wordBounded) {
+int _nextOpener(
+  String text,
+  String delimiter,
+  int from,
+  bool wordBounded,
+  bool Function(int offset)? spokenFor,
+) {
   final width = delimiter.length;
   for (
     var at = text.indexOf(delimiter, from);
@@ -289,6 +308,7 @@ int _nextOpener(String text, String delimiter, int from, bool wordBounded) {
     if (wordBounded && at > 0 && _isWordCharacter(text.codeUnitAt(at - 1))) {
       continue;
     }
+    if (spokenFor != null && spokenFor(at)) continue;
     return at;
   }
   return -1;
@@ -300,7 +320,13 @@ int _nextOpener(String text, String delimiter, int from, bool wordBounded) {
 ///
 /// [from] is past an opener and its one character of content, so it is never
 /// zero and the preceding character is always there to read.
-int _nextCloser(String text, String delimiter, int from, bool wordBounded) {
+int _nextCloser(
+  String text,
+  String delimiter,
+  int from,
+  bool wordBounded,
+  bool Function(int offset)? spokenFor,
+) {
   final width = delimiter.length;
   for (
     var at = text.indexOf(delimiter, from);
@@ -313,6 +339,7 @@ int _nextCloser(String text, String delimiter, int from, bool wordBounded) {
         _isWordCharacter(text.codeUnitAt(at + width))) {
       continue;
     }
+    if (spokenFor != null && spokenFor(at)) continue;
     return at;
   }
   return -1;
@@ -332,6 +359,15 @@ bool _isWhitespace(int unit) =>
     unit == 0x205F ||
     unit == 0x3000 ||
     unit == 0xFEFF;
+
+/// The characters a backslash may escape, which is every ASCII punctuation
+/// mark and nothing else — a backslash before a letter, a digit or a line
+/// ending is a literal backslash.
+bool _isAsciiPunctuation(int unit) =>
+    (unit >= 0x21 && unit <= 0x2F) ||
+    (unit >= 0x3A && unit <= 0x40) ||
+    (unit >= 0x5B && unit <= 0x60) ||
+    (unit >= 0x7B && unit <= 0x7E);
 
 /// `[\w_]`, which is `\w`: the underscore is already in it.
 bool _isWordCharacter(int unit) =>
@@ -567,7 +603,12 @@ class _Scan {
   /// cannot eat a URL's underscores or a shortcode's colons.
   void inlines() {
     final blocks = _blocks();
+    // Before the escapes, and it has to be: a backslash inside a code span is
+    // a literal backslash, so the span has to be claimed before anything can
+    // read one as syntax. `_codeSpans` has its own escape rule for the
+    // backticks that delimit it.
     _inlineCode(blocks);
+    _escapes();
     for (final block in blocks) {
       _htmlTags(block.text, block.offset);
     }
@@ -591,6 +632,37 @@ class _Scan {
   /// with the next one anywhere below it, and everything in between — the
   /// bold, the mentions, the headings the site will really cook — is drawn as
   /// code and closed to every later pass.
+  /// Claims each `\x` so no later pass can read the `x` as syntax.
+  ///
+  /// This is the whole of CommonMark's escaping rule, spent in one place: a
+  /// backslash before ASCII punctuation makes that character literal, and the
+  /// passes below already decline to claim a character something else owns. So
+  /// `\*not italic\*` stops pairing, `\[text](url)` stops being a link and
+  /// `\@sam` stops being a mention — each of which the composer was drawing
+  /// as markup that the site cooks as the characters themselves.
+  ///
+  /// Only where the offsets are free, which is what keeps it out of a fenced
+  /// block and a code span: a backslash in either is a backslash, and the
+  /// reader is shown it.
+  ///
+  /// The backslash is dimmed and the character it protects is not, because the
+  /// post will show one and not the other.
+  void _escapes() {
+    var index = 0;
+    while (index + 1 < source.length) {
+      if (source.codeUnitAt(index) != 0x5C ||
+          !_isAsciiPunctuation(source.codeUnitAt(index + 1))) {
+        index += 1;
+        continue;
+      }
+      if (_free(index, index + 2)) {
+        _mark(index, index + 1, Md.marker);
+        _close(index, index + 2);
+      }
+      index += 2;
+    }
+  }
+
   void _inlineCode(List<({int offset, String text})> blocks) {
     for (final block in blocks) {
       for (final (open, width, close) in _codeSpans(block.text)) {
@@ -873,6 +945,7 @@ class _Scan {
         block.text,
         delimiter,
         wordBounded: wordBounded,
+        spokenFor: (offset) => _closed[block.offset + offset],
       )) {
         final start = block.offset + open;
         final end = block.offset + close;

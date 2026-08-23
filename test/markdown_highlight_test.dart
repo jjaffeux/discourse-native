@@ -112,6 +112,12 @@ const List<String> samples = [
   '``a`',
   r'\`',
   r'`\`',
+  r'a \*not italic\* b',
+  r'a \@sam \#tag b',
+  r'a \[text](url) b',
+  r'a \\*italic* b',
+  r'trailing \',
+  r'\n',
   'a `b\n\n**bold** and @sam\n\nc` d',
   'let `x = 1`\n\nand ``y``',
   'one `two\nthree` four',
@@ -228,16 +234,18 @@ void main() {
       // `\`` is a literal backtick. Reading it as a delimiter drew a whole
       // sentence as code — and closed it to every later pass, so the bold and
       // the mention the site really cooks were not drawn at all.
-      expect(annotate(r'a \`b\` c'), r'a \`b\` c');
+      // The backslash is dimmed and the backtick it protects is not: the
+      // post shows one and not the other.
+      expect(annotate(r'a \`b\` c'), r'a <m>\</>`b<m>\</>` c');
       expect(
         annotate(r'say \`this **bold** stays\` bold'),
-        r'say \`this <m>**</><b>bold</><m>**</> stays\` bold',
+        r'say <m>\</>`this <m>**</><b>bold</><m>**</> stays<m>\</>` bold',
       );
     });
 
     test('a backslash spends itself on the next character', () {
       // `\\` is an escaped backslash, so the backtick after it is free.
-      expect(annotate(r'a \\`code`'), r'a \\<m>`</><code>code</><m>`</>');
+      expect(annotate(r'a \\`code`'), r'a <m>\</>\<m>`</><code>code</><m>`</>');
     });
 
     test('a delimiter is a whole run of backticks, not a prefix of one', () {
@@ -371,6 +379,69 @@ void main() {
 
     test('without the callback every fence tokenizes in place', () {
       expect(scoped(scanMarkdown(largeSource)), isNotEmpty);
+    });
+  });
+
+  group('escapes', () {
+    // A backslash before ASCII punctuation makes that character literal, and
+    // the composer was drawing several of them as markup the site cooks as the
+    // characters themselves — which is the field claiming something the post
+    // will not do. One pass claims each `\x` and every later pass already
+    // declines to touch a character something else owns, so the rule is spent
+    // once rather than taught to six patterns.
+    test('an escaped delimiter opens nothing', () {
+      expect(
+        annotate(r'a \*not italic\* b'),
+        r'a <m>\</>*not italic<m>\</>* b',
+      );
+      expect(
+        annotate(r'a \_not italic\_ b'),
+        r'a <m>\</>_not italic<m>\</>_ b',
+      );
+      expect(
+        annotate(r'a \~~not struck\~~ b'),
+        r'a <m>\</>~~not struck<m>\</>~~ b',
+      );
+      expect(annotate(r'a \@sam b'), r'a <m>\</>@sam b');
+      expect(annotate(r'a \#tag b'), r'a <m>\</>#tag b');
+      expect(
+        annotate(r'a \<kbd>x\</kbd> b'),
+        r'a <m>\</><kbd>x<m>\</></kbd> b',
+      );
+    });
+
+    test('an escaped delimiter does not consume the real one after it', () {
+      // The reason the rule is a claim on the offsets rather than a check
+      // after the fact: a pair that is found and then refused has already
+      // taken its closer, and the emphasis after it loses one.
+      expect(
+        annotate(r'real *italic* after \*escaped\* one'),
+        r'real <m>*</><i>italic</><m>*</> after <m>\</>*escaped<m>\</>* one',
+      );
+    });
+
+    test('a backslash spends itself, and only on punctuation', () {
+      // `\\` is an escaped backslash, so the delimiter after it is free.
+      expect(
+        annotate(r'a \\*italic* b'),
+        r'a <m>\</>\<m>*</><i>italic</><m>*</> b',
+      );
+      // Before a letter or at the end of the source it is just a backslash.
+      expect(annotate(r'a \n not punctuation'), r'a \n not punctuation');
+      expect(annotate(r'trailing backslash \'), r'trailing backslash \');
+    });
+
+    test('a backslash inside code is a backslash', () {
+      // CommonMark's escapes do not work inside a code span or a fence, and
+      // the reader is shown the character.
+      expect(
+        annotate(r'`not \* escaped in code`'),
+        r'<m>`</><code>not \* escaped in code</><m>`</>',
+      );
+      expect(
+        annotate('```\nnot \\* escaped\n```'),
+        '<m>```</>\n<block>not \\* escaped\n</><m>```</>',
+      );
     });
   });
 
@@ -755,6 +826,12 @@ void main() {
       // resumes after the opening bracket rather than past the whole rejected
       // candidate, which is what lets `` `[` `` stop hiding a real link after
       // it. The case below that pins that difference.
+      //
+      // No backslash in the alphabet, for the second one: the pattern reads
+      // `\[` as an opening bracket and the scan does not, and a rejected
+      // escaped bracket does not hide the link after it either. That is two
+      // deliberate differences, each with its own case below, and neither is
+      // something an exact comparison can express.
       final pattern = RegExp(r'\[([^\]\n]*)\]\(([^)\s]*)\)');
       const alphabet = [
         '[',
@@ -766,7 +843,6 @@ void main() {
         '\n',
         'https://x/',
         '*',
-        r'\',
         'b',
         '](',
         ')[',
@@ -824,6 +900,20 @@ void main() {
       expect(marked, ['text', 'https://x/']);
     });
 
+    test(
+      'an escaped bracket is not a link, and does not hide the next one',
+      () {
+        const source = r'a \[not a link](x) and [text](https://x/) end';
+        final marked = [
+          for (final run in scanMarkdown(source))
+            if (run.has(Md.linkText) || run.has(Md.linkUrl))
+              source.substring(run.start, run.end),
+        ];
+
+        expect(marked, ['text', 'https://x/']);
+      },
+    );
+
     test('deferring a fence does not move where code is', () {
       // The composer shares one scan's `CodeRanges` with every projection
       // parser instead of letting each run its own. That only holds while a
@@ -877,6 +967,12 @@ void main() {
         '`abc` ',
         r'\`abc\` ',
         '``abc`` ',
+        // Backslashes, which the escape pass walks and every delimiter scan
+        // then asks about.
+        r'\* ',
+        r'\\ ',
+        r'a\*b ',
+        r'\[a\] ',
       ]) {
         final small = cost(unit * 800);
         final large = cost(unit * 6400);

@@ -454,6 +454,22 @@ per entry. Each of the three cost hundreds of milliseconds a keystroke.
 keep the growth honest, since the cost is inside the regexp engine and cannot
 be counted from outside.
 
+A backslash before ASCII punctuation makes that character literal, and that is
+one pass rather than a rule in six. `_escapes` claims each `\x` — dimming the
+backslash, since the post shows the character and not it — and every later pass
+already declines to touch a character something else owns. So `\*not italic\*`
+stops pairing, `\[text](url)` stops being a link, `\@sam` stops being a
+mention. It runs after the code passes and only where the offsets are free,
+because a backslash inside a fence or a code span is a backslash and the reader
+is shown it.
+
+Claiming the offsets rather than checking afterwards is what makes the
+emphasis case work: a pair that is found and then refused has already consumed
+its closer, so `real *italic* after \*escaped\* one` would have lost the real
+one. `markdownPairs` takes a `spokenFor` predicate and skips such a delimiter
+instead — which also stops emphasis inside a code span eating the emphasis
+after it.
+
 `@`, `#` and `:` open a completion list. Trigger detection is pure
 (`composer_triggers.dart`) and refuses more than it accepts — an email address
 is not a mention, a lone colon is punctuation, a `#` inside a word is not a
