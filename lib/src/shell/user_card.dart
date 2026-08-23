@@ -271,7 +271,11 @@ class _CardSurface extends StatelessWidget {
       elevation: 8,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
-      child: DecoratedBox(
+      // A `Container`, not a `DecoratedBox`: a bordered decoration's
+      // dimensions are padding a `Container` applies and a `DecoratedBox`
+      // does not, so the panel's contents would sit under its own border and
+      // be clipped by the rounded `Material` around it.
+      child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: theme.shell.divider),

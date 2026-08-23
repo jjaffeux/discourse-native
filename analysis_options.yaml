@@ -39,6 +39,11 @@ linter:
     unnecessary_await_in_return: true
     unnecessary_statements: true
     unrelated_type_equality_checks: true
+    # `use_decorated_box` is deliberately absent. A bordered `BoxDecoration`
+    # reports the border's dimensions as padding, which a `Container` applies
+    # and a `DecoratedBox` does not — so the rule's fix silently moves the
+    # child under its own border. It is safe only for an unbordered
+    # decoration, which is not a distinction a lint can make.
     prefer_const_constructors: true
     prefer_const_constructors_in_immutables: true
     prefer_const_literals_to_create_immutables: true
@@ -46,6 +51,5 @@ linter:
     avoid_unnecessary_containers: true
     sized_box_for_whitespace: true
     use_colored_box: true
-    use_decorated_box: true
     sort_child_properties_last: true
     use_string_buffers: true
