@@ -680,6 +680,84 @@ void main() {
       }
     });
 
+    test('the link scan agrees with the pattern it replaced', () {
+      // `_links` used to be `\[([^\]\n]*)\]\(([^)\s]*)\)`. It is a scan now,
+      // for the growth reason above, and the two have to agree on what a link
+      // is. The alphabet leaves out backticks and inline tags: those claim
+      // characters in an earlier pass, and a candidate whose brackets are
+      // already claimed is the one place the scan deliberately differs — it
+      // resumes after the opening bracket rather than past the whole rejected
+      // candidate, which is what lets `` `[` `` stop hiding a real link after
+      // it. The case below that pins that difference.
+      final pattern = RegExp(r'\[([^\]\n]*)\]\(([^)\s]*)\)');
+      const alphabet = [
+        '[',
+        ']',
+        '(',
+        ')',
+        'a',
+        ' ',
+        '\n',
+        'https://x/',
+        '*',
+        r'\',
+        'b',
+        '](',
+        ')[',
+        '[a](b)',
+        '\t',
+        '_',
+        '![',
+        '|',
+      ];
+      final random = Random(20260823);
+
+      for (var attempt = 0; attempt < 20000; attempt += 1) {
+        final buffer = StringBuffer();
+        for (var i = random.nextInt(24); i > 0; i -= 1) {
+          buffer.write(alphabet[random.nextInt(alphabet.length)]);
+        }
+        final source = buffer.toString();
+
+        // An empty link text leaves no run behind, so it cannot be compared.
+        final expected = [
+          for (final match in pattern.allMatches(source))
+            if (match.group(1)!.isNotEmpty)
+              '${match.start + 1}:${match.start + 1 + match.group(1)!.length}',
+        ];
+
+        // `Md.linkText` is set by `_links` and nothing else. Adjacent runs of
+        // it are one link's text split by whatever marked up the prose.
+        final found = <String>[];
+        int? start;
+        int? end;
+        for (final run in scanMarkdown(source)) {
+          if (!run.has(Md.linkText)) continue;
+          if (end == run.start) {
+            end = run.end;
+            continue;
+          }
+          if (start != null) found.add('$start:$end');
+          start = run.start;
+          end = run.end;
+        }
+        if (start != null) found.add('$start:$end');
+
+        expect(found, expected, reason: 'differed on ${source.codeUnits}');
+      }
+    });
+
+    test('a claimed bracket does not hide the link after it', () {
+      const source = '`code [` and [text](https://x/) end';
+      final marked = [
+        for (final run in scanMarkdown(source))
+          if (run.has(Md.linkText) || run.has(Md.linkUrl))
+            source.substring(run.start, run.end),
+      ];
+
+      expect(marked, ['text', 'https://x/']);
+    });
+
     test('deferring a fence does not move where code is', () {
       // The composer shares one scan's `CodeRanges` with every projection
       // parser instead of letting each run its own. That only holds while a
