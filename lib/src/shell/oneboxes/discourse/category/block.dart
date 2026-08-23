@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../../cooked_dom.dart';
+import '../../markup.dart';
 import '../../onebox.dart';
 
 /// A category on the site the post was written on:
@@ -123,10 +124,9 @@ class DiscourseCategoryData {
         (descendantWhere(article, (e) => e.localName == 'h3')?.text ?? '')
             .trim();
 
-    final description = descendantWhere(
-      article,
-      (e) => e.classes.contains('description'),
-    )?.text.replaceAll(RegExp(r'\s+'), ' ').trim().nullIfEmpty;
+    final description = oneLineText(
+      descendantWhere(article, (e) => e.classes.contains('description')),
+    );
 
     final subcategories = <DiscourseSubcategory>[];
     for (final entry in descendantsWhere(
@@ -143,35 +143,16 @@ class DiscourseCategoryData {
       )?.text.trim();
       if (name == null || name.isEmpty) continue;
       subcategories.add(
-        DiscourseSubcategory(name: name, color: _colorFromStyle(bg)),
+        DiscourseSubcategory(name: name, color: hexColorOf(bg)),
       );
     }
 
     return DiscourseCategoryData(
       name: name,
-      color: _colorFromBoxShadow(aside.attributes['style']),
+      color: hexColorIn(aside.attributes['style']),
       description: description,
       subcategories: subcategories,
     );
-  }
-
-  /// `box-shadow: -5px 0px #hex`, the form the template writes the color in.
-  static Color? _colorFromBoxShadow(String? style) {
-    if (style == null) return null;
-    final match = RegExp(r'#([0-9a-fA-F]{6})').firstMatch(style);
-    if (match == null) return null;
-    final value = int.tryParse(match.group(1)!, radix: 16);
-    return value == null ? null : Color(0xFF000000 | value);
-  }
-
-  /// `style="background-color: #hex"`, the form subcategory dots use.
-  static Color? _colorFromStyle(dom.Element? element) {
-    final style = element?.attributes['style'];
-    if (style == null) return null;
-    final match = RegExp(r'#([0-9a-fA-F]{6})').firstMatch(style);
-    if (match == null) return null;
-    final value = int.tryParse(match.group(1)!, radix: 16);
-    return value == null ? null : Color(0xFF000000 | value);
   }
 }
 
@@ -184,7 +165,3 @@ final OneboxEngine discourseCategoryBlock = OneboxEngine(
     child: DiscourseCategoryOnebox(data: DiscourseCategoryData.from(aside)),
   ),
 );
-
-extension on String {
-  String? get nullIfEmpty => isEmpty ? null : this;
-}

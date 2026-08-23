@@ -15,6 +15,7 @@ import 'discourse/user/block.dart';
 import 'github/commit/block.dart';
 import 'github/issue/block.dart';
 import 'github/pr/block.dart';
+import 'markup.dart';
 
 /// Renders Discourse oneboxes natively instead of as styled HTML.
 ///
@@ -426,8 +427,4 @@ class _Thumbnail extends StatelessWidget {
       ),
     );
   }
-}
-
-extension on String {
-  String? get nullIfEmpty => isEmpty ? null : this;
 }

@@ -6,6 +6,7 @@ import '../../../../theme/d_icon.dart';
 import '../../../code_block.dart' show monospaceTextStyle;
 import '../../../cooked_dom.dart';
 import '../../../relative_time.dart';
+import '../../markup.dart';
 import '../../onebox.dart';
 import '../github.dart';
 
@@ -251,9 +252,7 @@ class GithubPullRequestData {
     // The deep-link shape writes one `<span>` of free text where the PR
     // shape writes its cells.
     final hasCells = dateEl != null || userEl != null || linesEl != null;
-    final infoText = info != null && !hasCells
-        ? info.text.replaceAll(RegExp(r'\s+'), ' ').trim()
-        : null;
+    final infoText = info != null && !hasCells ? oneLineText(info) : null;
 
     return GithubPullRequestData(
       title: (titleLink?.text ?? row.text).trim(),
@@ -272,18 +271,11 @@ class GithubPullRequestData {
               (e) => e.classes.contains('onebox-avatar-inline'),
             )?.attributes['src'],
       userUrl: userLink?.attributes['href'],
-      additions: _count(linesEl, 'added'),
-      deletions: _count(linesEl, 'removed'),
+      additions: githubLineCount(linesEl, 'added'),
+      deletions: githubLineCount(linesEl, 'removed'),
       infoText: infoText,
       body: githubBody(article),
     );
-  }
-
-  /// `+123` in a `.added` span, as a number.
-  static int? _count(dom.Element? linesEl, String className) {
-    if (linesEl == null) return null;
-    final span = descendantWhere(linesEl, (e) => e.classes.contains(className));
-    return int.tryParse(span?.text.replaceAll(RegExp(r'[^\d]'), '') ?? '');
   }
 }
 

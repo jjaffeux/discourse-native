@@ -7,6 +7,7 @@ import '../../../../theme/d_icons.dart';
 import '../../../cooked_dom.dart';
 import '../../../image_decode.dart';
 import '../../../site_url.dart';
+import '../../markup.dart';
 import '../../onebox.dart';
 
 /// A Discourse topic on some site, oneboxed from another:
@@ -190,9 +191,7 @@ class DiscourseTopicData {
         (e) => e.classes.contains('category-name'),
       )?.text.trim();
       if (name == null || name.isEmpty) continue;
-      categories.add(
-        DiscourseTopicCategory(name: name, color: _colorFromStyle(bg)),
-      );
+      categories.add(DiscourseTopicCategory(name: name, color: hexColorOf(bg)));
     }
 
     final tags =
@@ -212,8 +211,8 @@ class DiscourseTopicData {
               e.localName == 'p' &&
               descendantWhere(e, (c) => c.classes.contains('label1')) == null,
         )
-        .map((e) => e.text.replaceAll(RegExp(r'\s+'), ' ').trim())
-        .where((text) => text.isNotEmpty)
+        .map(oneLineText)
+        .nonNulls
         .firstOrNull;
 
     return DiscourseTopicData(
@@ -223,16 +222,6 @@ class DiscourseTopicData {
       description: description,
       thumbnail: envelope.thumbnail,
     );
-  }
-
-  /// `style="background-color: #hex"`, the form the template writes colors in.
-  static Color? _colorFromStyle(dom.Element? element) {
-    final style = element?.attributes['style'];
-    if (style == null) return null;
-    final match = RegExp(r'#([0-9a-fA-F]{6})').firstMatch(style);
-    if (match == null) return null;
-    final value = int.tryParse(match.group(1)!, radix: 16);
-    return value == null ? null : Color(0xFF000000 | value);
   }
 }
 

@@ -6,6 +6,7 @@ import '../../../avatar_image.dart';
 import '../../../cooked_dom.dart';
 import '../../../open_link.dart';
 import '../../../site_url.dart';
+import '../../markup.dart';
 import '../../onebox.dart';
 
 /// A profile on the site the post was written on: `aside.onebox` holding an
@@ -173,8 +174,8 @@ class DiscourseUserData {
       websiteUrl: websiteLink?.attributes['href'],
       bio: article.children
           .where((e) => e.localName == 'p')
-          .map((e) => e.text.replaceAll(RegExp(r'\s+'), ' ').trim())
-          .where((text) => text.isNotEmpty)
+          .map(oneLineText)
+          .nonNulls
           .firstOrNull,
       joined: descendantWhere(
         article,
@@ -198,23 +199,10 @@ final OneboxEngine discourseUserBlock = OneboxEngine(
   ),
 );
 
-bool _hasUserBody(dom.Element aside) {
-  final pending = <dom.Element>[];
-  void pushReversed(List<dom.Element> children) {
-    for (var index = children.length - 1; index >= 0; index--) {
-      pending.add(children[index]);
-    }
-  }
-
-  pushReversed(aside.children);
-  while (pending.isNotEmpty) {
-    final child = pending.removeLast();
-    if (child.classes.contains('user-onebox')) return true;
-    pushReversed(child.children);
-  }
-  return false;
-}
-
-extension on String {
-  String? get nullIfEmpty => isEmpty ? null : this;
-}
+/// The walk goes through `cooked_dom.dart` for the reason that file exists:
+/// `children` is a `FilteredElementList` that rebuilds itself out of `nodes`
+/// on every `length` and every `[]`, so pushing children by index costs a list
+/// per child. This runs for every unclaimed `aside.onebox` in a post, on every
+/// frame that draws it.
+bool _hasUserBody(dom.Element aside) =>
+    descendantWhere(aside, (e) => e.classes.contains('user-onebox')) != null;
