@@ -422,6 +422,15 @@ it linear, and all three are easy to lose:
   directly, carries the line end forward instead of re-finding it per bracket,
   and remembers a line it has already shown holds no `]`.
 
+A fourth rule is about the widgets the scan produces rather than the scan
+itself. A quote in the composer is a `WidgetSpan`, so its child is rebuilt
+with the span tree on every keystroke — and the controller's `GlobalKey` for
+it decides whether that is a rebuild or a *recreation*. Minting a fresh key
+per text change threw away the element, its render objects and its own scan of
+the quoted text; keys are pruned to the quotes still present instead, so
+typing a reply under one leaves it alone. A reply that quotes several posts
+was spending forty per cent of its typing budget rebuilding what it quoted.
+
 The shape that finds this is a paste with no blank line in it — a stack trace
 with a `_private` name per frame, a log line or a minified array with a bracket
 per entry. Each of the three cost hundreds of milliseconds a keystroke.
