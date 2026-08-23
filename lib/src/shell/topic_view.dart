@@ -7,6 +7,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../data/topic_recommendations_panel_store.dart';
 import '../data/topic_recommendations_tab_store.dart';
+import '../foundation/calendar_day.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
 import '../plugins/site_plugin.dart';
@@ -414,7 +415,7 @@ class _TopicViewState extends State<TopicView> {
     DateTime? previousDay;
     for (var index = 0; index < postIds.length; index++) {
       final post = controller.store.read<Post>(siteUrl, postIds[index]);
-      final day = _calendarDay(post?.createdAt);
+      final day = calendarDay(post?.createdAt);
       if (day != null && day != previousDay) {
         starts.add((day: day, postIndex: index));
       }
@@ -453,7 +454,7 @@ class _TopicViewState extends State<TopicView> {
         snapshot.siteUrl!,
         snapshot.postIds.first,
       );
-      if (_calendarDay(first?.createdAt) != day) break;
+      if (calendarDay(first?.createdAt) != day) break;
 
       final before = List<int>.of(snapshot.postIds);
       await controller.loadEarlierPosts();
@@ -479,7 +480,7 @@ class _TopicViewState extends State<TopicView> {
       final snapshot = _TopicViewSnapshot.from(controller);
       final postIndex = snapshot.postIds.indexWhere((id) {
         final post = controller.store.read<Post>(snapshot.siteUrl!, id);
-        return _calendarDay(post?.createdAt) == day;
+        return calendarDay(post?.createdAt) == day;
       });
       if (postIndex < 0) return;
       final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
@@ -1510,12 +1511,6 @@ class _MoreTopicsTabButton extends StatelessWidget {
   }
 }
 
-DateTime? _calendarDay(DateTime? value) {
-  if (value == null) return null;
-  final local = value.toLocal();
-  return DateTime(local.year, local.month, local.day);
-}
-
 /// A post together with the calendar boundary immediately above it.
 ///
 /// Keeping both in one logical list item is important: all topic paging,
@@ -1558,36 +1553,6 @@ class _TopicPostItem extends StatelessWidget {
   }
 }
 
-const List<String> _monthNames = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
-
-/// Today and yesterday by name, everything else by date.
-///
-/// Days are compared as calendar dates, not elapsed time: local midnights on
-/// either side of a DST change sit 23 or 25 hours apart, and a truncating
-/// duration difference would then misname the days after a transition.
-@visibleForTesting
-String topicDayLabel(DateTime day, {required DateTime now}) {
-  final today = DateTime.utc(now.year, now.month, now.day);
-  final start = DateTime.utc(day.year, day.month, day.day);
-  final delta = today.difference(start).inDays;
-  if (delta == 0) return 'Today';
-  if (delta == 1) return 'Yesterday';
-  return '${day.day} ${_monthNames[day.month - 1]} ${day.year}';
-}
-
 /// The date line in the stream and the bordered pill it becomes once pinned.
 class _TopicDaySeparator extends StatelessWidget {
   const _TopicDaySeparator({
@@ -1603,7 +1568,7 @@ class _TopicDaySeparator extends StatelessWidget {
   final VoidCallback onTap;
   final bool floating;
 
-  String get _label => topicDayLabel(day, now: DateTime.now());
+  String get _label => dayLabel(day, now: DateTime.now());
 
   @override
   Widget build(BuildContext context) {

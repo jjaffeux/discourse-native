@@ -82,6 +82,7 @@ pin, the lockfile, and the README's Requirements line must move together.
 - Things with exactly one owner, because a second copy drifts:
   `store_diagnostics.dart` (how a persistence failure is classified),
   `cooked_dom.dart` (searching a cooked post's DOM), `diagnostics_text.dart`
-  (how a captured field is drawn).
+  (how a captured field is drawn), `foundation/calendar_day.dart` (what day a
+  moment falls on, and what that day is called).
 - `test/` mirrors these by name; a change to `foo.dart` almost always has a
   `foo_test.dart` to extend.
