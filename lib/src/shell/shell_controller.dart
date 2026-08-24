@@ -2292,6 +2292,7 @@ class ShellController extends FrameSafeNotifier {
   final Set<String> _topicsStale = {};
   final Set<String> _postsLoading = {};
   final Set<String> _earlierPostsLoading = {};
+  final Set<(String, int, int, bool)> _postGapsLoading = {};
 
   static String _topicKey(String siteUrl, int topicId) => '$siteUrl#$topicId';
 
@@ -2915,6 +2916,79 @@ class ShellController extends FrameSafeNotifier {
     return detail;
   }
 
+  /// Reveals one bounded chunk of posts the topic stream deliberately hid.
+  ///
+  /// The ids come from core's `post_stream.gaps`, so the site has already
+  /// decided that this reader may request them. They remain outside ordinary
+  /// paging until this explicit action, matching the web client's gap flow.
+  Future<void> expandPostGap({
+    required int anchorPostId,
+    required bool before,
+  }) async {
+    final instance = currentInstance;
+    final topicId = currentContent?.topicId;
+    if (instance == null || topicId == null) return;
+
+    final detail = store.read<TopicDetail>(instance.url, topicId);
+    if (detail == null) return;
+    final gap = (before ? detail.gapsBefore : detail.gapsAfter)[anchorPostId];
+    if (gap == null || gap.isEmpty) return;
+
+    final requestIds = gap.take(TopicDetail.maximumInitialPosts).toList();
+    final key = (instance.url, topicId, anchorPostId, before);
+    if (!_postGapsLoading.add(key)) return;
+    final lease = lifecycle.capture(instance.url);
+
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(instance.url),
+      );
+      if (credential == null || !lease.isCurrent) return;
+      final fetched = await api.posts(
+        siteUrl: instance.url,
+        topicId: topicId,
+        ids: requestIds,
+        apiKey: credential.value,
+      );
+      if (!lease.isCurrent) return;
+
+      final requested = requestIds.toSet();
+      final byId = <int, Post>{
+        for (final post in fetched)
+          if (requested.contains(post.id)) post.id: post,
+      };
+      final revealed = [
+        for (final id in requestIds)
+          if (byId.containsKey(id)) id,
+      ];
+      lease.commit(() {
+        store.putAll(instance.url, [for (final id in revealed) byId[id]!]);
+        store.update<TopicDetail>(
+          instance.url,
+          topicId,
+          (held) => held.withExpandedGap(
+            anchorPostId: anchorPostId,
+            before: before,
+            consumedIds: requestIds,
+            revealedIds: revealed,
+          ),
+        );
+        _notify();
+      });
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'topic.expandPostGap',
+        severity: DiagnosticSeverity.warning,
+      );
+    } finally {
+      lease.commit(() => _postGapsLoading.remove(key));
+    }
+  }
+
   /// Credits the reader through the farthest post the viewport has shown.
   ///
   /// The local list row moves first so leaving and reopening in this session
@@ -3309,9 +3383,8 @@ class ShellController extends FrameSafeNotifier {
       selectedTagIds: composer.tags.map((tag) => tag.id).whereType<int>(),
       // Core rejects a page larger than the site's own setting outright, so
       // the site sets this and the client only caps what it will render.
-      limit: siteConfigFor(
-        target.siteUrl,
-      ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+      limit: siteConfigFor(target.siteUrl).maxTagSearchResults
+          .clamp(1, TopicTagSearch.maximumResults),
     );
   }
 

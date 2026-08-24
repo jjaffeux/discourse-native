@@ -3846,12 +3846,16 @@ void main() {
 
     TopicPayload detail({
       List<int> stream = const [1],
+      Map<int, List<int>> gapsBefore = const {},
+      Map<int, List<int>> gapsAfter = const {},
       TopicRecommendations? recommendations,
     }) => topicPayload(
       id: 7,
       title: 'A real topic',
       posts: [post(1, 1, 'First post body')],
       stream: stream,
+      gapsBefore: gapsBefore,
+      gapsAfter: gapsAfter,
       recommendations: recommendations,
     );
 
@@ -4109,6 +4113,55 @@ void main() {
         [2, 3],
       ]);
       expect(renderedText('Second post body'), findsOneWidget);
+    });
+
+    testWidgets('shows and expands server-provided hidden replies', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [
+              post(1, 1, 'First post body'),
+              post(4, 4, 'Fourth post body'),
+            ],
+            stream: const [1, 4],
+            gapsBefore: const {
+              4: [2, 3],
+            },
+            postsCount: 4,
+          ),
+        },
+        postsById: {
+          2: post(2, 2, 'Hidden second post'),
+          3: post(3, 3, 'Hidden third post'),
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('VIEW 2 HIDDEN REPLIES'), findsOneWidget);
+      expect(renderedText('Hidden second post'), findsNothing);
+      expect(api.postFetches, isEmpty);
+
+      await tester.tap(find.text('VIEW 2 HIDDEN REPLIES'));
+      await tester.pumpAndSettle();
+
+      expect(api.postFetches, [
+        [2, 3],
+      ]);
+      expect(find.text('VIEW 2 HIDDEN REPLIES'), findsNothing);
+      expect(renderedText('Hidden second post'), findsOneWidget);
+      expect(renderedText('Hidden third post'), findsOneWidget);
+      expect(
+        tester.getTopLeft(renderedText('Hidden second post')).dy,
+        lessThan(tester.getTopLeft(renderedText('Fourth post body')).dy),
+      );
     });
 
     testWidgets('shows suggested and discourse-ai related tabs in a panel', (

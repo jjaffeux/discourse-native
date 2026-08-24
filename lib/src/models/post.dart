@@ -395,6 +395,8 @@ class TopicDetail with Storable<TopicDetail> {
     required this.id,
     required this.title,
     required this.stream,
+    this.gapsBefore = const {},
+    this.gapsAfter = const {},
     this.postsCount = 0,
     this.categoryId,
     this.canCreatePost = false,
@@ -421,6 +423,7 @@ class TopicDetail with Storable<TopicDetail> {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
   }) {
     final postStream = jsonObject(json['post_stream']);
+    final gaps = jsonObject(postStream['gaps']);
     final details = jsonObject(json['details']);
     return (
       detail: TopicDetail(
@@ -431,6 +434,8 @@ class TopicDetail with Storable<TopicDetail> {
         stream: List.unmodifiable(
           jsonArray(postStream['stream']).map(jsonIntOrNull).whereType<int>(),
         ),
+        gapsBefore: _parsePostGaps(gaps['before']),
+        gapsAfter: _parsePostGaps(gaps['after']),
         postsCount: jsonInt(json['posts_count']),
         categoryId: json['category_id'] == null
             ? null
@@ -474,6 +479,16 @@ class TopicDetail with Storable<TopicDetail> {
   /// Every post id in the topic, in reading order.
   final List<int> stream;
 
+  /// Post ids deliberately left out of [stream], keyed by the visible post
+  /// immediately after or before them.
+  ///
+  /// Core uses these gaps for content this reader is allowed to reveal but
+  /// has chosen not to show in the ordinary stream — most commonly posts by
+  /// ignored users. Keeping the ids separate is important: ordinary paging
+  /// must not fetch them until the reader expands the gap.
+  final Map<int, List<int>> gapsBefore;
+  final Map<int, List<int>> gapsAfter;
+
   final int postsCount;
   final int? categoryId;
 
@@ -512,6 +527,64 @@ class TopicDetail with Storable<TopicDetail> {
       ? this
       : copyWith(stream: [...stream, postId], postsCount: postsCount + 1);
 
+  /// Inserts one fetched chunk from a server-provided post gap.
+  ///
+  /// [consumedIds] is the prefix that was requested. [revealedIds] is the
+  /// subset the site actually returned; a post removed while the request was
+  /// in flight is consumed without leaving an unfetchable hole in [stream].
+  /// A remainder stays attached to the next visible edge so it can be expanded
+  /// again in another bounded request.
+  TopicDetail withExpandedGap({
+    required int anchorPostId,
+    required bool before,
+    required List<int> consumedIds,
+    required List<int> revealedIds,
+  }) {
+    if (consumedIds.isEmpty) return this;
+
+    final source = before ? gapsBefore : gapsAfter;
+    final gap = source[anchorPostId];
+    final anchorIndex = stream.indexOf(anchorPostId);
+    if (gap == null ||
+        anchorIndex < 0 ||
+        gap.length < consumedIds.length ||
+        !listEquals(gap.sublist(0, consumedIds.length), consumedIds)) {
+      return this;
+    }
+
+    final consumed = consumedIds.toSet();
+    final inserted = <int>{};
+    final insert = <int>[
+      for (final id in revealedIds)
+        if (consumed.contains(id) &&
+            !stream.contains(id) &&
+            inserted.add(id))
+          id,
+    ];
+    final nextStream = List<int>.of(stream)
+      ..insertAll(before ? anchorIndex : anchorIndex + 1, insert);
+    final remaining = List<int>.unmodifiable(gap.skip(consumedIds.length));
+    final nextBefore = Map<int, List<int>>.of(gapsBefore);
+    final nextAfter = Map<int, List<int>>.of(gapsAfter);
+    final target = before ? nextBefore : nextAfter;
+    target.remove(anchorPostId);
+    if (remaining.isNotEmpty) {
+      // A trailing gap follows the chunk just revealed. A leading gap remains
+      // immediately before its original anchor, which is already after the
+      // inserted chunk.
+      final nextAnchor = !before && insert.isNotEmpty
+          ? insert.last
+          : anchorPostId;
+      target[nextAnchor] = remaining;
+    }
+
+    return copyWith(
+      stream: nextStream,
+      gapsBefore: nextBefore,
+      gapsAfter: nextAfter,
+    );
+  }
+
   /// Drops a post the site no longer serves.
   ///
   /// Only for one that is genuinely gone. A post deleted by staff, or by its
@@ -544,6 +617,8 @@ class TopicDetail with Storable<TopicDetail> {
     id: id,
     title: title,
     stream: stream,
+    gapsBefore: gapsBefore,
+    gapsAfter: gapsAfter,
     postsCount: postsCount,
     categoryId: categoryId,
     canCreatePost: canCreatePost,
@@ -568,7 +643,17 @@ class TopicDetail with Storable<TopicDetail> {
   @override
   TopicDetail merge(TopicDetail incoming) {
     final arrived = incoming.stream.toSet();
-    final missing = stream.where((id) => !arrived.contains(id)).toList();
+    // A locally expanded gap id is absent from the server's filtered stream
+    // by design. When a full topic refetch arrives, let it collapse back into
+    // the incoming gap rather than mistaking that id for a brand-new reply and
+    // appending it at the end of the topic.
+    final incomingGapIds = {
+      for (final gap in incoming.gapsBefore.values) ...gap,
+      for (final gap in incoming.gapsAfter.values) ...gap,
+    };
+    final missing = stream
+        .where((id) => !arrived.contains(id) && !incomingGapIds.contains(id))
+        .toList();
     var merged = missing.isEmpty
         ? incoming
         : incoming.copyWith(
@@ -584,6 +669,8 @@ class TopicDetail with Storable<TopicDetail> {
   TopicDetail copyWith({
     String? title,
     List<int>? stream,
+    Map<int, List<int>>? gapsBefore,
+    Map<int, List<int>>? gapsAfter,
     int? postsCount,
     ComposerDraft? draft,
     bool clearDraft = false,
@@ -600,6 +687,10 @@ class TopicDetail with Storable<TopicDetail> {
     id: id,
     title: title ?? this.title,
     stream: stream == null ? this.stream : List.unmodifiable(stream),
+    gapsBefore: gapsBefore == null
+        ? this.gapsBefore
+        : _freezePostGaps(gapsBefore),
+    gapsAfter: gapsAfter == null ? this.gapsAfter : _freezePostGaps(gapsAfter),
     postsCount: postsCount ?? this.postsCount,
     categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
     canCreatePost: canCreatePost,
@@ -620,6 +711,8 @@ class TopicDetail with Storable<TopicDetail> {
           other.id == id &&
           other.title == title &&
           listEquals(other.stream, stream) &&
+          _postGapsEqual(other.gapsBefore, gapsBefore) &&
+          _postGapsEqual(other.gapsAfter, gapsAfter) &&
           other.postsCount == postsCount &&
           other.categoryId == categoryId &&
           other.canCreatePost == canCreatePost &&
@@ -637,6 +730,8 @@ class TopicDetail with Storable<TopicDetail> {
     id,
     title,
     Object.hashAll(stream),
+    _postGapsHash(gapsBefore),
+    _postGapsHash(gapsAfter),
     postsCount,
     categoryId,
     canCreatePost,
@@ -648,5 +743,45 @@ class TopicDetail with Storable<TopicDetail> {
     draftSequence,
     recommendations,
     plugins,
+  );
+
+  static Map<int, List<int>> _parsePostGaps(Object? value) {
+    final parsed = <int, List<int>>{};
+    for (final entry in jsonObject(value).entries) {
+      final anchor = int.tryParse(entry.key);
+      if (anchor == null || anchor <= 0) continue;
+      final ids = <int>[];
+      final seen = <int>{};
+      for (final value in jsonArray(entry.value)) {
+        final id = jsonIntOrNull(value);
+        if (id != null && id > 0 && seen.add(id)) ids.add(id);
+      }
+      if (ids.isNotEmpty) parsed[anchor] = List.unmodifiable(ids);
+    }
+    return Map.unmodifiable(parsed);
+  }
+
+  static Map<int, List<int>> _freezePostGaps(Map<int, List<int>> gaps) =>
+      Map.unmodifiable({
+        for (final entry in gaps.entries)
+          entry.key: List<int>.unmodifiable(entry.value),
+      });
+
+  static bool _postGapsEqual(
+    Map<int, List<int>> left,
+    Map<int, List<int>> right,
+  ) {
+    if (identical(left, right)) return true;
+    if (left.length != right.length) return false;
+    for (final entry in left.entries) {
+      if (!listEquals(entry.value, right[entry.key])) return false;
+    }
+    return true;
+  }
+
+  static int _postGapsHash(Map<int, List<int>> gaps) => Object.hashAllUnordered(
+    gaps.entries.map(
+      (entry) => Object.hash(entry.key, Object.hashAll(entry.value)),
+    ),
   );
 }

@@ -16,12 +16,16 @@ Post post(int id, int number, {String? raw}) => Post(
 
 TopicDetail detail({
   List<int> stream = const [],
+  Map<int, List<int>> gapsBefore = const {},
+  Map<int, List<int>> gapsAfter = const {},
   int postsCount = 0,
   bool canCreatePost = false,
 }) => TopicDetail(
   id: 7,
   title: 'A real topic',
   stream: stream,
+  gapsBefore: gapsBefore,
+  gapsAfter: gapsAfter,
   postsCount: postsCount,
   canCreatePost: canCreatePost,
 );
@@ -106,6 +110,40 @@ void main() {
       }, site);
 
       expect(payload.detail.canCreatePost, isTrue);
+    });
+
+    test('retains server-provided hidden post gaps', () {
+      final payload = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A filtered topic',
+        'post_stream': {
+          'stream': [1, 11],
+          'gaps': {
+            'before': {
+              '11': [2, '3', 'not-an-id', -1, 2],
+            },
+            'after': {
+              '11': [12, 13],
+              'not-an-anchor': [99],
+            },
+          },
+        },
+      }, site);
+
+      expect(payload.detail.gapsBefore, {
+        11: [2, 3],
+      });
+      expect(payload.detail.gapsAfter, {
+        11: [12, 13],
+      });
+      expect(
+        () => payload.detail.gapsBefore[11]!.add(4),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => payload.detail.gapsBefore[12] = const [4],
+        throwsUnsupportedError,
+      );
     });
 
     test('is false when the payload has no details, as when signed out', () {
@@ -206,6 +244,65 @@ void main() {
     });
   });
 
+  group('withExpandedGap', () {
+    test('inserts a bounded leading chunk and retains its remainder', () {
+      final hidden = [for (var id = 2; id <= 41; id++) id];
+      final topic =
+          detail(
+            stream: const [1, 42],
+            gapsBefore: {42: hidden},
+            postsCount: 42,
+          ).withExpandedGap(
+            anchorPostId: 42,
+            before: true,
+            consumedIds: hidden.take(20).toList(),
+            revealedIds: hidden.take(20).toList(),
+          );
+
+      expect(topic.stream, [1, ...hidden.take(20), 42]);
+      expect(topic.gapsBefore[42], hidden.skip(20));
+      expect(topic.postsCount, 42);
+    });
+
+    test('moves a trailing remainder after the revealed chunk', () {
+      final topic =
+          detail(
+            stream: const [1],
+            gapsAfter: const {
+              1: [2, 3, 4],
+            },
+          ).withExpandedGap(
+            anchorPostId: 1,
+            before: false,
+            consumedIds: const [2, 3],
+            revealedIds: const [2, 3],
+          );
+
+      expect(topic.stream, [1, 2, 3]);
+      expect(topic.gapsAfter, {
+        3: [4],
+      });
+    });
+
+    test('does not leave a missing response as an ordinary paging hole', () {
+      final topic =
+          detail(
+            stream: const [1, 4],
+            gapsBefore: const {
+              4: [2, 3],
+            },
+          ).withExpandedGap(
+            anchorPostId: 4,
+            before: true,
+            consumedIds: const [2, 3],
+            revealedIds: const [3],
+          );
+
+      expect(topic.stream, [1, 3, 4]);
+      expect(topic.gapsBefore, isEmpty);
+    });
+  });
+
   group('merge', () {
     test('takes the refetched stream and count', () {
       final merged = detail(
@@ -242,6 +339,22 @@ void main() {
       );
 
       expect(held.merge(detail(stream: [1])).recommendations, recommendations);
+    });
+
+    test('does not append an expanded gap at the end on refetch', () {
+      final held = detail(stream: const [1, 2, 3, 4], postsCount: 4);
+      final incoming = detail(
+        stream: const [1, 4],
+        gapsBefore: const {
+          4: [2, 3],
+        },
+        postsCount: 4,
+      );
+
+      final merged = held.merge(incoming);
+
+      expect(merged.stream, [1, 4]);
+      expect(merged.gapsBefore[4], [2, 3]);
     });
 
     test('takes the incoming optional-feature snapshot', () {
