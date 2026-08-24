@@ -13,6 +13,13 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('keeps the composer target site on its image renderer', () {
+    final composer = ComposerController(_target);
+    addTearDown(composer.dispose);
+
+    expect(composer.text.imageSiteUrl, _target.siteUrl);
+  });
+
   testWidgets('serializes draft saves and keeps only the newest queued text', (
     tester,
   ) async {

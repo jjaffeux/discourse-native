@@ -1,0 +1,107 @@
+import 'dart:async';
+
+import 'package:discourse_native/src/data/site_image_repository.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+
+import 'support/fakes.dart';
+
+void main() {
+  const siteUrl = 'https://forum.example';
+  const secureUrl = '$siteUrl/secure-uploads/original/image.png';
+
+  test('authenticates the forum hop but never a CDN redirect', () async {
+    final credentials = FakeApiCredentialReader()
+      ..keys[siteUrl] = 'account-key';
+    final requests = <http.Request>[];
+    final repository = SiteImageRepository(
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+      client: MockClient((request) async {
+        requests.add(request);
+        if (request.url.host == 'forum.example') {
+          return http.Response(
+            '',
+            302,
+            headers: {
+              'location': 'https://objects.example/signed/image.png?token=x',
+              'cache-control': 'private, no-store',
+            },
+          );
+        }
+        return http.Response.bytes([1, 2, 3], 200);
+      }),
+    );
+    addTearDown(repository.dispose);
+
+    final image = await repository.load(siteUrl: siteUrl, url: secureUrl);
+
+    expect(image?.bytes, orderedEquals([1, 2, 3]));
+    expect(requests, hasLength(2));
+    expect(requests.first.followRedirects, isFalse);
+    expect(requests.first.headers['User-Api-Key'], 'account-key');
+    expect(requests.first.headers['User-Api-Client-Id'], 'test-client');
+    expect(requests.last.url.host, 'objects.example');
+    expect(requests.last.headers, isNot(contains('User-Api-Key')));
+    expect(requests.last.headers, isNot(contains('User-Api-Client-Id')));
+  });
+
+  test('does not attach forum credentials to an external image', () async {
+    late http.Request sent;
+    final credentials = FakeApiCredentialReader()
+      ..keys[siteUrl] = 'account-key';
+    final repository = SiteImageRepository(
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+      client: MockClient((request) async {
+        sent = request;
+        return http.Response.bytes([1], 200);
+      }),
+    );
+    addTearDown(repository.dispose);
+
+    await repository.load(
+      siteUrl: siteUrl,
+      url: 'https://images.example/hotlinked.png',
+    );
+
+    expect(sent.headers, isNot(contains('User-Api-Key')));
+    expect(sent.headers, isNot(contains('User-Api-Client-Id')));
+  });
+
+  test('an invalidated account cannot publish or retain stale bytes', () async {
+    final credentials = FakeApiCredentialReader()..keys[siteUrl] = 'old-key';
+    final lifecycle = SiteLifecycle();
+    final firstResponse = Completer<http.Response>();
+    final keys = <String?>[];
+    var requestCount = 0;
+    final repository = SiteImageRepository(
+      credentials: credentials,
+      lifecycle: lifecycle,
+      client: MockClient((request) {
+        keys.add(request.headers['User-Api-Key']);
+        requestCount++;
+        if (requestCount == 1) return firstResponse.future;
+        return Future.value(http.Response.bytes([2], 200));
+      }),
+    );
+    addTearDown(repository.dispose);
+
+    final stale = repository.load(siteUrl: siteUrl, url: secureUrl);
+    while (requestCount == 0) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    lifecycle.invalidate(siteUrl);
+    repository.forget(siteUrl);
+    credentials.keys[siteUrl] = 'new-key';
+    firstResponse.complete(http.Response.bytes([1], 200));
+
+    expect(await stale, isNull);
+    final fresh = await repository.load(siteUrl: siteUrl, url: secureUrl);
+    expect(fresh?.bytes, orderedEquals([2]));
+    expect(keys, ['old-key', 'new-key']);
+  });
+}

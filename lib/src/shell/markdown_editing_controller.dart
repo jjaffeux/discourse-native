@@ -33,6 +33,7 @@ import 'syntax.dart';
 class MarkdownEditingController extends TextEditingController {
   MarkdownEditingController({
     super.text,
+    this.imageSiteUrl,
     this.resolveEmoji,
     this.pills,
     this.formatQuoteContents,
@@ -42,6 +43,9 @@ class MarkdownEditingController extends TextEditingController {
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
   });
+
+  /// The site whose upload URLs are embedded in this draft.
+  final String? imageSiteUrl;
 
   /// Where the artwork for `smile` lives on the site being written to.
   ///
@@ -1010,6 +1014,7 @@ class MarkdownEditingController extends TextEditingController {
               child: ComposerImagePreview(
                 image: image,
                 url: url,
+                siteUrl: imageSiteUrl,
                 highlighted: highlighted,
                 onNaturalSize: (size) {
                   if (_naturalImageSizes[image.url] == size) return;

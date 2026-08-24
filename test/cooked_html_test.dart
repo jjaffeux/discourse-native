@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/emoji_cache.dart';
+import 'package:discourse_native/src/data/site_image_repository.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -11,6 +13,7 @@ import 'package:discourse_native/src/shell/inline_code.dart';
 import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -47,6 +50,9 @@ Future<ShellController> pumpCookedInShell(
   String html, {
   http.Client? emoji,
   FakeDiscourseApi? api,
+  FakeAuthenticator? authenticator,
+  SiteImageRepository? siteImages,
+  SiteLifecycle? lifecycle,
   Widget? child,
 }) async {
   EmojiCache.instance = EmojiCache(
@@ -54,13 +60,16 @@ Future<ShellController> pumpCookedInShell(
   );
   addTearDown(EmojiCache.instance.clear);
 
+  final siteLifecycle = lifecycle ?? SiteLifecycle();
   final controller = ShellController(
     instanceStore: FakeInstanceStore([instance('meta.discourse.org')]),
     api: api ?? FakeDiscourseApi(),
-    authenticator: FakeAuthenticator(),
+    authenticator: authenticator ?? FakeAuthenticator(),
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
     updateStore: FakeUpdateStore(),
+    lifecycle: siteLifecycle,
+    siteImages: siteImages,
   );
   addTearDown(controller.dispose);
   await controller.load();
@@ -134,6 +143,40 @@ TextStyle styleOf(WidgetTester tester, String text) {
 }
 
 void main() {
+  testWidgets('loads a secure cooked image with the connected account', (
+    tester,
+  ) async {
+    const siteUrl = 'https://meta.discourse.org';
+    final authenticator = FakeAuthenticator()..keys[siteUrl] = 'account-key';
+    final lifecycle = SiteLifecycle();
+    late http.Request sent;
+    final siteImages = SiteImageRepository(
+      credentials: authenticator,
+      lifecycle: lifecycle,
+      client: MockClient((request) async {
+        sent = request;
+        return http.Response.bytes(onePixelPng, 200);
+      }),
+    );
+
+    await pumpCookedInShell(
+      tester,
+      '<p><img src="/secure-uploads/original/image.png" alt="A secret"></p>',
+      authenticator: authenticator,
+      lifecycle: lifecycle,
+      siteImages: siteImages,
+    );
+
+    expect(find.byType(SiteImage), findsOneWidget);
+    expect(sent.url, Uri.parse('$siteUrl/secure-uploads/original/image.png'));
+    expect(sent.headers['User-Api-Key'], 'account-key');
+    expect(sent.headers['User-Api-Client-Id'], 'test-client');
+    expect(
+      tester.widgetList<Image>(find.byType(Image)).map((image) => image.image),
+      contains(isA<MemoryImage>()),
+    );
+  });
+
   testWidgets('chat paragraphs use Discourse compact outer margins', (
     tester,
   ) async {

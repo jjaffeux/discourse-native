@@ -228,6 +228,7 @@ class ComposerController extends ChangeNotifier {
     int minimumRequiredTags = 0,
     DateTime Function()? now,
   }) : text = MarkdownEditingController(
+         imageSiteUrl: _target.siteUrl,
          resolveEmoji: resolveEmoji,
          pills: pills,
          formatQuoteContents: formatQuoteContents,
