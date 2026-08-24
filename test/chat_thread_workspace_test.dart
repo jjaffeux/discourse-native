@@ -151,12 +151,16 @@ void main() {
 
         final divider = find.bySemanticsLabel('Thread pane width');
         expect(divider, findsOneWidget);
-        expect(tester.getSize(divider).width, 8);
+        expect(tester.getSize(divider).width, 9);
         final border = find.byKey(const ValueKey('chat-thread-divider-border'));
+        expect(tester.getSize(border), Size(1, tester.getSize(divider).height));
+        final channelPane = find.byKey(const ValueKey('chat-channel-pane'));
+        final threadPane = find.byKey(const ValueKey('chat-thread-pane'));
         expect(
-          tester.getSize(border),
-          Size(1, tester.getSize(divider).height),
+          tester.getTopRight(channelPane).dx,
+          tester.getTopLeft(border).dx,
         );
+        expect(tester.getTopRight(border).dx, tester.getTopLeft(threadPane).dx);
         final theme = Theme.of(tester.element(border));
         expect(
           tester
