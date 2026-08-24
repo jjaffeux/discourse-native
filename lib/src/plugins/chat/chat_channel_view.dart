@@ -109,6 +109,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   List<ChatStreamItem> _items = const [];
   int? _highlightMessageId;
   int _highlightRequest = 0;
+  final ChatUploadDropController _uploadDropController =
+      ChatUploadDropController();
 
   @override
   void initState() {
@@ -192,6 +194,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         ),
         builder: (context, stream, _) => _buildChannel(
           stream,
+          channelTitle: channel?.title ?? 'Chat',
           canCreateThread:
               channel?.threadingEnabled == true &&
               widget.chat.canSendMessageTo(
@@ -205,6 +208,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
   Widget _buildChannel(
     ChatStreamState stream, {
+    required String channelTitle,
     required bool canCreateThread,
   }) {
     late final Widget content;
@@ -243,16 +247,21 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       content = const SizedBox.shrink();
     }
 
-    return Column(
-      children: [
-        Expanded(child: content),
-        if (stream.error == null || hasMessages)
-          ChatComposer(
-            key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
-            siteUrl: widget.siteUrl,
-            channelId: widget.channelId,
-          ),
-      ],
+    return ChatUploadDropRegion(
+      controller: _uploadDropController,
+      title: 'Drop images to upload to #$channelTitle',
+      child: Column(
+        children: [
+          Expanded(child: content),
+          if (stream.error == null || hasMessages)
+            ChatComposer(
+              key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
+              siteUrl: widget.siteUrl,
+              channelId: widget.channelId,
+              uploadDropController: _uploadDropController,
+            ),
+        ],
+      ),
     );
   }
 

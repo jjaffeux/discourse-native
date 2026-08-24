@@ -2228,6 +2228,7 @@ class DiscourseApi
     required ComposerUploadFile file,
     required void Function(double progress) onProgress,
     required Future<void> abortTrigger,
+    ComposerUploadType uploadType = ComposerUploadType.composer,
     String? clientId,
   }) async {
     final int fileLength;
@@ -2255,7 +2256,7 @@ class DiscourseApi
             Uri.parse('$siteUrl/uploads.json'),
             abortTrigger: Future.any<void>([abortTrigger, timeoutAbort.future]),
           )
-          ..fields['upload_type'] = 'composer'
+          ..fields['upload_type'] = uploadType.wireName
           ..files.add(
             http.MultipartFile(
               'file',
@@ -2299,9 +2300,14 @@ class DiscourseApi
     }
 
     final originalFilename = jsonText(decoded['original_filename']);
+    final id = jsonIntOrNull(decoded['id']);
     final url = jsonText(decoded['url']);
     final shortUrl = jsonText(decoded['short_url']) ?? url;
-    if (originalFilename == null || url == null || shortUrl == null) {
+    if (id == null ||
+        id <= 0 ||
+        originalFilename == null ||
+        url == null ||
+        shortUrl == null) {
       throw ComposerUploadException(
         "The site returned an incomplete upload for ${file.name}.",
         statusCode: response.statusCode,
@@ -2310,6 +2316,7 @@ class DiscourseApi
     final thumbnail = jsonObject(decoded['thumbnail']);
     onProgress(1);
     return ComposerUploadResult(
+      id: id,
       originalFilename: originalFilename,
       shortUrl: shortUrl,
       url: _absoluteUploadUrl(siteUrl, url),
@@ -2983,6 +2990,7 @@ class DiscourseApi
     required String apiKey,
     required int channelId,
     required String message,
+    List<int> uploadIds = const [],
     int? threadId,
     String? stagedId,
     DateTime? clientCreatedAt,
@@ -2990,8 +2998,16 @@ class DiscourseApi
   }) async {
     _requirePositiveId(channelId, 'channelId');
     if (threadId != null) _requirePositiveId(threadId, 'threadId');
-    if (message.trim().isEmpty) {
-      throw ArgumentError.value('', 'message', 'Must not be blank.');
+    if (message.trim().isEmpty && uploadIds.isEmpty) {
+      throw ArgumentError.value(
+        '',
+        'message',
+        'A message or upload is required.',
+      );
+    }
+    if (uploadIds.length > ChatMessage.maximumUploadsPerMessage ||
+        uploadIds.any((id) => id <= 0)) {
+      throw ArgumentError.value(uploadIds, 'uploadIds', 'Invalid upload IDs.');
     }
     final body = await _write(
       Uri.parse('$siteUrl/chat/$channelId.json'),
@@ -3001,6 +3017,7 @@ class DiscourseApi
       clientId: clientId,
       body: {
         'message': message,
+        'upload_ids': uploadIds.isEmpty ? null : uploadIds,
         'thread_id': threadId,
         'staged_id': stagedId,
         'client_created_at': clientCreatedAt?.toUtc().toIso8601String(),

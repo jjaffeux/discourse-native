@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../data/store.dart';
+import '../../models/composer_upload.dart';
 import '../../models/json.dart';
 import 'chat_preview.dart';
 
@@ -10,10 +11,12 @@ import 'chat_preview.dart';
 /// from arbitrary Markdown entered by the reader.
 @immutable
 final class OutgoingChatMessage {
-  const OutgoingChatMessage._(this.raw, this.trustedPreviewSeed);
+  const OutgoingChatMessage._(this.raw, this.trustedPreviewSeed, this.uploads);
 
-  factory OutgoingChatMessage.text(String raw) =>
-      OutgoingChatMessage._(raw, null);
+  factory OutgoingChatMessage.text(
+    String raw, {
+    List<ComposerUploadResult> uploads = const [],
+  }) => OutgoingChatMessage._(raw, null, List.unmodifiable(uploads));
 
   factory OutgoingChatMessage.trustedGif({
     required String raw,
@@ -43,11 +46,13 @@ final class OutgoingChatMessage {
         width: width,
         height: height,
       ),
+      const [],
     );
   }
 
   final String raw;
   final TrustedPreviewSeed? trustedPreviewSeed;
+  final List<ComposerUploadResult> uploads;
 }
 
 /// The terminal result of an accepted optimistic send.
@@ -311,6 +316,16 @@ class ChatUpload {
       dominantColor: jsonText(json['dominant_color']),
     );
   }
+
+  factory ChatUpload.fromComposerUpload(ComposerUploadResult upload) =>
+      ChatUpload(
+        url: upload.url,
+        originalFilename: upload.originalFilename,
+        kind: ChatUploadKind.read(null, upload.originalFilename),
+        thumbnailUrl: upload.thumbnailUrl,
+        width: upload.thumbnailWidth ?? upload.width,
+        height: upload.thumbnailHeight ?? upload.height,
+      );
 
   final String url;
   final String originalFilename;
@@ -604,6 +619,7 @@ class ChatMessage with Storable<ChatMessage> {
     required ChatMessageAuthor author,
     required DateTime createdAt,
     int? threadId,
+    List<ChatUpload> uploads = const [],
   }) {
     assert(id < 0);
     return ChatMessage(
@@ -615,6 +631,7 @@ class ChatMessage with Storable<ChatMessage> {
       threadId: threadId,
       optimisticRaw: raw,
       preview: preview,
+      uploads: List.unmodifiable(uploads),
       stagedId: stagedId,
       canonicalReceived: false,
       delivery: ChatMessageDelivery.sending,

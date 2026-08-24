@@ -539,6 +539,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.chatSendFailure,
     this.chatSendGate,
     this.chatSentMessageId = 1,
+    this.composerUploadResult,
     this.chatReactionFailure,
     this.chatReactionGate,
     this.chatReactorsById = const {},
@@ -988,11 +989,15 @@ class FakeDiscourseApi implements DiscourseApi {
   final WriteException? chatSendFailure;
   final Completer<void>? chatSendGate;
   final int? chatSentMessageId;
+  final ComposerUploadResult? composerUploadResult;
+  final List<({String siteUrl, String filename, ComposerUploadType uploadType})>
+  composerUploads = [];
   final List<
     ({
       String siteUrl,
       int channelId,
       String message,
+      List<int> uploadIds,
       int? threadId,
       String? stagedId,
       DateTime? clientCreatedAt,
@@ -2078,6 +2083,7 @@ class FakeDiscourseApi implements DiscourseApi {
     required String apiKey,
     required int channelId,
     required String message,
+    List<int> uploadIds = const [],
     int? threadId,
     String? stagedId,
     DateTime? clientCreatedAt,
@@ -2087,6 +2093,7 @@ class FakeDiscourseApi implements DiscourseApi {
       siteUrl: siteUrl,
       channelId: channelId,
       message: message,
+      uploadIds: List.unmodifiable(uploadIds),
       threadId: threadId,
       stagedId: stagedId,
       clientCreatedAt: clientCreatedAt,
@@ -2349,8 +2356,21 @@ class FakeDiscourseApi implements DiscourseApi {
     required ComposerUploadFile file,
     required void Function(double progress) onProgress,
     required Future<void> abortTrigger,
+    ComposerUploadType uploadType = ComposerUploadType.composer,
     String? clientId,
-  }) => throw UnimplementedError('No uploads configured for this fake.');
+  }) async {
+    composerUploads.add((
+      siteUrl: siteUrl,
+      filename: file.name,
+      uploadType: uploadType,
+    ));
+    final result = composerUploadResult;
+    if (result == null) {
+      throw UnimplementedError('No uploads configured for this fake.');
+    }
+    onProgress(1);
+    return result;
+  }
 
   @override
   Future<Map<String, String>> lookupUploadUrls({

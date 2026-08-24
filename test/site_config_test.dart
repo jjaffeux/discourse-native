@@ -16,6 +16,7 @@ Map<String, dynamic> settings({
   String? authorizedExtensions,
   String? authorizedExtensionsForStaff,
   int? simultaneousUploads,
+  bool? chatUploadsEnabled,
   int? maxImageWidth,
   int? maxImageHeight,
   int? minSearchTermLength,
@@ -51,6 +52,7 @@ Map<String, dynamic> settings({
   'authorized_extensions': ?authorizedExtensions,
   'authorized_extensions_for_staff': ?authorizedExtensionsForStaff,
   'simultaneous_uploads': ?simultaneousUploads,
+  'chat_allow_uploads': ?chatUploadsEnabled,
   'max_image_width': ?maxImageWidth,
   'max_image_height': ?maxImageHeight,
   'min_search_term_length': ?minSearchTermLength,
@@ -501,8 +503,18 @@ void main() {
       expect(config.canUploadImage('photo.png', staff: false), isTrue);
       expect(config.canUploadImage('photo.bmp', staff: false), isFalse);
       expect(config.simultaneousUploads, 15);
+      expect(config.chatUploadsEnabled, isTrue);
       expect(config.maxImageWidth, 690);
       expect(config.maxImageHeight, 500);
+    });
+
+    test('reads and persists the chat upload gate', () {
+      final disabled = SiteConfig.fromSettings(
+        settings(chatUploadsEnabled: false),
+      );
+
+      expect(disabled.chatUploadsEnabled, isFalse);
+      expect(SiteConfig.fromJson(disabled.toJson()), disabled);
     });
   });
 

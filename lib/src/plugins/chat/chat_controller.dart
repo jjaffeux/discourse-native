@@ -2430,7 +2430,10 @@ class ChatController extends FrameSafeNotifier {
     OutgoingChatMessage message,
   ) {
     final text = message.raw;
-    if (text.trim().isEmpty || !canSendMessageTo(siteUrl, target)) return null;
+    if ((text.trim().isEmpty && message.uploads.isEmpty) ||
+        !canSendMessageTo(siteUrl, target)) {
+      return null;
+    }
     final key = _targetKey(siteUrl, target);
 
     final createdAt = _clock().toUtc();
@@ -2453,6 +2456,10 @@ class ChatController extends FrameSafeNotifier {
         isStaff: user?.staff ?? false,
       ),
       createdAt: createdAt,
+      uploads: [
+        for (final upload in message.uploads)
+          ChatUpload.fromComposerUpload(upload),
+      ],
     );
     store.put(siteUrl, local);
     final held = streamFor(siteUrl, target);
@@ -2481,6 +2488,9 @@ class ChatController extends FrameSafeNotifier {
     queue.pending.add(
       _QueuedChatSend(
         local: local,
+        uploadIds: List.unmodifiable([
+          for (final upload in message.uploads) upload.id,
+        ]),
         settlement: settlement,
         lease: lifecycle.capture(siteUrl),
       ),
@@ -2596,6 +2606,7 @@ class ChatController extends FrameSafeNotifier {
         channelId: channelId,
         threadId: target.threadId,
         message: local.optimisticRaw!,
+        uploadIds: item.uploadIds,
         stagedId: local.stagedId,
         clientCreatedAt: local.createdAt,
       );
@@ -4160,11 +4171,13 @@ final class _ChatSendQueue {
 final class _QueuedChatSend {
   _QueuedChatSend({
     required this.local,
+    required this.uploadIds,
     required this.settlement,
     required this.lease,
   });
 
   final ChatMessage local;
+  final List<int> uploadIds;
   final Completer<ChatSendResult> settlement;
   final SiteLease lease;
 

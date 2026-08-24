@@ -531,6 +531,44 @@ void main() {
       },
     );
 
+    testWidgets(
+      'chat retains completed uploads as attachments without inserting markdown',
+      (tester) async {
+        final calls = <_UploadCall>[];
+        final composer = ComposerController(
+          _chatTarget,
+          imageUploader: _recordingUploader(calls),
+        );
+        addTearDown(composer.dispose);
+
+        composer.addDroppedImages([_file('one.png'), _file('two.png')], 0);
+        calls[1].complete(_result('two'));
+        await tester.pump();
+        expect(composer.completedUploads, isEmpty);
+
+        calls[0].complete(_result('one'));
+        await tester.pump();
+
+        expect(composer.raw, isEmpty);
+        expect(composer.canSubmit, isTrue);
+        expect(composer.hasActiveUploads, isFalse);
+        expect(composer.completedUploads.map((upload) => upload.id), [
+          _result('one').id,
+          _result('two').id,
+        ]);
+        expect(
+          composer.uploads.map((upload) => upload.status),
+          everyElement(ComposerUploadStatus.completed),
+        );
+
+        composer.removeUpload(composer.uploads.first.id);
+        expect(composer.completedUploads.single.id, _result('two').id);
+        composer.clearDocument();
+        expect(composer.uploads, isEmpty);
+        expect(composer.canSubmit, isFalse);
+      },
+    );
+
     testWidgets('reports progress, retains failures, and retries them', (
       tester,
     ) async {
@@ -717,6 +755,15 @@ const _target = ComposerTarget(
   topicTitle: 'A topic',
 );
 
+const _chatTarget = ComposerTarget(
+  siteUrl: 'https://meta.discourse.org',
+  topicId: 0,
+  slug: '',
+  topicTitle: 'Chat',
+  chatChannelId: 9,
+  mode: ComposerMode.chat,
+);
+
 TextEditingValue _typed(String text) => TextEditingValue(
   text: text,
   selection: TextSelection.collapsed(offset: text.length),
@@ -729,6 +776,7 @@ ComposerUploadFile _file(String name) => ComposerUploadFile(
 );
 
 ComposerUploadResult _result(String name) => ComposerUploadResult(
+  id: name.hashCode.abs() + 1,
   originalFilename: '$name.png',
   shortUrl: 'upload://$name',
   url: 'https://meta.discourse.org/uploads/$name.png',

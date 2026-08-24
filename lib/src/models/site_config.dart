@@ -38,6 +38,7 @@ class SiteConfig {
     this.authorizedExtensions = defaultAuthorizedExtensions,
     this.authorizedExtensionsForStaff = const [],
     this.simultaneousUploads = defaultSimultaneousUploads,
+    this.chatUploadsEnabled = true,
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
     this.minSearchTermLength = defaultMinSearchTermLength,
@@ -174,6 +175,7 @@ class SiteConfig {
         const [],
       ),
       simultaneousUploads: _simultaneousUploads(json['simultaneous_uploads']),
+      chatUploadsEnabled: json['chat_allow_uploads'] != false,
       maxImageWidth: _positiveInt(json['max_image_width'], 690),
       maxImageHeight: _positiveInt(json['max_image_height'], 500),
       minSearchTermLength:
@@ -255,6 +257,7 @@ class SiteConfig {
       const [],
     ),
     simultaneousUploads: _simultaneousUploads(json['simultaneousUploads']),
+    chatUploadsEnabled: json['chatUploadsEnabled'] != false,
     maxImageWidth: _positiveInt(json['maxImageWidth'], 690),
     maxImageHeight: _positiveInt(json['maxImageHeight'], 500),
     minSearchTermLength:
@@ -314,6 +317,7 @@ class SiteConfig {
     'authorizedExtensions': authorizedExtensions,
     'authorizedExtensionsForStaff': authorizedExtensionsForStaff,
     'simultaneousUploads': simultaneousUploads,
+    'chatUploadsEnabled': chatUploadsEnabled,
     'maxImageWidth': maxImageWidth,
     'maxImageHeight': maxImageHeight,
     'minSearchTermLength': minSearchTermLength,
@@ -400,6 +404,7 @@ class SiteConfig {
   final List<String> authorizedExtensions;
   final List<String> authorizedExtensionsForStaff;
   final int simultaneousUploads;
+  final bool chatUploadsEnabled;
   final int maxImageWidth;
   final int maxImageHeight;
   final int minSearchTermLength;
@@ -551,6 +556,7 @@ class SiteConfig {
         authorizedExtensionsForStaff,
       ) &&
       other.simultaneousUploads == simultaneousUploads &&
+      other.chatUploadsEnabled == chatUploadsEnabled &&
       other.maxImageWidth == maxImageWidth &&
       other.maxImageHeight == maxImageHeight &&
       other.minSearchTermLength == minSearchTermLength &&
@@ -598,6 +604,7 @@ class SiteConfig {
     Object.hashAll(authorizedExtensions),
     Object.hashAll(authorizedExtensionsForStaff),
     simultaneousUploads,
+    chatUploadsEnabled,
     maxImageWidth,
     maxImageHeight,
     minSearchTermLength,

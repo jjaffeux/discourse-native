@@ -411,6 +411,12 @@ class ComposerController extends ChangeNotifier {
   int _nextUploadBatch = 0;
 
   List<ComposerUploadItem> get uploads => List.unmodifiable(_uploads);
+  List<ComposerUploadResult> get completedUploads => List.unmodifiable(
+    _uploads
+        .where((upload) => upload.status == ComposerUploadStatus.completed)
+        .map((upload) => upload.result)
+        .nonNulls,
+  );
   bool get hasActiveUploads => _uploads.any(
     (upload) =>
         upload.status == ComposerUploadStatus.uploading ||
@@ -480,6 +486,7 @@ class ComposerController extends ChangeNotifier {
       progress: 0,
       status: ComposerUploadStatus.retrying,
       clearError: true,
+      clearResult: true,
     );
     _startUpload(id);
     _recomputeCanSubmit();
@@ -558,6 +565,20 @@ class ComposerController extends ChangeNotifier {
       if (first == null) break;
       final result = first.value.result;
       if (result == null) break;
+
+      if (_target.isChat) {
+        _pendingUploads.remove(first.key);
+        final uploadIndex = _uploadIndex(first.key);
+        if (uploadIndex >= 0) {
+          _uploads[uploadIndex] = _uploads[uploadIndex].copyWith(
+            progress: 1,
+            status: ComposerUploadStatus.completed,
+            result: result,
+            clearError: true,
+          );
+        }
+        continue;
+      }
 
       final earlierFailed = waiting
           .where(
@@ -1247,6 +1268,8 @@ class ComposerController extends ChangeNotifier {
     _error = null;
     _notice = null;
     _replaceDocument(TextEditingValue.empty);
+    _clearUploads();
+    _recomputeCanSubmit();
     _typing.reset();
     _openedAt = _now();
     _fieldGeneration++;
@@ -1359,7 +1382,7 @@ class ComposerController extends ChangeNotifier {
             (metadataChanged || (raw.isNotEmpty && raw != _originalRaw)),
       ComposerMode.tagsEdit =>
         taxonomyValidationMessage == null && !listEquals(_tags, _originalTags),
-      ComposerMode.chat => raw.isNotEmpty,
+      ComposerMode.chat => raw.isNotEmpty || completedUploads.isNotEmpty,
     };
     if (next == _canSubmit) return;
     _canSubmit = next;
@@ -1367,6 +1390,14 @@ class ComposerController extends ChangeNotifier {
   }
 
   bool _disposed = false;
+
+  void _clearUploads() {
+    for (final pending in _pendingUploads.values) {
+      if (!pending.abort.isCompleted) pending.abort.complete();
+    }
+    _pendingUploads.clear();
+    _uploads.clear();
+  }
 
   /// A submit outlives the panel — closing the composer while one is in flight
   /// is normal — and ChangeNotifier throws once disposed.
@@ -1378,11 +1409,7 @@ class ComposerController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    for (final pending in _pendingUploads.values) {
-      if (!pending.abort.isCompleted) pending.abort.complete();
-    }
-    _pendingUploads.clear();
-    _uploads.clear();
+    _clearUploads();
     _wait?.cancel();
     _draftTimer?.cancel();
     text.removeListener(_onTextChanged);
