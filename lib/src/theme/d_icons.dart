@@ -344,6 +344,16 @@ abstract final class DIcons {
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor"><path d="M224 0c-17.7 0-32 14.3-32 32l0 19.2C119 66 64 130.6 64 208l0 18.8c0 47-17.3 92.4-48.5 127.6l-7.4 8.3c-8.4 9.4-10.4 22.9-5.3 34.4S19.4 416 32 416l384 0c12.6 0 24-7.4 29.2-18.9s3.1-25-5.3-34.4l-7.4-8.3C401.3 319.2 384 273.9 384 226.8l0-18.8c0-77.4-55-142-128-156.8L256 32c0-17.7-14.3-32-32-32zm45.3 493.3c12-12 18.7-28.3 18.7-45.3l-64 0-64 0c0 17 6.7 33.3 18.7 45.3s28.3 18.7 45.3 18.7s33.3-6.7 45.3-18.7z"/></svg>',
   );
 
+  static const DIconData farBell = DIconData(
+    'far-bell',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor"><path d="M224 0c-17.7 0-32 14.3-32 32l0 19.2C119 66 64 130.6 64 208l0 25.4c0 45.4-15.5 89.5-43.8 124.9L5.3 377c-5.8 7.2-6.9 17.1-2.9 25.4S14.8 416 24 416l400 0c9.2 0 17.6-5.3 21.6-13.6s2.9-18.2-2.9-25.4l-14.9-18.6C399.5 322.9 384 278.8 384 233.4l0-25.4c0-77.4-55-142-128-156.8L256 32c0-17.7-14.3-32-32-32zm0 96c61.9 0 112 50.1 112 112l0 25.4c0 47.9 13.9 94.6 39.7 134.6L72.3 368C98.1 328 112 281.3 112 233.4l0-25.4c0-61.9 50.1-112 112-112zm64 352l-64 0-64 0c0 17 6.7 33.3 18.7 45.3s28.3 18.7 45.3 18.7s33.3-6.7 45.3-18.7s18.7-28.3 18.7-45.3z"/></svg>',
+  );
+
+  static const DIconData discourseBellExclamation = DIconData(
+    'discourse-bell-exclamation',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor"><path d="M439.4 362.3c-19.3-20.8-55.5-52-55.5-154.3 0-77.7-54.5-139.9-127.9-155.2V32c0-17.7-14.3-32-32-32s-32 14.3-32 32v20.8C118.6 68.1 64.1 130.3 64.1 208c0 102.3-36.2 133.5-55.5 154.3-6 6.4-8.6 14.1-8.6 21.7.1 16.4 13 32 32.1 32h383.8c19.1 0 32-15.6 32.1-32 .1-7.6-2.6-15.3-8.6-21.7zM201.7 116.6h44.6c6.5 0 11.7 5.5 11.4 12l-6.5 123.8c-.3 6.1-5.3 10.9-11.4 10.9h-31.6c-6.1 0-11.1-4.8-11.4-10.9l-6.5-123.8c-.3-6.6 4.9-12 11.4-12zM224 361.3c-18.6 0-33.7-15.1-33.7-33.7s15.1-33.7 33.7-33.7 33.7 15.1 33.7 33.7-15.1 33.7-33.7 33.7zM224 512c35.3 0 64-28.7 64-64H160c0 35.3 28.7 64 64 64z"/></svg>',
+  );
+
   static const DIconData paperPlane = DIconData(
     'paper-plane',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M498.1 5.6c10.1 7 15.4 19.1 13.5 31.2l-64 416c-1.5 9.7-7.4 18.2-16 23s-18.9 5.4-28 1.6L284 427.7l-68.5 74.1c-8.9 9.7-22.9 12.9-35.2 8.1S160 493.2 160 480l0-83.6c0-4 1.5-7.8 4.2-10.8L331.8 202.8c5.8-6.3 5.6-16-.4-22s-15.7-6.4-22-.7L106 360.8 17.7 316.6C7.1 311.3 .3 300.7 0 288.9s5.9-22.8 16.1-28.7l448-256c10.7-6.1 23.9-5.5 34 1.4z"/></svg>',
@@ -509,6 +519,8 @@ abstract final class DIcons {
     'user-plus': userPlus,
     'at': at,
     'bell': bell,
+    'far-bell': farBell,
+    'discourse-bell-exclamation': discourseBellExclamation,
     'paper-plane': paperPlane,
     'toggle-on': toggleOn,
     'toggle-off': toggleOff,
@@ -531,6 +543,8 @@ abstract final class DIcons {
     'd-liked': heart,
     'd-unliked': farHeart,
     'd-tracking': bell,
+    'd-regular': farBell,
+    'd-watching': discourseBellExclamation,
     'd-chat': comment,
     'topic.closed': lock,
     'topic.opened': unlock,

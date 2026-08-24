@@ -20,11 +20,13 @@ final class ChoiceMenuOption<T> {
     required this.value,
     required this.title,
     required this.description,
+    this.icon,
   });
 
   final T value;
   final String title;
   final String description;
+  final DIconData? icon;
 }
 
 typedef ChoiceMenuAnchorBuilder =
@@ -406,7 +408,7 @@ class _ChoiceRowsState<T> extends State<_ChoiceRows<T>> {
   );
 }
 
-class _ChoiceRow<T> extends StatelessWidget {
+class _ChoiceRow<T> extends StatefulWidget {
   const _ChoiceRow({
     required this.option,
     required this.selected,
@@ -424,81 +426,138 @@ class _ChoiceRow<T> extends StatelessWidget {
   final ValueChanged<T> onSelected;
 
   @override
+  State<_ChoiceRow<T>> createState() => _ChoiceRowState<T>();
+}
+
+class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  void _setHovered(bool hovered) {
+    if (_hovered == hovered) return;
+    setState(() => _hovered = hovered);
+  }
+
+  void _setFocused(bool focused) {
+    if (_focused != focused) setState(() => _focused = focused);
+    if (focused) widget.onFocused();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final shell = theme.extension<ShellColors>();
-    final hover =
-        shell?.hover ?? theme.colorScheme.onSurface.withValues(alpha: 0.08);
-    final selectedColor = theme.colorScheme.primary.withValues(
-      alpha: theme.brightness == Brightness.dark ? 0.16 : 0.09,
+    final surface = shell?.floating ?? theme.colorScheme.surfaceContainer;
+    final selectedColor = Color.alphaBlend(
+      theme.colorScheme.primary.withValues(
+        alpha: theme.brightness == Brightness.dark ? 0.16 : 0.09,
+      ),
+      surface,
     );
+    final hoverColor = Color.alphaBlend(
+      theme.colorScheme.onSurface.withValues(
+        alpha: theme.brightness == Brightness.dark ? 0.10 : 0.06,
+      ),
+      surface,
+    );
+    final selectedHoverColor = Color.alphaBlend(
+      theme.colorScheme.onSurface.withValues(
+        alpha: theme.brightness == Brightness.dark ? 0.08 : 0.05,
+      ),
+      selectedColor,
+    );
+    final interactive = _hovered || _focused;
+    final background = widget.selected
+        ? (interactive ? selectedHoverColor : selectedColor)
+        : (interactive ? hoverColor : Colors.transparent);
+    final iconColor = widget.selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 90);
     final radius = BorderRadius.circular(8);
     return Semantics(
-      key: ValueKey(('choice-menu-option', option.value)),
+      key: ValueKey(('choice-menu-option', widget.option.value)),
       role: SemanticsRole.menuItemRadio,
-      checked: selected,
+      checked: widget.selected,
       button: true,
-      label: option.title,
-      hint: option.description,
+      label: widget.option.title,
+      hint: widget.option.description,
       child: ExcludeSemantics(
-        child: Material(
-          color: selected ? selectedColor : Colors.transparent,
-          borderRadius: radius,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            focusNode: focusNode,
+        child: AnimatedContainer(
+          key: ValueKey(('choice-menu-option-background', widget.option.value)),
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(color: background, borderRadius: radius),
+          child: Material(
+            color: Colors.transparent,
             borderRadius: radius,
-            hoverColor: hover,
-            focusColor: hover,
-            onFocusChange: (focused) {
-              if (focused) onFocused();
-            },
-            onTap: () => onSelected(option.value),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: touch ? 64 : 58),
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: touch ? 12 : 10,
-                  vertical: touch ? 10 : 8,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            option.title,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              focusNode: widget.focusNode,
+              mouseCursor: SystemMouseCursors.click,
+              borderRadius: radius,
+              hoverColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              onHover: _setHovered,
+              onFocusChange: _setFocused,
+              onTap: () => widget.onSelected(widget.option.value),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: widget.touch ? 64 : 58),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: widget.touch ? 12 : 10,
+                    vertical: widget.touch ? 10 : 8,
+                  ),
+                  child: Row(
+                    children: [
+                      if (widget.option.icon case final icon?) ...[
+                        SizedBox.square(
+                          dimension: 24,
+                          child: Center(
+                            child: DIcon(icon, size: 20, color: iconColor),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            option.description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              height: 1.3,
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.option.title,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.option.description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox.square(
-                      dimension: 20,
-                      child: selected
-                          ? DIcon(
-                              DIcons.check,
-                              size: 16,
-                              color: theme.colorScheme.primary,
-                            )
-                          : null,
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      SizedBox.square(
+                        dimension: 20,
+                        child: widget.selected
+                            ? DIcon(
+                                DIcons.check,
+                                size: 16,
+                                color: theme.colorScheme.primary,
+                              )
+                            : null,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
