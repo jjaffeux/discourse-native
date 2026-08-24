@@ -269,6 +269,7 @@ class _ThreadPaneDivider extends StatelessWidget {
                 child: SizedBox(
                   key: const ValueKey('chat-thread-divider-border'),
                   width: 1,
+                  height: double.infinity,
                   child: ColoredBox(color: divider),
                 ),
               ),
