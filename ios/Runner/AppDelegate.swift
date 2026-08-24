@@ -171,6 +171,12 @@ final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
     requestTransaction(action) { error in
       DispatchQueue.main.async {
         if let error {
+          if let startAction = action as? CXStartCallAction,
+            self.activeCall == startAction.callUUID
+          {
+            self.activeCall = nil
+            self.muted = false
+          }
           let failureData: [String: Any] = ["action": actionName]
           self.emitDiagnostic(
             "callkit.transaction.failed",
@@ -216,12 +222,25 @@ final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
   }
 
   func handleStartAction(_ action: CXStartCallAction) {
+    guard activeCall == action.callUUID else {
+      action.fail()
+      emitDiagnostic(
+        "callkit.provider.start.skipped",
+        data: ["reason": "stale_call"]
+      )
+      return
+    }
     do {
       try configureAudioSession()
       reportOutgoingCallStarted(action.callUUID)
       action.fulfill()
       emitDiagnostic("callkit.provider.start.fulfilled")
     } catch {
+      if activeCall == action.callUUID {
+        activeCall = nil
+        muted = false
+        emitMethod("end")
+      }
       action.fail()
       emitDiagnostic(
         "callkit.provider.start.failed",
@@ -235,6 +254,14 @@ final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
   }
 
   func handleSetMutedAction(_ action: CXSetMutedCallAction) {
+    guard activeCall == action.callUUID else {
+      action.fail()
+      emitDiagnostic(
+        "callkit.provider.mute.skipped",
+        data: ["reason": "stale_call"]
+      )
+      return
+    }
     muted = action.isMuted
     emitMethod(action.isMuted ? "mute" : "unmute")
     action.fulfill()
@@ -249,11 +276,18 @@ final class ResenhaCallKitCoordinator: NSObject, CXProviderDelegate {
   }
 
   func handleEndAction(_ action: CXEndCallAction) {
-    activeCall = nil
-    muted = false
-    emitMethod("end")
+    if activeCall == action.callUUID {
+      activeCall = nil
+      muted = false
+      emitMethod("end")
+      emitDiagnostic("callkit.provider.end.fulfilled")
+    } else {
+      emitDiagnostic(
+        "callkit.provider.end.skipped",
+        data: ["reason": "stale_call"]
+      )
+    }
     action.fulfill()
-    emitDiagnostic("callkit.provider.end.fulfilled")
   }
 
   func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {

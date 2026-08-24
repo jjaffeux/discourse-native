@@ -226,7 +226,11 @@ final class NativeResenhaSystemCall implements ResenhaSystemCall {
     }
     if (key == 'reason' &&
         value is String &&
-        const {'no_active_call', 'already_in_state'}.contains(value)) {
+        const {
+          'no_active_call',
+          'already_in_state',
+          'stale_call',
+        }.contains(value)) {
       return value;
     }
     if (key == 'route' &&

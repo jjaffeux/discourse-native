@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:discourse_native/src/data/bounded_http_overrides.dart';
 import 'package:discourse_native/src/diagnostics/recording_http.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -541,6 +542,32 @@ void main() {
       },
     );
 
+    test('coalesces overlapping request closes at the delegate', () async {
+      // Closed through the recording request below.
+      // ignore: close_sinks
+      final delegateRequest = _FakeHttpClientRequest(
+        Uri.https('example.com', '/close-once'),
+        _FakeResponse(Stream<List<int>>.value(<int>[1])),
+      );
+      final recorder = _Recorder();
+      final client = RecordingHttpClient(
+        _FakeHttpClient(onGetUrl: (_) async => delegateRequest),
+        recorder,
+      );
+      addTearDown(client.close);
+      final request = await client.getUrl(
+        Uri.https('example.com', '/close-once'),
+      );
+
+      final first = request.close();
+      final overlapping = request.close();
+
+      expect(overlapping, same(first));
+      expect(delegateRequest.closes, 1);
+      await (await first).drain<void>();
+      expect(recorder.updates.last.phase, HttpDiagnosticPhase.completed);
+    });
+
     test('non-forced close delegates without cancelling active work', () async {
       // The test intentionally terminates this request through abort().
       // ignore: close_sinks
@@ -603,6 +630,89 @@ void main() {
         'PROXY delegated.example:1234',
       );
     });
+
+    test('replacement skips the prior recorder and retains its base', () async {
+      final response = _FakeResponse(Stream<List<int>>.value(<int>[1, 2, 3]));
+      final base = _FakeOverrides(
+        client: _FakeHttpClient(
+          onGetUrl: (uri) async => _FakeHttpClientRequest(uri, response),
+        ),
+      );
+      final priorRecorder = _Recorder();
+      final replacementRecorder = _Recorder();
+      final prior = RecordingHttpOverrides(priorRecorder, previous: base);
+      final replacement = RecordingHttpOverrides(
+        replacementRecorder,
+        previous: prior,
+      );
+
+      expect(replacement.previous, same(base));
+      final client = replacement.createHttpClient(null);
+      addTearDown(client.close);
+      final request = await client.getUrl(
+        Uri.https('example.com', '/replacement'),
+      );
+      await (await request.close()).drain<void>();
+
+      expect(base.clientsCreated, 1);
+      expect(priorRecorder.updates, isEmpty);
+      expect(
+        replacementRecorder.updates.map((update) => update.phase),
+        <HttpDiagnosticPhase>[
+          HttpDiagnosticPhase.started,
+          HttpDiagnosticPhase.responseHeaders,
+          HttpDiagnosticPhase.completed,
+        ],
+      );
+    });
+
+    test(
+      'production wrapper order replaces the complete prior app stack',
+      () async {
+        final response = _FakeResponse(Stream<List<int>>.value(<int>[1]));
+        final baseClient = _FakeHttpClient(
+          onGetUrl: (uri) async => _FakeHttpClientRequest(uri, response),
+        );
+        final base = _FakeOverrides(client: baseClient);
+        final priorRecorder = _Recorder();
+        final replacementRecorder = _Recorder();
+
+        // AppBootstrap installs the bounded layer first and recording second.
+        // Repeating that order must not leave Recording1 below Bounded2.
+        final priorBounded = BoundedHttpOverrides(previous: base);
+        final priorRecording = RecordingHttpOverrides(
+          priorRecorder,
+          previous: priorBounded,
+        );
+        final replacementBounded = BoundedHttpOverrides(
+          previous: priorRecording,
+        );
+        final replacementRecording = RecordingHttpOverrides(
+          replacementRecorder,
+          previous: replacementBounded,
+        );
+
+        expect(replacementBounded.previous, same(base));
+        final client = replacementRecording.createHttpClient(null);
+        addTearDown(client.close);
+        final request = await client.getUrl(
+          Uri.https('example.com', '/repeated-bootstrap'),
+        );
+        await (await request.close()).drain<void>();
+
+        expect(base.clientsCreated, 1);
+        expect(baseClient.maxConnectionsPerHost, 4);
+        expect(priorRecorder.updates, isEmpty);
+        expect(
+          replacementRecorder.updates.map((update) => update.phase),
+          <HttpDiagnosticPhase>[
+            HttpDiagnosticPhase.started,
+            HttpDiagnosticPhase.responseHeaders,
+            HttpDiagnosticPhase.completed,
+          ],
+        );
+      },
+    );
   });
 }
 
@@ -630,7 +740,10 @@ final class _ThrowingRecorder implements HttpDiagnosticsRecorder {
 }
 
 final class _FakeOverrides extends HttpOverrides {
-  final _FakeHttpClient client = _FakeHttpClient();
+  _FakeOverrides({_FakeHttpClient? client})
+    : client = client ?? _FakeHttpClient();
+
+  final _FakeHttpClient client;
   int clientsCreated = 0;
 
   @override
@@ -657,6 +770,9 @@ final class _FakeHttpClient implements HttpClient {
   onOpen;
   int closes = 0;
   bool? lastForceClose;
+
+  @override
+  int? maxConnectionsPerHost;
 
   @override
   Future<HttpClientRequest> getUrl(Uri url) {
@@ -696,6 +812,7 @@ final class _FakeHttpClientRequest implements HttpClientRequest {
     : _response = Future<HttpClientResponse>.value(response);
 
   final Future<HttpClientResponse> _response;
+  int closes = 0;
   int aborts = 0;
   Object? abortException;
   StackTrace? abortStackTrace;
@@ -712,7 +829,10 @@ final class _FakeHttpClientRequest implements HttpClientRequest {
   Future<HttpClientResponse> get done => _response;
 
   @override
-  Future<HttpClientResponse> close() => _response;
+  Future<HttpClientResponse> close() {
+    closes += 1;
+    return _response;
+  }
 
   @override
   void abort([Object? exception, StackTrace? stackTrace]) {

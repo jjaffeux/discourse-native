@@ -127,8 +127,10 @@ class FakeUpdater implements Updater {
   int downloadCount = 0;
   int installCount = 0;
   int discardCount = 0;
+  int _discardGeneration = 0;
   UpdateChannel? lastCheckedChannel;
   UpdateRelease? lastDownloaded;
+  UpdateRelease? stagedRelease;
 
   @override
   Future<UpdateRelease?> check({required UpdateChannel channel}) async {
@@ -145,13 +147,16 @@ class FakeUpdater implements Updater {
     UpdateRelease release, {
     void Function(double fraction)? onProgress,
   }) async {
+    final discardGeneration = _discardGeneration;
     downloadCount++;
     lastDownloaded = release;
     for (final step in progressSteps) {
       onProgress?.call(step);
     }
     if (downloadGate != null) await downloadGate!.future;
+    if (discardGeneration != _discardGeneration) return;
     if (downloadFailure != null) throw downloadFailure!;
+    stagedRelease = release;
   }
 
   @override
@@ -163,6 +168,8 @@ class FakeUpdater implements Updater {
   @override
   Future<void> discard() async {
     discardCount++;
+    _discardGeneration++;
+    stagedRelease = null;
   }
 }
 

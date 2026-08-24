@@ -148,6 +148,50 @@ void main() {
     expect(PlatformDispatcher.instance.onError, same(newerPlatformHandler));
   });
 
+  test('nested global handlers survive out-of-order teardown', () {
+    void baselineFlutterHandler(FlutterErrorDetails _) {}
+
+    bool baselinePlatformHandler(Object _, StackTrace _) => true;
+    FlutterError.onError = baselineFlutterHandler;
+    PlatformDispatcher.instance.onError = baselinePlatformHandler;
+
+    final older = DiagnosticsGlobalErrorBinding.install(_RecordingSink());
+    final newer = DiagnosticsGlobalErrorBinding.install(_RecordingSink());
+
+    older.close();
+    expect(FlutterError.onError, isNot(same(baselineFlutterHandler)));
+    expect(
+      PlatformDispatcher.instance.onError,
+      isNot(same(baselinePlatformHandler)),
+    );
+
+    newer.close();
+    expect(FlutterError.onError, same(baselineFlutterHandler));
+    expect(PlatformDispatcher.instance.onError, same(baselinePlatformHandler));
+  });
+
+  test('nested sink bindings survive out-of-order teardown', () {
+    final baseline = _RecordingSink();
+    final baselineBinding = DiagnosticsSink.install(baseline);
+    addTearDown(baselineBinding.close);
+    final older = _RecordingSink();
+    final newer = _RecordingSink();
+    final olderBinding = DiagnosticsSink.install(older);
+    final newerBinding = DiagnosticsSink.install(newer);
+
+    olderBinding.close();
+    expect(DiagnosticsSink.current, same(newer));
+
+    newerBinding.close();
+    expect(DiagnosticsSink.current, same(baseline));
+
+    final repeated = DiagnosticsSink.install(newer);
+    final repeatedAgain = DiagnosticsSink.install(newer);
+    repeated.close();
+    repeatedAgain.close();
+    expect(DiagnosticsSink.current, same(baseline));
+  });
+
   testWidgets(
     'defers diagnostics notifications for errors reported during a frame',
     (tester) async {

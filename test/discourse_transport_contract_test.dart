@@ -5,10 +5,13 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
+import 'package:discourse_native/src/data/origin_cooldown.dart';
 import 'package:discourse_native/src/data/site_appearance_loader.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import 'support/manual_scheduler.dart';
 
 void main() {
   group('Discourse API transport contract', () {
@@ -265,7 +268,15 @@ void main() {
     );
 
     test('a 429 pauses later work for the same origin', () async {
+      final scheduler = ManualScheduler();
       var calls = 0;
+      final coordinator = DiscourseRequestCoordinator(
+        defaultRateLimitCooldown: const Duration(minutes: 1),
+        cooldownFactory: () => OriginCooldown(
+          clock: scheduler.now,
+          timerFactory: scheduler.createTimer,
+        ),
+      );
       final transport = DiscourseTransport(
         SafeHttpClient.owned(
           MockClient((_) async {
@@ -277,7 +288,7 @@ void main() {
         ),
         const Duration(seconds: 1),
         1024,
-        defaultRateLimitCooldown: const Duration(milliseconds: 60),
+        coordinator: coordinator,
       );
       addTearDown(transport.close);
 
@@ -295,25 +306,26 @@ void main() {
         ),
       );
 
-      final stopwatch = Stopwatch()..start();
       final later = transport.get(
         Uri.parse('https://example.com/later.json'),
         siteUrl: 'https://example.com',
       );
-      await Future<void>.delayed(const Duration(milliseconds: 10));
       expect(calls, 1);
+      scheduler.advance(const Duration(seconds: 59));
+      expect(calls, 1);
+      scheduler.advance(const Duration(seconds: 1));
       await later;
-      expect(
-        stopwatch.elapsed,
-        greaterThanOrEqualTo(const Duration(milliseconds: 35)),
-      );
       expect(calls, 2);
     });
 
-    testWidgets('closing the coordinator makes an in-flight 429 inert', (
-      tester,
-    ) async {
-      final coordinator = DiscourseRequestCoordinator();
+    test('closing the coordinator makes an in-flight 429 inert', () async {
+      final scheduler = ManualScheduler();
+      final coordinator = DiscourseRequestCoordinator(
+        cooldownFactory: () => OriginCooldown(
+          clock: scheduler.now,
+          timerFactory: scheduler.createTimer,
+        ),
+      );
       final response = Completer<http.Response>();
       final limited = coordinator.run(
         Uri.parse('https://example.com/limited.json'),
@@ -324,12 +336,11 @@ void main() {
       response.complete(
         http.Response('{}', 429, headers: {'retry-after': '3600'}),
       );
-      await tester.pump();
 
-      // The caller keeps the response it already earned; what must not
-      // survive is the hour-long origin wake timer, which close() has no
-      // queue left to cancel. testWidgets fails on any timer still pending.
+      // The caller keeps the response it already earned, but no wake timer
+      // survives after close has discarded its origin queue.
       expect((await limited).statusCode, 429);
+      expect(scheduler.activeTimerCount, 0);
       await expectLater(
         coordinator.run(
           Uri.parse('https://example.com/later.json'),

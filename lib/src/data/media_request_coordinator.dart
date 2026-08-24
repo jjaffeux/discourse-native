@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
+import 'origin_cooldown.dart';
+
 /// One process-wide backpressure gate for native-managed media requests.
 ///
 /// Avatar and emoji caches use separate HTTP clients. A per-client connection
@@ -15,10 +17,12 @@ final class MediaRequestCoordinator {
     this.maxQueuedPerOrigin = 64,
     this.defaultRateLimitCooldown = const Duration(minutes: 2),
     DateTime Function()? clock,
+    OriginCooldown Function()? cooldownFactory,
   }) : assert(maxConcurrentPerOrigin > 0),
        assert(maxQueuedPerOrigin > 0),
        assert(defaultRateLimitCooldown >= Duration.zero),
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now,
+       _newCooldown = cooldownFactory ?? OriginCooldown.new;
 
   /// Shared by the production avatar and emoji singletons.
   static final shared = MediaRequestCoordinator();
@@ -31,8 +35,12 @@ final class MediaRequestCoordinator {
   final int maxQueuedPerOrigin;
   final Duration defaultRateLimitCooldown;
   final DateTime Function() _clock;
+  final OriginCooldown Function() _newCooldown;
   final Map<String, _MediaOriginQueue> _origins = {};
   bool _closed = false;
+
+  _MediaOriginQueue _createOriginQueue() =>
+      _MediaOriginQueue(cooldown: _newCooldown());
 
   Future<MediaRequestLease> acquire(Uri url, {Uri? relatedUrl}) {
     if (_closed) {
@@ -40,8 +48,8 @@ final class MediaRequestCoordinator {
     }
 
     final origin = url.origin;
-    final queue = _origins.putIfAbsent(origin, _MediaOriginQueue.new);
-    final remaining = _blockedFor(queue);
+    final queue = _origins.putIfAbsent(origin, _createOriginQueue);
+    final remaining = queue.cooldown.remaining;
     if (remaining != null) {
       return Future.error(MediaOriginRateLimitedException(origin, remaining));
     }
@@ -57,20 +65,9 @@ final class MediaRequestCoordinator {
     return pending.result.future;
   }
 
-  Duration? _blockedFor(_MediaOriginQueue queue) {
-    final until = queue.blockedUntil;
-    if (until == null) return null;
-    final remaining = until.difference(_clock());
-    if (remaining > Duration.zero) return remaining;
-    queue.blockedUntil = null;
-    queue.wake?.cancel();
-    queue.wake = null;
-    return null;
-  }
-
   void _drain(String origin, _MediaOriginQueue queue) {
     if (_closed) return;
-    final remaining = _blockedFor(queue);
+    final remaining = queue.cooldown.remaining;
     if (remaining != null) {
       _rejectWaiting(origin, queue, remaining);
       return;
@@ -111,19 +108,16 @@ final class MediaRequestCoordinator {
 
   void _block(String origin, Duration delay) {
     if (_closed) return;
-    final queue = _origins.putIfAbsent(origin, _MediaOriginQueue.new);
-    final until = _clock().add(delay);
-    final held = queue.blockedUntil;
-    if (held == null || until.isAfter(held)) queue.blockedUntil = until;
-
-    final remaining = queue.blockedUntil!.difference(_clock());
-    _rejectWaiting(origin, queue, remaining);
-    queue.wake?.cancel();
-    queue.wake = Timer(remaining, () {
-      queue.wake = null;
-      _blockedFor(queue);
+    final queue = _origins.putIfAbsent(origin, _createOriginQueue);
+    final remaining = queue.cooldown.extend(
+      delay,
+      onExpired: () => _drain(origin, queue),
+    );
+    if (remaining == null) {
       _drain(origin, queue);
-    });
+      return;
+    }
+    _rejectWaiting(origin, queue, remaining);
   }
 
   void _rejectWaiting(
@@ -141,7 +135,7 @@ final class MediaRequestCoordinator {
   void _forgetIdle(String origin, _MediaOriginQueue queue) {
     if (queue.active == 0 &&
         queue.waiting.isEmpty &&
-        queue.blockedUntil == null) {
+        queue.cooldown.remaining == null) {
       _origins.remove(origin);
     }
   }
@@ -173,7 +167,7 @@ final class MediaRequestCoordinator {
     _closed = true;
     final error = StateError('Media request coordinator is closed.');
     for (final queue in _origins.values) {
-      queue.wake?.cancel();
+      queue.cooldown.cancel();
       while (queue.waiting.isNotEmpty) {
         queue.waiting.removeFirst().result.completeError(error);
       }
@@ -229,10 +223,11 @@ final class MediaRequestOverloadException implements Exception {
 }
 
 final class _MediaOriginQueue {
+  _MediaOriginQueue({required this.cooldown});
+
+  final OriginCooldown cooldown;
   final Queue<_PendingMediaRequest> waiting = Queue();
   int active = 0;
-  DateTime? blockedUntil;
-  Timer? wake;
 }
 
 final class _PendingMediaRequest {

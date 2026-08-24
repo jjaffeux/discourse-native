@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/private_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -81,6 +82,58 @@ void main() {
       0x180,
     ); // 0600
   });
+
+  test(
+    'prefix deletion is one gated transaction across storage instances',
+    () async {
+      const prefix = 'discourse_native.draft::https://one.example::';
+      const firstKey = '${prefix}topic_1';
+      const secondKey = '${prefix}topic_2';
+      const laterKey = '${prefix}topic_3';
+      const otherKey = 'discourse_native.draft::https://two.example::topic_1';
+      await storage.write(firstKey, 'first');
+      await storage.write(secondKey, 'second');
+      await storage.write(otherKey, 'other');
+
+      final clearCommitStarted = Completer<void>();
+      final releaseClearCommit = Completer<void>();
+      addTearDown(() {
+        if (!releaseClearCommit.isCompleted) releaseClearCommit.complete();
+      });
+      var clearCommitCount = 0;
+      final clearing = PrivateDraftPersistence(
+        storage: LinuxFileStorage(
+          directory: directory,
+          beforeCommitForTesting: () async {
+            clearCommitCount++;
+            if (clearCommitStarted.isCompleted) return;
+            clearCommitStarted.complete();
+            await releaseClearCommit.future;
+          },
+        ),
+      );
+      final concurrent = PrivateDraftPersistence(
+        storage: LinuxFileStorage(directory: directory),
+      );
+
+      final clear = clearing.deletePrefix(prefix);
+      await clearCommitStarted.future;
+
+      var laterWriteCompleted = false;
+      final laterWrite = concurrent.write(laterKey, 'later').whenComplete(() {
+        laterWriteCompleted = true;
+      });
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(laterWriteCompleted, isFalse);
+
+      releaseClearCommit.complete();
+      await Future.wait([clear, laterWrite]);
+
+      expect(clearCommitCount, 1);
+      expect(await storage.readAll(), {otherKey: 'other', laterKey: 'later'});
+    },
+  );
 
   test('deletes one value without disturbing the rest', () async {
     await storage.write('first', 'one');

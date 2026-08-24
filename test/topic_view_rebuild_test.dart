@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -12,6 +14,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 void main() {
+  test('post index projection scans a retained stream only once', () {
+    final postIds = _CountingIntList([
+      for (var postId = 1; postId <= 10000; postId++) postId,
+      // Keep the old indexOf behavior for a malformed duplicate as well.
+      5000,
+    ]);
+
+    final projection = TopicPostIndexProjection(postIds);
+
+    expect(postIds.reads, postIds.length);
+    postIds.reads = 0;
+    for (var postId = 1; postId <= 10000; postId++) {
+      expect(projection[postId], postId - 1);
+    }
+    expect(projection[5000], 4999);
+    expect(projection[10001], isNull);
+    expect(postIds.reads, 0);
+  });
+
   testWidgets('unrelated shell notifications do not rebuild cooked posts', (
     tester,
   ) async {
@@ -84,4 +105,27 @@ void main() {
     expect(rebuilt, isNot(contains(actions)));
     expect(rebuilt, isNot(contains(actionsSelector)));
   });
+}
+
+final class _CountingIntList extends ListBase<int> {
+  _CountingIntList(this._values);
+
+  final List<int> _values;
+  int reads = 0;
+
+  @override
+  int get length => _values.length;
+
+  @override
+  set length(int value) => throw UnsupportedError('read only');
+
+  @override
+  int operator [](int index) {
+    reads += 1;
+    return _values[index];
+  }
+
+  @override
+  void operator []=(int index, int value) =>
+      throw UnsupportedError('read only');
 }

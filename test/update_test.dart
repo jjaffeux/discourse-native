@@ -45,6 +45,18 @@ final class _CountingUpdateStore extends FakeUpdateStore {
   }
 }
 
+final class _GatedUpdateStore extends FakeUpdateStore {
+  _GatedUpdateStore({required this.readGate, super.rawChannel});
+
+  final Completer<void> readGate;
+
+  @override
+  Future<UpdateChannel?> readChannel() async {
+    await readGate.future;
+    return super.readChannel();
+  }
+}
+
 void main() {
   // UpdateController defers a notification raised mid-frame to a post-frame
   // callback, which reads SchedulerBinding.instance. These are plain tests
@@ -247,6 +259,97 @@ void main() {
       expect(updater.lastCheckedChannel, UpdateChannel.canary);
     });
 
+    test(
+      'a stored channel invalidates a check started while preferences load',
+      () async {
+        final preferencesGate = Completer<void>();
+        final stableGate = Completer<void>();
+        final updater = FakeUpdater(
+          isSupported: true,
+          releases: {
+            UpdateChannel.stable: release('1.4.0'),
+            UpdateChannel.canary: release(
+              '1.5.0-canary.2',
+              channel: UpdateChannel.canary,
+            ),
+          },
+          checkGates: {UpdateChannel.stable: stableGate},
+        );
+        final controller = controllerWith(
+          updater: updater,
+          store: _GatedUpdateStore(
+            readGate: preferencesGate,
+            rawChannel: UpdateChannel.canary.name,
+          ),
+        );
+
+        final loading = controller.load();
+        final oldCheck = controller.check();
+        expect(updater.lastCheckedChannel, UpdateChannel.stable);
+
+        preferencesGate.complete();
+        await loading;
+        expect(controller.channel, UpdateChannel.canary);
+        expect(controller.available?.version, '1.5.0-canary.2');
+
+        stableGate.complete();
+        await oldCheck;
+
+        expect(controller.channel, UpdateChannel.canary);
+        expect(controller.available?.channel, UpdateChannel.canary);
+        expect(controller.available?.version, '1.5.0-canary.2');
+        expect(controller.status, UpdateStatus.available);
+      },
+    );
+
+    test('late channel hydration discards an old-channel download', () async {
+      final preferencesGate = Completer<void>();
+      final downloadGate = Completer<void>();
+      final updater = FakeUpdater(
+        isSupported: true,
+        releases: {
+          UpdateChannel.stable: release('1.4.0'),
+          UpdateChannel.canary: release(
+            '1.5.0-canary.2',
+            channel: UpdateChannel.canary,
+          ),
+        },
+        downloadGate: downloadGate,
+      );
+      final controller = controllerWith(
+        updater: updater,
+        store: _GatedUpdateStore(
+          readGate: preferencesGate,
+          rawChannel: UpdateChannel.canary.name,
+        ),
+      );
+
+      final loading = controller.load();
+      await controller.check();
+      final oldDownload = controller.download();
+      expect(controller.status, UpdateStatus.downloading);
+
+      preferencesGate.complete();
+      await loading;
+
+      expect(updater.discardCount, 1);
+      expect(updater.stagedRelease, isNull);
+      expect(controller.channel, UpdateChannel.canary);
+      expect(controller.available?.version, '1.5.0-canary.2');
+
+      downloadGate.complete();
+      await oldDownload;
+
+      expect(controller.channel, UpdateChannel.canary);
+      expect(controller.available?.version, '1.5.0-canary.2');
+      expect(controller.status, UpdateStatus.available);
+      expect(
+        updater.stagedRelease,
+        isNull,
+        reason: 'discard is a barrier against late old-channel staging',
+      );
+    });
+
     test('load falls back to stable for a channel this build lost', () async {
       final controller = controllerWith(
         store: FakeUpdateStore(rawChannel: 'nightly'),
@@ -369,12 +472,14 @@ void main() {
       await controller.check();
       await controller.download();
       expect(controller.status, UpdateStatus.readyToInstall);
+      expect(updater.stagedRelease?.version, '1.4.0');
 
       await controller.setChannel(UpdateChannel.canary);
 
       // A canary user must not be able to install the stable build they
       // fetched a minute ago, and vice versa.
       expect(updater.discardCount, 1);
+      expect(updater.stagedRelease, isNull);
       expect(controller.status, UpdateStatus.upToDate);
       expect(controller.available, isNull);
     });

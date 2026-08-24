@@ -127,6 +127,57 @@ void main() {
     );
   });
 
+  testWidgets('an appended tail event alone is projected and search-indexed', (
+    tester,
+  ) async {
+    final projected = <String>[];
+    final indexed = <String>[];
+    final harness = _Harness(
+      events: [
+        for (var sequence = 1; sequence <= 2000; sequence += 1)
+          _event(
+            sequence: sequence,
+            event: 'retained.event.$sequence',
+            component: 'capture',
+            message: 'retained-$sequence',
+            data: {'sequence': sequence},
+          ),
+      ],
+    );
+    await _pumpView(
+      tester,
+      harness,
+      onEventProjected: projected.add,
+      onSearchTextBuilt: indexed.add,
+    );
+
+    expect(projected, hasLength(2000));
+    expect(indexed, isEmpty);
+    projected.clear();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('resenha-diagnostics-search')),
+      'retained',
+    );
+    await tester.pump();
+    expect(indexed, hasLength(2000));
+    indexed.clear();
+
+    harness.append(
+      _event(
+        sequence: 2001,
+        event: 'retained.event.2001',
+        component: 'capture',
+        message: 'retained-2001',
+        data: const {'sequence': 2001},
+      ),
+    );
+    await tester.pump();
+
+    expect(projected, ['2001']);
+    expect(indexed, ['2001']);
+  });
+
   testWidgets('copies a bounded recent report and exports the full report', (
     tester,
   ) async {
@@ -195,6 +246,8 @@ Future<void> _pumpView(
   WidgetTester tester,
   _Harness harness, {
   int clipboardByteLimit = 10 * 1024 * 1024,
+  ValueChanged<String>? onEventProjected,
+  ValueChanged<String>? onSearchTextBuilt,
 }) async {
   tester.view.physicalSize = const Size(440, 900);
   tester.view.devicePixelRatio = 1;
@@ -218,6 +271,8 @@ Future<void> _pumpView(
           writeJsonReportTo: harness.writeJsonReportTo,
           exporter: harness.exporter,
           clipboardByteLimit: clipboardByteLimit,
+          onEventProjected: onEventProjected,
+          onSearchTextBuilt: onSearchTextBuilt,
         ),
       ),
     ),
@@ -248,6 +303,11 @@ final class _Harness {
   int reportBuildCount = 0;
   int clipboardBuildCount = 0;
   int streamingWriteCount = 0;
+
+  void append(Map<String, Object?> event) {
+    events.add(event);
+    eventsListenable.notifyListeners();
+  }
 
   Future<void> startCapture() async {
     startCount += 1;

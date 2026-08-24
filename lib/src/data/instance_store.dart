@@ -1,12 +1,11 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
+import 'coalescing_snapshot_writer.dart';
 import 'http_transport.dart';
-import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
 abstract interface class InstancePersistence {
@@ -44,19 +43,16 @@ class InstanceStore {
     : _persistence =
           persistence ?? const SharedPreferencesInstancePersistence();
 
-  static final SerialOperationQueue _operations = SerialOperationQueue();
-
   final InstancePersistence _persistence;
-  String? _pendingSave;
-  Completer<void>? _pendingSaveResult;
-  bool _saving = false;
+  late final CoalescingSnapshotWriter<String> _snapshots =
+      CoalescingSnapshotWriter(
+        owner: _persistence,
+        key: SharedPreferencesInstancePersistence.storageKey,
+        writeSnapshot: _persistSnapshot,
+      );
 
   Future<List<DiscourseInstance>> load() async {
-    final raw = await _operations.run<String?>(
-      owner: _persistence,
-      key: SharedPreferencesInstancePersistence.storageKey,
-      operation: _persistence.read,
-    );
+    final raw = await _snapshots.read(_persistence.read);
     if (raw == null || raw.isEmpty) return const [];
 
     Object? decoded;
@@ -116,54 +112,21 @@ class InstanceStore {
   }
 
   Future<void> save(List<DiscourseInstance> instances) {
-    _pendingSave = jsonEncode(instances.map((i) => i.toJson()).toList());
-    // Every caller waiting behind the active write is waiting for the same
-    // thing: the newest queued snapshot. Sharing its completion keeps a burst
-    // of rail updates at one retained future rather than one per update.
-    final result = _pendingSaveResult ??= Completer<void>();
-    if (!_saving) {
-      _saving = true;
-      unawaited(_drainSaves());
-    }
-    return result.future;
+    final encoded = jsonEncode(instances.map((i) => i.toJson()).toList());
+    return _snapshots.save(encoded);
   }
 
-  Future<void> _drainSaves() async {
+  Future<void> _persistSnapshot(String encoded) async {
     try {
-      while (_pendingSave != null) {
-        final encoded = _pendingSave!;
-        final result = _pendingSaveResult!;
-        _pendingSave = null;
-        _pendingSaveResult = null;
-
-        try {
-          // Coalescing above owns this store's burst. The shared queue also
-          // covers app dependency replacement: an older store's in-flight
-          // rail must never complete after its replacement's newer snapshot.
-          await _operations.run<void>(
-            owner: _persistence,
-            key: SharedPreferencesInstancePersistence.storageKey,
-            operation: () => _persistence.write(encoded),
-          );
-        } catch (error, stackTrace) {
-          reportStorageFailure(
-            error,
-            stackTrace,
-            'instances.save',
-            severity: DiagnosticSeverity.error,
-          );
-          result.completeError(error, stackTrace);
-          continue;
-        }
-
-        result.complete();
-      }
-    } finally {
-      _saving = false;
-      if (_pendingSave != null) {
-        _saving = true;
-        unawaited(_drainSaves());
-      }
+      await _persistence.write(encoded);
+    } catch (error, stackTrace) {
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'instances.save',
+        severity: DiagnosticSeverity.error,
+      );
+      rethrow;
     }
   }
 }

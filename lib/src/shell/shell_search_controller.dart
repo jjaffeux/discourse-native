@@ -64,6 +64,8 @@ typedef _SearchRequest = ({
   int revision,
 });
 
+typedef _RecentSearchRequest = ({String siteUrl, int revision});
+
 /// One transient search interaction, independent from shell navigation.
 ///
 /// Core's search menu has three distinct stages: initial options, modifier
@@ -176,7 +178,8 @@ class ShellSearchController extends ChangeNotifier {
   Object? _focusRegistration;
   Object? _activeField;
   String? _recentSearchesLoadedFor;
-  String? _recentSearchesLoadingFor;
+  int _recentSearchesRevision = 0;
+  _RecentSearchRequest? _recentSearchesRequest;
   bool _disposed = false;
 
   String? get siteUrl => _siteUrl;
@@ -254,6 +257,7 @@ class ShellSearchController extends ChangeNotifier {
       _usePgHeadlinesForExcerpt = usePgHeadlinesForExcerpt;
       _recentSearches = const [];
       _recentSearchesLoadedFor = null;
+      _recentSearchesRevision++;
       clear(notify: true);
       return;
     }
@@ -270,6 +274,7 @@ class ShellSearchController extends ChangeNotifier {
     if (recentSearchRuleChanged) {
       _recentSearches = const [];
       _recentSearchesLoadedFor = null;
+      _recentSearchesRevision++;
     }
     if (searchRulesChanged && _query.trim().isNotEmpty) {
       _schedule(_query, immediate: _mode == SearchMode.topics);
@@ -833,19 +838,25 @@ class ShellSearchController extends ChangeNotifier {
 
   Future<void> _loadRecentSearches() async {
     final siteUrl = _siteUrl;
+    final pending = _recentSearchesRequest;
     if (siteUrl == null ||
         !_logSearchQueries ||
-        _recentSearchesLoadingFor == siteUrl ||
+        (pending?.siteUrl == siteUrl &&
+            pending?.revision == _recentSearchesRevision) ||
         _recentSearchesLoadedFor == siteUrl) {
       return;
     }
-    _recentSearchesLoadingFor = siteUrl;
+    final request = (siteUrl: siteUrl, revision: ++_recentSearchesRevision);
+    _recentSearchesRequest = request;
+    bool ownsRequest() =>
+        !_disposed &&
+        request.revision == _recentSearchesRevision &&
+        request.siteUrl == _siteUrl &&
+        _logSearchQueries;
     final lease = lifecycle.capture(siteUrl);
     try {
       final apiKey = await credentials.apiKeyFor(siteUrl);
-      if (!lease.isCurrent || siteUrl != _siteUrl || !_logSearchQueries) {
-        return;
-      }
+      if (!lease.isCurrent || !ownsRequest()) return;
       if (apiKey == null) {
         _recentSearchesLoadedFor = siteUrl;
         return;
@@ -856,14 +867,12 @@ class ShellSearchController extends ChangeNotifier {
         apiKey: apiKey,
         clientId: clientId,
       );
-      if (!lease.isCurrent || siteUrl != _siteUrl || !_logSearchQueries) {
-        return;
-      }
+      if (!lease.isCurrent || !ownsRequest()) return;
       _recentSearches = recent;
       _recentSearchesLoadedFor = siteUrl;
       _notify();
     } catch (error, stackTrace) {
-      if (lease.isCurrent && siteUrl == _siteUrl) {
+      if (lease.isCurrent && ownsRequest()) {
         _recentSearchesLoadedFor = siteUrl;
         _report(
           error,
@@ -873,9 +882,7 @@ class ShellSearchController extends ChangeNotifier {
         );
       }
     } finally {
-      if (_recentSearchesLoadingFor == siteUrl) {
-        _recentSearchesLoadingFor = null;
-      }
+      if (_recentSearchesRequest == request) _recentSearchesRequest = null;
     }
   }
 
@@ -883,6 +890,7 @@ class ShellSearchController extends ChangeNotifier {
     final siteUrl = _siteUrl;
     if (siteUrl == null || _recentSearches.isEmpty) return;
     final previous = _recentSearches;
+    final revision = ++_recentSearchesRevision;
     _recentSearches = const [];
     _notify();
     final lease = lifecycle.capture(siteUrl);
@@ -896,7 +904,11 @@ class ShellSearchController extends ChangeNotifier {
         clientId: clientId,
       );
     } catch (error, stackTrace) {
-      if (!lease.isCurrent || siteUrl != _siteUrl) return;
+      if (!lease.isCurrent ||
+          siteUrl != _siteUrl ||
+          revision != _recentSearchesRevision) {
+        return;
+      }
       _recentSearches = previous;
       _report(error, stackTrace, operation: 'search.clearRecent');
       _notify();
@@ -907,6 +919,7 @@ class ShellSearchController extends ChangeNotifier {
     if (!_logSearchQueries || term.isEmpty) return;
     final recent = _recentSearches.where((item) => item != term).toList();
     _recentSearches = List.unmodifiable([term, ...recent].take(5));
+    _recentSearchesRevision++;
   }
 
   void recordSelection(SearchResult result) {

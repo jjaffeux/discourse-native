@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../data/bounded_http_overrides.dart';
 import 'diagnostics_redactor.dart';
 
 /// The lifecycle states emitted for one HTTP transaction.
@@ -95,22 +96,27 @@ abstract interface class HttpDiagnosticsRecorder {
 
 /// A process-wide [HttpOverrides] that records clients created through
 /// `HttpClient()` while preserving an override that was already installed.
-final class RecordingHttpOverrides extends HttpOverrides {
+final class RecordingHttpOverrides extends HttpOverrides
+    implements AppHttpOverridesLayer {
   RecordingHttpOverrides(
     this.recorder, {
     HttpOverrides? previous,
     DateTime Function()? clock,
-  }) : previous = previous ?? HttpOverrides.current,
+  }) : previous = _withoutRecordingOverride(previous ?? HttpOverrides.current),
        _clock = clock ?? _utcNow;
 
   final HttpDiagnosticsRecorder recorder;
+
+  @override
   final HttpOverrides? previous;
   final DateTime Function() _clock;
 
   /// Installs this override globally and returns it for later inspection.
   ///
   /// This should be called from the root zone before any HTTP clients are
-  /// created. The currently active override is retained and delegated to.
+  /// created. The currently active non-recording override is retained and
+  /// delegated to; an older recording layer is replaced so one request cannot
+  /// be emitted to both the old and replacement recorders.
   static RecordingHttpOverrides install(
     HttpDiagnosticsRecorder recorder, {
     DateTime Function()? clock,
@@ -380,6 +386,7 @@ final class _RecordingHttpClientRequest implements HttpClientRequest {
   final HttpClientRequest _delegate;
   final _HttpTransaction _transaction;
   Future<HttpClientResponse>? _trackedDone;
+  bool _closeStarted = false;
 
   Future<HttpClientResponse> _track(Future<HttpClientResponse> response) async {
     try {
@@ -441,10 +448,13 @@ final class _RecordingHttpClientRequest implements HttpClientRequest {
 
   @override
   Future<HttpClientResponse> close() {
+    if (_closeStarted) return done;
+    _closeStarted = true;
     try {
       final response = _delegate.close();
       return _trackedDone ??= _track(response);
     } on Object catch (error, stackTrace) {
+      _closeStarted = false;
       _transaction.fail(error, stackTrace);
       rethrow;
     }
@@ -973,6 +983,16 @@ String _safeErrorMessage(Object value) {
     return '$message${offset == null ? '' : ' at $offset'}';
   }
   return _safeToString(value);
+}
+
+HttpOverrides? _withoutRecordingOverride(HttpOverrides? override) {
+  // App bootstrap replacement must keep connection limits and proxy behavior,
+  // but retaining an earlier recording layer would duplicate every event and
+  // keep its obsolete recorder alive for the process lifetime.
+  while (override is RecordingHttpOverrides) {
+    override = override.previous;
+  }
+  return override;
 }
 
 DateTime _utcNow() => DateTime.now().toUtc();

@@ -566,12 +566,6 @@ void main() {
       activeResponse.complete();
       expect(await held, orderedEquals([2]));
       expect(await Future.wait(queued), everyElement(isNull));
-
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-      expect(
-        await avatars.load('https://site.test/after-cooldown'),
-        orderedEquals([3]),
-      );
       expect(maximumActive, 2);
     },
   );

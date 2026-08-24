@@ -295,11 +295,11 @@ final class _LiveTestList extends StatelessWidget {
     child: MaterialApp(
       theme: AppTheme.light,
       home: Scaffold(
-        body: ShellSelector<TopicFeed?>(
-          select: (controller) => controller.currentFeed,
-          builder: (context, feed, _) => feed == null
+        body: ListenableBuilder(
+          listenable: controller.topicFeeds,
+          builder: (context, _) => controller.currentFeed == null
               ? const SizedBox.shrink()
-              : TopicListView(feed: feed),
+              : TopicListView(feed: controller.currentFeed!),
         ),
       ),
     ),

@@ -241,6 +241,38 @@ void main() {
       ]);
     });
 
+    test('a replacement store invalidates another store cached key', () async {
+      const siteUrl = 'https://meta.discourse.org';
+      final storage = _FakeStorage({'api_key::$siteUrl': 'old-key'});
+      final firstStore = SecureStore(storage: storage);
+      final replacementStore = SecureStore(storage: storage);
+
+      expect(await firstStore.readApiKey(siteUrl), 'old-key');
+      await replacementStore.deleteApiKey(siteUrl);
+
+      expect(await firstStore.readApiKey(siteUrl), isNull);
+      expect(storage.events, [
+        'read:api_key::$siteUrl',
+        'delete:api_key::$siteUrl',
+      ]);
+    });
+
+    test('a replacement store replaces another store cached miss', () async {
+      const siteUrl = 'https://meta.discourse.org';
+      final storage = _FakeStorage();
+      final firstStore = SecureStore(storage: storage);
+      final replacementStore = SecureStore(storage: storage);
+
+      expect(await firstStore.readApiKey(siteUrl), isNull);
+      await replacementStore.writeApiKey(siteUrl, 'new-key');
+
+      expect(await firstStore.readApiKey(siteUrl), 'new-key');
+      expect(storage.events, [
+        'read:api_key::$siteUrl',
+        'write:api_key::$siteUrl',
+      ]);
+    });
+
     test(
       'an invalidated platform read returns the newly written key',
       () async {

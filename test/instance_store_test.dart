@@ -320,29 +320,74 @@ void main() {
       expect((await replacementStore.load()).single, latest);
     });
 
-    test('replacement load waits for an in-flight save', () async {
-      const latest = DiscourseInstance(
-        url: 'https://latest.example.com',
-        title: 'Latest',
-      );
-      final gate = Completer<void>();
-      final persistence = ControlledInstancePersistence(firstWriteGate: gate);
-      final oldStore = InstanceStore(persistence: persistence);
-      final replacementStore = InstanceStore(persistence: persistence);
+    test(
+      "replacement save wins over an older store's pending snapshot",
+      () async {
+        const inFlight = DiscourseInstance(
+          url: 'https://in-flight.example.com',
+          title: 'In flight',
+        );
+        const stalePending = DiscourseInstance(
+          url: 'https://stale-pending.example.com',
+          title: 'Stale pending',
+        );
+        const latest = DiscourseInstance(
+          url: 'https://latest.example.com',
+          title: 'Latest',
+        );
+        final gate = Completer<void>();
+        final persistence = ControlledInstancePersistence(firstWriteGate: gate);
+        final oldStore = InstanceStore(persistence: persistence);
+        final replacementStore = InstanceStore(persistence: persistence);
 
-      final saving = oldStore.save([latest]);
-      await persistence.firstWriteStarted.future;
-      final loading = replacementStore.load();
+        final inFlightSave = oldStore.save([inFlight]);
+        await persistence.firstWriteStarted.future;
+        final staleSave = oldStore.save([stalePending]);
+        final latestSave = replacementStore.save([latest]);
 
-      await Future<void>.delayed(Duration.zero);
-      expect(persistence.readCount, 0);
+        await Future<void>.delayed(Duration.zero);
+        expect(persistence.writeCount, 1);
 
-      gate.complete();
-      await saving;
+        gate.complete();
+        await Future.wait([inFlightSave, staleSave, latestSave]);
 
-      expect((await loading).single, latest);
-      expect(persistence.readCount, 1);
-    });
+        expect(persistence.writeCount, 2);
+        expect((await replacementStore.load()).single, latest);
+      },
+    );
+
+    test(
+      'replacement load waits for an in-flight and locally pending save',
+      () async {
+        const inFlight = DiscourseInstance(
+          url: 'https://in-flight.example.com',
+          title: 'In flight',
+        );
+        const latest = DiscourseInstance(
+          url: 'https://latest.example.com',
+          title: 'Latest',
+        );
+        final gate = Completer<void>();
+        final persistence = ControlledInstancePersistence(firstWriteGate: gate);
+        final oldStore = InstanceStore(persistence: persistence);
+        final replacementStore = InstanceStore(persistence: persistence);
+
+        final inFlightSave = oldStore.save([inFlight]);
+        await persistence.firstWriteStarted.future;
+        final latestSave = oldStore.save([latest]);
+        final loading = replacementStore.load();
+
+        await Future<void>.delayed(Duration.zero);
+        expect(persistence.readCount, 0);
+
+        gate.complete();
+        await Future.wait([inFlightSave, latestSave]);
+
+        expect((await loading).single, latest);
+        expect(persistence.readCount, 1);
+        expect(persistence.writeCount, 2);
+      },
+    );
   });
 }
 

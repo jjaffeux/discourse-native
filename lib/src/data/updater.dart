@@ -164,10 +164,15 @@ abstract interface class Updater {
   /// able to say so rather than hang forever.
   Future<void> installAndRestart();
 
-  /// Throws away anything staged.
+  /// Cancels update work and throws away anything staged.
   ///
   /// Called when the channel changes, so a canary build downloaded a moment ago
   /// cannot be installed by someone who has since asked for stable.
+  ///
+  /// This is also the adapter's cancellation barrier: once the returned Future
+  /// completes, no check or download started before this call may stage a
+  /// payload later. Controllers rely on that guarantee when preference
+  /// hydration changes channels while startup work is still in flight.
   Future<void> discard();
 }
 

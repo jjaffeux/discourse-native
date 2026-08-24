@@ -96,7 +96,7 @@ class UpdateController extends FrameSafeNotifier {
   Future<void> load() async {
     if (isDisposed || !isSupported) return;
 
-    final revision = _revision;
+    var revision = _revision;
     final UpdateChannel? storedChannel;
     final DateTime? storedLastChecked;
     try {
@@ -115,13 +115,29 @@ class UpdateController extends FrameSafeNotifier {
     }
     if (!_isCurrent(revision)) return;
 
-    _channel = storedChannel ?? AppRelease.defaultChannel;
+    var mustCheckHydratedChannel = false;
+    final channel = storedChannel ?? AppRelease.defaultChannel;
+    if (channel != _channel) {
+      // Preference hydration normally wins before anybody can interact with
+      // the updater. If startup I/O is unusually slow, however, a user may
+      // already have staged (or started staging) a release on the built-in
+      // channel. Invalidate its callbacks first, then make the adapter remove
+      // that old-channel artifact before checking the stored channel.
+      if (_status == UpdateStatus.installing) return;
+      mustCheckHydratedChannel = _status != UpdateStatus.idle;
+      _resetForChannel(channel);
+      revision = _revision;
+      await _discardForChannelChange('updater.discardHydratedChannel');
+      if (!_isCurrent(revision)) return;
+    }
     _lastChecked = storedLastChecked;
     notifySafely();
     if (!_isCurrent(revision)) return;
 
     final last = _lastChecked;
-    if (last == null || DateTime.now().difference(last) >= _recheckAfter) {
+    if (mustCheckHydratedChannel ||
+        last == null ||
+        DateTime.now().difference(last) >= _recheckAfter) {
       await check(silent: true);
     }
   }
@@ -145,14 +161,15 @@ class UpdateController extends FrameSafeNotifier {
     final previous = _status;
     final revision = _revision;
     final channel = _channel;
+    bool checkIsCurrent() => _isCurrent(revision) && channel == _channel;
     _status = UpdateStatus.checking;
     if (!silent) _error = null;
     notifySafely();
-    if (!_isCurrent(revision)) return;
+    if (!checkIsCurrent()) return;
 
     try {
       final release = await updater.check(channel: channel);
-      if (!_isCurrent(revision)) return;
+      if (!checkIsCurrent()) return;
 
       _lastChecked = DateTime.now();
       store.writeLastChecked(_lastChecked!).ignore();
@@ -162,7 +179,7 @@ class UpdateController extends FrameSafeNotifier {
           ? UpdateStatus.upToDate
           : UpdateStatus.available;
     } on UpdateException catch (e, stackTrace) {
-      if (!_isCurrent(revision)) return;
+      if (!checkIsCurrent()) return;
       _report(e, stackTrace, 'updater.check');
       if (silent) {
         // Put back whatever was on screen before, so a failed background check
@@ -173,7 +190,7 @@ class UpdateController extends FrameSafeNotifier {
         _status = UpdateStatus.failed;
       }
     } finally {
-      if (_isCurrent(revision)) notifySafely();
+      if (checkIsCurrent()) notifySafely();
     }
   }
 
@@ -250,13 +267,8 @@ class UpdateController extends FrameSafeNotifier {
       return Future<void>.value();
     }
 
-    _revision++;
     _queuedChannel = channel;
-    _channel = channel;
-    _available = null;
-    _progress = 0;
-    _error = null;
-    _status = UpdateStatus.idle;
+    _resetForChannel(channel);
     notifySafely();
 
     return _channelChangeTask ??= _drainChannelChanges();
@@ -284,18 +296,7 @@ class UpdateController extends FrameSafeNotifier {
         }
         if (!_isCurrent(revision) || _queuedChannel != null) continue;
 
-        try {
-          await updater.discard();
-        } on UpdateException catch (error, stackTrace) {
-          _report(
-            error,
-            stackTrace,
-            'updater.discard',
-            severity: DiagnosticSeverity.warning,
-          );
-          // Nothing staged, or it could not be removed. Neither is worth
-          // telling the user about, and the check below is what they await.
-        }
+        await _discardForChannelChange('updater.discard');
         if (!_isCurrent(revision) || _queuedChannel != null) continue;
 
         await check();
@@ -303,6 +304,30 @@ class UpdateController extends FrameSafeNotifier {
     } finally {
       _channelChangeTask = null;
     }
+  }
+
+  Future<void> _discardForChannelChange(String operation) async {
+    try {
+      await updater.discard();
+    } on UpdateException catch (error, stackTrace) {
+      _report(
+        error,
+        stackTrace,
+        operation,
+        severity: DiagnosticSeverity.warning,
+      );
+      // Nothing staged, or it could not be removed. Neither is worth telling
+      // the user about; the check which follows is the useful outcome.
+    }
+  }
+
+  void _resetForChannel(UpdateChannel channel) {
+    _revision++;
+    _channel = channel;
+    _available = null;
+    _progress = 0;
+    _error = null;
+    _status = UpdateStatus.idle;
   }
 
   /// Whole percent only. A download reports far more often than that, and a

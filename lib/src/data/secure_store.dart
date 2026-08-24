@@ -52,6 +52,9 @@ class SecureStore {
       PreferencesClientIdPersistence();
   static final SerialOperationQueue _clientIdOperations =
       SerialOperationQueue();
+  static final Expando<_ApiKeyState> _apiKeyStates = Expando<_ApiKeyState>(
+    'SecureStore API-key state',
+  );
 
   final PrivateStorage _storage;
   final PrivateStorage? _legacyClientIds;
@@ -60,10 +63,13 @@ class SecureStore {
 
   String? _clientId;
   Future<String>? _clientIdRequest;
-  final Map<String, String?> _apiKeys = {};
-  final Map<String, Future<String?>> _apiKeyRequests = {};
-  final Map<String, Future<void>> _apiKeyMutations = {};
-  final Map<String, Object> _apiKeyVersions = {};
+  late final _ApiKeyState _apiKeyState = _apiKeyStates[_storage] ??=
+      _ApiKeyState();
+
+  Map<String, String?> get _apiKeys => _apiKeyState.keys;
+  Map<String, Future<String?>> get _apiKeyRequests => _apiKeyState.requests;
+  Map<String, Future<void>> get _apiKeyMutations => _apiKeyState.mutations;
+  Map<String, Object> get _apiKeyVersions => _apiKeyState.versions;
 
   static String _apiKeyEntry(String siteUrl) => 'api_key::$siteUrl';
 
@@ -119,12 +125,13 @@ class SecureStore {
     return created;
   }
 
-  /// Reads a site's key once per process and coalesces the initial lookup.
+  /// Reads a site's key once per storage owner and coalesces the initial lookup.
   ///
   /// API calls ask for credentials independently, often several at launch.
   /// Persistent storage is an I/O boundary, not an in-memory map, so keeping the
   /// stable result here avoids paying for the same platform round trip before
-  /// every request. Writes and deletes invalidate pending reads synchronously.
+  /// every request. Replacement stores share this state, so their writes and
+  /// deletes invalidate cached or pending reads synchronously too.
   Future<String?> readApiKey(String siteUrl) async {
     if (_apiKeys.containsKey(siteUrl)) return _apiKeys[siteUrl];
 
@@ -262,4 +269,11 @@ class SecureStore {
     final values = List<int>.generate(bytes, (_) => random.nextInt(256));
     return base64Url.encode(values).replaceAll('=', '');
   }
+}
+
+final class _ApiKeyState {
+  final Map<String, String?> keys = {};
+  final Map<String, Future<String?>> requests = {};
+  final Map<String, Future<void>> mutations = {};
+  final Map<String, Object> versions = {};
 }

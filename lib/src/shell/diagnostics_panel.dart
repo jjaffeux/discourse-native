@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -52,6 +53,8 @@ class DiagnosticsPanel extends StatefulWidget {
 class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
   final TextEditingController _search = TextEditingController();
   final ScrollController _timeline = ScrollController();
+  final ResenhaDiagnosticsTimelineProjection _resenhaTimeline =
+      ResenhaDiagnosticsTimelineProjection();
   late final ResenhaReportExporter _resenhaReportExporter =
       widget.resenhaReportExporter ?? NativeResenhaReportExporter();
   bool _showResenha = false;
@@ -61,6 +64,10 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
     super.didUpdateWidget(oldWidget);
     if (!identical(widget.controller, oldWidget.controller)) {
       _search.text = widget.controller.panelState.query;
+    }
+    if (!identical(widget.controller, oldWidget.controller) ||
+        !identical(widget.resenhaController, oldWidget.resenhaController)) {
+      _resenhaTimeline.clear();
     }
     if (widget.resenhaController == null) _showResenha = false;
   }
@@ -174,7 +181,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
           truncated: state.truncated,
         );
       },
-      readEvents: () => _resenhaTimelineEvents(
+      readEvents: () => _resenhaTimeline.project(
         controller.eventsTail,
         widget.controller.events,
       ),
@@ -976,40 +983,150 @@ String _eventSemantics(DiagnosticEvent event) => [
   _eventDuration(event),
 ].where((part) => part.isNotEmpty).join(', ');
 
-List<Map<String, Object?>> _resenhaTimelineEvents(
-  List<ResenhaDiagnosticRecord> deepEvents,
-  List<DiagnosticEvent> ordinaryEvents,
-) {
-  final capturedOrdinaryIds = <String>{
-    for (final event in deepEvents)
-      if (event.data[resenhaDiagnosticsEventIdField] case final String id) id,
-  };
-  final timeline =
-      <({DateTime timestamp, String identity, Map<String, Object?> json})>[
-        for (final event in ordinaryEvents)
-          if (_isResenhaOrdinaryEvent(event) &&
-              !_duplicatesDeepEvent(event, capturedOrdinaryIds))
-            (
-              timestamp: event.timestampUtc,
-              identity: 'ordinary:${event.id}',
-              json: _ordinaryResenhaEventJson(event),
-            ),
-        for (final event in deepEvents)
-          (
-            timestamp: event.timestampUtc,
-            identity: 'deep:${event.captureId}:${event.sequence}',
-            json: {
-              ...event.toJson(),
-              'id': 'deep:${event.captureId}:${event.sequence}',
-              'origin': 'deep',
-            },
-          ),
-      ];
-  timeline.sort((left, right) {
+typedef _ResenhaTimelineKey = ({DateTime timestamp, String identity});
+typedef _ResenhaTimelineEntry = ({
+  Object source,
+  _ResenhaTimelineKey key,
+  Map<String, Object?> json,
+});
+
+/// Retains JSON projections while their immutable recorder events are current.
+///
+/// Each recorder already publishes its history in stable event objects. Ordered
+/// maps preserve the timeline's timestamp-and-identity tie break across updates,
+/// leaving each publication as one linear merge instead of a full re-projection
+/// and sort.
+final class ResenhaDiagnosticsTimelineProjection {
+  ResenhaDiagnosticsTimelineProjection({this.onEventProjected});
+
+  @visibleForTesting
+  final ValueChanged<String>? onEventProjected;
+
+  final Map<String, _ResenhaTimelineEntry> _deepByIdentity = {};
+  final Map<String, _ResenhaTimelineEntry> _ordinaryByIdentity = {};
+  final SplayTreeMap<_ResenhaTimelineKey, _ResenhaTimelineEntry> _deepByOrder =
+      SplayTreeMap(_compareKeys);
+  final SplayTreeMap<_ResenhaTimelineKey, _ResenhaTimelineEntry>
+  _ordinaryByOrder = SplayTreeMap(_compareKeys);
+
+  List<Map<String, Object?>> project(
+    List<ResenhaDiagnosticRecord> deepEvents,
+    List<DiagnosticEvent> ordinaryEvents,
+  ) {
+    final capturedOrdinaryIds = <String>{};
+    final seenDeep = <String>{};
+    for (final event in deepEvents) {
+      if (event.data[resenhaDiagnosticsEventIdField] case final String id) {
+        capturedOrdinaryIds.add(id);
+      }
+      final identity = 'deep:${event.captureId}:${event.sequence}';
+      seenDeep.add(identity);
+      if (identical(_deepByIdentity[identity]?.source, event)) continue;
+      _upsert(
+        source: event,
+        key: (timestamp: event.timestampUtc, identity: identity),
+        json: Map.unmodifiable({
+          ...event.toJson(),
+          'id': identity,
+          'origin': 'deep',
+        }),
+        byIdentity: _deepByIdentity,
+        byOrder: _deepByOrder,
+      );
+    }
+    _removeMissing(seenDeep, _deepByIdentity, _deepByOrder);
+
+    final seenOrdinary = <String>{};
+    for (final event in ordinaryEvents) {
+      if (!_isResenhaOrdinaryEvent(event) ||
+          _duplicatesDeepEvent(event, capturedOrdinaryIds)) {
+        continue;
+      }
+      final identity = 'ordinary:${event.id}';
+      seenOrdinary.add(identity);
+      if (identical(_ordinaryByIdentity[identity]?.source, event)) continue;
+      _upsert(
+        source: event,
+        key: (timestamp: event.timestampUtc, identity: identity),
+        json: _ordinaryResenhaEventJson(event),
+        byIdentity: _ordinaryByIdentity,
+        byOrder: _ordinaryByOrder,
+      );
+    }
+    _removeMissing(seenOrdinary, _ordinaryByIdentity, _ordinaryByOrder);
+
+    return _merge();
+  }
+
+  void clear() {
+    _deepByIdentity.clear();
+    _ordinaryByIdentity.clear();
+    _deepByOrder.clear();
+    _ordinaryByOrder.clear();
+  }
+
+  void _upsert({
+    required Object source,
+    required _ResenhaTimelineKey key,
+    required Map<String, Object?> json,
+    required Map<String, _ResenhaTimelineEntry> byIdentity,
+    required SplayTreeMap<_ResenhaTimelineKey, _ResenhaTimelineEntry> byOrder,
+  }) {
+    final held = byIdentity[key.identity];
+    if (held != null) byOrder.remove(held.key);
+
+    final entry = (source: source, key: key, json: json);
+    byIdentity[key.identity] = entry;
+    byOrder[key] = entry;
+    onEventProjected?.call(key.identity);
+  }
+
+  void _removeMissing(
+    Set<String> seen,
+    Map<String, _ResenhaTimelineEntry> byIdentity,
+    SplayTreeMap<_ResenhaTimelineKey, _ResenhaTimelineEntry> byOrder,
+  ) {
+    final removed = [
+      for (final identity in byIdentity.keys)
+        if (!seen.contains(identity)) identity,
+    ];
+    for (final identity in removed) {
+      final entry = byIdentity.remove(identity);
+      if (entry != null) byOrder.remove(entry.key);
+    }
+  }
+
+  List<Map<String, Object?>> _merge() {
+    final deep = _deepByOrder.values.iterator;
+    final ordinary = _ordinaryByOrder.values.iterator;
+    var hasDeep = deep.moveNext();
+    var hasOrdinary = ordinary.moveNext();
+    final merged = <Map<String, Object?>>[];
+
+    while (hasDeep && hasOrdinary) {
+      if (_compareKeys(deep.current.key, ordinary.current.key) <= 0) {
+        merged.add(deep.current.json);
+        hasDeep = deep.moveNext();
+      } else {
+        merged.add(ordinary.current.json);
+        hasOrdinary = ordinary.moveNext();
+      }
+    }
+    while (hasDeep) {
+      merged.add(deep.current.json);
+      hasDeep = deep.moveNext();
+    }
+    while (hasOrdinary) {
+      merged.add(ordinary.current.json);
+      hasOrdinary = ordinary.moveNext();
+    }
+    return List.unmodifiable(merged);
+  }
+
+  static int _compareKeys(_ResenhaTimelineKey left, _ResenhaTimelineKey right) {
     final timestamp = left.timestamp.compareTo(right.timestamp);
     return timestamp != 0 ? timestamp : left.identity.compareTo(right.identity);
-  });
-  return List.unmodifiable([for (final entry in timeline) entry.json]);
+  }
 }
 
 Map<String, Object?> _ordinaryResenhaEventJson(DiagnosticEvent event) {

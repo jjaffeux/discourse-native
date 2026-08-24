@@ -68,6 +68,12 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, DateTime> _totalsAttemptedAt = {};
   final Map<String, DiscourseInstance> _pendingTotals = {};
   final Map<String, Completer<NotificationTotals?>> _pendingTotalsWaiters = {};
+  final Map<String, Completer<NotificationTotals?>> _replayingTotalsWaiters =
+      {};
+  final Map<String, Future<void>> _notificationTasks = {};
+  final Map<String, Future<void>> _replyNotificationTasks = {};
+  final Map<String, Future<void>> _chatNotificationTasks = {};
+  final Map<String, Future<void>> _bookmarkTasks = {};
   final Map<String, Object> _notificationRequests = {};
   final Map<String, Object> _replyNotificationRequests = {};
   final Map<String, Object> _chatNotificationRequests = {};
@@ -201,13 +207,20 @@ final class AccountActivityController extends FrameSafeNotifier {
       return;
     }
 
+    _replayingTotalsWaiters[siteUrl] = waiter;
     final replay = _startTotalsRefresh(pending);
     unawaited(
       replay.then<void>(
         (totals) {
+          if (identical(_replayingTotalsWaiters[siteUrl], waiter)) {
+            _replayingTotalsWaiters.remove(siteUrl);
+          }
           if (!waiter.isCompleted) waiter.complete(totals);
         },
         onError: (Object error, StackTrace stackTrace) {
+          if (identical(_replayingTotalsWaiters[siteUrl], waiter)) {
+            _replayingTotalsWaiters.remove(siteUrl);
+          }
           if (!waiter.isCompleted) waiter.completeError(error, stackTrace);
         },
       ),
@@ -215,51 +228,106 @@ final class AccountActivityController extends FrameSafeNotifier {
   }
 
   Future<void> loadNotifications(DiscourseInstance instance) =>
-      _loadNotificationFeed(
-        instance,
-        feeds: _notifications,
-        requests: _notificationRequests,
-        fetch: (apiKey) =>
-            api.notifications(siteUrl: instance.url, apiKey: apiKey),
-        reconnectMessage: 'Reconnect to ${instance.host} to see notifications.',
-        failureMessage: "Couldn't load notifications from ${instance.host}.",
-        operation: 'account.loadNotifications',
-        notify: _notifyNotifications,
+      _coalescedActivityLoad(
+        instance.url,
+        tasks: _notificationTasks,
+        start: () => _loadNotificationFeed(
+          instance,
+          feeds: _notifications,
+          requests: _notificationRequests,
+          fetch: (apiKey) =>
+              api.notifications(siteUrl: instance.url, apiKey: apiKey),
+          reconnectMessage:
+              'Reconnect to ${instance.host} to see notifications.',
+          failureMessage: "Couldn't load notifications from ${instance.host}.",
+          operation: 'account.loadNotifications',
+          notify: _notifyNotifications,
+        ),
       );
 
   Future<void> loadReplyNotifications(DiscourseInstance instance) =>
-      _loadNotificationFeed(
-        instance,
-        feeds: _replyNotifications,
-        requests: _replyNotificationRequests,
-        fetch: (apiKey) => api.notifications(
-          siteUrl: instance.url,
-          apiKey: apiKey,
-          filterByTypes: userMenuReplyNotificationKinds,
+      _coalescedActivityLoad(
+        instance.url,
+        tasks: _replyNotificationTasks,
+        start: () => _loadNotificationFeed(
+          instance,
+          feeds: _replyNotifications,
+          requests: _replyNotificationRequests,
+          fetch: (apiKey) => api.notifications(
+            siteUrl: instance.url,
+            apiKey: apiKey,
+            filterByTypes: userMenuReplyNotificationKinds,
+          ),
+          reconnectMessage: 'Reconnect to ${instance.host} to see replies.',
+          failureMessage: "Couldn't load replies from ${instance.host}.",
+          operation: 'account.loadReplyNotifications',
+          notify: _notifyReplyNotifications,
         ),
-        reconnectMessage: 'Reconnect to ${instance.host} to see replies.',
-        failureMessage: "Couldn't load replies from ${instance.host}.",
-        operation: 'account.loadReplyNotifications',
-        notify: _notifyReplyNotifications,
       );
 
   Future<void> loadChatNotifications(DiscourseInstance instance) =>
-      _loadNotificationFeed(
-        instance,
-        feeds: _chatNotifications,
-        requests: _chatNotificationRequests,
-        fetch: (apiKey) => api.notifications(
-          siteUrl: instance.url,
-          apiKey: apiKey,
-          filterByTypes: userMenuChatNotificationKinds,
+      _coalescedActivityLoad(
+        instance.url,
+        tasks: _chatNotificationTasks,
+        start: () => _loadNotificationFeed(
+          instance,
+          feeds: _chatNotifications,
+          requests: _chatNotificationRequests,
+          fetch: (apiKey) => api.notifications(
+            siteUrl: instance.url,
+            apiKey: apiKey,
+            filterByTypes: userMenuChatNotificationKinds,
+          ),
+          reconnectMessage:
+              'Reconnect to ${instance.host} to see chat notifications.',
+          failureMessage:
+              "Couldn't load chat notifications from ${instance.host}.",
+          operation: 'account.loadChatNotifications',
+          notify: _notifyChatNotifications,
         ),
-        reconnectMessage:
-            'Reconnect to ${instance.host} to see chat notifications.',
-        failureMessage:
-            "Couldn't load chat notifications from ${instance.host}.",
-        operation: 'account.loadChatNotifications',
-        notify: _notifyChatNotifications,
       );
+
+  Future<void> _coalescedActivityLoad(
+    String siteUrl, {
+    required Map<String, Future<void>> tasks,
+    required Future<void> Function() start,
+  }) {
+    if (isDisposed) return Future<void>.value();
+    final active = tasks[siteUrl];
+    if (active != null) return active;
+
+    final result = Completer<void>();
+    final task = result.future;
+    // Publish the shared future before [start]. Loading state notifications can
+    // synchronously re-enter through a listener, and that caller must join the
+    // same task rather than start a duplicate request.
+    tasks[siteUrl] = task;
+
+    void finish([Object? error, StackTrace? stackTrace]) {
+      if (identical(tasks[siteUrl], task)) {
+        final _ = tasks.remove(siteUrl);
+      }
+      if (result.isCompleted) return;
+      if (error == null) {
+        result.complete();
+      } else {
+        result.completeError(error, stackTrace!);
+      }
+    }
+
+    try {
+      unawaited(
+        start().then<void>(
+          (_) => finish(),
+          onError: (Object error, StackTrace stackTrace) =>
+              finish(error, stackTrace),
+        ),
+      );
+    } catch (error, stackTrace) {
+      finish(error, stackTrace);
+    }
+    return task;
+  }
 
   Future<void> _loadNotificationFeed(
     DiscourseInstance instance, {
@@ -346,7 +414,14 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
   }
 
-  Future<void> loadBookmarks(DiscourseInstance instance) async {
+  Future<void> loadBookmarks(DiscourseInstance instance) =>
+      _coalescedActivityLoad(
+        instance.url,
+        tasks: _bookmarkTasks,
+        start: () => _loadBookmarks(instance),
+      );
+
+  Future<void> _loadBookmarks(DiscourseInstance instance) async {
     if (isDisposed) return;
     final username = instance.user?.username;
     if (username == null) return;
@@ -553,6 +628,14 @@ final class AccountActivityController extends FrameSafeNotifier {
     abandonedTotals?.ignore();
     _pendingTotals.remove(siteUrl);
     _pendingTotalsWaiters.remove(siteUrl)?.complete(null);
+    final replayingTotalsWaiter = _replayingTotalsWaiters.remove(siteUrl);
+    if (replayingTotalsWaiter != null && !replayingTotalsWaiter.isCompleted) {
+      replayingTotalsWaiter.complete(null);
+    }
+    _notificationTasks.remove(siteUrl)?.ignore();
+    _replyNotificationTasks.remove(siteUrl)?.ignore();
+    _chatNotificationTasks.remove(siteUrl)?.ignore();
+    _bookmarkTasks.remove(siteUrl)?.ignore();
     _notificationRequests.remove(siteUrl);
     _replyNotificationRequests.remove(siteUrl);
     _chatNotificationRequests.remove(siteUrl);
@@ -660,9 +743,22 @@ final class AccountActivityController extends FrameSafeNotifier {
     for (final waiter in _pendingTotalsWaiters.values) {
       if (!waiter.isCompleted) waiter.complete(null);
     }
+    for (final waiter in _replayingTotalsWaiters.values) {
+      if (!waiter.isCompleted) waiter.complete(null);
+    }
     _pendingTotalsWaiters.clear();
+    _replayingTotalsWaiters.clear();
     _pendingTotals.clear();
     _totalsTasks.clear();
+    _notificationTasks.clear();
+    _replyNotificationTasks.clear();
+    _chatNotificationTasks.clear();
+    _bookmarkTasks.clear();
+    _totalsRequests.clear();
+    _notificationRequests.clear();
+    _replyNotificationRequests.clear();
+    _chatNotificationRequests.clear();
+    _bookmarkRequests.clear();
     _notificationReadRequests.clear();
     _locallyReadNotificationIds.clear();
     _totalsChanges.dispose();

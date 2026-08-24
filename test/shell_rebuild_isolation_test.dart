@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
@@ -7,6 +9,7 @@ import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
@@ -189,6 +192,145 @@ void main() {
   });
 
   testWidgets(
+    'pagination updates the feed without rebuilding unrelated shell chrome',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final site = instance('meta.discourse.org', title: 'Meta');
+      final pageGate = Completer<void>();
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': _topics(1, 40),
+          '/latest.json?page=1': _topics(41, 1),
+        },
+        nextPages: const {'/latest.json': '/latest?page=1'},
+        creatableFeedPaths: const {'/latest.json'},
+        feedGates: {'/latest.json?page=1': pageGate},
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([site]),
+        api: api,
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      for (
+        var attempt = 0;
+        attempt < 20 &&
+            (controller.currentFeed?.loaded != true ||
+                !controller.categoryFeedFor(site.url).loaded);
+        attempt++
+      ) {
+        await tester.pump();
+      }
+      expect(controller.currentFeed?.loaded, isTrue);
+      expect(controller.categoryFeedFor(site.url).loaded, isTrue);
+      var shellNotifications = 0;
+      void countShellNotification() => shellNotifications++;
+      controller.addListener(countShellNotification);
+      addTearDown(() => controller.removeListener(countShellNotification));
+
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const AdaptiveShell(),
+          ),
+        ),
+      );
+
+      expect(find.byType(TopicCreateButton), findsOneWidget);
+
+      final rail = tester.element(find.byType(InstanceRail));
+      final sidebar = tester.element(find.byType(InstanceSidebar));
+      final content = tester.element(find.byType(MainContent));
+      final contentSelector = _onlyChild(content);
+      final tabBar = tester.element(find.byType(ForumTabsBar));
+      final createAction = tester.element(find.byType(TopicCreateButton));
+      final list = tester.element(find.byType(TopicListView));
+      final rebuilds = <Element, int>{};
+      final previousRebuildCallback = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        rebuilds.update(element, (count) => count + 1, ifAbsent: () => 1);
+        previousRebuildCallback?.call(element, builtOnce);
+      };
+      addTearDown(() {
+        debugOnRebuildDirtyWidget = previousRebuildCallback;
+      });
+
+      final paging = controller.currentFeed!.loadingMore
+          ? null
+          : controller.loadMoreFeed('latest');
+      for (
+        var attempt = 0;
+        attempt < 20 && !api.feedPaths.contains('/latest.json?page=1');
+        attempt++
+      ) {
+        await tester.pump();
+      }
+      await tester.pump();
+
+      expect(api.feedPaths, contains('/latest.json?page=1'));
+      expect(controller.currentFeed?.loadingMore, isTrue);
+      expect(
+        tester
+            .widget<TopicListView>(find.byType(TopicListView))
+            .feed
+            .loadingMore,
+        isTrue,
+      );
+      expect(shellNotifications, 0);
+      for (final chrome in [
+        rail,
+        sidebar,
+        content,
+        contentSelector,
+        tabBar,
+        createAction,
+      ]) {
+        expect(rebuilds[chrome] ?? 0, 0);
+      }
+      expect(rebuilds[list] ?? 0, greaterThan(0));
+
+      rebuilds.clear();
+      pageGate.complete();
+      await paging;
+      for (
+        var attempt = 0;
+        attempt < 20 && controller.currentFeed?.loadingMore == true;
+        attempt++
+      ) {
+        await tester.pump();
+      }
+      await tester.pump();
+
+      expect(controller.currentFeed?.topicIds.last, 41);
+      final renderedFeed = tester
+          .widget<TopicListView>(find.byType(TopicListView))
+          .feed;
+      expect(renderedFeed.topicIds.last, 41);
+      expect(renderedFeed.loadingMore, isFalse);
+      expect(shellNotifications, 0);
+      for (final chrome in [
+        rail,
+        sidebar,
+        content,
+        contentSelector,
+        tabBar,
+        createAction,
+      ]) {
+        expect(rebuilds[chrome] ?? 0, 0);
+      }
+      expect(rebuilds[list] ?? 0, greaterThan(0));
+    },
+  );
+
+  testWidgets(
     'closing an inactive tab updates the bar without rebuilding the viewport',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1000, 700));
@@ -334,3 +476,8 @@ Element _onlyChild(Element parent) {
   expect(children, hasLength(1));
   return children.single;
 }
+
+List<Topic> _topics(int first, int count) => [
+  for (var id = first; id < first + count; id++)
+    Topic(id: id, title: 'Topic $id', slug: 'topic-$id'),
+];

@@ -48,6 +48,52 @@ List<String> _names(MarkdownRun run) => [
     if (run.has(flag)) name,
 ];
 
+const int _minimumBenchmarkSampleMicros = 25000;
+
+/// The fastest per-scan cost from batches long enough to outlive timer noise.
+///
+/// One scan of the smaller fixture can take less than a millisecond. Coverage
+/// instrumentation, JIT work, or one scheduler interruption can then dominate
+/// the ratio this benchmark uses to distinguish linear growth from quadratic
+/// growth. Warm the path and increase the batch until every measured sample
+/// spans at least 25ms; the 25x tolerance still sits well between the expected
+/// 8x linear growth and the regressed 64x quadratic growth.
+double _stableScanCost(String source) {
+  var checksum = scanMarkdown(source).length;
+
+  var iterations = 1;
+  while (true) {
+    final calibration = _scanBatch(source, iterations);
+    checksum += calibration.checksum;
+    if (calibration.elapsedMicros >= _minimumBenchmarkSampleMicros ||
+        iterations >= 256) {
+      break;
+    }
+    iterations *= 2;
+  }
+
+  var best = double.infinity;
+  for (var sample = 0; sample < 3; sample += 1) {
+    final batch = _scanBatch(source, iterations);
+    checksum += batch.checksum;
+    if (batch.elapsedMicros < best) {
+      best = batch.elapsedMicros.toDouble();
+    }
+  }
+  expect(checksum, isPositive);
+  return best / iterations;
+}
+
+({int elapsedMicros, int checksum}) _scanBatch(String source, int iterations) {
+  var checksum = 0;
+  final elapsed = Stopwatch()..start();
+  for (var iteration = 0; iteration < iterations; iteration += 1) {
+    checksum += scanMarkdown(source).length;
+  }
+  elapsed.stop();
+  return (elapsedMicros: elapsed.elapsedMicroseconds, checksum: checksum);
+}
+
 /// Everything the scanner is asked about anywhere in this file, plus the awkward
 /// cases that have no assertion of their own — the invariant below has to hold
 /// for all of it.
@@ -1057,19 +1103,6 @@ void main() {
       // body is lazy with nothing to stop it and cost the same walk. A
       // minified array pasted on one line, a log line that opens a bracket and
       // never closes it, or a paste full of `<del>`, is that shape.
-      int cost(String source) {
-        var best = -1;
-        for (var run = 0; run < 3; run += 1) {
-          final elapsed = Stopwatch()..start();
-          scanMarkdown(source);
-          elapsed.stop();
-          if (best < 0 || elapsed.elapsedMicroseconds < best) {
-            best = elapsed.elapsedMicroseconds;
-          }
-        }
-        return best;
-      }
-
       for (final unit in const [
         '[abc ',
         '[abc] ',
@@ -1089,8 +1122,8 @@ void main() {
         r'a\*b ',
         r'\[a\] ',
       ]) {
-        final small = cost(unit * 800);
-        final large = cost(unit * 6400);
+        final small = _stableScanCost(unit * 800);
+        final large = _stableScanCost(unit * 6400);
         expect(
           large,
           lessThan(small * 25),
@@ -1120,22 +1153,8 @@ void main() {
         return (buffer..writeln('```')).toString();
       }
 
-      // The best of several runs, so a garbage collection landing in one of
-      // them cannot decide the result.
-      int cost(String source) {
-        var best = -1;
-        for (var run = 0; run < 3; run += 1) {
-          final elapsed = Stopwatch()..start();
-          scanMarkdown(source);
-          elapsed.stop();
-          final taken = elapsed.elapsedMicroseconds;
-          if (best < 0 || taken < best) best = taken;
-        }
-        return best;
-      }
-
-      final small = cost(paste(100));
-      final large = cost(paste(800));
+      final small = _stableScanCost(paste(100));
+      final large = _stableScanCost(paste(800));
 
       expect(
         large,

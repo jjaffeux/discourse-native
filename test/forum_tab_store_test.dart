@@ -107,26 +107,55 @@ void main() {
     expect(await replacementStore.load(), [_workspace('latest')]);
   });
 
-  test('replacement load waits for an in-flight save', () async {
-    final gate = Completer<void>();
-    final persistence = _ControlledPersistence(firstWriteGate: gate);
-    final oldStore = ForumTabStore(persistence: persistence);
-    final replacementStore = ForumTabStore(persistence: persistence);
-    final latest = _workspace('latest');
+  test(
+    "replacement save wins over an older store's pending snapshot",
+    () async {
+      final gate = Completer<void>();
+      final persistence = _ControlledPersistence(firstWriteGate: gate);
+      final oldStore = ForumTabStore(persistence: persistence);
+      final replacementStore = ForumTabStore(persistence: persistence);
 
-    final saving = oldStore.save([latest]);
-    await persistence.firstWriteStarted.future;
-    final loading = replacementStore.load();
+      final inFlightSave = oldStore.save([_workspace('in-flight')]);
+      await persistence.firstWriteStarted.future;
+      final staleSave = oldStore.save([_workspace('stale-pending')]);
+      final latestSave = replacementStore.save([_workspace('latest')]);
 
-    await Future<void>.delayed(Duration.zero);
-    expect(persistence.readCount, 0);
+      await Future<void>.delayed(Duration.zero);
+      expect(persistence.writeCount, 1);
 
-    gate.complete();
-    await saving;
+      gate.complete();
+      await Future.wait([inFlightSave, staleSave, latestSave]);
 
-    expect(await loading, [latest]);
-    expect(persistence.readCount, 1);
-  });
+      expect(persistence.writeCount, 2);
+      expect(await replacementStore.load(), [_workspace('latest')]);
+    },
+  );
+
+  test(
+    'replacement load waits for an in-flight and locally pending save',
+    () async {
+      final gate = Completer<void>();
+      final persistence = _ControlledPersistence(firstWriteGate: gate);
+      final oldStore = ForumTabStore(persistence: persistence);
+      final replacementStore = ForumTabStore(persistence: persistence);
+      final latest = _workspace('latest');
+
+      final inFlightSave = oldStore.save([_workspace('in-flight')]);
+      await persistence.firstWriteStarted.future;
+      final latestSave = oldStore.save([latest]);
+      final loading = replacementStore.load();
+
+      await Future<void>.delayed(Duration.zero);
+      expect(persistence.readCount, 0);
+
+      gate.complete();
+      await Future.wait([inFlightSave, latestSave]);
+
+      expect(await loading, [latest]);
+      expect(persistence.readCount, 1);
+      expect(persistence.writeCount, 2);
+    },
+  );
 }
 
 ForumWorkspace _workspace(String name) => ForumWorkspace(

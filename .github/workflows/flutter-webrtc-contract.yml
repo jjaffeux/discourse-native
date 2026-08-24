@@ -1,0 +1,36 @@
+name: flutter_webrtc contract
+
+# The provenance check depends on pub.dev availability. Keep it out of ordinary
+# PR CI so a transient upstream failure cannot make an unrelated pull request
+# red.
+on:
+  schedule:
+    - cron: '47 5 * * 3'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provenance:
+    name: Check vendored flutter_webrtc provenance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Check vendored package provenance
+        run: dart run tool/flutter_webrtc_contract.dart

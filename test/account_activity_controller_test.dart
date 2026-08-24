@@ -288,6 +288,7 @@ void main() {
     final second = controller.loadNotifications(_connectedInstance());
     await Future<void>.delayed(Duration.zero);
 
+    expect(second, same(first));
     expect(api.calls, 1);
     gate.complete();
     await Future.wait([first, second]);
@@ -304,6 +305,7 @@ void main() {
     final second = controller.loadReplyNotifications(_connectedInstance());
     await Future<void>.delayed(Duration.zero);
 
+    expect(second, same(first));
     expect(api.calls, 1);
     expect(api.filters.single, userMenuReplyNotificationKinds);
     gate.complete();
@@ -323,12 +325,29 @@ void main() {
       final second = controller.loadChatNotifications(_connectedInstance());
       await Future<void>.delayed(Duration.zero);
 
+      expect(second, same(first));
       expect(api.calls, 1);
       expect(api.filters.single, userMenuChatNotificationKinds);
       gate.complete();
       await Future.wait([first, second]);
     },
   );
+
+  test('coalesces repeated bookmark loads onto one future', () async {
+    final api = _AccountApi(bookmarkList: const [_bookmark]);
+    final credentials = _GatedCredentialReader();
+    final controller = _controller(api, credentials);
+    addTearDown(controller.dispose);
+
+    final first = controller.loadBookmarks(_connectedInstance());
+    await credentials.started.future;
+    final second = controller.loadBookmarks(_connectedInstance());
+
+    expect(second, same(first));
+    credentials.result.complete('key');
+    await Future.wait([first, second]);
+    expect(controller.bookmarksFor(_siteUrl).loaded, isTrue);
+  });
 
   test('ordinary overlapping totals refreshes share one request', () async {
     final first = Completer<NotificationTotals>();
@@ -379,6 +398,74 @@ void main() {
       expect(controller.totalsFor(_siteUrl)?.unreadNotifications, 2);
     },
   );
+
+  test('forget completes a forced waiter whose replay is active', () async {
+    final first = Completer<NotificationTotals>();
+    final replay = Completer<NotificationTotals>();
+    final api = _GatedTotalsApi([first, replay]);
+    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+    final controller = _controller(api, credentials);
+    addTearDown(controller.dispose);
+
+    final initial = controller.refresh(_connectedInstance());
+    await api.firstStarted.future;
+    final forced = controller.refresh(_connectedInstance(), force: true);
+
+    first.complete(const NotificationTotals(unreadNotifications: 1));
+    await initial;
+    await api.secondStarted.future;
+
+    var forcedCompleted = false;
+    NotificationTotals? forcedResult;
+    unawaited(
+      forced.then<void>((result) {
+        forcedCompleted = true;
+        forcedResult = result;
+      }),
+    );
+    controller.forget(_siteUrl);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(forcedCompleted, isTrue);
+    expect(forcedResult, isNull);
+
+    replay.complete(const NotificationTotals(unreadNotifications: 2));
+    await pumpEventQueue();
+    expect(controller.totalsFor(_siteUrl), isNull);
+  });
+
+  test('dispose completes a forced waiter whose replay is active', () async {
+    final first = Completer<NotificationTotals>();
+    final replay = Completer<NotificationTotals>();
+    final api = _GatedTotalsApi([first, replay]);
+    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+    final controller = _controller(api, credentials);
+
+    final initial = controller.refresh(_connectedInstance());
+    await api.firstStarted.future;
+    final forced = controller.refresh(_connectedInstance(), force: true);
+
+    first.complete(const NotificationTotals(unreadNotifications: 1));
+    await initial;
+    await api.secondStarted.future;
+
+    var forcedCompleted = false;
+    NotificationTotals? forcedResult;
+    unawaited(
+      forced.then<void>((result) {
+        forcedCompleted = true;
+        forcedResult = result;
+      }),
+    );
+    controller.dispose();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(forcedCompleted, isTrue);
+    expect(forcedResult, isNull);
+
+    replay.complete(const NotificationTotals(unreadNotifications: 2));
+    await pumpEventQueue();
+  });
 
   test('recent totals are reused until explicitly refreshed', () async {
     var now = DateTime(2026, 8, 11, 10);
@@ -746,6 +833,36 @@ void main() {
     },
   );
 
+  test(
+    'a late forgotten load cannot detach replacement load waiters',
+    () async {
+      final api = _SequencedNotificationsApi(2);
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(api, credentials, lifecycle: lifecycle);
+      addTearDown(controller.dispose);
+      final connected = _connectedInstance();
+
+      final forgotten = controller.loadNotifications(connected);
+      await api.started[0].future;
+      lifecycle.invalidate(_siteUrl);
+      controller.forget(_siteUrl);
+
+      final replacement = controller.loadNotifications(connected);
+      await api.started[1].future;
+      api.gates[0].complete();
+      await forgotten;
+
+      final joinedReplacement = controller.loadNotifications(connected);
+      expect(joinedReplacement, same(replacement));
+      expect(api.calls, 2);
+
+      api.gates[1].complete();
+      await Future.wait([replacement, joinedReplacement]);
+      expect(controller.notificationsFor(_siteUrl).loaded, isTrue);
+    },
+  );
+
   for (final activity
       in <
         ({
@@ -893,6 +1010,30 @@ final class _GatedNotificationsApi extends _AccountApi {
     calls++;
     filters.add(List.unmodifiable(filterByTypes));
     await _notificationGate.future;
+    return const [_notification];
+  }
+}
+
+final class _SequencedNotificationsApi extends _AccountApi {
+  _SequencedNotificationsApi(int count)
+    : gates = List.generate(count, (_) => Completer<void>()),
+      started = List.generate(count, (_) => Completer<void>());
+
+  final List<Completer<void>> gates;
+  final List<Completer<void>> started;
+  int calls = 0;
+
+  @override
+  Future<List<DiscourseNotification>> notifications({
+    required String siteUrl,
+    required String apiKey,
+    int limit = 30,
+    List<NotificationKind> filterByTypes = const [],
+    String? clientId,
+  }) async {
+    final call = calls++;
+    started[call].complete();
+    await gates[call].future;
     return const [_notification];
   }
 }

@@ -110,14 +110,22 @@ int _correlationSequence = 0;
 /// Nonthrowing, process-wide entry point for operational error reporting.
 abstract class DiagnosticsSink {
   static DiagnosticsSink _current = const _NoopDiagnosticsSink();
+  static DiagnosticsSinkBinding? _binding;
 
   static DiagnosticsSink get current => _current;
 
   /// Installs [sink] and returns a binding which restores the previous sink.
   static DiagnosticsSinkBinding install(DiagnosticsSink sink) {
     final previous = _current;
+    final active = _binding;
+    final previousBinding =
+        active != null && identical(previous, active._installed)
+        ? active
+        : null;
+    final binding = DiagnosticsSinkBinding._(sink, previous, previousBinding);
     _current = sink;
-    return DiagnosticsSinkBinding._(sink, previous);
+    _binding = binding;
+    return binding;
   }
 
   static String? get currentOperation =>
@@ -182,18 +190,33 @@ abstract class DiagnosticsSink {
 }
 
 final class DiagnosticsSinkBinding {
-  DiagnosticsSinkBinding._(this._installed, this._previous);
+  DiagnosticsSinkBinding._(
+    this._installed,
+    this._previous,
+    this._previousBinding,
+  );
 
   final DiagnosticsSink _installed;
   final DiagnosticsSink _previous;
+  final DiagnosticsSinkBinding? _previousBinding;
   bool _closed = false;
 
   void close() {
     if (_closed) return;
     _closed = true;
-    if (identical(DiagnosticsSink._current, _installed)) {
-      DiagnosticsSink._current = _previous;
+    if (!identical(DiagnosticsSink._binding, this)) return;
+
+    // Sink identity cannot establish ownership: the same sink may be installed
+    // twice. The binding token does, and lets a newer binding skip any older
+    // bindings that were closed out of order while it was still active.
+    var previous = _previous;
+    var binding = _previousBinding;
+    while (binding != null && binding._closed) {
+      previous = binding._previous;
+      binding = binding._previousBinding;
     }
+    DiagnosticsSink._binding = binding;
+    DiagnosticsSink._current = binding?._installed ?? previous;
   }
 }
 

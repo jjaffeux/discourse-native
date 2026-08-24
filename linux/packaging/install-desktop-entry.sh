@@ -23,11 +23,38 @@ fi
 
 mkdir -p "$DATA/applications" "$DATA/icons"
 
-# The only substitution: Exec= has to name this copy, not the one it was built
-# from. Anchored to the whole line so a path containing @EXEC@ cannot confuse it.
-sed "s|^Exec=@EXEC@$|Exec=$HERE/$BINARY|" \
-  "$HERE/data/desktop/$APP_ID.desktop" > "$DATA/applications/$APP_ID.desktop"
-chmod 644 "$DATA/applications/$APP_ID.desktop"
+# Exec= is parsed as a command line rather than as an ordinary path. Quote the
+# executable so a bundle extracted below a directory containing whitespace or
+# shell punctuation still launches. The desktop-entry format applies its own
+# string escaping before command-line unquoting: literal backslashes need four
+# backslashes, dollars and backticks need two, and percent starts a field code.
+DESKTOP_EXEC="$({
+  printf '%s' "$HERE/$BINARY" |
+    sed \
+      -e 's/\\/\\\\\\\\/g' \
+      -e 's/"/\\\\"/g' \
+      -e 's/`/\\\\`/g' \
+      -e 's/\$/\\\\$/g' \
+      -e 's/%/%%/g'
+})"
+
+# Write the one generated field without interpolating the path into a sed
+# program. Besides handling `&` and `|` literally, a temporary file keeps a
+# failed reinstall from truncating the launcher's last good copy.
+DESKTOP_FILE="$DATA/applications/$APP_ID.desktop"
+DESKTOP_TMP="$(mktemp "$DATA/applications/.$APP_ID.XXXXXX")"
+trap 'rm -f "$DESKTOP_TMP"' EXIT HUP INT TERM
+while IFS= read -r LINE || [ -n "$LINE" ]; do
+  if [ "$LINE" = 'Exec=@EXEC@' ]; then
+    printf 'Exec="%s"\n' "$DESKTOP_EXEC"
+  else
+    printf '%s\n' "$LINE"
+  fi
+done < "$HERE/data/desktop/$APP_ID.desktop" > "$DESKTOP_TMP"
+chmod 644 "$DESKTOP_TMP"
+mv "$DESKTOP_TMP" "$DESKTOP_FILE"
+DESKTOP_TMP=''
+trap - EXIT HUP INT TERM
 
 cp -r "$HERE/data/desktop/icons/hicolor" "$DATA/icons/"
 

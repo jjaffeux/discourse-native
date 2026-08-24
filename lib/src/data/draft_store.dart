@@ -54,13 +54,7 @@ final class PrivateDraftPersistence implements DraftPersistence {
   Future<void> delete(String key) => _storage.delete(key);
 
   @override
-  Future<void> deletePrefix(String prefix) async {
-    final stored = await _storage.readAll();
-    await Future.wait([
-      for (final key in stored.keys)
-        if (key.startsWith(prefix)) _storage.delete(key),
-    ]);
-  }
+  Future<void> deletePrefix(String prefix) => _storage.deletePrefix(prefix);
 }
 
 DraftPersistence _platformDraftPersistence() {

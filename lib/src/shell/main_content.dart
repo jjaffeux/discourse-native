@@ -95,7 +95,7 @@ class _MainContentBody extends StatelessWidget {
                 topic: state.topic,
                 canPop: state.canPop,
                 canReply: state.canReply,
-                canCreateTopic: state.canCreateTopic && pluginContent == null,
+                showCreateTopicAction: pluginContent == null,
                 isConnected: state.isConnected,
                 registry: registry,
               ),
@@ -105,54 +105,15 @@ class _MainContentBody extends StatelessWidget {
                   Positioned.fill(
                     child: KeyedSubtree(
                       key: contentKey,
-                      child:
-                          !route.isTopic &&
-                              route.id == 'messages' &&
-                              !state.isConnected
-                          ? const _SignedOutMessagesState()
-                          : !route.isTopic &&
-                                route.id == 'drafts' &&
-                                state.siteUrl != null
-                          ? DraftListView(siteUrl: state.siteUrl!)
-                          : !route.isTopic &&
-                                route.id == 'all-categories' &&
-                                state.siteUrl != null &&
-                                state.categoryFeed != null
-                          ? CategoriesPage(
-                              siteUrl: state.siteUrl!,
-                              feed: state.categoryFeed!,
-                            )
-                          : !route.isTopic &&
-                                route.id == 'filter' &&
-                                state.siteUrl != null &&
-                                state.feed != null
-                          ? TopicFilterPage(
-                              siteUrl: state.siteUrl!,
-                              feed: state.feed!,
-                              categories: state.filterCategories,
-                            )
-                          : switch ((
-                              route.isTopic,
-                              pluginContent,
-                              state.feed,
-                            )) {
-                              // A topic route wins over its originating list.
-                              (true, _, _) => TopicView(
-                                showRecommendationsPanel:
-                                    layout == ShellLayout.expanded,
-                              ),
-                              // A route an optional feature claims is that feature's,
-                              // whichever list happens to still be cached behind it.
-                              (false, final content?, _) => content,
-                              // Destinations backed by a topic list show the real
-                              // thing; the rest retain the placeholder.
-                              (false, null, final feed?) => TopicListView(
-                                feed: feed,
-                              ),
-                              (false, null, null) => _ContentPlaceholder(
-                                route: route,
-                              ),
-                            },
+                      child: _ContentViewport(
+                        layout: layout,
+                        route: route,
+                        siteUrl: state.siteUrl,
+                        isConnected: state.isConnected,
+                        pluginContent: pluginContent,
+                        filterCategories: state.filterCategories,
+                        categoryFeed: state.categoryFeed,
+                      ),
                     ),
                   ),
                   if (state.composer case final composer?)
@@ -172,6 +133,101 @@ class _MainContentBody extends StatelessWidget {
   }
 }
 
+/// Chooses static destinations without subscribing them to topic-feed work.
+///
+/// Only the two destinations whose bodies render a [TopicFeed] cross the
+/// [_TopicFeedSelector] boundary below. A page request can therefore update
+/// the list without rebuilding the surrounding shell, plugin content, or
+/// unrelated built-in pages.
+class _ContentViewport extends StatelessWidget {
+  const _ContentViewport({
+    required this.layout,
+    required this.route,
+    required this.siteUrl,
+    required this.isConnected,
+    required this.pluginContent,
+    required this.filterCategories,
+    required this.categoryFeed,
+  });
+
+  final ShellLayout layout;
+  final ContentRoute route;
+  final String? siteUrl;
+  final bool isConnected;
+  final Widget? pluginContent;
+  final List<TopicCategory> filterCategories;
+  final CategoryFeed? categoryFeed;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!route.isTopic && route.id == 'messages' && !isConnected) {
+      return const _SignedOutMessagesState();
+    }
+    if (!route.isTopic && route.id == 'drafts' && siteUrl != null) {
+      return DraftListView(siteUrl: siteUrl!);
+    }
+    if (!route.isTopic &&
+        route.id == 'all-categories' &&
+        siteUrl != null &&
+        categoryFeed != null) {
+      return CategoriesPage(siteUrl: siteUrl!, feed: categoryFeed!);
+    }
+    if (!route.isTopic && route.id == 'filter' && siteUrl != null) {
+      return _FeedBackedContent(
+        route: route,
+        siteUrl: siteUrl!,
+        filterCategories: filterCategories,
+        fallback: pluginContent,
+      );
+    }
+    // A topic route wins over its originating list.
+    if (route.isTopic) {
+      return TopicView(
+        showRecommendationsPanel: layout == ShellLayout.expanded,
+      );
+    }
+    // A route an optional feature claims is that feature's, whichever list
+    // happens to still be cached behind it.
+    if (pluginContent case final content?) return content;
+
+    return _FeedBackedContent(route: route, siteUrl: siteUrl);
+  }
+}
+
+class _FeedBackedContent extends StatelessWidget {
+  const _FeedBackedContent({
+    required this.route,
+    required this.siteUrl,
+    this.filterCategories = const [],
+    this.fallback,
+  });
+
+  final ContentRoute route;
+  final String? siteUrl;
+  final List<TopicCategory> filterCategories;
+  final Widget? fallback;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ShellScope.read(context);
+    return _TopicFeedSelector<TopicFeed?>(
+      controller: controller,
+      select: (controller) => controller.currentFeed,
+      builder: (context, feed, _) {
+        if (feed == null) return fallback ?? _ContentPlaceholder(route: route);
+        if (route.id == 'filter' && siteUrl != null) {
+          return TopicFilterPage(
+            siteUrl: siteUrl!,
+            feed: feed,
+            categories: filterCategories,
+          );
+        }
+        return TopicListView(feed: feed);
+      },
+    );
+  }
+}
+
 class _ContentHeader extends StatelessWidget {
   const _ContentHeader({
     required this.layout,
@@ -180,7 +236,7 @@ class _ContentHeader extends StatelessWidget {
     required this.topic,
     required this.canPop,
     required this.canReply,
-    required this.canCreateTopic,
+    required this.showCreateTopicAction,
     required this.isConnected,
     required this.registry,
   });
@@ -191,9 +247,11 @@ class _ContentHeader extends StatelessWidget {
   final TopicDetail? topic;
   final bool canPop;
   final bool canReply;
-  final bool canCreateTopic;
+  final bool showCreateTopicAction;
   final bool isConnected;
   final PluginRegistry registry;
+
+  static const _searchSlotKey = ValueKey('content-header-search-slot');
 
   @override
   Widget build(BuildContext context) {
@@ -299,9 +357,13 @@ class _ContentHeader extends StatelessWidget {
                   ),
                 )
               else if (carriesSearch)
-                const Expanded(child: ForumSearch(dense: true)),
+                const Expanded(
+                  key: _searchSlotKey,
+                  child: ForumSearch(dense: true),
+                ),
               if (carriesSearch && showRouteIdentity) ...[
                 SizedBox(
+                  key: _searchSlotKey,
                   width: searchWidth,
                   child: const ForumSearch(dense: true),
                 ),
@@ -314,11 +376,8 @@ class _ContentHeader extends StatelessWidget {
                   icon: const DIcon(DIcons.reply, size: 20),
                   tooltip: 'Reply to this topic',
                 ),
-              if (!route.isTopic && canCreateTopic)
-                TopicCreateButton(
-                  showLabel: MediaQuery.sizeOf(context).width >= 640,
-                  onPressed: () => unawaited(controller.openNewTopic()),
-                ),
+              if (!route.isTopic && showCreateTopicAction)
+                _TopicCreateAction(controller: controller),
               // Only where there is no title bar above to hold it: this is the
               // furthest right the shell goes once the strip is gone.
               if (ShellTitleBar.columnsCarryUserMenu) ...[
@@ -333,6 +392,89 @@ class _ContentHeader extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// Observes only the capability derived from the current feed.
+///
+/// Feed pagination replaces the immutable feed snapshot, but does not change
+/// this boolean, so the header action remains untouched while the list moves
+/// through loading and loaded states.
+class _TopicCreateAction extends StatelessWidget {
+  const _TopicCreateAction({required this.controller});
+
+  final ShellController controller;
+
+  @override
+  Widget build(BuildContext context) => _TopicFeedSelector<bool>(
+    controller: controller,
+    select: (controller) => controller.canCreateTopicHere,
+    builder: (context, canCreateTopic, _) => canCreateTopic
+        ? TopicCreateButton(
+            showLabel: MediaQuery.sizeOf(context).width >= 640,
+            onPressed: () => unawaited(controller.openNewTopic()),
+          )
+        : const SizedBox.shrink(),
+  );
+}
+
+/// A selected listenable boundary for state owned by
+/// [ShellController.topicFeeds].
+///
+/// Navigation still comes through [_MainContentSnapshot] and updates this
+/// widget normally. Between navigation changes, only the selected feed value
+/// can mark this subtree dirty.
+class _TopicFeedSelector<T> extends StatefulWidget {
+  const _TopicFeedSelector({
+    required this.controller,
+    required this.select,
+    required this.builder,
+    this.child,
+  });
+
+  final ShellController controller;
+  final T Function(ShellController controller) select;
+  final ValueWidgetBuilder<T> builder;
+  final Widget? child;
+
+  @override
+  State<_TopicFeedSelector<T>> createState() => _TopicFeedSelectorState<T>();
+}
+
+class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
+  late T _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.select(widget.controller);
+    widget.controller.topicFeeds.addListener(_select);
+  }
+
+  @override
+  void didUpdateWidget(_TopicFeedSelector<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller)) {
+      oldWidget.controller.topicFeeds.removeListener(_select);
+      widget.controller.topicFeeds.addListener(_select);
+    }
+    _value = widget.select(widget.controller);
+  }
+
+  void _select() {
+    final next = widget.select(widget.controller);
+    if (next == _value) return;
+    setState(() => _value = next);
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      widget.builder(context, _value, widget.child);
+
+  @override
+  void dispose() {
+    widget.controller.topicFeeds.removeListener(_select);
+    super.dispose();
   }
 }
 
@@ -509,11 +651,9 @@ class _MainContentSnapshot {
     required this.activeTabId,
     required this.route,
     required this.topic,
-    required this.feed,
     required this.composer,
     required this.canPop,
     required this.canReply,
-    required this.canCreateTopic,
     required this.isConnected,
     required this.canAssignLegacyTargets,
     required this.filterCategories,
@@ -526,11 +666,9 @@ class _MainContentSnapshot {
         activeTabId: controller.activeTabId,
         route: controller.currentContent,
         topic: controller.currentTopic,
-        feed: controller.currentFeed,
         composer: controller.visibleComposer,
         canPop: controller.canPopContent,
         canReply: controller.canReplyHere,
-        canCreateTopic: controller.canCreateTopicHere,
         isConnected: controller.currentInstance?.isConnected == true,
         canAssignLegacyTargets: switch (controller.currentInstance?.url) {
           final siteUrl? => controller.canAssignForTarget(siteUrl, null),
@@ -558,11 +696,9 @@ class _MainContentSnapshot {
   final String? activeTabId;
   final ContentRoute? route;
   final TopicDetail? topic;
-  final TopicFeed? feed;
   final ComposerController? composer;
   final bool canPop;
   final bool canReply;
-  final bool canCreateTopic;
   final bool isConnected;
   final bool canAssignLegacyTargets;
   final List<TopicCategory> filterCategories;
@@ -575,11 +711,9 @@ class _MainContentSnapshot {
       activeTabId == other.activeTabId &&
       identical(route, other.route) &&
       identical(topic, other.topic) &&
-      identical(feed, other.feed) &&
       identical(composer, other.composer) &&
       canPop == other.canPop &&
       canReply == other.canReply &&
-      canCreateTopic == other.canCreateTopic &&
       isConnected == other.isConnected &&
       canAssignLegacyTargets == other.canAssignLegacyTargets &&
       identical(filterCategories, other.filterCategories) &&
@@ -591,11 +725,9 @@ class _MainContentSnapshot {
     activeTabId,
     identityHashCode(route),
     identityHashCode(topic),
-    identityHashCode(feed),
     identityHashCode(composer),
     canPop,
     canReply,
-    canCreateTopic,
     isConnected,
     canAssignLegacyTargets,
     identityHashCode(filterCategories),

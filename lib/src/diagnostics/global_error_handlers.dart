@@ -17,11 +17,18 @@ final class DiagnosticsGlobalErrorBinding {
     required this._sink,
     required this._previousFlutterHandler,
     required this._previousPlatformHandler,
+    required this._previousFlutterBinding,
+    required this._previousPlatformBinding,
   });
+
+  static DiagnosticsGlobalErrorBinding? _flutterBinding;
+  static DiagnosticsGlobalErrorBinding? _platformBinding;
 
   final DiagnosticsSink _sink;
   final FlutterExceptionHandler? _previousFlutterHandler;
   final _PlatformErrorHandler? _previousPlatformHandler;
+  final DiagnosticsGlobalErrorBinding? _previousFlutterBinding;
+  final DiagnosticsGlobalErrorBinding? _previousPlatformBinding;
   Expando<Object> _reportedErrorEpochs = Expando<Object>(
     'global diagnostics reported error epochs',
   );
@@ -36,13 +43,33 @@ final class DiagnosticsGlobalErrorBinding {
   static DiagnosticsGlobalErrorBinding install(DiagnosticsSink sink) {
     final previousFlutterHandler = FlutterError.onError;
     final previousPlatformHandler = PlatformDispatcher.instance.onError;
+    final activeFlutterBinding = _flutterBinding;
+    final activePlatformBinding = _platformBinding;
     final binding = DiagnosticsGlobalErrorBinding._(
       sink: sink,
       previousFlutterHandler: previousFlutterHandler,
       previousPlatformHandler: previousPlatformHandler,
+      previousFlutterBinding:
+          activeFlutterBinding != null &&
+              identical(
+                previousFlutterHandler,
+                activeFlutterBinding._installedFlutterHandler,
+              )
+          ? activeFlutterBinding
+          : null,
+      previousPlatformBinding:
+          activePlatformBinding != null &&
+              identical(
+                previousPlatformHandler,
+                activePlatformBinding._installedPlatformHandler,
+              )
+          ? activePlatformBinding
+          : null,
     );
     FlutterError.onError = binding._installedFlutterHandler;
     PlatformDispatcher.instance.onError = binding._installedPlatformHandler;
+    _flutterBinding = binding;
+    _platformBinding = binding;
     return binding;
   }
 
@@ -144,14 +171,47 @@ final class DiagnosticsGlobalErrorBinding {
     );
     _errorEpoch = Object();
     _epochRotationScheduled = false;
-    if (identical(FlutterError.onError, _installedFlutterHandler)) {
-      FlutterError.onError = _previousFlutterHandler;
+    _releaseFlutterHandler();
+    _releasePlatformHandler();
+  }
+
+  void _releaseFlutterHandler() {
+    if (!identical(_flutterBinding, this)) return;
+    if (!identical(FlutterError.onError, _installedFlutterHandler)) {
+      // A handler installed outside this binding stack is authoritative.
+      _flutterBinding = null;
+      return;
     }
-    if (identical(
+
+    var handler = _previousFlutterHandler;
+    var binding = _previousFlutterBinding;
+    while (binding != null && binding._closed) {
+      handler = binding._previousFlutterHandler;
+      binding = binding._previousFlutterBinding;
+    }
+    _flutterBinding = binding;
+    FlutterError.onError = binding?._installedFlutterHandler ?? handler;
+  }
+
+  void _releasePlatformHandler() {
+    if (!identical(_platformBinding, this)) return;
+    if (!identical(
       PlatformDispatcher.instance.onError,
       _installedPlatformHandler,
     )) {
-      PlatformDispatcher.instance.onError = _previousPlatformHandler;
+      // A handler installed outside this binding stack is authoritative.
+      _platformBinding = null;
+      return;
     }
+
+    var handler = _previousPlatformHandler;
+    var binding = _previousPlatformBinding;
+    while (binding != null && binding._closed) {
+      handler = binding._previousPlatformHandler;
+      binding = binding._previousPlatformBinding;
+    }
+    _platformBinding = binding;
+    PlatformDispatcher.instance.onError =
+        binding?._installedPlatformHandler ?? handler;
   }
 }

@@ -263,6 +263,82 @@ void main() {
     expect(api.recentResetCount, 1);
   });
 
+  testWidgets('an older recent-search load cannot replace a newer one', (
+    tester,
+  ) async {
+    const otherSite = 'https://other.example';
+    final api = _SearchApi()..gateRecentSearches = true;
+    final credentials = FakeApiCredentialReader()
+      ..keys[site] = 'first-secret'
+      ..keys[otherSite] = 'other-secret';
+    final search = ShellSearchController(
+      api: api,
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+    )..selectSite(site);
+    addTearDown(search.dispose);
+    final field = Object();
+    final unregister = search.registerFocus(field, () {});
+    addTearDown(unregister);
+
+    search.activateField(field);
+    await tester.pump();
+    search.selectSite(otherSite);
+    search.activateField(field);
+    await tester.pump();
+    search.selectSite(site);
+    search.activateField(field);
+    await tester.pump();
+
+    expect(api.recentSites, [site, otherSite, site]);
+    api.completeRecent(2, const ['newest']);
+    await tester.pump();
+    expect(search.recentSearches, ['newest']);
+
+    api.completeRecent(1, const ['other']);
+    api.completeRecent(0, const ['stale']);
+    await tester.pump();
+    expect(search.recentSearches, ['newest']);
+  });
+
+  testWidgets('a failed recent reset keeps a search completed behind it', (
+    tester,
+  ) async {
+    final reset = Completer<void>();
+    final api = _SearchApi()
+      ..recent = const ['old']
+      ..recentReset = reset;
+    final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
+    final search = ShellSearchController(
+      api: api,
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+    )..selectSite(site);
+    addTearDown(search.dispose);
+    final field = Object();
+    final unregister = search.registerFocus(field, () {});
+    addTearDown(unregister);
+
+    search.activateField(field);
+    await tester.pump();
+    final resetOperation = search.resetRecentSearches();
+    await tester.pump();
+    expect(search.recentSearches, isEmpty);
+
+    search.setQuery('new');
+    search.showTopics();
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(api.terms, ['new']);
+    api.complete('new', _results(2, 'New result'));
+    await tester.pump();
+    expect(search.recentSearches, ['new']);
+
+    reset.completeError(StateError('offline'), StackTrace.current);
+    await resetOperation;
+    expect(search.recentSearches, ['new']);
+  });
+
   testWidgets('credits an opened result to its search log', (tester) async {
     final api = _SearchApi();
     final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
@@ -466,6 +542,10 @@ class _SearchApi extends FakeDiscourseApi {
   final List<String> userTerms = [];
   List<String> recent = const [];
   int recentResetCount = 0;
+  bool gateRecentSearches = false;
+  final List<String> recentSites = [];
+  final List<Completer<List<String>>> recentAnswers = [];
+  Completer<void>? recentReset;
 
   @override
   Future<SearchResults> searchPosts({
@@ -531,7 +611,13 @@ class _SearchApi extends FakeDiscourseApi {
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async => recent;
+  }) async {
+    recentSites.add(siteUrl);
+    if (!gateRecentSearches) return recent;
+    final answer = Completer<List<String>>();
+    recentAnswers.add(answer);
+    return answer.future;
+  }
 
   @override
   Future<void> resetRecentSearches({
@@ -540,6 +626,11 @@ class _SearchApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     recentResetCount++;
+    await recentReset?.future;
+  }
+
+  void completeRecent(int index, List<String> searches) {
+    recentAnswers[index].complete(searches);
   }
 
   void complete(String term, SearchResults results) {

@@ -53,6 +53,32 @@ class TopicView extends StatefulWidget {
 
 typedef _TopicDayStart = ({DateTime day, int postIndex});
 
+/// The inverse of one immutable post stream, used to retain keyed list rows.
+///
+/// A page inserted before the viewport makes the sliver resolve every retained
+/// child's key again. Looking each id up in the post list would walk an
+/// increasingly long tail once per retained child; projecting the stream once
+/// keeps the reconciliation itself constant-time per child.
+final class TopicPostIndexProjection {
+  TopicPostIndexProjection(List<int> postIds) : _source = postIds {
+    for (var index = 0; index < postIds.length; index++) {
+      final postId = postIds[index];
+      // Topic streams should contain unique ids. Preserve List.indexOf's
+      // first-match behavior if a malformed payload repeats one anyway.
+      if (!_indexByPostId.containsKey(postId)) {
+        _indexByPostId[postId] = index;
+      }
+    }
+  }
+
+  final List<int> _source;
+  final Map<int, int> _indexByPostId = {};
+
+  bool represents(List<int> postIds) => identical(_source, postIds);
+
+  int? operator [](int postId) => _indexByPostId[postId];
+}
+
 class _TopicViewState extends State<TopicView> {
   static const Duration _readInterval = Duration(milliseconds: 500);
 
@@ -85,6 +111,13 @@ class _TopicViewState extends State<TopicView> {
   Object? _dayJumpToken;
   Timer? _readTimer;
   ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _seen;
+  TopicPostIndexProjection? _postIndexProjection;
+
+  TopicPostIndexProjection _postIndexes(List<int> postIds) {
+    final held = _postIndexProjection;
+    if (held != null && held.represents(postIds)) return held;
+    return _postIndexProjection = TopicPostIndexProjection(postIds);
+  }
 
   void _syncControllers(
     ShellController controller,
@@ -867,6 +900,7 @@ class _TopicViewState extends State<TopicView> {
     // in the store; each tile watches its own, so an edit or a deletion redraws
     // one tile rather than walking the whole stream.
     final postIds = snapshot.postIds;
+    final postIndexes = _postIndexes(postIds);
     final siteUrl = snapshot.siteUrl!;
     _syncRecommendationsSite(siteUrl);
     final topicIdentity = (siteUrl, snapshot.topicId!);
@@ -936,8 +970,8 @@ class _TopicViewState extends State<TopicView> {
         // inserted before them; separated lists address the expanded index.
         findChildIndexCallback: (key) {
           if (key is! ValueKey<int>) return null;
-          final postIndex = postIds.indexOf(key.value);
-          if (postIndex < 0) return null;
+          final postIndex = postIndexes[key.value];
+          if (postIndex == null) return null;
           return (postIndex + (showHeader ? 1 : 0)) * 2;
         },
         // Lazy, like the topic list: a 500-post topic builds only what shows.

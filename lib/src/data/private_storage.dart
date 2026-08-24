@@ -27,6 +27,8 @@ abstract interface class PrivateStorage {
 /// broad read can create one password prompt per credential or draft.
 abstract interface class EnumerablePrivateStorage implements PrivateStorage {
   Future<Map<String, String>> readAll();
+
+  Future<void> deletePrefix(String prefix);
 }
 
 const String appleCredentialService = 'org.discourse.native.credentials';
@@ -139,6 +141,9 @@ final class _UnavailableEnumerablePrivateStorage
 
   @override
   Future<void> delete(String key) => _unsupported();
+
+  @override
+  Future<void> deletePrefix(String prefix) => _unsupported();
 
   @override
   Future<String?> read(String key) => _unsupported();
@@ -349,13 +354,22 @@ final class MigratingPrivateStorage implements PrivateStorage {
 /// are flushed to a same-directory temporary file before an atomic rename, so
 /// interruption cannot leave half-written JSON behind.
 final class LinuxFileStorage implements EnumerablePrivateStorage {
-  LinuxFileStorage({Directory? directory}) : _providedDirectory = directory;
+  LinuxFileStorage({
+    Directory? directory,
+    @visibleForTesting Future<void> Function()? beforeCommitForTesting,
+  }) : this._(
+         providedDirectory: directory,
+         beforeCommitForTesting: beforeCommitForTesting,
+       );
+
+  LinuxFileStorage._({this._providedDirectory, this._beforeCommitForTesting});
 
   static const _fileName = 'private-storage.json';
   static const _formatVersion = 1;
   static final Map<String, _LinuxFileStorageCoordinator> _coordinators = {};
 
   final Directory? _providedDirectory;
+  final Future<void> Function()? _beforeCommitForTesting;
   final Random _random = Random.secure();
 
   @override
@@ -377,6 +391,14 @@ final class LinuxFileStorage implements EnumerablePrivateStorage {
   Future<void> delete(String key) => _serialize(() async {
     final values = await _readValues();
     if (values.remove(key) != null) await _writeValues(values);
+  });
+
+  @override
+  Future<void> deletePrefix(String prefix) => _serialize(() async {
+    final values = await _readValues();
+    final previousLength = values.length;
+    values.removeWhere((key, _) => key.startsWith(prefix));
+    if (values.length != previousLength) await _writeValues(values);
   });
 
   Future<T> _serialize<T>(Future<T> Function() operation) async {
@@ -443,6 +465,7 @@ final class LinuxFileStorage implements EnumerablePrivateStorage {
   }
 
   Future<void> _writeValues(Map<String, String> values) async {
+    await _beforeCommitForTesting?.call();
     final file = await _file();
     final suffix = List<int>.generate(
       12,

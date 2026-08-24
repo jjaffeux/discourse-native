@@ -45,6 +45,20 @@ Files:
 
 Commit: `46169d8a2a22c5667a62791ccb17974404316bd0`.
 
+## Awaited native log severity
+
+The published logger setter returns before its native `setLogSeverity` method
+finishes. Resenha diagnostics must know whether native logging was installed
+before reporting capture as active, so the local API returns and awaits that
+operation.
+
+Files:
+
+- `lib/src/helper.dart`
+- `lib/src/native_logs_listener.dart`
+
+Commit: `7400253b0de111c79957416ebf6b1df8c5da2831`.
+
 ## Renderer track lifecycle
 
 The published renderer binds videos by stream and can keep stale native track
@@ -70,19 +84,20 @@ Files:
 
 Commit: `b401810ff43d3e20fe4bc41ece6fee33722dd60f`.
 
-## Reproducing the review diff
+## Verifying the review diff
 
-With the published package already present in the Dart package cache, run:
+From the application repository root, run:
 
 ```sh
-diff -ru --exclude=PATCHES.md \
-  "$HOME/.pub-cache/hosted/pub.dev/flutter_webrtc-1.6.0" \
-  third_party/flutter_webrtc
+dart run tool/flutter_webrtc_contract.dart
 ```
 
-The command also reports package-cache-only `ios/Assets` and `.swiftpm`
-metadata. Review the source changes against the inventory above; any additional
-vendored source difference must be documented here before release.
+The check downloads only the official pub.dev metadata and archive, verifies
+the archive SHA-256 above, and compares every regular file except this manifest.
+It passes only when the differing files are exactly the inventory above; empty
+package-manager metadata directories are deliberately outside the file contract.
+Any additional vendored source difference must be documented here before
+release.
 
 Remove this vendored copy and restore the hosted dependency only after an
 upstream release provides equivalents for every patch above. Then run

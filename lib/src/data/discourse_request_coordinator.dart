@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/json.dart';
+import 'origin_cooldown.dart';
 
 /// Identity of one safe GET for in-flight request sharing.
 ///
@@ -38,9 +39,11 @@ final class DiscourseRequestCoordinator {
     this.maxConcurrentPerOrigin = 4,
     this.maxQueuedPerOrigin = 64,
     this.defaultRateLimitCooldown = const Duration(seconds: 15),
+    OriginCooldown Function()? cooldownFactory,
   }) : assert(maxConcurrentPerOrigin > 0),
        assert(maxQueuedPerOrigin > 0),
-       assert(defaultRateLimitCooldown >= Duration.zero);
+       assert(defaultRateLimitCooldown >= Duration.zero),
+       _newCooldown = cooldownFactory ?? OriginCooldown.new;
 
   final int maxConcurrentPerOrigin;
 
@@ -52,9 +55,12 @@ final class DiscourseRequestCoordinator {
   final int maxQueuedPerOrigin;
   final Duration defaultRateLimitCooldown;
 
+  final OriginCooldown Function() _newCooldown;
   final Map<String, _OriginQueue> _origins = {};
   final Map<DiscourseGetRequestKey, Future<http.Response>> _gets = {};
   bool _closed = false;
+
+  _OriginQueue _createOriginQueue() => _OriginQueue(cooldown: _newCooldown());
 
   Future<http.Response> run(
     Uri url,
@@ -88,7 +94,7 @@ final class DiscourseRequestCoordinator {
     Future<http.Response> Function() send,
   ) {
     final origin = url.origin;
-    final queue = _origins.putIfAbsent(origin, _OriginQueue.new);
+    final queue = _origins.putIfAbsent(origin, _createOriginQueue);
     if (queue.waiting.length >= maxQueuedPerOrigin) {
       return Future.error(
         DiscourseRequestOverloadException(origin, maxQueuedPerOrigin),
@@ -102,16 +108,8 @@ final class DiscourseRequestCoordinator {
 
   void _drain(String origin, _OriginQueue queue) {
     if (_closed) return;
-    final now = DateTime.now();
-    final blockedUntil = queue.blockedUntil;
-    if (blockedUntil != null && blockedUntil.isAfter(now)) {
-      _wakeAfter(origin, queue, blockedUntil.difference(now));
-      return;
-    }
+    if (queue.cooldown.remaining != null) return;
 
-    queue.blockedUntil = null;
-    queue.wake?.cancel();
-    queue.wake = null;
     while (queue.active < maxConcurrentPerOrigin && queue.waiting.isNotEmpty) {
       final pending = queue.waiting.removeFirst();
       queue.active++;
@@ -132,14 +130,7 @@ final class DiscourseRequestCoordinator {
       // timer set now could never be cancelled.
       if (response.statusCode == 429 && !_closed) {
         final delay = explicitRetryAfter(response) ?? defaultRateLimitCooldown;
-        final until = DateTime.now().add(delay);
-        if (queue.blockedUntil case final held? when held.isAfter(until)) {
-          // A longer rate limit from another in-flight response still owns the
-          // origin. Never shorten it because this response asked for less.
-        } else {
-          queue.blockedUntil = until;
-          _wakeAfter(origin, queue, delay);
-        }
+        queue.cooldown.extend(delay, onExpired: () => _drain(origin, queue));
       }
       pending.result.complete(response);
     } catch (error, stackTrace) {
@@ -150,18 +141,10 @@ final class DiscourseRequestCoordinator {
     }
   }
 
-  void _wakeAfter(String origin, _OriginQueue queue, Duration delay) {
-    queue.wake?.cancel();
-    queue.wake = Timer(delay, () {
-      queue.wake = null;
-      _drain(origin, queue);
-    });
-  }
-
   void _forgetIdle(String origin, _OriginQueue queue) {
     if (queue.active == 0 &&
         queue.waiting.isEmpty &&
-        queue.blockedUntil == null) {
+        queue.cooldown.remaining == null) {
       _origins.remove(origin);
     }
   }
@@ -171,7 +154,7 @@ final class DiscourseRequestCoordinator {
     _closed = true;
     final error = StateError('Request coordinator is closed.');
     for (final queue in _origins.values) {
-      queue.wake?.cancel();
+      queue.cooldown.cancel();
       while (queue.waiting.isNotEmpty) {
         queue.waiting.removeFirst().result.completeError(error);
       }
@@ -224,10 +207,11 @@ final class DiscourseRequestOverloadException implements Exception {
 }
 
 final class _OriginQueue {
+  _OriginQueue({required this.cooldown});
+
+  final OriginCooldown cooldown;
   final Queue<_PendingRequest> waiting = Queue();
   int active = 0;
-  DateTime? blockedUntil;
-  Timer? wake;
 }
 
 final class _PendingRequest {

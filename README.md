@@ -1296,13 +1296,17 @@ flutter test integration_test -d <device> # real app, real network, real storage
 And one check that is about upstream rather than about this code:
 
 ```sh
-dart run tool/markup_contract.dart        # see Oneboxes, Mentions, and Polls
+dart run tool/markup_contract.dart         # see Oneboxes, Mentions, and Polls
+dart run tool/flutter_webrtc_contract.dart # verify the vendored 1.6.0 archive
 ```
 
-GitHub runs that network-dependent drift check weekly and on manual dispatch
-via `.github/workflows/markup-contract.yml`. It deliberately does not run for
-pull requests: an upstream move or a transient fetch failure should report in
-that workflow without making an unrelated PR flaky.
+GitHub runs those network-dependent checks weekly and on manual dispatch via
+`.github/workflows/markup-contract.yml` and
+`.github/workflows/flutter-webrtc-contract.yml`. They deliberately do not run
+for pull requests: an upstream move or transient fetch failure should report in
+those workflows without making an unrelated PR flaky. The WebRTC check accepts
+only the file inventory in `third_party/flutter_webrtc/PATCHES.md` after
+verifying pub.dev's pinned archive SHA-256.
 
 The live tests are skipped by default (see `dart_test.yaml`) so an offline or CI
 run stays green. The integration test is the only one that covers real HTTP,
@@ -1418,8 +1422,9 @@ edge (see `UserBar.maxBottomInset`).
 
 ```
 lib/
-  main.dart                    entry point
+  main.dart                    minimal production entry point
   src/
+    app_bootstrap.dart         ordered, testable startup and platform adapter
     app.dart                   root widget, owns the ShellController
     data/
       discourse_api.dart       site lookup over HTTP

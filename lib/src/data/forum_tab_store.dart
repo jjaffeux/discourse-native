@@ -1,10 +1,9 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/forum_workspace.dart';
-import 'serial_operation_queue.dart';
+import 'coalescing_snapshot_writer.dart';
 import 'store_diagnostics.dart';
 
 abstract interface class ForumTabPersistence {
@@ -56,12 +55,13 @@ class ForumTabStore {
 
   static const String storageKey = 'discourse_native.forum_tabs';
   static const int formatVersion = 1;
-  static final SerialOperationQueue _operations = SerialOperationQueue();
-
   final ForumTabPersistence _persistence;
-  String? _pendingSave;
-  Completer<void>? _pendingResult;
-  bool _saving = false;
+  late final CoalescingSnapshotWriter<String> _snapshots =
+      CoalescingSnapshotWriter(
+        owner: _persistence,
+        key: storageKey,
+        writeSnapshot: _persistSnapshot,
+      );
 
   /// Whether the stored document could not be read.
   ///
@@ -77,11 +77,7 @@ class ForumTabStore {
   Future<List<ForumWorkspace>> load() async {
     final String? raw;
     try {
-      raw = await _operations.run<String?>(
-        owner: _persistence,
-        key: storageKey,
-        operation: _persistence.read,
-      );
+      raw = await _snapshots.read(_persistence.read);
       _unreadable = false;
     } catch (error, stackTrace) {
       _unreadable = true;
@@ -117,47 +113,19 @@ class ForumTabStore {
 
   Future<void> save(Iterable<ForumWorkspace> workspaces) {
     if (_unreadable) return Future<void>.value();
-    _pendingSave = jsonEncode({
+    final encoded = jsonEncode({
       'version': formatVersion,
       'workspaces': [for (final workspace in workspaces) workspace.toJson()],
     });
-    final result = _pendingResult ??= Completer<void>();
-    if (!_saving) {
-      _saving = true;
-      unawaited(_drain());
-    }
-    return result.future;
+    return _snapshots.save(encoded);
   }
 
-  Future<void> _drain() async {
+  Future<void> _persistSnapshot(String encoded) async {
     try {
-      while (_pendingSave != null) {
-        final encoded = _pendingSave!;
-        final result = _pendingResult!;
-        _pendingSave = null;
-        _pendingResult = null;
-        try {
-          // The drain coalesces changes made through this store. The shared
-          // queue additionally orders stores across shell replacement, where
-          // an older in-flight snapshot must not finish after the new shell's
-          // latest one and overwrite it.
-          final saved = await _operations.run<bool>(
-            owner: _persistence,
-            key: storageKey,
-            operation: () => _persistence.write(encoded),
-          );
-          if (!saved) throw StateError('Could not persist forum tabs.');
-        } catch (error, stackTrace) {
-          reportStorageFailure(error, stackTrace, 'forumTabs.save');
-        }
-        if (!result.isCompleted) result.complete();
-      }
-    } finally {
-      _saving = false;
-      if (_pendingSave != null) {
-        _saving = true;
-        unawaited(_drain());
-      }
+      final saved = await _persistence.write(encoded);
+      if (!saved) throw StateError('Could not persist forum tabs.');
+    } catch (error, stackTrace) {
+      reportStorageFailure(error, stackTrace, 'forumTabs.save');
     }
   }
 }

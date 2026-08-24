@@ -73,6 +73,23 @@ void main() {
       expect(record.component, 'callkit.native');
       expect(record.correlationId, 'call-123');
       expect(record.data, {'route': 'speaker'});
+
+      await systemCall.handleNativeMethodCall(
+        const MethodCall('diagnostic', {
+          'event': 'callkit.provider.end.skipped',
+          'component': 'callkit',
+          'data': {'reason': 'stale_call', 'callId': 'private-call-id'},
+        }),
+      );
+
+      expect(
+        diagnostics.records
+            .singleWhere(
+              (entry) => entry.event == 'callkit.provider.end.skipped',
+            )
+            .data,
+        {'reason': 'stale_call'},
+      );
     },
   );
 

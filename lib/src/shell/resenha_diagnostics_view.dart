@@ -31,6 +31,8 @@ class ResenhaDiagnosticsView extends StatefulWidget {
     this.buildClipboardReport,
     this.writeJsonReportTo,
     this.clipboardByteLimit = resenhaDiagnosticsClipboardByteLimit,
+    this.onEventProjected,
+    this.onSearchTextBuilt,
   });
 
   final Listenable stateListenable;
@@ -46,6 +48,12 @@ class ResenhaDiagnosticsView extends StatefulWidget {
   final ResenhaReportWriter? writeJsonReportTo;
   final ResenhaReportExporter exporter;
   final int clipboardByteLimit;
+
+  @visibleForTesting
+  final ValueChanged<String>? onEventProjected;
+
+  @visibleForTesting
+  final ValueChanged<String>? onSearchTextBuilt;
 
   @override
   State<ResenhaDiagnosticsView> createState() => _ResenhaDiagnosticsViewState();
@@ -72,6 +80,7 @@ class ResenhaDiagnosticsUiState {
 class _ResenhaDiagnosticsViewState extends State<ResenhaDiagnosticsView> {
   final TextEditingController _search = TextEditingController();
   final ScrollController _timeline = ScrollController();
+  final Map<String, _CaptureEvent> _eventsById = {};
   String? _selectedId;
   bool _busy = false;
 
@@ -92,7 +101,7 @@ class _ResenhaDiagnosticsViewState extends State<ResenhaDiagnosticsView> {
       ]),
       builder: (context, _) {
         final state = widget.readState();
-        final events = widget.readEvents().map(_CaptureEvent.new).toList();
+        final events = _projectEvents(widget.readEvents());
         final selected = _selectedEvent(events);
 
         return Column(
@@ -125,11 +134,16 @@ class _ResenhaDiagnosticsViewState extends State<ResenhaDiagnosticsView> {
 
   Widget _buildTimeline(List<_CaptureEvent> events) {
     final query = _search.text.trim().toLowerCase();
-    final visible = events
-        .where((event) => query.isEmpty || event.searchText.contains(query))
-        .toList(growable: false)
-        .reversed
-        .toList(growable: false);
+    final visible = query.isEmpty
+        ? events
+        : events
+              .where(
+                (event) => event.matches(
+                  query,
+                  onSearchTextBuilt: widget.onSearchTextBuilt,
+                ),
+              )
+              .toList(growable: false);
 
     return Column(
       children: [
@@ -174,7 +188,7 @@ class _ResenhaDiagnosticsViewState extends State<ResenhaDiagnosticsView> {
                     controller: _timeline,
                     itemCount: visible.length,
                     itemBuilder: (context, index) {
-                      final event = visible[index];
+                      final event = visible[visible.length - index - 1];
                       return _CaptureEventRow(
                         key: ValueKey('resenha-diagnostic-event-${event.id}'),
                         event: event,
@@ -196,6 +210,24 @@ class _ResenhaDiagnosticsViewState extends State<ResenhaDiagnosticsView> {
     }
     _selectedId = null;
     return null;
+  }
+
+  List<_CaptureEvent> _projectEvents(List<Map<String, Object?>> jsonEvents) {
+    final projected = <_CaptureEvent>[];
+    final seen = <String>{};
+    for (final json in jsonEvents) {
+      final id = _eventId(json);
+      seen.add(id);
+      var event = _eventsById[id];
+      if (event == null || !identical(event.json, json)) {
+        event = _CaptureEvent(json, id: id);
+        _eventsById[id] = event;
+        widget.onEventProjected?.call(id);
+      }
+      projected.add(event);
+    }
+    _eventsById.removeWhere((id, _) => !seen.contains(id));
+    return List.unmodifiable(projected);
   }
 
   Future<void> _toggleCapture(bool enabled) async {
@@ -504,14 +536,12 @@ class _MetadataChip extends StatelessWidget {
 }
 
 class _CaptureEvent {
-  _CaptureEvent(this.json)
-    : id = _eventId(json),
-      timestampUtc = _eventTimestamp(json),
+  _CaptureEvent(this.json, {required this.id})
+    : timestampUtc = _eventTimestamp(json),
       name = _eventName(json),
       component = _eventComponent(json),
       severity = _eventSeverity(json),
-      message = _eventMessage(json),
-      searchText = jsonEncode(json).toLowerCase();
+      message = _eventMessage(json);
 
   final Map<String, Object?> json;
   final String id;
@@ -520,7 +550,18 @@ class _CaptureEvent {
   final String component;
   final DiagnosticSeverity severity;
   final String? message;
-  final String searchText;
+  String? _searchText;
+
+  bool matches(String query, {ValueChanged<String>? onSearchTextBuilt}) {
+    if (query.isEmpty) return true;
+    var searchText = _searchText;
+    if (searchText == null) {
+      searchText = jsonEncode(json).toLowerCase();
+      _searchText = searchText;
+      onSearchTextBuilt?.call(id);
+    }
+    return searchText.contains(query);
+  }
 }
 
 class _CaptureEventRow extends StatelessWidget {

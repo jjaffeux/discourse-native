@@ -297,10 +297,14 @@ class ShellController extends FrameSafeNotifier {
   );
 
   /// Topic-list snapshots and their competing refresh/page requests.
+  ///
+  /// Feed state has its own notification boundary. Widgets that render it
+  /// listen here directly; shell listeners remain about navigation and other
+  /// shell-owned state.
   late final TopicFeedController topicFeeds = _createTopicFeedController();
 
   TopicFeedController _createTopicFeedController() {
-    final controller = TopicFeedController(
+    return TopicFeedController(
       api: api,
       credentials: authenticator,
       lifecycle: lifecycle,
@@ -309,8 +313,6 @@ class ShellController extends FrameSafeNotifier {
         unawaited(_ensureCategoriesFor(instance));
       },
     );
-    controller.addListener(_notify);
-    return controller;
   }
 
   /// Optimistic topic read positions and their serialized server receipts.
@@ -6891,9 +6893,7 @@ class ShellController extends FrameSafeNotifier {
     updates.dispose();
     accountActivity.dispose();
     draftList.dispose();
-    topicFeeds
-      ..removeListener(_notify)
-      ..dispose();
+    topicFeeds.dispose();
     reactions.dispose();
     assignments.dispose();
     chatNavigation.dispose();

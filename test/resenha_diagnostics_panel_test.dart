@@ -12,6 +12,50 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('timeline projection only rebuilds an appended retained event', () {
+    final projected = <String>[];
+    final projection = ResenhaDiagnosticsTimelineProjection(
+      onEventProjected: projected.add,
+    );
+    final timestamp = DateTime.utc(2026, 8, 11, 12);
+    final retained = [
+      for (var sequence = 1; sequence <= 2000; sequence += 1)
+        ResenhaDiagnosticRecord(
+          sequence: sequence,
+          timestampUtc: timestamp,
+          captureId: 'capture-tail',
+          event: 'retained.event.$sequence',
+          component: 'capture',
+          severity: DiagnosticSeverity.info,
+          data: {'sequence': sequence},
+        ),
+    ];
+
+    final first = projection.project(retained, const []);
+    expect(projected, hasLength(2000));
+    final firstById = {for (final event in first) event['id']!: event};
+    final firstIds = first.map((event) => event['id']! as String).toList();
+    expect(firstIds, [...firstIds]..sort());
+    projected.clear();
+
+    final appended = ResenhaDiagnosticRecord(
+      sequence: 2001,
+      timestampUtc: timestamp,
+      captureId: 'capture-tail',
+      event: 'retained.event.2001',
+      component: 'capture',
+      severity: DiagnosticSeverity.info,
+      data: const {'sequence': 2001},
+    );
+    final second = projection.project([...retained, appended], const []);
+
+    expect(projected, ['deep:capture-tail:2001']);
+    for (final event in second) {
+      if (event['id'] == 'deep:capture-tail:2001') continue;
+      expect(event, same(firstById[event['id']]));
+    }
+  });
+
   testWidgets('adds a Resenha tab backed by the capture controller', (
     tester,
   ) async {
