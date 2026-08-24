@@ -1053,104 +1053,143 @@ Future<void> _showResenhaChat(
   required int roomId,
 }) async {
   unawaited(controller.openChat(siteUrl, roomId));
-  final composer = TextEditingController();
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     constraints: const BoxConstraints(maxWidth: 720),
-    builder: (context) => SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: 16,
-          bottom: 16 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.7,
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'Room chat',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'Close',
-                    onPressed: () => Navigator.pop(context),
-                    icon: const DIcon(DIcons.xmark, size: 18),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: ListenableBuilder(
-                  listenable: controller,
-                  builder: (context, _) {
-                    final chat = controller.chat(siteUrl, roomId);
-                    if (chat == null || chat.loading) {
-                      return const Center(
-                        child: CircularProgressIndicator.adaptive(),
-                      );
-                    }
-                    if (chat.messages.isEmpty) {
-                      return const Center(child: Text('No messages yet.'));
-                    }
-                    return ListView.builder(
-                      itemCount:
-                          chat.messages.length + (chat.canLoadMorePast ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (chat.canLoadMorePast && index == 0) {
-                          return Center(
-                            child: TextButton(
-                              onPressed: () =>
-                                  controller.loadOlderChat(siteUrl, roomId),
-                              child: const Text('Load older messages'),
-                            ),
-                          );
-                        }
-                        final message = chat
-                            .messages[index - (chat.canLoadMorePast ? 1 : 0)];
-                        return ListTile(
-                          title: Text(message.author.displayName),
-                          subtitle: HtmlWidget(message.cooked),
-                        );
-                      },
-                    );
-                  },
+    builder: (context) => _ResenhaChatSheet(
+      controller: controller,
+      siteUrl: siteUrl,
+      roomId: roomId,
+    ),
+  );
+}
+
+class _ResenhaChatSheet extends StatefulWidget {
+  const _ResenhaChatSheet({
+    required this.controller,
+    required this.siteUrl,
+    required this.roomId,
+  });
+
+  final ResenhaController controller;
+  final String siteUrl;
+  final int roomId;
+
+  @override
+  State<_ResenhaChatSheet> createState() => _ResenhaChatSheetState();
+}
+
+class _ResenhaChatSheetState extends State<_ResenhaChatSheet> {
+  final TextEditingController _composer = TextEditingController();
+
+  @override
+  void dispose() {
+    _composer.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: 16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.7,
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Room chat',
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const DIcon(DIcons.xmark, size: 18),
+                ),
+              ],
+            ),
+            Expanded(
+              child: ListenableBuilder(
+                listenable: widget.controller,
+                builder: (context, _) {
+                  final chat = widget.controller.chat(
+                    widget.siteUrl,
+                    widget.roomId,
+                  );
+                  if (chat == null || chat.loading) {
+                    return const Center(
+                      child: CircularProgressIndicator.adaptive(),
+                    );
+                  }
+                  if (chat.messages.isEmpty) {
+                    return const Center(child: Text('No messages yet.'));
+                  }
+                  return ListView.builder(
+                    itemCount:
+                        chat.messages.length + (chat.canLoadMorePast ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (chat.canLoadMorePast && index == 0) {
+                        return Center(
+                          child: TextButton(
+                            onPressed: () => widget.controller.loadOlderChat(
+                              widget.siteUrl,
+                              widget.roomId,
+                            ),
+                            child: const Text('Load older messages'),
+                          ),
+                        );
+                      }
+                      final message =
+                          chat.messages[index - (chat.canLoadMorePast ? 1 : 0)];
+                      return ListTile(
+                        title: Text(message.author.displayName),
+                        subtitle: HtmlWidget(message.cooked),
+                      );
+                    },
+                  );
+                },
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: composer,
-                      minLines: 1,
-                      maxLines: 4,
-                      decoration: const InputDecoration(
-                        hintText: 'Message the room',
-                      ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _composer,
+                    minLines: 1,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      hintText: 'Message the room',
                     ),
                   ),
-                  IconButton.filled(
-                    tooltip: 'Send message',
-                    onPressed: () async {
-                      final text = composer.text;
-                      composer.clear();
-                      await controller.sendChatMessage(siteUrl, roomId, text);
-                    },
-                    icon: const DIcon(DIcons.paperPlane, size: 18),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                IconButton.filled(
+                  tooltip: 'Send message',
+                  onPressed: () async {
+                    final text = _composer.text;
+                    _composer.clear();
+                    await widget.controller.sendChatMessage(
+                      widget.siteUrl,
+                      widget.roomId,
+                      text,
+                    );
+                  },
+                  icon: const DIcon(DIcons.paperPlane, size: 18),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     ),
   );
-  composer.dispose();
 }
 
 Future<void> showResenhaMembers(

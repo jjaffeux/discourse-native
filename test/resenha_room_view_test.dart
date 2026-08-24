@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_api.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_callkit.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_controller.dart';
@@ -9,6 +10,8 @@ import 'package:discourse_native/src/plugins/resenha/resenha_media.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_models.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_preferences.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_room_view.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -131,6 +134,94 @@ void main() {
     expect(find.text('Nobody is in Lounge yet.'), findsOneWidget);
     expect(find.text('A calm place to catch up.'), findsOneWidget);
     expect(find.text('Join room'), findsOneWidget);
+  });
+
+  testWidgets('top-level room view handles a missing site and room', (
+    tester,
+  ) async {
+    final emptyShell = ShellController(
+      instanceStore: FakeInstanceStore(),
+      api: FakeDiscourseApi(),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(emptyShell.dispose);
+    await emptyShell.load();
+    await tester.pumpWidget(
+      ShellScope(
+        controller: emptyShell,
+        child: const MaterialApp(home: ResenhaRoomView(roomId: 7)),
+      ),
+    );
+    expect(find.byType(ResenhaRoomContent), findsNothing);
+
+    final site = instance('voice.example.com');
+    final connectedShell = ShellController(
+      instanceStore: FakeInstanceStore([site]),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(connectedShell.dispose);
+    await connectedShell.load();
+    await tester.pumpWidget(
+      ShellScope(
+        controller: connectedShell,
+        child: const MaterialApp(home: ResenhaRoomView(roomId: 7)),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('This voice room is unavailable.'), findsOneWidget);
+  });
+
+  testWidgets('top-level room view handles desktop push-to-talk keys', (
+    tester,
+  ) async {
+    final room = _room(
+      participants: const [
+        ResenhaParticipant(
+          id: 1,
+          username: 'sam',
+          role: ResenhaRole.participant,
+        ),
+      ],
+    );
+    final harness = _Harness(joinRoom: room);
+    await _join(harness, room);
+    final shell = _InjectedResenhaShell(harness.controller);
+    addTearDown(shell.dispose);
+    await shell.load();
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: const MaterialApp(home: ResenhaRoomView(roomId: 7)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final media = harness.media.sessions.single;
+
+    expect(await tester.sendKeyDownEvent(LogicalKeyboardKey.space), isFalse);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
+
+    await harness.controller.setPushToTalkEnabled(true);
+    await tester.pumpAndSettle();
+    expect(media.muted, isTrue);
+    expect(await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA), isFalse);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+
+    expect(await tester.sendKeyDownEvent(LogicalKeyboardKey.space), isTrue);
+    await tester.pumpAndSettle();
+    expect(media.muted, isFalse);
+    expect(await tester.sendKeyUpEvent(LogicalKeyboardKey.space), isTrue);
+    await tester.pumpAndSettle();
+    expect(media.muted, isTrue);
+
+    await harness.controller.leave();
+    await tester.pump();
   });
 
   testWidgets('join, media failure, moderation, and leave stay wired', (
@@ -416,6 +507,461 @@ void main() {
     expect(transport.membershipReads, 1);
   });
 
+  testWidgets('participant volume is applied locally and persisted', (
+    tester,
+  ) async {
+    final preferences = _Preferences(participantVolume: 0.4);
+    final room = _room(
+      participants: const [
+        ResenhaParticipant(
+          id: 1,
+          username: 'sam',
+          role: ResenhaRole.participant,
+        ),
+        ResenhaParticipant(
+          id: 2,
+          username: 'lee',
+          role: ResenhaRole.participant,
+        ),
+      ],
+    );
+    final harness = _Harness(joinRoom: room, preferences: preferences);
+    addTearDown(harness.dispose);
+    await _join(harness, room);
+
+    await tester.pumpWidget(
+      _app(harness.controller, room: room, call: harness.controller.call),
+    );
+    await tester.tap(find.byTooltip('Participant actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Local volume'));
+    await tester.pumpAndSettle();
+
+    final slider = tester.widget<Slider>(find.byType(Slider));
+    expect(slider.value, 0.4);
+    slider.onChanged!(0.7);
+    await tester.pumpAndSettle();
+
+    expect(harness.media.sessions.single.participantVolumes.single, (
+      participantId: 2,
+      volume: 0.7,
+    ));
+    expect(preferences.participantVolumeWrites.single, (
+      siteUrl: _siteUrl,
+      roomId: 7,
+      userId: 2,
+      volume: 0.7,
+    ));
+
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    await harness.controller.leave();
+    await tester.pump();
+  });
+
+  testWidgets('media settings select devices and exercise the microphone', (
+    tester,
+  ) async {
+    const webRtcChannel = MethodChannel('FlutterWebRTC.Method');
+    const eventChannel = EventChannel('FlutterWebRTC.Event');
+    final messenger = tester.binding.defaultBinaryMessenger;
+    final microphoneGate = Completer<void>();
+    final microphoneStarted = Completer<void>();
+    final nativeCalls = <String>[];
+    rtc.WebRTC.initialized = false;
+    messenger.setMockStreamHandler(
+      eventChannel,
+      const MockStreamHandler.inline(onListen: _ignoreEvents),
+    );
+    messenger.setMockMethodCallHandler(webRtcChannel, (call) async {
+      nativeCalls.add(call.method);
+      if (call.method == 'getUserMedia') {
+        microphoneStarted.complete();
+        await microphoneGate.future;
+        return <String, Object?>{
+          'streamId': 'microphone-test-stream',
+          'audioTracks': <Object?>[
+            <String, Object?>{
+              'id': 'microphone-test-track',
+              'label': 'Test microphone',
+              'kind': 'audio',
+              'enabled': true,
+              'settings': <String, Object?>{},
+            },
+          ],
+          'videoTracks': <Object?>[],
+        };
+      }
+      return switch (call.method) {
+        'initialize' || 'trackDispose' || 'streamDispose' => null,
+        _ => throw UnsupportedError('Unexpected WebRTC call: ${call.method}'),
+      };
+    });
+    addTearDown(() {
+      if (!microphoneGate.isCompleted) microphoneGate.complete();
+      rtc.WebRTC.initialized = false;
+      messenger.setMockMethodCallHandler(webRtcChannel, null);
+      messenger.setMockStreamHandler(eventChannel, null);
+    });
+
+    final preferences = _Preferences();
+    final room = _room(
+      videoAllowed: true,
+      participants: const [
+        ResenhaParticipant(
+          id: 1,
+          username: 'sam',
+          role: ResenhaRole.participant,
+        ),
+      ],
+    );
+    final harness = _Harness(joinRoom: room, preferences: preferences);
+    addTearDown(harness.dispose);
+    await _join(harness, room);
+    final media = harness.media.sessions.single;
+    media.availableDevices = [
+      rtc.MediaDeviceInfo(
+        deviceId: 'microphone-1',
+        groupId: 'audio-group',
+        kind: 'audioinput',
+        label: 'Desk microphone',
+      ),
+      rtc.MediaDeviceInfo(
+        deviceId: 'microphone-2',
+        groupId: 'audio-group',
+        kind: 'audioinput',
+        label: 'Travel microphone',
+      ),
+      rtc.MediaDeviceInfo(
+        deviceId: 'speaker-1',
+        groupId: 'audio-group',
+        kind: 'audiooutput',
+        label: '',
+      ),
+      rtc.MediaDeviceInfo(
+        deviceId: 'speaker-2',
+        groupId: 'audio-group',
+        kind: 'audiooutput',
+        label: 'Headphones',
+      ),
+      rtc.MediaDeviceInfo(
+        deviceId: 'camera-1',
+        groupId: 'camera-group',
+        kind: 'videoinput',
+        label: 'Desk camera',
+      ),
+      rtc.MediaDeviceInfo(
+        deviceId: 'camera-2',
+        groupId: 'camera-group',
+        kind: 'videoinput',
+        label: 'Travel camera',
+      ),
+    ];
+    await harness.controller.selectAudioInput('microphone-1');
+    await harness.controller.setCameraEnabled(true);
+    media.audioInputs.clear();
+    media.cameraChanges.clear();
+    preferences.deviceWrites.clear();
+
+    await tester.pumpWidget(
+      _app(harness.controller, room: room, call: harness.controller.call),
+    );
+    await tester.tap(find.byTooltip('Media settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Desk microphone'), findsOneWidget);
+    expect(find.text('Default Speaker'), findsOneWidget);
+    expect(find.text('Desk camera'), findsOneWidget);
+
+    final pickers = find.byType(DropdownButtonFormField<String>);
+    await tester.tap(pickers.at(0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Travel microphone').last);
+    await tester.pumpAndSettle();
+    await tester.tap(pickers.at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Headphones').last);
+    await tester.pumpAndSettle();
+    await tester.tap(pickers.at(2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Travel camera').last);
+    await tester.pumpAndSettle();
+
+    expect(media.audioInputs, ['microphone-2']);
+    expect(media.audioOutputs, ['speaker-2']);
+    expect(media.cameraChanges, [
+      (enabled: false, deviceId: null),
+      (enabled: true, deviceId: 'camera-2'),
+    ]);
+    expect(preferences.deviceWrites, [
+      (preference: ResenhaDevicePreference.audioInput, value: 'microphone-2'),
+      (preference: ResenhaDevicePreference.audioOutput, value: 'speaker-2'),
+      (preference: ResenhaDevicePreference.camera, value: 'camera-2'),
+    ]);
+
+    await tester.tap(find.text('Push to talk'));
+    await tester.pumpAndSettle();
+    expect(harness.controller.pushToTalkEnabled, isTrue);
+    expect(preferences.pushToTalkWrites, [true]);
+    expect(media.muted, isTrue);
+
+    final testMicrophone = find.text('Test microphone');
+    await tester.ensureVisible(testMicrophone);
+    await tester.pumpAndSettle();
+    await tester.tap(testMicrophone);
+    await microphoneStarted.future;
+    await tester.pump();
+    expect(find.text('Testing…'), findsOneWidget);
+    microphoneGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Microphone is available.'), findsOneWidget);
+    expect(
+      nativeCalls,
+      containsAll(['getUserMedia', 'trackDispose', 'streamDispose']),
+    );
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    await harness.controller.leave();
+    await tester.pump();
+  });
+
+  testWidgets('room chat exposes loading and empty states', (tester) async {
+    final transport = _GatedChatTransport();
+    final harness = _Harness(discourseApi: transport);
+    addTearDown(harness.dispose);
+    addTearDown(() {
+      if (!transport.sessionGate.isCompleted) transport.sessionGate.complete();
+    });
+    final room = _room(
+      chatAvailable: true,
+      participants: const [
+        ResenhaParticipant(
+          id: 1,
+          username: 'sam',
+          role: ResenhaRole.participant,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      _app(
+        harness.controller,
+        room: room,
+        call: _call(room, harness.media.createSession()),
+      ),
+    );
+    await tester.tap(find.byTooltip('Room chat'));
+    await transport.sessionStarted.future;
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    transport.sessionGate.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('No messages yet.'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('room chat pages messages and sends trimmed composer text', (
+    tester,
+  ) async {
+    final transport = FakeDiscourseApi(
+      pluginResponses: const {
+        'GET /resenha/rooms/7/chat_session.json': {
+          'channel_id': 42,
+          'thread_id': 99,
+        },
+      },
+      chatMessagesByKey: {
+        'thread-42-99': _chatPage(
+          id: 10,
+          username: 'sam',
+          name: 'Sam',
+          canLoadMorePast: true,
+        ),
+        'thread-42-99~past~10': _chatPage(id: 5, username: 'lee', name: 'Lee'),
+      },
+    );
+    final harness = _Harness(discourseApi: transport);
+    addTearDown(harness.dispose);
+    final room = _room(
+      chatAvailable: true,
+      participants: const [
+        ResenhaParticipant(
+          id: 1,
+          username: 'sam',
+          role: ResenhaRole.participant,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      _app(
+        harness.controller,
+        room: room,
+        call: _call(room, harness.media.createSession()),
+      ),
+    );
+    await tester.tap(find.byTooltip('Room chat'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sam'), findsOneWidget);
+    expect(find.text('Load older messages'), findsOneWidget);
+    await tester.tap(find.text('Load older messages'));
+    await tester.pumpAndSettle();
+    expect(find.text('Lee'), findsOneWidget);
+    expect(find.text('Load older messages'), findsNothing);
+    expect(transport.chatThreadMessagesRequested.last.before, 10);
+
+    final composer = find.widgetWithText(TextField, 'Message the room');
+    await tester.enterText(composer, '  hello room  ');
+    await tester.tap(find.byTooltip('Send message'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(composer).controller?.text, isEmpty);
+    expect(transport.chatMessagesSent.single.channelId, 42);
+    expect(transport.chatMessagesSent.single.threadId, 99);
+    expect(transport.chatMessagesSent.single.message, 'hello room');
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('member management adds, updates, and removes memberships', (
+    tester,
+  ) async {
+    final transport = FakeDiscourseApi(
+      pluginResponses: {
+        'GET /resenha/rooms/7/memberships.json': {
+          'memberships': const [
+            {
+              'id': 8,
+              'room_id': 7,
+              'user_id': 1,
+              'role_name': 'moderator',
+              'user': {'id': 1, 'username': 'sam'},
+            },
+            {
+              'id': 9,
+              'room_id': 7,
+              'user_id': 2,
+              'role_name': 'speaker',
+              'user': {'id': 2, 'username': 'lee', 'name': 'Lee Example'},
+            },
+            {'id': 10, 'room_id': 7, 'user_id': 3, 'role_name': 'participant'},
+          ],
+        },
+        'POST /resenha/rooms/7/memberships.json': <String, Object?>{},
+        'PUT /resenha/rooms/7/memberships/9.json': <String, Object?>{},
+        'DELETE /resenha/rooms/7/memberships/9.json': <String, Object?>{},
+      },
+    );
+    final harness = _Harness(discourseApi: transport);
+    addTearDown(harness.dispose);
+    final room = _room(
+      canManage: true,
+      creatorId: 1,
+      participants: const [
+        ResenhaParticipant(id: 1, username: 'sam', role: ResenhaRole.moderator),
+      ],
+    );
+
+    await tester.pumpWidget(
+      _app(
+        harness.controller,
+        room: room,
+        call: _call(room, harness.media.createSession()),
+      ),
+    );
+    await tester.tap(find.byTooltip('Manage members'));
+    await tester.pumpAndSettle();
+
+    final membersDialog = find.byType(AlertDialog);
+    expect(find.text('Members of Lounge'), findsOneWidget);
+    expect(
+      find.descendant(of: membersDialog, matching: find.text('sam')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: membersDialog, matching: find.text('Lee Example')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: membersDialog, matching: find.text('User 3')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Remove member'), findsNWidgets(2));
+
+    final username = find.widgetWithText(TextField, 'Username');
+    await tester.enterText(username, '   ');
+    await tester.tap(find.byTooltip('Add member'));
+    await tester.pumpAndSettle();
+    expect(
+      transport.pluginWrites.where(
+        (write) => write.path.endsWith('/memberships.json'),
+      ),
+      isEmpty,
+    );
+
+    await tester.tap(find.byType(DropdownButton<ResenhaRole>));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find
+          .widgetWithText(
+            DropdownMenuItem<ResenhaRole>,
+            ResenhaRole.moderator.name,
+          )
+          .last,
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(username, '  jordan  ');
+    await tester.tap(find.byTooltip('Add member'));
+    await tester.pumpAndSettle();
+
+    final add = transport.pluginWrites.singleWhere(
+      (write) => write.method == 'POST',
+    );
+    expect(add.body['username'], 'jordan');
+    expect(add.body['role'], 'moderator');
+    expect(tester.widget<TextField>(username).controller?.text, isEmpty);
+
+    final leeTile = find.widgetWithText(ListTile, 'Lee Example');
+    await tester.tap(
+      find.descendant(of: leeTile, matching: find.byTooltip('Change role')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find
+          .widgetWithText(
+            PopupMenuItem<ResenhaRole>,
+            ResenhaRole.participant.name,
+          )
+          .last,
+    );
+    await tester.pumpAndSettle();
+    final update = transport.pluginWrites.singleWhere(
+      (write) => write.method == 'PUT',
+    );
+    expect(update.path, '/resenha/rooms/7/memberships/9.json');
+    expect(update.body['role'], 'participant');
+
+    await tester.tap(
+      find.descendant(of: leeTile, matching: find.byTooltip('Remove member')),
+    );
+    await tester.pumpAndSettle();
+    final remove = transport.pluginWrites.singleWhere(
+      (write) => write.method == 'DELETE',
+    );
+    expect(remove.path, '/resenha/rooms/7/memberships/9.json');
+    expect(remove.body, isEmpty);
+
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+  });
+
   for (final role in [ResenhaRole.speaker, ResenhaRole.moderator]) {
     testWidgets('stage ${role.name}s retain publishing controls', (
       tester,
@@ -668,6 +1214,25 @@ MediaStreamTrackNative _nativeVideoTrack() => MediaStreamTrackNative(
 
 void _ignoreEvents(Object? _, MockStreamHandlerEventSink _) {}
 
+ChatMessagePage _chatPage({
+  required int id,
+  required String username,
+  required String name,
+  bool canLoadMorePast = false,
+}) => (
+  messages: [
+    ChatMessage(
+      id: id,
+      channelId: 42,
+      cooked: '<p>Message $id</p>',
+      author: ChatMessageAuthor(id: id, username: username, name: name),
+    ),
+  ],
+  canLoadMorePast: canLoadMorePast,
+  canLoadMoreFuture: false,
+  targetMessageId: null,
+);
+
 Future<void> _join(_Harness harness, ResenhaRoom room) =>
     harness.controller.join(siteUrl: _siteUrl, siteName: 'Voice', room: room);
 
@@ -718,6 +1283,7 @@ ResenhaRoom _room({
   int? creatorId,
   bool canManage = false,
   bool videoAllowed = false,
+  bool chatAvailable = false,
   ResenhaRoomType type = ResenhaRoomType.open,
 }) => ResenhaRoom(
   id: 7,
@@ -732,6 +1298,7 @@ ResenhaRoom _room({
   canManage: canManage,
   videoEnabled: videoAllowed,
   videoAllowed: videoAllowed,
+  chatAvailable: chatAvailable,
 );
 
 Map<String, dynamic> _joinPayload(
@@ -753,6 +1320,7 @@ Map<String, dynamic> _joinPayload(
     'can_manage': room.canManage,
     'video_enabled': room.videoEnabled,
     'video_allowed': room.videoAllowed,
+    'chat_available': room.chatAvailable,
     'active_participants': [
       for (final participant in room.participants)
         {
@@ -773,7 +1341,9 @@ final class _Harness {
     ResenhaTransport joinTransport = ResenhaTransport.mesh,
     Set<int> speakingIds = const {},
     FakeDiscourseApi? discourseApi,
-  }) : transport =
+    _Preferences? preferences,
+  }) : preferences = preferences ?? _Preferences(),
+       transport =
            discourseApi ??
            FakeDiscourseApi(
              pluginResponses: {
@@ -805,16 +1375,33 @@ final class _Harness {
       onCallSiteChanged: () {},
       mediaFactory: media,
       systemCall: _SystemCall(),
-      preferences: const _Preferences(),
+      preferences: this.preferences,
       heartbeatInterval: const Duration(days: 1),
     );
   }
 
   final FakeDiscourseApi transport;
   final _MediaFactory media;
+  final _Preferences preferences;
   late final ResenhaController controller;
 
   void dispose() => controller.dispose();
+}
+
+final class _InjectedResenhaShell extends ShellController {
+  _InjectedResenhaShell(this.injectedResenha)
+    : super(
+        instanceStore: FakeInstanceStore([instance('voice.example.com')]),
+        api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+
+  final ResenhaController injectedResenha;
+
+  @override
+  ResenhaController get resenha => injectedResenha;
 }
 
 final class _GatedMembershipTransport extends FakeDiscourseApi {
@@ -870,6 +1457,37 @@ final class _GatedMembershipTransport extends FakeDiscourseApi {
   }
 }
 
+final class _GatedChatTransport extends FakeDiscourseApi {
+  _GatedChatTransport()
+    : super(
+        pluginResponses: const {
+          'GET /resenha/rooms/7/chat_session.json': <String, Object?>{},
+        },
+      );
+
+  final Completer<void> sessionStarted = Completer<void>();
+  final Completer<void> sessionGate = Completer<void>();
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    if (path == '/resenha/rooms/7/chat_session.json') {
+      sessionStarted.complete();
+      await sessionGate.future;
+    }
+    return super.pluginGetJson(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+}
+
 final class _MediaFactory implements ResenhaMediaFactory {
   _MediaFactory(this.speakingIds);
 
@@ -908,6 +1526,11 @@ final class _MediaSession extends ChangeNotifier
   int disposeCount = 0;
   bool muted = false;
   bool failNextMute = false;
+  List<rtc.MediaDeviceInfo> availableDevices = const [];
+  final List<String> audioInputs = [];
+  final List<String> audioOutputs = [];
+  final List<({bool enabled, String? deviceId})> cameraChanges = [];
+  final List<({int participantId, double volume})> participantVolumes = [];
 
   @override
   ResenhaMediaConnectionState get connectionState =>
@@ -921,17 +1544,26 @@ final class _MediaSession extends ChangeNotifier
   @override
   Future<void> connect() async => connectCount++;
   @override
-  Future<List<rtc.MediaDeviceInfo>> devices() async => const [];
+  Future<List<rtc.MediaDeviceInfo>> devices() async => availableDevices;
   @override
   Future<void> handleSignal(int senderId, Map<String, dynamic> data) async {}
   @override
-  Future<void> selectAudioInput(String deviceId) async {}
+  Future<void> selectAudioInput(String deviceId) async {
+    audioInputs.add(deviceId);
+  }
+
   @override
-  Future<void> selectAudioOutput(String deviceId) async {}
+  Future<void> selectAudioOutput(String deviceId) async {
+    audioOutputs.add(deviceId);
+  }
+
   @override
   Future<void> setAudioPublishingAllowed(bool allowed) async {}
   @override
-  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) async {}
+  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) async {
+    cameraChanges.add((enabled: enabled, deviceId: deviceId));
+  }
+
   @override
   Future<void> setDeafened(bool enabled) async {}
   @override
@@ -944,7 +1576,10 @@ final class _MediaSession extends ChangeNotifier
   }
 
   @override
-  Future<void> setParticipantVolume(int participantId, double volume) async {}
+  Future<void> setParticipantVolume(int participantId, double volume) async {
+    participantVolumes.add((participantId: participantId, volume: volume));
+  }
+
   @override
   Future<void> setScreenShareEnabled(bool enabled) async {}
   @override
@@ -957,7 +1592,14 @@ final class _MediaSession extends ChangeNotifier
 }
 
 final class _Preferences implements ResenhaPreferences {
-  const _Preferences();
+  _Preferences({this.participantVolume});
+
+  final double? participantVolume;
+  final List<({ResenhaDevicePreference preference, String value})>
+  deviceWrites = [];
+  final List<bool> pushToTalkWrites = [];
+  final List<({String siteUrl, int roomId, int userId, double volume})>
+  participantVolumeWrites = [];
 
   @override
   Future<ResenhaDevicePreferences> readDevices() async =>
@@ -967,21 +1609,34 @@ final class _Preferences implements ResenhaPreferences {
     String siteUrl,
     int roomId,
     int userId,
-  ) async => null;
+  ) async => participantVolume;
   @override
   Future<void> writeDevice(
     ResenhaDevicePreference preference,
     String value,
-  ) async {}
+  ) async {
+    deviceWrites.add((preference: preference, value: value));
+  }
+
   @override
   Future<void> writeParticipantVolume(
     String siteUrl,
     int roomId,
     int userId,
     double volume,
-  ) async {}
+  ) async {
+    participantVolumeWrites.add((
+      siteUrl: siteUrl,
+      roomId: roomId,
+      userId: userId,
+      volume: volume,
+    ));
+  }
+
   @override
-  Future<void> writePushToTalk(bool enabled) async {}
+  Future<void> writePushToTalk(bool enabled) async {
+    pushToTalkWrites.add(enabled);
+  }
 }
 
 final class _SystemCall implements ResenhaSystemCall {
