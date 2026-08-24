@@ -147,7 +147,8 @@ Map<String, (String, String)> _readSprites(String root) {
 }
 
 String? _attribute(String attributes, String name) =>
-    RegExp('$name="([^"]*)"').firstMatch(attributes)?.group(1);
+    RegExp('$name="([^"]*)"').firstMatch(attributes)?.group(1) ??
+    RegExp("$name='([^']*)'").firstMatch(attributes)?.group(1);
 
 /// Ids [inner] points at — via `href="#x"` or `url(#x)` — without defining.
 Set<String> _unresolvedRefs(String inner) {

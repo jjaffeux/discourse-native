@@ -643,16 +643,19 @@ class _NotificationLevelButton extends StatelessWidget {
       value: ChatThreadNotificationLevel.normal,
       title: 'Normal',
       description: 'Mentions only',
+      icon: DIcons.farBell,
     ),
     ChoiceMenuOption(
       value: ChatThreadNotificationLevel.tracking,
       title: 'Tracking',
       description: 'Mentions and unread reply count',
+      icon: DIcons.bell,
     ),
     ChoiceMenuOption(
       value: ChatThreadNotificationLevel.watching,
       title: 'Watching',
       description: 'Every reply and unread count',
+      icon: DIcons.discourseBellExclamation,
     ),
   ];
 

@@ -81,6 +81,8 @@ users
 user-plus
 at
 bell
+far-bell
+discourse-bell-exclamation
 paper-plane
 toggle-on
 toggle-off
@@ -114,6 +116,8 @@ far-circle-check
 d-liked = heart
 d-unliked = far-heart
 d-tracking = bell
+d-regular = far-bell
+d-watching = discourse-bell-exclamation
 # What the chat plugin's own chat-setup.js replaces it with.
 d-chat = comment
 topic.closed = lock

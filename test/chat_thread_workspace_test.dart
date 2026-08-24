@@ -1,4 +1,4 @@
-import 'dart:ui' show CheckedState;
+import 'dart:ui' show CheckedState, PointerDeviceKind;
 
 import 'package:discourse_native/src/data/chat_thread_panel_width_store.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
@@ -18,6 +18,8 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -237,6 +239,50 @@ void main() {
       expect(find.text('Mentions and unread reply count'), findsOneWidget);
       expect(find.text('Every reply and unread count'), findsOneWidget);
       expect(find.byType(PopupMenuButton), findsNothing);
+
+      Finder option(ChatThreadNotificationLevel level) =>
+          find.byKey(ValueKey(('choice-menu-option', level)));
+      List<DIconData> optionIcons(ChatThreadNotificationLevel level) => tester
+          .widgetList<DIcon>(
+            find.descendant(of: option(level), matching: find.byType(DIcon)),
+          )
+          .map((widget) => widget.icon)
+          .toList();
+
+      expect(
+        optionIcons(ChatThreadNotificationLevel.normal),
+        contains(DIcons.farBell),
+      );
+      expect(
+        optionIcons(ChatThreadNotificationLevel.tracking),
+        contains(DIcons.bell),
+      );
+      expect(
+        optionIcons(ChatThreadNotificationLevel.watching),
+        contains(DIcons.discourseBellExclamation),
+      );
+
+      final normalBackground = find.byKey(
+        const ValueKey((
+          'choice-menu-option-background',
+          ChatThreadNotificationLevel.normal,
+        )),
+      );
+      Color backgroundColor() =>
+          (tester.widget<AnimatedContainer>(normalBackground).decoration!
+                  as BoxDecoration)
+              .color!;
+      expect(backgroundColor(), Colors.transparent);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(
+        tester.getCenter(option(ChatThreadNotificationLevel.normal)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(backgroundColor(), isNot(Colors.transparent));
 
       final selected = tester.getSemantics(
         find.byKey(
