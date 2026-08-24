@@ -29,6 +29,7 @@ Map<String, dynamic> settings({
   Object? defaultNavigationMenuCategories,
   bool? badgesEnabled,
   bool? allowUsernameInShareLinks,
+  Object? readTimeWordCount,
   bool? enableAssignStatus,
   String? assignStatuses,
   bool? localDatesEnabled,
@@ -63,6 +64,7 @@ Map<String, dynamic> settings({
   'default_navigation_menu_categories': ?defaultNavigationMenuCategories,
   'enable_badges': ?badgesEnabled,
   'allow_username_in_share_links': ?allowUsernameInShareLinks,
+  'read_time_word_count': ?readTimeWordCount,
   'enable_assign_status': ?enableAssignStatus,
   'assign_statuses': ?assignStatuses,
   'discourse_local_dates_enabled': ?localDatesEnabled,
@@ -111,6 +113,22 @@ void main() {
       expect(unknown.gifFileDetail, SiteConfig.defaultGifFileDetail);
       expect(unknown.gifResultLimitEnabled, isFalse);
       expect(unknown.gifMaxResults, SiteConfig.defaultGifMaxResults);
+      expect(unknown.readTimeWordCount, SiteConfig.defaultReadTimeWordCount);
+    });
+
+    test('reads the topic-map reading speed and rejects invalid values', () {
+      expect(
+        SiteConfig.fromSettings(
+          settings(readTimeWordCount: 350),
+        ).readTimeWordCount,
+        350,
+      );
+      expect(
+        SiteConfig.fromSettings(
+          settings(readTimeWordCount: 0),
+        ).readTimeWordCount,
+        SiteConfig.defaultReadTimeWordCount,
+      );
     });
 
     test('reads and bounds the minimum search length', () {
@@ -502,6 +520,7 @@ void main() {
         defaultNavigationMenuCategories: '7|3',
         badgesEnabled: false,
         allowUsernameInShareLinks: false,
+        readTimeWordCount: 350,
         localDatesEnabled: true,
         localDateFormats: 'LLL|YYYY',
         localDateTimezones: 'Etc/UTC|Asia/Tokyo',

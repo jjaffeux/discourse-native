@@ -32,6 +32,7 @@ class Post with Storable<Post> {
     this.liked = false,
     this.canLike = false,
     this.canUnlike = false,
+    this.inboundLinks = const [],
     this.raw,
     this.plugins = PluginData.none,
   });
@@ -47,6 +48,9 @@ class Post with Storable<Post> {
   /// like routes take. It is `PostActionType::LIKE_POST_ACTION_ID` server side
   /// and 2 everywhere, flags being the other numbers in that table.
   static const int likeActionId = 2;
+
+  /// A defensive ceiling for reflected topics retained with one post.
+  static const int maximumInboundLinks = 100;
 
   factory Post.fromJson(
     Map<String, dynamic> json,
@@ -87,6 +91,12 @@ class Post with Storable<Post> {
       liked: like.acted,
       canLike: like.canAct,
       canUnlike: like.canUndo,
+      inboundLinks: List.unmodifiable([
+        for (final link in jsonObjects(
+          json['link_counts'],
+        ).take(maximumInboundLinks))
+          ?PostInboundLink.fromJson(link),
+      ]),
       // Only present when asked for. Reading needs the cooked HTML; writing
       // needs this, because it is the thing that was actually typed.
       raw: jsonText(json['raw']),
@@ -175,6 +185,13 @@ class Post with Storable<Post> {
   /// false once the site's undo window has run out on a like already given.
   final bool canLike;
   final bool canUnlike;
+
+  /// Visible topics which link back to this post.
+  ///
+  /// Core calls these reflected internal `link_counts` and draws them beneath
+  /// the post. External links and ordinary outbound links are deliberately
+  /// excluded by [PostInboundLink.fromJson], matching the web post-link row.
+  final List<PostInboundLink> inboundLinks;
 
   /// Whether tapping the heart would do anything.
   ///
@@ -278,6 +295,7 @@ class Post with Storable<Post> {
     bool? liked,
     bool? canLike,
     bool? canUnlike,
+    List<PostInboundLink>? inboundLinks,
     PluginData? plugins,
   }) => Post(
     id: id,
@@ -302,6 +320,9 @@ class Post with Storable<Post> {
     liked: liked ?? this.liked,
     canLike: canLike ?? this.canLike,
     canUnlike: canUnlike ?? this.canUnlike,
+    inboundLinks: inboundLinks == null
+        ? this.inboundLinks
+        : List.unmodifiable(inboundLinks),
     raw: raw ?? this.raw,
     plugins: plugins ?? this.plugins,
   );
@@ -332,6 +353,7 @@ class Post with Storable<Post> {
           other.liked == liked &&
           other.canLike == canLike &&
           other.canUnlike == canUnlike &&
+          listEquals(other.inboundLinks, inboundLinks) &&
           other.raw == raw &&
           other.plugins == plugins;
 
@@ -359,9 +381,49 @@ class Post with Storable<Post> {
     liked,
     canLike,
     canUnlike,
+    Object.hashAll(inboundLinks),
     raw,
     plugins,
   ]);
+}
+
+/// One internal topic which links back to a post.
+@immutable
+class PostInboundLink {
+  const PostInboundLink({
+    required this.url,
+    required this.title,
+    this.clicks = 0,
+  });
+
+  /// Returns null for outbound, external, untitled, or otherwise unusable
+  /// entries. Those are present in the serializer for click tracking, but the
+  /// web post-link component does not display them.
+  static PostInboundLink? fromJson(Map<String, dynamic> json) {
+    if (json['internal'] != true || json['reflection'] != true) return null;
+    final url = jsonText(json['url']);
+    final title = jsonText(json['title']);
+    if (url == null || title == null) return null;
+    return PostInboundLink(
+      url: url,
+      title: title,
+      clicks: jsonInt(json['clicks']),
+    );
+  }
+
+  final String url;
+  final String title;
+  final int clicks;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PostInboundLink &&
+      other.url == url &&
+      other.title == title &&
+      other.clicks == clicks;
+
+  @override
+  int get hashCode => Object.hash(url, title, clicks);
 }
 
 /// What a topic fetch answers with.
@@ -398,11 +460,20 @@ class TopicDetail with Storable<TopicDetail> {
     this.gapsBefore = const {},
     this.gapsAfter = const {},
     this.postsCount = 0,
+    this.replyCount = 0,
+    this.views = 0,
+    this.likeCount = 0,
+    this.participantCount = 0,
+    this.wordCount = 0,
+    this.hasSummary = false,
+    this.isNestedView = false,
     this.categoryId,
     this.canCreatePost = false,
     this.canEdit = false,
     this.canEditTags = false,
     this.tags = const [],
+    this.participants = const [],
+    this.links = const [],
     this.notificationLevel = TopicNotificationLevel.normal,
     this.archived = false,
     this.draft,
@@ -416,6 +487,10 @@ class TopicDetail with Storable<TopicDetail> {
   /// The complete post-id stream is retained separately, so bounding eager
   /// post construction here never makes a later post unreachable.
   static const int maximumInitialPosts = 20;
+
+  /// The map presents compact summaries, not an unbounded member directory.
+  static const int maximumMapParticipants = 100;
+  static const int maximumMapLinks = 100;
 
   /// Reads a topic payload into the topic and its posts.
   static TopicPayload parse(
@@ -438,6 +513,13 @@ class TopicDetail with Storable<TopicDetail> {
         gapsBefore: _parsePostGaps(gaps['before']),
         gapsAfter: _parsePostGaps(gaps['after']),
         postsCount: jsonInt(json['posts_count']),
+        replyCount: jsonInt(json['reply_count']),
+        views: jsonInt(json['views']),
+        likeCount: jsonInt(json['like_count']),
+        participantCount: jsonInt(json['participant_count']),
+        wordCount: jsonInt(json['word_count']),
+        hasSummary: json['has_summary'] == true,
+        isNestedView: json['is_nested_view'] == true,
         categoryId: json['category_id'] == null
             ? null
             : jsonInt(json['category_id']),
@@ -453,6 +535,18 @@ class TopicDetail with Storable<TopicDetail> {
         tags: List.unmodifiable(
           jsonArray(json['tags']).map(TopicTag.parse).whereType<TopicTag>(),
         ),
+        participants: List.unmodifiable([
+          for (final participant in jsonObjects(
+            details['participants'],
+          ).take(maximumMapParticipants))
+            ?TopicParticipant.fromJson(participant, siteUrl),
+        ]),
+        links: List.unmodifiable([
+          for (final link in jsonObjects(
+            details['links'],
+          ).take(maximumMapLinks))
+            ?TopicMapLink.fromJson(link),
+        ]),
         notificationLevel: TopicNotificationLevel.fromJson(
           details['notification_level'],
         ),
@@ -494,6 +588,13 @@ class TopicDetail with Storable<TopicDetail> {
   final Map<int, List<int>> gapsAfter;
 
   final int postsCount;
+  final int replyCount;
+  final int views;
+  final int likeCount;
+  final int participantCount;
+  final int wordCount;
+  final bool hasSummary;
+  final bool isNestedView;
   final int? categoryId;
 
   /// Whether this reader may reply here.
@@ -501,6 +602,11 @@ class TopicDetail with Storable<TopicDetail> {
   final bool canEdit;
   final bool canEditTags;
   final List<TopicTag> tags;
+
+  /// Frequent posters and outbound links used by the topic map beneath the
+  /// first post. Both arrive inside the payload's `details` object.
+  final List<TopicParticipant> participants;
+  final List<TopicMapLink> links;
 
   /// How closely this reader follows the topic.
   final TopicNotificationLevel notificationLevel;
@@ -563,9 +669,7 @@ class TopicDetail with Storable<TopicDetail> {
     final inserted = <int>{};
     final insert = <int>[
       for (final id in revealedIds)
-        if (consumed.contains(id) &&
-            !stream.contains(id) &&
-            inserted.add(id))
+        if (consumed.contains(id) && !stream.contains(id) && inserted.add(id))
           id,
     ];
     final nextStream = List<int>.of(stream)
@@ -630,11 +734,20 @@ class TopicDetail with Storable<TopicDetail> {
     gapsBefore: gapsBefore,
     gapsAfter: gapsAfter,
     postsCount: postsCount,
+    replyCount: replyCount,
+    views: views,
+    likeCount: likeCount,
+    participantCount: participantCount,
+    wordCount: wordCount,
+    hasSummary: hasSummary,
+    isNestedView: isNestedView,
     categoryId: categoryId,
     canCreatePost: canCreatePost,
     canEdit: canEdit,
     canEditTags: canEditTags,
     tags: tags,
+    participants: participants,
+    links: links,
     notificationLevel: notificationLevel,
     archived: archived,
     draft: draft,
@@ -704,11 +817,20 @@ class TopicDetail with Storable<TopicDetail> {
         : _freezePostGaps(gapsBefore),
     gapsAfter: gapsAfter == null ? this.gapsAfter : _freezePostGaps(gapsAfter),
     postsCount: postsCount ?? this.postsCount,
+    replyCount: replyCount,
+    views: views,
+    likeCount: likeCount,
+    participantCount: participantCount,
+    wordCount: wordCount,
+    hasSummary: hasSummary,
+    isNestedView: isNestedView,
     categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
     canCreatePost: canCreatePost,
     canEdit: canEdit ?? this.canEdit,
     canEditTags: canEditTags ?? this.canEditTags,
     tags: tags == null ? this.tags : List.unmodifiable(tags),
+    participants: participants,
+    links: links,
     notificationLevel: notificationLevel ?? this.notificationLevel,
     archived: archived ?? this.archived,
     draft: clearDraft ? null : (draft ?? this.draft),
@@ -727,11 +849,20 @@ class TopicDetail with Storable<TopicDetail> {
           _postGapsEqual(other.gapsBefore, gapsBefore) &&
           _postGapsEqual(other.gapsAfter, gapsAfter) &&
           other.postsCount == postsCount &&
+          other.replyCount == replyCount &&
+          other.views == views &&
+          other.likeCount == likeCount &&
+          other.participantCount == participantCount &&
+          other.wordCount == wordCount &&
+          other.hasSummary == hasSummary &&
+          other.isNestedView == isNestedView &&
           other.categoryId == categoryId &&
           other.canCreatePost == canCreatePost &&
           other.canEdit == canEdit &&
           other.canEditTags == canEditTags &&
           listEquals(other.tags, tags) &&
+          listEquals(other.participants, participants) &&
+          listEquals(other.links, links) &&
           other.notificationLevel == notificationLevel &&
           other.archived == archived &&
           other.draft == draft &&
@@ -740,25 +871,34 @@ class TopicDetail with Storable<TopicDetail> {
           other.plugins == plugins;
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     title,
     Object.hashAll(stream),
     _postGapsHash(gapsBefore),
     _postGapsHash(gapsAfter),
     postsCount,
+    replyCount,
+    views,
+    likeCount,
+    participantCount,
+    wordCount,
+    hasSummary,
+    isNestedView,
     categoryId,
     canCreatePost,
     canEdit,
     canEditTags,
     Object.hashAll(tags),
+    Object.hashAll(participants),
+    Object.hashAll(links),
     notificationLevel,
     archived,
     draft,
     draftSequence,
     recommendations,
     plugins,
-  );
+  ]);
 
   static Map<int, List<int>> _parsePostGaps(Object? value) {
     final parsed = <int, List<int>>{};

@@ -3734,6 +3734,33 @@ void _feedGroups() {
       expect(asked.queryParameters['post_number'], '37');
     });
 
+    test('requests the top-replies topic projection', () async {
+      late Uri asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          return http.Response(
+            jsonEncode({
+              'id': 12,
+              'post_stream': {'posts': <Object?>[], 'stream': <Object?>[]},
+            }),
+            200,
+          );
+        }),
+      );
+
+      await api.topic(
+        siteUrl: 'https://example.com',
+        slug: '',
+        id: 12,
+        postNumber: 37,
+        summary: true,
+      );
+
+      expect(asked.path, '/t/12.json');
+      expect(asked.queryParameters, {'post_number': '37', 'summary': 'true'});
+    });
+
     test('rejects invalid topic coordinates before transport', () async {
       var requests = 0;
       final api = DiscourseApi(

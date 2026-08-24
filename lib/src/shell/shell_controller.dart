@@ -2292,6 +2292,8 @@ class ShellController extends FrameSafeNotifier {
   final Set<String> _topicsStale = {};
   final Set<String> _postsLoading = {};
   final Set<String> _earlierPostsLoading = {};
+  final Map<String, List<int>> _topicSummaryStreams = {};
+  final Set<String> _topicSummariesLoading = {};
   final Set<(String, int, int, bool)> _postGapsLoading = {};
   final Map<String, int> _topicNotificationRevisions = {};
   final Map<String, Future<void>> _topicNotificationTails = {};
@@ -2306,6 +2308,23 @@ class ShellController extends FrameSafeNotifier {
     if (instance == null || topicId == null) return null;
     return store.read<TopicDetail>(instance.url, topicId);
   }
+
+  bool get currentTopicSummary {
+    final instance = currentInstance;
+    final topicId = currentContent?.topicId;
+    if (instance == null || topicId == null) return false;
+    return _topicSummaryStreams.containsKey(_topicKey(instance.url, topicId));
+  }
+
+  bool get currentTopicSummaryLoading {
+    final instance = currentInstance;
+    final topicId = currentContent?.topicId;
+    if (instance == null || topicId == null) return false;
+    return _topicSummariesLoading.contains(_topicKey(instance.url, topicId));
+  }
+
+  List<int> _topicStream(String siteUrl, TopicDetail detail) =>
+      _topicSummaryStreams[_topicKey(siteUrl, detail.id)] ?? detail.stream;
 
   /// The contiguous ids of the posts on screen, in reading order.
   ///
@@ -2322,9 +2341,11 @@ class ShellController extends FrameSafeNotifier {
     final instance = currentInstance;
     final detail = currentTopic;
     if (instance == null || detail == null) return const [];
+    final stream = _topicStream(instance.url, detail);
     final key = (
       instance.url,
       detail,
+      stream,
       currentContent?.postNumber,
       store.generationOf<Post>(instance.url),
     );
@@ -2332,19 +2353,20 @@ class ShellController extends FrameSafeNotifier {
     if (cachedKey != null &&
         cachedKey.$1 == key.$1 &&
         identical(cachedKey.$2, key.$2) &&
-        cachedKey.$3 == key.$3 &&
-        cachedKey.$4 == key.$4) {
+        identical(cachedKey.$3, key.$3) &&
+        cachedKey.$4 == key.$4 &&
+        cachedKey.$5 == key.$5) {
       return _postIdsCache;
     }
-    final range = _loadedPostRange(instance.url, detail);
+    final range = _loadedPostRange(instance.url, detail, stream: stream);
     _postIdsCacheKey = key;
     return _postIdsCache = range == null
         ? const []
-        : [for (final id in detail.stream.sublist(range.$1, range.$2 + 1)) id];
+        : [for (final id in stream.sublist(range.$1, range.$2 + 1)) id];
   }
 
   List<int> _postIdsCache = const [];
-  (String, TopicDetail, int?, int)? _postIdsCacheKey;
+  (String, TopicDetail, List<int>, int?, int)? _postIdsCacheKey;
 
   /// The loaded window to draw.
   ///
@@ -2352,21 +2374,26 @@ class ShellController extends FrameSafeNotifier {
   /// when older posts from a previous visit are also cached, drawing every
   /// loaded id would collapse the unfetched gap between them. Instead, grow
   /// outward only while adjacent posts are present around the requested one.
-  (int, int)? _loadedPostRange(String siteUrl, TopicDetail detail) {
-    if (detail.stream.isEmpty) return null;
+  (int, int)? _loadedPostRange(
+    String siteUrl,
+    TopicDetail detail, {
+    List<int>? stream,
+  }) {
+    final effectiveStream = stream ?? _topicStream(siteUrl, detail);
+    if (effectiveStream.isEmpty) return null;
 
     final target = currentContent?.postNumber;
     var anchor = -1;
     if (target != null) {
-      for (var i = 0; i < detail.stream.length; i++) {
-        final post = store.read<Post>(siteUrl, detail.stream[i]);
+      for (var i = 0; i < effectiveStream.length; i++) {
+        final post = store.read<Post>(siteUrl, effectiveStream[i]);
         if (post != null && post.postNumber >= target) {
           anchor = i;
           break;
         }
       }
     } else {
-      anchor = detail.stream.indexWhere(
+      anchor = effectiveStream.indexWhere(
         (id) => store.read<Post>(siteUrl, id) != null,
       );
     }
@@ -2374,7 +2401,7 @@ class ShellController extends FrameSafeNotifier {
     // the requested post yet. Keep showing the contiguous data in hand until
     // the around-post request lands instead of flashing an empty topic.
     if (anchor < 0 && target != null) {
-      anchor = detail.stream.indexWhere(
+      anchor = effectiveStream.indexWhere(
         (id) => store.read<Post>(siteUrl, id) != null,
       );
     }
@@ -2382,12 +2409,12 @@ class ShellController extends FrameSafeNotifier {
 
     var first = anchor;
     while (first > 0 &&
-        store.read<Post>(siteUrl, detail.stream[first - 1]) != null) {
+        store.read<Post>(siteUrl, effectiveStream[first - 1]) != null) {
       first--;
     }
     var last = anchor;
-    while (last + 1 < detail.stream.length &&
-        store.read<Post>(siteUrl, detail.stream[last + 1]) != null) {
+    while (last + 1 < effectiveStream.length &&
+        store.read<Post>(siteUrl, effectiveStream[last + 1]) != null) {
       last++;
     }
     return (first, last);
@@ -2395,10 +2422,11 @@ class ShellController extends FrameSafeNotifier {
 
   /// Post ids after the loaded window, oldest first.
   List<int> _pendingPostIds(String siteUrl, TopicDetail detail) {
-    final range = _loadedPostRange(siteUrl, detail);
+    final stream = _topicStream(siteUrl, detail);
+    final range = _loadedPostRange(siteUrl, detail, stream: stream);
     final start = range == null ? 0 : range.$2 + 1;
     return [
-      for (final id in detail.stream.skip(start))
+      for (final id in stream.skip(start))
         if (store.read<Post>(siteUrl, id) == null) id,
     ];
   }
@@ -2409,11 +2437,12 @@ class ShellController extends FrameSafeNotifier {
     TopicDetail detail,
     int batchSize,
   ) {
-    final range = _loadedPostRange(siteUrl, detail);
+    final stream = _topicStream(siteUrl, detail);
+    final range = _loadedPostRange(siteUrl, detail, stream: stream);
     if (range == null || range.$1 == 0) return const [];
     final start = range.$1 > batchSize ? range.$1 - batchSize : 0;
     return [
-      for (final id in detail.stream.sublist(start, range.$1))
+      for (final id in stream.sublist(start, range.$1))
         if (store.read<Post>(siteUrl, id) == null) id,
     ];
   }
@@ -2491,6 +2520,9 @@ class ShellController extends FrameSafeNotifier {
     // A fast double tap on a row pushes the same topic twice — the fetch is
     // deduped below, but the second route still costs a back tap.
     if (currentContent?.topicId == topicId) return;
+    if (currentInstance case final instance?) {
+      _topicSummaryStreams.remove(_topicKey(instance.url, topicId));
+    }
     pushContent(
       ContentRoute.topic(
         topicId: topicId,
@@ -3264,6 +3296,63 @@ class ShellController extends FrameSafeNotifier {
     final topicId = currentContent?.topicId;
     if (instance == null || topicId == null) return false;
     return _earlierPostsLoading.contains(_topicKey(instance.url, topicId));
+  }
+
+  /// Switches the open topic between its complete stream and core's
+  /// top-replies summary filter.
+  ///
+  /// The filtered stream stays controller-owned rather than replacing the
+  /// stored [TopicDetail]: cancelling must reveal the complete id list without
+  /// a second request, and the filtered serializer is only a projection of the
+  /// same topic, not a newer copy of it.
+  Future<String?> toggleTopicSummary() async {
+    final instance = currentInstance;
+    final topic = currentTopic;
+    if (instance == null || topic == null || !topic.hasSummary) return null;
+
+    final key = _topicKey(instance.url, topic.id);
+    if (_topicSummaryStreams.remove(key) != null) {
+      _notify();
+      return null;
+    }
+    if (!_topicSummariesLoading.add(key)) return null;
+    final lease = lifecycle.capture(instance.url);
+    _notify();
+
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(instance.url),
+      );
+      if (credential == null || !lease.isCurrent) return null;
+      final payload = await api.topic(
+        siteUrl: instance.url,
+        slug: currentContent?.slug ?? '',
+        id: topic.id,
+        summary: true,
+        apiKey: credential.value,
+      );
+      lease.commit(() {
+        store.putAll(instance.url, payload.posts);
+        _topicSummaryStreams[key] = List.unmodifiable(payload.detail.stream);
+      });
+      return null;
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'topic.loadSummary',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      return "Couldn't load this topic's summary.";
+    } finally {
+      lease.commit(() {
+        _topicSummariesLoading.remove(key);
+        _notify();
+      });
+    }
   }
 
   ComposerController? _composer;
@@ -6678,6 +6767,8 @@ class ShellController extends FrameSafeNotifier {
     _topicsStale.removeWhere((key) => key.startsWith('$siteUrl#'));
     _postsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _earlierPostsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _topicSummaryStreams.removeWhere((key, _) => key.startsWith('$siteUrl#'));
+    _topicSummariesLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicNotificationRevisions.removeWhere(
       (key, _) => key.startsWith('$siteUrl#'),
     );

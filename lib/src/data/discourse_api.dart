@@ -725,6 +725,7 @@ class DiscourseApi
     required String slug,
     required int id,
     int? postNumber,
+    bool summary = false,
     String? apiKey,
     String? clientId,
   }) async {
@@ -743,16 +744,18 @@ class DiscourseApi
       '$id',
       if (slug.isNotEmpty && postNumber != null) '$postNumber',
     ].join('/');
+    final query = <String, String>{
+      if (slug.isEmpty && postNumber != null) 'post_number': '$postNumber',
+      if (summary) 'summary': 'true',
+    };
     final body = await _getObject(
       // A link can arrive without a slug — `/t/123` — and Discourse routes
       // that too, so there is nothing to invent here.
       // The slugless numbered shape is ambiguous with `/t/{slug}/{id}`, so it
       // names its target in the query, as Discourse's own reload does.
-      Uri.parse('$path.json').replace(
-        queryParameters: slug.isEmpty && postNumber != null
-            ? {'post_number': '$postNumber'}
-            : null,
-      ),
+      Uri.parse(
+        '$path.json',
+      ).replace(queryParameters: query.isEmpty ? null : query),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,

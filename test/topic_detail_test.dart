@@ -112,6 +112,88 @@ void main() {
       expect(payload.detail.canCreatePost, isTrue);
     });
 
+    test('reads the topic map summary and details', () {
+      final payload = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A mapped topic',
+        'posts_count': 12,
+        'reply_count': 11,
+        'views': 218,
+        'like_count': 9,
+        'participant_count': 6,
+        'word_count': 2500,
+        'has_summary': true,
+        'is_nested_view': true,
+        'details': {
+          'participants': [
+            {
+              'id': 3,
+              'username': 'sam',
+              'name': 'Sam',
+              'avatar_template': '/letter/s/{size}.png',
+              'post_count': 4,
+            },
+          ],
+          'links': [
+            {
+              'url': 'https://discourse.org',
+              'title': 'Discourse',
+              'root_domain': 'discourse.org',
+              'clicks': 7,
+            },
+          ],
+        },
+      }, site);
+
+      final topic = payload.detail;
+      expect(topic.postsCount, 12);
+      expect(topic.replyCount, 11);
+      expect(topic.views, 218);
+      expect(topic.likeCount, 9);
+      expect(topic.participantCount, 6);
+      expect(topic.wordCount, 2500);
+      expect(topic.hasSummary, isTrue);
+      expect(topic.isNestedView, isTrue);
+      expect(topic.participants.single.username, 'sam');
+      expect(topic.participants.single.avatarUrl, '$site/letter/s/90.png');
+      expect(topic.participants.single.postCount, 4);
+      expect(topic.links.single.label, 'Discourse');
+      expect(topic.links.single.clicks, 7);
+    });
+
+    test('keeps only visible internal post linkbacks', () {
+      final parsed = Post.fromJson(const {
+        'id': 1,
+        'post_number': 1,
+        'username': 'sam',
+        'cooked': '<p>Opening</p>',
+        'link_counts': [
+          {
+            'url': '/t/source/9',
+            'title': 'Source topic',
+            'internal': true,
+            'reflection': true,
+            'clicks': 2,
+          },
+          {
+            'url': 'https://example.com',
+            'title': 'Outbound',
+            'internal': false,
+            'reflection': false,
+          },
+          {'url': '/t/untitled/10', 'internal': true, 'reflection': true},
+        ],
+      }, site);
+
+      expect(parsed.inboundLinks, [
+        const PostInboundLink(
+          url: '/t/source/9',
+          title: 'Source topic',
+          clicks: 2,
+        ),
+      ]);
+    });
+
     test('retains server-provided hidden post gaps', () {
       final payload = TopicDetail.parse(const {
         'id': 7,

@@ -37,6 +37,7 @@ import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
@@ -3879,6 +3880,187 @@ void main() {
       // The cooked HTML is rendered, not shown as markup.
       expect(renderedText('First post body'), findsOneWidget);
       expect(renderedText('<p>'), findsNothing);
+    });
+
+    testWidgets('shows the web topic map beneath the opening post', (
+      tester,
+    ) async {
+      final posts = [
+        post(1, 1, 'First post body'),
+        post(2, 2, 'Second post body'),
+        post(3, 3, 'Third post body'),
+        post(4, 4, 'Fourth post body'),
+      ];
+      const participants = [
+        TopicParticipant(username: 'sam', name: 'Sam'),
+        TopicParticipant(username: 'lee', name: 'Lee'),
+        TopicParticipant(username: 'pat', name: 'Pat'),
+      ];
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: posts,
+            views: 218,
+            likeCount: 9,
+            participantCount: 6,
+            wordCount: 2500,
+            participants: participants,
+            links: const [
+              TopicMapLink(
+                url: 'https://discourse.org',
+                title: 'Discourse homepage',
+              ),
+            ],
+          ),
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('topic-map')), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-map-views')), findsOneWidget);
+      expect(find.text('218'), findsOneWidget);
+      expect(find.text('views'), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-map-likes')), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-map-links')), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-map-users')), findsOneWidget);
+      expect(find.text('5 min'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('topic-map-links')));
+      await tester.pumpAndSettle();
+      expect(find.text('Discourse homepage'), findsOneWidget);
+    });
+
+    testWidgets('shows and expands reflected post links', (tester) async {
+      final links = [
+        for (var index = 1; index <= 6; index++)
+          PostInboundLink(
+            url: '/t/source-$index/$index',
+            title: 'Source $index',
+          ),
+        const PostInboundLink(url: '/t/duplicate/99', title: 'Source 1'),
+      ];
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [
+              Post(
+                id: 1,
+                postNumber: 1,
+                username: 'joffreyj',
+                cooked: '<p>First post body</p>',
+                inboundLinks: links,
+              ),
+            ],
+          ),
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Source 1'), findsOneWidget);
+      expect(find.text('Source 5'), findsOneWidget);
+      expect(find.text('Source 6'), findsNothing);
+      expect(find.text('1 more link'), findsOneWidget);
+
+      await tester.tap(find.text('1 more link'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Source 6'), findsOneWidget);
+      expect(find.text('Source 1'), findsOneWidget);
+    });
+
+    testWidgets('summarizes top replies and restores the complete stream', (
+      tester,
+    ) async {
+      final first = post(1, 1, 'First post body');
+      final second = post(2, 2, 'Ordinary reply');
+      final top = post(3, 3, 'Top reply');
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [first, second, top],
+            hasSummary: true,
+          ),
+        },
+        summaryTopics: {
+          7: topicPayload(id: 7, title: 'A real topic', posts: [first, top]),
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+      expect(renderedText('Ordinary reply'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('topic-summary-button')));
+      await tester.pumpAndSettle();
+
+      expect(api.topicSummariesOpened, [7]);
+      expect(renderedText('Ordinary reply'), findsNothing);
+      expect(renderedText('Top reply'), findsOneWidget);
+      expect(find.text('Show all'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('topic-summary-button')));
+      await tester.pumpAndSettle();
+
+      expect(renderedText('Ordinary reply'), findsOneWidget);
+      expect(find.text('Summarize'), findsOneWidget);
+    });
+
+    testWidgets('offers the cached Discourse AI topic summary', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [post(1, 1, 'First post body')],
+            plugins: PluginData.none.withValue(
+              aiSummaryAvailabilityDataKey,
+              const AiSummaryAvailability(
+                summarizable: true,
+                hasCachedSummary: true,
+              ),
+            ),
+          ),
+        },
+        pluginResponses: const {
+          'GET /discourse-ai/summarization/t/7.json': {
+            'ai_topic_summary': {
+              'summarized_text': 'A concise AI summary.',
+              'algorithm': 'test-model',
+            },
+          },
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      final action = find.byKey(const ValueKey('ai-topic-summary-button'));
+      expect(action, findsOneWidget);
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Topic summary'), findsOneWidget);
+      expect(find.text('A concise AI summary.'), findsOneWidget);
+      expect(find.text('Generated with test-model'), findsOneWidget);
+      expect(api.pluginReadPaths, ['/discourse-ai/summarization/t/7.json']);
     });
 
     testWidgets('a signed-in topic exposes all web notification levels', (

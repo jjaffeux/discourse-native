@@ -8,6 +8,94 @@ import 'topic_tag.dart';
 
 export 'topic_tag.dart';
 
+/// One participant in the topic map beneath the opening post.
+@immutable
+class TopicParticipant {
+  const TopicParticipant({
+    required this.username,
+    this.id,
+    this.name,
+    this.avatarUrl,
+    this.postCount = 0,
+  });
+
+  static TopicParticipant? fromJson(Map<String, dynamic> json, String siteUrl) {
+    final username = jsonText(json['username']);
+    if (username == null) return null;
+    return TopicParticipant(
+      id: jsonIntOrNull(json['id']),
+      username: username,
+      name: jsonText(json['name']),
+      avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
+      postCount: jsonInt(json['post_count']),
+    );
+  }
+
+  final int? id;
+  final String username;
+  final String? name;
+  final String? avatarUrl;
+  final int postCount;
+
+  String get displayName => name ?? username;
+
+  @override
+  bool operator ==(Object other) =>
+      other is TopicParticipant &&
+      other.id == id &&
+      other.username == username &&
+      other.name == name &&
+      other.avatarUrl == avatarUrl &&
+      other.postCount == postCount;
+
+  @override
+  int get hashCode => Object.hash(id, username, name, avatarUrl, postCount);
+}
+
+/// One outbound link listed by the topic map.
+@immutable
+class TopicMapLink {
+  const TopicMapLink({
+    required this.url,
+    this.title,
+    this.rootDomain,
+    this.clicks = 0,
+    this.attachment = false,
+  });
+
+  static TopicMapLink? fromJson(Map<String, dynamic> json) {
+    final url = jsonText(json['url']);
+    if (url == null) return null;
+    return TopicMapLink(
+      url: url,
+      title: jsonText(json['title']),
+      rootDomain: jsonText(json['root_domain']),
+      clicks: jsonInt(json['clicks']),
+      attachment: json['attachment'] == true,
+    );
+  }
+
+  final String url;
+  final String? title;
+  final String? rootDomain;
+  final int clicks;
+  final bool attachment;
+
+  String get label => title ?? url;
+
+  @override
+  bool operator ==(Object other) =>
+      other is TopicMapLink &&
+      other.url == url &&
+      other.title == title &&
+      other.rootDomain == rootDomain &&
+      other.clicks == clicks &&
+      other.attachment == attachment;
+
+  @override
+  int get hashCode => Object.hash(url, title, rootDomain, clicks, attachment);
+}
+
 /// How closely the current account follows one topic.
 enum TopicNotificationLevel {
   muted(0),

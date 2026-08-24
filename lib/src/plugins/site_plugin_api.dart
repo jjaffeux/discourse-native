@@ -177,6 +177,18 @@ abstract interface class TopicHeaderPlugin {
   );
 }
 
+/// Adds an action to the topic map beneath the opening post.
+///
+/// The map itself is core, while optional features such as Discourse AI attach
+/// their own serializer-gated controls beside its reading time and summary.
+abstract interface class TopicMapActionPlugin {
+  List<Widget> topicMapActions(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  );
+}
+
 /// Contributes actions to a post menu.
 abstract interface class PostMenuPlugin {
   /// What this feature adds to, or takes out of, the post action menu.

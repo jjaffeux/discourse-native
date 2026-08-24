@@ -51,6 +51,7 @@ class SiteConfig {
     this.defaultNavigationMenuCategoryIds = const [],
     this.badgesEnabled = true,
     this.allowUsernameInShareLinks = true,
+    this.readTimeWordCount = defaultReadTimeWordCount,
     this.resenha = const ResenhaClientConfig(),
   });
 
@@ -103,6 +104,7 @@ class SiteConfig {
     'jxl',
   };
   static const int defaultMinSearchTermLength = 3;
+  static const int defaultReadTimeWordCount = 500;
   static const int defaultShowTimeGapDays = 7;
   static const int maximumShowTimeGapDays = 36500;
 
@@ -187,6 +189,10 @@ class SiteConfig {
       ),
       badgesEnabled: json['enable_badges'] != false,
       allowUsernameInShareLinks: json['allow_username_in_share_links'] != false,
+      readTimeWordCount: _positiveInt(
+        json['read_time_word_count'],
+        defaultReadTimeWordCount,
+      ),
       resenha: ResenhaClientConfig.fromSettings(json),
     );
   }
@@ -254,6 +260,10 @@ class SiteConfig {
     ),
     badgesEnabled: json['badgesEnabled'] != false,
     allowUsernameInShareLinks: json['allowUsernameInShareLinks'] != false,
+    readTimeWordCount: _positiveInt(
+      json['readTimeWordCount'],
+      defaultReadTimeWordCount,
+    ),
     resenha: jsonObject(json['resenha']).isEmpty
         ? const ResenhaClientConfig()
         : ResenhaClientConfig.fromJson(jsonObject(json['resenha'])),
@@ -294,6 +304,7 @@ class SiteConfig {
     'defaultNavigationMenuCategoryIds': defaultNavigationMenuCategoryIds,
     'badgesEnabled': badgesEnabled,
     'allowUsernameInShareLinks': allowUsernameInShareLinks,
+    'readTimeWordCount': readTimeWordCount,
     'resenha': resenha.toJson(),
   };
 
@@ -392,6 +403,9 @@ class SiteConfig {
   /// while both of these client settings permit referral badges.
   final bool badgesEnabled;
   final bool allowUsernameInShareLinks;
+
+  /// Words per minute used by core's topic-map reading-time estimate.
+  final int readTimeWordCount;
 
   final ResenhaClientConfig resenha;
 
@@ -517,6 +531,7 @@ class SiteConfig {
       ) &&
       other.badgesEnabled == badgesEnabled &&
       other.allowUsernameInShareLinks == allowUsernameInShareLinks &&
+      other.readTimeWordCount == readTimeWordCount &&
       other.resenha == resenha &&
       listEquals(other.offeredReactions, offeredReactions);
 
@@ -555,6 +570,7 @@ class SiteConfig {
     Object.hashAll(defaultNavigationMenuCategoryIds),
     badgesEnabled,
     allowUsernameInShareLinks,
+    readTimeWordCount,
     resenha,
     Object.hashAll(offeredReactions),
   ]);
