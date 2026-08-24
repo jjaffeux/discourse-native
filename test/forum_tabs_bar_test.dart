@@ -1,4 +1,5 @@
-import 'dart:ui' show SemanticsAction, SemanticsRole, Tristate;
+import 'dart:ui'
+    show PointerDeviceKind, SemanticsAction, SemanticsRole, Tristate;
 
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -132,6 +133,35 @@ void main() {
     expect(addCount, 1);
     expect(find.byTooltip('Open a new tab'), findsOneWidget);
     expect(find.byTooltip('Close A long-running topic'), findsOneWidget);
+  });
+
+  testWidgets('keeps the close hover surface compact inside its hit target', (
+    tester,
+  ) async {
+    await _pumpBar(tester, items: const [first], selectedId: first.id);
+
+    const closeKey = ValueKey('forum-tab-close-topic-1');
+    const surfaceKey = ValueKey('forum-tab-close-surface-topic-1');
+    final close = find.byKey(closeKey);
+    final surface = find.byKey(surfaceKey);
+    final theme = Theme.of(tester.element(close));
+
+    expect(tester.getSize(close).width, ForumTabsBar.minimumActionTarget);
+    expect(
+      tester.getSize(close).height,
+      greaterThanOrEqualTo(ForumTabsBar.minimumActionTarget),
+    );
+    expect(tester.getSize(surface), const Size.square(26));
+    expect(_decoration(tester, surface).color, Colors.transparent);
+
+    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(pointer.removePointer);
+    await pointer.addPointer();
+    await pointer.moveTo(tester.getCenter(close));
+    await tester.pumpAndSettle();
+
+    expect(_decoration(tester, surface).color, theme.shell.selected);
+    expect(tester.getSize(surface), const Size.square(26));
   });
 
   testWidgets('renders prefixes, unread badges, and ellipsized labels', (
@@ -353,6 +383,7 @@ void main() {
 BoxDecoration _decoration(WidgetTester tester, Finder finder) => switch (tester
     .widget(finder)) {
   final Container box => box.decoration! as BoxDecoration,
+  final AnimatedContainer box => box.decoration! as BoxDecoration,
   final DecoratedBox box => box.decoration as BoxDecoration,
   final widget => throw StateError('${widget.runtimeType} decorates nothing'),
 };

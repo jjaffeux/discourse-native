@@ -522,44 +522,11 @@ class _ForumTabState extends State<_ForumTab> {
                       ),
                     ),
                   ),
-                  Semantics(
-                    key: ValueKey('forum-tab-close-${widget.item.id}'),
-                    container: true,
-                    button: true,
+                  _ForumTabCloseButton(
+                    tabId: widget.item.id,
                     label: closeLabel,
-                    onTap: widget.onClose,
-                    child: ExcludeSemantics(
-                      child: Tooltip(
-                        message: closeLabel,
-                        excludeFromSemantics: true,
-                        child: SizedBox(
-                          width: ForumTabsBar.minimumActionTarget,
-                          height: double.infinity,
-                          child: IconButton(
-                            constraints: const BoxConstraints.expand(),
-                            padding: EdgeInsets.zero,
-                            style: ButtonStyle(
-                              shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                              ),
-                              backgroundColor: WidgetStateProperty.resolveWith(
-                                (states) => states.contains(WidgetState.hovered)
-                                    ? theme.shell.selected
-                                    : Colors.transparent,
-                              ),
-                            ),
-                            onPressed: widget.onClose,
-                            icon: DIcon(
-                              DIcons.xmark,
-                              size: 13,
-                              color: foreground,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    foreground: foreground,
+                    onPressed: widget.onClose,
                   ),
                 ],
               ),
@@ -582,6 +549,100 @@ class _ForumTabState extends State<_ForumTab> {
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ForumTabCloseButton extends StatefulWidget {
+  const _ForumTabCloseButton({
+    required this.tabId,
+    required this.label,
+    required this.foreground,
+    required this.onPressed,
+  });
+
+  final String tabId;
+  final String label;
+  final Color foreground;
+  final VoidCallback onPressed;
+
+  @override
+  State<_ForumTabCloseButton> createState() => _ForumTabCloseButtonState();
+}
+
+class _ForumTabCloseButtonState extends State<_ForumTabCloseButton> {
+  final WidgetStatesController _states = WidgetStatesController();
+
+  @override
+  void dispose() {
+    _states.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+
+    return Semantics(
+      key: ValueKey('forum-tab-close-${widget.tabId}'),
+      container: true,
+      button: true,
+      label: widget.label,
+      onTap: widget.onPressed,
+      child: ExcludeSemantics(
+        child: Tooltip(
+          message: widget.label,
+          excludeFromSemantics: true,
+          child: SizedBox(
+            width: ForumTabsBar.minimumActionTarget,
+            height: double.infinity,
+            child: IconButton(
+              statesController: _states,
+              constraints: const BoxConstraints.expand(),
+              padding: EdgeInsets.zero,
+              style: const ButtonStyle(
+                overlayColor: WidgetStatePropertyAll(Colors.transparent),
+                splashFactory: NoSplash.splashFactory,
+              ),
+              onPressed: widget.onPressed,
+              icon: ValueListenableBuilder<Set<WidgetState>>(
+                valueListenable: _states,
+                builder: (context, states, _) {
+                  final emphasized =
+                      states.contains(WidgetState.hovered) ||
+                      states.contains(WidgetState.focused) ||
+                      states.contains(WidgetState.pressed);
+                  return AnimatedContainer(
+                    key: ValueKey('forum-tab-close-surface-${widget.tabId}'),
+                    width: 26,
+                    height: 26,
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 100),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: emphasized
+                          ? theme.shell.selected
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: DIcon(
+                      DIcons.xmark,
+                      size: 12,
+                      color: emphasized
+                          ? theme.colorScheme.onSurface
+                          : widget.foreground,
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
         ),
       ),
