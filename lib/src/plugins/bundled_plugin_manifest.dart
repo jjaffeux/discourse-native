@@ -3,6 +3,9 @@ import 'assign/assign_plugin.dart';
 import 'assign/assignment_controller.dart';
 import 'chat/chat_controller.dart';
 import 'chat/chat_plugin.dart';
+import 'discourse_ai/ai_summary_api.dart';
+import 'discourse_ai/ai_summary_controller.dart';
+import 'discourse_ai/ai_summary_plugin.dart';
 import 'gifs/gifs_plugin.dart';
 import 'local_dates/local_dates_plugin.dart';
 import 'plugin_host_ports.dart';
@@ -23,6 +26,7 @@ const PluginManifest bundledPluginManifest = PluginManifest([
   _BundledModule(LocalDatesPlugin(), syntaxIds: {'date', 'date-range'}),
   _BundledModule(PollPlugin(), syntaxIds: {'poll'}),
   _BundledModule(GifsPlugin()),
+  _BundledModule(AiSummaryPlugin(), session: _aiSummarySession),
   _BundledModule(AssignPlugin(), session: _assignmentSession),
   _BundledModule(
     ChatPlugin(),
@@ -132,6 +136,31 @@ void _assignmentSession(PluginRegistrar registrar) {
       assignmentPermissionPort,
       assignmentTopicReloaderPort,
       assignmentFallbackInvalidatorPort,
+    ],
+  );
+}
+
+void _aiSummarySession(PluginRegistrar registrar) {
+  registrar.addSession(
+    (bindings) {
+      final controller = AiSummaryController(
+        api: AiSummaryApi(bindings.require(discourseApiPort)),
+        credentials: bindings.require(credentialReaderPort),
+        lifecycle: bindings.require(siteLifecyclePort),
+        trackerFor: bindings.require(trackerReaderPort),
+      );
+      return PluginSessionContribution(
+        lifecycle: _ControllerLifecycle(),
+        services: [
+          PluginService<Object>(aiSummaryControllerService, controller),
+        ],
+      );
+    },
+    requires: const [
+      discourseApiPort,
+      credentialReaderPort,
+      siteLifecyclePort,
+      trackerReaderPort,
     ],
   );
 }

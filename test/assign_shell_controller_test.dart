@@ -299,6 +299,7 @@ class _OneFailedRefreshApi extends FakeDiscourseApi {
     required String slug,
     required int id,
     int? postNumber,
+    bool summary = false,
     String? apiKey,
     String? clientId,
   }) {
@@ -312,6 +313,7 @@ class _OneFailedRefreshApi extends FakeDiscourseApi {
       slug: slug,
       id: id,
       postNumber: postNumber,
+      summary: summary,
       apiKey: apiKey,
       clientId: clientId,
     );

@@ -165,6 +165,15 @@ final class PluginRegistry implements PluginDataDecoder {
       ...plugin.topicHeader(context, siteUrl, topic),
   ];
 
+  List<Widget> topicMapActions(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  ) => [
+    for (final plugin in plugins.whereType<TopicMapActionPlugin>())
+      ...plugin.topicMapActions(context, siteUrl, topic),
+  ];
+
   PostMenuContribution postMenu(
     BuildContext context,
     String siteUrl,

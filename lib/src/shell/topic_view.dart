@@ -18,6 +18,7 @@ import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'loading_skeleton.dart';
+import 'open_link.dart';
 import 'post_actions.dart';
 import 'post_footer.dart';
 import 'post_text_selection.dart';
@@ -1030,6 +1031,9 @@ class _TopicViewState extends State<TopicView> {
               siteUrl: siteUrl,
               topic: snapshot.topic!,
               postId: postId,
+              summary: snapshot.summary,
+              summaryLoading: snapshot.summaryLoading,
+              readTimeWordCount: snapshot.readTimeWordCount,
             ),
           );
         },
@@ -1221,6 +1225,9 @@ class _TopicViewSnapshot {
     required this.initialPostIndex,
     required this.recommendations,
     required this.canAssignLegacyTargets,
+    required this.summary,
+    required this.summaryLoading,
+    required this.readTimeWordCount,
   });
 
   factory _TopicViewSnapshot.from(ShellController controller) {
@@ -1258,6 +1265,9 @@ class _TopicViewSnapshot {
       recommendations: controller.currentTopic?.recommendations,
       canAssignLegacyTargets:
           siteUrl != null && controller.canAssignForTarget(siteUrl, null),
+      summary: controller.currentTopicSummary,
+      summaryLoading: controller.currentTopicSummaryLoading,
+      readTimeWordCount: controller.currentSiteConfig.readTimeWordCount,
     );
   }
 
@@ -1273,6 +1283,9 @@ class _TopicViewSnapshot {
   final int? initialPostIndex;
   final TopicRecommendations? recommendations;
   final bool canAssignLegacyTargets;
+  final bool summary;
+  final bool summaryLoading;
+  final int readTimeWordCount;
 
   @override
   bool operator ==(Object other) =>
@@ -1288,7 +1301,10 @@ class _TopicViewSnapshot {
           hasMore == other.hasMore &&
           hasEarlier == other.hasEarlier &&
           recommendations == other.recommendations &&
-          canAssignLegacyTargets == other.canAssignLegacyTargets;
+          canAssignLegacyTargets == other.canAssignLegacyTargets &&
+          summary == other.summary &&
+          summaryLoading == other.summaryLoading &&
+          readTimeWordCount == other.readTimeWordCount;
 
   @override
   int get hashCode => Object.hash(
@@ -1303,6 +1319,9 @@ class _TopicViewSnapshot {
     hasEarlier,
     recommendations,
     canAssignLegacyTargets,
+    summary,
+    summaryLoading,
+    readTimeWordCount,
   );
 }
 
@@ -1722,11 +1741,17 @@ class _StoredPost extends StatelessWidget {
     required this.siteUrl,
     required this.topic,
     required this.postId,
+    required this.summary,
+    required this.summaryLoading,
+    required this.readTimeWordCount,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final int postId;
+  final bool summary;
+  final bool summaryLoading;
+  final int readTimeWordCount;
 
   @override
   Widget build(BuildContext context) {
@@ -1738,9 +1763,23 @@ class _StoredPost extends StatelessWidget {
         if (post == null) return const SizedBox.shrink();
         final registry =
             PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
-        return post.isSmallAction || registry.isSmallAction(post)
-            ? SmallActionTile(post: post, siteUrl: siteUrl)
-            : _PostTile(siteUrl: siteUrl, topic: topic, post: post);
+        if (post.isSmallAction || registry.isSmallAction(post)) {
+          return SmallActionTile(post: post, siteUrl: siteUrl);
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _PostTile(siteUrl: siteUrl, topic: topic, post: post),
+            if (post.postNumber == 1)
+              _TopicMap(
+                siteUrl: siteUrl,
+                topic: topic,
+                summary: summary,
+                summaryLoading: summaryLoading,
+                readTimeWordCount: readTimeWordCount,
+              ),
+          ],
+        );
       },
     );
   }
@@ -1763,6 +1802,7 @@ class _PostTile extends StatefulWidget {
 
 class _PostTileState extends State<_PostTile> {
   bool _hovered = false;
+  bool _linksExpanded = false;
 
   void _setHovered(bool value) {
     if (_hovered == value) return;
@@ -1922,6 +1962,13 @@ class _PostTileState extends State<_PostTile> {
                       post,
                     ),
                 PostFooter(siteUrl: widget.siteUrl, post: post),
+                if (post.inboundLinks.isNotEmpty)
+                  _PostInboundLinks(
+                    siteUrl: widget.siteUrl,
+                    links: post.inboundLinks,
+                    expanded: _linksExpanded,
+                    onExpand: () => setState(() => _linksExpanded = true),
+                  ),
               ],
             ),
           ),
@@ -1932,6 +1979,448 @@ class _PostTileState extends State<_PostTile> {
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: TopicView.minimumPostHeight),
       child: tile,
+    );
+  }
+}
+
+/// The internal topics which link back to this post.
+///
+/// Core shows five until explicitly expanded and collapses duplicate titles,
+/// since two posts in the same source topic otherwise produce identical rows.
+class _PostInboundLinks extends StatelessWidget {
+  const _PostInboundLinks({
+    required this.siteUrl,
+    required this.links,
+    required this.expanded,
+    required this.onExpand,
+  });
+
+  static const int _collapsedLimit = 5;
+
+  final String siteUrl;
+  final List<PostInboundLink> links;
+  final bool expanded;
+  final VoidCallback onExpand;
+
+  List<PostInboundLink> get _uniqueLinks {
+    final titles = <String>{};
+    return [
+      for (final link in links)
+        if (titles.add(link.title)) link,
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final unique = _uniqueLinks;
+    final displayed = expanded ? unique : unique.take(_collapsedLimit).toList();
+    final remaining = unique.length - displayed.length;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Divider(height: 1, color: theme.shell.divider),
+          const SizedBox(height: 10),
+          for (final link in displayed)
+            Semantics(
+              link: true,
+              label: link.title,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(4),
+                onTap: () => unawaited(
+                  openLink(
+                    context,
+                    link.url,
+                    title: link.title,
+                    siteUrl: siteUrl,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(
+                    children: [
+                      DIcon(
+                        DIcons.link,
+                        size: 14,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          link.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          if (remaining > 0)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: onExpand,
+                child: Text(
+                  '$remaining more ${remaining == 1 ? 'link' : 'links'}',
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Core's compact topic map beneath the opening post.
+class _TopicMap extends StatelessWidget {
+  const _TopicMap({
+    required this.siteUrl,
+    required this.topic,
+    required this.summary,
+    required this.summaryLoading,
+    required this.readTimeWordCount,
+  });
+
+  static const int _minimumPostsForMapDetails = 3;
+  static const int _minimumLikes = 5;
+  static const int _minimumParticipantCount = 5;
+  static const int _maximumVisibleParticipants = 5;
+  static const int _minimumReadMinutes = 3;
+
+  final String siteUrl;
+  final TopicDetail topic;
+  final bool summary;
+  final bool summaryLoading;
+  final int readTimeWordCount;
+
+  int? get _readTimeMinutes {
+    final wordMinutes = topic.wordCount / readTimeWordCount;
+    final postMinutes = topic.postsCount * 4 / 60;
+    final minutes = (wordMinutes > postMinutes ? wordMinutes : postMinutes)
+        .ceil();
+    return minutes > _minimumReadMinutes ? minutes : null;
+  }
+
+  bool get _showLikes =>
+      topic.likeCount > _minimumLikes &&
+      topic.postsCount > _minimumPostsForMapDetails;
+
+  bool get _showUsers => topic.participantCount > _minimumParticipantCount;
+
+  Future<void> _toggleSummary(BuildContext context) async {
+    final error = await ShellScope.read(context).toggleTopicSummary();
+    if (!context.mounted || error == null) return;
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(error)));
+  }
+
+  List<Widget> _stats(BuildContext context) => [
+    _TopicMapStat(
+      key: const ValueKey('topic-map-views'),
+      value: topic.views < 1 ? 1 : topic.views,
+      label: topic.views <= 1 ? 'view' : 'views',
+      tooltip: 'Topic views',
+    ),
+    if (topic.isNestedView)
+      _TopicMapStat(
+        key: const ValueKey('topic-map-replies'),
+        value: topic.replyCount,
+        label: topic.replyCount == 1 ? 'reply' : 'replies',
+        tooltip: 'Replies',
+      ),
+    if (_showLikes)
+      _TopicMapStat(
+        key: const ValueKey('topic-map-likes'),
+        value: topic.likeCount,
+        label: topic.likeCount == 1 ? 'like' : 'likes',
+        tooltip: 'Likes in this topic',
+      ),
+    if (topic.links.isNotEmpty)
+      _TopicMapStat(
+        key: const ValueKey('topic-map-links'),
+        value: topic.links.length,
+        label: topic.links.length == 1 ? 'link' : 'links',
+        tooltip: 'Links in this topic',
+        menuChildren: [
+          for (final link in topic.links)
+            MenuItemButton(
+              leadingIcon: const DIcon(DIcons.link, size: 14),
+              onPressed: () => unawaited(
+                openLink(
+                  context,
+                  link.url,
+                  title: link.title,
+                  siteUrl: siteUrl,
+                ),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Text(
+                  link.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+        ],
+      ),
+    if (_showUsers)
+      _TopicMapStat(
+        key: const ValueKey('topic-map-users'),
+        value: topic.participantCount,
+        label: topic.participantCount == 1 ? 'user' : 'users',
+        tooltip: 'Participants',
+        menuChildren: [
+          for (final participant in topic.participants)
+            MenuItemButton(
+              leadingIcon: _TopicParticipantAvatar(
+                participant: participant,
+                siteUrl: siteUrl,
+                size: 24,
+                interactive: false,
+              ),
+              onPressed: () => unawaited(
+                showUserCard(
+                  context: context,
+                  username: participant.username,
+                  siteUrl: siteUrl,
+                ),
+              ),
+              child: Text(participant.displayName),
+            ),
+        ],
+      ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final readTime = _readTimeMinutes;
+    final pluginActions =
+        (PluginScope.maybeOf(context)?.registry ?? pluginRegistry)
+            .topicMapActions(context, siteUrl, topic);
+
+    return Container(
+      key: const ValueKey('topic-map'),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: theme.shell.divider)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final showAvatars =
+              constraints.maxWidth >= 520 &&
+              topic.postsCount >= _minimumPostsForMapDetails &&
+              topic.participants.length >= 2;
+          final details = Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ..._stats(context),
+              if (showAvatars)
+                for (final participant in topic.participants.take(
+                  _maximumVisibleParticipants,
+                ))
+                  _TopicParticipantAvatar(
+                    participant: participant,
+                    siteUrl: siteUrl,
+                  ),
+            ],
+          );
+          final actions = Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (readTime != null) _TopicReadTime(minutes: readTime),
+              if (topic.hasSummary)
+                OutlinedButton.icon(
+                  key: const ValueKey('topic-summary-button'),
+                  onPressed: summaryLoading
+                      ? null
+                      : () => unawaited(_toggleSummary(context)),
+                  icon: summaryLoading
+                      ? const SizedBox.square(
+                          dimension: 14,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : DIcon(
+                          summary ? DIcons.list : DIcons.layerGroup,
+                          size: 14,
+                        ),
+                  label: Text(summary ? 'Show all' : 'Summarize'),
+                ),
+              ...pluginActions,
+            ],
+          );
+
+          if (constraints.maxWidth < 560) {
+            return Wrap(
+              spacing: 16,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [details, actions],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: details),
+              if (actions.children.isNotEmpty) ...[
+                const SizedBox(width: 16),
+                actions,
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TopicMapStat extends StatelessWidget {
+  const _TopicMapStat({
+    super.key,
+    required this.value,
+    required this.label,
+    required this.tooltip,
+    this.menuChildren = const [],
+  });
+
+  final int value;
+  final String label;
+  final String tooltip;
+  final List<Widget> menuChildren;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$value',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.primary,
+              height: 1.1,
+            ),
+          ),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.1,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (menuChildren.isEmpty) {
+      return Tooltip(message: tooltip, child: content);
+    }
+    return MenuAnchor(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        maximumSize: const WidgetStatePropertyAll(Size(380, 440)),
+      ),
+      menuChildren: menuChildren,
+      builder: (context, menu, child) => Tooltip(
+        message: tooltip,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: menu.open,
+          child: child,
+        ),
+      ),
+      child: content,
+    );
+  }
+}
+
+class _TopicParticipantAvatar extends StatelessWidget {
+  const _TopicParticipantAvatar({
+    required this.participant,
+    required this.siteUrl,
+    this.size = 32,
+    this.interactive = true,
+  });
+
+  final TopicParticipant participant;
+  final String siteUrl;
+  final double size;
+  final bool interactive;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final avatar = Tooltip(
+      message: '@${participant.username}',
+      child: ClipOval(
+        child: SizedBox.square(
+          dimension: size,
+          child: AvatarImage(
+            url: participant.avatarUrl,
+            size: size,
+            fallback: ColoredBox(
+              color: theme.shell.floating,
+              child: Center(
+                child: Text(
+                  participant.username.characters.first.toUpperCase(),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return interactive
+        ? UserCardTarget(
+            username: participant.username,
+            siteUrl: siteUrl,
+            child: avatar,
+          )
+        : avatar;
+  }
+}
+
+class _TopicReadTime extends StatelessWidget {
+  const _TopicReadTime({required this.minutes});
+
+  final int minutes;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text('$minutes min', style: theme.textTheme.bodyMedium),
+        Text(
+          'read',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }

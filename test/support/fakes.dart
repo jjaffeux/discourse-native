@@ -470,6 +470,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.gate,
     this.feedGates = const {},
     this.topics = const {},
+    this.summaryTopics = const {},
     this.topicGate,
     this.postsById = const {},
     this.postRecommendations = const {},
@@ -631,6 +632,9 @@ class FakeDiscourseApi implements DiscourseApi {
   /// Returned by [topic], keyed by topic id.
   final Map<int, TopicPayload> topics;
 
+  /// Filtered top-reply payloads returned by [topic] with `summary: true`.
+  final Map<int, TopicPayload> summaryTopics;
+
   /// When set, [topic] waits on it so a test can inspect the initial loading
   /// state before the topic payload arrives.
   final Completer<void>? topicGate;
@@ -652,6 +656,7 @@ class FakeDiscourseApi implements DiscourseApi {
 
   final List<int> topicsOpened = [];
   final List<int?> topicPostNumbersOpened = [];
+  final List<int> topicSummariesOpened = [];
   final List<({int topicId, int postNumber})> topicReadsRecorded = [];
   final List<List<int>> postFetches = [];
 
@@ -1153,13 +1158,15 @@ class FakeDiscourseApi implements DiscourseApi {
     required String slug,
     required int id,
     int? postNumber,
+    bool summary = false,
     String? apiKey,
     String? clientId,
   }) async {
     topicsOpened.add(id);
     topicPostNumbersOpened.add(postNumber);
+    if (summary) topicSummariesOpened.add(id);
     if (topicGate != null) await topicGate!.future;
-    final detail = topics[id];
+    final detail = (summary ? summaryTopics[id] : null) ?? topics[id];
     if (detail == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
@@ -2461,22 +2468,42 @@ TopicPayload topicPayload({
   List<Post> posts = const [],
   List<int>? stream,
   int? postsCount,
+  int replyCount = 0,
+  int views = 0,
+  int likeCount = 0,
+  int participantCount = 0,
+  int wordCount = 0,
+  bool hasSummary = false,
+  bool isNestedView = false,
   int? categoryId,
   bool canCreatePost = false,
   ComposerDraft? draft,
   int draftSequence = 0,
   TopicRecommendations? recommendations,
+  List<TopicParticipant> participants = const [],
+  List<TopicMapLink> links = const [],
+  PluginData plugins = PluginData.none,
 }) => (
   detail: TopicDetail(
     id: id,
     title: title,
     stream: stream ?? [for (final post in posts) post.id],
     postsCount: postsCount ?? posts.length,
+    replyCount: replyCount,
+    views: views,
+    likeCount: likeCount,
+    participantCount: participantCount,
+    wordCount: wordCount,
+    hasSummary: hasSummary,
+    isNestedView: isNestedView,
     categoryId: categoryId,
     canCreatePost: canCreatePost,
     draft: draft,
     draftSequence: draftSequence,
     recommendations: recommendations,
+    participants: participants,
+    links: links,
+    plugins: plugins,
   ),
   posts: posts,
 );

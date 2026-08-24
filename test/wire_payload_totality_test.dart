@@ -24,6 +24,7 @@ import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
@@ -123,6 +124,14 @@ const _keys = [
   'status',
   'assigned_to_user',
   'ranked_choice',
+  'link_counts',
+  'reflection',
+  'root_domain',
+  'word_count',
+  'summarizable',
+  'has_cached_summary',
+  'ai_topic_summary',
+  'summarized_text',
 ];
 
 Object? _value(Random random, int depth) => switch (random.nextInt(
@@ -205,6 +214,7 @@ void main() {
         json,
       );
       probe('Post', () => Post.fromJson(json, site), json);
+      probe('PostInboundLink', () => PostInboundLink.fromJson(json), json);
       probe('PostCreation', () => PostCreation.fromJson(json, site), json);
       probe('PostLiker', () => PostLiker.fromJson(json, site), json);
       probe('SearchResults', () => SearchResults.fromJson(json, site), json);
@@ -227,6 +237,12 @@ void main() {
       probe('UserCard', () => UserCard.fromJson(json, site), json);
       probe('UserDraft', () => UserDraft.fromJson(json), json);
       probe('Topic', () => Topic.fromJson(json, const {}, site), json);
+      probe(
+        'TopicParticipant',
+        () => TopicParticipant.fromJson(json, site),
+        json,
+      );
+      probe('TopicMapLink', () => TopicMapLink.fromJson(json), json);
       probe('TopicList', () => TopicList.fromJson(json, site), json);
       probe(
         'TopicRecommendations',
@@ -322,6 +338,13 @@ void main() {
       probe('PostReactor', () => PostReactor.fromJson(json, site), json);
       probe('Reaction', () => Reaction.fromJson(loose), loose);
       probe('Reactions', () => Reactions.fromJson(json), json);
+
+      probe(
+        'AiSummaryAvailability',
+        () => AiSummaryAvailability.fromJson(json),
+        json,
+      );
+      probe('AiTopicSummary', () => AiTopicSummary.fromJson(json), json);
 
       probe(
         'ResenhaParticipant',
