@@ -1196,10 +1196,11 @@ class FakeDiscourseApi implements DiscourseApi {
   }
 
   @override
-  Future<bool> deleteBookmark({
+  Future<bool?> deleteBookmark({
     required String siteUrl,
     required String apiKey,
     required int bookmarkId,
+    required BookmarkTargetType targetType,
     String? clientId,
   }) async {
     final failure = writeFailure;

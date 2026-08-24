@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,6 +19,7 @@ Map<String, dynamic> message({
   Map<String, dynamic>? thread,
   List<Map<String, dynamic>>? reactions,
   List<Map<String, dynamic>>? uploads,
+  Map<String, dynamic>? bookmark,
 }) => {
   'id': id,
   'chat_channel_id': channelId,
@@ -41,6 +43,7 @@ Map<String, dynamic> message({
   'thread': ?thread,
   'reactions': ?reactions,
   'uploads': ?uploads,
+  'bookmark': ?bookmark,
 };
 
 Map<String, dynamic> page(
@@ -177,6 +180,56 @@ void main() {
       expect(read.author.displayName, 'Sam');
       expect(read.author.avatarUrl, '$site/user_avatar/s/90.png');
       expect(read.createdAt, DateTime.parse('2026-05-05T10:00:00.000Z'));
+    });
+
+    test('reads the complete Chat::Message bookmark object', () {
+      final read = messageFrom(
+        message(
+          id: 42,
+          bookmark: const {
+            'id': 81,
+            'bookmarkable_id': 42,
+            'bookmarkable_type': 'Chat::Message',
+            'name': 'Follow this up',
+            'reminder_at': '2030-01-02T03:04:05.000Z',
+            'auto_delete_preference': 1,
+          },
+        ),
+      );
+
+      expect(
+        read.bookmark,
+        Bookmark(
+          id: 81,
+          bookmarkableId: 42,
+          bookmarkableType: 'Chat::Message',
+          name: 'Follow this up',
+          reminderAt: DateTime.utc(2030, 1, 2, 3, 4, 5),
+          autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
+        ),
+      );
+    });
+
+    test('drops absent, null, and malformed chat bookmark attachments', () {
+      expect(messageFrom(message()).bookmark, isNull);
+      expect(messageFrom(message()..['bookmark'] = null).bookmark, isNull);
+      expect(messageFrom(message()..['bookmark'] = 'broken').bookmark, isNull);
+
+      for (final bookmark in <Map<String, dynamic>>[
+        const {
+          'id': 0,
+          'bookmarkable_id': 1,
+          'bookmarkable_type': 'Chat::Message',
+        },
+        const {
+          'id': 81,
+          'bookmarkable_id': 999,
+          'bookmarkable_type': 'Chat::Message',
+        },
+        const {'id': 81, 'bookmarkable_id': 1, 'bookmarkable_type': 'Post'},
+      ]) {
+        expect(messageFrom(message(bookmark: bookmark)).bookmark, isNull);
+      }
     });
 
     test('falls back to the username where the site has no names', () {

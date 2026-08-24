@@ -42,6 +42,7 @@ void main() {
       siteUrl: 'https://forum.example',
       apiKey: 'secret',
       bookmarkId: id,
+      targetType: BookmarkTargetType.post,
     );
     await api.deleteTopicBookmarks(
       siteUrl: 'https://forum.example',
@@ -150,6 +151,7 @@ void main() {
         siteUrl: 'https://forum.example',
         apiKey: 'secret',
         bookmarkId: 81,
+        targetType: BookmarkTargetType.post,
       ),
       throwsA(
         isA<WriteException>().having(
@@ -160,4 +162,39 @@ void main() {
       ),
     );
   });
+
+  test(
+    'chat message creation uses its registered type and deletion needs no topic metadata',
+    () async {
+      final requests = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requests.add(request);
+          return request.method == 'POST'
+              ? http.Response('{"id":91}', 200)
+              : http.Response('{"success":"OK"}', 200);
+        }),
+      );
+
+      final id = await api.createBookmark(
+        siteUrl: 'https://forum.example',
+        apiKey: 'secret',
+        targetType: BookmarkTargetType.chatMessage,
+        targetId: 42,
+      );
+      final topicBookmarked = await api.deleteBookmark(
+        siteUrl: 'https://forum.example',
+        apiKey: 'secret',
+        bookmarkId: id,
+        targetType: BookmarkTargetType.chatMessage,
+      );
+
+      expect(id, 91);
+      expect(jsonDecode(requests.first.body), {
+        'bookmarkable_id': 42,
+        'bookmarkable_type': 'Chat::Message',
+      });
+      expect(topicBookmarked, isNull);
+    },
+  );
 }

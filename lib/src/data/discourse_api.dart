@@ -625,10 +625,11 @@ class DiscourseApi
   }
 
   @override
-  Future<bool> deleteBookmark({
+  Future<bool?> deleteBookmark({
     required String siteUrl,
     required String apiKey,
     required int bookmarkId,
+    required BookmarkTargetType targetType,
     String? clientId,
   }) async {
     _requirePositiveId(bookmarkId, 'bookmarkId');
@@ -641,6 +642,9 @@ class DiscourseApi
       body: const {},
     );
     final topicBookmarked = body['topic_bookmarked'];
+    if (targetType == BookmarkTargetType.chatMessage) {
+      return topicBookmarked is bool ? topicBookmarked : null;
+    }
     if (topicBookmarked is! bool) {
       throw const WriteException(WriteFailure.unreachable);
     }

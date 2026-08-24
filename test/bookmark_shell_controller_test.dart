@@ -7,6 +7,8 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -66,6 +68,62 @@ void main() {
     expect(shell.store.read<Topic>(_site, 7)?.bookmarked, isFalse);
   });
 
+  test('chat message bookmark lifecycle updates the live message', () async {
+    final api = _ChatBookmarkFakeApi();
+    final shell = await _loadShell(api);
+    addTearDown(shell.dispose);
+    _putChatFixture(shell);
+
+    final created = await shell.createBookmark(
+      topicId: 0,
+      targetType: BookmarkTargetType.chatMessage,
+      targetId: 42,
+      name: 'Follow up',
+      reminderAt: DateTime.now().add(const Duration(days: 1)),
+      autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
+    );
+    await pumpEventQueue();
+
+    expect(created.saved, isTrue);
+    final heldBookmark = shell.store.read<ChatMessage>(_site, 42)?.bookmark;
+    expect(heldBookmark?.id, created.bookmark?.id);
+    expect(heldBookmark?.name, 'Follow up');
+    expect(heldBookmark?.reminderAt, created.bookmark?.reminderAt?.toUtc());
+    expect(
+      api.createdBookmarks.single.targetType,
+      BookmarkTargetType.chatMessage,
+    );
+    expect(api.bookmarksRequested, isNotEmpty);
+
+    final updated = await shell.updateBookmark(
+      topicId: 0,
+      bookmark: created.bookmark!,
+      name: 'Keep this',
+      autoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
+    );
+    await pumpEventQueue();
+
+    expect(updated.saved, isTrue);
+    expect(
+      shell.store.read<ChatMessage>(_site, 42)?.bookmark?.name,
+      'Keep this',
+    );
+    expect(
+      shell.store.read<ChatMessage>(_site, 42)?.bookmark?.reminderAt,
+      isNull,
+    );
+
+    final deleted = await shell.deleteBookmark(
+      topicId: 0,
+      bookmark: updated.bookmark!,
+    );
+    await pumpEventQueue();
+
+    expect(deleted.saved, isTrue);
+    expect(shell.store.read<ChatMessage>(_site, 42)?.bookmark, isNull);
+    expect(api.deletedBookmarks, [created.bookmark!.id]);
+  });
+
   test('an ambiguous create is reconciled and never posted twice', () async {
     final api = FakeDiscourseApi(
       user: const DiscourseUser(username: 'reader'),
@@ -107,6 +165,32 @@ void main() {
       topicId: 7,
       targetType: BookmarkTargetType.post,
       targetId: 12,
+    );
+
+    expect(duplicate.saved, isFalse);
+    expect(duplicate.message, contains('still finishing'));
+    expect(api.calls, 1);
+
+    api.response.complete(88);
+    expect((await first).saved, isTrue);
+  });
+
+  test('repeated taps share the chat message write lock', () async {
+    final api = _GatedCreateBookmarkApi();
+    final shell = await _loadShell(api);
+    addTearDown(shell.dispose);
+    _putChatFixture(shell);
+
+    final first = shell.createBookmark(
+      topicId: 0,
+      targetType: BookmarkTargetType.chatMessage,
+      targetId: 42,
+    );
+    await api.started.future;
+    final duplicate = await shell.createBookmark(
+      topicId: 0,
+      targetType: BookmarkTargetType.chatMessage,
+      targetId: 42,
     );
 
     expect(duplicate.saved, isFalse);
@@ -219,6 +303,27 @@ TopicPayload _payload({Bookmark? bookmark}) {
     ),
     posts: [post],
   );
+}
+
+ChatMessage _chatMessage([Bookmark? bookmark]) => ChatMessage(
+  id: 42,
+  channelId: 9,
+  cooked: '<p>Chat reply</p>',
+  author: const ChatMessageAuthor(id: 2, username: 'sam'),
+  bookmark: bookmark,
+);
+
+void _putChatFixture(ShellController shell) {
+  shell.store.put(
+    _site,
+    const ChatChannel(
+      id: 9,
+      title: 'Support',
+      kind: ChatChannelKind.category,
+      membership: ChatMembership(following: true),
+    ),
+  );
+  shell.store.put(_site, _chatMessage());
 }
 
 TopicPayload _payloadWithTarget() {
@@ -438,20 +543,135 @@ final class _BookmarkFakeApi extends FakeDiscourseApi {
   }
 
   @override
-  Future<bool> deleteBookmark({
+  Future<bool?> deleteBookmark({
     required String siteUrl,
     required String apiKey,
     required int bookmarkId,
+    required BookmarkTargetType targetType,
     String? clientId,
   }) async {
     await super.deleteBookmark(
       siteUrl: siteUrl,
       apiKey: apiKey,
       bookmarkId: bookmarkId,
+      targetType: targetType,
       clientId: clientId,
     );
     _bookmark = null;
     topics[7] = _payload();
     return false;
   }
+}
+
+final class _ChatBookmarkFakeApi extends FakeDiscourseApi {
+  _ChatBookmarkFakeApi()
+    : super(
+        user: const DiscourseUser(username: 'reader'),
+        feeds: const {
+          '/latest.json': [Topic(id: 7, title: 'Topic', slug: 'topic')],
+        },
+        topics: {7: _payload()},
+        siteConfigs: const {_site: SiteConfig.unknown()},
+        bookmarkList: const [],
+      );
+
+  Bookmark? _bookmark;
+
+  @override
+  Future<int> createBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required BookmarkTargetType targetType,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+    String? clientId,
+  }) async {
+    final id = await super.createBookmark(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      targetType: targetType,
+      targetId: targetId,
+      name: name,
+      reminderAt: reminderAt,
+      autoDeletePreference: autoDeletePreference,
+      clientId: clientId,
+    );
+    _bookmark = Bookmark(
+      id: id,
+      bookmarkableId: targetId,
+      bookmarkableType: targetType.wireName,
+      name: name,
+      reminderAt: reminderAt?.toUtc(),
+      autoDeletePreference:
+          autoDeletePreference ?? BookmarkAutoDeletePreference.clearReminder,
+    );
+    return id;
+  }
+
+  @override
+  Future<void> updateBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required int bookmarkId,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+    String? clientId,
+  }) async {
+    await super.updateBookmark(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      bookmarkId: bookmarkId,
+      name: name,
+      reminderAt: reminderAt,
+      autoDeletePreference: autoDeletePreference,
+      clientId: clientId,
+    );
+    _bookmark = _bookmark!.copyWith(
+      name: name,
+      clearName: name == null,
+      reminderAt: reminderAt?.toUtc(),
+      clearReminder: reminderAt == null,
+      autoDeletePreference: autoDeletePreference,
+    );
+  }
+
+  @override
+  Future<bool?> deleteBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required int bookmarkId,
+    required BookmarkTargetType targetType,
+    String? clientId,
+  }) async {
+    await super.deleteBookmark(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      bookmarkId: bookmarkId,
+      targetType: targetType,
+      clientId: clientId,
+    );
+    _bookmark = null;
+    return null;
+  }
+
+  @override
+  Future<ChatMessagePage> chatMessages({
+    required String siteUrl,
+    required int channelId,
+    int? before,
+    int? after,
+    int? targetMessageId,
+    bool fromLastRead = false,
+    int pageSize = 50,
+    String? apiKey,
+    String? clientId,
+  }) async => (
+    messages: [_chatMessage(_bookmark)],
+    canLoadMorePast: false,
+    canLoadMoreFuture: false,
+    targetMessageId: targetMessageId,
+  );
 }
