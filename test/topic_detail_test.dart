@@ -108,6 +108,23 @@ void main() {
       expect(payload.detail.canCreatePost, isTrue);
     });
 
+    test('reads the personalized topic notification level from details', () {
+      final payload = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A real topic',
+        'details': {'notification_level': 3},
+      }, site);
+
+      expect(payload.detail.notificationLevel, TopicNotificationLevel.watching);
+    });
+
+    test('unknown notification levels safely read as normal', () {
+      expect(
+        TopicNotificationLevel.fromJson(99),
+        TopicNotificationLevel.normal,
+      );
+    });
+
     test('is false when the payload has no details, as when signed out', () {
       final payload = TopicDetail.parse(const {
         'id': 7,
