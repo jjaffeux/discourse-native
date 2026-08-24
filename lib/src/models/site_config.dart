@@ -52,6 +52,10 @@ class SiteConfig {
     this.badgesEnabled = true,
     this.allowUsernameInShareLinks = true,
     this.readTimeWordCount = defaultReadTimeWordCount,
+    this.minPersonalMessagePostLength = defaultMinPersonalMessagePostLength,
+    this.allowAllUsersToFlagIllegalContent = false,
+    this.contactEmail,
+    this.illegalContentReportEmail,
     this.resenha = const ResenhaClientConfig(),
   });
 
@@ -107,6 +111,7 @@ class SiteConfig {
   static const int defaultReadTimeWordCount = 500;
   static const int defaultShowTimeGapDays = 7;
   static const int maximumShowTimeGapDays = 36500;
+  static const int defaultMinPersonalMessagePostLength = 10;
 
   /// `max_tag_search_results`' own default, server side.
   static const int defaultMaxTagSearchResults = 5;
@@ -193,6 +198,16 @@ class SiteConfig {
         json['read_time_word_count'],
         defaultReadTimeWordCount,
       ),
+      minPersonalMessagePostLength: _positiveInt(
+        json['min_personal_message_post_length'],
+        defaultMinPersonalMessagePostLength,
+      ),
+      allowAllUsersToFlagIllegalContent:
+          json['allow_all_users_to_flag_illegal_content'] == true,
+      contactEmail: _nonemptyText(json['contact_email']),
+      illegalContentReportEmail: _nonemptyText(
+        json['email_address_to_report_illegal_content'],
+      ),
       resenha: ResenhaClientConfig.fromSettings(json),
     );
   }
@@ -264,6 +279,14 @@ class SiteConfig {
       json['readTimeWordCount'],
       defaultReadTimeWordCount,
     ),
+    minPersonalMessagePostLength: _positiveInt(
+      json['minPersonalMessagePostLength'],
+      defaultMinPersonalMessagePostLength,
+    ),
+    allowAllUsersToFlagIllegalContent:
+        json['allowAllUsersToFlagIllegalContent'] == true,
+    contactEmail: _nonemptyText(json['contactEmail']),
+    illegalContentReportEmail: _nonemptyText(json['illegalContentReportEmail']),
     resenha: jsonObject(json['resenha']).isEmpty
         ? const ResenhaClientConfig()
         : ResenhaClientConfig.fromJson(jsonObject(json['resenha'])),
@@ -305,6 +328,10 @@ class SiteConfig {
     'badgesEnabled': badgesEnabled,
     'allowUsernameInShareLinks': allowUsernameInShareLinks,
     'readTimeWordCount': readTimeWordCount,
+    'minPersonalMessagePostLength': minPersonalMessagePostLength,
+    'allowAllUsersToFlagIllegalContent': allowAllUsersToFlagIllegalContent,
+    'contactEmail': contactEmail,
+    'illegalContentReportEmail': illegalContentReportEmail,
     'resenha': resenha.toJson(),
   };
 
@@ -406,6 +433,15 @@ class SiteConfig {
 
   /// Words per minute used by core's topic-map reading-time estimate.
   final int readTimeWordCount;
+
+  /// Validation and anonymous reporting settings shared with the web flag UI.
+  final int minPersonalMessagePostLength;
+  final bool allowAllUsersToFlagIllegalContent;
+  final String? contactEmail;
+  final String? illegalContentReportEmail;
+
+  String? get anonymousFlagReportEmail =>
+      illegalContentReportEmail ?? contactEmail;
 
   final ResenhaClientConfig resenha;
 
@@ -532,6 +568,11 @@ class SiteConfig {
       other.badgesEnabled == badgesEnabled &&
       other.allowUsernameInShareLinks == allowUsernameInShareLinks &&
       other.readTimeWordCount == readTimeWordCount &&
+      other.minPersonalMessagePostLength == minPersonalMessagePostLength &&
+      other.allowAllUsersToFlagIllegalContent ==
+          allowAllUsersToFlagIllegalContent &&
+      other.contactEmail == contactEmail &&
+      other.illegalContentReportEmail == illegalContentReportEmail &&
       other.resenha == resenha &&
       listEquals(other.offeredReactions, offeredReactions);
 
@@ -571,6 +612,10 @@ class SiteConfig {
     badgesEnabled,
     allowUsernameInShareLinks,
     readTimeWordCount,
+    minPersonalMessagePostLength,
+    allowAllUsersToFlagIllegalContent,
+    contactEmail,
+    illegalContentReportEmail,
     resenha,
     Object.hashAll(offeredReactions),
   ]);
@@ -609,6 +654,11 @@ class SiteConfig {
         final value? when value > 0 => value,
         _ => fallback,
       };
+
+  static String? _nonemptyText(Object? raw) {
+    final value = jsonText(raw)?.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
 
   static int _simultaneousUploads(Object? raw) => switch (jsonIntOrNull(raw)) {
     0 => maximumSimultaneousUploads,

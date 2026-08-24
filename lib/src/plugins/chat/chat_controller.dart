@@ -3810,13 +3810,28 @@ class ChatController extends FrameSafeNotifier {
       return Future.value();
     }
 
-    // Never backwards, which is both the site's rule and the reader's: paging
-    // into the past must not undo what they have already seen. This also
-    // de-duplicates the common second viewport tick for the same message.
+    // Never send a cursor backwards, which is both the site's rule and the
+    // reader's: paging into the past must not undo what they have already seen.
+    // This also de-duplicates the common second viewport tick for one message.
     final lastRead = target.threadId == null
         ? channelHeld!.membership.lastReadMessageId
         : threadHeld!.membership!.lastReadMessageId;
-    if (lastRead != null && lastRead >= messageId) return Future.value();
+    final alreadyRead = lastRead != null && lastRead >= messageId;
+
+    // Membership and tracking are separate server projections. They can
+    // briefly disagree, leaving the read cursor at the newest visible message
+    // while the sidebar still carries an unread or mention count. That needs
+    // the same local caught-up projection as a new read, but no duplicate API
+    // receipt. Watched-thread state remains intact through withLastRead.
+    final caughtUp =
+        target.threadId == null &&
+        window.atPresent &&
+        window.newestId == messageId;
+    final hasStaleChannelCounts =
+        caughtUp &&
+        (channelHeld!.tracking.unreadCount > 0 ||
+            channelHeld.tracking.mentionCount > 0);
+    if (alreadyRead && !hasStaleChannelCounts) return Future.value();
 
     // Before credential storage, not after: the await below is a gap two scroll
     // ticks can both arrive in, and the guard above is only a guard once the
@@ -3828,10 +3843,13 @@ class ChatController extends FrameSafeNotifier {
       // channel's overall `last_message_id`: on a threaded channel that id may
       // name a newer reply which is deliberately absent from the root stream.
       // Core's ChatChannel component asks only these two stream questions.
-      final caughtUp = window.atPresent && window.newestId == messageId;
       ChatChannel? updatedChannel;
       store.update<ChatChannel>(siteUrl, target.channelId, (current) {
-        var updated = current.withLastRead(messageId, caughtUp: caughtUp);
+        final readThrough = alreadyRead
+            ? current.membership.lastReadMessageId
+            : messageId;
+        if (readThrough == null) return current;
+        var updated = current.withLastRead(readThrough, caughtUp: caughtUp);
         final previous = updated.membership.lastViewedAt;
         if (previous == null || viewedAt.isAfter(previous)) {
           updated = updated.withLastViewedAt(viewedAt);
@@ -3855,6 +3873,8 @@ class ChatController extends FrameSafeNotifier {
       });
     }
     notifySafely();
+
+    if (alreadyRead) return Future.value();
 
     return _queueReadReceipt(
       siteUrl: siteUrl,

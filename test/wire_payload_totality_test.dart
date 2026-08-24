@@ -11,6 +11,7 @@ import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
+import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
@@ -68,7 +69,16 @@ const _keys = [
   'read',
   'unread',
   'actions_summary',
+  'post_action_types',
+  'is_flag',
+  'name_key',
+  'short_description',
+  'require_message',
+  'enabled',
+  'applies_to',
+  'system',
   'can_act',
+  'can_undo',
   'acted',
   'count',
   'color',
@@ -216,6 +226,12 @@ void main() {
       probe('Post', () => Post.fromJson(json, site), json);
       probe('PostInboundLink', () => PostInboundLink.fromJson(json), json);
       probe('PostCreation', () => PostCreation.fromJson(json, site), json);
+      probe(
+        'SitePostActionCatalog',
+        () => SitePostActionCatalog.fromJson(json),
+        json,
+      );
+      probe('PostActionSummary', () => PostActionSummary.fromJson(json), json);
       probe('PostLiker', () => PostLiker.fromJson(json, site), json);
       probe('SearchResults', () => SearchResults.fromJson(json, site), json);
       probe('SearchCategoryHit', () => SearchCategoryHit.fromJson(json), json);

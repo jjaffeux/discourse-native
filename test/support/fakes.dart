@@ -25,6 +25,7 @@ import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
+import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
@@ -461,6 +462,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.categoryPages = const {},
     this.categoryLoadComplete = true,
     this.categoryCanCreateTopic = false,
+    this.categoryPostActionCatalog,
     this.composerCapabilities = const TopicComposerCapabilities(),
     this.topicTagSearches = const {},
     this.serverDrafts = const {},
@@ -483,6 +485,9 @@ class FakeDiscourseApi implements DiscourseApi {
     this.likeResponses = const {},
     this.likeFailure,
     this.likeGate,
+    this.flagResponses = const {},
+    this.flagFailure,
+    this.flagGate,
     this.likersById = const {},
     this.likerGate,
     this.siteAppearances = const {},
@@ -604,6 +609,7 @@ class FakeDiscourseApi implements DiscourseApi {
   final Map<int, List<TopicCategory>> categoryPages;
   final bool categoryLoadComplete;
   final bool categoryCanCreateTopic;
+  final SitePostActionCatalog? categoryPostActionCatalog;
   final TopicComposerCapabilities composerCapabilities;
   final List<String> categoryRequests = [];
   final List<int> categoryPagesRequested = [];
@@ -704,6 +710,13 @@ class FakeDiscourseApi implements DiscourseApi {
   /// When set, both like routes wait on it — lets a test press the heart twice
   /// before either write has come back.
   final Completer<void>? likeGate;
+
+  /// Personalized post responses and controls for flag creation.
+  final Map<int, Post> flagResponses;
+  final WriteException? flagFailure;
+  final Completer<void>? flagGate;
+  final List<({int postId, int postActionTypeId, String? message})>
+  flagsCreated = [];
 
   /// Returned by [postLikers], keyed by post id; a missing one fails.
   final Map<int, List<PostLiker>> likersById;
@@ -1281,6 +1294,7 @@ class FakeDiscourseApi implements DiscourseApi {
       categories,
       complete: categoryLoadComplete,
       canCreateTopic: categoryCanCreateTopic,
+      postActionCatalog: categoryPostActionCatalog,
     );
   }
 
@@ -1747,6 +1761,30 @@ class FakeDiscourseApi implements DiscourseApi {
     final failure = likeFailure ?? writeFailure;
     if (failure != null) throw failure;
     return likeResponses[postId];
+  }
+
+  @override
+  Future<Post> createPostFlag({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required int postActionTypeId,
+    String? message,
+    String? clientId,
+  }) async {
+    flagsCreated.add((
+      postId: postId,
+      postActionTypeId: postActionTypeId,
+      message: message,
+    ));
+    await flagGate?.future;
+    final failure = flagFailure ?? writeFailure;
+    if (failure != null) throw failure;
+    final response = flagResponses[postId];
+    if (response == null) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return response;
   }
 
   @override

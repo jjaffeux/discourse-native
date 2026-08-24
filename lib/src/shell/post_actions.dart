@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/post.dart';
+import '../models/post_flag.dart';
 import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import 'anonymous_flag_dialog.dart';
 import 'platform.dart';
 import 'post_action.dart';
+import 'post_flag_editor.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -159,6 +162,22 @@ class _PostActionsState extends State<PostActions> {
     final post = widget.post;
     final registry = PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
     final contribution = registry.postMenu(context, widget.siteUrl, post);
+    final instance = controller.currentInstance;
+    final availableFlags =
+        instance?.url == widget.siteUrl && instance?.isConnected == true
+        ? controller.availablePostFlagTypes(widget.siteUrl, post)
+        : const <PostFlagType>[];
+    final config = controller.siteConfigFor(widget.siteUrl);
+    final anonymousReportEmail =
+        instance?.url == widget.siteUrl &&
+            instance?.isConnected == false &&
+            config.allowAllUsersToFlagIllegalContent &&
+            !post.hidden &&
+            !post.isDeleted
+        ? config.anonymousFlagReportEmail
+        : null;
+    final postUrl = _postShareUrl(controller);
+    final topicTitle = controller.currentTopic?.title;
 
     return [
       // First, and furthest from Delete: it is the one thing here people do
@@ -202,6 +221,32 @@ class _PostActionsState extends State<PostActions> {
           label: 'Edit',
           tooltip: 'Edit this post',
           onInvoke: () => controller.openEdit(post),
+        ),
+      if (availableFlags.isNotEmpty)
+        PostAction(
+          icon: DIcons.flag,
+          label: 'Flag',
+          tooltip: 'Privately flag this post for attention',
+          onInvoke: () => showPostFlagEditor(
+            context: context,
+            siteUrl: widget.siteUrl,
+            post: post,
+            flagTypes: availableFlags,
+          ),
+        )
+      else if (anonymousReportEmail != null &&
+          postUrl != null &&
+          topicTitle != null)
+        PostAction(
+          icon: DIcons.flag,
+          label: 'Report illegal content',
+          tooltip: 'Report illegal content by email',
+          onInvoke: () => showAnonymousIllegalContentDialog(
+            context: context,
+            email: anonymousReportEmail,
+            topicTitle: topicTitle,
+            postUrl: postUrl,
+          ),
         ),
       if (post.postNumber == 1 &&
           controller.currentTopic?.canEdit != true &&
@@ -326,10 +371,13 @@ class _PostActionsState extends State<PostActions> {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<({bool canReply, Object presentation})>(
+    return ShellSelector<
+      ({bool canReply, Object presentation, Object flagCatalog})
+    >(
       select: (controller) => (
         canReply: controller.canReplyHere,
         presentation: controller.presentationTokenFor(widget.siteUrl),
+        flagCatalog: controller.postFlagTypesFor(widget.siteUrl),
       ),
       builder: (context, _, child) => _buildActions(context),
     );

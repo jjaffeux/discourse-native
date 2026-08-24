@@ -17,6 +17,7 @@ import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
+import '../models/post_flag.dart';
 import '../models/post_likers.dart';
 import '../models/search_results.dart';
 import '../models/sidebar.dart';
@@ -51,6 +52,7 @@ final class CategoryLoadResult {
     bool complete = true,
     Iterable<int>? rootCategoryIds,
     bool canCreateTopic = false,
+    SitePostActionCatalog? postActionCatalog,
   }) {
     final immutableCategories = List<TopicCategory>.unmodifiable(categories);
     return CategoryLoadResult._(
@@ -63,6 +65,7 @@ final class CategoryLoadResult {
       ),
       complete,
       canCreateTopic,
+      postActionCatalog,
     );
   }
 
@@ -71,6 +74,7 @@ final class CategoryLoadResult {
     this.rootCategoryIds,
     this.complete,
     this.canCreateTopic,
+    this.postActionCatalog,
   );
 
   final List<TopicCategory> categories;
@@ -82,6 +86,10 @@ final class CategoryLoadResult {
   final List<int> rootCategoryIds;
   final bool complete;
   final bool canCreateTopic;
+
+  /// Authenticated post-action metadata from the page-one `/site.json` read.
+  /// Null means that metadata was not requested or did not arrive.
+  final SitePostActionCatalog? postActionCatalog;
 }
 
 /// Talks to a Discourse site.
@@ -1600,6 +1608,9 @@ class DiscourseApi
       rootCategoryIds: rootCategoryIds,
       complete: siteResult?.complete ?? true,
       canCreateTopic: list['can_create_topic'] == true,
+      postActionCatalog: siteResult?.body == null
+          ? null
+          : SitePostActionCatalog.fromJson(site),
     );
   }
 
@@ -1892,6 +1903,43 @@ class DiscourseApi
       ),
       siteUrl,
     );
+  }
+
+  /// Privately flags a post and returns the personalized post the site now
+  /// holds.
+  ///
+  /// The response is unwrapped, like the like route. Unlike an undo, creation
+  /// is expected to return a post; accepting an empty body as success would
+  /// close the editor without any authoritative state to display.
+  Future<Post> createPostFlag({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required int postActionTypeId,
+    String? message,
+    String? clientId,
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    _requirePositiveId(postActionTypeId, 'postActionTypeId');
+    final post = _actedPost(
+      await _write(
+        Uri.parse('$siteUrl/post_actions.json'),
+        siteUrl: siteUrl,
+        method: 'POST',
+        apiKey: apiKey,
+        clientId: clientId,
+        body: {
+          'id': postId,
+          'post_action_type_id': postActionTypeId,
+          'message': ?message,
+        },
+      ),
+      siteUrl,
+    );
+    if (post == null) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return post;
   }
 
   /// Takes a like back, and returns the post as the site now holds it.
