@@ -1078,6 +1078,12 @@ class _TopicViewState extends State<TopicView> {
             timeGapDays: timeGapByPostIndex[postIndex],
             hideDay: day != null && day == _floatingDay,
             onDayTap: day == null ? null : () => _jumpToDayStart(day),
+            gapBefore: snapshot.topic!.gapsBefore[postId] ?? const [],
+            gapAfter: snapshot.topic!.gapsAfter[postId] ?? const [],
+            expandGapBefore: () =>
+                controller.expandPostGap(anchorPostId: postId, before: true),
+            expandGapAfter: () =>
+                controller.expandPostGap(anchorPostId: postId, before: false),
             child: _StoredPost(
               siteUrl: siteUrl,
               topic: snapshot.topic!,
@@ -1625,6 +1631,10 @@ class _TopicPostItem extends StatelessWidget {
     required this.timeGapDays,
     required this.hideDay,
     required this.onDayTap,
+    required this.gapBefore,
+    required this.gapAfter,
+    required this.expandGapBefore,
+    required this.expandGapAfter,
     required this.child,
   });
 
@@ -1633,6 +1643,10 @@ class _TopicPostItem extends StatelessWidget {
   final int? timeGapDays;
   final bool hideDay;
   final VoidCallback? onDayTap;
+  final List<int> gapBefore;
+  final List<int> gapAfter;
+  final Future<void> Function() expandGapBefore;
+  final Future<void> Function() expandGapAfter;
   final Widget child;
 
   @override
@@ -1641,6 +1655,12 @@ class _TopicPostItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (gapBefore.isNotEmpty)
+          _PostGap(
+            key: const ValueKey('post-gap-before'),
+            count: gapBefore.length,
+            onExpand: expandGapBefore,
+          ),
         if (day != null)
           IgnorePointer(
             ignoring: hideDay,
@@ -1659,7 +1679,76 @@ class _TopicPostItem extends StatelessWidget {
             daysSince: daysSince,
           ),
         child,
+        if (gapAfter.isNotEmpty)
+          _PostGap(
+            key: const ValueKey('post-gap-after'),
+            count: gapAfter.length,
+            onExpand: expandGapAfter,
+          ),
       ],
+    );
+  }
+}
+
+/// Core's explicit affordance for posts omitted from the ordinary stream.
+///
+/// The server supplies both the ids and their placement. A gap is therefore
+/// not an authorization guess: if it is here, the reader may ask to reveal it.
+class _PostGap extends StatefulWidget {
+  const _PostGap({super.key, required this.count, required this.onExpand});
+
+  final int count;
+  final Future<void> Function() onExpand;
+
+  @override
+  State<_PostGap> createState() => _PostGapState();
+}
+
+class _PostGapState extends State<_PostGap> {
+  bool _loading = false;
+
+  String get _label => widget.count == 1
+      ? 'View 1 hidden reply'
+      : 'View ${widget.count} hidden replies';
+
+  Future<void> _expand() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      await widget.onExpand();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final label = _loading ? 'Loading…' : _label;
+    final left = MediaQuery.sizeOf(context).width < 600 ? 16.0 : 58.0;
+
+    return Semantics(
+      button: true,
+      label: label,
+      onTap: _loading ? null : _expand,
+      child: ExcludeSemantics(
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: _loading ? null : _expand,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(left, 8, 16, 12),
+              child: Text(
+                label.toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
