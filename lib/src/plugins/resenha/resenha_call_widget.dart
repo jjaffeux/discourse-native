@@ -4,6 +4,8 @@ import '../../models/content_route.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import 'resenha_plugin.dart';
 import 'resenha_room_view.dart';
 
@@ -13,10 +15,11 @@ class ResenhaCallWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.read(context);
+    final controller = PluginScope.require(context, resenhaControllerService);
     return ListenableBuilder(
-      listenable: shell.resenha,
+      listenable: controller,
       builder: (context, _) {
-        final call = shell.resenha.call;
+        final call = controller.call;
         if (call == null) return const SizedBox.shrink();
         return SafeArea(
           minimum: const EdgeInsets.all(16),
@@ -77,7 +80,7 @@ class ResenhaCallWidget extends StatelessWidget {
                       ),
                       IconButton(
                         tooltip: call.muted ? 'Unmute' : 'Mute',
-                        onPressed: () => shell.resenha.setMuted(!call.muted),
+                        onPressed: () => controller.setMuted(!call.muted),
                         icon: DIcon(
                           call.muted
                               ? DIcons.microphoneSlash
@@ -87,7 +90,7 @@ class ResenhaCallWidget extends StatelessWidget {
                       ),
                       IconButton(
                         tooltip: 'Leave room',
-                        onPressed: shell.resenha.leave,
+                        onPressed: controller.leave,
                         icon: DIcon(
                           DIcons.phoneSlash,
                           size: 18,

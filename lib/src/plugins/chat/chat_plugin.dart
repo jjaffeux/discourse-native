@@ -4,9 +4,12 @@ import '../../models/content_route.dart';
 import '../../models/sidebar.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import '../site_plugin_api.dart';
 import 'chat_channel.dart';
 import 'chat_channel_view.dart';
+import 'chat_header_button.dart';
 import 'chat_route.dart';
 import 'chat_thread_view.dart';
 
@@ -40,7 +43,12 @@ import 'chat_thread_view.dart';
 /// section with a spinner in it says something false about how many channels
 /// there are.
 class ChatPlugin
-    implements SitePlugin, SidebarPlugin, ContentPlugin, ContentChromePlugin {
+    implements
+        SitePlugin,
+        SidebarPlugin,
+        ContentPlugin,
+        ContentChromePlugin,
+        ShellHeaderPlugin {
   const ChatPlugin();
 
   @override
@@ -51,10 +59,11 @@ class ChatPlugin
     final controller = ShellScope.read(context);
     final siteUrl = controller.currentInstance?.url;
     if (siteUrl == null) return const [];
+    final chat = PluginScope.require(context, chatControllerService);
 
-    final starred = controller.chat.starredChannels(siteUrl);
-    final public = controller.chat.unstarredPublicChannels(siteUrl);
-    final direct = controller.chat.unstarredDirectChannels(siteUrl);
+    final starred = chat.starredChannels(siteUrl);
+    final public = chat.unstarredPublicChannels(siteUrl);
+    final direct = chat.unstarredDirectChannels(siteUrl);
 
     // Nothing before the answer, and nothing after an answer with no channels
     // in it. A heading with no rows under it says something that is not true.
@@ -82,7 +91,7 @@ class ChatPlugin
 
   @override
   Listenable sidebarListenable(BuildContext context) =>
-      ShellScope.read(context).chat;
+      PluginScope.require(context, chatControllerService);
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {
@@ -96,6 +105,19 @@ class ChatPlugin
   @override
   bool ownsContentChrome(BuildContext context, ContentRoute route) =>
       ChatRoute.parse(route.id)?.isThread ?? false;
+
+  @override
+  List<Widget> shellHeaderActions(
+    BuildContext context, {
+    required PluginHeaderSurface surface,
+    required bool compact,
+    Color? ringColor,
+  }) => [
+    ChatHeaderButton(
+      hideWhenChatActive: surface == PluginHeaderSurface.content && compact,
+      ringColor: ringColor,
+    ),
+  ];
 
   /// One channel as a sidebar row.
   ///

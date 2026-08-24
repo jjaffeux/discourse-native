@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A post payload as a reactions site serializes one.
@@ -38,8 +39,11 @@ Map<String, dynamic> entry(String id, int count) => {
   'count': count,
 };
 
-Post postFrom(Map<String, dynamic> json) =>
-    Post.fromJson(json, 'https://meta.discourse.org');
+Post postFrom(Map<String, dynamic> json) => Post.fromJson(
+  json,
+  'https://meta.discourse.org',
+  extensions: pluginRegistry,
+);
 
 Reactions reactionsOf(Map<String, dynamic> json) => postFrom(json).reactions!;
 

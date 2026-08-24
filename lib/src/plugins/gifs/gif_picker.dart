@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/api_credentials.dart';
-import '../../data/discourse_api_contracts.dart';
 import '../../data/site_lifecycle.dart';
 import '../../models/site_config.dart';
 import '../../shell/image_decode.dart';
@@ -13,6 +12,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'gif.dart';
 import 'gif_picker_controller.dart';
+import 'gifs_api.dart';
 
 /// Opens the shared GIF browser and returns the chosen remote image.
 ///

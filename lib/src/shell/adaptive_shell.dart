@@ -9,7 +9,7 @@ import '../data/diagnostics_panel_width_store.dart';
 import '../data/sidebar_width_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/diagnostics_scope.dart';
-import '../plugins/resenha/resenha_call_widget.dart';
+import '../plugins/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -260,12 +260,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                   ],
                 ),
               ),
-              const Positioned.fill(
-                child: IgnorePointer(
-                  ignoring: false,
-                  child: ResenhaCallWidget(),
-                ),
-              ),
+              ...PluginScope.of(context).registry.shellOverlays(context),
             ],
           );
 

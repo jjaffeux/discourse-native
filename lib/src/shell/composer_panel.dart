@@ -12,6 +12,7 @@ import '../models/composer_upload.dart';
 import '../models/topic.dart';
 import '../plugins/local_dates/local_date_composer_parser.dart';
 import '../plugins/local_dates/local_dates_plugin.dart';
+import '../plugins/plugin_scope.dart';
 import '../plugins/poll/poll_composer_editor.dart';
 import '../plugins/poll/poll_composer_parser.dart';
 import '../plugins/poll/poll_plugin.dart';
@@ -2205,7 +2206,8 @@ class _Toolbar extends StatelessWidget {
 
   Widget _buildToolbar(BuildContext context) {
     final theme = Theme.of(context);
-    final actions = pluginRegistry.composerToolbar(context, composer);
+    final registry = PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
+    final actions = registry.composerToolbar(context, composer);
     final emojiEnabled =
         !composer.target.isTagsEdit &&
         ShellScope.read(

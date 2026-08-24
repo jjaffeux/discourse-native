@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../shell/avatar_image.dart';
-import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 
 /// A chat avatar with Discourse's live online treatment.
 ///
@@ -31,9 +32,10 @@ class ChatUserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onlineUsers = ShellScope.read(
+    final onlineUsers = PluginScope.require(
       context,
-    ).chat.onlineUserIdsListenable(siteUrl);
+      chatControllerService,
+    ).onlineUserIdsListenable(siteUrl);
     return ValueListenableBuilder<Set<int>>(
       valueListenable: onlineUsers,
       builder: (context, ids, _) => ids.contains(userId)

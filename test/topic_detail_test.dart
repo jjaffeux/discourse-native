@@ -27,7 +27,12 @@ TopicDetail detail({
 );
 
 PluginData feature(String value) =>
-    PluginData.none.withValue(_TopicFeature(value));
+    PluginData.none.withValue(_topicFeatureKey, _TopicFeature(value));
+
+const _topicFeatureKey = PluginDataKey<_TopicFeature>(
+  owner: 'test',
+  name: 'topic-feature',
+);
 
 /// The post ids a view would draw: the stream, minus what has not arrived.
 List<int> loaded(Store store, TopicDetail topic) => [
@@ -244,7 +249,7 @@ void main() {
       final incoming = detail(stream: [1]).withPlugins(feature('incoming'));
 
       expect(
-        held.merge(incoming).plugins.get<_TopicFeature>()?.value,
+        held.merge(incoming).plugins.get(_topicFeatureKey)?.value,
         'incoming',
       );
     });

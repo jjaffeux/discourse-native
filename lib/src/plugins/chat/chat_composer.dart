@@ -16,7 +16,10 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../gifs/gif.dart';
 import '../gifs/gif_picker.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import 'chat_channel.dart';
+import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_stream_target.dart';
 
@@ -51,6 +54,7 @@ class ChatComposer extends StatefulWidget {
 
 class _ChatComposerState extends State<ChatComposer> {
   ShellController? _shell;
+  ChatController? _chat;
   ComposerController? _composer;
   String? _sourceKey;
   bool _pickingGif = false;
@@ -70,17 +74,25 @@ class _ChatComposerState extends State<ChatComposer> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _useComposer(ShellScope.read(context));
+    _useComposer(
+      ShellScope.read(context),
+      PluginScope.require(context, chatControllerService),
+    );
   }
 
-  void _useComposer(ShellController shell) {
+  void _useComposer(ShellController shell, ChatController chat) {
     final sourceKey =
         '${widget.siteUrl}~${widget.channelId}~${widget.threadId ?? 'channel'}';
-    if (identical(_shell, shell) && _sourceKey == sourceKey) return;
+    if (identical(_shell, shell) &&
+        identical(_chat, chat) &&
+        _sourceKey == sourceKey) {
+      return;
+    }
 
     _composer?.dispose();
-    final channel = shell.chat.channel(widget.siteUrl, widget.channelId);
+    final channel = chat.channel(widget.siteUrl, widget.channelId);
     _shell = shell;
+    _chat = chat;
     _sourceKey = sourceKey;
     _composer = shell.buildChatComposer(
       siteUrl: widget.siteUrl,
@@ -113,7 +125,10 @@ class _ChatComposerState extends State<ChatComposer> {
       }
       return;
     }
-    _useComposer(_shell ?? ShellScope.read(context));
+    _useComposer(
+      _shell ?? ShellScope.read(context),
+      _chat ?? PluginScope.require(context, chatControllerService),
+    );
   }
 
   @override
@@ -124,14 +139,16 @@ class _ChatComposerState extends State<ChatComposer> {
 
   void _send(ComposerController composer) {
     final shell = _shell;
+    final chat = _chat;
     if (shell == null ||
+        chat == null ||
         _pickingGif ||
         _pickingEmoji ||
         composer.raw.trim().isEmpty ||
         composer.hasActiveUploads) {
       return;
     }
-    final accepted = shell.chat.sendMessageTo(
+    final accepted = chat.sendMessageTo(
       widget.siteUrl,
       _target,
       OutgoingChatMessage.text(composer.raw),
@@ -160,7 +177,7 @@ class _ChatComposerState extends State<ChatComposer> {
         _pickingGif ||
         _pickingEmoji ||
         !shell.siteConfigFor(widget.siteUrl).gifsEnabled ||
-        !shell.chat.canSendMessageTo(widget.siteUrl, _target)) {
+        !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
       return;
     }
 
@@ -169,7 +186,7 @@ class _ChatComposerState extends State<ChatComposer> {
       final result = await showGifPicker(
         context: context,
         siteUrl: widget.siteUrl,
-        api: shell.api,
+        api: shell.gifsApi,
         credentials: shell.authenticator,
         lifecycle: shell.lifecycle,
         config: shell.siteConfigFor(widget.siteUrl),
@@ -198,7 +215,7 @@ class _ChatComposerState extends State<ChatComposer> {
         _pickingGif ||
         _pickingEmoji ||
         !shell.siteConfigFor(widget.siteUrl).emojiEnabled ||
-        !shell.chat.canSendMessage(widget.siteUrl, widget.channelId)) {
+        !(_chat?.canSendMessage(widget.siteUrl, widget.channelId) ?? false)) {
       return;
     }
 
@@ -225,11 +242,11 @@ class _ChatComposerState extends State<ChatComposer> {
     GifResult result,
   ) {
     if (!_ownsComposer(shell, composer, sourceKey) ||
-        !shell.chat.canSendMessageTo(widget.siteUrl, _target)) {
+        !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
       return;
     }
 
-    shell.chat.sendMessageTo(
+    _chat!.sendMessageTo(
       widget.siteUrl,
       _target,
       OutgoingChatMessage.trustedGif(
@@ -281,13 +298,13 @@ class _ChatComposerState extends State<ChatComposer> {
     if (composer == null) return const SizedBox.shrink();
 
     return ValueListenableBuilder<ChatChannel?>(
-      valueListenable: ShellScope.read(
+      valueListenable: PluginScope.require(
         context,
-      ).chat.channelRef(widget.siteUrl, widget.channelId),
+        chatControllerService,
+      ).channelRef(widget.siteUrl, widget.channelId),
       builder: (context, channel, _) {
         if (channel != null &&
-            !(_shell?.chat.canSendMessageTo(widget.siteUrl, _target) ??
-                false)) {
+            !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
           return SafeArea(
             top: false,
             minimum: const EdgeInsets.fromLTRB(12, 6, 12, 12),
@@ -345,7 +362,7 @@ class _ChatComposerState extends State<ChatComposer> {
 
   Widget _bar(BuildContext context, ComposerController composer) {
     final theme = Theme.of(context);
-    final channel = _shell?.chat.channel(widget.siteUrl, widget.channelId);
+    final channel = _chat?.channel(widget.siteUrl, widget.channelId);
     final hint = channel == null
         ? 'Message chat'
         : channel.isDirectMessage
@@ -419,7 +436,7 @@ class _ChatComposerState extends State<ChatComposer> {
                             onPressed:
                                 _pickingGif ||
                                     _pickingEmoji ||
-                                    !(_shell?.chat.canSendMessage(
+                                    !(_chat?.canSendMessage(
                                           widget.siteUrl,
                                           widget.channelId,
                                         ) ??
@@ -446,7 +463,7 @@ class _ChatComposerState extends State<ChatComposer> {
                       onPressed:
                           _pickingGif ||
                               _pickingEmoji ||
-                              !(_shell?.chat.canSendMessage(
+                              !(_chat?.canSendMessage(
                                     widget.siteUrl,
                                     widget.channelId,
                                   ) ??
@@ -468,10 +485,7 @@ class _ChatComposerState extends State<ChatComposer> {
                         _pickingEmoji ||
                         value.text.trim().isEmpty ||
                         composer.hasActiveUploads ||
-                        !(_shell?.chat.canSendMessageTo(
-                              widget.siteUrl,
-                              _target,
-                            ) ??
+                        !(_chat?.canSendMessageTo(widget.siteUrl, _target) ??
                             false)
                     ? null
                     : () => _send(composer),

@@ -118,12 +118,12 @@ void main() {
     final incoming = registry.readPost(const {'value': 'new'}, 'site');
     final topic = registry.readTopic(const {'topic_value': 'topic'}, 'site');
 
-    expect(held.get<_Record>()?.value, 'held');
-    expect(topic.get<_Record>()?.value, 'topic');
+    expect(held.get(_recordKey)?.value, 'held');
+    expect(topic.get(_recordKey)?.value, 'topic');
     expect(
       registry
           .mergeAfterPostEdit(held: held, incoming: incoming)
-          .get<_Record>()
+          .get(_recordKey)
           ?.value,
       'held',
     );
@@ -495,12 +495,14 @@ final class _Record {
   final String value;
 }
 
+const _recordKey = PluginDataKey<_Record>(owner: 'record', name: 'test');
+
 final class _RecordPlugin extends _NamedPlugin
     implements PostRecordPlugin<_Record>, TopicRecordPlugin<_Record> {
   const _RecordPlugin() : super('record');
 
   @override
-  Type get record => _Record;
+  PluginDataKey<_Record> get record => _recordKey;
 
   @override
   _Record? readPost(Map<String, dynamic> json, String siteUrl) {

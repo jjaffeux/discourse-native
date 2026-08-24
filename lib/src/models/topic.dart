@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
-import '../plugins/site_plugin.dart';
+import '../plugins/plugin_data.dart';
 import 'json.dart';
 import 'topic_filter.dart';
 import 'topic_tag.dart';
@@ -45,8 +45,9 @@ class Topic with Storable<Topic> {
   factory Topic.fromJson(
     Map<String, dynamic> json,
     Map<int, String?> avatarsByUserId,
-    String siteUrl,
-  ) {
+    String siteUrl, {
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+  }) {
     final resolvedPosters = <String>[];
     for (final poster in jsonObjects(json['posters'])) {
       final id =
@@ -85,7 +86,7 @@ class Topic with Storable<Topic> {
         jsonArray(json['tags']).map(TopicTag.parse).whereType<TopicTag>(),
       ),
       posterAvatars: posters,
-      plugins: PluginData.forTopic(json, siteUrl),
+      plugins: extensions.readTopic(json, siteUrl),
     );
   }
 
@@ -93,8 +94,9 @@ class Topic with Storable<Topic> {
   /// the sibling `users` array used by ordinary topic lists.
   factory Topic.fromRecommendationJson(
     Map<String, dynamic> json,
-    String siteUrl,
-  ) {
+    String siteUrl, {
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+  }) {
     final avatars = <int, String?>{};
     for (final poster in jsonObjects(json['posters'])) {
       final user = jsonObject(poster['user']);
@@ -105,7 +107,7 @@ class Topic with Storable<Topic> {
         siteUrl,
       );
     }
-    return Topic.fromJson(json, avatars, siteUrl);
+    return Topic.fromJson(json, avatars, siteUrl, extensions: extensions);
   }
 
   final int id;
@@ -336,8 +338,9 @@ class TopicRecommendations {
   /// reader has not reached the final post window yet.
   static TopicRecommendations? fromJson(
     Map<String, dynamic> json,
-    String siteUrl,
-  ) {
+    String siteUrl, {
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+  }) {
     if (!json.containsKey('suggested_topics') &&
         !json.containsKey('related_topics')) {
       return null;
@@ -345,11 +348,11 @@ class TopicRecommendations {
     return TopicRecommendations(
       suggested: List.unmodifiable([
         for (final topic in jsonObjects(json['suggested_topics']))
-          Topic.fromRecommendationJson(topic, siteUrl),
+          Topic.fromRecommendationJson(topic, siteUrl, extensions: extensions),
       ]),
       related: List.unmodifiable([
         for (final topic in jsonObjects(json['related_topics']))
-          Topic.fromRecommendationJson(topic, siteUrl),
+          Topic.fromRecommendationJson(topic, siteUrl, extensions: extensions),
       ]),
     );
   }
@@ -391,7 +394,11 @@ class TopicList {
 
   /// Avatar templates live in a separate `users` array keyed by id, so they are
   /// resolved into the topics here rather than left for the widgets.
-  factory TopicList.fromJson(Map<String, dynamic> json, String siteUrl) {
+  factory TopicList.fromJson(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+  }) {
     final avatars = <int, String?>{};
     for (final value in jsonArray(json['users']).take(maximumUsersPerPage)) {
       if (value is! Map<String, dynamic>) continue;
@@ -409,7 +416,7 @@ class TopicList {
       topics: List.unmodifiable([
         for (final value in jsonArray(list['topics']).take(maximumPageSize))
           if (value is Map<String, dynamic>)
-            Topic.fromJson(value, avatars, siteUrl),
+            Topic.fromJson(value, avatars, siteUrl, extensions: extensions),
       ]),
       moreTopicsUrl: jsonText(list['more_topics_url']),
       canCreateTopic: list['can_create_topic'] == true,

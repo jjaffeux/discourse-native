@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/post.dart';
+import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
@@ -156,7 +157,8 @@ class _PostActionsState extends State<PostActions> {
   /// payload, so it too is an answer the site gave.
   List<PostAction> _actions(BuildContext context, ShellController controller) {
     final post = widget.post;
-    final contribution = pluginRegistry.postMenu(context, widget.siteUrl, post);
+    final registry = PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
+    final contribution = registry.postMenu(context, widget.siteUrl, post);
 
     return [
       // First, and furthest from Delete: it is the one thing here people do

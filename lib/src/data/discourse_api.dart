@@ -31,6 +31,7 @@ import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
 import '../plugins/chat/chat_reactors.dart';
 import '../plugins/chat/chat_thread.dart';
+import '../plugins/discourse_model_codec.dart';
 import '../plugins/gifs/gif.dart';
 import '../plugins/poll/poll.dart';
 import '../plugins/reactions/post_reactors.dart';
@@ -97,10 +98,12 @@ class DiscourseApi
         ChatApi,
         GifsApi,
         ReactionsApi,
+        ReactionsWriteApi,
         PollsApi,
         PluginApiTransport {
   DiscourseApi({
     http.Client? client,
+    this.models = const DiscourseModelCodec.core(),
     this.timeout = const Duration(seconds: 10),
     int maxResponseBytes = 16 * 1024 * 1024,
   }) : assert(timeout > Duration.zero),
@@ -119,6 +122,7 @@ class DiscourseApi
   static const int _maxRedirects = 5;
 
   final SafeHttpClient _client;
+  final DiscourseModelCodec models;
   final Duration timeout;
 
   /// Largest buffered API response accepted from a site.
@@ -589,7 +593,7 @@ class DiscourseApi
       clientId: clientId,
     );
 
-    return TopicList.fromJson(body, siteUrl);
+    return models.topicList(body, siteUrl);
   }
 
   /// The small, faceted result set Discourse serves under its header search.
@@ -754,7 +758,7 @@ class DiscourseApi
       clientId: clientId,
     );
 
-    return TopicDetail.parse(body, siteUrl);
+    return models.topic(body, siteUrl);
   }
 
   /// Records the farthest post a signed-in reader has actually had on screen.
@@ -869,7 +873,7 @@ class DiscourseApi
     return (
       posts: List<Post>.unmodifiable([
         for (final post in jsonObjects(stream['posts']))
-          Post.fromJson(post, siteUrl),
+          models.post(post, siteUrl),
       ]),
       recommendations: TopicRecommendations.fromJson(body, siteUrl),
     );
@@ -1695,7 +1699,7 @@ class DiscourseApi
       },
     );
 
-    return PostCreation.fromJson(body, siteUrl);
+    return models.postCreation(body, siteUrl);
   }
 
   /// Creates a topic. The tag objects deliberately retain both id and name:
@@ -1730,7 +1734,7 @@ class DiscourseApi
         'nested_post': true,
       },
     );
-    return PostCreation.fromJson(body, siteUrl);
+    return models.postCreation(body, siteUrl);
   }
 
   /// Updates topic metadata before a first-post body edit.
@@ -1817,7 +1821,7 @@ class DiscourseApi
       _ => null,
     };
     if (post == null) throw const WriteException(WriteFailure.unreachable);
-    return Post.fromJson(post, siteUrl);
+    return models.post(post, siteUrl);
   }
 
   /// Deletes a post.
@@ -1903,8 +1907,8 @@ class DiscourseApi
   /// and the id is what says a post came back at all. Undoing answers with no
   /// content when the post has since stopped being visible to the reader,
   /// which is a success there is simply nothing to draw from.
-  static Post? _actedPost(Map<String, dynamic> body, String siteUrl) =>
-      body['id'] == null ? null : Post.fromJson(body, siteUrl);
+  Post? _actedPost(Map<String, dynamic> body, String siteUrl) =>
+      body['id'] == null ? null : models.post(body, siteUrl);
 
   /// Gives, moves or takes back this reader's reaction, and answers with the
   /// post as the site now holds it — unwrapped, like the like routes.
@@ -1920,6 +1924,7 @@ class DiscourseApi
   /// A 404 means the plugin has been switched off — its controller is behind
   /// `requires_plugin` — **or** that the post is gone. The same bytes for both,
   /// which is why the caller repairs one post rather than a whole site.
+  @override
   Future<Post?> toggleReaction({
     required String siteUrl,
     required String apiKey,
@@ -2432,7 +2437,7 @@ class DiscourseApi
   Future<Map<String, dynamic>> pluginGetJson({
     required String siteUrl,
     required String path,
-    required String apiKey,
+    required String? apiKey,
     String? clientId,
   }) async => _getObject(
     _resolvePluginPath(siteUrl, path),

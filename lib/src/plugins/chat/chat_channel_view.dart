@@ -10,6 +10,8 @@ import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
@@ -43,26 +45,25 @@ class ChatChannelView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<_ChatSource?>(
+    return ShellSelector<String?>(
       select: (controller) {
-        final siteUrl = controller.currentInstance?.url;
-        return siteUrl == null
-            ? null
-            : (siteUrl: siteUrl, chat: controller.chat);
+        return controller.currentInstance?.url;
       },
-      builder: (context, source, _) => source == null
+      builder: (context, siteUrl, _) => siteUrl == null
           ? const SizedBox.shrink()
           : _ChatChannelBody(
-              key: ValueKey((source.siteUrl, channelId, source.chat)),
-              siteUrl: source.siteUrl,
+              key: ValueKey((
+                siteUrl,
+                channelId,
+                PluginScope.require(context, chatControllerService),
+              )),
+              siteUrl: siteUrl,
               channelId: channelId,
-              chat: source.chat,
+              chat: PluginScope.require(context, chatControllerService),
             ),
     );
   }
 }
-
-typedef _ChatSource = ({String siteUrl, ChatController chat});
 
 /// One mounted visit to one channel on one site.
 ///
@@ -1104,7 +1105,7 @@ class _StreamState extends State<ChatMessageStream>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _chat = ShellScope.read(context).chat;
+    _chat = PluginScope.require(context, chatControllerService);
   }
 
   @override
@@ -1113,7 +1114,7 @@ class _StreamState extends State<ChatMessageStream>
     final channelId = widget.channelId;
     final items = widget.items;
     final stream = widget.stream;
-    final chat = ShellScope.read(context).chat;
+    final chat = PluginScope.require(context, chatControllerService);
     _startHighlightIfReady();
 
     final leading = _leadingRows;

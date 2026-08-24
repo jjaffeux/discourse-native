@@ -1,10 +1,10 @@
 import '../../data/api_credentials.dart';
-import '../../data/discourse_api_contracts.dart';
 import '../../data/site_lifecycle.dart';
 import '../../data/store.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
 import 'post_reactors.dart';
+import 'reactions_api.dart';
 
 typedef _ReactionRequestKey = ({String siteUrl, int postId, String? filter});
 

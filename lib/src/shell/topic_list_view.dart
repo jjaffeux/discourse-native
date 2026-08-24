@@ -5,6 +5,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
+import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -842,11 +843,10 @@ class _TopicRowBody extends StatelessWidget {
                               ? 'Tags: ${topic.tags.map((tag) => tag.name).join(', ')}'
                               : null,
                         ),
-                      for (final metadata in pluginRegistry.topicListMetadata(
-                        context,
-                        siteUrl,
-                        topic,
-                      ))
+                      for (final metadata
+                          in (PluginScope.maybeOf(context)?.registry ??
+                                  pluginRegistry)
+                              .topicListMetadata(context, siteUrl, topic))
                         Padding(
                           padding: const EdgeInsets.only(right: 10),
                           child: metadata,

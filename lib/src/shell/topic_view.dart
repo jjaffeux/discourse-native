@@ -10,6 +10,7 @@ import '../data/topic_recommendations_tab_store.dart';
 import '../foundation/calendar_day.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
+import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -1727,7 +1728,9 @@ class _StoredPost extends StatelessWidget {
         // Gone for good — deleted outright rather than soft-deleted — in the
         // frame before the stream that named it is rewritten without it.
         if (post == null) return const SizedBox.shrink();
-        return post.isSmallAction
+        final registry =
+            PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
+        return post.isSmallAction || registry.isSmallAction(post)
             ? SmallActionTile(post: post, siteUrl: siteUrl)
             : _PostTile(siteUrl: siteUrl, topic: topic, post: post);
       },
@@ -1903,12 +1906,13 @@ class _PostTileState extends State<_PostTile> {
                     post: post,
                   ),
                 ),
-                ...pluginRegistry.postDecorations(
-                  context,
-                  widget.siteUrl,
-                  widget.topic,
-                  post,
-                ),
+                ...(PluginScope.maybeOf(context)?.registry ?? pluginRegistry)
+                    .postDecorations(
+                      context,
+                      widget.siteUrl,
+                      widget.topic,
+                      post,
+                    ),
                 PostFooter(siteUrl: widget.siteUrl, post: post),
               ],
             ),

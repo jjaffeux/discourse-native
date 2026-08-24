@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
+import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -23,8 +24,9 @@ class SmallActionDescription {
   final String phrase;
 
   /// The description for [post], or null if it is not a small action.
-  static SmallActionDescription? of(Post post) {
-    if (pluginRegistry.smallAction(post) case final contribution?) {
+  static SmallActionDescription? of(Post post, {PluginRegistry? registry}) {
+    if ((registry ?? pluginRegistry).smallAction(post)
+        case final contribution?) {
       return SmallActionDescription(
         icon: contribution.icon,
         phrase: contribution.phrase,
@@ -122,7 +124,10 @@ class SmallActionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
-    final description = SmallActionDescription.of(post);
+    final description = SmallActionDescription.of(
+      post,
+      registry: PluginScope.maybeOf(context)?.registry,
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
-import '../plugins/site_plugin.dart';
+import '../plugins/plugin_data.dart';
 import 'composer_draft.dart';
 import 'json.dart';
 import 'topic.dart';
@@ -48,7 +48,11 @@ class Post with Storable<Post> {
   /// and 2 everywhere, flags being the other numbers in that table.
   static const int likeActionId = 2;
 
-  factory Post.fromJson(Map<String, dynamic> json, String siteUrl) {
+  factory Post.fromJson(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+  }) {
     final like = _likeSummary(json['actions_summary']);
     return Post(
       id: jsonInt(json['id']),
@@ -88,7 +92,7 @@ class Post with Storable<Post> {
       raw: jsonText(json['raw']),
       // Whatever the site's optional features had to say about this post, which
       // on a site running plain core is nothing at all.
-      plugins: PluginData.forPost(json, siteUrl),
+      plugins: extensions.readPost(json, siteUrl),
     );
   }
 
@@ -187,19 +191,17 @@ class Post with Storable<Post> {
   final String? raw;
 
   /// What the site's optional features said about this post, keyed by the type
-  /// each of them answers with — `plugins.get<Reactions>()`.
+  /// each of them answers with, through its stable typed key.
   ///
   /// [PluginData.none] on a site running plain core, and on every post of a
-  /// site whose plugins this build does not know about. See [SitePlugin] for
-  /// why the payload is the gate rather than a setting.
+  /// site whose installed modules do not claim the payload.
   final PluginData plugins;
 
   /// Small actions are the "closed this topic" notices in the stream. They
   /// have no body of their own, so they are drawn as a one-line notice rather
   /// than as a post. Optional features can add their own serializer types and
   /// action codes without making those values part of this core model.
-  bool get isSmallAction =>
-      postType == smallActionPostType || pluginRegistry.isSmallAction(this);
+  bool get isSmallAction => postType == smallActionPostType;
 
   /// A private aside visible only to the site's configured whisper groups.
   bool get isWhisper => postType == whisperPostType;
@@ -413,7 +415,11 @@ class TopicDetail with Storable<TopicDetail> {
   static const int maximumInitialPosts = 20;
 
   /// Reads a topic payload into the topic and its posts.
-  static TopicPayload parse(Map<String, dynamic> json, String siteUrl) {
+  static TopicPayload parse(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+  }) {
     final postStream = jsonObject(json['post_stream']);
     final details = jsonObject(json['details']);
     return (
@@ -446,14 +452,18 @@ class TopicDetail with Storable<TopicDetail> {
         // composer needs no request of its own.
         draft: ComposerDraft.decode(json['draft']),
         draftSequence: jsonInt(json['draft_sequence']),
-        recommendations: TopicRecommendations.fromJson(json, siteUrl),
-        plugins: PluginData.forTopic(json, siteUrl),
+        recommendations: TopicRecommendations.fromJson(
+          json,
+          siteUrl,
+          extensions: extensions,
+        ),
+        plugins: extensions.readTopic(json, siteUrl),
       ),
       posts: List.unmodifiable([
         for (final post in jsonObjects(
           postStream['posts'],
         ).take(maximumInitialPosts))
-          Post.fromJson(post, siteUrl),
+          Post.fromJson(post, siteUrl, extensions: extensions),
       ]),
     );
   }

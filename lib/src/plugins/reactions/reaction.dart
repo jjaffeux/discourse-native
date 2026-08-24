@@ -1,6 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 import '../../models/post.dart';
+import '../plugin_data.dart';
+
+const reactionsDataKey = PluginDataKey<Reactions>(
+  owner: 'discourse-reactions',
+  name: 'post',
+);
 
 /// What a post looks like to the reactions plugin.
 ///
@@ -14,7 +20,7 @@ extension PostReactions on Post {
   /// them key off site config, so a settings fetch still in flight can never
   /// route a write down the like path on a post that has reactions — which is
   /// the mistake that orphans a `ReactionUser` server side.
-  Reactions? get reactions => plugins.get<Reactions>();
+  Reactions? get reactions => plugins.get(reactionsDataKey);
 
   bool get hasReactions => reactions != null;
 

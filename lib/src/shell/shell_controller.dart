@@ -49,17 +49,20 @@ import '../models/topic_filter.dart';
 import '../models/topic_link.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
-import '../plugins/assign/assign_api.dart';
 import '../plugins/assign/assignment.dart';
 import '../plugins/assign/assignment_controller.dart';
 import '../plugins/chat/chat_controller.dart';
 import '../plugins/chat/chat_plugin.dart';
 import '../plugins/chat/chat_route.dart';
 import '../plugins/chat/chat_stream_target.dart';
+import '../plugins/gifs/gifs_api_client.dart';
+import '../plugins/plugin_host_ports.dart';
+import '../plugins/plugin_services.dart';
 import '../plugins/poll/poll.dart';
+import '../plugins/poll/poll_api.dart';
 import '../plugins/reactions/reaction.dart';
+import '../plugins/reactions/reactions_api_client.dart';
 import '../plugins/reactions/reactions_controller.dart';
-import '../plugins/resenha/resenha_api.dart';
 import '../plugins/resenha/resenha_controller.dart';
 import '../plugins/resenha/resenha_diagnostics.dart';
 import '../plugins/site_plugin.dart';
@@ -134,12 +137,14 @@ class ShellController extends FrameSafeNotifier {
     this.ownsApi = true,
     this.topicLoadTimeout = const Duration(seconds: 30),
     this.anchorPersistDebounce = const Duration(milliseconds: 500),
+    InstalledPlugins? plugins,
   }) : forumTabs = forumTabs ?? ForumTabStore.memory(),
        emojiPickerStore = emojiPickerStore ?? EmojiPickerStore(),
        assert(topicLoadTimeout > Duration.zero),
        assert(anchorPersistDebounce >= Duration.zero),
        store = store ?? Store(),
        lifecycle = lifecycle ?? SiteLifecycle(),
+       plugins = plugins ?? installedPlugins,
        updates = UpdateController(
          updater: updater,
          store: updateStore ?? UpdateStore(),
@@ -189,6 +194,87 @@ class ShellController extends FrameSafeNotifier {
   final EmojiPickerStore emojiPickerStore;
   final SiteLifecycle lifecycle;
   final ResenhaDiagnosticsRecorder resenhaDiagnostics;
+  final InstalledPlugins plugins;
+
+  late final GifsApi gifsApi = GifsApiClient(api);
+  late final PollsApi pollsApi = PollApi(api);
+  late final ReactionsWriteApi reactionsWriteApi = ReactionsApiClient(
+    api,
+    api.models,
+  );
+
+  late final PluginSession _pluginSession = plugins.openSession(
+    PluginHostBindings(<PluginHostPort<Object>>[
+      PluginHostPort<Object>(discourseApiPort, api),
+      PluginHostPort<Object>(credentialReaderPort, authenticator),
+      PluginHostPort<Object>(storePort, store),
+      PluginHostPort<Object>(siteLifecyclePort, lifecycle),
+      PluginHostPort<Object>(
+        currentUserReaderPort,
+        (String siteUrl) => _instanceAt(siteUrl)?.user,
+      ),
+      PluginHostPort<Object>(siteConfigReaderPort, siteConfigFor),
+      PluginHostPort<Object>(
+        chatPreviewEnginePort,
+        plugins.registry.chatPreviewEngine,
+      ),
+      PluginHostPort<Object>(chatNotificationsDeltaPort, (
+        String siteUrl,
+        int delta,
+      ) {
+        accountActivity.applyCounts(
+          siteUrl,
+          (held) => held.withChatNotificationsDelta(delta),
+        );
+      }),
+      PluginHostPort<Object>(siteUnreachablePort, _markForumUnavailable),
+      PluginHostPort<Object>(assignmentPermissionPort, _canAssignTarget),
+      PluginHostPort<Object>(
+        assignmentTopicReloaderPort,
+        (String siteUrl, int topicId) => _refetchTopic(siteUrl, topicId, ''),
+      ),
+      PluginHostPort<Object>(assignmentFallbackInvalidatorPort, (
+        String siteUrl,
+      ) {
+        _assignLegacyFallbackUnavailable.add(siteUrl);
+        _notify();
+      }),
+      PluginHostPort<Object>(
+        trackerReaderPort,
+        (String siteUrl) => _trackers[siteUrl],
+      ),
+      PluginHostPort<Object>(
+        userIdReaderPort,
+        (String siteUrl) => _instanceAt(siteUrl)?.user?.id,
+      ),
+      PluginHostPort<Object>(
+        resenhaCapabilityPort,
+        (String siteUrl) async =>
+            (await _presentation.resolveConfig(siteUrl))?.resenha.enabled,
+      ),
+      PluginHostPort<Object>(callSiteChangedPort, _syncTracking),
+      PluginHostPort<Object>(resenhaDiagnosticsPort, resenhaDiagnostics),
+    ]),
+  );
+
+  /// The installed feature services for this shell lifetime.
+  ///
+  /// Exposed as one typed lookup boundary for [PluginScope], not as a second
+  /// shell controller API.
+  PluginSession get pluginSession => _pluginSession;
+
+  /// Resolves a plugin-owned service for [PluginScope].
+  ///
+  /// The named branches preserve source compatibility for embedders that
+  /// subclassed the former shell-owned controller getters. New code should
+  /// inject a manifest/session and resolve the stable key directly.
+  T pluginService<T extends Object>(PluginServiceKey<T> key) {
+    if (key == reactionsControllerService) return reactions as T;
+    if (key == assignmentControllerService) return assignments as T;
+    if (key == chatControllerService) return chat as T;
+    if (key == resenhaControllerService) return resenha as T;
+    return _pluginSession.require(key);
+  }
 
   void _reportOperationalError(
     Object error,
@@ -205,6 +291,19 @@ class ShellController extends FrameSafeNotifier {
       severity: severity,
       handled: true,
       degraded: degraded,
+    );
+  }
+
+  void _observePluginLifecycle(Future<void> task, String operation) {
+    unawaited(
+      task.onError((Object error, StackTrace stackTrace) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          operation,
+          severity: DiagnosticSeverity.warning,
+        );
+      }),
     );
   }
 
@@ -344,47 +443,26 @@ class ShellController extends FrameSafeNotifier {
   /// The same escape valve, for the same reason: opening one reactor list
   /// should redraw that list rather than every post in the topic. `late final`
   /// so it can be handed the [store] this constructor resolved.
-  late final ReactionsController reactions = ReactionsController(
-    api: api,
-    credentials: authenticator,
-    store: store,
-    lifecycle: lifecycle,
+  late final ReactionsController reactions = _pluginSession.require(
+    reactionsControllerService,
   );
 
   /// Target-scoped Assign suggestions and writes. Its permission reader looks
   /// at the exact topic or post serializer record, never at a site setting.
-  late final AssignmentController assignments = AssignmentController(
-    api: AssignApi(api),
-    credentials: authenticator,
-    lifecycle: lifecycle,
-    canAssign: _canAssignTarget,
-    reloadTopic: (siteUrl, topicId) => _refetchTopic(siteUrl, topicId, ''),
-    invalidateLegacyFallback: (siteUrl) {
-      _assignLegacyFallbackUnavailable.add(siteUrl);
-      _notify();
-    },
+  late final AssignmentController assignments = _pluginSession.require(
+    assignmentControllerService,
   );
 
   /// The chat channels a site has, and the messages in the one on screen.
   ///
   /// Its notifications are consumed by the chat navigation and channel view,
   /// so paging a channel does not rebuild unrelated shell regions.
-  late final ChatController chat = ChatController(
-    api: api,
-    credentials: authenticator,
-    store: store,
-    lifecycle: lifecycle,
-    currentUserFor: (siteUrl) => _instanceAt(siteUrl)?.user,
-    siteConfigFor: siteConfigFor,
-    previewEngine: pluginRegistry.chatPreviewEngine,
-    onChatNotificationsDelta: (siteUrl, delta) {
-      accountActivity.applyCounts(
-        siteUrl,
-        (held) => held.withChatNotificationsDelta(delta),
-      );
-    },
-    onSiteUnreachable: _markForumUnavailable,
+  late final ChatController chat = _pluginSession.require(
+    chatControllerService,
   );
+
+  ChatController? get _chatPlugin =>
+      _pluginSession.service(chatControllerService);
 
   /// One-shot scroll/fetch intent for the Chat screen selected by navigation.
   ///
@@ -397,17 +475,12 @@ class ShellController extends FrameSafeNotifier {
   /// Voice/video rooms across every connected site. Unlike topic and chat
   /// state this owns one app-global media session, so it deliberately survives
   /// switching the selected site.
-  late final ResenhaController resenha = ResenhaController(
-    api: ResenhaApi(api),
-    chatApi: api,
-    credentials: authenticator,
-    trackerFor: (siteUrl) => _trackers[siteUrl],
-    userIdFor: (siteUrl) => _instanceAt(siteUrl)?.user?.id,
-    capabilityEnabledFor: (siteUrl) async =>
-        (await _presentation.resolveConfig(siteUrl))?.resenha.enabled,
-    onCallSiteChanged: _syncTracking,
-    diagnostics: resenhaDiagnostics,
+  late final ResenhaController resenha = _pluginSession.require(
+    resenhaControllerService,
   );
+
+  ResenhaController? get _resenhaPlugin =>
+      _pluginSession.service(resenhaControllerService);
 
   SitePresentationController? _sitePresentation;
 
@@ -558,7 +631,8 @@ class ShellController extends FrameSafeNotifier {
     }
 
     final chatRoute = ChatRoute.parse(route.id);
-    if (chatRoute == null) {
+    final chat = _chatPlugin;
+    if (chatRoute == null || chat == null) {
       _retryingUnavailableForums.remove(instance.url);
       return;
     }
@@ -1316,7 +1390,8 @@ class ShellController extends FrameSafeNotifier {
         currentInstance?.url == instance.url) {
       unawaited(_presentation.ensureConfig(instance.url));
       unawaited(_presentation.ensureCustomEmojis(instance.url));
-      unawaited(chat.loadChannels(instance.url));
+      final chat = _chatPlugin;
+      if (chat != null) unawaited(chat.loadChannels(instance.url));
     }
   }
 
@@ -1809,7 +1884,7 @@ class ShellController extends FrameSafeNotifier {
   /// off screen instead of starting over.
   void _syncTracking() {
     final instance = currentInstance;
-    final callSiteUrl = resenha.activeSiteUrl;
+    final callSiteUrl = _resenhaPlugin?.activeSiteUrl;
 
     for (final entry in _trackers.entries) {
       final selectedAndVisible = _foreground && entry.key == instance?.url;
@@ -1861,20 +1936,20 @@ class ShellController extends FrameSafeNotifier {
       return;
     }
 
-    final channels = pluginRegistry.topicChannels(topicId);
+    final channels = plugins.registry.topicChannels(topicId);
     if (channels.isEmpty) {
       tracker.unwatchTopic();
       return;
     }
 
     tracker.watchTopic(topicId, channels, (channel, data) {
-      if (pluginRegistry.staleTopic(topicId, channel, data)) {
+      if (plugins.registry.staleTopic(topicId, channel, data)) {
         final route = currentContent;
         if (route?.topicId == topicId) {
           unawaited(_refetchTopic(siteUrl, topicId, route?.slug ?? ''));
         }
       }
-      final stale = pluginRegistry.stalePosts(channel, data);
+      final stale = plugins.registry.stalePosts(channel, data);
       if (stale.isNotEmpty) {
         unawaited(_refreshPosts(siteUrl, topicId, stale));
       }
@@ -2032,7 +2107,9 @@ class ShellController extends FrameSafeNotifier {
       // remains eligible because its signalling deliberately survives both a
       // site switch and app backgrounding.
       final selectedAndVisible = _foreground && currentInstance?.url == siteUrl;
-      if (!selectedAndVisible && resenha.activeSiteUrl != siteUrl) return;
+      if (!selectedAndVisible && _resenhaPlugin?.activeSiteUrl != siteUrl) {
+        return;
+      }
 
       void commit(SiteMutation mutation) {
         if (!isDisposed) lease.commit(mutation);
@@ -2062,11 +2139,12 @@ class ShellController extends FrameSafeNotifier {
         return;
       }
       _trackers[siteUrl] = tracker;
-      chat.attachTracker(siteUrl, tracker);
-      resenha.attachTracker(siteUrl);
+      _chatPlugin?.attachTracker(siteUrl, tracker);
+      _resenhaPlugin?.attachTracker(siteUrl);
       final stillSelectedAndVisible =
           _foreground && currentInstance?.url == siteUrl;
-      if (!stillSelectedAndVisible && resenha.activeSiteUrl != siteUrl) {
+      if (!stillSelectedAndVisible &&
+          _resenhaPlugin?.activeSiteUrl != siteUrl) {
         tracker.stop();
       } else {
         _syncTopicWatch(siteUrl, tracker);
@@ -2192,13 +2270,16 @@ class ShellController extends FrameSafeNotifier {
     // The OS may suspend or kill a backgrounded process before any timer
     // fires again, so an anchor waiting out its window must be durable now.
     if (!foreground) _flushPendingAnchorPersist();
-    resenha.setForeground(foreground);
+    _observePluginLifecycle(
+      _pluginSession.setForeground(foreground),
+      'plugins.session.setForeground',
+    );
     _syncTracking();
     if (!foreground) return;
 
     final instance = currentInstance;
     if (instance != null) _trackers[instance.url]?.pollNow();
-    final callSite = resenha.activeSiteUrl;
+    final callSite = _resenhaPlugin?.activeSiteUrl;
     if (callSite != null && callSite != instance?.url) {
       _trackers[callSite]?.pollNow();
     }
@@ -2461,6 +2542,8 @@ class ShellController extends FrameSafeNotifier {
   /// missing/forbidden channel returns false so callers can preserve the
   /// browser fallback instead of navigating to a native dead end.
   Future<bool> openChatUrl(String url) async {
+    final chat = _chatPlugin;
+    if (chat == null) return false;
     final generation = ++_chatUrlOpenGeneration;
     final link = ChatLink.parse(absoluteUrl(url));
     if (link == null) return false;
@@ -2537,6 +2620,8 @@ class ShellController extends FrameSafeNotifier {
     int? messageId,
     bool focusComposer = false,
   }) {
+    final chat = _chatPlugin;
+    if (chat == null) return false;
     if (currentInstance?.url != siteUrl) return false;
     final channel = chat.channel(siteUrl, route.channelId);
     if (channel == null) return false;
@@ -2626,6 +2711,8 @@ class ShellController extends FrameSafeNotifier {
 
   /// Opens a Resenha room link on a connected, signed-in site.
   Future<bool> openResenhaUrl(String url) async {
+    final resenha = _resenhaPlugin;
+    if (resenha == null) return false;
     if (!resenha.supportedPlatform) return false;
     final uri = Uri.tryParse(absoluteUrl(url));
     if (uri == null) return false;
@@ -3861,13 +3948,13 @@ class ShellController extends FrameSafeNotifier {
       final PollVoteResponse answer;
       try {
         answer = options == null
-            ? await api.removePollVote(
+            ? await pollsApi.removePollVote(
                 siteUrl: targetSite,
                 apiKey: apiKey,
                 postId: post.id,
                 pollName: poll.name,
               )
-            : await api.votePoll(
+            : await pollsApi.votePoll(
                 siteUrl: targetSite,
                 apiKey: apiKey,
                 postId: post.id,
@@ -3891,7 +3978,7 @@ class ShellController extends FrameSafeNotifier {
         store.update<Post>(targetSite, post.id, (held) {
           final polls = held.polls ?? const Polls();
           return held.withPlugins(
-            held.plugins.withValue<Polls>(polls.withPoll(answer.poll)),
+            held.plugins.withValue(pollsDataKey, polls.withPoll(answer.poll)),
           );
         });
         _notify();
@@ -3926,7 +4013,8 @@ class ShellController extends FrameSafeNotifier {
         final reactions = current.reactions;
         if (reactions == null) return current;
         return current.withPlugins(
-          current.plugins.withValue<Reactions>(
+          current.plugins.withValue(
+            reactionsDataKey,
             reactions
                 .withToggled(reaction)
                 .withMainReaction(siteConfigFor(siteUrl).mainReaction),
@@ -3944,14 +4032,14 @@ class ShellController extends FrameSafeNotifier {
         store.update<Post>(
           siteUrl,
           post.id,
-          (h) => h.withPlugins(h.plugins.withValue<Reactions>(held)),
+          (h) => h.withPlugins(h.plugins.withValue(reactionsDataKey, held)),
         );
         _notify();
       });
     }
 
     try {
-      final fresh = await api.toggleReaction(
+      final fresh = await reactionsWriteApi.toggleReaction(
         siteUrl: siteUrl,
         apiKey: apiKey,
         postId: post.id,
@@ -3969,7 +4057,10 @@ class ShellController extends FrameSafeNotifier {
             siteUrl,
             post.id,
             (h) => h.withPlugins(
-              h.plugins.withValue<Reactions>(h.reactions?.withMineOf(answered)),
+              h.plugins.withValue(
+                reactionsDataKey,
+                h.reactions?.withMineOf(answered),
+              ),
             ),
           );
           _notify();
@@ -3986,7 +4077,7 @@ class ShellController extends FrameSafeNotifier {
           store.update<Post>(
             siteUrl,
             post.id,
-            (h) => h.withPlugins(h.plugins.withValue<Reactions>(null)),
+            (h) => h.withPlugins(h.plugins.withValue(reactionsDataKey, null)),
           );
           _notify();
         });
@@ -4755,7 +4846,7 @@ class ShellController extends FrameSafeNotifier {
             : updated
                   .withLikesOf(held)
                   .withPlugins(
-                    PluginData.afterPostEdit(
+                    api.models.mergeAfterPostEdit(
                       held: held.plugins,
                       incoming: updated.plugins,
                     ),
@@ -5401,7 +5492,7 @@ class ShellController extends FrameSafeNotifier {
         term: term,
         order: [
           ...DiscourseApi.hashtagOrder,
-          if (resenha.directory(siteUrl) != null) 'room',
+          if (_resenhaPlugin?.directory(siteUrl) != null) 'room',
         ],
         apiKey: credential.value,
         clientId: identity.value,
@@ -5739,7 +5830,7 @@ class ShellController extends FrameSafeNotifier {
           store
               .read<TopicDetail>(siteUrl, target.id)
               ?.plugins
-              .get<Assignments>()
+              .get(assignmentsDataKey)
               ?.canAssign,
         );
       case AssignmentTargetType.post:
@@ -5750,7 +5841,7 @@ class ShellController extends FrameSafeNotifier {
         if (post == null || post.postNumber == 1) return false;
         return canAssignForTarget(
           siteUrl,
-          post.plugins.get<Assignments>()?.canAssign,
+          post.plugins.get(assignmentsDataKey)?.canAssign,
         );
     }
   }
@@ -6394,10 +6485,10 @@ class ShellController extends FrameSafeNotifier {
     _unavailableForums.remove(siteUrl);
     _retryingUnavailableForums.remove(siteUrl);
 
-    reactions.forget(siteUrl);
-    assignments.forget(siteUrl);
-    chat.forget(siteUrl);
-    resenha.forget(siteUrl);
+    _observePluginLifecycle(
+      _pluginSession.forget(siteUrl),
+      'plugins.session.forget',
+    );
     topicFeeds.forget(siteUrl);
     _trackersStarting.remove(siteUrl);
     _sessionUsersRefreshed.remove(siteUrl);
@@ -6468,7 +6559,10 @@ class ShellController extends FrameSafeNotifier {
       unawaited(_presentation.warmEmojiCatalog(instance.url));
       unawaited(_ensureCategoriesFor(instance));
     }
-    if (instance.isConnected) unawaited(resenha.ensureLoaded(instance.url));
+    final resenha = _resenhaPlugin;
+    if (instance.isConnected && resenha != null) {
+      unawaited(resenha.ensureLoaded(instance.url));
+    }
     _syncTracking();
     _syncTopicChannels();
     // Totals may have landed while this site was inactive. The ordinary
@@ -6489,7 +6583,8 @@ class ShellController extends FrameSafeNotifier {
     );
     final route = tab.currentContent;
     if (ChatRoute.parse(route.id) != null) {
-      unawaited(chat.loadChannels(instance.url));
+      final chat = _chatPlugin;
+      if (chat != null) unawaited(chat.loadChannels(instance.url));
     } else if (route.topicId case final topicId?) {
       final anchor = tab.anchors[route.id];
       unawaited(
@@ -6699,6 +6794,8 @@ class ShellController extends FrameSafeNotifier {
   /// this waits on that shared request and then verifies that the reader has
   /// not switched sites in the meantime.
   Future<void> openChat() async {
+    final chat = _chatPlugin;
+    if (chat == null) return;
     final instance = currentInstance;
     if (instance == null || !instance.isConnected) return;
     final totals = currentTotals;
@@ -6899,11 +6996,8 @@ class ShellController extends FrameSafeNotifier {
     accountActivity.dispose();
     draftList.dispose();
     topicFeeds.dispose();
-    reactions.dispose();
-    assignments.dispose();
     chatNavigation.dispose();
-    chat.dispose();
-    resenha.dispose();
+    _observePluginLifecycle(_pluginSession.close(), 'plugins.session.close');
     search.dispose();
     final presentation = _sitePresentation;
     if (presentation != null) {

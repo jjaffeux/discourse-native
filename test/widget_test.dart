@@ -41,6 +41,7 @@ import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/categories_page.dart';
@@ -7942,33 +7943,37 @@ void main() {
       bool canUndo = false,
       bool plugin = true,
       bool canEdit = false,
-    }) => Post.fromJson({
-      'id': id,
-      'post_number': id,
-      'username': 'sam',
-      // The first post keeps the body every other group uses, so `hoverPost`
-      // finds it the same way.
-      'cooked': id == 1 ? '<p>First post body</p>' : '<p>Post $id body</p>',
-      if (canEdit) 'can_edit': true,
-      'actions_summary': [
-        {
-          'id': 2,
-          if (canAct) 'can_act': true,
-          if (canUndo) 'can_undo': true,
-          if (mine != null) 'acted': true,
-        },
-      ],
-      if (plugin) ...{
-        'reactions': [
-          for (final r in reactions)
-            {'id': r.id, 'type': 'emoji', 'count': r.count},
+    }) => Post.fromJson(
+      {
+        'id': id,
+        'post_number': id,
+        'username': 'sam',
+        // The first post keeps the body every other group uses, so `hoverPost`
+        // finds it the same way.
+        'cooked': id == 1 ? '<p>First post body</p>' : '<p>Post $id body</p>',
+        if (canEdit) 'can_edit': true,
+        'actions_summary': [
+          {
+            'id': 2,
+            if (canAct) 'can_act': true,
+            if (canUndo) 'can_undo': true,
+            if (mine != null) 'acted': true,
+          },
         ],
-        'current_user_reaction': ?(mine == null
-            ? null
-            : {'id': mine, 'type': 'emoji', 'can_undo': true}),
-        'reaction_users_count': userCount,
+        if (plugin) ...{
+          'reactions': [
+            for (final r in reactions)
+              {'id': r.id, 'type': 'emoji', 'count': r.count},
+          ],
+          'current_user_reaction': ?(mine == null
+              ? null
+              : {'id': mine, 'type': 'emoji', 'can_undo': true}),
+          'reaction_users_count': userCount,
+        },
       },
-    }, site);
+      site,
+      extensions: pluginRegistry,
+    );
 
     Future<FakeDiscourseApi> openTopic(
       WidgetTester tester, {

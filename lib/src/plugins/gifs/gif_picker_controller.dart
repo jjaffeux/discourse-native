@@ -3,9 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../data/api_credentials.dart';
-import '../../data/discourse_api_contracts.dart';
+import '../../data/discourse_api_contracts.dart' show SiteLookupException;
 import '../../data/site_lifecycle.dart';
 import 'gif.dart';
+import 'gifs_api.dart';
 
 /// Request and pagination state for one open GIF picker.
 ///

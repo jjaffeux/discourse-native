@@ -1,3 +1,4 @@
+import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -9,6 +10,9 @@ import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import 'chat/chat_preview.dart';
+import 'plugin_data.dart';
+
+export 'plugin_data.dart';
 
 /// One optional Discourse feature this app knows how to draw.
 ///
@@ -40,9 +44,10 @@ import 'chat/chat_preview.dart';
 /// to. The registry owns dispatch and ordering, so consumers do not need to
 /// know which feature implements which capability and features do not carry a
 /// collection of unrelated no-op methods.
-abstract interface class SitePlugin {
+abstract interface class SitePlugin implements PluginCapability {
   /// The plugin's own name, `discourse-reactions`. For documentation and debug
   /// output; nothing dispatches on it.
+  @override
   String get name;
 }
 
@@ -54,7 +59,7 @@ abstract interface class PluginRecord<T extends Object> {
   /// Written out rather than taken from the value's `runtimeType`, which would
   /// quietly file a private subclass somewhere no reader looks, and rather than
   /// from [T], which is erased by the time the plugin list is walked.
-  Type get record;
+  PluginDataKey<T> get record;
 }
 
 /// A feature record embedded in a post payload.
@@ -97,6 +102,14 @@ abstract interface class PostBodyPlugin {
   /// authoritative. Recursive CookedHtml instances (quotes/oneboxes) receive
   /// no post and therefore never invoke this hook.
   Widget? postBodyElement(String siteUrl, Post post, dom.Element element);
+}
+
+/// Replaces plugin-owned cooked markup regardless of the containing record.
+///
+/// Unlike [PostBodyPlugin], this also runs for chat, oneboxes and other cooked
+/// fragments. The first plugin to recognize an element owns it.
+abstract interface class CookedElementPlugin {
+  Widget? cookedElement(String? siteUrl, dom.Element element);
 }
 
 /// Claims the footer under a post.
@@ -264,6 +277,23 @@ abstract interface class ContentPlugin {
 abstract interface class ContentChromePlugin {
   /// True when this plugin draws all chrome above [route]'s content itself.
   bool ownsContentChrome(BuildContext context, ContentRoute route);
+}
+
+enum PluginHeaderSurface { titleBar, content }
+
+/// Adds app-level actions without teaching core which plugin owns them.
+abstract interface class ShellHeaderPlugin {
+  List<Widget> shellHeaderActions(
+    BuildContext context, {
+    required PluginHeaderSurface surface,
+    required bool compact,
+    Color? ringColor,
+  });
+}
+
+/// Adds an app-global overlay above the adaptive shell.
+abstract interface class ShellOverlayPlugin {
+  List<Widget> shellOverlays(BuildContext context);
 }
 
 /// Adds topic-scoped message-bus subscriptions and invalidation hints.

@@ -56,7 +56,7 @@ Future<void> openGifPickerForComposer(
   final result = await showGifPicker(
     context: context,
     siteUrl: siteUrl,
-    api: shell.api,
+    api: shell.gifsApi,
     credentials: shell.authenticator,
     lifecycle: shell.lifecycle,
     config: shell.siteConfigFor(siteUrl),

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../models/post.dart';
+import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
 import 'post_likes.dart';
 
@@ -21,7 +22,8 @@ class PostFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return pluginRegistry.postFooter(siteUrl, post) ??
+    final registry = PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
+    return registry.postFooter(siteUrl, post) ??
         PostLikes(siteUrl: siteUrl, post: post);
   }
 }

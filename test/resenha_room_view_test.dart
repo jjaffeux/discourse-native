@@ -1421,7 +1421,7 @@ final class _GatedMembershipTransport extends FakeDiscourseApi {
   Future<Map<String, dynamic>> pluginGetJson({
     required String siteUrl,
     required String path,
-    required String apiKey,
+    required String? apiKey,
     String? clientId,
   }) {
     if (path == '/resenha/rooms/7/memberships.json') membershipReads++;
@@ -1472,7 +1472,7 @@ final class _GatedChatTransport extends FakeDiscourseApi {
   Future<Map<String, dynamic>> pluginGetJson({
     required String siteUrl,
     required String path,
-    required String apiKey,
+    required String? apiKey,
     String? clientId,
   }) async {
     if (path == '/resenha/rooms/7/chat_session.json') {

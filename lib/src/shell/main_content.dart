@@ -7,7 +7,7 @@ import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
-import '../plugins/chat/chat_header_button.dart';
+import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -34,21 +34,23 @@ import 'user_menu_button.dart';
 /// The main region. There is only ever one of these on screen; navigating
 /// deeper replaces what it shows rather than opening beside it.
 class MainContent extends StatelessWidget {
-  const MainContent({
-    super.key,
-    required this.layout,
-    this.registry = pluginRegistry,
-  });
+  const MainContent({super.key, required this.layout, this.registry});
 
   final ShellLayout layout;
-  final PluginRegistry registry;
+  final PluginRegistry? registry;
 
   @override
   Widget build(BuildContext context) {
     return ShellSelector<_MainContentSnapshot>(
       select: _MainContentSnapshot.from,
-      builder: (context, state, _) =>
-          _MainContentBody(layout: layout, state: state, registry: registry),
+      builder: (context, state, _) => _MainContentBody(
+        layout: layout,
+        state: state,
+        registry:
+            registry ??
+            PluginScope.maybeOf(context)?.registry ??
+            pluginRegistry,
+      ),
     );
   }
 }
@@ -381,8 +383,10 @@ class _ContentHeader extends StatelessWidget {
               // Only where there is no title bar above to hold it: this is the
               // furthest right the shell goes once the strip is gone.
               if (ShellTitleBar.columnsCarryUserMenu) ...[
-                ChatHeaderButton(
-                  hideWhenChatActive: layout.isCompact,
+                ...registry.shellHeaderActions(
+                  context,
+                  surface: PluginHeaderSurface.content,
+                  compact: layout.isCompact,
                   ringColor: theme.shell.content,
                 ),
                 UserMenuButton(ringColor: theme.shell.content),

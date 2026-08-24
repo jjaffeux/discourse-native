@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../plugins/plugin_data.dart';
 import 'json.dart';
 import 'post.dart';
 
@@ -30,7 +31,11 @@ class PostCreation {
     this.topicTitle,
   });
 
-  factory PostCreation.fromJson(Map<String, dynamic> json, String siteUrl) {
+  factory PostCreation.fromJson(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+  }) {
     // `nested_post` asks for the envelope, which is the only shape that carries
     // `action`. A site that answers with the bare post instead has published
     // it — the envelope is only ever dropped when there is nothing to report.
@@ -44,7 +49,9 @@ class PostCreation {
       outcome: json['action'] == 'enqueued'
           ? PostOutcome.enqueued
           : PostOutcome.created,
-      post: post == null ? null : Post.fromJson(post, siteUrl),
+      post: post == null
+          ? null
+          : Post.fromJson(post, siteUrl, extensions: extensions),
       // Hung off the post rather than off the envelope. Creating a post has
       // already bumped the sequence and deleted the draft, so a client that
       // keeps the one it had gets a 409 on its next draft save.

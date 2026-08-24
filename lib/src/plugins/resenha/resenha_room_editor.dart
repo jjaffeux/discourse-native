@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../shell/select.dart';
-import '../../shell/shell_scope.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import 'resenha_controller.dart';
 import 'resenha_models.dart';
 
@@ -19,7 +20,7 @@ Future<void> showResenhaRoomEditor(
   if (result == null || !context.mounted) return;
   await (controllerResolver?.call() ??
           controller ??
-          ShellScope.read(context).resenha)
+          PluginScope.require(context, resenhaControllerService))
       .saveRoom(siteUrl: siteUrl, draft: result, roomId: room?.id);
 }
 

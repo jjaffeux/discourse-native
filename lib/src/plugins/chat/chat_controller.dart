@@ -4,7 +4,8 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 
 import '../../data/api_credentials.dart';
-import '../../data/discourse_api_contracts.dart';
+import '../../data/discourse_api_contracts.dart'
+    show SiteLookupException, SiteLookupFailure, WriteException, WriteFailure;
 import '../../data/site_lifecycle.dart';
 import '../../data/site_tracker.dart';
 import '../../data/store.dart';
@@ -13,6 +14,7 @@ import '../../foundation/frame_safe_notifier.dart';
 import '../../models/discourse_user.dart';
 import '../../models/json.dart';
 import '../../models/site_config.dart';
+import 'chat_api.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
 import 'chat_message_timeline.dart';

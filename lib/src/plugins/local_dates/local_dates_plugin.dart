@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../shell/composer_controller.dart';
@@ -18,7 +19,10 @@ import 'local_date_environment.dart';
 import 'local_date_widget.dart';
 
 class LocalDatesPlugin
-    implements ChatMessagePreviewPlugin, ComposerToolbarPlugin {
+    implements
+        ChatMessagePreviewPlugin,
+        ComposerToolbarPlugin,
+        CookedElementPlugin {
   const LocalDatesPlugin();
 
   @override
@@ -26,6 +30,10 @@ class LocalDatesPlugin
 
   @override
   String get previewFeatureId => 'discourse-local-dates';
+
+  @override
+  Widget? cookedElement(String? siteUrl, dom.Element element) =>
+      localDateWidgetBuilder(element, siteUrl: siteUrl);
 
   @override
   ChatPreviewInspection inspect(ChatPreviewRequest request) {

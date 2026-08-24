@@ -3,7 +3,7 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../models/post.dart';
-import '../plugins/local_dates/local_date_widget.dart';
+import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
 import 'code_block.dart';
 import 'emoji.dart';
@@ -63,10 +63,11 @@ class CookedHtml extends StatelessWidget {
     TextStyle? textStyle,
     String? siteUrl,
     Post? post,
+    PluginRegistry registry,
   ) =>
       (element) =>
-          _pluginWidget(element, siteUrl, post) ??
-          localDateWidgetBuilder(element, siteUrl: siteUrl) ??
+          _pluginWidget(element, siteUrl, post, registry) ??
+          registry.cookedElement(siteUrl, element) ??
           emojiWidgetBuilder(element, siteUrl, textStyle) ??
           mentionWidgetBuilder(element, textStyle, siteUrl: siteUrl) ??
           hashtagWidgetBuilder(element, textStyle, siteUrl: siteUrl) ??
@@ -81,9 +82,10 @@ class CookedHtml extends StatelessWidget {
     dom.Element element,
     String? siteUrl,
     Post? post,
+    PluginRegistry registry,
   ) {
     if (siteUrl == null || post == null) return null;
-    return pluginRegistry.postBodyElement(siteUrl, post, element);
+    return registry.postBodyElement(siteUrl, post, element);
   }
 
   /// Discourse leaves links undecorated and lets colour carry them, but
@@ -124,6 +126,7 @@ class CookedHtml extends StatelessWidget {
     // they did everywhere before [emojiWidgetBuilder] existed.
     final resolvedSiteUrl =
         siteUrl ?? ShellScope.maybeRead(context)?.currentInstance?.url;
+    final registry = PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
 
     return HtmlWidget(
       html,
@@ -131,7 +134,12 @@ class CookedHtml extends StatelessWidget {
       textStyle: style,
       renderMode: RenderMode.column,
       factoryBuilder: InlineOneboxWidgetFactory.new,
-      customWidgetBuilder: _customWidget(style, resolvedSiteUrl, post),
+      customWidgetBuilder: _customWidget(
+        style,
+        resolvedSiteUrl,
+        post,
+        registry,
+      ),
       customStylesBuilder: (element) =>
           _customStyles(element, compactParagraphs),
       // The builders close over the style and resolved site, and [HtmlWidget]
@@ -141,6 +149,7 @@ class CookedHtml extends StatelessWidget {
         style,
         resolvedSiteUrl,
         post?.plugins,
+        registry,
         compactParagraphs,
       ],
       onTapUrl: (url) => openLink(context, url, siteUrl: resolvedSiteUrl),

@@ -20,15 +20,16 @@ class ChatPreviewBody extends StatelessWidget {
     super.key,
     required this.document,
     required this.textStyle,
-    this.registry = pluginRegistry,
+    this.registry,
   });
 
   final PreviewDocument document;
   final TextStyle? textStyle;
-  final PluginRegistry registry;
+  final PluginRegistry? registry;
 
   @override
   Widget build(BuildContext context) {
+    final registry = this.registry ?? pluginRegistry;
     // Widget construction is intentionally after pure inspection, but it is
     // still part of the provisional pipeline. A missing, ambiguous, or broken
     // renderer invalidates the whole projection rather than producing a mixed

@@ -9,7 +9,9 @@ import 'data/byte_cache_store.dart';
 import 'data/emoji_cache.dart';
 import 'data/media_request_coordinator.dart';
 import 'diagnostics/diagnostics.dart';
+import 'plugins/bundled_plugin_manifest.dart';
 import 'plugins/local_dates/local_date_environment.dart';
+import 'plugins/plugin_manifest.dart';
 import 'plugins/resenha/resenha_diagnostics.dart';
 import 'plugins/resenha/resenha_sdk_diagnostics.dart';
 
@@ -58,8 +60,9 @@ abstract interface class AppBootstrapHost {
 final class AppBootstrap {
   AppBootstrap({required this._host});
 
-  factory AppBootstrap.production() =>
-      AppBootstrap(host: _ProductionAppBootstrapHost());
+  factory AppBootstrap.production({
+    PluginManifest manifest = bundledPluginManifest,
+  }) => AppBootstrap(host: _ProductionAppBootstrapHost(manifest));
 
   final AppBootstrapHost _host;
 
@@ -110,8 +113,19 @@ final class AppBootstrap {
 }
 
 final class _ProductionAppBootstrapHost implements AppBootstrapHost {
+  _ProductionAppBootstrapHost(this._manifest);
+
+  final PluginManifest _manifest;
   late final DiagnosticsController _diagnostics;
-  late final ResenhaDiagnosticsController _resenhaDiagnostics;
+  ResenhaDiagnosticsController? _resenhaDiagnostics;
+
+  bool get _hasLocalDates => _manifest.modules.any(
+    (module) => module.descriptor.id == const PluginId('discourse-local-dates'),
+  );
+
+  bool get _hasResenha => _manifest.modules.any(
+    (module) => module.descriptor.id == const PluginId('resenha'),
+  );
 
   @override
   void ensureFlutterInitialized() {
@@ -119,8 +133,9 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   }
 
   @override
-  Future<void> initializeLocalDates() =>
-      LocalDateEnvironment.instance.initialize();
+  Future<void> initializeLocalDates() => _hasLocalDates
+      ? LocalDateEnvironment.instance.initialize()
+      : Future<void>.value();
 
   @override
   void installBoundedHttpOverrides() {
@@ -151,6 +166,7 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
 
   @override
   Future<void> createResenhaDiagnostics() async {
+    if (!_hasResenha) return;
     _resenhaDiagnostics = await ResenhaDiagnosticsController.create(
       sdkLogBridges: [NativeResenhaDiagnosticsSdkLogBridge()],
     );
@@ -194,6 +210,7 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
       DiscourseApp(
         diagnostics: _diagnostics,
         resenhaDiagnostics: _resenhaDiagnostics,
+        pluginManifest: _manifest,
       ),
     );
   }

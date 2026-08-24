@@ -205,6 +205,7 @@ void main() {
           ],
         ),
         _site,
+        extensions: pluginRegistry,
       );
       final element = html
           .parseFragment(
@@ -224,6 +225,7 @@ void main() {
       final post = Post.fromJson(
         _postJson(polls: [_pollJson(name: 'known')]),
         _site,
+        extensions: pluginRegistry,
       );
       final element = html
           .parseFragment('''
@@ -260,30 +262,39 @@ void main() {
           polls: [_pollJson(name: 'poll', voters: 1, votes: 1)],
         ),
         _site,
+        extensions: pluginRegistry,
       ).plugins;
       final incoming = Post.fromJson(
         _postJson(polls: [_pollJson(name: 'poll', voters: 8, votes: 6)]),
         _site,
+        extensions: pluginRegistry,
       ).plugins;
 
-      final merged = PluginData.afterPostEdit(held: held, incoming: incoming);
+      final merged = pluginRegistry.mergeAfterPostEdit(
+        held: held,
+        incoming: incoming,
+      );
 
-      expect(merged.get<Reactions>(), held.get<Reactions>());
-      expect(merged.get<Polls>()?['poll']?.voters, 8);
-      expect(merged.get<Polls>()?['poll']?.options.first.votes, 6);
+      expect(merged.get(reactionsDataKey), held.get(reactionsDataKey));
+      expect(merged.get(pollsDataKey)?['poll']?.voters, 8);
+      expect(merged.get(pollsDataKey)?['poll']?.options.first.votes, 6);
     });
 
     test('absence in an edit removes Poll without removing Reactions', () {
       final held = Post.fromJson(
         _postJson(reactions: true, polls: [_pollJson(name: 'poll', voters: 3)]),
         _site,
+        extensions: pluginRegistry,
       ).plugins;
-      final incoming = PluginData.forPost(_postJson(), _site);
+      final incoming = pluginRegistry.readPost(_postJson(), _site);
 
-      final merged = PluginData.afterPostEdit(held: held, incoming: incoming);
+      final merged = pluginRegistry.mergeAfterPostEdit(
+        held: held,
+        incoming: incoming,
+      );
 
-      expect(merged.get<Polls>(), isNull);
-      expect(merged.get<Reactions>(), held.get<Reactions>());
+      expect(merged.get(pollsDataKey), isNull);
+      expect(merged.get(reactionsDataKey), held.get(reactionsDataKey));
     });
   });
 }

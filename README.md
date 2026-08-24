@@ -2,6 +2,10 @@
 
 An experimental native Discourse client, built with Flutter.
 
+The optional-feature system is documented in
+[Plugin architecture](docs/plugin-architecture.md), including full and
+core-only build profiles.
+
 Currently targets **iOS**, **macOS** and **Linux**. Android and Windows are
 planned; see [Adding a platform](#adding-a-platform).
 

@@ -39,9 +39,12 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 
 /// Keeps instances in memory instead of shared_preferences, which needs a
 /// platform channel.
@@ -441,6 +444,7 @@ final class _FakeSiteMessageBusSubscription
 /// Answers lookups from a map of term to result, with no network involved.
 class FakeDiscourseApi implements DiscourseApi {
   FakeDiscourseApi({
+    DiscourseModelCodec? models,
     this.results = const {},
     this.failure,
     this.user,
@@ -535,7 +539,11 @@ class FakeDiscourseApi implements DiscourseApi {
     this.customSidebarSectionsBySite = const {},
     this.pluginResponses = const {},
     Map<String, WriteException>? pluginWriteFailures,
-  }) : pluginWriteFailures = pluginWriteFailures ?? {};
+  }) : models = models ?? DiscourseModelCodec(extensions: pluginRegistry),
+       pluginWriteFailures = pluginWriteFailures ?? {};
+
+  @override
+  final DiscourseModelCodec models;
 
   final Map<String, DiscourseInstance> results;
   final Map<String, List<SidebarSection>> customSidebarSectionsBySite;
@@ -2067,9 +2075,66 @@ class FakeDiscourseApi implements DiscourseApi {
   Future<Map<String, dynamic>> pluginGetJson({
     required String siteUrl,
     required String path,
-    required String apiKey,
+    required String? apiKey,
     String? clientId,
   }) async {
+    final uri = Uri.parse(path);
+    if (uri.path == '/gifs/categories.json') {
+      final categories = await gifCategories(
+        siteUrl: siteUrl,
+        apiKey: apiKey!,
+        clientId: clientId,
+      );
+      return {
+        'tags': [
+          for (final category in categories)
+            {
+              'name': category.title,
+              'image': category.imageUrl,
+              'searchterm': category.searchTerm,
+            },
+        ],
+      };
+    }
+    if (uri.path == '/gifs/search.json') {
+      final page = await searchGifs(
+        siteUrl: siteUrl,
+        apiKey: apiKey!,
+        query: uri.queryParameters['q'] ?? '',
+        fileDetail:
+            siteConfigs[siteUrl]?.gifFileDetail ??
+            SiteConfig.defaultGifFileDetail,
+        position: uri.queryParameters['pos'] ?? '0',
+        clientId: clientId,
+      );
+      return _gifPageJson(page);
+    }
+    final reactorsRoute = RegExp(
+      r'^/discourse-reactions/posts/(\d+)/reactions-users-list\.json$',
+    ).firstMatch(uri.path);
+    if (reactorsRoute != null) {
+      final page = await postReactors(
+        siteUrl: siteUrl,
+        postId: int.parse(reactorsRoute.group(1)!),
+        reaction: uri.queryParameters['reaction_value'],
+        limit: int.tryParse(uri.queryParameters['limit'] ?? '') ?? 30,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
+      return {
+        'users': [
+          for (final reactor in page.reactors)
+            {
+              'id': reactor.id,
+              'username': reactor.username,
+              'name': reactor.name,
+              'avatar_template': reactor.avatarUrl,
+              'reaction': reactor.reaction,
+            },
+        ],
+        'total_rows': page.total,
+      };
+    }
     pluginReadPaths.add(path);
     final response = pluginResponses['GET $path'];
     if (response == null) {
@@ -2087,6 +2152,40 @@ class FakeDiscourseApi implements DiscourseApi {
     required Map<String, Object?> body,
     String? clientId,
   }) async {
+    if (path == '/polls/vote.json') {
+      final postId = body['post_id']! as int;
+      final pollName = body['poll_name']! as String;
+      final response = method == 'DELETE'
+          ? await removePollVote(
+              siteUrl: siteUrl,
+              apiKey: apiKey,
+              postId: postId,
+              pollName: pollName,
+              clientId: clientId,
+            )
+          : await votePoll(
+              siteUrl: siteUrl,
+              apiKey: apiKey,
+              postId: postId,
+              pollName: pollName,
+              options: (body['options']! as List).cast<String>(),
+              clientId: clientId,
+            );
+      return _pollVoteJson(response, includeVote: method != 'DELETE');
+    }
+    final reactionRoute = RegExp(
+      r'^/discourse-reactions/posts/(\d+)/custom-reactions/([^/]+)/toggle\.json$',
+    ).firstMatch(path);
+    if (reactionRoute != null) {
+      final response = await toggleReaction(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postId: int.parse(reactionRoute.group(1)!),
+        reaction: Uri.decodeComponent(reactionRoute.group(2)!),
+        clientId: clientId,
+      );
+      return response == null ? const {} : _reactionPostJson(response);
+    }
     pluginWrites.add((
       siteUrl: siteUrl,
       method: method,
@@ -2180,6 +2279,95 @@ class FakeDiscourseApi implements DiscourseApi {
   @override
   void close() => closeCalls += 1;
 }
+
+Map<String, dynamic> _pollVoteJson(
+  PollVoteResponse response, {
+  required bool includeVote,
+}) => {
+  'poll': _pollJson(response.poll),
+  if (includeVote)
+    'vote': response.selection.rankedChoices.isEmpty
+        ? response.selection.optionIds
+        : [
+            for (final choice in response.selection.rankedChoices)
+              {'digest': choice.digest, 'rank': choice.rank},
+          ],
+};
+
+Map<String, dynamic> _pollJson(Poll poll) => {
+  'id': poll.id,
+  'name': poll.name,
+  'type': poll.type.value,
+  'status': poll.status.value,
+  'results': poll.results.value,
+  'public': poll.isPublic,
+  'dynamic': poll.isDynamic,
+  'min': poll.min,
+  'max': poll.max,
+  'step': poll.step,
+  'voters': poll.voters,
+  'chart_type': poll.chartType.value,
+  'title': poll.title,
+  'options': [
+    for (final option in poll.options)
+      {'id': option.id, 'html': option.html, 'votes': option.votes},
+  ],
+};
+
+Map<String, dynamic> _reactionPostJson(Post post) => {
+  'id': post.id,
+  'post_number': post.postNumber,
+  'username': post.username,
+  'cooked': post.cooked,
+  'actions_summary': [
+    {
+      'id': Post.likeActionId,
+      if (post.canLike) 'can_act': true,
+      if (post.canUnlike) 'can_undo': true,
+      if (post.liked) 'acted': true,
+      'count': post.likeCount,
+    },
+  ],
+  if (post.reactions case final reactions?) ...{
+    'reactions': [
+      for (final reaction in reactions.entries)
+        {
+          'id': reaction.id,
+          'count': reaction.count,
+          if (reaction.canUndo) 'can_undo': true,
+        },
+    ],
+    'current_user_reaction': switch (reactions.mine) {
+      final reaction? => {
+        'id': reaction.id,
+        if (reaction.canUndo) 'can_undo': true,
+      },
+      null => null,
+    },
+    'current_user_used_main_reaction': reactions.usedMainReaction,
+    'reaction_users_count': reactions.userCount,
+  },
+};
+
+Map<String, dynamic> _gifPageJson(GifSearchPage page) => {
+  'results': [
+    for (final result in page.results)
+      {
+        'title': result.title,
+        'media_formats': {
+          'gif': {
+            'url': result.url,
+            'dims': [result.width, result.height],
+          },
+          'webp': {
+            'url': result.url,
+            'dims': [result.width, result.height],
+          },
+        },
+      },
+  ],
+  'next': page.nextPosition,
+};
 
 DiscourseInstance instance(String host, {String? title}) => DiscourseInstance(
   url: 'https://$host',

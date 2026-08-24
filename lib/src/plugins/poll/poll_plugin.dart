@@ -30,7 +30,7 @@ class PollPlugin
   String get name => 'poll';
 
   @override
-  Type get record => Polls;
+  PluginDataKey<Polls> get record => pollsDataKey;
 
   @override
   Polls? readPost(Map<String, dynamic> json, String siteUrl) =>

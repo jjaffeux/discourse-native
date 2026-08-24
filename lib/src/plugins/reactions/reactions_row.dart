@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/post.dart';
 import '../../shell/shell_scope.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import 'reaction.dart';
 import 'reaction_picker.dart';
 import 'reaction_pill.dart';
@@ -43,11 +45,10 @@ class ReactionsRow extends StatelessWidget {
                     siteUrl: siteUrl,
                   )
                 : null,
-            loadReactors: () => controller.reactions.load(
-              siteUrl: siteUrl,
-              postId: post.id,
-              filter: entry.id,
-            ),
+            loadReactors: () => PluginScope.require(
+              context,
+              reactionsControllerService,
+            ).load(siteUrl: siteUrl, postId: post.id, filter: entry.id),
             reactorsBuilder: (_) =>
                 ReactorList(siteUrl: siteUrl, post: post, filter: entry.id),
           ),
@@ -85,18 +86,20 @@ class ReactorList extends StatelessWidget {
   final String? filter;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<ReactionsController>(
-    select: (controller) => controller.reactions,
-    builder: (context, reactions, _) => ReactionUsersList(
-      siteUrl: siteUrl,
-      source: reactions,
-      query: (siteUrl: siteUrl, postId: post.id, filter: filter),
-      select: () => (
-        reactors: reactions.reactors(siteUrl, post.id, filter: filter),
-        error: reactions.error(siteUrl, post.id, filter: filter),
-      ),
-      load: () =>
-          reactions.load(siteUrl: siteUrl, postId: post.id, filter: filter),
-    ),
-  );
+  Widget build(BuildContext context) =>
+      PluginServiceSelector<ReactionsController, ReactionsController>(
+        service: reactionsControllerService,
+        select: (controller) => controller,
+        builder: (context, reactions, _) => ReactionUsersList(
+          siteUrl: siteUrl,
+          source: reactions,
+          query: (siteUrl: siteUrl, postId: post.id, filter: filter),
+          select: () => (
+            reactors: reactions.reactors(siteUrl, post.id, filter: filter),
+            error: reactions.error(siteUrl, post.id, filter: filter),
+          ),
+          load: () =>
+              reactions.load(siteUrl: siteUrl, postId: post.id, filter: filter),
+        ),
+      );
 }

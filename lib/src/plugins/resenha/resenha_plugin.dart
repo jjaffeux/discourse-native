@@ -4,11 +4,15 @@ import '../../models/content_route.dart';
 import '../../models/sidebar.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import '../site_plugin_api.dart';
+import 'resenha_call_widget.dart';
 import 'resenha_models.dart';
 import 'resenha_room_view.dart';
 
-final class ResenhaPlugin implements SitePlugin, SidebarPlugin, ContentPlugin {
+final class ResenhaPlugin
+    implements SitePlugin, SidebarPlugin, ContentPlugin, ShellOverlayPlugin {
   const ResenhaPlugin();
 
   static String routeId(int roomId) => 'resenha-room-$roomId';
@@ -26,10 +30,10 @@ final class ResenhaPlugin implements SitePlugin, SidebarPlugin, ContentPlugin {
   @override
   List<SidebarSection> sidebarSections(BuildContext context) {
     final shell = ShellScope.read(context);
-    if (!shell.resenha.supportedPlatform) return const [];
+    final controller = PluginScope.require(context, resenhaControllerService);
+    if (!controller.supportedPlatform) return const [];
     final instance = shell.currentInstance;
     if (instance == null || !instance.isConnected) return const [];
-    final controller = shell.resenha;
     final directory = controller.directory(instance.url);
     if (directory == null || directory.rooms.isEmpty) return const [];
 
@@ -108,7 +112,7 @@ final class ResenhaPlugin implements SitePlugin, SidebarPlugin, ContentPlugin {
 
   @override
   Listenable sidebarListenable(BuildContext context) =>
-      ShellScope.read(context).resenha;
+      PluginScope.require(context, resenhaControllerService);
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {
@@ -116,4 +120,11 @@ final class ResenhaPlugin implements SitePlugin, SidebarPlugin, ContentPlugin {
     if (roomId == null) return null;
     return ResenhaRoomView(roomId: roomId);
   }
+
+  @override
+  List<Widget> shellOverlays(BuildContext context) => const [
+    Positioned.fill(
+      child: IgnorePointer(ignoring: false, child: ResenhaCallWidget()),
+    ),
+  ];
 }
