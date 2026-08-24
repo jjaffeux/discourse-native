@@ -482,9 +482,9 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   }
 
   void _syncProjection(ChatStreamState stream) {
-    final showTimeGapDays = ShellScope.read(context)
-        .siteConfigFor(widget.siteUrl)
-        .showTimeGapDays;
+    final showTimeGapDays = ShellScope.read(
+      context,
+    ).siteConfigFor(widget.siteUrl).showTimeGapDays;
     if (identical(_projectedMessageIds, stream.messageIds) &&
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
         _projectedLastRead == stream.lastReadOnOpen &&

@@ -18,6 +18,7 @@ class PostAction {
     required this.label,
     required this.tooltip,
     required this.onInvoke,
+    this.enabled = true,
     this.destructive = false,
     this.tint,
     this.emojiUrl,
@@ -35,6 +36,9 @@ class PostAction {
 
   /// For the menu, which does not.
   final String tooltip;
+
+  /// False while another write owns the same target.
+  final bool enabled;
 
   final bool destructive;
 

@@ -100,6 +100,7 @@ final class CategoryLoadResult {
 class DiscourseApi
     implements
         AccountActivityApi,
+        BookmarksWriteApi,
         DraftsApi,
         TopicFeedsApi,
         TopicReadsApi,
@@ -383,6 +384,9 @@ class DiscourseApi
         jsonObject(user['user_option'])['chat_header_indicator_preference'],
       ),
       timezone: jsonText(jsonObject(user['user_option'])['timezone']),
+      bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.read(
+        jsonObject(user['user_option'])['bookmark_auto_delete_preference'],
+      ),
       doNotDisturbUntil: jsonDate(user['do_not_disturb_until']),
       lastChatChannelId: jsonIntOrNull(
         jsonObject(user['custom_fields'])['last_chat_channel_id'],
@@ -558,6 +562,144 @@ class DiscourseApi
           Bookmark.fromJson(entry),
       ]),
     );
+  }
+
+  @override
+  Future<int> createBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required BookmarkTargetType targetType,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+    String? clientId,
+  }) async {
+    _requirePositiveId(targetId, 'targetId');
+    _validateBookmarkDraft(name: name, reminderAt: reminderAt);
+    final body = await _write(
+      Uri.parse('$siteUrl/bookmarks.json'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'bookmarkable_id': targetId,
+        'bookmarkable_type': targetType.wireName,
+        'name': name,
+        'reminder_at': reminderAt?.toUtc().toIso8601String(),
+        'auto_delete_preference': autoDeletePreference?.wireValue,
+      },
+    );
+    final id = jsonIntOrNull(body['id']);
+    if (id == null || id <= 0) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return id;
+  }
+
+  @override
+  Future<void> updateBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required int bookmarkId,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+    String? clientId,
+  }) async {
+    _requirePositiveId(bookmarkId, 'bookmarkId');
+    _validateBookmarkDraft(name: name, reminderAt: reminderAt);
+    await _write(
+      Uri.parse('$siteUrl/bookmarks/$bookmarkId.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'name': name,
+        'reminder_at': reminderAt?.toUtc().toIso8601String(),
+        'auto_delete_preference': autoDeletePreference.wireValue,
+      },
+    );
+  }
+
+  @override
+  Future<bool> deleteBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required int bookmarkId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(bookmarkId, 'bookmarkId');
+    final body = await _write(
+      Uri.parse('$siteUrl/bookmarks/$bookmarkId.json'),
+      siteUrl: siteUrl,
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+    final topicBookmarked = body['topic_bookmarked'];
+    if (topicBookmarked is! bool) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return topicBookmarked;
+  }
+
+  @override
+  Future<void> deleteTopicBookmarks({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    await _write(
+      Uri.parse('$siteUrl/t/$topicId/remove_bookmarks'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
+
+  static void _validateBookmarkDraft({
+    required String? name,
+    required DateTime? reminderAt,
+  }) {
+    if (name != null && name.length > 100) {
+      throw const WriteException(
+        WriteFailure.validation,
+        errors: ['Bookmark notes must be 100 characters or fewer.'],
+      );
+    }
+    if (reminderAt == null) return;
+    final now = DateTime.now().toUtc();
+    final reminder = reminderAt.toUtc();
+    if (!reminder.isAfter(now)) {
+      throw const WriteException(
+        WriteFailure.validation,
+        errors: ['Bookmark reminders must be in the future.'],
+      );
+    }
+    final maximum = DateTime.utc(
+      now.year + 10,
+      now.month,
+      now.day,
+      now.hour,
+      now.minute,
+      now.second,
+      now.millisecond,
+      now.microsecond,
+    );
+    if (reminder.isAfter(maximum)) {
+      throw const WriteException(
+        WriteFailure.validation,
+        errors: ['Bookmark reminders cannot be more than 10 years away.'],
+      );
+    }
   }
 
   /// Marks one notification read.

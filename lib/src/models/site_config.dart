@@ -56,6 +56,7 @@ class SiteConfig {
     this.allowAllUsersToFlagIllegalContent = false,
     this.contactEmail,
     this.illegalContentReportEmail,
+    this.suggestWeekendsInDatePickers = true,
     this.resenha = const ResenhaClientConfig(),
   });
 
@@ -208,6 +209,8 @@ class SiteConfig {
       illegalContentReportEmail: _nonemptyText(
         json['email_address_to_report_illegal_content'],
       ),
+      suggestWeekendsInDatePickers:
+          json['suggest_weekends_in_date_pickers'] != false,
       resenha: ResenhaClientConfig.fromSettings(json),
     );
   }
@@ -287,6 +290,7 @@ class SiteConfig {
         json['allowAllUsersToFlagIllegalContent'] == true,
     contactEmail: _nonemptyText(json['contactEmail']),
     illegalContentReportEmail: _nonemptyText(json['illegalContentReportEmail']),
+    suggestWeekendsInDatePickers: json['suggestWeekendsInDatePickers'] != false,
     resenha: jsonObject(json['resenha']).isEmpty
         ? const ResenhaClientConfig()
         : ResenhaClientConfig.fromJson(jsonObject(json['resenha'])),
@@ -332,6 +336,7 @@ class SiteConfig {
     'allowAllUsersToFlagIllegalContent': allowAllUsersToFlagIllegalContent,
     'contactEmail': contactEmail,
     'illegalContentReportEmail': illegalContentReportEmail,
+    'suggestWeekendsInDatePickers': suggestWeekendsInDatePickers,
     'resenha': resenha.toJson(),
   };
 
@@ -442,6 +447,8 @@ class SiteConfig {
 
   String? get anonymousFlagReportEmail =>
       illegalContentReportEmail ?? contactEmail;
+
+  final bool suggestWeekendsInDatePickers;
 
   final ResenhaClientConfig resenha;
 
@@ -573,6 +580,7 @@ class SiteConfig {
           allowAllUsersToFlagIllegalContent &&
       other.contactEmail == contactEmail &&
       other.illegalContentReportEmail == illegalContentReportEmail &&
+      other.suggestWeekendsInDatePickers == suggestWeekendsInDatePickers &&
       other.resenha == resenha &&
       listEquals(other.offeredReactions, offeredReactions);
 
@@ -616,6 +624,7 @@ class SiteConfig {
     allowAllUsersToFlagIllegalContent,
     contactEmail,
     illegalContentReportEmail,
+    suggestWeekendsInDatePickers,
     resenha,
     Object.hashAll(offeredReactions),
   ]);

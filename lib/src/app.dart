@@ -12,9 +12,9 @@ import 'data/site_tracker.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
 import 'diagnostics/diagnostics.dart';
+import 'foundation/timezone_environment.dart';
 import 'models/site_appearance.dart';
 import 'plugins/bundled_plugin_manifest.dart';
-import 'plugins/local_dates/local_date_environment.dart';
 import 'plugins/plugin_runtime.dart';
 import 'plugins/resenha/resenha_diagnostics.dart';
 import 'shell/adaptive_shell.dart';
@@ -296,7 +296,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     _controller.setForeground(_foreground);
     if (state == AppLifecycleState.resumed) {
       unawaited(
-        LocalDateEnvironment.instance.refreshDeviceTimezone(forceNotify: true),
+        TimezoneEnvironment.instance.refreshDeviceTimezone(forceNotify: true),
       );
     }
     if (!_foreground) {

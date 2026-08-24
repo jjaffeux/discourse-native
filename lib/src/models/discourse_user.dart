@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'bookmark.dart';
 import 'json.dart';
 
 /// Which chat activity the account wants called out on the header shortcut.
@@ -46,6 +47,8 @@ class DiscourseUser {
     this.doNotDisturbUntil,
     this.lastChatChannelId,
     this.timezone,
+    this.bookmarkAutoDeletePreference =
+        BookmarkAutoDeletePreference.clearReminder,
   });
 
   factory DiscourseUser.fromJson(Map<String, dynamic> json) => DiscourseUser(
@@ -82,6 +85,9 @@ class DiscourseUser {
     doNotDisturbUntil: jsonDate(json['doNotDisturbUntil']),
     lastChatChannelId: jsonIntOrNull(json['lastChatChannelId']),
     timezone: json['timezone'] as String?,
+    bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.read(
+      json['bookmarkAutoDeletePreference'],
+    ),
   );
 
   final String username;
@@ -142,6 +148,8 @@ class DiscourseUser {
   /// operating system cannot report an IANA identifier.
   final String? timezone;
 
+  final BookmarkAutoDeletePreference bookmarkAutoDeletePreference;
+
   bool get isInDoNotDisturb =>
       doNotDisturbUntil?.isAfter(DateTime.now()) ?? false;
 
@@ -163,6 +171,7 @@ class DiscourseUser {
     'doNotDisturbUntil': doNotDisturbUntil?.toIso8601String(),
     'lastChatChannelId': lastChatChannelId,
     'timezone': timezone,
+    'bookmarkAutoDeletePreference': bookmarkAutoDeletePreference.wireValue,
   };
 
   /// Display name if the site has one, otherwise the username.
@@ -187,7 +196,8 @@ class DiscourseUser {
       other.chatHeaderIndicatorPreference == chatHeaderIndicatorPreference &&
       other.doNotDisturbUntil == doNotDisturbUntil &&
       other.lastChatChannelId == lastChatChannelId &&
-      other.timezone == timezone;
+      other.timezone == timezone &&
+      other.bookmarkAutoDeletePreference == bookmarkAutoDeletePreference;
 
   @override
   int get hashCode => Object.hash(
@@ -208,5 +218,6 @@ class DiscourseUser {
     doNotDisturbUntil,
     lastChatChannelId,
     timezone,
+    bookmarkAutoDeletePreference,
   );
 }

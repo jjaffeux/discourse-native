@@ -74,6 +74,7 @@ pencil
 flag
 certificate
 bookmark
+far-bookmark
 heart
 far-heart
 user

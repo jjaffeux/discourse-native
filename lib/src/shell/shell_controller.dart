@@ -20,6 +20,7 @@ import '../data/user_api_key.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/bounded_lru_cache.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../models/bookmark.dart';
 import '../models/bookmark_feed.dart';
 import '../models/category_feed.dart';
 import '../models/category_sidebar.dart';
@@ -114,6 +115,27 @@ final class PollVoteWriteResult {
 
   final String? message;
   final bool reconciled;
+}
+
+/// The confirmed result of a bookmark mutation, or why it was not applied.
+final class BookmarkWriteResult {
+  const BookmarkWriteResult.saved([this.bookmark])
+    : message = null,
+      reconciled = false;
+
+  const BookmarkWriteResult.refused(this.message)
+    : bookmark = null,
+      reconciled = false;
+
+  const BookmarkWriteResult.reconciled(this.message)
+    : bookmark = null,
+      reconciled = true;
+
+  final Bookmark? bookmark;
+  final String? message;
+  final bool reconciled;
+
+  bool get saved => message == null;
 }
 
 /// Everything the shell needs to decide what to draw.
@@ -412,6 +434,8 @@ class ShellController extends FrameSafeNotifier {
       onFeedLoaded: (instance, _) {
         unawaited(_ensureCategoriesFor(instance));
       },
+      readPersonalizationVersion: _siteBookmarkVersion,
+      prepareTopicForStore: _prepareTopicForStore,
     );
   }
 
@@ -2313,6 +2337,7 @@ class ShellController extends FrameSafeNotifier {
 
   final Set<String> _topicsLoading = {};
   final Set<String> _topicRefreshPending = {};
+  final Map<String, int> _topicRefreshPostNumbers = {};
   // A failed forced reconciliation must not turn the held topic into a
   // permanent cache hit. The next ordinary open retries it automatically.
   final Set<String> _topicsStale = {};
@@ -2597,6 +2622,38 @@ class ShellController extends FrameSafeNotifier {
     return true;
   }
 
+  void openCurrentTopicPost(int postNumber) {
+    final route = currentContent;
+    final tab = activeTab;
+    if (route?.topicId case final topicId? when tab != null && postNumber > 0) {
+      final targeted = ContentRoute.topic(
+        topicId: topicId,
+        slug: route!.slug ?? '',
+        title: route.title,
+        subtitle: route.subtitle,
+        color: route.color,
+        postNumber: postNumber,
+      );
+      _replaceActiveTab(
+        tab.copyWith(
+          contentStack: [
+            ...tab.contentStack.take(tab.contentStack.length - 1),
+            targeted,
+          ],
+        ),
+      );
+      _notify();
+      unawaited(
+        loadTopic(
+          topicId,
+          route.slug ?? '',
+          force: true,
+          postNumber: postNumber,
+        ),
+      );
+    }
+  }
+
   /// Opens a Discourse Chat URL natively when its site and channel are
   /// available to a connected account.
   ///
@@ -2834,7 +2891,15 @@ class ShellController extends FrameSafeNotifier {
     unawaited(_ensureCategoriesFor(instance));
 
     final key = _topicKey(instance.url, topicId);
-    if (_topicsLoading.contains(key)) return;
+    if (_topicsLoading.contains(key)) {
+      if (force) {
+        _topicRefreshPending.add(key);
+        if (postNumber != null) {
+          _topicRefreshPostNumbers[key] = postNumber;
+        }
+      }
+      return;
+    }
     final held = store.read<TopicDetail>(instance.url, topicId);
     if (held != null && !force && !_topicsStale.contains(key)) {
       final targetHeld = postNumber == null
@@ -2847,6 +2912,7 @@ class ShellController extends FrameSafeNotifier {
     }
     final lease = lifecycle.capture(instance.url);
     final elapsed = Stopwatch()..start();
+    final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
 
     _topicsLoading.add(key);
     _notify();
@@ -2870,7 +2936,11 @@ class ShellController extends FrameSafeNotifier {
         'loading topic $topicId',
       );
       lease.commit(() {
-        _absorb(instance.url, fetched);
+        _absorb(
+          instance.url,
+          fetched,
+          bookmarkVersionAtDispatch: bookmarkVersion,
+        );
         if (currentInstance?.url == instance.url) {
           _retitle(topicId, fetched.detail.title);
         }
@@ -2881,13 +2951,24 @@ class ShellController extends FrameSafeNotifier {
       // Left absent; the view shows its own failure state.
     } finally {
       var replayRefresh = false;
+      int? replayPostNumber;
       lease.commit(() {
         _topicsLoading.remove(key);
         replayRefresh = _topicRefreshPending.remove(key);
+        if (replayRefresh) {
+          replayPostNumber = _topicRefreshPostNumbers.remove(key);
+        }
         _notify();
       });
       if (replayRefresh && lease.isCurrent) {
-        unawaited(_refetchTopic(instance.url, topicId, ''));
+        unawaited(
+          _refetchTopic(
+            instance.url,
+            topicId,
+            '',
+            postNumber: replayPostNumber,
+          ),
+        );
       }
     }
   }
@@ -2963,15 +3044,40 @@ class ShellController extends FrameSafeNotifier {
   /// Fetching is deliberately not treated as reading. Discourse advances a
   /// topic's reading position from `/topics/timings`; [markTopicRead] sends
   /// that only after the viewport has actually shown a post.
-  TopicDetail _absorb(String siteUrl, TopicPayload payload) {
-    store.putAll(siteUrl, payload.posts);
-    final detail = store.put(siteUrl, payload.detail);
+  TopicDetail _absorb(
+    String siteUrl,
+    TopicPayload payload, {
+    int? bookmarkVersionAtDispatch,
+  }) {
+    final preserveBookmarks =
+        bookmarkVersionAtDispatch != null &&
+        bookmarkVersionAtDispatch !=
+            _bookmarkVersion(siteUrl, payload.detail.id);
+    final heldDetail = store.read<TopicDetail>(siteUrl, payload.detail.id);
+    final posts = preserveBookmarks
+        ? [
+            for (final incoming in payload.posts)
+              switch (store.read<Post>(siteUrl, incoming.id)) {
+                final held? => incoming.withBookmarkOf(held),
+                null => incoming,
+              },
+          ]
+        : payload.posts;
+    store.putAll(siteUrl, posts);
+    final incomingDetail = preserveBookmarks && heldDetail != null
+        ? payload.detail.withBookmarksOf(heldDetail)
+        : payload.detail;
+    final detail = store.put(siteUrl, incomingDetail);
     _topicsStale.remove(_topicKey(siteUrl, detail.id));
     store.update<Topic>(
       siteUrl,
       detail.id,
       (row) => row
-          .copyWith(title: detail.title, postsCount: detail.postsCount)
+          .copyWith(
+            title: detail.title,
+            postsCount: detail.postsCount,
+            bookmarked: detail.hasBookmarks,
+          )
           .withPlugins(detail.plugins),
     );
     return detail;
@@ -2999,6 +3105,7 @@ class ShellController extends FrameSafeNotifier {
     final key = (instance.url, topicId, anchorPostId, before);
     if (!_postGapsLoading.add(key)) return;
     final lease = lifecycle.capture(instance.url);
+    final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
 
     try {
       final credential = await _readSessionValue(
@@ -3024,7 +3131,9 @@ class ShellController extends FrameSafeNotifier {
           if (byId.containsKey(id)) id,
       ];
       lease.commit(() {
-        store.putAll(instance.url, [for (final id in revealed) byId[id]!]);
+        _putTopicPosts(instance.url, topicId, [
+          for (final id in revealed) byId[id]!,
+        ], bookmarkVersionAtDispatch: bookmarkVersion);
         store.update<TopicDetail>(
           instance.url,
           topicId,
@@ -3187,6 +3296,28 @@ class ShellController extends FrameSafeNotifier {
     });
   }
 
+  void _putTopicPosts(
+    String siteUrl,
+    int topicId,
+    Iterable<Post> incoming, {
+    required int bookmarkVersionAtDispatch,
+  }) {
+    final preserveBookmarks =
+        bookmarkVersionAtDispatch != _bookmarkVersion(siteUrl, topicId);
+    store.putAll(
+      siteUrl,
+      preserveBookmarks
+          ? [
+              for (final post in incoming)
+                switch (store.read<Post>(siteUrl, post.id)) {
+                  final held? => post.withBookmarkOf(held),
+                  null => post,
+                },
+            ]
+          : incoming,
+    );
+  }
+
   /// Credits the reader through the farthest post the viewport has shown.
   ///
   /// The local list row moves first so leaving and reopening in this session
@@ -3219,6 +3350,7 @@ class ShellController extends FrameSafeNotifier {
     final pending = _pendingPostIds(instance.url, detail);
     if (pending.isEmpty) return;
     final lease = lifecycle.capture(instance.url);
+    final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
 
     _postsLoading.add(key);
     _notify();
@@ -3236,7 +3368,12 @@ class ShellController extends FrameSafeNotifier {
         apiKey: credential.value,
       );
       lease.commit(() {
-        store.putAll(instance.url, page.posts);
+        _putTopicPosts(
+          instance.url,
+          topicId,
+          page.posts,
+          bookmarkVersionAtDispatch: bookmarkVersion,
+        );
         if (page.recommendations case final recommendations?) {
           store.update<TopicDetail>(
             instance.url,
@@ -3277,6 +3414,7 @@ class ShellController extends FrameSafeNotifier {
     final pending = _pendingEarlierPostIds(instance.url, detail, boundedBatch);
     if (pending.isEmpty) return;
     final lease = lifecycle.capture(instance.url);
+    final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
 
     _earlierPostsLoading.add(key);
     _notify();
@@ -3293,7 +3431,14 @@ class ShellController extends FrameSafeNotifier {
         ids: pending,
         apiKey: credential.value,
       );
-      lease.commit(() => store.putAll(instance.url, posts));
+      lease.commit(
+        () => _putTopicPosts(
+          instance.url,
+          topicId,
+          posts,
+          bookmarkVersionAtDispatch: bookmarkVersion,
+        ),
+      );
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _reportOperationalError(
@@ -4147,7 +4292,11 @@ class ShellController extends FrameSafeNotifier {
           return 'Your connection changed. Reopen the flag form and try again.';
         }
         lease.commit(() {
-          store.put(siteUrl, fresh);
+          final current = store.read<Post>(siteUrl, fresh.id);
+          store.put(
+            siteUrl,
+            current == null ? fresh : fresh.withBookmarkOf(current),
+          );
           _notify();
         });
         return null;
@@ -4246,7 +4395,8 @@ class ShellController extends FrameSafeNotifier {
       // — the guess above stands until the post is read again.
       if (fresh != null) {
         lease.commit(() {
-          store.put(siteUrl, fresh);
+          final held = store.read<Post>(siteUrl, fresh.id);
+          store.put(siteUrl, held == null ? fresh : fresh.withBookmarkOf(held));
           _notify();
         });
       }
@@ -4514,6 +4664,57 @@ class ShellController extends FrameSafeNotifier {
   /// because topic 7's post 3 on two sites are two different posts.
   final Set<String> _postWritesInFlight = {};
 
+  final Set<String> _topicBookmarkWritesInFlight = {};
+  final Map<String, int> _bookmarkVersions = {};
+  final Map<String, int> _siteBookmarkVersions = {};
+
+  int _bookmarkVersion(String siteUrl, int topicId) =>
+      _bookmarkVersions[_topicKey(siteUrl, topicId)] ?? 0;
+
+  int _siteBookmarkVersion(String siteUrl) =>
+      _siteBookmarkVersions[siteUrl] ?? 0;
+
+  void _advanceBookmarkVersion(String siteUrl, int topicId) {
+    final key = _topicKey(siteUrl, topicId);
+    _bookmarkVersions[key] = _bookmarkVersion(siteUrl, topicId) + 1;
+    _siteBookmarkVersions[siteUrl] = _siteBookmarkVersion(siteUrl) + 1;
+  }
+
+  Topic _prepareTopicForStore(
+    String siteUrl,
+    Topic incoming,
+    int? versionAtDispatch,
+  ) {
+    if (versionAtDispatch == null ||
+        versionAtDispatch == _siteBookmarkVersion(siteUrl)) {
+      return incoming;
+    }
+    final held = store.read<Topic>(siteUrl, incoming.id);
+    final heldDetail = store.read<TopicDetail>(siteUrl, incoming.id);
+    if (held == null && heldDetail == null) return incoming;
+    return incoming.copyWith(
+      bookmarked: held?.bookmarked ?? heldDetail?.hasBookmarks ?? false,
+    );
+  }
+
+  bool bookmarkWriteInFlight({
+    required int topicId,
+    required BookmarkTargetType targetType,
+    required int targetId,
+    String? siteUrl,
+  }) {
+    final targetSite = siteUrl ?? currentInstance?.url;
+    if (targetSite == null) return false;
+    return switch (targetType) {
+      BookmarkTargetType.post => _postWritesInFlight.contains(
+        _postKey(targetSite, targetId),
+      ),
+      BookmarkTargetType.topic => _topicBookmarkWritesInFlight.contains(
+        _topicKey(targetSite, topicId),
+      ),
+    };
+  }
+
   /// The live read currently allowed to update each post.
   final Map<String, Object> _postRefreshRequests = {};
 
@@ -4543,6 +4744,455 @@ class ShellController extends FrameSafeNotifier {
     if (topicId != null) {
       unawaited(_refreshPosts(siteUrl, topicId, {postId}));
     }
+  }
+
+  Future<BookmarkWriteResult> createBookmark({
+    required int topicId,
+    required BookmarkTargetType targetType,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+  }) async {
+    final instance = currentInstance;
+    if (instance == null || !instance.isConnected) {
+      return const BookmarkWriteResult.refused(
+        'Reconnect to this forum to bookmark it.',
+      );
+    }
+    final siteUrl = instance.url;
+    if (!_beginBookmarkWrite(siteUrl, topicId, targetType, targetId)) {
+      return const BookmarkWriteResult.refused(
+        'Another action on this bookmark is still finishing.',
+      );
+    }
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent) {
+        return const BookmarkWriteResult.reconciled(
+          'The forum changed before the bookmark finished.',
+        );
+      }
+      if (credential.failure case final failure?) {
+        return BookmarkWriteResult.refused(failure.message);
+      }
+      final preference =
+          autoDeletePreference ??
+          instance.user?.bookmarkAutoDeletePreference ??
+          BookmarkAutoDeletePreference.clearReminder;
+      final int id;
+      try {
+        id = await api.createBookmark(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          targetType: targetType,
+          targetId: targetId,
+          name: name,
+          reminderAt: reminderAt,
+          autoDeletePreference: preference,
+        );
+      } on WriteException catch (error) {
+        if (error.failure == WriteFailure.unreachable) {
+          _reconcileBookmarks(instance, topicId);
+          return const BookmarkWriteResult.reconciled(
+            "Couldn't confirm whether the bookmark was created. The topic is being refreshed.",
+          );
+        }
+        return BookmarkWriteResult.refused(error.message);
+      } catch (error, stackTrace) {
+        if (lease.isCurrent) {
+          _reportOperationalError(error, stackTrace, 'bookmark.create');
+          _reconcileBookmarks(instance, topicId);
+        }
+        return const BookmarkWriteResult.reconciled(
+          "Couldn't confirm whether the bookmark was created. The topic is being refreshed.",
+        );
+      }
+      final postNumber = targetType == BookmarkTargetType.post
+          ? store.read<Post>(siteUrl, targetId)?.postNumber
+          : null;
+      final bookmark = Bookmark(
+        id: id,
+        bookmarkableId: targetId,
+        bookmarkableType: targetType.wireName,
+        postNumber: postNumber,
+        name: name,
+        reminderAt: reminderAt?.toUtc(),
+        autoDeletePreference: preference,
+      );
+      final applied = lease.commit(() {
+        _applyBookmark(siteUrl, topicId, bookmark);
+      });
+      if (!applied) {
+        return const BookmarkWriteResult.reconciled(
+          'The bookmark was saved on the forum.',
+        );
+      }
+      _reconcileBookmarks(instance, topicId);
+      return BookmarkWriteResult.saved(bookmark);
+    } finally {
+      lease.commit(
+        () => _endBookmarkWrite(siteUrl, topicId, targetType, targetId),
+      );
+    }
+  }
+
+  Future<BookmarkWriteResult> updateBookmark({
+    required int topicId,
+    required Bookmark bookmark,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+  }) async {
+    final instance = currentInstance;
+    final targetType = bookmark.coreTargetType;
+    final targetId = bookmark.bookmarkableId;
+    if (instance == null ||
+        !instance.isConnected ||
+        targetType == null ||
+        targetId == null) {
+      return const BookmarkWriteResult.refused(
+        'This bookmark cannot be edited here.',
+      );
+    }
+    final siteUrl = instance.url;
+    if (!_beginBookmarkWrite(siteUrl, topicId, targetType, targetId)) {
+      return const BookmarkWriteResult.refused(
+        'Another action on this bookmark is still finishing.',
+      );
+    }
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent) {
+        return const BookmarkWriteResult.reconciled(
+          'The forum changed before the bookmark finished.',
+        );
+      }
+      if (credential.failure case final failure?) {
+        return BookmarkWriteResult.refused(failure.message);
+      }
+      try {
+        await api.updateBookmark(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          bookmarkId: bookmark.id,
+          name: name,
+          reminderAt: reminderAt,
+          autoDeletePreference: autoDeletePreference,
+        );
+      } on WriteException catch (error) {
+        if (error.failure == WriteFailure.unreachable) {
+          _reconcileBookmarks(instance, topicId);
+          return const BookmarkWriteResult.reconciled(
+            "Couldn't confirm the bookmark changes. The topic is being refreshed.",
+          );
+        }
+        return BookmarkWriteResult.refused(error.message);
+      } catch (error, stackTrace) {
+        if (lease.isCurrent) {
+          _reportOperationalError(error, stackTrace, 'bookmark.update');
+          _reconcileBookmarks(instance, topicId);
+        }
+        return const BookmarkWriteResult.reconciled(
+          "Couldn't confirm the bookmark changes. The topic is being refreshed.",
+        );
+      }
+      final updated = bookmark.copyWith(
+        name: name,
+        clearName: name == null,
+        reminderAt: reminderAt?.toUtc(),
+        clearReminder: reminderAt == null,
+        autoDeletePreference: autoDeletePreference,
+      );
+      final applied = lease.commit(() {
+        _applyBookmark(siteUrl, topicId, updated);
+      });
+      if (!applied) {
+        return const BookmarkWriteResult.reconciled(
+          'The bookmark was updated on the forum.',
+        );
+      }
+      _reconcileBookmarks(instance, topicId);
+      return BookmarkWriteResult.saved(updated);
+    } finally {
+      lease.commit(
+        () => _endBookmarkWrite(siteUrl, topicId, targetType, targetId),
+      );
+    }
+  }
+
+  Future<BookmarkWriteResult> clearBookmarkReminder({
+    required int topicId,
+    required Bookmark bookmark,
+  }) => updateBookmark(
+    topicId: topicId,
+    bookmark: bookmark,
+    name: bookmark.name,
+    autoDeletePreference: bookmark.autoDeletePreference,
+  );
+
+  Future<BookmarkWriteResult> deleteBookmark({
+    required int topicId,
+    required Bookmark bookmark,
+  }) async {
+    final instance = currentInstance;
+    final targetType = bookmark.coreTargetType;
+    final targetId = bookmark.bookmarkableId;
+    if (instance == null ||
+        !instance.isConnected ||
+        targetType == null ||
+        targetId == null) {
+      return const BookmarkWriteResult.refused(
+        'This bookmark cannot be deleted here.',
+      );
+    }
+    final siteUrl = instance.url;
+    if (!_beginBookmarkWrite(siteUrl, topicId, targetType, targetId)) {
+      return const BookmarkWriteResult.refused(
+        'Another action on this bookmark is still finishing.',
+      );
+    }
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent) {
+        return const BookmarkWriteResult.reconciled(
+          'The forum changed before the bookmark finished.',
+        );
+      }
+      if (credential.failure case final failure?) {
+        return BookmarkWriteResult.refused(failure.message);
+      }
+      final bool topicBookmarked;
+      try {
+        topicBookmarked = await api.deleteBookmark(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          bookmarkId: bookmark.id,
+        );
+      } on WriteException catch (error) {
+        if (error.failure == WriteFailure.unreachable) {
+          _reconcileBookmarks(instance, topicId);
+          return const BookmarkWriteResult.reconciled(
+            "Couldn't confirm the deletion. The topic is being refreshed.",
+          );
+        }
+        return BookmarkWriteResult.refused(error.message);
+      } catch (error, stackTrace) {
+        if (lease.isCurrent) {
+          _reportOperationalError(error, stackTrace, 'bookmark.delete');
+          _reconcileBookmarks(instance, topicId);
+        }
+        return const BookmarkWriteResult.reconciled(
+          "Couldn't confirm the deletion. The topic is being refreshed.",
+        );
+      }
+      final applied = lease.commit(() {
+        _removeBookmark(
+          siteUrl,
+          topicId,
+          bookmark,
+          topicBookmarked: topicBookmarked,
+        );
+      });
+      if (!applied) {
+        return const BookmarkWriteResult.reconciled(
+          'The bookmark was deleted on the forum.',
+        );
+      }
+      _reconcileBookmarks(instance, topicId);
+      return const BookmarkWriteResult.saved();
+    } finally {
+      lease.commit(
+        () => _endBookmarkWrite(siteUrl, topicId, targetType, targetId),
+      );
+    }
+  }
+
+  Future<BookmarkWriteResult> deleteAllTopicBookmarks(int topicId) async {
+    final instance = currentInstance;
+    if (instance == null || !instance.isConnected) {
+      return const BookmarkWriteResult.refused(
+        'Reconnect to this forum to delete its bookmarks.',
+      );
+    }
+    final siteUrl = instance.url;
+    final key = _topicKey(siteUrl, topicId);
+    final detail = store.read<TopicDetail>(siteUrl, topicId);
+    final postIds =
+        detail?.postBookmarks
+            .map((bookmark) => bookmark.bookmarkableId)
+            .whereType<int>()
+            .toSet() ??
+        const <int>{};
+    final postKeys = {for (final postId in postIds) _postKey(siteUrl, postId)};
+    if (_topicBookmarkWritesInFlight.contains(key) ||
+        postKeys.any(_postWritesInFlight.contains)) {
+      return const BookmarkWriteResult.refused(
+        'Another bookmark action is still finishing.',
+      );
+    }
+    _topicBookmarkWritesInFlight.add(key);
+    _postWritesInFlight.addAll(postKeys);
+    _notify();
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent) {
+        return const BookmarkWriteResult.reconciled(
+          'The forum changed before the bookmarks were deleted.',
+        );
+      }
+      if (credential.failure case final failure?) {
+        return BookmarkWriteResult.refused(failure.message);
+      }
+      try {
+        await api.deleteTopicBookmarks(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: topicId,
+        );
+      } on WriteException catch (error) {
+        if (error.failure == WriteFailure.unreachable) {
+          _reconcileBookmarks(instance, topicId);
+          return const BookmarkWriteResult.reconciled(
+            "Couldn't confirm the deletion. The topic is being refreshed.",
+          );
+        }
+        return BookmarkWriteResult.refused(error.message);
+      } catch (error, stackTrace) {
+        if (lease.isCurrent) {
+          _reportOperationalError(error, stackTrace, 'bookmark.deleteAll');
+          _reconcileBookmarks(instance, topicId);
+        }
+        return const BookmarkWriteResult.reconciled(
+          "Couldn't confirm the deletion. The topic is being refreshed.",
+        );
+      }
+      lease.commit(() => _removeAllBookmarks(siteUrl, topicId));
+      _reconcileBookmarks(instance, topicId);
+      return const BookmarkWriteResult.saved();
+    } finally {
+      lease.commit(() {
+        _topicBookmarkWritesInFlight.remove(key);
+        for (final postId in postIds) {
+          _endPostWrite(siteUrl, postId);
+        }
+        _notify();
+      });
+    }
+  }
+
+  bool _beginBookmarkWrite(
+    String siteUrl,
+    int topicId,
+    BookmarkTargetType targetType,
+    int targetId,
+  ) => switch (targetType) {
+    BookmarkTargetType.post => _beginPostWrite(_postKey(siteUrl, targetId)),
+    BookmarkTargetType.topic => _beginTopicBookmarkWrite(
+      _topicKey(siteUrl, topicId),
+    ),
+  };
+
+  bool _beginTopicBookmarkWrite(String key) {
+    if (!_topicBookmarkWritesInFlight.add(key)) return false;
+    _notify();
+    return true;
+  }
+
+  void _endBookmarkWrite(
+    String siteUrl,
+    int topicId,
+    BookmarkTargetType targetType,
+    int targetId,
+  ) {
+    switch (targetType) {
+      case BookmarkTargetType.post:
+        _endPostWrite(siteUrl, targetId);
+      case BookmarkTargetType.topic:
+        _topicBookmarkWritesInFlight.remove(_topicKey(siteUrl, topicId));
+        _notify();
+    }
+  }
+
+  void _applyBookmark(String siteUrl, int topicId, Bookmark bookmark) {
+    _advanceBookmarkVersion(siteUrl, topicId);
+    store.update<TopicDetail>(
+      siteUrl,
+      topicId,
+      (detail) => detail.withBookmark(bookmark),
+    );
+    final postId = bookmark.bookmarkableId;
+    if (bookmark.coreTargetType == BookmarkTargetType.post && postId != null) {
+      store.update<Post>(
+        siteUrl,
+        postId,
+        (post) => post.withBookmark(bookmark),
+      );
+    }
+    store.update<Topic>(
+      siteUrl,
+      topicId,
+      (topic) => topic.copyWith(bookmarked: true),
+    );
+    _notify();
+  }
+
+  void _removeBookmark(
+    String siteUrl,
+    int topicId,
+    Bookmark bookmark, {
+    required bool topicBookmarked,
+  }) {
+    _advanceBookmarkVersion(siteUrl, topicId);
+    store.update<TopicDetail>(
+      siteUrl,
+      topicId,
+      (detail) => detail.withoutBookmark(bookmark.id),
+    );
+    final postId = bookmark.bookmarkableId;
+    if (bookmark.coreTargetType == BookmarkTargetType.post && postId != null) {
+      store.update<Post>(siteUrl, postId, (post) => post.withBookmark(null));
+    }
+    store.update<Topic>(
+      siteUrl,
+      topicId,
+      (topic) => topic.copyWith(bookmarked: topicBookmarked),
+    );
+    _notify();
+  }
+
+  void _removeAllBookmarks(String siteUrl, int topicId) {
+    _advanceBookmarkVersion(siteUrl, topicId);
+    final detail = store.read<TopicDetail>(siteUrl, topicId);
+    if (detail != null) {
+      for (final postId in detail.stream) {
+        store.update<Post>(siteUrl, postId, (post) => post.withBookmark(null));
+      }
+      store.put(siteUrl, detail.withoutBookmarks());
+    }
+    store.update<Topic>(
+      siteUrl,
+      topicId,
+      (topic) => topic.copyWith(bookmarked: false),
+    );
+    _notify();
+  }
+
+  void _reconcileBookmarks(DiscourseInstance instance, int topicId) {
+    final route = currentContent;
+    final row = store.read<Topic>(instance.url, topicId);
+    unawaited(
+      _refetchTopic(
+        instance.url,
+        topicId,
+        route?.topicId == topicId ? route?.slug ?? '' : row?.slug ?? '',
+      ),
+    );
+    unawaited(accountActivity.loadBookmarks(instance, force: true));
   }
 
   /// Names a post in the per-site maps and sets here: site and post together,
@@ -5259,6 +5909,7 @@ class ShellController extends FrameSafeNotifier {
             : updated
                   .withLikesOf(held)
                   .withPostActionsOf(held)
+                  .withBookmarkOf(held)
                   .withPlugins(
                     api.models.mergeAfterPostEdit(
                       held: held.plugins,
@@ -5674,16 +6325,25 @@ class ShellController extends FrameSafeNotifier {
   }
 
   /// Re-reads a topic on a named site, rather than on whatever is current.
-  Future<void> _refetchTopic(String siteUrl, int topicId, String slug) async {
+  Future<void> _refetchTopic(
+    String siteUrl,
+    int topicId,
+    String slug, {
+    int? postNumber,
+  }) async {
     final key = _topicKey(siteUrl, topicId);
     if (_topicsLoading.contains(key)) {
       // A live echo can start a read while an Assign write is still landing.
       // Remember the later invalidation so the pre-write snapshot cannot be
       // the last answer stored.
       _topicRefreshPending.add(key);
+      if (postNumber != null) {
+        _topicRefreshPostNumbers[key] = postNumber;
+      }
       return;
     }
     final lease = lifecycle.capture(siteUrl);
+    final bookmarkVersion = _bookmarkVersion(siteUrl, topicId);
     _topicsLoading.add(key);
 
     try {
@@ -5696,9 +6356,13 @@ class ShellController extends FrameSafeNotifier {
         siteUrl: siteUrl,
         slug: slug,
         id: topicId,
+        postNumber: postNumber,
         apiKey: credential.value,
       );
-      lease.commit(() => _absorb(siteUrl, topic));
+      lease.commit(
+        () =>
+            _absorb(siteUrl, topic, bookmarkVersionAtDispatch: bookmarkVersion),
+      );
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       lease.commit(() => _topicsStale.add(key));
@@ -5711,13 +6375,19 @@ class ShellController extends FrameSafeNotifier {
       // The post is already on screen; the stream is repaired next time.
     } finally {
       var replayRefresh = false;
+      int? replayPostNumber;
       lease.commit(() {
         _topicsLoading.remove(key);
         replayRefresh = _topicRefreshPending.remove(key);
+        if (replayRefresh) {
+          replayPostNumber = _topicRefreshPostNumbers.remove(key);
+        }
         _notify();
       });
       if (replayRefresh && lease.isCurrent) {
-        unawaited(_refetchTopic(siteUrl, topicId, ''));
+        unawaited(
+          _refetchTopic(siteUrl, topicId, '', postNumber: replayPostNumber),
+        );
       }
     }
   }
@@ -6873,11 +7543,19 @@ class ShellController extends FrameSafeNotifier {
     _userCardsLoading.removeWhere((key) => key.startsWith('$siteUrl@'));
     _userCardErrors.removeWhere((key, _) => key.startsWith('$siteUrl@'));
     _postWritesInFlight.removeWhere((key) => key.startsWith('$siteUrl~'));
+    _topicBookmarkWritesInFlight.removeWhere(
+      (key) => key.startsWith('$siteUrl#'),
+    );
+    _bookmarkVersions.removeWhere((key, _) => key.startsWith('$siteUrl#'));
+    _siteBookmarkVersions.remove(siteUrl);
     _postRefreshRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _postRefreshPending.removeWhere((key) => key.startsWith('$siteUrl~'));
     _postRefreshTopics.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _topicsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicRefreshPending.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _topicRefreshPostNumbers.removeWhere(
+      (key, _) => key.startsWith('$siteUrl#'),
+    );
     _topicsStale.removeWhere((key) => key.startsWith('$siteUrl#'));
     _postsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _earlierPostsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));

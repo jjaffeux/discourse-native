@@ -595,6 +595,28 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Usernames passed to [bookmarks], in order.
   final List<String> bookmarksRequested = [];
+  int _nextBookmarkId = 1000;
+  final List<
+    ({
+      BookmarkTargetType targetType,
+      int targetId,
+      String? name,
+      DateTime? reminderAt,
+      BookmarkAutoDeletePreference? autoDeletePreference,
+    })
+  >
+  createdBookmarks = [];
+  final List<
+    ({
+      int bookmarkId,
+      String? name,
+      DateTime? reminderAt,
+      BookmarkAutoDeletePreference autoDeletePreference,
+    })
+  >
+  updatedBookmarks = [];
+  final List<int> deletedBookmarks = [];
+  final List<int> clearedBookmarkTopics = [];
 
   /// Ids passed to [markNotificationRead], in order.
   final List<int> markedRead = [];
@@ -1128,6 +1150,74 @@ class FakeDiscourseApi implements DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return (reminders: reminderList, bookmarks: result);
+  }
+
+  @override
+  Future<int> createBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required BookmarkTargetType targetType,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+    String? clientId,
+  }) async {
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+    createdBookmarks.add((
+      targetType: targetType,
+      targetId: targetId,
+      name: name,
+      reminderAt: reminderAt,
+      autoDeletePreference: autoDeletePreference,
+    ));
+    return _nextBookmarkId++;
+  }
+
+  @override
+  Future<void> updateBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required int bookmarkId,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+    String? clientId,
+  }) async {
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+    updatedBookmarks.add((
+      bookmarkId: bookmarkId,
+      name: name,
+      reminderAt: reminderAt,
+      autoDeletePreference: autoDeletePreference,
+    ));
+  }
+
+  @override
+  Future<bool> deleteBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required int bookmarkId,
+    String? clientId,
+  }) async {
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+    deletedBookmarks.add(bookmarkId);
+    return true;
+  }
+
+  @override
+  Future<void> deleteTopicBookmarks({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) async {
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+    clearedBookmarkTopics.add(topicId);
   }
 
   @override

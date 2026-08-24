@@ -235,6 +235,36 @@ void main() {
     },
   );
 
+  test('a forced bookmark load replays behind an older request', () async {
+    final api = _SequencedBookmarksApi(2);
+    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+    final controller = _controller(api, credentials);
+    addTearDown(controller.dispose);
+    final connected = _connectedInstance();
+
+    final first = controller.loadBookmarks(connected);
+    await api.started[0].future;
+    final forced = controller.loadBookmarks(connected, force: true);
+
+    api.answers[0].complete((
+      reminders: const <DiscourseNotification>[],
+      bookmarks: const [_bookmark],
+    ));
+    await first;
+    await api.started[1].future;
+    expect(controller.bookmarksFor(_siteUrl).bookmarks, const [_bookmark]);
+
+    const fresh = Bookmark(id: 10, title: 'Fresh bookmark');
+    api.answers[1].complete((
+      reminders: const <DiscourseNotification>[],
+      bookmarks: const [fresh],
+    ));
+    await forced;
+
+    expect(controller.bookmarksFor(_siteUrl).bookmarks, const [fresh]);
+    expect(api.calls, 2);
+  });
+
   test('each activity aspect notifies only its own consumers', () async {
     final api = _AccountApi(
       notificationList: const [_notification],
@@ -1035,6 +1065,28 @@ final class _SequencedNotificationsApi extends _AccountApi {
     started[call].complete();
     await gates[call].future;
     return const [_notification];
+  }
+}
+
+final class _SequencedBookmarksApi extends _AccountApi {
+  _SequencedBookmarksApi(int count)
+    : answers = List.generate(count, (_) => Completer<BookmarkPayload>()),
+      started = List.generate(count, (_) => Completer<void>());
+
+  final List<Completer<BookmarkPayload>> answers;
+  final List<Completer<void>> started;
+  int calls = 0;
+
+  @override
+  Future<BookmarkPayload> bookmarks({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) {
+    final call = calls++;
+    started[call].complete();
+    return answers[call].future;
   }
 }
 

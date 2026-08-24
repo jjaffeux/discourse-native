@@ -158,8 +158,10 @@ void main() {
 
     test('uses a strict, site-configurable threshold', () {
       expect(
-        buildChatStream([at(1, day: 5), at(2, day: 12)])
-            .whereType<ChatStreamTimeGap>(),
+        buildChatStream([
+          at(1, day: 5),
+          at(2, day: 12),
+        ]).whereType<ChatStreamTimeGap>(),
         isEmpty,
       );
       expect(
