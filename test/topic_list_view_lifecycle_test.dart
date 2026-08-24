@@ -213,6 +213,31 @@ void main() {
     expect(second.controller!.offset, 0);
   });
 
+  testWidgets('a restored row is bounded by the currently loaded page', (
+    tester,
+  ) async {
+    final topics = _topics(1, 1);
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([sites.first]),
+      api: FakeDiscourseApi(feeds: {'/latest.json': topics}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store.putAll(sites.first.url, topics);
+    controller.saveFeedScrollRow('latest', 40);
+    final feed = TopicFeed(topicIds: [topics.single.id], loaded: true);
+
+    await tester.pumpWidget(_TestList(controller: controller, feed: feed));
+    await tester.pump();
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Topic 1'), findsOneWidget);
+  });
+
   testWidgets('a queued page request cannot cross a site switch', (
     tester,
   ) async {

@@ -83,7 +83,20 @@ class _TopicListViewState extends State<TopicListView> {
     if (list == null || scroll == null) return;
     if (!list.isAttached || !scroll.hasClients) return;
 
-    list.jumpToItem(index: row, scrollController: scroll, alignment: 0);
+    // The remembered row may belong to pages that have not been loaded yet,
+    // or to a loading/error footer that is no longer present. Bound it by
+    // both the extent table and the real topic rows in this frame.
+    final renderedItemCount = list.numberOfItems;
+    if (renderedItemCount == 0 || widget.feed.topicIds.isEmpty) return;
+    // The separated list gives the controller interleaved topic/separator
+    // indices, so topic N is extent index N * 2.
+    final lastTopicIndex = (widget.feed.topicIds.length - 1) * 2;
+    final lastRenderedTopicIndex = lastTopicIndex < renderedItemCount
+        ? lastTopicIndex
+        : renderedItemCount - 1;
+    final target = row.clamp(0, lastRenderedTopicIndex);
+
+    list.jumpToItem(index: target, scrollController: scroll, alignment: 0);
   }
 
   void _disposeControllers() {
