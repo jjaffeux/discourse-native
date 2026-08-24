@@ -151,6 +151,21 @@ void main() {
 
         final divider = find.bySemanticsLabel('Thread pane width');
         expect(divider, findsOneWidget);
+        expect(tester.getSize(divider).width, 8);
+        final border = find.byKey(const ValueKey('chat-thread-divider-border'));
+        expect(tester.getSize(border).width, 1);
+        final theme = Theme.of(tester.element(border));
+        expect(
+          tester
+              .widget<ColoredBox>(
+                find.descendant(of: border, matching: find.byType(ColoredBox)),
+              )
+              .color,
+          Color.alphaBlend(
+            theme.colorScheme.onSurface.withValues(alpha: 0.12),
+            theme.shell.divider,
+          ),
+        );
         final node = tester.getSemantics(divider);
         final data = node.getSemanticsData();
         expect(data.value, '480 pixels');
