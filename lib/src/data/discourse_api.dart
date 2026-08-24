@@ -799,6 +799,25 @@ class DiscourseApi
     );
   }
 
+  /// Changes how closely the current account follows one topic.
+  Future<void> updateTopicNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required TopicNotificationLevel notificationLevel,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    await _write(
+      Uri.parse('$siteUrl/t/$topicId/notifications'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'notification_level': notificationLevel.value},
+    );
+  }
+
   /// Specific posts by id, for paging through a long topic.
   ///
   /// [includeRaw] asks for the markdown alongside the cooked HTML. Reading

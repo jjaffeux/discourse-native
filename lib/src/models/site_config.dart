@@ -45,6 +45,7 @@ class SiteConfig {
     this.taggingEnabled = true,
     this.maxTagSearchResults = defaultMaxTagSearchResults,
     this.usePgHeadlinesForExcerpt = false,
+    this.showTimeGapDays = defaultShowTimeGapDays,
     this.fixedCategoryPositions = false,
     this.allowUncategorizedTopics = false,
     this.defaultNavigationMenuCategoryIds = const [],
@@ -104,6 +105,8 @@ class SiteConfig {
   };
   static const int defaultMinSearchTermLength = 3;
   static const int defaultReadTimeWordCount = 500;
+  static const int defaultShowTimeGapDays = 7;
+  static const int maximumShowTimeGapDays = 36500;
 
   /// `max_tag_search_results`' own default, server side.
   static const int defaultMaxTagSearchResults = 5;
@@ -178,6 +181,7 @@ class SiteConfig {
         defaultMaxTagSearchResults,
       ),
       usePgHeadlinesForExcerpt: json['use_pg_headlines_for_excerpt'] == true,
+      showTimeGapDays: _showTimeGapDays(json['show_time_gap_days']),
       fixedCategoryPositions: json['fixed_category_positions'] == true,
       allowUncategorizedTopics: json['allow_uncategorized_topics'] == true,
       defaultNavigationMenuCategoryIds: _categoryIds(
@@ -248,6 +252,7 @@ class SiteConfig {
       defaultMaxTagSearchResults,
     ),
     usePgHeadlinesForExcerpt: json['usePgHeadlinesForExcerpt'] == true,
+    showTimeGapDays: _showTimeGapDays(json['showTimeGapDays']),
     fixedCategoryPositions: json['fixedCategoryPositions'] == true,
     allowUncategorizedTopics: json['allowUncategorizedTopics'] == true,
     defaultNavigationMenuCategoryIds: _categoryIds(
@@ -293,6 +298,7 @@ class SiteConfig {
     'taggingEnabled': taggingEnabled,
     'maxTagSearchResults': maxTagSearchResults,
     'usePgHeadlinesForExcerpt': usePgHeadlinesForExcerpt,
+    'showTimeGapDays': showTimeGapDays,
     'fixedCategoryPositions': fixedCategoryPositions,
     'allowUncategorizedTopics': allowUncategorizedTopics,
     'defaultNavigationMenuCategoryIds': defaultNavigationMenuCategoryIds,
@@ -382,6 +388,10 @@ class SiteConfig {
   final int maxTagSearchResults;
 
   final bool usePgHeadlinesForExcerpt;
+
+  /// Whole days of silence required before the post/chat stream calls out the
+  /// elapsed time. This is core's client-side `show_time_gap_days` setting.
+  final int showTimeGapDays;
 
   /// How core orders category navigation, and which categories anonymous
   /// visitors see when the site has chosen an explicit menu.
@@ -512,6 +522,7 @@ class SiteConfig {
       other.taggingEnabled == taggingEnabled &&
       other.maxTagSearchResults == maxTagSearchResults &&
       other.usePgHeadlinesForExcerpt == usePgHeadlinesForExcerpt &&
+      other.showTimeGapDays == showTimeGapDays &&
       other.fixedCategoryPositions == fixedCategoryPositions &&
       other.allowUncategorizedTopics == allowUncategorizedTopics &&
       listEquals(
@@ -553,6 +564,7 @@ class SiteConfig {
     taggingEnabled,
     maxTagSearchResults,
     usePgHeadlinesForExcerpt,
+    showTimeGapDays,
     fixedCategoryPositions,
     allowUncategorizedTopics,
     Object.hashAll(defaultNavigationMenuCategoryIds),
@@ -615,6 +627,11 @@ class SiteConfig {
   static int _gifMaxResults(Object? raw) => switch (jsonIntOrNull(raw)) {
     final value? when value >= 24 => value,
     _ => defaultGifMaxResults,
+  };
+
+  static int _showTimeGapDays(Object? raw) => switch (jsonIntOrNull(raw)) {
+    final value? when value >= 0 && value <= maximumShowTimeGapDays => value,
+    _ => defaultShowTimeGapDays,
   };
 
   static List<int> _categoryIds(Object? raw) {

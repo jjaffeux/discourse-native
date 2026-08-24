@@ -17,6 +17,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -643,6 +644,23 @@ void main() {
       floatingDecoration.border,
       Border.all(color: theme.colorScheme.surfaceContainerHigh),
     );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(floatingSecond));
+    await tester.pump();
+
+    final hoveredDecoration = tester
+        .widgetList<Container>(
+          find.descendant(of: floatingSecond, matching: find.byType(Container)),
+        )
+        .map((container) => container.decoration)
+        .whereType<BoxDecoration>()
+        .single;
+    expect(hoveredDecoration.color, theme.shell.hover);
+
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
 
     final list = tester.widget<SuperListView>(find.byType(SuperListView));
     list.listController!.jumpToItem(
@@ -658,6 +676,38 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'chat renders the elapsed time before a message after a long gap',
+    (tester) async {
+      final api = _ChatApi(openPages: const {});
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      final messages = [
+        _message(1, createdAt: DateTime.utc(2026, 1, 1)),
+        _message(2, createdAt: DateTime.utc(2026, 1, 9)),
+      ];
+      controller.store
+        ..put(firstSite, _channel(lastRead: 2))
+        ..putAll(firstSite, messages);
+
+      await tester.pumpWidget(
+        _TestStreamView(
+          controller: controller,
+          messages: messages,
+          stream: const ChatStreamState(
+            messageIds: [1, 2],
+            fetchedOnce: true,
+            fetches: 1,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey(('chat-time-gap', 2))), findsOneWidget);
+      expect(find.text('8 days later'), findsOneWidget);
+    },
+  );
 }
 
 void _resumeLifecycle(WidgetTester tester) {

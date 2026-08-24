@@ -9,6 +9,7 @@ import '../data/topic_recommendations_panel_store.dart';
 import '../data/topic_recommendations_tab_store.dart';
 import '../foundation/calendar_day.dart';
 import '../models/post.dart';
+import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
@@ -26,6 +27,8 @@ import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'small_action.dart';
+import 'stream_day_separator.dart';
+import 'time_gap.dart';
 import 'topic_list_view.dart';
 import 'user_card.dart';
 
@@ -57,6 +60,7 @@ class TopicView extends StatefulWidget {
 }
 
 typedef _TopicDayStart = ({DateTime day, int postIndex});
+typedef _TopicTimeGap = ({int daysSince, int postIndex});
 
 /// The inverse of one immutable post stream, used to retain keyed list rows.
 ///
@@ -418,8 +422,8 @@ class _TopicViewState extends State<TopicView> {
     var offset = 0.0;
     if (nextIndex < _laidOutDayStarts.length) {
       final nextTop = topOf(_laidOutDayStarts[nextIndex]);
-      if (nextTop < _TopicDaySeparator.height) {
-        offset = nextTop - _TopicDaySeparator.height;
+      if (nextTop < StreamDaySeparator.height) {
+        offset = nextTop - StreamDaySeparator.height;
       }
     }
     _setFloatingDay(current.day, offset);
@@ -468,6 +472,43 @@ class _TopicViewState extends State<TopicView> {
   List<_TopicDayStart> _dayStartsCache = const [];
   List<int>? _dayStartsFor;
   String? _dayStartsSite;
+
+  List<_TopicTimeGap> _timeGaps(
+    ShellController controller,
+    String siteUrl,
+    List<int> postIds,
+    int showAfterDays,
+  ) {
+    if (_timeGapsSite == siteUrl &&
+        _timeGapsShowAfterDays == showAfterDays &&
+        listEquals(_timeGapsFor, postIds)) {
+      return _timeGapsCache;
+    }
+
+    final gaps = <_TopicTimeGap>[];
+    Post? previous;
+    for (var index = 0; index < postIds.length; index++) {
+      final post = controller.store.read<Post>(siteUrl, postIds[index]);
+      final daysSince = timeGapDaysBetween(
+        previous?.createdAt,
+        post?.createdAt,
+      );
+      if (daysSince != null && daysSince > showAfterDays) {
+        gaps.add((daysSince: daysSince, postIndex: index));
+      }
+      previous = post;
+    }
+    _timeGapsCache = gaps;
+    _timeGapsFor = postIds;
+    _timeGapsSite = siteUrl;
+    _timeGapsShowAfterDays = showAfterDays;
+    return gaps;
+  }
+
+  List<_TopicTimeGap> _timeGapsCache = const [];
+  List<int>? _timeGapsFor;
+  String? _timeGapsSite;
+  int? _timeGapsShowAfterDays;
 
   /// Loads enough of an around-post window to know where [day] really began,
   /// then places that day's first post at the top. This is the topic analogue
@@ -915,6 +956,15 @@ class _TopicViewState extends State<TopicView> {
     final dayByPostIndex = {
       for (final start in dayStarts) start.postIndex: start.day,
     };
+    final timeGapByPostIndex = {
+      for (final gap in _timeGaps(
+        controller,
+        siteUrl,
+        postIds,
+        snapshot.showTimeGapDays,
+      ))
+        gap.postIndex: gap.daysSince,
+    };
     _restoreInitialPost(controller, snapshot);
     _restoreViewportAfterPrepend(controller, snapshot, hasHeader: showHeader);
     _scheduleLook();
@@ -1024,9 +1074,17 @@ class _TopicViewState extends State<TopicView> {
           final day = dayByPostIndex[postIndex];
           return _TopicPostItem(
             key: ValueKey(postId),
+            postId: postId,
             day: day,
+            timeGapDays: timeGapByPostIndex[postIndex],
             hideDay: day != null && day == _floatingDay,
             onDayTap: day == null ? null : () => _jumpToDayStart(day),
+            gapBefore: snapshot.topic!.gapsBefore[postId] ?? const [],
+            gapAfter: snapshot.topic!.gapsAfter[postId] ?? const [],
+            expandGapBefore: () =>
+                controller.expandPostGap(anchorPostId: postId, before: true),
+            expandGapAfter: () =>
+                controller.expandPostGap(anchorPostId: postId, before: false),
             child: _StoredPost(
               siteUrl: siteUrl,
               topic: snapshot.topic!,
@@ -1053,7 +1111,7 @@ class _TopicViewState extends State<TopicView> {
                   left: 0,
                   right: 0,
                   top: _floatingDayOffset,
-                  child: _TopicDaySeparator(
+                  child: StreamDaySeparator(
                     key: ValueKey(('topic-floating-day', floatingDay)),
                     day: floatingDay,
                     floating: true,
@@ -1228,6 +1286,7 @@ class _TopicViewSnapshot {
     required this.summary,
     required this.summaryLoading,
     required this.readTimeWordCount,
+    required this.showTimeGapDays,
   });
 
   factory _TopicViewSnapshot.from(ShellController controller) {
@@ -1268,6 +1327,9 @@ class _TopicViewSnapshot {
       summary: controller.currentTopicSummary,
       summaryLoading: controller.currentTopicSummaryLoading,
       readTimeWordCount: controller.currentSiteConfig.readTimeWordCount,
+      showTimeGapDays: siteUrl == null
+          ? SiteConfig.defaultShowTimeGapDays
+          : controller.siteConfigFor(siteUrl).showTimeGapDays,
     );
   }
 
@@ -1286,6 +1348,7 @@ class _TopicViewSnapshot {
   final bool summary;
   final bool summaryLoading;
   final int readTimeWordCount;
+  final int showTimeGapDays;
 
   @override
   bool operator ==(Object other) =>
@@ -1304,7 +1367,8 @@ class _TopicViewSnapshot {
           canAssignLegacyTargets == other.canAssignLegacyTargets &&
           summary == other.summary &&
           summaryLoading == other.summaryLoading &&
-          readTimeWordCount == other.readTimeWordCount;
+          readTimeWordCount == other.readTimeWordCount &&
+          showTimeGapDays == other.showTimeGapDays;
 
   @override
   int get hashCode => Object.hash(
@@ -1322,6 +1386,7 @@ class _TopicViewSnapshot {
     summary,
     summaryLoading,
     readTimeWordCount,
+    showTimeGapDays,
   );
 }
 
@@ -1580,15 +1645,27 @@ class _MoreTopicsTabButton extends StatelessWidget {
 class _TopicPostItem extends StatelessWidget {
   const _TopicPostItem({
     super.key,
+    required this.postId,
     required this.day,
+    required this.timeGapDays,
     required this.hideDay,
     required this.onDayTap,
+    required this.gapBefore,
+    required this.gapAfter,
+    required this.expandGapBefore,
+    required this.expandGapAfter,
     required this.child,
   });
 
+  final int postId;
   final DateTime? day;
+  final int? timeGapDays;
   final bool hideDay;
   final VoidCallback? onDayTap;
+  final List<int> gapBefore;
+  final List<int> gapAfter;
+  final Future<void> Function() expandGapBefore;
+  final Future<void> Function() expandGapAfter;
   final Widget child;
 
   @override
@@ -1597,115 +1674,99 @@ class _TopicPostItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (gapBefore.isNotEmpty)
+          _PostGap(
+            key: const ValueKey('post-gap-before'),
+            count: gapBefore.length,
+            onExpand: expandGapBefore,
+          ),
         if (day != null)
           IgnorePointer(
             ignoring: hideDay,
             child: Opacity(
               opacity: hideDay ? 0 : 1,
-              child: _TopicDaySeparator(
+              child: StreamDaySeparator(
                 key: ValueKey(('topic-day', day)),
                 day: day,
                 onTap: onDayTap!,
               ),
             ),
           ),
+        if (timeGapDays case final daysSince?)
+          TimeGapNotice(
+            key: ValueKey(('topic-time-gap', postId)),
+            daysSince: daysSince,
+          ),
         child,
+        if (gapAfter.isNotEmpty)
+          _PostGap(
+            key: const ValueKey('post-gap-after'),
+            count: gapAfter.length,
+            onExpand: expandGapAfter,
+          ),
       ],
     );
   }
 }
 
-/// The date line in the stream and the bordered pill it becomes once pinned.
-class _TopicDaySeparator extends StatelessWidget {
-  const _TopicDaySeparator({
-    super.key,
-    required this.day,
-    required this.onTap,
-    this.floating = false,
-  });
+/// Core's explicit affordance for posts omitted from the ordinary stream.
+///
+/// The server supplies both the ids and their placement. A gap is therefore
+/// not an authorization guess: if it is here, the reader may ask to reveal it.
+class _PostGap extends StatefulWidget {
+  const _PostGap({super.key, required this.count, required this.onExpand});
 
-  static const double height = 44;
+  final int count;
+  final Future<void> Function() onExpand;
 
-  final DateTime day;
-  final VoidCallback onTap;
-  final bool floating;
+  @override
+  State<_PostGap> createState() => _PostGapState();
+}
 
-  String get _label => dayLabel(day, now: DateTime.now());
+class _PostGapState extends State<_PostGap> {
+  bool _loading = false;
+
+  String get _label => widget.count == 1
+      ? 'View 1 hidden reply'
+      : 'View ${widget.count} hidden replies';
+
+  Future<void> _expand() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      await widget.onExpand();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final label = _label;
-    // Core's pinned date uses primary-50 against a primary-200 border. The
-    // matching Material roles preserve that contrast for each site palette.
-    final background = floating
-        ? theme.colorScheme.surfaceContainerLow
-        : theme.shell.content;
+    final label = _loading ? 'Loading…' : _label;
+    final left = MediaQuery.sizeOf(context).width < 600 ? 16.0 : 58.0;
 
-    return SizedBox(
-      height: height,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (!floating)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Divider(height: 1, color: theme.shell.divider),
-            ),
-          Semantics(
-            button: true,
-            label: 'Go to start of $label',
-            onTap: onTap,
-            excludeSemantics: true,
-            child: Tooltip(
-              message: 'Go to start of $label',
-              excludeFromSemantics: true,
-              child: Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(4),
-                  onTap: onTap,
-                  child: SizedBox(
-                    height: height,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: background,
-                          border: Border.all(
-                            color: floating
-                                ? theme.colorScheme.surfaceContainerHigh
-                                : Colors.transparent,
-                          ),
-                          borderRadius: BorderRadius.circular(4),
-                          boxShadow: floating
-                              ? const [
-                                  BoxShadow(
-                                    color: Color(0x1F000000),
-                                    blurRadius: 3,
-                                    offset: Offset(0, 1),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: Text(
-                          label,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+    return Semantics(
+      button: true,
+      label: label,
+      onTap: _loading ? null : _expand,
+      child: ExcludeSemantics(
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: _loading ? null : _expand,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(left, 8, 16, 12),
+              child: Text(
+                label.toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

@@ -3847,13 +3847,19 @@ void main() {
 
     TopicPayload detail({
       List<int> stream = const [1],
+      Map<int, List<int>> gapsBefore = const {},
+      Map<int, List<int>> gapsAfter = const {},
       TopicRecommendations? recommendations,
+      TopicNotificationLevel notificationLevel = TopicNotificationLevel.normal,
     }) => topicPayload(
       id: 7,
       title: 'A real topic',
       posts: [post(1, 1, 'First post body')],
       stream: stream,
+      gapsBefore: gapsBefore,
+      gapsAfter: gapsAfter,
       recommendations: recommendations,
+      notificationLevel: notificationLevel,
     );
 
     testWidgets('tapping a row replaces the list with the topic', (
@@ -4055,6 +4061,139 @@ void main() {
       expect(find.text('A concise AI summary.'), findsOneWidget);
       expect(find.text('Generated with test-model'), findsOneWidget);
       expect(api.pluginReadPaths, ['/discourse-ai/summarization/t/7.json']);
+    });
+
+    testWidgets('a signed-in topic exposes all web notification levels', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(username: 'reader', name: 'Reader');
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(notificationLevel: TopicNotificationLevel.tracking)},
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: reader),
+        ],
+        api: api,
+        authenticator: authenticator,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+
+      final trigger = find.byTooltip('Topic notifications');
+      expect(trigger, findsOneWidget);
+      DIconData triggerIcon() => tester
+          .widget<DIcon>(
+            find.descendant(of: trigger, matching: find.byType(DIcon)),
+          )
+          .icon;
+      expect(triggerIcon(), DIcons.bell);
+
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Topic notifications'), findsOneWidget);
+      expect(find.text('Watching'), findsOneWidget);
+      expect(find.text('Every reply and unread count'), findsOneWidget);
+      expect(find.text('Tracking'), findsOneWidget);
+      expect(find.text('Mentions, replies, and unread count'), findsOneWidget);
+      expect(find.text('Normal'), findsOneWidget);
+      expect(find.text('Mentions and replies only'), findsOneWidget);
+      expect(find.text('Muted'), findsOneWidget);
+      expect(find.text('No notifications; hidden from Latest'), findsOneWidget);
+      final muted = find.byKey(
+        const ValueKey(('choice-menu-option', TopicNotificationLevel.muted)),
+      );
+      expect(
+        tester
+            .widgetList<DIcon>(
+              find.descendant(of: muted, matching: find.byType(DIcon)),
+            )
+            .map((icon) => icon.icon),
+        contains(DIcons.discourseBellSlash),
+      );
+
+      await tester.tap(muted);
+      await tester.pumpAndSettle();
+
+      expect(api.topicNotificationLevelsUpdated, const [
+        (topicId: 7, notificationLevel: TopicNotificationLevel.muted),
+      ]);
+      expect(
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).currentTopic?.notificationLevel,
+        TopicNotificationLevel.muted,
+      );
+      expect(triggerIcon(), DIcons.discourseBellSlash);
+    });
+
+    testWidgets('a rejected notification change restores the confirmed level', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(username: 'reader', name: 'Reader');
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(notificationLevel: TopicNotificationLevel.tracking)},
+        writeFailure: const WriteException(WriteFailure.forbidden),
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: reader),
+        ],
+        api: api,
+        authenticator: authenticator,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Topic notifications'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(
+          const ValueKey(('choice-menu-option', TopicNotificationLevel.muted)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).currentTopic?.notificationLevel,
+        TopicNotificationLevel.tracking,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('signed-out topics do not expose notification controls', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Topic notifications'), findsNothing);
     });
 
     testWidgets('shows a faithful skeleton while the topic is loading', (
@@ -4291,6 +4430,55 @@ void main() {
         [2, 3],
       ]);
       expect(renderedText('Second post body'), findsOneWidget);
+    });
+
+    testWidgets('shows and expands server-provided hidden replies', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [
+              post(1, 1, 'First post body'),
+              post(4, 4, 'Fourth post body'),
+            ],
+            stream: const [1, 4],
+            gapsBefore: const {
+              4: [2, 3],
+            },
+            postsCount: 4,
+          ),
+        },
+        postsById: {
+          2: post(2, 2, 'Hidden second post'),
+          3: post(3, 3, 'Hidden third post'),
+        },
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('VIEW 2 HIDDEN REPLIES'), findsOneWidget);
+      expect(renderedText('Hidden second post'), findsNothing);
+      expect(api.postFetches, isEmpty);
+
+      await tester.tap(find.text('VIEW 2 HIDDEN REPLIES'));
+      await tester.pumpAndSettle();
+
+      expect(api.postFetches, [
+        [2, 3],
+      ]);
+      expect(find.text('VIEW 2 HIDDEN REPLIES'), findsNothing);
+      expect(renderedText('Hidden second post'), findsOneWidget);
+      expect(renderedText('Hidden third post'), findsOneWidget);
+      expect(
+        tester.getTopLeft(renderedText('Hidden second post')).dy,
+        lessThan(tester.getTopLeft(renderedText('Fourth post body')).dy),
+      );
     });
 
     testWidgets('shows suggested and discourse-ai related tabs in a panel', (

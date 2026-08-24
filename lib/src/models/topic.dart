@@ -96,6 +96,26 @@ class TopicMapLink {
   int get hashCode => Object.hash(url, title, rootDomain, clicks, attachment);
 }
 
+/// How closely the current account follows one topic.
+enum TopicNotificationLevel {
+  muted(0),
+  normal(1),
+  tracking(2),
+  watching(3);
+
+  const TopicNotificationLevel(this.value);
+
+  final int value;
+
+  static TopicNotificationLevel fromJson(Object? value) =>
+      switch (jsonIntOrNull(value)) {
+        0 => muted,
+        2 => tracking,
+        3 => watching,
+        _ => normal,
+      };
+}
+
 /// A row in a topic list.
 ///
 /// Unread state rides along with the list rather than needing its own request:

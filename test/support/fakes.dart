@@ -658,6 +658,8 @@ class FakeDiscourseApi implements DiscourseApi {
   final List<int?> topicPostNumbersOpened = [];
   final List<int> topicSummariesOpened = [];
   final List<({int topicId, int postNumber})> topicReadsRecorded = [];
+  final List<({int topicId, TopicNotificationLevel notificationLevel})>
+  topicNotificationLevelsUpdated = [];
   final List<List<int>> postFetches = [];
 
   final List<String> feedPaths = [];
@@ -1183,6 +1185,22 @@ class FakeDiscourseApi implements DiscourseApi {
     String? clientId,
   }) async {
     topicReadsRecorded.add((topicId: topicId, postNumber: postNumber));
+  }
+
+  @override
+  Future<void> updateTopicNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required TopicNotificationLevel notificationLevel,
+    String? clientId,
+  }) async {
+    topicNotificationLevelsUpdated.add((
+      topicId: topicId,
+      notificationLevel: notificationLevel,
+    ));
+    final failure = writeFailure;
+    if (failure != null) throw failure;
   }
 
   @override
@@ -2467,6 +2485,8 @@ TopicPayload topicPayload({
   String title = '',
   List<Post> posts = const [],
   List<int>? stream,
+  Map<int, List<int>> gapsBefore = const {},
+  Map<int, List<int>> gapsAfter = const {},
   int? postsCount,
   int replyCount = 0,
   int views = 0,
@@ -2477,6 +2497,7 @@ TopicPayload topicPayload({
   bool isNestedView = false,
   int? categoryId,
   bool canCreatePost = false,
+  TopicNotificationLevel notificationLevel = TopicNotificationLevel.normal,
   ComposerDraft? draft,
   int draftSequence = 0,
   TopicRecommendations? recommendations,
@@ -2488,6 +2509,8 @@ TopicPayload topicPayload({
     id: id,
     title: title,
     stream: stream ?? [for (final post in posts) post.id],
+    gapsBefore: gapsBefore,
+    gapsAfter: gapsAfter,
     postsCount: postsCount ?? posts.length,
     replyCount: replyCount,
     views: views,
@@ -2498,6 +2521,7 @@ TopicPayload topicPayload({
     isNestedView: isNestedView,
     categoryId: categoryId,
     canCreatePost: canCreatePost,
+    notificationLevel: notificationLevel,
     draft: draft,
     draftSequence: draftSequence,
     recommendations: recommendations,
