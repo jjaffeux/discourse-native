@@ -1,3 +1,5 @@
+import '../../foundation/loopback_host.dart';
+
 /// A LiveKit endpoint that is unsafe to receive a room access token.
 ///
 /// Deliberately does not retain the rejected value: URLs containing userinfo
@@ -29,27 +31,9 @@ Uri requireSafeLiveKitEndpoint(String value) {
     return endpoint;
   }
   if ((endpoint.scheme == 'ws' || endpoint.scheme == 'http') &&
-      _isLoopbackHost(endpoint.host)) {
+      isLoopbackHost(endpoint.host)) {
     return endpoint;
   }
 
   throw const UnsafeLiveKitEndpointException();
-}
-
-bool _isLoopbackHost(String host) {
-  var normalized = host.toLowerCase();
-  if (normalized.endsWith('.')) {
-    normalized = normalized.substring(0, normalized.length - 1);
-  }
-
-  if (normalized == 'localhost' ||
-      normalized.endsWith('.localhost') ||
-      normalized == '::1') {
-    return true;
-  }
-
-  final octets = normalized.split('.').map(int.tryParse).toList();
-  return octets.length == 4 &&
-      octets.every((octet) => octet != null && octet >= 0 && octet <= 255) &&
-      octets.first == 127;
 }

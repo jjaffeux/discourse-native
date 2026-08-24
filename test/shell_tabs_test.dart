@@ -116,29 +116,29 @@ void main() {
     final firstForumInitialTabId = controller.activeTabId;
     controller.createTab();
     final firstForumLastTabId = controller.activeTabId;
-    controller.selectDestination(_destination(forums[0], 'drafts'));
+    controller.selectDestination(_destination(forums[0], 'filter'));
 
     controller.selectInstance(1);
     controller.createTab();
     controller.createTab();
     final secondForumLastTabId = controller.activeTabId;
-    controller.selectDestination(_destination(forums[1], 'drafts'));
+    controller.selectDestination(_destination(forums[1], 'filter'));
 
     expect(controller.tabsForCurrentForum, hasLength(3));
-    expect(controller.currentContent?.id, 'drafts');
+    expect(controller.currentContent?.id, 'filter');
 
     controller.selectInstance(0);
 
     expect(controller.tabsForCurrentForum, hasLength(2));
     expect(controller.activeTabId, firstForumLastTabId);
     expect(controller.activeTabId, isNot(firstForumInitialTabId));
-    expect(controller.currentContent?.id, 'drafts');
+    expect(controller.currentContent?.id, 'filter');
 
     controller.selectInstance(1);
 
     expect(controller.tabsForCurrentForum, hasLength(3));
     expect(controller.activeTabId, secondForumLastTabId);
-    expect(controller.currentContent?.id, 'drafts');
+    expect(controller.currentContent?.id, 'filter');
   });
 
   test('closing the active tab chooses the nearest surviving neighbour', () {
@@ -177,9 +177,9 @@ void main() {
 
     controller.createTab();
     final secondTabId = controller.activeTabId!;
-    controller.selectDestination(_destination(forums[0], 'drafts'));
+    controller.selectDestination(_destination(forums[0], 'filter'));
 
-    expect(_routeIds(controller), ['drafts']);
+    expect(_routeIds(controller), ['filter']);
 
     controller.selectTab(firstTabId);
 
@@ -187,7 +187,7 @@ void main() {
 
     controller.selectTab(secondTabId);
 
-    expect(_routeIds(controller), ['drafts']);
+    expect(_routeIds(controller), ['filter']);
   });
 
   test('each tab restores its own feed row', () {
@@ -310,7 +310,7 @@ void main() {
     controller.saveTopicScrollPost(404, 16);
     controller.createTab();
     final activeTabId = controller.activeTabId!;
-    controller.selectDestination(_destination(forums[0], 'drafts'));
+    controller.selectDestination(_destination(forums[0], 'filter'));
     await Future<void>.delayed(Duration.zero);
 
     controller = ShellController(
@@ -329,7 +329,7 @@ void main() {
       activeTabId,
     ]);
     expect(controller.activeTabId, activeTabId);
-    expect(_routeIds(controller), ['drafts']);
+    expect(_routeIds(controller), ['filter']);
 
     controller.selectTab(firstTabId);
     expect(_routeIds(controller), ['latest', 'topic-404']);
@@ -396,8 +396,8 @@ void main() {
     final latest = ContentRoute.fromDestination(
       _destination(forums.first, 'latest'),
     );
-    final drafts = ContentRoute.fromDestination(
-      _destination(forums.first, 'drafts'),
+    final filter = ContentRoute.fromDestination(
+      _destination(forums.first, 'filter'),
     );
     final inactive = ForumTab(
       id: 'inactive-tab',
@@ -407,7 +407,7 @@ void main() {
     final active = ForumTab(
       id: 'active-tab',
       rootDestinationId: 'latest',
-      contentStack: [latest, drafts],
+      contentStack: [latest, filter],
       anchors: const {'latest': ForumTabAnchor(kind: 'feed', itemId: 27)},
     );
     final disabledTabs = FakeForumTabStore([

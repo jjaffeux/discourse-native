@@ -145,21 +145,30 @@ class DiscourseUserData {
         aside;
 
     final avatar = descendantWhere(article, (e) => e.localName == 'img');
-    final profileLink = descendantWhere(
-      article,
-      (e) => e.localName == 'h3',
-    )?.children.where((e) => e.localName == 'a').firstOrNull;
+    final profileHeading = descendantWhere(article, (e) => e.localName == 'h3');
+    final profileLink = profileHeading == null
+        ? null
+        : childWhere(profileHeading, (e) => e.localName == 'a');
 
     // The template marks the website link with a globe icon; the location
     // cell has no anchor of its own, so its svg is the way in.
-    final websiteLink = descendantWhere(
+    final websiteIcon = descendantWhere(
       article,
       (e) => e.classes.contains('d-icon-earth-americas'),
-    )?.parent?.children.where((e) => e.localName == 'a').firstOrNull;
+    );
+    final websiteRow = websiteIcon?.parent;
+    final websiteLink = websiteRow == null
+        ? null
+        : childWhere(websiteRow, (e) => e.localName == 'a');
 
     final locationEl = descendantWhere(
       article,
       (e) => e.classes.contains('location'),
+    );
+
+    final bioElement = childWhere(
+      article,
+      (e) => e.localName == 'p' && oneLineText(e) != null,
     );
 
     return DiscourseUserData(
@@ -172,11 +181,7 @@ class DiscourseUserData {
       location: locationEl?.text.trim().nullIfEmpty,
       websiteName: websiteLink?.text.trim().nullIfEmpty,
       websiteUrl: websiteLink?.attributes['href'],
-      bio: article.children
-          .where((e) => e.localName == 'p')
-          .map(oneLineText)
-          .nonNulls
-          .firstOrNull,
+      bio: bioElement == null ? null : oneLineText(bioElement),
       joined: descendantWhere(
         article,
         (e) => e.classes.contains('user-onebox--joined'),

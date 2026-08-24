@@ -3,6 +3,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
 void main() {
+  test('finds direct child elements without crossing a nested boundary', () {
+    final root = html
+        .parseFragment(
+          '<div>text<a id="1"></a><span><a id="2"></a></span><a id="3"></a></div>',
+        )
+        .children
+        .single;
+
+    expect(childElements(root).map((e) => e.localName), ['a', 'span', 'a']);
+    expect(childWhere(root, (e) => e.localName == 'a')?.id, '1');
+    expect(childrenWhere(root, (e) => e.localName == 'a').map((e) => e.id), [
+      '1',
+      '3',
+    ]);
+    expect(childWhere(root, (e) => e.localName == 'nothing'), isNull);
+    expect(childrenWhere(root, (e) => e.localName == 'nothing'), isEmpty);
+  });
+
   test('finds descendants in document order, skipping non-elements', () {
     final root = html
         .parseFragment(
@@ -59,6 +77,34 @@ void main() {
       large,
       lessThan(small * 25),
       reason: 'eight times the rows took ${large / small} times as long',
+    );
+  });
+
+  test('a direct-child scan costs its width, not its square', () {
+    String siblings(int count) =>
+        '<article>${List.generate(count, (index) => '<span>$index</span>').join()}</article>';
+
+    int cost(int count) {
+      final root = html.parseFragment(siblings(count)).children.single;
+      var best = -1;
+      for (var run = 0; run < 3; run += 1) {
+        final elapsed = Stopwatch()..start();
+        childrenWhere(root, (element) => element.localName == 'nothing');
+        elapsed.stop();
+        if (best < 0 || elapsed.elapsedMicroseconds < best) {
+          best = elapsed.elapsedMicroseconds;
+        }
+      }
+      return best;
+    }
+
+    final small = cost(400);
+    final large = cost(3200);
+
+    expect(
+      large,
+      lessThan(small * 25),
+      reason: 'eight times the siblings took ${large / small} times as long',
     );
   });
 }

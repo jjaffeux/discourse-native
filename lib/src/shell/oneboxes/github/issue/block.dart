@@ -170,15 +170,13 @@ class GithubIssueData {
     final article =
         descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
         aside;
-    final row = article.children
-        .where((e) => e.classes.contains('github-row'))
-        .firstOrNull;
+    final row = childWhere(article, (e) => e.classes.contains('github-row'));
     final scope = row ?? article;
 
-    final titleLink = descendantWhere(
-      scope,
-      (e) => e.localName == 'h4',
-    )?.children.where((e) => e.localName == 'a').firstOrNull;
+    final titleHeading = descendantWhere(scope, (e) => e.localName == 'h4');
+    final titleLink = titleHeading == null
+        ? null
+        : childWhere(titleHeading, (e) => e.localName == 'a');
 
     final info = descendantWhere(
       scope,
@@ -200,11 +198,10 @@ class GithubIssueData {
     );
     final labels = labelsEl == null
         ? <String>[]
-        : labelsEl.children
-              .where((e) => e.localName == 'span')
-              .map((e) => e.text.trim())
-              .where((text) => text.isNotEmpty)
-              .toList();
+        : childrenWhere(
+            labelsEl,
+            (e) => e.localName == 'span',
+          ).map((e) => e.text.trim()).where((text) => text.isNotEmpty).toList();
 
     return GithubIssueData(
       title: (titleLink?.text ?? scope.text).trim(),

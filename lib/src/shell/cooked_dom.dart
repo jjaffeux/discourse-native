@@ -10,6 +10,37 @@ library;
 
 import 'package:html/dom.dart' as dom;
 
+/// [parent]'s direct child elements, in document order.
+///
+/// This is the direct-child counterpart to [descendantsWhere]. It deliberately
+/// walks `nodes` for the same reason: `Element.children` repeatedly filters the
+/// full node list while an ordinary iterable is consumed.
+Iterable<dom.Element> childElements(dom.Element parent) sync* {
+  for (final node in parent.nodes) {
+    if (node is dom.Element) yield node;
+  }
+}
+
+/// The first direct child of [parent] matching [test], in document order.
+dom.Element? childWhere(dom.Element parent, bool Function(dom.Element) test) {
+  for (final node in parent.nodes) {
+    if (node is dom.Element && test(node)) return node;
+  }
+  return null;
+}
+
+/// Every direct child of [parent] matching [test], in document order.
+List<dom.Element> childrenWhere(
+  dom.Element parent,
+  bool Function(dom.Element) test,
+) {
+  final found = <dom.Element>[];
+  for (final node in parent.nodes) {
+    if (node is dom.Element && test(node)) found.add(node);
+  }
+  return found;
+}
+
 /// Pushes [parent]'s child elements so the stack pops them in document order.
 ///
 /// Reads `nodes` rather than `children`: `children` is a `FilteredElementList`

@@ -194,26 +194,28 @@ class DiscourseTopicData {
       categories.add(DiscourseTopicCategory(name: name, color: hexColorOf(bg)));
     }
 
-    final tags =
-        descendantWhere(article, (e) => e.classes.contains('discourse-tags'))
-            ?.children
-            .where((e) => e.classes.contains('discourse-tag'))
-            .map((e) => e.text.trim())
-            .where((tag) => tag.isNotEmpty)
-            .toList() ??
-        const [];
+    final tagList = descendantWhere(
+      article,
+      (e) => e.classes.contains('discourse-tags'),
+    );
+    final tags = tagList == null
+        ? <String>[]
+        : childrenWhere(
+            tagList,
+            (e) => e.classes.contains('discourse-tag'),
+          ).map((e) => e.text.trim()).where((tag) => tag.isNotEmpty).toList();
 
     // The first bare paragraph is the excerpt; labels further down belong to
     // the generic metadata row and are left to the envelope's fallback.
-    final description = article.children
-        .where(
-          (e) =>
-              e.localName == 'p' &&
-              descendantWhere(e, (c) => c.classes.contains('label1')) == null,
-        )
-        .map(oneLineText)
-        .nonNulls
-        .firstOrNull;
+    final descriptionElement = childWhere(
+      article,
+      (e) =>
+          e.localName == 'p' &&
+          descendantWhere(e, (c) => c.classes.contains('label1')) == null,
+    );
+    final description = descriptionElement == null
+        ? null
+        : oneLineText(descriptionElement);
 
     return DiscourseTopicData(
       title: envelope.title ?? '',

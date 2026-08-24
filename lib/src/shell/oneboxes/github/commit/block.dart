@@ -132,15 +132,13 @@ class GithubCommitData {
     final article =
         descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
         aside;
-    final row = article.children
-        .where((e) => e.classes.contains('github-row'))
-        .firstOrNull;
+    final row = childWhere(article, (e) => e.classes.contains('github-row'));
     final scope = row ?? article;
 
-    final titleLink = descendantWhere(
-      scope,
-      (e) => e.localName == 'h4',
-    )?.children.where((e) => e.localName == 'a').firstOrNull;
+    final titleHeading = descendantWhere(scope, (e) => e.localName == 'h4');
+    final titleLink = titleHeading == null
+        ? null
+        : childWhere(titleHeading, (e) => e.localName == 'a');
 
     final info = descendantWhere(
       scope,
