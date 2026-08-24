@@ -557,12 +557,11 @@ packages:
   message_bus_client:
     dependency: "direct main"
     description:
-      path: "."
-      ref: e58531ff04c855e25da27b266cf83c85cc7db7bf
-      resolved-ref: e58531ff04c855e25da27b266cf83c85cc7db7bf
-      url: "https://github.com/jjaffeux/dart-message-bus.git"
-    source: git
-    version: "0.1.0"
+      name: message_bus_client
+      sha256: "72d7353438b281a1f962ef124e6bb5c4cca4dad14e49cd371e0180d0cebc8c95"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
   meta:
     dependency: transitive
     description:

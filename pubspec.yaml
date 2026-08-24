@@ -60,13 +60,9 @@ dependencies:
   super_sliver_list: ^0.4.1
   # message_bus is the transport every live update on a Discourse rides on, so
   # anything that has to change without being asked — the incoming-topics
-  # banner today, presence and post streams later — goes through this. Pure
-  # Dart, and a git dependency only because it is not on pub.dev yet;
-  # pubspec.lock pins the commit. See lib/src/data/site_tracker.dart.
-  message_bus_client:
-    git:
-      url: https://github.com/jjaffeux/dart-message-bus.git
-      ref: e58531ff04c855e25da27b266cf83c85cc7db7bf
+  # banner today, presence and post streams later — goes through this. See
+  # lib/src/data/site_tracker.dart.
+  message_bus_client: ^0.2.0
   # Persistent drafts, private storage, cached media and diagnostics all live
   # in platform-appropriate application data directories.
   path_provider: ^2.1.6
