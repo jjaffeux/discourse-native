@@ -11123,6 +11123,47 @@ void main() {
         expect(find.bySemanticsLabel('3 clap reactions'), findsOneWidget);
       });
 
+      testWidgets('visibly highlights a reaction under the mouse', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([
+              msg(1, reactions: const [ChatReaction(emoji: 'clap', count: 2)]),
+            ]),
+          },
+        );
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        final reaction = find.byKey(const ValueKey('chat-reaction-clap'));
+        BoxDecoration decoration() =>
+            tester.widget<Container>(reaction).decoration! as BoxDecoration;
+
+        final theme = Theme.of(tester.element(reaction));
+        final rect = tester.getRect(reaction);
+        final hoverFill = Color.alphaBlend(
+          theme.colorScheme.onSurface.withValues(alpha: 0.08),
+          theme.shell.floating,
+        );
+        expect(decoration().color, theme.shell.floating);
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(reaction));
+        await tester.pump();
+
+        expect(decoration().color, hoverFill);
+        expect(tester.getRect(reaction), rect);
+
+        await mouse.moveTo(Offset.zero);
+        await tester.pump();
+        expect(decoration().color, theme.shell.floating);
+      });
+
       testWidgets('an existing message reaction offers the full emoji picker', (
         tester,
       ) async {
