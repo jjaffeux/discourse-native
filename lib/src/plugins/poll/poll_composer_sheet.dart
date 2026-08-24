@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../shell/adaptive_dialog_action.dart';
+import '../../shell/select.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
 import 'poll_composer_editor.dart';
@@ -290,7 +291,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
       ComposerPollType.number,
       if (_isRanked) ComposerPollType.rankedChoice,
     ];
-    return DropdownButtonFormField<ComposerPollType>(
+    return DSelectField<ComposerPollType>(
       initialValue: _type,
       decoration: const InputDecoration(labelText: 'Poll type'),
       items: [
@@ -412,7 +413,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
         PollResultMode.staffOnly,
       if (_results == PollResultMode.unknown) PollResultMode.unknown,
     ];
-    return DropdownButtonFormField<PollResultMode>(
+    return DSelectField<PollResultMode>(
       initialValue: _results,
       decoration: const InputDecoration(labelText: 'Show results'),
       items: [

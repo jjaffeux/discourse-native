@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../shell/select.dart';
 import '../../shell/shell_scope.dart';
 import 'resenha_controller.dart';
 import 'resenha_models.dart';
@@ -118,7 +119,7 @@ class _ResenhaRoomEditorDialogState extends State<_ResenhaRoomEditorDialog> {
                 labelText: 'Maximum participants',
               ),
             ),
-            DropdownButtonFormField<ResenhaQualityProfile>(
+            DSelectField<ResenhaQualityProfile>(
               initialValue: _quality,
               decoration: const InputDecoration(
                 labelText: 'Maximum media quality',

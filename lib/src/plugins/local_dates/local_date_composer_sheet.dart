@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../shell/platform.dart';
+import '../../shell/select.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
 import 'local_date.dart';
@@ -258,7 +259,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                 onSelected: (zone) => setState(() => _displayedTimezone = zone),
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<_CalendarMode>(
+              DSelectField<_CalendarMode>(
                 initialValue: _calendar,
                 decoration: const InputDecoration(labelText: 'Relative day'),
                 items: const [

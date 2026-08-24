@@ -374,6 +374,57 @@ void main() {
     expect(dark.onSurfaceVariant, DiscourseColors.dark.primaryHigh);
   });
 
+  test('menus share the floating surface geometry', () {
+    for (final theme in [AppTheme.light, AppTheme.dark]) {
+      final popup = theme.popupMenuTheme;
+      expect(popup.color, theme.shell.floating);
+      expect(popup.elevation, 8);
+      expect(popup.surfaceTintColor, Colors.transparent);
+      expect(popup.position, PopupMenuPosition.under);
+      expect(popup.menuPadding, const EdgeInsets.all(6));
+
+      final menu = theme.menuTheme.style!;
+      expect(menu.backgroundColor!.resolve({}), theme.shell.floating);
+      expect(menu.elevation!.resolve({}), 8);
+      expect(menu.padding!.resolve({}), const EdgeInsets.all(6));
+      expect(
+        theme.menuButtonTheme.style!.overlayColor!.resolve({
+          WidgetState.hovered,
+        }),
+        theme.shell.hover,
+      );
+      expect(
+        theme.dropdownMenuTheme.menuStyle!.backgroundColor!.resolve({}),
+        theme.shell.floating,
+      );
+    }
+  });
+
+  testWidgets('compact menu motion respects reduced motion', (tester) async {
+    AnimationStyle? style;
+    Widget app() => MaterialApp(
+      theme: AppTheme.light,
+      home: Builder(
+        builder: (context) {
+          style = discoursePopupMenuAnimationStyle(context);
+          return const SizedBox();
+        },
+      ),
+    );
+
+    await tester.pumpWidget(app());
+    expect(style!.duration, discourseMenuOpenDuration);
+    expect(style!.reverseDuration, discourseMenuCloseDuration);
+
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(
+      tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+    );
+    await tester.pumpWidget(app());
+    expect(style, AnimationStyle.noAnimation);
+  });
+
   testWidgets('MaterialApp exposes the mapped Cupertino theme', (tester) async {
     late CupertinoThemeData cupertino;
     await tester.pumpWidget(

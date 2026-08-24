@@ -867,6 +867,7 @@ class _ToneMenu extends StatelessWidget {
       child: PopupMenuButton<EmojiSkinTone>(
         key: const ValueKey('emoji-picker-tone'),
         tooltip: 'Choose skin tone',
+        popUpAnimationStyle: discoursePopupMenuAnimationStyle(context),
         initialValue: controller.tone,
         onSelected: controller.setTone,
         itemBuilder: (context) => [
