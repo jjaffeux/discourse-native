@@ -153,6 +153,17 @@ void main() {
         expect(find.byTooltip('Thread notifications'), findsOneWidget);
         expect(find.byTooltip('Close thread'), findsOneWidget);
         _expectThreadBodyTargets(tester);
+        expect(
+          tester
+              .widgetList<ChatUploadDropRegion>(
+                find.byType(ChatUploadDropRegion),
+              )
+              .map((region) => region.title),
+          containsAll([
+            'Drop images to upload to #$_channelTitle',
+            'Drop images to upload to this thread',
+          ]),
+        );
 
         final divider = find.bySemanticsLabel('Thread pane width');
         expect(divider, findsOneWidget);
@@ -449,10 +460,18 @@ void _expectThreadBodyTargets(WidgetTester tester) {
   );
   expect(editorFinder, findsOneWidget);
   final editor = tester.widget<ComposerEditor>(editorFinder);
+  expect(editor.enableDropTarget, isFalse);
   expect(editor.composer.target.siteUrl, _siteUrl);
   expect(editor.composer.target.chatChannelId, _channelId);
   expect(editor.composer.target.chatThreadId, _threadId);
   expect(editor.composer.target.draftKey, 'chat_9_thread_3');
+  final dropRegion = tester.widget<ChatUploadDropRegion>(
+    find.descendant(
+      of: threadView,
+      matching: find.byType(ChatUploadDropRegion),
+    ),
+  );
+  expect(dropRegion.title, 'Drop images to upload to this thread');
 }
 
 Future<({ShellController shell, _WorkspaceApi api})> _fixture({

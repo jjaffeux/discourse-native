@@ -507,7 +507,8 @@ void main() {
           apiKey: 'secret',
           clientId: 'client',
           channelId: 9,
-          message: 'hello',
+          message: '',
+          uploadIds: const [5, 9],
           threadId: 17,
           stagedId: 'staged-123',
           clientCreatedAt: clientCreatedAt,
@@ -517,7 +518,8 @@ void main() {
         expect(sent.method, 'POST');
         expect(sent.url.path, '/chat/9.json');
         expect(jsonDecode(sent.body), {
-          'message': 'hello',
+          'message': '',
+          'upload_ids': [5, 9],
           'thread_id': 17,
           'staged_id': 'staged-123',
           'client_created_at': '2026-08-11T14:15:16.123Z',

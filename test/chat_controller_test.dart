@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
@@ -1680,6 +1681,36 @@ void main() {
     });
 
     test(
+      'stages and sends an upload-only message with its upload id',
+      () async {
+        const upload = ComposerUploadResult(
+          id: 73,
+          originalFilename: 'photo.png',
+          shortUrl: 'upload://photo',
+          url: 'https://meta.discourse.org/uploads/photo.png',
+          width: 640,
+          height: 480,
+        );
+        final subject = build(currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+
+        final sending = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('', uploads: const [upload]),
+        )!;
+
+        final local = subject.store.read<ChatMessage>(site, sending.localId)!;
+        expect(local.optimisticRaw, isEmpty);
+        expect(local.uploads.single.originalFilename, 'photo.png');
+        expect(local.uploads.single.url, upload.url);
+        expect(await sending.settled, ChatSendResult.sent);
+        expect(subject.api.chatMessagesSent.single.message, isEmpty);
+        expect(subject.api.chatMessagesSent.single.uploadIds, [73]);
+      },
+    );
+
+    test(
       'preserves source, correlates, serializes, and performs no message GET',
       () async {
         final gate = Completer<void>();
@@ -1703,16 +1734,15 @@ void main() {
         )!;
         await Future<void>.delayed(Duration.zero);
 
-        expect(subject.api.chatMessagesSent, [
-          (
-            siteUrl: site,
-            channelId: 9,
-            message: '  hello chat  ',
-            threadId: null,
-            stagedId: 'native-${now.microsecondsSinceEpoch}-0',
-            clientCreatedAt: now,
-          ),
-        ]);
+        expect(subject.api.chatMessagesSent, hasLength(1));
+        final sent = subject.api.chatMessagesSent.single;
+        expect(sent.siteUrl, site);
+        expect(sent.channelId, 9);
+        expect(sent.message, '  hello chat  ');
+        expect(sent.uploadIds, isEmpty);
+        expect(sent.threadId, isNull);
+        expect(sent.stagedId, 'native-${now.microsecondsSinceEpoch}-0');
+        expect(sent.clientCreatedAt, now);
         expect(subject.api.chatMessagesRequested, isEmpty);
         expect(subject.chat.stream(site, 9).messageIds, isEmpty);
         expect(subject.chat.stream(site, 9).localMessageIds, [-1, -2]);

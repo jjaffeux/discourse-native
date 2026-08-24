@@ -3584,13 +3584,15 @@ class ShellController extends FrameSafeNotifier {
           quoteContentsFor(target, block) ?? block.contents,
       pollMaximumOptions: config.pollMaximumOptions,
       localDateAccountTimezone: currentUserFor(target.siteUrl)?.timezone,
-      imageUploader: (file, {required onProgress, required abortTrigger}) =>
-          _uploadComposerImage(
-            target,
-            file,
-            onProgress: onProgress,
-            abortTrigger: abortTrigger,
-          ),
+      imageUploader: target.isChat && !config.chatUploadsEnabled
+          ? null
+          : (file, {required onProgress, required abortTrigger}) =>
+                _uploadComposerImage(
+                  target,
+                  file,
+                  onProgress: onProgress,
+                  abortTrigger: abortTrigger,
+                ),
       resolveUploadUrls: (urls) => _resolveComposerUploadUrls(target, urls),
       canUploadImage: (filename) => config.canUploadImage(
         filename,
@@ -5551,6 +5553,9 @@ class ShellController extends FrameSafeNotifier {
       file: file,
       onProgress: onProgress,
       abortTrigger: abortTrigger,
+      uploadType: target.isChat
+          ? ComposerUploadType.chatComposer
+          : ComposerUploadType.composer,
     );
   }
 

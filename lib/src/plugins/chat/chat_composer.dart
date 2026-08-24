@@ -1,14 +1,17 @@
 import 'dart:async';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/emoji_picker_store.dart';
 import '../../shell/composer_autocomplete.dart';
 import '../../shell/composer_controller.dart';
+import '../../shell/composer_drop.dart';
 import '../../shell/composer_panel.dart';
 import '../../shell/emoji_composer.dart';
 import '../../shell/emoji_picker.dart';
+import '../../shell/platform.dart';
 import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
@@ -23,6 +26,126 @@ import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_stream_target.dart';
 
+/// Connects the pane-sized desktop drop target to whichever compact composer
+/// currently owns that channel or thread.
+class ChatUploadDropController {
+  ComposerController? _composer;
+  bool Function()? _canAccept;
+
+  bool get canAccept =>
+      _composer?.imageUploader != null && (_canAccept?.call() ?? false);
+
+  void attach(
+    ComposerController composer, {
+    required bool Function() canAccept,
+  }) {
+    _composer = composer;
+    _canAccept = canAccept;
+  }
+
+  void detach(ComposerController? composer) {
+    if (!identical(_composer, composer)) return;
+    _composer = null;
+    _canAccept = null;
+  }
+
+  void addDroppedItems(Iterable<DropItem> items) {
+    final composer = _composer;
+    if (composer == null || !canAccept) return;
+    if (dropContainsDirectory(items)) {
+      composer.showNotice('Folders cannot be uploaded here.');
+    }
+    final selection = composer.text.selection;
+    final offset = selection.isValid
+        ? selection.extentOffset
+        : composer.text.text.length;
+    composer.addDroppedImages(composerUploadFilesFromDrop(items), offset);
+    composer.focus.requestFocus();
+  }
+}
+
+/// The web app binds chat uploads to the channel/thread root, not its textarea.
+class ChatUploadDropRegion extends StatefulWidget {
+  const ChatUploadDropRegion({
+    super.key,
+    required this.controller,
+    required this.title,
+    required this.child,
+  });
+
+  final ChatUploadDropController controller;
+  final String title;
+  final Widget child;
+
+  @override
+  State<ChatUploadDropRegion> createState() => _ChatUploadDropRegionState();
+}
+
+class _ChatUploadDropRegionState extends State<ChatUploadDropRegion> {
+  bool _dragging = false;
+
+  void _entered(DropEventDetails _) {
+    if (widget.controller.canAccept && !_dragging) {
+      setState(() => _dragging = true);
+    }
+  }
+
+  void _exited(DropEventDetails _) {
+    if (_dragging) setState(() => _dragging = false);
+  }
+
+  void _dropped(DropDoneDetails details) {
+    if (_dragging) setState(() => _dragging = false);
+    widget.controller.addDroppedItems(details.files);
+  }
+
+  @override
+  Widget build(BuildContext context) => DropTarget(
+    key: const ValueKey('chat-upload-drop-target'),
+    enable: !context.isTouch,
+    onDragEntered: _entered,
+    onDragExited: _exited,
+    onDragDone: _dropped,
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        widget.child,
+        if (_dragging)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Semantics(
+                liveRegion: true,
+                label: widget.title,
+                child: DecoratedBox(
+                  key: const ValueKey('chat-upload-drop-overlay'),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer.withValues(alpha: 0.94),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      widget.title,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
 /// A compact composer pinned underneath one chat stream.
 ///
 /// It deliberately owns no scrolling or floating geometry. [ChatChannelView]
@@ -36,11 +159,13 @@ class ChatComposer extends StatefulWidget {
     required this.channelId,
     this.threadId,
     this.focusRequest = 0,
+    this.uploadDropController,
   });
 
   final String siteUrl;
   final int channelId;
   final int? threadId;
+  final ChatUploadDropController? uploadDropController;
 
   /// A monotonically increasing request to focus this composer.
   ///
@@ -89,6 +214,7 @@ class _ChatComposerState extends State<ChatComposer> {
       return;
     }
 
+    widget.uploadDropController?.detach(_composer);
     _composer?.dispose();
     final channel = chat.channel(widget.siteUrl, widget.channelId);
     _shell = shell;
@@ -99,6 +225,12 @@ class _ChatComposerState extends State<ChatComposer> {
       channelId: widget.channelId,
       channelTitle: channel?.title ?? 'Chat',
       threadId: widget.threadId,
+    );
+    widget.uploadDropController?.attach(
+      _composer!,
+      canAccept: () =>
+          mounted &&
+          (_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false),
     );
     if (widget.focusRequest > 0) _requestFocus(sourceKey);
   }
@@ -114,6 +246,20 @@ class _ChatComposerState extends State<ChatComposer> {
   @override
   void didUpdateWidget(ChatComposer oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(
+      oldWidget.uploadDropController,
+      widget.uploadDropController,
+    )) {
+      oldWidget.uploadDropController?.detach(_composer);
+      if (_composer case final composer?) {
+        widget.uploadDropController?.attach(
+          composer,
+          canAccept: () =>
+              mounted &&
+              (_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false),
+        );
+      }
+    }
     final sameTarget =
         oldWidget.siteUrl == widget.siteUrl &&
         oldWidget.channelId == widget.channelId &&
@@ -133,6 +279,7 @@ class _ChatComposerState extends State<ChatComposer> {
 
   @override
   void dispose() {
+    widget.uploadDropController?.detach(_composer);
     _composer?.dispose();
     super.dispose();
   }
@@ -144,14 +291,17 @@ class _ChatComposerState extends State<ChatComposer> {
         chat == null ||
         _pickingGif ||
         _pickingEmoji ||
-        composer.raw.trim().isEmpty ||
+        !composer.canSubmit ||
         composer.hasActiveUploads) {
       return;
     }
     final accepted = chat.sendMessageTo(
       widget.siteUrl,
       _target,
-      OutgoingChatMessage.text(composer.raw),
+      OutgoingChatMessage.text(
+        composer.raw,
+        uploads: composer.completedUploads,
+      ),
     );
     if (accepted == null) return;
 
@@ -395,6 +545,7 @@ class _ChatComposerState extends State<ChatComposer> {
                   padding: const EdgeInsets.fromLTRB(16, 15, 0, 15),
                   child: ComposerEditor(
                     composer: composer,
+                    enableDropTarget: widget.uploadDropController == null,
                     onSuggestionAction:
                         ({
                           required context,
@@ -485,13 +636,13 @@ class _ChatComposerState extends State<ChatComposer> {
             ),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: composer.text,
-              builder: (context, value, _) => Center(
+              builder: (context, _, _) => Center(
                 child: IconButton(
                   key: const ValueKey('chat-composer-send'),
                   onPressed:
                       _pickingGif ||
                           _pickingEmoji ||
-                          value.text.trim().isEmpty ||
+                          !composer.canSubmit ||
                           composer.hasActiveUploads ||
                           !(_chat?.canSendMessageTo(widget.siteUrl, _target) ??
                               false)

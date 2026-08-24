@@ -23,6 +23,7 @@ import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
+import 'composer_drop.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
 import 'composer_quotes.dart';
@@ -1003,6 +1004,7 @@ class ComposerEditor extends StatefulWidget {
     required this.textStyle,
     required this.hintStyle,
     this.autofocus = true,
+    this.enableDropTarget = true,
     this.onSuggestionAction,
   });
 
@@ -1011,6 +1013,7 @@ class ComposerEditor extends StatefulWidget {
   final TextStyle? textStyle;
   final TextStyle? hintStyle;
   final bool autofocus;
+  final bool enableDropTarget;
   final ComposerSuggestionActionHandler? onSuggestionAction;
 
   @override
@@ -1228,62 +1231,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   void _dropImages(DropDoneDetails details) {
     _moveDropCaret(details.globalPosition);
-    if (details.files.any((item) => item is DropItemDirectory)) {
+    if (dropContainsDirectory(details.files)) {
       widget.composer.showNotice('Folders cannot be uploaded here.');
     }
-    final files = details.files
-        .whereType<DropItemFile>()
-        .map(
-          (item) => ComposerUploadFile(
-            name: item.name,
-            length: () => _droppedFileLength(item),
-            openRead: () => _openDroppedFile(item),
-          ),
-        )
-        .toList();
+    final files = composerUploadFilesFromDrop(details.files);
     setState(() => _dragging = false);
     widget.composer.addDroppedImages(
       files,
       widget.composer.text.selection.extentOffset,
     );
-  }
-
-  Stream<List<int>> _openDroppedFile(DropItemFile item) async* {
-    final bookmark = item.extraAppleBookmark;
-    var scoped = false;
-    if (bookmark != null && bookmark.isNotEmpty) {
-      scoped = await DesktopDrop.instance.startAccessingSecurityScopedResource(
-        bookmark: bookmark,
-      );
-    }
-    try {
-      yield* item.openRead();
-    } finally {
-      if (scoped) {
-        await DesktopDrop.instance.stopAccessingSecurityScopedResource(
-          bookmark: bookmark!,
-        );
-      }
-    }
-  }
-
-  Future<int> _droppedFileLength(DropItemFile item) async {
-    final bookmark = item.extraAppleBookmark;
-    var scoped = false;
-    if (bookmark != null && bookmark.isNotEmpty) {
-      scoped = await DesktopDrop.instance.startAccessingSecurityScopedResource(
-        bookmark: bookmark,
-      );
-    }
-    try {
-      return await item.length();
-    } finally {
-      if (scoped) {
-        await DesktopDrop.instance.stopAccessingSecurityScopedResource(
-          bookmark: bookmark!,
-        );
-      }
-    }
   }
 
   bool get _hasPointerDownPill =>
@@ -1831,7 +1787,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
           ),
         ),
         child: DropTarget(
-          enable: !context.isTouch,
+          enable: widget.enableDropTarget && !context.isTouch,
           onDragEntered: (details) {
             _moveDropCaret(details.globalPosition);
             if (!_dragging) setState(() => _dragging = true);
@@ -2279,13 +2235,18 @@ class ComposerUploadQueue extends StatelessWidget {
         itemBuilder: (context, index) {
           final upload = composer.uploads[index];
           final failed = upload.status == ComposerUploadStatus.failed;
+          final completed = upload.status == ComposerUploadStatus.completed;
           return SizedBox(
             height: failed ? 52 : 40,
             child: Row(
               children: [
                 const SizedBox(width: 10),
                 Icon(
-                  failed ? Icons.error_outline : Icons.image_outlined,
+                  failed
+                      ? Icons.error_outline
+                      : completed
+                      ? Icons.check_circle_outline
+                      : Icons.image_outlined,
                   size: 18,
                   color: failed
                       ? theme.colorScheme.error
@@ -2316,6 +2277,13 @@ class ComposerUploadQueue extends StatelessWidget {
                             ),
                           ),
                         )
+                      else if (completed)
+                        Text(
+                          'Ready to send',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        )
                       else
                         Padding(
                           padding: const EdgeInsets.only(top: 3),
@@ -2334,6 +2302,13 @@ class ComposerUploadQueue extends StatelessWidget {
                     tooltip: 'Retry upload',
                     visualDensity: VisualDensity.compact,
                   ),
+                  IconButton(
+                    onPressed: () => composer.removeUpload(upload.id),
+                    icon: const Icon(Icons.close, size: 17),
+                    tooltip: 'Remove upload',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ] else if (completed) ...[
                   IconButton(
                     onPressed: () => composer.removeUpload(upload.id),
                     icon: const Icon(Icons.close, size: 17),
