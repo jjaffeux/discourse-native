@@ -659,6 +659,15 @@ class _NotificationLevelButton extends StatelessWidget {
     ),
   ];
 
+  static DIconData _iconFor(ChatThreadNotificationLevel level) =>
+      switch (level) {
+        ChatThreadNotificationLevel.normal => DIcons.farBell,
+        ChatThreadNotificationLevel.tracking => DIcons.bell,
+        ChatThreadNotificationLevel.watching => DIcons.discourseBellExclamation,
+        // Muted is not offered for threads; treat legacy values as Normal.
+        ChatThreadNotificationLevel.muted => DIcons.farBell,
+      };
+
   @override
   Widget build(BuildContext context) {
     final current =
@@ -677,7 +686,7 @@ class _NotificationLevelButton extends StatelessWidget {
       builder: (context, openMenu) => IconButton(
         tooltip: 'Thread notifications',
         onPressed: openMenu,
-        icon: const DIcon(DIcons.bell, size: 18),
+        icon: DIcon(_iconFor(current), size: 18),
       ),
     );
   }
