@@ -38,7 +38,7 @@ class ReactionsPlugin
   String get name => 'discourse-reactions';
 
   @override
-  Type get record => Reactions;
+  PluginDataKey<Reactions> get record => reactionsDataKey;
 
   @override
   Reactions? readPost(Map<String, dynamic> json, String siteUrl) =>

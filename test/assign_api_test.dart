@@ -15,7 +15,7 @@ final class _RecordingPluginTransport implements PluginApiTransport {
   Future<Map<String, dynamic>> pluginGetJson({
     required String siteUrl,
     required String path,
-    required String apiKey,
+    required String? apiKey,
     String? clientId,
   }) async {
     getPaths.add(path);

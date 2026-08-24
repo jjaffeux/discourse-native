@@ -250,8 +250,10 @@ Future<ShellController> _loadShell(FakeDiscourseApi api) async {
 }
 
 TopicPayload _payload({required bool? canAssignPost}) {
-  PluginData assignmentData(bool? canAssign) =>
-      PluginData.none.withValue<Assignments>(Assignments(canAssign: canAssign));
+  PluginData assignmentData(bool? canAssign) => PluginData.none.withValue(
+    assignmentsDataKey,
+    Assignments(canAssign: canAssign),
+  );
 
   final first = Post(
     id: 11,

@@ -5,9 +5,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
 import '../../data/api_credentials.dart';
-import '../../data/discourse_api.dart';
+import '../../data/discourse_api_contracts.dart'
+    show SiteLookupException, SiteLookupFailure, WriteException, WriteFailure;
 import '../../data/site_tracker.dart';
 import '../../diagnostics/diagnostics_controller.dart';
+import '../chat/chat_api.dart';
 import '../chat/chat_message.dart';
 import 'resenha_api.dart';
 import 'resenha_callkit.dart';

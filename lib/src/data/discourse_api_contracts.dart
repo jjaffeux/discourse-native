@@ -4,13 +4,11 @@ import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/topic.dart';
 import '../models/user_draft.dart';
-import '../plugins/chat/chat_channel.dart';
-import '../plugins/chat/chat_message.dart';
-import '../plugins/chat/chat_reactors.dart';
-import '../plugins/chat/chat_thread.dart';
-import '../plugins/gifs/gif.dart';
-import '../plugins/poll/poll.dart';
-import '../plugins/reactions/post_reactors.dart';
+
+export '../plugins/chat/chat_api.dart';
+export '../plugins/gifs/gifs_api.dart';
+export '../plugins/poll/polls_api.dart';
+export '../plugins/reactions/reactions_api.dart';
 
 enum SiteLookupFailure { notDiscourse, unreachable }
 
@@ -198,132 +196,6 @@ abstract interface class TopicReadsApi {
   });
 }
 
-enum ChatReactionAction { add, remove }
-
-abstract interface class ChatApi {
-  Future<ChatChannels> chatChannels({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<ChatMessagePage> chatMessages({
-    required String siteUrl,
-    required int channelId,
-    int? before,
-    int? after,
-    int? targetMessageId,
-    bool fromLastRead = false,
-    int pageSize = 50,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<void> markChatChannelRead({
-    required String siteUrl,
-    required String apiKey,
-    required int channelId,
-    required int messageId,
-    String? clientId,
-  });
-
-  Future<ChatMessagePage> chatThreadMessages({
-    required String siteUrl,
-    required int channelId,
-    required int threadId,
-    int? before,
-    int? after,
-    int? targetMessageId,
-    int pageSize = 50,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<ChatThread> chatThread({
-    required String siteUrl,
-    required int channelId,
-    required int threadId,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<ChatThread> createChatThread({
-    required String siteUrl,
-    required String apiKey,
-    required int channelId,
-    required int originalMessageId,
-    String? title,
-    String? clientId,
-  });
-
-  Future<ChatThreadMembership> updateChatThreadNotificationLevel({
-    required String siteUrl,
-    required String apiKey,
-    required int channelId,
-    required int threadId,
-    required ChatThreadNotificationLevel notificationLevel,
-    String? clientId,
-  });
-
-  Future<int?> sendChatMessage({
-    required String siteUrl,
-    required String apiKey,
-    required int channelId,
-    required String message,
-    int? threadId,
-    String? stagedId,
-    DateTime? clientCreatedAt,
-    String? clientId,
-  });
-
-  Future<void> setChatMessageReaction({
-    required String siteUrl,
-    required String apiKey,
-    required int channelId,
-    required int messageId,
-    required String emoji,
-    required ChatReactionAction action,
-    String? clientId,
-  });
-
-  Future<ChatMessageReactors> chatMessageReactors({
-    required String siteUrl,
-    required String apiKey,
-    required int channelId,
-    required int messageId,
-    String? reaction,
-    int limit = ChatMessageReactors.maximumPageSize,
-    String? clientId,
-  });
-
-  Future<void> markChatThreadRead({
-    required String siteUrl,
-    required String apiKey,
-    required int channelId,
-    required int threadId,
-    required int messageId,
-    String? clientId,
-  });
-}
-
-/// Authenticated reads behind Discourse core's GIF picker.
-abstract interface class GifsApi {
-  Future<List<GifCategory>> gifCategories({
-    required String siteUrl,
-    required String apiKey,
-    String? clientId,
-  });
-
-  Future<GifSearchPage> searchGifs({
-    required String siteUrl,
-    required String apiKey,
-    required String query,
-    required String fileDetail,
-    String position = '0',
-    String? clientId,
-  });
-}
-
 /// Narrow authenticated JSON transport used by repository-owned plugins.
 ///
 /// Keeping this boundary generic prevents every optional plugin from growing
@@ -333,7 +205,7 @@ abstract interface class PluginApiTransport {
   Future<Map<String, dynamic>> pluginGetJson({
     required String siteUrl,
     required String path,
-    required String apiKey,
+    required String? apiKey,
     String? clientId,
   });
 
@@ -343,39 +215,6 @@ abstract interface class PluginApiTransport {
     required String method,
     required String apiKey,
     required Map<String, Object?> body,
-    String? clientId,
-  });
-}
-
-abstract interface class ReactionsApi {
-  Future<PostReactors> postReactors({
-    required String siteUrl,
-    required int postId,
-    String? reaction,
-    int limit = 30,
-    String? apiKey,
-    String? clientId,
-  });
-}
-
-/// Personalized writes owned by Discourse's bundled Poll plugin.
-abstract interface class PollsApi {
-  /// Casts or changes this reader's vote in one named poll.
-  Future<PollVoteResponse> votePoll({
-    required String siteUrl,
-    required String apiKey,
-    required int postId,
-    required String pollName,
-    required List<String> options,
-    String? clientId,
-  });
-
-  /// Removes this reader's vote from one named poll.
-  Future<PollVoteResponse> removePollVote({
-    required String siteUrl,
-    required String apiKey,
-    required int postId,
-    required String pollName,
     String? clientId,
   });
 }

@@ -12,6 +12,7 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/instance_actions.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
@@ -438,17 +439,21 @@ void main() {
       'discourse_reactions_enabled_reactions': 'heart',
     });
     final site = instance('meta.example').copyWith(config: config);
-    final post = Post.fromJson(const {
-      'id': 1,
-      'post_number': 1,
-      'username': 'author',
-      'cooked': '',
-      'actions_summary': [
-        {'id': Post.likeActionId, 'can_act': true},
-      ],
-      'reactions': <Object>[],
-      'reaction_users_count': 0,
-    }, _siteUrl);
+    final post = Post.fromJson(
+      const {
+        'id': 1,
+        'post_number': 1,
+        'username': 'author',
+        'cooked': '',
+        'actions_summary': [
+          {'id': Post.likeActionId, 'can_act': true},
+        ],
+        'reactions': <Object>[],
+        'reaction_users_count': 0,
+      },
+      _siteUrl,
+      extensions: pluginRegistry,
+    );
     final gate = Completer<void>();
     final firstApi = FakeDiscourseApi(
       reactionGate: gate,
@@ -645,17 +650,21 @@ SiteConfig _reactionConfig() => SiteConfig.fromSettings(const {
   'discourse_reactions_enabled_reactions': 'heart',
 });
 
-Post _reactablePost() => Post.fromJson(const {
-  'id': 1,
-  'post_number': 1,
-  'username': 'author',
-  'cooked': '',
-  'actions_summary': [
-    {'id': Post.likeActionId, 'can_act': true},
-  ],
-  'reactions': <Object>[],
-  'reaction_users_count': 0,
-}, _siteUrl);
+Post _reactablePost() => Post.fromJson(
+  const {
+    'id': 1,
+    'post_number': 1,
+    'username': 'author',
+    'cooked': '',
+    'actions_summary': [
+      {'id': Post.likeActionId, 'can_act': true},
+    ],
+    'reactions': <Object>[],
+    'reaction_users_count': 0,
+  },
+  _siteUrl,
+  extensions: pluginRegistry,
+);
 
 Future<ShellController> _loadedController({
   required FakeDiscourseApi api,

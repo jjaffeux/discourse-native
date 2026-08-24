@@ -13,6 +13,8 @@ import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import 'resenha_controller.dart';
 import 'resenha_models.dart';
 import 'resenha_room_editor.dart';
@@ -27,16 +29,17 @@ class ResenhaRoomView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.read(context);
+    final controller = PluginScope.require(context, resenhaControllerService);
     final site = shell.currentInstance;
     if (site == null) return const SizedBox.shrink();
     return ListenableBuilder(
-      listenable: shell.resenha,
+      listenable: controller,
       builder: (context, _) {
-        final room = shell.resenha.room(site.url, roomId);
+        final room = controller.room(site.url, roomId);
         if (room == null) {
           return const Center(child: Text('This voice room is unavailable.'));
         }
-        final call = shell.resenha.call;
+        final call = controller.call;
         final inRoom = call?.siteUrl == site.url && call?.room.id == room.id;
         final recordingEnabled =
             inRoom &&
@@ -46,20 +49,20 @@ class ResenhaRoomView extends StatelessWidget {
         return Focus(
           autofocus: true,
           onKeyEvent: (_, event) {
-            if (!shell.resenha.pushToTalkEnabled ||
+            if (!controller.pushToTalkEnabled ||
                 (!Platform.isMacOS && !Platform.isLinux) ||
                 event.logicalKey != LogicalKeyboardKey.space) {
               return KeyEventResult.ignored;
             }
             if (event is KeyDownEvent) {
-              unawaited(shell.resenha.setMuted(false));
+              unawaited(controller.setMuted(false));
             } else if (event is KeyUpEvent) {
-              unawaited(shell.resenha.setMuted(true));
+              unawaited(controller.setMuted(true));
             }
             return KeyEventResult.handled;
           },
           child: ResenhaRoomContent(
-            controller: shell.resenha,
+            controller: controller,
             room: inRoom ? call!.room : room,
             call: inRoom ? call : null,
             siteUrl: site.url,
@@ -1038,7 +1041,10 @@ ResenhaController _resolveController(
   BuildContext context,
   ResenhaController fallback,
   ResenhaController Function()? resolver,
-) => resolver?.call() ?? ShellScope.maybeRead(context)?.resenha ?? fallback;
+) =>
+    resolver?.call() ??
+    PluginScope.maybeOf(context)?.service(resenhaControllerService) ??
+    fallback;
 
 Future<void> showResenhaChat(
   BuildContext context, {
@@ -1046,7 +1052,7 @@ Future<void> showResenhaChat(
   required int roomId,
 }) => _showResenhaChat(
   context,
-  ShellScope.read(context).resenha,
+  PluginScope.require(context, resenhaControllerService),
   siteUrl: siteUrl,
   roomId: roomId,
 );
@@ -1203,7 +1209,7 @@ Future<void> showResenhaMembers(
   required ResenhaRoom room,
 }) => _showResenhaMembers(
   context,
-  ShellScope.read(context).resenha,
+  PluginScope.require(context, resenhaControllerService),
   siteUrl: siteUrl,
   room: room,
 );

@@ -14,8 +14,11 @@ import '../../shell/user_card.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import '../reactions/reaction_pill.dart';
 import 'chat_channel.dart';
+import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_preview.dart';
 import 'chat_preview_body.dart';
@@ -82,9 +85,10 @@ class ChatMessageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ChatMessage?>(
-      valueListenable: ShellScope.read(
+      valueListenable: PluginScope.require(
         context,
-      ).chat.messageRef(siteUrl, messageId),
+        chatControllerService,
+      ).messageRef(siteUrl, messageId),
       builder: (context, message, _) {
         // Gone for good, in the frame before the stream that named it is
         // rewritten without it.
@@ -505,7 +509,7 @@ class _Reactions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chat = ShellScope.identityOf(context).chat;
+    final chat = PluginScope.require(context, chatControllerService);
     return ValueListenableBuilder<ChatChannel?>(
       valueListenable: chat.channelRef(siteUrl, message.channelId),
       builder: (context, _, _) => _build(context),
@@ -514,9 +518,10 @@ class _Reactions extends StatelessWidget {
 
   Widget _build(BuildContext context) {
     final controller = ShellScope.identityOf(context);
-    final canAdd = controller.chat.canAddReactionToMessage(siteUrl, message);
+    final chat = PluginScope.require(context, chatControllerService);
+    final canAdd = chat.canAddReactionToMessage(siteUrl, message);
     bool canToggle(ChatReaction reaction) => reaction.reacted
-        ? controller.chat.canRemoveReactionFromMessage(siteUrl, message)
+        ? chat.canRemoveReactionFromMessage(siteUrl, message)
         : canAdd;
 
     return ReactionPills(
@@ -535,13 +540,13 @@ class _Reactions extends StatelessWidget {
                 : 'add this reaction',
             interactionOwner: controller,
             onToggle: canToggle(reaction)
-                ? () => controller.chat.toggleMessageReaction(
+                ? () => chat.toggleMessageReaction(
                     siteUrl,
                     message.id,
                     reaction.emoji,
                   )
                 : null,
-            loadReactors: () => controller.chat.loadMessageReactors(
+            loadReactors: () => chat.loadMessageReactors(
               siteUrl: siteUrl,
               channelId: message.channelId,
               messageId: message.id,
@@ -565,7 +570,8 @@ class _Reactions extends StatelessWidget {
 
   Future<void> _pickReaction(BuildContext context) async {
     final controller = ShellScope.read(context);
-    if (!controller.chat.canAddReactionToMessage(siteUrl, message)) return;
+    final chat = PluginScope.require(context, chatControllerService);
+    if (!chat.canAddReactionToMessage(siteUrl, message)) return;
     final lease = controller.lifecycle.capture(siteUrl);
     final messenger = ScaffoldMessenger.maybeOf(context);
 
@@ -586,9 +592,8 @@ class _Reactions extends StatelessWidget {
         !identical(ShellScope.maybeRead(context), controller)) {
       return;
     }
-    final current = controller.chat.messageRef(siteUrl, message.id).value;
-    if (current == null ||
-        !controller.chat.canAddReactionToMessage(siteUrl, current)) {
+    final current = chat.messageRef(siteUrl, message.id).value;
+    if (current == null || !chat.canAddReactionToMessage(siteUrl, current)) {
       return;
     }
 
@@ -600,9 +605,7 @@ class _Reactions extends StatelessWidget {
       ),
     );
     unawaited(
-      controller.chat.addMessageReaction(siteUrl, message.id, picked).then((
-        error,
-      ) {
+      chat.addMessageReaction(siteUrl, message.id, picked).then((error) {
         if (error == null ||
             !lease.isCurrent ||
             messenger == null ||
@@ -631,42 +634,43 @@ class _ChatReactorList extends StatelessWidget {
   final String filter;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<Object>(
-    select: (controller) => controller.chat,
-    builder: (context, _, child) {
-      final chat = ShellScope.read(context).chat;
-      return ReactionUsersList(
-        siteUrl: siteUrl,
-        source: chat,
-        query: (
-          siteUrl: siteUrl,
-          channelId: message.channelId,
-          messageId: message.id,
-          filter: filter,
-        ),
-        select: () => (
-          reactors: chat.messageReactors(
-            siteUrl,
-            message.channelId,
-            message.id,
-            filter: filter,
-          ),
-          error: chat.messageReactorsError(
-            siteUrl,
-            message.channelId,
-            message.id,
-            filter: filter,
-          ),
-        ),
-        load: () => chat.loadMessageReactors(
-          siteUrl: siteUrl,
-          channelId: message.channelId,
-          messageId: message.id,
-          filter: filter,
-        ),
+  Widget build(BuildContext context) =>
+      PluginServiceSelector<ChatController, ChatController>(
+        service: chatControllerService,
+        select: (controller) => controller,
+        builder: (context, chat, child) {
+          return ReactionUsersList(
+            siteUrl: siteUrl,
+            source: chat,
+            query: (
+              siteUrl: siteUrl,
+              channelId: message.channelId,
+              messageId: message.id,
+              filter: filter,
+            ),
+            select: () => (
+              reactors: chat.messageReactors(
+                siteUrl,
+                message.channelId,
+                message.id,
+                filter: filter,
+              ),
+              error: chat.messageReactorsError(
+                siteUrl,
+                message.channelId,
+                message.id,
+                filter: filter,
+              ),
+            ),
+            load: () => chat.loadMessageReactors(
+              siteUrl: siteUrl,
+              channelId: message.channelId,
+              messageId: message.id,
+              filter: filter,
+            ),
+          );
+        },
       );
-    },
-  );
 }
 
 /// The latest activity behind a message that started a thread.

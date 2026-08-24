@@ -1,6 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 import '../../models/json.dart';
+import '../plugin_data.dart';
+
+const assignmentsDataKey = PluginDataKey<Assignments>(
+  owner: 'discourse-assign',
+  name: 'assignment',
+);
 
 /// The two records the Assign plugin accepts as assignment targets.
 enum AssignmentTargetType {

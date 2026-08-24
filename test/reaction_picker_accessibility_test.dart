@@ -3,6 +3,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -47,20 +48,24 @@ void main() {
     await controller.load();
     addTearDown(controller.dispose);
 
-    final post = Post.fromJson(const {
-      'id': 1,
-      'post_number': 1,
-      'username': 'author',
-      'cooked': '<p>Post</p>',
-      'actions_summary': [
-        {'id': Post.likeActionId, 'can_act': true},
-      ],
-      'reactions': [
-        {'id': 'clap', 'count': 1},
-      ],
-      'current_user_reaction': {'id': 'clap', 'can_undo': true},
-      'reaction_users_count': 1,
-    }, _siteUrl);
+    final post = Post.fromJson(
+      const {
+        'id': 1,
+        'post_number': 1,
+        'username': 'author',
+        'cooked': '<p>Post</p>',
+        'actions_summary': [
+          {'id': Post.likeActionId, 'can_act': true},
+        ],
+        'reactions': [
+          {'id': 'clap', 'count': 1},
+        ],
+        'current_user_reaction': {'id': 'clap', 'can_undo': true},
+        'reaction_users_count': 1,
+      },
+      _siteUrl,
+      extensions: pluginRegistry,
+    );
 
     final semantics = tester.ensureSemantics();
     try {

@@ -7,6 +7,8 @@ environment:
   sdk: ^3.12.2
 
 dependencies:
+  discourse_plugin_api:
+    path: packages/discourse_plugin_api
   flutter:
     sdk: flutter
   flutter_localizations:

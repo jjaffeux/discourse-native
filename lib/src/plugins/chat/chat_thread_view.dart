@@ -14,6 +14,8 @@ import '../../shell/user_menu_button.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import 'chat_channel_view.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
@@ -37,13 +39,11 @@ class ChatThreadWorkspace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<_ThreadWorkspaceSource?>(
-      select: (shell) {
-        final siteUrl = shell.currentInstance?.url;
-        return siteUrl == null ? null : (siteUrl: siteUrl, chat: shell.chat);
-      },
-      builder: (context, source, _) {
-        if (source == null) return const SizedBox.shrink();
+    return ShellSelector<String?>(
+      select: (shell) => shell.currentInstance?.url,
+      builder: (context, siteUrl, _) {
+        if (siteUrl == null) return const SizedBox.shrink();
+        final chat = PluginScope.require(context, chatControllerService);
         final target = ChatThreadTarget(
           channelId: route.channelId,
           threadId: route.threadId!,
@@ -58,24 +58,24 @@ class ChatThreadWorkspace extends StatelessWidget {
               return Column(
                 children: [
                   _ThreadHeader(
-                    siteUrl: source.siteUrl,
+                    siteUrl: siteUrl,
                     target: target,
                     leading: _HeaderAction.back,
                   ),
                   Expanded(
                     child: ChatThreadView(
-                      siteUrl: source.siteUrl,
+                      siteUrl: siteUrl,
                       target: target,
-                      chat: source.chat,
+                      chat: chat,
                     ),
                   ),
                 ],
               );
             }
             return _ChatThreadSplit(
-              siteUrl: source.siteUrl,
+              siteUrl: siteUrl,
               target: target,
-              chat: source.chat,
+              chat: chat,
               widthStore: panelWidthStore ?? const ChatThreadPanelWidthStore(),
             );
           },
@@ -84,8 +84,6 @@ class ChatThreadWorkspace extends StatelessWidget {
     );
   }
 }
-
-typedef _ThreadWorkspaceSource = ({String siteUrl, ChatController chat});
 
 class _ChatThreadSplit extends StatefulWidget {
   const _ChatThreadSplit({
@@ -511,7 +509,7 @@ class _ChannelPaneHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chat = ShellScope.read(context).chat;
+    final chat = PluginScope.require(context, chatControllerService);
     return ValueListenableBuilder(
       valueListenable: chat.channelRef(siteUrl, channelId),
       builder: (context, channel, _) => _PaneHeaderShell(
@@ -575,8 +573,9 @@ class _ThreadHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.read(context);
+    final chat = PluginScope.require(context, chatControllerService);
     return ValueListenableBuilder<ChatThread?>(
-      valueListenable: shell.chat.threadRef(siteUrl, target.threadId),
+      valueListenable: chat.threadRef(siteUrl, target.threadId),
       builder: (context, thread, _) => _PaneHeaderShell(
         child: Row(
           children: [
@@ -675,9 +674,10 @@ class _NotificationLevelButton extends StatelessWidget {
       options: _options,
       enabled: thread != null,
       onSelected: (level) => unawaited(
-        ShellScope.read(
+        PluginScope.require(
           context,
-        ).chat.updateThreadNotificationLevel(siteUrl, target, level),
+          chatControllerService,
+        ).updateThreadNotificationLevel(siteUrl, target, level),
       ),
       builder: (context, openMenu) => IconButton(
         tooltip: 'Thread notifications',

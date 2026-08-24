@@ -13,7 +13,9 @@ import 'data/update_store.dart';
 import 'data/updater.dart';
 import 'diagnostics/diagnostics.dart';
 import 'models/site_appearance.dart';
+import 'plugins/bundled_plugin_manifest.dart';
 import 'plugins/local_dates/local_date_environment.dart';
+import 'plugins/plugin_runtime.dart';
 import 'plugins/resenha/resenha_diagnostics.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/platform.dart';
@@ -39,7 +41,12 @@ class DiscourseApp extends StatefulWidget {
     this.updateStore,
     this.diagnostics,
     this.resenhaDiagnostics,
-  });
+    this.plugins,
+    this.pluginManifest = bundledPluginManifest,
+  }) : assert(
+         plugins == null || identical(pluginManifest, bundledPluginManifest),
+         'Pass plugins or pluginManifest, not both.',
+       );
 
   final InstanceStore? store;
   final DiscourseApi? api;
@@ -51,6 +58,8 @@ class DiscourseApp extends StatefulWidget {
   final UpdateStore? updateStore;
   final DiagnosticsController? diagnostics;
   final ResenhaDiagnosticsController? resenhaDiagnostics;
+  final InstalledPlugins? plugins;
+  final PluginManifest pluginManifest;
 
   @override
   State<DiscourseApp> createState() => _DiscourseAppState();
@@ -67,6 +76,8 @@ class _DiscourseAppState extends State<DiscourseApp>
   late Updater _updater;
   late UpdateStore _updateStore;
   late ShellController _controller;
+  late InstalledPlugins _plugins;
+  late bool _ownsPlugins;
   late bool _foreground;
 
   ShellController _createController() => ShellController(
@@ -87,14 +98,17 @@ class _DiscourseAppState extends State<DiscourseApp>
     updateStore: _updateStore,
     resenhaDiagnostics:
         widget.resenhaDiagnostics ?? const NoopResenhaDiagnosticsRecorder(),
+    plugins: _plugins,
     ownsApi: false,
   );
 
   @override
   void initState() {
     super.initState();
+    _plugins = widget.plugins ?? PluginInstaller.install(widget.pluginManifest);
+    _ownsPlugins = widget.plugins == null;
     _store = widget.store ?? InstanceStore();
-    _api = widget.api ?? DiscourseApi();
+    _api = widget.api ?? DiscourseApi(models: _plugins.models);
     _authenticator = widget.authenticator ?? Authenticator();
     _drafts = widget.drafts ?? DraftStore();
     _forumTabs = widget.forumTabs ?? ForumTabStore();
@@ -112,7 +126,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     );
     _controller = _createController()..setForeground(_foreground);
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_controller.load());
+    unawaited(_start(_controller, _plugins));
   }
 
   @override
@@ -124,6 +138,10 @@ class _DiscourseAppState extends State<DiscourseApp>
     if (!_dependenciesChanged(oldWidget)) return;
 
     _controller.dispose();
+    final pluginsChanged = _pluginsChanged(oldWidget);
+    if (pluginsChanged && _ownsPlugins) {
+      _closePlugins(_plugins);
+    }
     if (!identical(widget.resenhaDiagnostics, oldWidget.resenhaDiagnostics)) {
       // DiscourseApp owns the injected diagnostics controller for the same
       // lifetime as the ordinary diagnostics controller. A replacement must
@@ -132,7 +150,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     }
     _updateDependencies(oldWidget);
     _controller = _createController()..setForeground(_foreground);
-    unawaited(_controller.load());
+    unawaited(_start(_controller, _plugins));
   }
 
   bool _dependenciesChanged(DiscourseApp oldWidget) =>
@@ -144,15 +162,30 @@ class _DiscourseAppState extends State<DiscourseApp>
       !identical(widget.trackers, oldWidget.trackers) ||
       !identical(widget.updater, oldWidget.updater) ||
       !identical(widget.updateStore, oldWidget.updateStore) ||
+      !identical(widget.plugins, oldWidget.plugins) ||
+      (widget.plugins == null &&
+          widget.pluginManifest != oldWidget.pluginManifest) ||
       !identical(widget.resenhaDiagnostics, oldWidget.resenhaDiagnostics);
 
+  bool _pluginsChanged(DiscourseApp oldWidget) =>
+      !identical(widget.plugins, oldWidget.plugins) ||
+      (widget.plugins == null &&
+          widget.pluginManifest != oldWidget.pluginManifest);
+
   void _updateDependencies(DiscourseApp oldWidget) {
+    final pluginsChanged = _pluginsChanged(oldWidget);
+    if (pluginsChanged) {
+      _plugins =
+          widget.plugins ?? PluginInstaller.install(widget.pluginManifest);
+      _ownsPlugins = widget.plugins == null;
+    }
     if (!identical(widget.store, oldWidget.store)) {
       _store = widget.store ?? InstanceStore();
     }
-    if (!identical(widget.api, oldWidget.api)) {
+    if (!identical(widget.api, oldWidget.api) ||
+        (pluginsChanged && widget.api == null)) {
       _api.close();
-      _api = widget.api ?? DiscourseApi();
+      _api = widget.api ?? DiscourseApi(models: _plugins.models);
     }
     if (!identical(widget.authenticator, oldWidget.authenticator)) {
       _authenticator = widget.authenticator ?? Authenticator();
@@ -179,9 +212,49 @@ class _DiscourseAppState extends State<DiscourseApp>
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     _api.close();
+    if (_ownsPlugins) _closePlugins(_plugins);
     _releaseDiagnostics(widget.diagnostics);
     unawaited(widget.resenhaDiagnostics?.close());
     super.dispose();
+  }
+
+  Future<void> _start(
+    ShellController controller,
+    InstalledPlugins plugins,
+  ) async {
+    try {
+      await plugins.startPhase(PluginStartupPhase.bootstrap);
+      if (!mounted || !identical(_controller, controller)) return;
+      await controller.load();
+      if (!mounted || !identical(_controller, controller)) return;
+      await plugins.startPhase(PluginStartupPhase.appReady);
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'app.plugins.start',
+        source: 'plugins',
+        severity: DiagnosticSeverity.error,
+        handled: true,
+        degraded: true,
+      );
+    }
+  }
+
+  void _closePlugins(InstalledPlugins plugins) {
+    unawaited(
+      plugins.close().onError((Object error, StackTrace stackTrace) {
+        DiagnosticsSink.current.reportError(
+          error,
+          stackTrace,
+          operation: 'app.plugins.close',
+          source: 'plugins',
+          severity: DiagnosticSeverity.warning,
+          handled: true,
+          degraded: true,
+        );
+      }),
+    );
   }
 
   void _releaseDiagnostics(DiagnosticsController? diagnostics) {

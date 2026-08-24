@@ -7,6 +7,8 @@ import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../plugin_scope.dart';
+import '../plugin_services.dart';
 import 'chat_controller.dart';
 import 'chat_route.dart';
 
@@ -63,10 +65,11 @@ class ChatHeaderButton extends StatelessWidget {
         until: user.doNotDisturbUntil,
         builder: (context, isInDoNotDisturb) {
           final controller = ShellScope.read(context);
+          final chat = PluginScope.require(context, chatControllerService);
           return ListenableBuilder(
             listenable: Listenable.merge([
               controller.accountActivity.totalsListenable,
-              controller.chat,
+              chat,
             ]),
             builder: (context, _) {
               final totals = controller.accountActivity.totalsFor(siteUrl);
@@ -81,7 +84,7 @@ class ChatHeaderButton extends StatelessWidget {
 
               final indicator = isInDoNotDisturb
                   ? ChatHeaderIndicator.none
-                  : controller.chat.headerIndicator(
+                  : chat.headerIndicator(
                       siteUrl,
                       user.chatHeaderIndicatorPreference,
                     );

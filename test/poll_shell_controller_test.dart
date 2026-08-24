@@ -85,10 +85,13 @@ Post _post({
   if (poll != null) {
     final polls = {poll.name: poll};
     if (otherPoll != null) polls[otherPoll.name] = otherPoll;
-    plugins = plugins.withValue<Polls>(Polls(byName: Map.unmodifiable(polls)));
+    plugins = plugins.withValue(
+      pollsDataKey,
+      Polls(byName: Map.unmodifiable(polls)),
+    );
   }
   if (reactions != null) {
-    plugins = plugins.withValue<Reactions>(reactions);
+    plugins = plugins.withValue(reactionsDataKey, reactions);
   }
   return Post(
     id: 11,
@@ -530,7 +533,10 @@ void main() {
         _site,
         11,
         (held) => held.withPlugins(
-          held.plugins.withValue<Polls>(Polls(byName: {'poll': refreshedPoll})),
+          held.plugins.withValue(
+            pollsDataKey,
+            Polls(byName: {'poll': refreshedPoll}),
+          ),
         ),
       );
 

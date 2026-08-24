@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../data/sidebar_section_store.dart';
 import '../models/sidebar.dart';
-import '../plugins/chat/chat_header_button.dart';
 import '../plugins/chat/chat_user_avatar.dart';
+import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -199,12 +199,14 @@ class InstanceSidebar extends StatelessWidget {
                       ),
                       ListenableBuilder(
                         listenable: Listenable.merge(
-                          pluginRegistry.sidebarListenables(context),
+                          PluginScope.of(
+                            context,
+                          ).registry.sidebarListenables(context),
                         ),
                         builder: (context, _) {
-                          final sections = pluginRegistry.sidebarSections(
+                          final sections = PluginScope.of(
                             context,
-                          );
+                          ).registry.sidebarSections(context);
                           return SliverMainAxisGroup(
                             slivers: [
                               // Optional features contribute below the routes
@@ -331,8 +333,10 @@ class _SidebarHeader extends StatelessWidget {
             ),
             if (showUserMenu) ...[
               const SizedBox(width: 4),
-              ChatHeaderButton(
-                hideWhenChatActive: true,
+              ...PluginScope.of(context).registry.shellHeaderActions(
+                context,
+                surface: PluginHeaderSurface.content,
+                compact: true,
                 ringColor: theme.shell.sidebar,
               ),
               const UserMenuButton(),

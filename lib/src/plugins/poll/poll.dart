@@ -5,10 +5,13 @@ import 'package:html/parser.dart' as html;
 
 import '../../models/json.dart';
 import '../../models/post.dart';
+import '../plugin_data.dart';
+
+const pollsDataKey = PluginDataKey<Polls>(owner: 'poll', name: 'post');
 
 /// The poll data Discourse attached to a post, if any.
 extension PostPolls on Post {
-  Polls? get polls => plugins.get<Polls>();
+  Polls? get polls => plugins.get(pollsDataKey);
 
   bool get hasPolls => polls != null;
 }

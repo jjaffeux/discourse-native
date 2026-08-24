@@ -11,7 +11,9 @@ import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -2749,6 +2751,7 @@ void _feedGroups() {
     test('puts to the toggle route with no body at all', () async {
       late http.Request seen;
       final api = DiscourseApi(
+        models: DiscourseModelCodec(extensions: pluginRegistry),
         client: MockClient((request) async {
           seen = request;
           return http.Response(jsonEncode(reacted()), 200);

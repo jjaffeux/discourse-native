@@ -40,7 +40,7 @@ final class AssignPlugin
   String get name => 'discourse-assign';
 
   @override
-  Type get record => Assignments;
+  PluginDataKey<Assignments> get record => assignmentsDataKey;
 
   @override
   Assignments? readPost(Map<String, dynamic> json, String siteUrl) =>
@@ -60,7 +60,7 @@ final class AssignPlugin
     String siteUrl,
     Topic topic,
   ) {
-    final assignments = topic.plugins.get<Assignments>();
+    final assignments = topic.plugins.get(assignmentsDataKey);
     if (assignments == null || !assignments.hasAssignments) return const [];
     final style = Theme.of(context).textTheme.bodySmall;
     return [
@@ -93,7 +93,7 @@ final class AssignPlugin
     String siteUrl,
     TopicDetail topic,
   ) {
-    final assignments = topic.plugins.get<Assignments>();
+    final assignments = topic.plugins.get(assignmentsDataKey);
     final canAssign = _canAssignRecord(
       context,
       siteUrl,
@@ -156,8 +156,8 @@ final class AssignPlugin
     TopicDetail topic,
     Post post,
   ) {
-    final topicAssignments = topic.plugins.get<Assignments>();
-    final postAssignments = post.plugins.get<Assignments>();
+    final topicAssignments = topic.plugins.get(assignmentsDataKey);
+    final postAssignments = post.plugins.get(assignmentsDataKey);
 
     if (post.postNumber == 1) {
       if (topicAssignments == null || !topicAssignments.hasAssignments) {
@@ -237,14 +237,14 @@ final class AssignPlugin
     // Assign treats the first post as the topic target. Never expose a Post
     // write for it, even if a malformed or older serializer says can_assign.
     if (post.postNumber == 1) return PostMenuContribution.none;
-    final postAssignments = post.plugins.get<Assignments>();
+    final postAssignments = post.plugins.get(assignmentsDataKey);
     if (!_canAssignRecord(context, siteUrl, postAssignments?.canAssign)) {
       return PostMenuContribution.none;
     }
     final controller = ShellScope.maybeRead(context);
     final topic = controller?.currentTopic;
     if (topic == null) return PostMenuContribution.none;
-    final aggregate = topic.plugins.get<Assignments>();
+    final aggregate = topic.plugins.get(assignmentsDataKey);
     final existing = aggregate == null
         ? postAssignments?.direct
         : aggregate.forPost(post.id);
