@@ -275,6 +275,17 @@ void main() {
           ChatThreadNotificationLevel.normal,
         )),
       );
+      final trackingBackground = find.byKey(
+        const ValueKey((
+          'choice-menu-option-background',
+          ChatThreadNotificationLevel.tracking,
+        )),
+      );
+      expect(
+        tester.getTopLeft(trackingBackground).dy -
+            tester.getBottomLeft(normalBackground).dy,
+        4,
+      );
       Color backgroundColor() =>
           (tester.widget<AnimatedContainer>(normalBackground).decoration!
                   as BoxDecoration)

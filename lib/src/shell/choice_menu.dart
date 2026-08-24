@@ -392,7 +392,8 @@ class _ChoiceRowsState<T> extends State<_ChoiceRows<T>> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (var index = 0; index < widget.options.length; index++)
+            for (var index = 0; index < widget.options.length; index++) ...[
+              if (index > 0) const SizedBox(height: 4),
               _ChoiceRow<T>(
                 option: widget.options[index],
                 selected: widget.options[index].value == widget.value,
@@ -401,6 +402,7 @@ class _ChoiceRowsState<T> extends State<_ChoiceRows<T>> {
                 onFocused: () => _focusedIndex = index,
                 onSelected: widget.onSelected,
               ),
+            ],
           ],
         ),
       ),
