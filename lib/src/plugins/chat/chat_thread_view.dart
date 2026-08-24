@@ -214,7 +214,11 @@ class _ThreadPaneDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final divider = Theme.of(context).shell.divider;
+    final theme = Theme.of(context);
+    final divider = Color.alphaBlend(
+      theme.colorScheme.onSurface.withValues(alpha: 0.12),
+      theme.shell.divider,
+    );
     final canIncrease = width < maximumWidth;
     final canDecrease = width > minimumWidth;
     final increasedWidth = (width + 24).clamp(minimumWidth, maximumWidth);
@@ -262,7 +266,11 @@ class _ThreadPaneDivider extends StatelessWidget {
             child: SizedBox(
               width: _ChatThreadSplit.dividerWidth,
               child: Center(
-                child: SizedBox(width: 1, child: ColoredBox(color: divider)),
+                child: SizedBox(
+                  key: const ValueKey('chat-thread-divider-border'),
+                  width: 1,
+                  child: ColoredBox(color: divider),
+                ),
               ),
             ),
           ),
