@@ -224,6 +224,13 @@ void main() {
 
       final trigger = find.byTooltip('Thread notifications');
       final triggerRect = tester.getRect(trigger);
+      DIconData triggerIcon() => tester
+          .widget<DIcon>(
+            find.descendant(of: trigger, matching: find.byType(DIcon)),
+          )
+          .icon;
+      expect(triggerIcon(), DIcons.bell);
+
       await tester.tap(trigger);
       await tester.pumpAndSettle();
 
@@ -309,6 +316,7 @@ void main() {
           notificationLevel: ChatThreadNotificationLevel.watching,
         ),
       ]);
+      expect(triggerIcon(), DIcons.discourseBellExclamation);
     } finally {
       semantics.dispose();
     }
