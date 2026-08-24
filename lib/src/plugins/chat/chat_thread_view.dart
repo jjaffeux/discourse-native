@@ -95,7 +95,9 @@ class _ChatThreadSplit extends StatefulWidget {
   });
 
   static const double minimumPaneWidth = 320;
-  static const double dividerWidth = 8;
+  static const double dividerWidth = 1;
+  static const double dividerHitWidth = 9;
+  static const double dividerHitOverlap = (dividerHitWidth - dividerWidth) / 2;
   static const double minimumTotalWidth = minimumPaneWidth * 2 + dividerWidth;
 
   final String siteUrl;
@@ -139,55 +141,71 @@ class _ChatThreadSplitState extends State<_ChatThreadSplit> {
           maximum,
         );
 
-        return Row(
+        return Stack(
+          fit: StackFit.expand,
           children: [
-            Expanded(
-              child: Column(
-                children: [
-                  _ChannelPaneHeader(
-                    siteUrl: widget.siteUrl,
-                    channelId: widget.target.channelId,
+            Row(
+              children: [
+                Expanded(
+                  key: const ValueKey('chat-channel-pane'),
+                  child: Column(
+                    children: [
+                      _ChannelPaneHeader(
+                        siteUrl: widget.siteUrl,
+                        channelId: widget.target.channelId,
+                      ),
+                      Expanded(
+                        child: ChatChannelView(
+                          channelId: widget.target.channelId,
+                        ),
+                      ),
+                    ],
                   ),
-                  Expanded(
-                    child: ChatChannelView(channelId: widget.target.channelId),
+                ),
+                const SizedBox(width: _ChatThreadSplit.dividerWidth),
+                SizedBox(
+                  key: const ValueKey('chat-thread-pane'),
+                  width: threadWidth,
+                  child: Column(
+                    children: [
+                      _ThreadHeader(
+                        siteUrl: widget.siteUrl,
+                        target: widget.target,
+                        leading: _HeaderAction.none,
+                        showClose: true,
+                      ),
+                      Expanded(
+                        child: ChatThreadView(
+                          siteUrl: widget.siteUrl,
+                          target: widget.target,
+                          chat: widget.chat,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            _ThreadPaneDivider(
-              width: threadWidth,
-              minimumWidth: _ChatThreadSplit.minimumPaneWidth,
-              maximumWidth: maximum,
-              onDelta: (delta) => setState(() {
-                _widthChanged = true;
-                _preferredWidth = (threadWidth - delta).clamp(
-                  _ChatThreadSplit.minimumPaneWidth,
-                  maximum,
-                );
-              }),
-              onCommit: () {
-                final width = _preferredWidth;
-                if (width != null) unawaited(widget.widthStore.write(width));
-              },
-            ),
-            SizedBox(
-              width: threadWidth,
-              child: Column(
-                children: [
-                  _ThreadHeader(
-                    siteUrl: widget.siteUrl,
-                    target: widget.target,
-                    leading: _HeaderAction.none,
-                    showClose: true,
-                  ),
-                  Expanded(
-                    child: ChatThreadView(
-                      siteUrl: widget.siteUrl,
-                      target: widget.target,
-                      chat: widget.chat,
-                    ),
-                  ),
-                ],
+            Positioned(
+              top: 0,
+              bottom: 0,
+              right: threadWidth - _ChatThreadSplit.dividerHitOverlap,
+              width: _ChatThreadSplit.dividerHitWidth,
+              child: _ThreadPaneDivider(
+                width: threadWidth,
+                minimumWidth: _ChatThreadSplit.minimumPaneWidth,
+                maximumWidth: maximum,
+                onDelta: (delta) => setState(() {
+                  _widthChanged = true;
+                  _preferredWidth = (threadWidth - delta).clamp(
+                    _ChatThreadSplit.minimumPaneWidth,
+                    maximum,
+                  );
+                }),
+                onCommit: () {
+                  final width = _preferredWidth;
+                  if (width != null) unawaited(widget.widthStore.write(width));
+                },
               ),
             ),
           ],
@@ -263,8 +281,7 @@ class _ThreadPaneDivider extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             onHorizontalDragUpdate: (details) => onDelta(details.delta.dx),
             onHorizontalDragEnd: (_) => onCommit(),
-            child: SizedBox(
-              width: _ChatThreadSplit.dividerWidth,
+            child: SizedBox.expand(
               child: Center(
                 child: SizedBox(
                   key: const ValueKey('chat-thread-divider-border'),
