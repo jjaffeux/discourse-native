@@ -595,22 +595,54 @@ final class ResenhaDiagnosticsController implements ResenhaDiagnosticsRecorder {
     );
   }
 
+  /// Selects retained event identifiers and streams the exact same deep-report
+  /// snapshot to the sink returned by [outputForRetainedEventIds].
+  ///
+  /// Durable persistence keeps selection and streaming inside one file lock.
+  /// A persistence without snapshot streaming falls back to one materialized
+  /// report and derives identifiers from that immutable report string.
+  Future<void> writeJsonReportSnapshotTo({
+    required Iterable<String> candidateEventIds,
+    required ResenhaDiagnosticsReportSinkFactory outputForRetainedEventIds,
+  }) async {
+    final candidates = _validatedRetainedEventIdCandidates(candidateEventIds);
+    final generatedAtUtc = await _prepareJsonReport();
+    final persistence = _persistence;
+    final stateSnapshot = state.toJson();
+    if (persistence is SnapshotStreamingResenhaDiagnosticsPersistence) {
+      final streaming =
+          persistence as SnapshotStreamingResenhaDiagnosticsPersistence;
+      await streaming.writeJsonReportSnapshotTo(
+        candidateEventIds: candidates,
+        outputForRetainedEventIds: outputForRetainedEventIds,
+        generatedAtUtc: generatedAtUtc,
+        reportFormatVersion: reportFormatVersion,
+        state: stateSnapshot,
+      );
+      return;
+    }
+
+    final report = await persistence.buildJsonReport(
+      generatedAtUtc: generatedAtUtc,
+      reportFormatVersion: reportFormatVersion,
+      state: stateSnapshot,
+    );
+    final retainedEventIds = resenhaDiagnosticsEventIdsInJsonReport(
+      report,
+      candidates: candidates,
+    );
+    final output = outputForRetainedEventIds(
+      Set<String>.unmodifiable(retainedEventIds),
+    );
+    output.write(report);
+  }
+
   /// Finds which ordinary-event identifiers are represented in retained deep
   /// history without materializing the retained report.
   Future<Set<String>> findRetainedEventIds(
     Iterable<String> candidateIds,
   ) async {
-    final candidates = <String>{};
-    for (final candidate in candidateIds) {
-      candidates.add(candidate);
-      if (candidates.length > maximumRetainedEventIdCandidates) {
-        throw ArgumentError.value(
-          candidateIds,
-          'candidateIds',
-          'At most $maximumRetainedEventIdCandidates unique IDs are allowed.',
-        );
-      }
-    }
+    final candidates = _validatedRetainedEventIdCandidates(candidateIds);
     if (candidates.isEmpty) return const {};
     await flush();
     final nowUtc = _clock().toUtc();
@@ -625,6 +657,23 @@ final class ResenhaDiagnosticsController implements ResenhaDiagnosticsRecorder {
     }
     return (persistence as RetainedResenhaDiagnosticsEventIdsPersistence)
         .findRetainedEventIds(candidates, nowUtc: nowUtc);
+  }
+
+  Set<String> _validatedRetainedEventIdCandidates(
+    Iterable<String> candidateIds,
+  ) {
+    final candidates = <String>{};
+    for (final candidate in candidateIds) {
+      candidates.add(candidate);
+      if (candidates.length > maximumRetainedEventIdCandidates) {
+        throw ArgumentError.value(
+          candidateIds,
+          'candidateIds',
+          'At most $maximumRetainedEventIdCandidates unique IDs are allowed.',
+        );
+      }
+    }
+    return candidates;
   }
 
   Future<DateTime> _prepareJsonReport() async {

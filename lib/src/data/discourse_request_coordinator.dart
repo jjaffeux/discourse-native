@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
 import '../models/json.dart';
 import 'origin_cooldown.dart';
+import 'origin_request_gate.dart';
 
 /// Identity of one safe GET for in-flight request sharing.
 ///
@@ -43,7 +43,12 @@ final class DiscourseRequestCoordinator {
   }) : assert(maxConcurrentPerOrigin > 0),
        assert(maxQueuedPerOrigin > 0),
        assert(defaultRateLimitCooldown >= Duration.zero),
-       _newCooldown = cooldownFactory ?? OriginCooldown.new;
+       _gate = OriginRequestGate(
+         maxConcurrentPerOrigin: maxConcurrentPerOrigin,
+         maxQueuedPerOrigin: maxQueuedPerOrigin,
+         cooldownPolicy: OriginRequestCooldownPolicy.wait,
+         cooldownFactory: cooldownFactory,
+       );
 
   final int maxConcurrentPerOrigin;
 
@@ -55,19 +60,15 @@ final class DiscourseRequestCoordinator {
   final int maxQueuedPerOrigin;
   final Duration defaultRateLimitCooldown;
 
-  final OriginCooldown Function() _newCooldown;
-  final Map<String, _OriginQueue> _origins = {};
+  final OriginRequestGate _gate;
   final Map<DiscourseGetRequestKey, Future<http.Response>> _gets = {};
-  bool _closed = false;
-
-  _OriginQueue _createOriginQueue() => _OriginQueue(cooldown: _newCooldown());
 
   Future<http.Response> run(
     Uri url,
     Future<http.Response> Function() send, {
     DiscourseGetRequestKey? coalesce,
   }) {
-    if (_closed) {
+    if (_gate.isClosed) {
       return Future.error(StateError('Request coordinator is closed.'));
     }
 
@@ -92,74 +93,29 @@ final class DiscourseRequestCoordinator {
   Future<http.Response> _enqueue(
     Uri url,
     Future<http.Response> Function() send,
-  ) {
-    final origin = url.origin;
-    final queue = _origins.putIfAbsent(origin, _createOriginQueue);
-    if (queue.waiting.length >= maxQueuedPerOrigin) {
-      return Future.error(
-        DiscourseRequestOverloadException(origin, maxQueuedPerOrigin),
-      );
-    }
-    final pending = _PendingRequest(send);
-    queue.waiting.add(pending);
-    _drain(origin, queue);
-    return pending.result.future;
-  }
-
-  void _drain(String origin, _OriginQueue queue) {
-    if (_closed) return;
-    if (queue.cooldown.remaining != null) return;
-
-    while (queue.active < maxConcurrentPerOrigin && queue.waiting.isNotEmpty) {
-      final pending = queue.waiting.removeFirst();
-      queue.active++;
-      unawaited(_run(origin, queue, pending));
-    }
-    _forgetIdle(origin, queue);
-  }
-
-  Future<void> _run(
-    String origin,
-    _OriginQueue queue,
-    _PendingRequest pending,
-  ) async {
-    try {
-      final response = await pending.send();
-      // An in-flight response may outlive close(). It must not re-arm the
-      // origin cooldown: close() has already dropped the queue, so a wake
-      // timer set now could never be cancelled.
-      if (response.statusCode == 429 && !_closed) {
+  ) => _translateGateErrors(
+    _gate.run(url, (lease) async {
+      final response = await send();
+      if (response.statusCode == 429) {
         final delay = explicitRetryAfter(response) ?? defaultRateLimitCooldown;
-        queue.cooldown.extend(delay, onExpired: () => _drain(origin, queue));
+        lease.extendCooldown(delay);
       }
-      pending.result.complete(response);
-    } catch (error, stackTrace) {
-      pending.result.completeError(error, stackTrace);
-    } finally {
-      queue.active--;
-      _drain(origin, queue);
-    }
-  }
+      return response;
+    }),
+  );
 
-  void _forgetIdle(String origin, _OriginQueue queue) {
-    if (queue.active == 0 &&
-        queue.waiting.isEmpty &&
-        queue.cooldown.remaining == null) {
-      _origins.remove(origin);
+  Future<T> _translateGateErrors<T>(Future<T> operation) async {
+    try {
+      return await operation;
+    } on OriginRequestGateOverloadException catch (error) {
+      throw DiscourseRequestOverloadException(error.origin, error.maxQueued);
+    } on OriginRequestGateClosedException {
+      throw StateError('Request coordinator is closed.');
     }
   }
 
   void close() {
-    if (_closed) return;
-    _closed = true;
-    final error = StateError('Request coordinator is closed.');
-    for (final queue in _origins.values) {
-      queue.cooldown.cancel();
-      while (queue.waiting.isNotEmpty) {
-        queue.waiting.removeFirst().result.completeError(error);
-      }
-    }
-    _origins.clear();
+    _gate.close();
     _gets.clear();
   }
 
@@ -204,19 +160,4 @@ final class DiscourseRequestOverloadException implements Exception {
   @override
   String toString() =>
       'Request backlog for $origin already contains $maxQueued operations.';
-}
-
-final class _OriginQueue {
-  _OriginQueue({required this.cooldown});
-
-  final OriginCooldown cooldown;
-  final Queue<_PendingRequest> waiting = Queue();
-  int active = 0;
-}
-
-final class _PendingRequest {
-  _PendingRequest(this.send);
-
-  final Future<http.Response> Function() send;
-  final Completer<http.Response> result = Completer();
 }

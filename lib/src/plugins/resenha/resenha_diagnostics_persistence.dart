@@ -17,6 +17,11 @@ const int resenhaDiagnosticsRetentionBytes =
     resenhaDiagnosticsSegmentCount * resenhaDiagnosticsSegmentBytes;
 const int resenhaDiagnosticsDecodedTailBytes = 10 * 1024 * 1024;
 const int _resenhaDiagnosticsActiveCaptureLimit = 4;
+const int _resenhaReportSnapshotFlushBytes = 256 * 1024;
+const int _resenhaReportSnapshotReadBytes = 64 * 1024;
+const Duration _resenhaReportSnapshotStaleAge = Duration(days: 1);
+
+final Random _resenhaReportSnapshotRandom = Random.secure();
 
 final class ResenhaDiagnosticsPersistenceState {
   const ResenhaDiagnosticsPersistenceState({
@@ -94,6 +99,71 @@ abstract interface class StreamingResenhaDiagnosticsPersistence {
   });
 }
 
+typedef ResenhaDiagnosticsReportSinkFactory =
+    StringSink Function(Set<String> retainedEventIds);
+
+/// Reads event identifiers only from the canonical deep-event data field.
+///
+/// Report payloads may contain the same key at arbitrary nested positions.
+/// Parsing the JSONL structure here keeps materialized and streaming
+/// de-duplication exact instead of treating those unrelated values as event
+/// identities.
+Set<String> resenhaDiagnosticsEventIdsInJsonReport(
+  String report, {
+  Set<String>? candidates,
+}) {
+  if (candidates?.isEmpty ?? false) return const {};
+  final eventIds = <String>{};
+  var offset = 0;
+  while (offset < report.length) {
+    final newline = report.indexOf('\n', offset);
+    final end = newline < 0 ? report.length : newline;
+    final line = report.substring(offset, end);
+    offset = newline < 0 ? report.length : newline + 1;
+    if (line.isEmpty) continue;
+    try {
+      final decoded = jsonDecode(line);
+      if (decoded is! Map ||
+          decoded['record'] != 'event' ||
+          decoded['origin'] == 'ordinary') {
+        continue;
+      }
+      final event = decoded['event'];
+      if (event is! Map) continue;
+      final data = event['data'];
+      if (data is! Map) continue;
+      final eventId = data[resenhaDiagnosticsEventIdField];
+      if (eventId is String &&
+          (candidates == null || candidates.contains(eventId))) {
+        eventIds.add(eventId);
+        if (eventIds.length == candidates?.length) break;
+      }
+    } on FormatException {
+      // Durable persistence excludes malformed lines. Custom persistence may
+      // still provide one, and a bad line must not affect later valid records.
+    }
+  }
+  return eventIds;
+}
+
+/// Optional artifact seam for de-duplicating and streaming one retained
+/// snapshot without materializing the report.
+///
+/// Implementations must select [candidateEventIds], call
+/// [outputForRetainedEventIds] exactly once with an unmodifiable set, and write
+/// that same retained snapshot to the returned caller-owned sink. The factory
+/// is deliberately synchronous, and persistence must not invoke it or write to
+/// its sink while holding a shared storage lock.
+abstract interface class SnapshotStreamingResenhaDiagnosticsPersistence {
+  Future<void> writeJsonReportSnapshotTo({
+    required Set<String> candidateEventIds,
+    required ResenhaDiagnosticsReportSinkFactory outputForRetainedEventIds,
+    required DateTime generatedAtUtc,
+    required int reportFormatVersion,
+    required Map<String, Object?> state,
+  });
+}
+
 /// Optional exact de-duplication seam for report exporters.
 ///
 /// Implementations scan retained history without materializing it and return
@@ -109,6 +179,7 @@ abstract interface class RetainedResenhaDiagnosticsEventIdsPersistence {
 final class MemoryResenhaDiagnosticsPersistence
     implements
         ResenhaDiagnosticsPersistence,
+        SnapshotStreamingResenhaDiagnosticsPersistence,
         RetainedResenhaDiagnosticsEventIdsPersistence {
   final _ResenhaDiagnosticsStore _store = _ResenhaDiagnosticsStore();
 
@@ -158,6 +229,36 @@ final class MemoryResenhaDiagnosticsPersistence
   }
 
   @override
+  Future<void> writeJsonReportSnapshotTo({
+    required Set<String> candidateEventIds,
+    required ResenhaDiagnosticsReportSinkFactory outputForRetainedEventIds,
+    required DateTime generatedAtUtc,
+    required int reportFormatVersion,
+    required Map<String, Object?> state,
+  }) async {
+    _store.retain(generatedAtUtc);
+    final records = List<ResenhaDiagnosticRecord>.unmodifiable(_store.records);
+    final retainedEventIds = <String>{
+      for (final record in records)
+        if (record.data[resenhaDiagnosticsEventIdField] case final String id
+            when candidateEventIds.contains(id))
+          id,
+    };
+    final output = outputForRetainedEventIds(
+      Set<String>.unmodifiable(retainedEventIds),
+    );
+    _writeJsonReportRecordsTo(
+      output,
+      records,
+      generatedAtUtc: generatedAtUtc,
+      reportFormatVersion: reportFormatVersion,
+      state: state,
+      segmentCount: resenhaDiagnosticsSegmentCount,
+      segmentBytes: resenhaDiagnosticsSegmentBytes,
+    );
+  }
+
+  @override
   Future<void> clear() async => _store.reset();
 
   @override
@@ -197,6 +298,7 @@ final class FileResenhaDiagnosticsPersistence
     implements
         ResenhaDiagnosticsPersistence,
         StreamingResenhaDiagnosticsPersistence,
+        SnapshotStreamingResenhaDiagnosticsPersistence,
         RetainedResenhaDiagnosticsEventIdsPersistence {
   FileResenhaDiagnosticsPersistence(
     this.file, {
@@ -381,28 +483,183 @@ final class FileResenhaDiagnosticsPersistence
     required DateTime generatedAtUtc,
     required int reportFormatVersion,
     required Map<String, Object?> state,
-  }) => _serialize(
-    () => _writeJsonReportTo(
-      output,
-      generatedAtUtc: generatedAtUtc,
-      reportFormatVersion: reportFormatVersion,
-      state: state,
-    ),
+  }) => writeJsonReportSnapshotTo(
+    candidateEventIds: const {},
+    outputForRetainedEventIds: (_) => output,
+    generatedAtUtc: generatedAtUtc,
+    reportFormatVersion: reportFormatVersion,
+    state: state,
   );
+
+  @override
+  Future<void> writeJsonReportSnapshotTo({
+    required Set<String> candidateEventIds,
+    required ResenhaDiagnosticsReportSinkFactory outputForRetainedEventIds,
+    required DateTime generatedAtUtc,
+    required int reportFormatVersion,
+    required Map<String, Object?> state,
+  }) async {
+    final candidates = Set<String>.unmodifiable(candidateEventIds);
+    final reportState = Map<String, Object?>.unmodifiable(state);
+    final snapshot = await _serialize(
+      () => _createReportSnapshot(
+        candidateEventIds: candidates,
+        generatedAtUtc: generatedAtUtc,
+        reportFormatVersion: reportFormatVersion,
+        state: reportState,
+      ),
+    );
+
+    Object? operationError;
+    StackTrace? operationStackTrace;
+    try {
+      final output = outputForRetainedEventIds(snapshot.retainedEventIds);
+      await _streamReportSnapshot(snapshot.input, output);
+    } on Object catch (error, stackTrace) {
+      operationError = error;
+      operationStackTrace = stackTrace;
+    }
+
+    Object? cleanupError;
+    StackTrace? cleanupStackTrace;
+    try {
+      await snapshot.input.close();
+    } on Object catch (error, stackTrace) {
+      cleanupError = error;
+      cleanupStackTrace = stackTrace;
+    }
+    try {
+      await _deleteIfPresent(snapshot.file);
+    } on Object catch (error, stackTrace) {
+      cleanupError ??= error;
+      cleanupStackTrace ??= stackTrace;
+    }
+    if (operationError != null) {
+      Error.throwWithStackTrace(operationError, operationStackTrace!);
+    }
+    if (cleanupError != null) {
+      Error.throwWithStackTrace(cleanupError, cleanupStackTrace!);
+    }
+  }
+
+  Future<_ResenhaReportSnapshot> _createReportSnapshot({
+    required Set<String> candidateEventIds,
+    required DateTime generatedAtUtc,
+    required int reportFormatVersion,
+    required Map<String, Object?> state,
+  }) async {
+    final cutoff = await _prepareReportSnapshot(generatedAtUtc);
+    await _deleteStaleReportSnapshots();
+    final snapshotFile = await _createPrivateReportSnapshotFile();
+    final retainedEventIds = <String>{};
+    IOSink? sink;
+    Object? writeError;
+    StackTrace? writeStackTrace;
+    try {
+      sink = snapshotFile.openWrite();
+      final header = jsonEncode(
+        _reportHeader(
+          generatedAtUtc: generatedAtUtc,
+          reportFormatVersion: reportFormatVersion,
+          state: state,
+          segmentCount: _segmentCount,
+          segmentBytes: _segmentBytes,
+        ),
+      );
+      sink.writeln(header);
+      var unflushedBytes = utf8.encode(header).length + 1;
+      await for (final decoded in _retainedReportRecords(cutoff)) {
+        final eventId = decoded.record.data[resenhaDiagnosticsEventIdField];
+        if (eventId is String && candidateEventIds.contains(eventId)) {
+          retainedEventIds.add(eventId);
+        }
+        sink.writeln(decoded.line);
+        unflushedBytes += decoded.bytes;
+        if (unflushedBytes >= _resenhaReportSnapshotFlushBytes) {
+          await sink.flush();
+          unflushedBytes = 0;
+        }
+      }
+      await sink.flush();
+    } on Object catch (error, stackTrace) {
+      writeError = error;
+      writeStackTrace = stackTrace;
+    }
+    if (sink != null) {
+      try {
+        await sink.close();
+      } on Object catch (error, stackTrace) {
+        writeError ??= error;
+        writeStackTrace ??= stackTrace;
+      }
+    }
+    if (writeError != null) {
+      try {
+        await _deleteIfPresent(snapshotFile);
+      } on Object {
+        // Preserve the report-write failure. The orphan is owner-only and the
+        // strict scavenger retries deletion during a later locked operation.
+      }
+      Error.throwWithStackTrace(writeError, writeStackTrace!);
+    }
+
+    RandomAccessFile? input;
+    try {
+      restrictPrivateFile(snapshotFile);
+      input = await snapshotFile.open(mode: FileMode.read);
+      if (_canUnlinkOpenReportSnapshot) {
+        try {
+          await snapshotFile.delete();
+        } on FileSystemException {
+          // Some filesystems reject unlinking an open descriptor. The normal
+          // post-stream cleanup and strict stale scavenger remain available.
+        }
+      }
+      return _ResenhaReportSnapshot(
+        file: snapshotFile,
+        input: input,
+        retainedEventIds: Set<String>.unmodifiable(retainedEventIds),
+      );
+    } on Object catch (error, stackTrace) {
+      if (input != null) {
+        try {
+          await input.close();
+        } on Object {
+          // Deleting the private artifact is the important cleanup below.
+        }
+      }
+      try {
+        await _deleteIfPresent(snapshotFile);
+      } on Object {
+        // Preserve the open/restriction failure; stale cleanup retries later.
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
+  Future<void> _streamReportSnapshot(
+    RandomAccessFile input,
+    StringSink output,
+  ) async {
+    final decodedOutput = StringConversionSink.fromStringSink(output);
+    final decoder = utf8.decoder.startChunkedConversion(decodedOutput);
+    while (true) {
+      final bytes = await input.read(_resenhaReportSnapshotReadBytes);
+      if (bytes.isEmpty) break;
+      decoder.add(bytes);
+    }
+    decoder.close();
+  }
 
   Future<void> _writeJsonReportTo(
     StringSink output, {
     required DateTime generatedAtUtc,
     required int reportFormatVersion,
     required Map<String, Object?> state,
+    DateTime? preparedCutoff,
   }) async {
-    await _ensureLoaded(generatedAtUtc);
-    final cutoff = generatedAtUtc.toUtc().subtract(
-      resenhaDiagnosticsRetentionAge,
-    );
-    if (_oldestTimestampUtc case final oldest? when !oldest.isAfter(cutoff)) {
-      await _compactNow(generatedAtUtc);
-    }
+    final cutoff =
+        preparedCutoff ?? await _prepareReportSnapshot(generatedAtUtc);
     output.writeln(
       jsonEncode(
         _reportHeader(
@@ -414,23 +671,8 @@ final class FileResenhaDiagnosticsPersistence
         ),
       ),
     );
-    final highWater = <String, int>{};
-    DateTime? timestampHighWater;
-    for (var index = _segmentCount - 1; index >= 0; index -= 1) {
-      final segment = segmentFile(index);
-      if (!await segment.exists()) continue;
-      await for (final line in _boundedJsonLines(segment)) {
-        if (line == null) continue;
-        var decoded = _decodeRecordLine(line);
-        if (decoded == null ||
-            !_acceptIdentity(decoded.record, highWater) ||
-            !decoded.record.timestampUtc.isAfter(cutoff)) {
-          continue;
-        }
-        decoded = _clampTimestamp(decoded, timestampHighWater);
-        timestampHighWater = decoded.record.timestampUtc;
-        output.writeln(decoded.line);
-      }
+    await for (final decoded in _retainedReportRecords(cutoff)) {
+      output.writeln(decoded.line);
     }
   }
 
@@ -440,12 +682,36 @@ final class FileResenhaDiagnosticsPersistence
     required DateTime nowUtc,
   }) => _serialize(() async {
     if (candidateIds.isEmpty) return const <String>{};
+    final cutoff = await _prepareReportSnapshot(nowUtc);
+    return _findRetainedEventIdsInSnapshot(candidateIds, cutoff: cutoff);
+  });
+
+  Future<DateTime> _prepareReportSnapshot(DateTime nowUtc) async {
     await _ensureLoaded(nowUtc);
     final cutoff = nowUtc.toUtc().subtract(resenhaDiagnosticsRetentionAge);
     if (_oldestTimestampUtc case final oldest? when !oldest.isAfter(cutoff)) {
       await _compactNow(nowUtc);
     }
+    return cutoff;
+  }
+
+  Future<Set<String>> _findRetainedEventIdsInSnapshot(
+    Set<String> candidateIds, {
+    required DateTime cutoff,
+  }) async {
+    if (candidateIds.isEmpty) return const <String>{};
     final matches = <String>{};
+    await for (final decoded in _retainedReportRecords(cutoff)) {
+      final eventId = decoded.record.data[resenhaDiagnosticsEventIdField];
+      if (eventId is String && candidateIds.contains(eventId)) {
+        matches.add(eventId);
+        if (matches.length == candidateIds.length) return matches;
+      }
+    }
+    return matches;
+  }
+
+  Stream<_DecodedRecordLine> _retainedReportRecords(DateTime cutoff) async* {
     final highWater = <String, int>{};
     DateTime? timestampHighWater;
     for (var index = _segmentCount - 1; index >= 0; index -= 1) {
@@ -461,15 +727,10 @@ final class FileResenhaDiagnosticsPersistence
         }
         decoded = _clampTimestamp(decoded, timestampHighWater);
         timestampHighWater = decoded.record.timestampUtc;
-        final eventId = decoded.record.data[resenhaDiagnosticsEventIdField];
-        if (eventId is String && candidateIds.contains(eventId)) {
-          matches.add(eventId);
-          if (matches.length == candidateIds.length) return matches;
-        }
+        yield decoded;
       }
     }
-    return matches;
-  });
+  }
 
   @override
   Future<void> clear() => _serialize(() async {
@@ -497,6 +758,7 @@ final class FileResenhaDiagnosticsPersistence
     await _deleteIfPresent(_preparedFile);
     await _deleteIfPresent(_committedFile);
     await _deleteGroupTemps();
+    await _deleteStaleReportSnapshots();
     _fingerprint = await _diskFingerprint();
     if (firstError != null) {
       Error.throwWithStackTrace(firstError, firstStackTrace!);
@@ -512,6 +774,7 @@ final class FileResenhaDiagnosticsPersistence
   Future<ResenhaDiagnosticsPersistenceState> _loadNow(DateTime nowUtc) async {
     _loaded = true;
     await ensurePrivateDirectory(file.parent);
+    await _deleteStaleReportSnapshots();
     await _recoverInterruptedReplacement();
     var scan = await _scan(nowUtc);
     if (scan.needsCompaction) {
@@ -1179,6 +1442,58 @@ final class FileResenhaDiagnosticsPersistence
     restrictPrivateFile(target);
   }
 
+  Future<File> _createPrivateReportSnapshotFile() async {
+    await ensurePrivateDirectory(file.parent);
+    for (var attempt = 0; attempt < 8; attempt += 1) {
+      final snapshot = File(
+        '${file.absolute.path}.$pid.${_randomReportSnapshotSuffix()}'
+        '.resenha-report-snapshot.tmp',
+      );
+      try {
+        await snapshot.create(exclusive: true);
+      } on FileSystemException {
+        if (await snapshot.exists()) continue;
+        rethrow;
+      }
+      try {
+        // Restrict the empty artifact before its first sensitive byte.
+        restrictPrivateFile(snapshot);
+        return snapshot;
+      } on Object {
+        try {
+          await _deleteIfPresent(snapshot);
+        } on Object {
+          // The private directory still contains only an empty artifact.
+        }
+        rethrow;
+      }
+    }
+    throw StateError('Could not allocate a unique Resenha report snapshot.');
+  }
+
+  Future<void> _deleteStaleReportSnapshots() async {
+    final parent = file.parent.absolute;
+    if (!await parent.exists()) return;
+    final ownedSnapshot = RegExp(
+      '^${RegExp.escape(file.absolute.path)}\\.\\d+\\.[0-9a-f]{32}'
+      r'\.resenha-report-snapshot\.tmp$',
+    );
+    final staleBefore = DateTime.now().toUtc().subtract(
+      _resenhaReportSnapshotStaleAge,
+    );
+    await for (final entity in parent.list(followLinks: false)) {
+      if (entity is! File || !ownedSnapshot.hasMatch(entity.path)) continue;
+      try {
+        final modifiedUtc = (await entity.stat()).modified.toUtc();
+        if (modifiedUtc.isAfter(staleBefore)) continue;
+        await entity.delete();
+      } on FileSystemException {
+        // A still-open Windows snapshot or a transient cleanup failure remains
+        // owner-only and is retried by a later serialized operation.
+      }
+    }
+  }
+
   Future<void> _deleteGroupTemps() async {
     if (!await file.parent.exists()) return;
     final prefix = '${file.path}.group.';
@@ -1286,6 +1601,18 @@ final class _DecodedRecordLine {
   final int bytes;
 }
 
+final class _ResenhaReportSnapshot {
+  const _ResenhaReportSnapshot({
+    required this.file,
+    required this.input,
+    required this.retainedEventIds,
+  });
+
+  final File file;
+  final RandomAccessFile input;
+  final Set<String> retainedEventIds;
+}
+
 final class _TemporaryGroup {
   _TemporaryGroup(this.file)
     : bytes = FileResenhaDiagnosticsPersistence._metadataLineBytes;
@@ -1301,6 +1628,18 @@ final class _ReplacementTransaction {
   final Set<int> originalIndices;
   final Set<int> newIndices;
 }
+
+bool get _canUnlinkOpenReportSnapshot =>
+    Platform.isAndroid ||
+    Platform.isFuchsia ||
+    Platform.isIOS ||
+    Platform.isLinux ||
+    Platform.isMacOS;
+
+String _randomReportSnapshotSuffix() => List<int>.generate(
+  16,
+  (_) => _resenhaReportSnapshotRandom.nextInt(256),
+).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
 
 final class _FileMetadata {
   const _FileMetadata({
@@ -1667,22 +2006,42 @@ String _buildJsonReport(
   required int segmentCount,
   required int segmentBytes,
 }) {
-  final output = StringBuffer()
-    ..writeln(
-      jsonEncode(
-        _reportHeader(
-          generatedAtUtc: generatedAtUtc,
-          reportFormatVersion: reportFormatVersion,
-          state: state,
-          segmentCount: segmentCount,
-          segmentBytes: segmentBytes,
-        ),
+  final output = StringBuffer();
+  _writeJsonReportRecordsTo(
+    output,
+    records,
+    generatedAtUtc: generatedAtUtc,
+    reportFormatVersion: reportFormatVersion,
+    state: state,
+    segmentCount: segmentCount,
+    segmentBytes: segmentBytes,
+  );
+  return output.toString();
+}
+
+void _writeJsonReportRecordsTo(
+  StringSink output,
+  Iterable<ResenhaDiagnosticRecord> records, {
+  required DateTime generatedAtUtc,
+  required int reportFormatVersion,
+  required Map<String, Object?> state,
+  required int segmentCount,
+  required int segmentBytes,
+}) {
+  output.writeln(
+    jsonEncode(
+      _reportHeader(
+        generatedAtUtc: generatedAtUtc,
+        reportFormatVersion: reportFormatVersion,
+        state: state,
+        segmentCount: segmentCount,
+        segmentBytes: segmentBytes,
       ),
-    );
+    ),
+  );
   for (final record in records) {
     output.writeln(jsonEncode(resenhaDiagnosticLine(record)));
   }
-  return output.toString();
 }
 
 Map<String, Object?> _reportHeader({

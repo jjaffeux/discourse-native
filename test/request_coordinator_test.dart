@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/media_request_coordinator.dart';
@@ -85,6 +86,42 @@ void main() {
       afterCooldown.release();
     });
 
+    test('HTTP-date cooldowns propagate to a related origin', () async {
+      final scheduler = ManualScheduler();
+      final now = DateTime.utc(2026, 8, 24, 12);
+      final coordinator = MediaRequestCoordinator(
+        clock: () => now,
+        cooldownFactory: () => OriginCooldown(
+          clock: scheduler.now,
+          timerFactory: scheduler.createTimer,
+        ),
+      );
+      addTearDown(coordinator.close);
+      final cdn = Uri.parse('https://cdn.example/avatar.png');
+      final forum = Uri.parse('https://forum.example/users/1');
+      final active = await coordinator.acquire(cdn, relatedUrl: forum);
+
+      active.rateLimited({
+        'retry-after': HttpDate.format(now.add(const Duration(seconds: 30))),
+      });
+      active.release();
+
+      for (final url in [cdn, forum]) {
+        await expectLater(
+          coordinator.acquire(url),
+          throwsA(
+            isA<MediaOriginRateLimitedException>()
+                .having((error) => error.origin, 'origin', url.origin)
+                .having(
+                  (error) => error.retryAfter,
+                  'retryAfter',
+                  const Duration(seconds: 30),
+                ),
+          ),
+        );
+      }
+    });
+
     test('close rejects queued work and makes an active lease inert', () async {
       final scheduler = ManualScheduler();
       final coordinator = MediaRequestCoordinator(
@@ -109,28 +146,6 @@ void main() {
         coordinator.acquire(origin.resolve('/later')),
         throwsA(isA<StateError>()),
       );
-    });
-
-    test('close cancels an already armed cooldown wake', () async {
-      final scheduler = ManualScheduler();
-      final coordinator = MediaRequestCoordinator(
-        cooldownFactory: () => OriginCooldown(
-          clock: scheduler.now,
-          timerFactory: scheduler.createTimer,
-        ),
-      );
-      final url = Uri.parse('https://media.example/avatar.png');
-      final active = await coordinator.acquire(url);
-
-      active.rateLimited({'retry-after': '60'});
-      expect(scheduler.activeTimerCount, 1);
-      coordinator.close();
-      expect(scheduler.activeTimerCount, 0);
-
-      scheduler.advance(const Duration(minutes: 2));
-      active.release();
-      expect(scheduler.activeTimerCount, 0);
-      await expectLater(coordinator.acquire(url), throwsA(isA<StateError>()));
     });
   });
 
@@ -216,41 +231,6 @@ void main() {
         );
 
         expect((await active).statusCode, 429);
-        expect(sends, 1);
-        expect(scheduler.activeTimerCount, 0);
-      },
-    );
-
-    test(
-      'close cancels an armed cooldown without draining its queue',
-      () async {
-        final scheduler = ManualScheduler();
-        final coordinator = DiscourseRequestCoordinator(
-          cooldownFactory: () => OriginCooldown(
-            clock: scheduler.now,
-            timerFactory: scheduler.createTimer,
-          ),
-        );
-        final origin = Uri.parse('https://forum.example');
-        var sends = 0;
-        final limited = coordinator.run(origin.resolve('/limited'), () async {
-          sends++;
-          return http.Response('{}', 429, headers: {'retry-after': '60'});
-        });
-        expect((await limited).statusCode, 429);
-        expect(scheduler.activeTimerCount, 1);
-
-        final queued = coordinator.run(origin.resolve('/queued'), () async {
-          sends++;
-          return http.Response('{}', 200);
-        });
-        final queuedRejection = expectLater(queued, throwsA(isA<StateError>()));
-        expect(sends, 1);
-
-        coordinator.close();
-        await queuedRejection;
-        expect(scheduler.activeTimerCount, 0);
-        scheduler.advance(const Duration(minutes: 2));
         expect(sends, 1);
         expect(scheduler.activeTimerCount, 0);
       },

@@ -47,21 +47,14 @@ final class TopicRecommendationsPanelStore {
            const SharedPreferencesTopicRecommendationsPanelPersistence();
 
   final TopicRecommendationsPanelPersistence _persistence;
-  static final SerialOperationQueue _operations = SerialOperationQueue();
-  static final Map<_TopicPanelOperationKey, int> _pendingWrites = {};
+  static final ReadAfterWriteOperationQueue _operations =
+      ReadAfterWriteOperationQueue();
 
-  Future<bool> read({required String siteUrl}) {
-    final key = _TopicPanelOperationKey(_persistence, siteUrl);
-    // Most reads are fire-and-forget presentation hydration. Keep those reads
-    // out of the write queue unless there is actually an earlier write to
-    // observe; this also means an abandoned reader can never strand saves.
-    if ((_pendingWrites[key] ?? 0) == 0) return _read(siteUrl);
-    return _operations.run(
-      owner: _persistence,
-      key: siteUrl,
-      operation: () => _read(siteUrl),
-    );
-  }
+  Future<bool> read({required String siteUrl}) => _operations.read(
+    owner: _persistence,
+    key: siteUrl,
+    operation: () => _read(siteUrl),
+  );
 
   Future<bool> _read(String siteUrl) async {
     try {
@@ -76,24 +69,12 @@ final class TopicRecommendationsPanelStore {
     }
   }
 
-  Future<void> write({required String siteUrl, required bool collapsed}) async {
-    final key = _TopicPanelOperationKey(_persistence, siteUrl);
-    _pendingWrites.update(key, (count) => count + 1, ifAbsent: () => 1);
-    try {
-      await _operations.run<void>(
+  Future<void> write({required String siteUrl, required bool collapsed}) =>
+      _operations.write<void>(
         owner: _persistence,
         key: siteUrl,
         operation: () => _persist(siteUrl: siteUrl, collapsed: collapsed),
       );
-    } finally {
-      final remaining = _pendingWrites[key]! - 1;
-      if (remaining == 0) {
-        _pendingWrites.remove(key);
-      } else {
-        _pendingWrites[key] = remaining;
-      }
-    }
-  }
 
   Future<void> _persist({
     required String siteUrl,
@@ -117,20 +98,4 @@ final class TopicRecommendationsPanelStore {
       );
     }
   }
-}
-
-final class _TopicPanelOperationKey {
-  const _TopicPanelOperationKey(this.owner, this.siteUrl);
-
-  final Object owner;
-  final String siteUrl;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _TopicPanelOperationKey &&
-      identical(owner, other.owner) &&
-      siteUrl == other.siteUrl;
-
-  @override
-  int get hashCode => Object.hash(identityHashCode(owner), siteUrl);
 }

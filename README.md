@@ -1267,7 +1267,9 @@ an owner-only, atomically replaced file at
 `Application Support/drafts/drafts-v1.json`; Linux retains the existing private
 XDG JSON store. Complete-file updates share an in-process queue and an advisory
 sidecar lock, so separate persistence instances or processes cannot overwrite
-one another's snapshots. An Apple release can recover an old Keychain draft
+one another's snapshots. That transaction protocol has one owner in
+`foundation/private_file_document.dart`; each store still owns its schema and
+migration policy. An Apple release can recover an old Keychain draft
 only when that exact draft is opened; the old copy is left inert to avoid a
 second ACL prompt. Durable key and site-prefix blockers prevent a cleared draft
 from later being resurrected, account-boundary clearing fails if its blocker
@@ -1509,7 +1511,9 @@ draft mirrors are stored in
 `$XDG_DATA_HOME/discourse-native/private-storage.json`, falling back to
 `$HOME/.local/share/discourse-native/private-storage.json`. The directory is
 forced to mode 0700 and the file to 0600; writes are flushed to a temporary file
-and atomically renamed over the previous version.
+and atomically renamed over the previous version. Linux credentials and Apple
+drafts use the same private whole-file transaction primitive, while retaining
+their separate data formats and migration rules.
 
 This is deliberately filesystem-private, not independently encrypted. It
 relies on home-directory or full-disk encryption for protection while logged

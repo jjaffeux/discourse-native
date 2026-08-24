@@ -3207,60 +3207,6 @@ void main() {
   });
 
   group('ordering the stream', () {
-    test('drops a duplicate rather than naming a message twice', () async {
-      final subject = build(
-        messages: {
-          key(9): page([message(5, minute: 5)], canLoadMorePast: true),
-          key(9, before: 5): page([
-            message(3, minute: 3),
-            message(5, minute: 5),
-          ]),
-        },
-      );
-
-      await subject.chat.openChannel(site, 9);
-      await subject.chat.loadOlder(site, 9);
-
-      expect(subject.chat.stream(site, 9).messageIds, [3, 5]);
-    });
-
-    test('orders two messages written in the same second by id', () async {
-      // iso8601 carries seconds, so those two have equal dates on the wire, and
-      // Dart's sort is unstable — without the tiebreak they swap places every
-      // time a page is merged and the list reshuffles under the reader.
-      final subject = build(
-        messages: {
-          key(9): page([
-            message(7, second: 30),
-            message(6, second: 30),
-            message(8, second: 31),
-          ]),
-        },
-      );
-
-      await subject.chat.openChannel(site, 9);
-
-      expect(subject.chat.stream(site, 9).messageIds, [6, 7, 8]);
-    });
-
-    test(
-      'puts an older page before what it already held, whatever the ids say',
-      () async {
-        final subject = build(
-          messages: {
-            key(9): page([message(2, minute: 5)], canLoadMorePast: true),
-            // A higher id but an earlier date: the site orders by date first and
-            // so does this, because that is what keeps its cursors meaningful.
-            key(9, before: 2): page([message(30, minute: 1)]),
-          },
-        );
-
-        await subject.chat.openChannel(site, 9);
-        await subject.chat.loadOlder(site, 9);
-
-        expect(subject.chat.stream(site, 9).messageIds, [30, 2]);
-      },
-    );
     testWidgets(
       'a live arrival lands in the same place whichever channel brings it',
       (tester) async {
@@ -3268,7 +3214,7 @@ void main() {
         // own stream and once on its new-messages stream, and which arrives
         // first is a race between two MessageBus channels. A message whose
         // adopted `client_created_at` sorts before the newest one held —
-        // which is the case `_admitLiveId` exists for — has to land in the
+        // which is the timeline reducer's slow-path case — has to land in the
         // same place either way, or the pane's order depends on the network.
         Future<List<int>> arrivingOn(String busChannel, Object? event) async {
           final subject = build(

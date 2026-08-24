@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../foundation/private_file_document.dart';
 import '../foundation/private_file_permissions.dart';
 
 /// Exact-key persistence for data which must not be mixed into the app's public
@@ -354,62 +354,45 @@ final class MigratingPrivateStorage implements PrivateStorage {
 /// are flushed to a same-directory temporary file before an atomic rename, so
 /// interruption cannot leave half-written JSON behind.
 final class LinuxFileStorage implements EnumerablePrivateStorage {
-  LinuxFileStorage({
-    Directory? directory,
-    @visibleForTesting Future<void> Function()? beforeCommitForTesting,
-  }) : this._(
-         providedDirectory: directory,
-         beforeCommitForTesting: beforeCommitForTesting,
-       );
-
-  LinuxFileStorage._({this._providedDirectory, this._beforeCommitForTesting});
+  LinuxFileStorage({Directory? directory}) : _providedDirectory = directory;
 
   static const _fileName = 'private-storage.json';
   static const _formatVersion = 1;
-  static final Map<String, _LinuxFileStorageCoordinator> _coordinators = {};
 
   final Directory? _providedDirectory;
-  final Future<void> Function()? _beforeCommitForTesting;
-  final Random _random = Random.secure();
+  late final PrivateFileDocument<Map<String, String>> _document =
+      PrivateFileDocument(
+        target: _file,
+        empty: () => <String, String>{},
+        decode: _decodeValues,
+        encode: _encodeValues,
+      );
 
   @override
   Future<String?> read(String key) =>
-      _serialize(() async => (await _readValues())[key]);
+      _document.read((values) => PrivateFileResult(values[key]));
 
   @override
   Future<Map<String, String>> readAll() =>
-      _serialize(() async => Map.unmodifiable(await _readValues()));
+      _document.read((values) => PrivateFileResult(Map.unmodifiable(values)));
 
   @override
-  Future<void> write(String key, String value) => _serialize(() async {
-    final values = await _readValues();
+  Future<void> write(String key, String value) => _document.update((values) {
     values[key] = value;
-    await _writeValues(values);
+    return PrivateFileResult.done;
   });
 
   @override
-  Future<void> delete(String key) => _serialize(() async {
-    final values = await _readValues();
-    if (values.remove(key) != null) await _writeValues(values);
+  Future<void> delete(String key) => _document.update((values) {
+    values.remove(key);
+    return PrivateFileResult.done;
   });
 
   @override
-  Future<void> deletePrefix(String prefix) => _serialize(() async {
-    final values = await _readValues();
-    final previousLength = values.length;
+  Future<void> deletePrefix(String prefix) => _document.update((values) {
     values.removeWhere((key, _) => key.startsWith(prefix));
-    if (values.length != previousLength) await _writeValues(values);
+    return PrivateFileResult.done;
   });
-
-  Future<T> _serialize<T>(Future<T> Function() operation) async {
-    final file = await _file();
-    final path = file.absolute.path;
-    final coordinator = _coordinators.putIfAbsent(
-      path,
-      () => _LinuxFileStorageCoordinator(File(path)),
-    );
-    return coordinator.run(operation);
-  }
 
   Future<Directory> _directory() async {
     final provided = _providedDirectory;
@@ -430,18 +413,13 @@ final class LinuxFileStorage implements EnumerablePrivateStorage {
 
   Future<File> _file() async {
     final directory = await _directory();
-    await ensurePrivateDirectory(directory);
     return File('${directory.path}/$_fileName');
   }
 
-  Future<Map<String, String>> _readValues() async {
-    final file = await _file();
-    if (!await file.exists()) return {};
-    restrictPrivateFile(file);
-
+  Map<String, String> _decodeValues(String contents) {
     final Object? decoded;
     try {
-      decoded = jsonDecode(await file.readAsString());
+      decoded = jsonDecode(contents);
     } on FormatException catch (error) {
       throw FormatException('Invalid private storage: ${error.message}');
     }
@@ -464,50 +442,6 @@ final class LinuxFileStorage implements EnumerablePrivateStorage {
     throw const FormatException('Invalid private storage format');
   }
 
-  Future<void> _writeValues(Map<String, String> values) async {
-    await _beforeCommitForTesting?.call();
-    final file = await _file();
-    final suffix = List<int>.generate(
-      12,
-      (_) => _random.nextInt(256),
-    ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
-    final temporary = File('${file.path}.$pid.$suffix.tmp');
-
-    try {
-      await ensurePrivateFile(temporary);
-      await temporary.writeAsString(
-        jsonEncode({'version': _formatVersion, 'values': values}),
-        flush: true,
-      );
-      await temporary.rename(file.path);
-      restrictPrivateFile(file);
-    } finally {
-      if (await temporary.exists()) await temporary.delete();
-    }
-  }
-}
-
-/// Serializes full-file transactions across storage instances and processes.
-final class _LinuxFileStorageCoordinator {
-  _LinuxFileStorageCoordinator(this.file);
-
-  final File file;
-  Future<void> _tail = Future<void>.value();
-
-  Future<T> run<T>(Future<T> Function() operation) {
-    final result = Completer<T>();
-    _tail = _tail.then((_) async {
-      try {
-        result.complete(
-          await withPrivateAdvisoryFileLock(
-            File('${file.path}.lock'),
-            operation,
-          ),
-        );
-      } catch (error, stackTrace) {
-        result.completeError(error, stackTrace);
-      }
-    });
-    return result.future;
-  }
+  String _encodeValues(Map<String, String> values) =>
+      jsonEncode({'version': _formatVersion, 'values': values});
 }
