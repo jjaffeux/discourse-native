@@ -67,6 +67,12 @@ class ChatMessageTile extends StatelessWidget {
   /// the one above it.
   static const double gutter = 42;
 
+  /// A speaker header plus one body line and the row's vertical padding.
+  static const double minimumUnchainedHeight = 58;
+
+  /// One body line and the tighter padding used inside a speaker run.
+  static const double minimumChainedHeight = 28;
+
   static Key threadPreviewKey(int threadId) =>
       ValueKey<String>('chat-thread-preview-$threadId');
 
@@ -234,7 +240,7 @@ class _Tile extends StatelessWidget {
     final theme = Theme.of(context);
     final messageTextStyle = theme.textTheme.bodyLarge?.copyWith(height: 1.4);
 
-    return Padding(
+    final tile = Padding(
       key: ValueKey('chat-message-${message.id}'),
       // Core's desktop chat uses 0.65rem above a new speaker and 0.15rem
       // around a chained message, with 1rem at either side.
@@ -340,6 +346,15 @@ class _Tile extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: chained
+            ? ChatMessageTile.minimumChainedHeight
+            : ChatMessageTile.minimumUnchainedHeight,
+      ),
+      child: tile,
     );
   }
 }

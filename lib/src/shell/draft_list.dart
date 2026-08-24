@@ -21,6 +21,10 @@ import 'topic_title.dart';
 class DraftListView extends StatefulWidget {
   const DraftListView({super.key, required this.siteUrl});
 
+  /// A row can never be shorter than its 44px actions plus its outer padding.
+  static const double compactRowMinimumHeight = 72;
+  static const double wideRowMinimumHeight = 84;
+
   final String siteUrl;
 
   @override
@@ -227,7 +231,7 @@ class _DraftSkeletonRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 520;
-        return Padding(
+        final row = Padding(
           padding: EdgeInsets.fromLTRB(
             compact ? 8 : 16,
             compact ? 14 : 20,
@@ -274,6 +278,15 @@ class _DraftSkeletonRow extends StatelessWidget {
               ),
             ],
           ),
+        );
+
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: compact
+                ? DraftListView.compactRowMinimumHeight
+                : DraftListView.wideRowMinimumHeight,
+          ),
+          child: row,
         );
       },
     );
@@ -476,7 +489,7 @@ class _DraftRowContent extends StatelessWidget {
         : draft.displayTitle;
     const actionSize = 44.0;
 
-    return InkWell(
+    final row = InkWell(
       onTap: action,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
@@ -564,6 +577,15 @@ class _DraftRowContent extends StatelessWidget {
           ],
         ),
       ),
+    );
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: compact
+            ? DraftListView.compactRowMinimumHeight
+            : DraftListView.wideRowMinimumHeight,
+      ),
+      child: row,
     );
   }
 }

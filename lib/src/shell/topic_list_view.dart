@@ -348,7 +348,6 @@ class _TopicListViewState extends State<TopicListView> {
 class _TopicListLoadingSkeleton extends StatelessWidget {
   const _TopicListLoadingSkeleton({super.key, required this.destination});
 
-  static const _minimumRowHeight = 47.0;
   static const _patternLength = 5;
 
   final String destination;
@@ -368,7 +367,7 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final visibleRowCount = constraints.hasBoundedHeight
-              ? (constraints.maxHeight / _minimumRowHeight).ceil()
+              ? (constraints.maxHeight / TopicListRow.minimumHeight).ceil()
               : _patternLength;
           final rowCount = visibleRowCount < 1 ? 1 : visibleRowCount;
 
@@ -442,7 +441,7 @@ class _TopicListSkeletonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,6 +464,11 @@ class _TopicListSkeletonRow extends StatelessWidget {
           _TopicListSkeletonPosters(count: posterCount),
         ],
       ),
+    );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: TopicListRow.minimumHeight),
+      child: row,
     );
   }
 }
@@ -704,6 +708,9 @@ class _TopicRow extends StatelessWidget {
 class TopicListRow extends StatelessWidget {
   const TopicListRow({super.key, required this.topic});
 
+  /// One title line, one metadata line, their gap, and the row padding.
+  static const double minimumHeight = 68;
+
   final Topic topic;
 
   @override
@@ -762,7 +769,7 @@ class _TopicRowBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return InkWell(
+    final row = InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -881,6 +888,11 @@ class _TopicRowBody extends StatelessWidget {
           ],
         ),
       ),
+    );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: TopicListRow.minimumHeight),
+      child: row,
     );
   }
 }
