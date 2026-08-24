@@ -99,6 +99,26 @@ Finder get activityIndicators => find.byWidgetPredicate(
   description: 'adaptive activity indicator',
 );
 
+Finder minimumHeightDescendants(Finder root, double minimumHeight) =>
+    find.descendant(
+      of: root,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is ConstrainedBox &&
+            widget.constraints.minHeight == minimumHeight,
+      ),
+    );
+
+Finder minimumHeightAncestors(Finder child, double minimumHeight) =>
+    find.ancestor(
+      of: child,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is ConstrainedBox &&
+            widget.constraints.minHeight == minimumHeight,
+      ),
+    );
+
 final List<DiscourseInstance> twoSites = [
   instance('meta.discourse.org', title: 'Discourse Meta'),
   instance('team.discourse.org', title: 'Discourse Team'),
@@ -3888,6 +3908,15 @@ void main() {
               .height,
         ),
       );
+      final skeletonPosts = minimumHeightDescendants(
+        find.byKey(const ValueKey('topic-loading-skeleton')),
+        TopicView.minimumPostHeight,
+      );
+      expect(skeletonPosts, findsWidgets);
+      expect(
+        tester.getSize(skeletonPosts.first).height,
+        greaterThanOrEqualTo(TopicView.minimumPostHeight),
+      );
       expect(find.bySemanticsLabel('Loading topic'), findsOneWidget);
       expect(activityIndicators, findsNothing);
       expect(tester.takeException(), isNull);
@@ -3900,6 +3929,15 @@ void main() {
         findsNothing,
       );
       expect(renderedText('First post body'), findsOneWidget);
+      final loadedPosts = minimumHeightDescendants(
+        find.byType(TopicView),
+        TopicView.minimumPostHeight,
+      );
+      expect(loadedPosts, findsWidgets);
+      expect(
+        tester.getSize(loadedPosts.first).height,
+        greaterThanOrEqualTo(TopicView.minimumPostHeight),
+      );
       expect(tester.takeException(), isNull);
       semantics.dispose();
     });
@@ -10863,6 +10901,24 @@ void main() {
                 .height,
           ),
         );
+        final skeletonMessages = minimumHeightDescendants(
+          find.byKey(const ValueKey('chat-loading-skeleton')),
+          ChatMessageTile.minimumUnchainedHeight,
+        );
+        final chainedSkeletonMessages = minimumHeightDescendants(
+          find.byKey(const ValueKey('chat-loading-skeleton')),
+          ChatMessageTile.minimumChainedHeight,
+        );
+        expect(skeletonMessages, findsWidgets);
+        expect(chainedSkeletonMessages, findsWidgets);
+        expect(
+          tester.getSize(skeletonMessages.first).height,
+          greaterThanOrEqualTo(ChatMessageTile.minimumUnchainedHeight),
+        );
+        expect(
+          tester.getSize(chainedSkeletonMessages.first).height,
+          greaterThanOrEqualTo(ChatMessageTile.minimumChainedHeight),
+        );
         expect(find.bySemanticsLabel('Loading chat channel'), findsOneWidget);
         expect(find.byKey(const ValueKey('chat-composer')), findsOneWidget);
         expect(activityIndicators, findsNothing);
@@ -10881,6 +10937,14 @@ void main() {
         expect(
           find.byKey(const ValueKey('chat-loading-skeleton')),
           findsNothing,
+        );
+        final loadedMessage = minimumHeightAncestors(
+          find.byKey(const ValueKey('chat-message-1')),
+          ChatMessageTile.minimumUnchainedHeight,
+        );
+        expect(
+          tester.getSize(loadedMessage.first).height,
+          greaterThanOrEqualTo(ChatMessageTile.minimumUnchainedHeight),
         );
         expect(shellNotifications, 0);
         expect(tester.takeException(), isNull);
@@ -10940,6 +11004,22 @@ void main() {
               .widget<Padding>(find.byKey(const ValueKey('chat-message-2')))
               .padding,
           const EdgeInsets.fromLTRB(16, 2.4, 16, 2.4),
+        );
+        final firstMessage = minimumHeightAncestors(
+          find.byKey(const ValueKey('chat-message-1')),
+          ChatMessageTile.minimumUnchainedHeight,
+        );
+        final secondMessage = minimumHeightAncestors(
+          find.byKey(const ValueKey('chat-message-2')),
+          ChatMessageTile.minimumChainedHeight,
+        );
+        expect(
+          tester.getSize(firstMessage.first).height,
+          greaterThanOrEqualTo(ChatMessageTile.minimumUnchainedHeight),
+        );
+        expect(
+          tester.getSize(secondMessage.first).height,
+          greaterThanOrEqualTo(ChatMessageTile.minimumChainedHeight),
         );
       });
 

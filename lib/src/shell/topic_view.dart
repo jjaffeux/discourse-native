@@ -39,6 +39,9 @@ class TopicView extends StatefulWidget {
   /// Start fetching the next batch about a screen before either end.
   static const double _loadPostsThreshold = 900;
 
+  /// Header, body line, their gap, and the post's outer padding.
+  static const double minimumPostHeight = 96;
+
   /// Whether recommendations are docked beside the posts instead of below
   /// them. Narrow layouts leave this false so the reading column stays usable.
   final bool showRecommendationsPanel;
@@ -1143,7 +1146,7 @@ class _TopicPostSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final post = Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1193,6 +1196,11 @@ class _TopicPostSkeleton extends StatelessWidget {
             ),
         ],
       ),
+    );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: TopicView.minimumPostHeight),
+      child: post,
     );
   }
 }
@@ -1765,7 +1773,7 @@ class _PostTileState extends State<_PostTile> {
 
     // Transparent rather than [ShellColors.content] when idle, so the tile
     // takes whichever surface the column it is in happens to paint.
-    return MouseRegion(
+    final tile = MouseRegion(
       onEnter: (_) => _setHovered(true),
       onExit: (_) => _setHovered(false),
       child: ColoredBox(
@@ -1915,6 +1923,11 @@ class _PostTileState extends State<_PostTile> {
           ),
         ),
       ),
+    );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: TopicView.minimumPostHeight),
+      child: tile,
     );
   }
 }

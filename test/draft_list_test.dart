@@ -20,7 +20,15 @@ import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart'
-    show Focus, InkWell, MaterialApp, MouseRegion, Row, Size, ValueKey;
+    show
+        ConstrainedBox,
+        Focus,
+        InkWell,
+        MaterialApp,
+        MouseRegion,
+        Row,
+        Size,
+        ValueKey;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -295,6 +303,19 @@ void main() {
             36,
       ),
     );
+    final skeletonRows = find.descendant(
+      of: find.byKey(const ValueKey('draft-list-loading-skeleton')),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is ConstrainedBox &&
+            widget.constraints.minHeight == DraftListView.wideRowMinimumHeight,
+      ),
+    );
+    expect(skeletonRows, findsWidgets);
+    expect(
+      tester.getSize(skeletonRows.first).height,
+      greaterThanOrEqualTo(DraftListView.wideRowMinimumHeight),
+    );
     expect(find.bySemanticsLabel('Loading drafts'), findsOneWidget);
 
     gate.complete();
@@ -305,6 +326,18 @@ void main() {
       findsNothing,
     );
     expect(find.byTooltip('Edit draft'), findsOneWidget);
+    final draftRow = find.ancestor(
+      of: find.byTooltip('Edit draft'),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is ConstrainedBox &&
+            widget.constraints.minHeight == DraftListView.wideRowMinimumHeight,
+      ),
+    );
+    expect(
+      tester.getSize(draftRow.first).height,
+      greaterThanOrEqualTo(DraftListView.wideRowMinimumHeight),
+    );
     semantics.dispose();
   });
 
@@ -322,6 +355,19 @@ void main() {
     final remove = find.byTooltip('Remove draft');
     expect(tester.getSize(edit), const Size.square(44));
     expect(tester.getSize(remove), const Size.square(44));
+    final row = find.ancestor(
+      of: edit,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is ConstrainedBox &&
+            widget.constraints.minHeight ==
+                DraftListView.compactRowMinimumHeight,
+      ),
+    );
+    expect(
+      tester.getSize(row.first).height,
+      greaterThanOrEqualTo(DraftListView.compactRowMinimumHeight),
+    );
 
     await _focusDraftAction(tester, remove);
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
@@ -336,6 +382,39 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ComposerPanel), findsOneWidget);
+  });
+
+  testWidgets('compact drafts skeleton keeps the compact row minimum', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    await _pump(tester, size: const Size(390, 844), userDraftGate: gate);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(InstanceSidebar),
+        matching: find.text('Drafts'),
+      ),
+    );
+    await tester.pump();
+
+    final skeletonRows = find.descendant(
+      of: find.byKey(const ValueKey('draft-list-loading-skeleton')),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is ConstrainedBox &&
+            widget.constraints.minHeight ==
+                DraftListView.compactRowMinimumHeight,
+      ),
+    );
+    expect(skeletonRows, findsWidgets);
+    expect(
+      tester.getSize(skeletonRows.first).height,
+      greaterThanOrEqualTo(DraftListView.compactRowMinimumHeight),
+    );
+
+    gate.complete();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('the profile Drafts row opens the same destination', (

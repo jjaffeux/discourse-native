@@ -42,6 +42,19 @@ void main() {
             .height,
       ),
     );
+    final skeletonRows = find.descendant(
+      of: find.byKey(const ValueKey('topic-list-loading-skeleton')),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is ConstrainedBox &&
+            widget.constraints.minHeight == TopicListRow.minimumHeight,
+      ),
+    );
+    expect(skeletonRows, findsWidgets);
+    expect(
+      tester.getSize(skeletonRows.first).height,
+      greaterThanOrEqualTo(TopicListRow.minimumHeight),
+    );
     expect(find.bySemanticsLabel('Loading topics'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);
@@ -54,6 +67,15 @@ void main() {
       findsNothing,
     );
     expect(find.text('Topic 1'), findsOneWidget);
+    final topicRow = find.descendant(
+      of: find.byType(TopicListView),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is ConstrainedBox &&
+            widget.constraints.minHeight == TopicListRow.minimumHeight,
+      ),
+    );
+    expect(tester.getSize(topicRow.first).height, TopicListRow.minimumHeight);
     semantics.dispose();
   });
 

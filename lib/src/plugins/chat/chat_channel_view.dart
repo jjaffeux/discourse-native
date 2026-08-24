@@ -1563,7 +1563,9 @@ class _LoadingOlderRow extends StatelessWidget {
 class _ChatLoadingSkeleton extends StatelessWidget {
   const _ChatLoadingSkeleton({super.key});
 
-  static const _patternHeight = 190.0;
+  static const _patternHeight =
+      (ChatMessageTile.minimumUnchainedHeight * 3) +
+      (ChatMessageTile.minimumChainedHeight * 3);
 
   @override
   Widget build(BuildContext context) {
@@ -1626,7 +1628,7 @@ class _ChatSkeletonMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final message = Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -1659,6 +1661,13 @@ class _ChatSkeletonMessage extends StatelessWidget {
           );
         },
       ),
+    );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minHeight: ChatMessageTile.minimumUnchainedHeight,
+      ),
+      child: message,
     );
   }
 }
@@ -1699,7 +1708,7 @@ class _ChatSkeletonChainedMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final message = Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 3),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -1712,6 +1721,13 @@ class _ChatSkeletonChainedMessage extends StatelessWidget {
           );
         },
       ),
+    );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minHeight: ChatMessageTile.minimumChainedHeight,
+      ),
+      child: message,
     );
   }
 }
