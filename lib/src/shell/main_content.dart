@@ -14,6 +14,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
 import 'categories_page.dart';
+import 'choice_menu.dart';
 import 'composer_controller.dart';
 import 'composer_panel.dart';
 import 'draft_list.dart';
@@ -372,6 +373,11 @@ class _ContentHeader extends StatelessWidget {
                 const SizedBox(width: 4),
               ],
               ...topicHeader,
+              if (route.isTopic &&
+                  isConnected &&
+                  siteUrl != null &&
+                  topic != null)
+                _TopicNotificationLevelButton(siteUrl: siteUrl!, topic: topic!),
               if (route.isTopic && canReply)
                 IconButton(
                   onPressed: () => controller.openReply(),
@@ -394,6 +400,68 @@ class _ContentHeader extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _TopicNotificationLevelButton extends StatelessWidget {
+  const _TopicNotificationLevelButton({
+    required this.siteUrl,
+    required this.topic,
+  });
+
+  final String siteUrl;
+  final TopicDetail topic;
+
+  static const _options = [
+    ChoiceMenuOption(
+      value: TopicNotificationLevel.watching,
+      title: 'Watching',
+      description: 'Every reply and unread count',
+      icon: DIcons.discourseBellExclamation,
+    ),
+    ChoiceMenuOption(
+      value: TopicNotificationLevel.tracking,
+      title: 'Tracking',
+      description: 'Mentions, replies, and unread count',
+      icon: DIcons.bell,
+    ),
+    ChoiceMenuOption(
+      value: TopicNotificationLevel.normal,
+      title: 'Normal',
+      description: 'Mentions and replies only',
+      icon: DIcons.farBell,
+    ),
+    ChoiceMenuOption(
+      value: TopicNotificationLevel.muted,
+      title: 'Muted',
+      description: 'No notifications; hidden from Latest',
+      icon: DIcons.discourseBellSlash,
+    ),
+  ];
+
+  static DIconData _iconFor(TopicNotificationLevel level) => switch (level) {
+    TopicNotificationLevel.watching => DIcons.discourseBellExclamation,
+    TopicNotificationLevel.tracking => DIcons.bell,
+    TopicNotificationLevel.normal => DIcons.farBell,
+    TopicNotificationLevel.muted => DIcons.discourseBellSlash,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ShellScope.read(context);
+    return ChoiceMenuAnchor<TopicNotificationLevel>(
+      title: 'Topic notifications',
+      value: topic.notificationLevel,
+      options: _options,
+      onSelected: (level) => unawaited(
+        controller.updateTopicNotificationLevel(siteUrl, topic.id, level),
+      ),
+      builder: (context, openMenu) => IconButton(
+        tooltip: 'Topic notifications',
+        onPressed: openMenu,
+        icon: DIcon(_iconFor(topic.notificationLevel), size: 18),
       ),
     );
   }
