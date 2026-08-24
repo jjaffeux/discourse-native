@@ -1,6 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/private_storage.dart';
@@ -27,68 +27,28 @@ void main() {
     if (await directory.exists()) await directory.delete(recursive: true);
   });
 
-  test(
-    'persists drafts across instances with owner-only permissions',
-    () async {
-      final storage = AppleFileDraftPersistence(file: file);
-      await storage.write(key, 'unfinished thought');
-
-      final reopened = AppleFileDraftPersistence(file: file);
-      expect((await reopened.read(key)).value, 'unfinished thought');
-      expect((await file.parent.stat()).mode & 0x1ff, 0x1c0); // 0700
-      expect((await file.stat()).mode & 0x1ff, 0x180); // 0600
-    },
-  );
-
-  test('serializes overlapping writes without losing drafts', () async {
+  test('persists drafts across instances', () async {
     final storage = AppleFileDraftPersistence(file: file);
-
-    await Future.wait([
-      storage.write(key, 'first'),
-      storage.write('${sitePrefix}topic_43', 'second'),
-      storage.write(otherKey, 'other'),
-    ]);
-
-    expect((await storage.read(key)).value, 'first');
-    expect((await storage.read('${sitePrefix}topic_43')).value, 'second');
-    expect((await storage.read(otherKey)).value, 'other');
-  });
-
-  test('serializes complete-file writes across storage instances', () async {
-    final first = AppleFileDraftPersistence(file: file);
-    final second = AppleFileDraftPersistence(file: file);
-
-    await Future.wait([
-      first.write(key, 'first'),
-      second.write(otherKey, 'second'),
-    ]);
+    await storage.write(key, 'unfinished thought');
 
     final reopened = AppleFileDraftPersistence(file: file);
-    expect((await reopened.read(key)).value, 'first');
-    expect((await reopened.read(otherKey)).value, 'second');
+    expect((await reopened.read(key)).value, 'unfinished thought');
   });
 
-  test('the sidecar lock coordinates independent isolates', () async {
-    final path = file.path;
+  test('writes the stable v1 schema with sorted legacy blockers', () async {
+    final storage = AppleFileDraftPersistence(file: file, legacyStorage: null);
+    const later = '${sitePrefix}topic_z';
+    const earlier = '${sitePrefix}topic_a';
 
-    await Future.wait([
-      Isolate.run(() => _writeDraftSeries(path, 'first')),
-      Isolate.run(() => _writeDraftSeries(path, 'second')),
-    ]);
+    await storage.write(later, 'later');
+    await storage.write(earlier, 'earlier');
 
-    final reopened = AppleFileDraftPersistence(file: file);
-    for (final series in ['first', 'second']) {
-      for (var index = 0; index < 12; index++) {
-        expect(
-          (await reopened.read('$sitePrefix$series-$index')).value,
-          '$series value $index',
-        );
-      }
-    }
-    expect(
-      (await File('${file.path}.lock').stat()).mode & 0x1ff,
-      0x180,
-    ); // 0600
+    expect(jsonDecode(await file.readAsString()), {
+      'version': 1,
+      'values': {later: 'later', earlier: 'earlier'},
+      'blockedLegacyKeys': [earlier, later],
+      'blockedLegacyPrefixes': <Object?>[],
+    });
   });
 
   test('a primary file hit never asks the legacy Keychain', () async {
@@ -284,14 +244,6 @@ void main() {
     expect(result.allowPreferenceFallback, isFalse);
     expect((await storage.read(key)).value, isNull);
   });
-}
-
-Future<void> _writeDraftSeries(String path, String series) async {
-  const prefix = 'discourse_native.draft::https://one.example::';
-  final storage = AppleFileDraftPersistence(file: File(path));
-  for (var index = 0; index < 12; index++) {
-    await storage.write('$prefix$series-$index', '$series value $index');
-  }
 }
 
 final class _LegacyDraftStorage implements PrivateStorage {

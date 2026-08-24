@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
@@ -586,6 +587,146 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test(
+    'snapshot releases its global lock before caller factory and sink work',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'resenha-diagnostics-report-snapshot-',
+      );
+      addTearDown(() async {
+        if (await directory.exists()) await directory.delete(recursive: true);
+      });
+      final file = File('${directory.path}/resenha.jsonl');
+      final now = DateTime.utc(2026, 8, 11, 16, 54);
+      final first = FileResenhaDiagnosticsPersistence(file);
+      await first.append([
+        _record(
+          1,
+          now,
+          event: 'snapshot.deep.event',
+          message: 'utf8-boundary-${'🙂' * 17000}',
+          data: {resenhaDiagnosticsEventIdField: 'ordinary-snapshot-event'},
+        ),
+      ], nowUtc: now);
+
+      final factoryGo = File('${directory.path}/factory.go');
+      final factoryDone = File('${directory.path}/factory.done');
+      final sinkGo = File('${directory.path}/sink.go');
+      final sinkDone = File('${directory.path}/sink.done');
+      final concurrentMutation = Isolate.run(
+        () => _mutateStoreWhileSnapshotOutputIsHeld(
+          storePath: file.path,
+          factoryGoPath: factoryGo.path,
+          factoryDonePath: factoryDone.path,
+          sinkGoPath: sinkGo.path,
+          sinkDonePath: sinkDone.path,
+          timestampMicros: now.microsecondsSinceEpoch,
+        ),
+      );
+      final report = StringBuffer();
+      var factoryCalls = 0;
+      await first.writeJsonReportSnapshotTo(
+        candidateEventIds: const {
+          'ordinary-snapshot-event',
+          'ordinary-missing',
+        },
+        outputForRetainedEventIds: (retainedEventIds) {
+          factoryCalls += 1;
+          expect(retainedEventIds, {'ordinary-snapshot-event'});
+          expect(
+            () => retainedEventIds.add('must-be-unmodifiable'),
+            throwsUnsupportedError,
+          );
+          factoryGo.writeAsStringSync('go', flush: true);
+          _waitForFileSync(factoryDone);
+          expect(factoryDone.readAsStringSync(), 'appended');
+          return _GatedStringSink(report, () {
+            sinkGo.writeAsStringSync('go', flush: true);
+            _waitForFileSync(sinkDone);
+            expect(sinkDone.readAsStringSync(), 'cleared');
+          });
+        },
+        generatedAtUtc: now,
+        reportFormatVersion: 1,
+        state: const {},
+      );
+      await concurrentMutation;
+
+      expect(factoryCalls, 1);
+      expect(_reportEventNames(report.toString()), ['snapshot.deep.event']);
+      expect(report.toString(), contains('🙂'));
+      expect(report.toString(), isNot(contains('concurrent.append')));
+      expect(await _reportSnapshotFiles(file), isEmpty);
+      final afterClear = await first.buildJsonReport(
+        generatedAtUtc: now,
+        reportFormatVersion: 1,
+        state: const {},
+      );
+      expect(_reportEventNames(afterClear), isEmpty);
+    },
+  );
+
+  test(
+    'snapshot artifacts are scavenged and cleaned after caller errors',
+    () async {
+      final directory = await Directory(
+        '.dart_tool',
+      ).createTemp('resenha-diagnostics-report-cleanup-');
+      addTearDown(() async {
+        if (await directory.exists()) await directory.delete(recursive: true);
+      });
+      final file = File('${directory.path}/resenha.jsonl');
+      expect(file.path, isNot(file.absolute.path));
+      final now = DateTime.utc(2026, 8, 11, 16, 54, 30);
+      final persistence = FileResenhaDiagnosticsPersistence(file);
+      await persistence.append([
+        _record(
+          1,
+          now,
+          event: 'snapshot.cleanup.event',
+          data: {resenhaDiagnosticsEventIdField: 'ordinary-cleanup-event'},
+        ),
+      ], nowUtc: now);
+      final stale = File(
+        '${file.absolute.path}.9999.${'a' * 32}'
+        '.resenha-report-snapshot.tmp',
+      );
+      final similarlyNamed = File(
+        '${file.absolute.path}.9999.${'g' * 32}'
+        '.resenha-report-snapshot.tmp',
+      );
+      await stale.writeAsString('stale private snapshot');
+      await stale.setLastModified(DateTime.utc(2000));
+      await similarlyNamed.writeAsString('belongs to another protocol');
+
+      await expectLater(
+        persistence.writeJsonReportSnapshotTo(
+          candidateEventIds: const {'ordinary-cleanup-event'},
+          outputForRetainedEventIds: (_) => throw StateError('factory failed'),
+          generatedAtUtc: now,
+          reportFormatVersion: 1,
+          state: const {},
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(await stale.exists(), isFalse);
+      expect(await similarlyNamed.exists(), isTrue);
+      expect(await _reportSnapshotFiles(file), isEmpty);
+
+      await expectLater(
+        persistence.writeJsonReportSnapshotTo(
+          candidateEventIds: const {'ordinary-cleanup-event'},
+          outputForRetainedEventIds: (_) => _ThrowingStringSink(),
+          generatedAtUtc: now,
+          reportFormatVersion: 1,
+          state: const {},
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(await _reportSnapshotFiles(file), isEmpty);
+    },
+  );
 
   test(
     'two file persistence instances serialize and keep colliding sequences',
@@ -1489,6 +1630,138 @@ List<String> _reportEventNames(String report) => [
             as Map<String, dynamic>)['event']
         as String),
 ];
+
+Future<void> _mutateStoreWhileSnapshotOutputIsHeld({
+  required String storePath,
+  required String factoryGoPath,
+  required String factoryDonePath,
+  required String sinkGoPath,
+  required String sinkDonePath,
+  required int timestampMicros,
+}) async {
+  final persistence = FileResenhaDiagnosticsPersistence(File(storePath));
+  final now = DateTime.fromMicrosecondsSinceEpoch(timestampMicros, isUtc: true);
+  await _waitForFile(File(factoryGoPath));
+  try {
+    await persistence.append([
+      _record(
+        2,
+        now.add(const Duration(seconds: 1)),
+        writerId: 'concurrent-isolate',
+        event: 'concurrent.append',
+      ),
+    ], nowUtc: now);
+    await _publishSignal(File(factoryDonePath), 'appended');
+  } on Object catch (error) {
+    await _publishSignal(
+      File(factoryDonePath),
+      'append failed: ${error.runtimeType}',
+    );
+    return;
+  }
+
+  await _waitForFile(File(sinkGoPath));
+  try {
+    await persistence.clear();
+    await _publishSignal(File(sinkDonePath), 'cleared');
+  } on Object catch (error) {
+    await _publishSignal(
+      File(sinkDonePath),
+      'clear failed: ${error.runtimeType}',
+    );
+  }
+}
+
+Future<void> _publishSignal(File signal, String value) async {
+  final pending = File('${signal.path}.$pid.pending');
+  await pending.writeAsString(value, flush: true);
+  await pending.rename(signal.path);
+}
+
+Future<void> _waitForFile(File signal) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 6));
+  while (!await signal.exists()) {
+    if (!DateTime.now().isBefore(deadline)) {
+      throw TimeoutException('Timed out waiting for ${signal.path}.');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
+void _waitForFileSync(File signal) {
+  final deadline = DateTime.now().add(const Duration(seconds: 6));
+  while (!signal.existsSync()) {
+    if (!DateTime.now().isBefore(deadline)) {
+      throw TimeoutException('Timed out waiting for ${signal.path}.');
+    }
+    sleep(const Duration(milliseconds: 10));
+  }
+}
+
+Future<List<File>> _reportSnapshotFiles(File store) async {
+  final ownedSnapshot = RegExp(
+    '^${RegExp.escape(store.absolute.path)}\\.\\d+\\.[0-9a-f]{32}'
+    r'\.resenha-report-snapshot\.tmp$',
+  );
+  return [
+    await for (final entity in store.parent.absolute.list(followLinks: false))
+      if (entity is File && ownedSnapshot.hasMatch(entity.path)) entity,
+  ];
+}
+
+final class _GatedStringSink implements StringSink {
+  _GatedStringSink(this._delegate, this._beforeFirstWrite);
+
+  final StringSink _delegate;
+  final void Function() _beforeFirstWrite;
+  bool _started = false;
+
+  void _start() {
+    if (_started) return;
+    _started = true;
+    _beforeFirstWrite();
+  }
+
+  @override
+  void write(Object? object) {
+    _start();
+    _delegate.write(object);
+  }
+
+  @override
+  void writeAll(Iterable<Object?> objects, [String separator = '']) {
+    _start();
+    _delegate.writeAll(objects, separator);
+  }
+
+  @override
+  void writeCharCode(int charCode) {
+    _start();
+    _delegate.writeCharCode(charCode);
+  }
+
+  @override
+  void writeln([Object? object = '']) {
+    _start();
+    _delegate.writeln(object);
+  }
+}
+
+final class _ThrowingStringSink implements StringSink {
+  Never _fail() => throw StateError('sink failed');
+
+  @override
+  void write(Object? object) => _fail();
+
+  @override
+  void writeAll(Iterable<Object?> objects, [String separator = '']) => _fail();
+
+  @override
+  void writeCharCode(int charCode) => _fail();
+
+  @override
+  void writeln([Object? object = '']) => _fail();
+}
 
 final class _CountingPersistence implements ResenhaDiagnosticsPersistence {
   final MemoryResenhaDiagnosticsPersistence _delegate =

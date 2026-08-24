@@ -39,6 +39,47 @@ final class SerialOperationQueue {
   }
 }
 
+/// Lets idle reads start immediately while preserving read-after-write order.
+///
+/// A write is considered pending as soon as [write] is called, including while
+/// it is waiting behind an earlier write. A later [read] for the same identity
+/// owner and equal key joins that queue; otherwise the read bypasses it. This
+/// keeps abandoned or slow hydration reads from delaying future saves.
+/// Keys must retain stable equality and hash codes while work is pending.
+final class ReadAfterWriteOperationQueue {
+  final SerialOperationQueue _operations = SerialOperationQueue();
+  final Map<_SerialOperationKey, int> _pendingWrites = {};
+
+  Future<T> read<T>({
+    required Object owner,
+    required Object key,
+    required Future<T> Function() operation,
+  }) {
+    final lane = _SerialOperationKey(owner, key);
+    if ((_pendingWrites[lane] ?? 0) == 0) return Future.sync(operation);
+    return _operations.run(owner: owner, key: key, operation: operation);
+  }
+
+  Future<T> write<T>({
+    required Object owner,
+    required Object key,
+    required Future<T> Function() operation,
+  }) {
+    final lane = _SerialOperationKey(owner, key);
+    _pendingWrites.update(lane, (count) => count + 1, ifAbsent: () => 1);
+    return _operations
+        .run(owner: owner, key: key, operation: operation)
+        .whenComplete(() {
+          final remaining = _pendingWrites[lane]! - 1;
+          if (remaining == 0) {
+            _pendingWrites.remove(lane);
+          } else {
+            _pendingWrites[lane] = remaining;
+          }
+        });
+  }
+}
+
 final class _SerialOperationKey {
   const _SerialOperationKey(this.owner, this.key);
 

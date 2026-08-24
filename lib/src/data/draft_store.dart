@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
-import '../foundation/private_file_permissions.dart';
+import '../foundation/private_file_document.dart';
 import 'private_storage.dart';
 import 'store_diagnostics.dart';
 
@@ -79,16 +78,21 @@ final class AppleFileDraftPersistence implements DraftPersistence {
 
   static const String directoryName = 'drafts';
   static const String fileName = 'drafts-v1.json';
-  static final Map<String, _DraftFileCoordinator> _coordinators = {};
 
   final File? _providedFile;
   final PrivateStorage? _legacyStorage;
-  final Random _random = Random.secure();
+  late final PrivateFileDocument<_DraftFileState> _document =
+      PrivateFileDocument(
+        target: _file,
+        empty: _DraftFileState.new,
+        decode: _decodeState,
+        encode: (state) => jsonEncode(state.toJson()),
+      );
 
   @override
   Future<DraftPersistenceRead> read(String key) async {
-    final first = await _serialize(
-      (file) async => _probe(await _readState(file), key),
+    final first = await _document.read(
+      (state) => PrivateFileResult(_probe(state, key)),
     );
     if (first.value != null || first.blocked) return _result(first);
 
@@ -99,46 +103,44 @@ final class AppleFileDraftPersistence implements DraftPersistence {
 
     // Do not hold the file queue while macOS may be presenting an ACL dialog.
     final legacyValue = await legacy.read(key);
-    return _serialize((file) async {
-      final state = await _readState(file);
+    return _document.update((state) {
       final latest = _probe(state, key);
       if (latest.value != null || latest.blocked) {
-        return _result(latest);
+        return PrivateFileResult(_result(latest));
       }
       if (legacyValue == null) {
-        return (value: null, allowPreferenceFallback: true);
+        return PrivateFileResult((value: null, allowPreferenceFallback: true));
       }
 
       state.values[key] = legacyValue;
       state.blockedLegacyKeys.add(key);
-      await _writeState(file, state);
-      return (value: legacyValue, allowPreferenceFallback: false);
+      return PrivateFileResult((
+        value: legacyValue,
+        allowPreferenceFallback: false,
+      ));
     });
   }
 
   @override
-  Future<void> write(String key, String value) => _serialize((file) async {
-    final state = await _readState(file);
+  Future<void> write(String key, String value) => _document.update((state) {
     state.values[key] = value;
     state.blockedLegacyKeys.add(key);
-    await _writeState(file, state);
+    return PrivateFileResult.done;
   });
 
   @override
-  Future<void> delete(String key) => _serialize((file) async {
-    final state = await _readState(file);
+  Future<void> delete(String key) => _document.update((state) {
     state.values.remove(key);
     state.blockedLegacyKeys.add(key);
-    await _writeState(file, state);
+    return PrivateFileResult.done;
   });
 
   @override
-  Future<void> deletePrefix(String prefix) => _serialize((file) async {
-    final state = await _readState(file);
+  Future<void> deletePrefix(String prefix) => _document.update((state) {
     state.values.removeWhere((key, _) => key.startsWith(prefix));
     state.blockedLegacyKeys.removeWhere((key) => key.startsWith(prefix));
     state.blockedLegacyPrefixes.add(prefix);
-    await _writeState(file, state);
+    return PrivateFileResult.done;
   });
 
   _DraftProbe _probe(_DraftFileState state, String key) => (
@@ -158,76 +160,18 @@ final class AppleFileDraftPersistence implements DraftPersistence {
     return File('${support.path}/$directoryName/$fileName');
   }
 
-  Future<_DraftFileState> _readState(File file) async {
-    if (!await file.exists()) return _DraftFileState();
-    await ensurePrivateDirectory(file.parent);
-    restrictPrivateFile(file);
-
+  _DraftFileState _decodeState(String contents) {
     final Object? decoded;
     try {
-      decoded = jsonDecode(await file.readAsString());
+      decoded = jsonDecode(contents);
     } on FormatException catch (error) {
       throw FormatException('Invalid draft storage: ${error.message}');
     }
     return _DraftFileState.decode(decoded);
   }
-
-  Future<void> _writeState(File file, _DraftFileState state) async {
-    final suffix = List<int>.generate(
-      12,
-      (_) => _random.nextInt(256),
-    ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
-    final temporary = File('${file.path}.$pid.$suffix.tmp');
-
-    try {
-      await ensurePrivateFile(temporary);
-      await temporary.writeAsString(jsonEncode(state.toJson()), flush: true);
-      await temporary.rename(file.path);
-      restrictPrivateFile(file);
-    } finally {
-      if (await temporary.exists()) await temporary.delete();
-    }
-  }
-
-  Future<T> _serialize<T>(Future<T> Function(File file) operation) async {
-    final file = await _file();
-    final path = file.absolute.path;
-    final coordinator = _coordinators.putIfAbsent(
-      path,
-      () => _DraftFileCoordinator(File(path)),
-    );
-    return coordinator.run(operation);
-  }
 }
 
 typedef _DraftProbe = ({String? value, bool blocked});
-
-/// Serializes complete-file replacements across persistence instances and
-/// holds an advisory sidecar lock so a second process cannot overwrite a
-/// snapshot read by the first.
-final class _DraftFileCoordinator {
-  _DraftFileCoordinator(this.file);
-
-  final File file;
-  Future<void> _tail = Future<void>.value();
-
-  Future<T> run<T>(Future<T> Function(File file) operation) {
-    final result = Completer<T>();
-    _tail = _tail.then((_) async {
-      try {
-        result.complete(await _withLock(operation));
-      } catch (error, stackTrace) {
-        result.completeError(error, stackTrace);
-      }
-    });
-    return result.future;
-  }
-
-  Future<T> _withLock<T>(Future<T> Function(File file) operation) async {
-    final lockFile = File('${file.path}.lock');
-    return withPrivateAdvisoryFileLock(lockFile, () => operation(file));
-  }
-}
 
 final class _DraftFileState {
   _DraftFileState({

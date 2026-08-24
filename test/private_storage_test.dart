@@ -1,7 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
-import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/private_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,106 +34,33 @@ void main() {
       'api_key::https://one.example': 'first-key',
       'draft::42': 'unfinished thought',
     });
-  });
-
-  test('restricts the directory and file to their owner', () async {
-    await storage.write('secret', 'value');
-
-    final file = File('${directory.path}/private-storage.json');
-    final directoryMode = (await directory.stat()).mode & 0x1ff;
-    final fileMode = (await file.stat()).mode & 0x1ff;
-
-    expect(directoryMode, 0x1c0); // 0700
-    expect(fileMode, 0x180); // 0600
-  });
-
-  test('serializes overlapping updates without losing values', () async {
-    await Future.wait([
-      storage.write('first', 'one'),
-      storage.write('second', 'two'),
-      storage.write('third', 'three'),
-    ]);
-
-    expect(await storage.readAll(), {
-      'first': 'one',
-      'second': 'two',
-      'third': 'three',
-    });
-  });
-
-  test('serializes complete-file updates across storage instances', () async {
-    await storage.write('seed', 'kept');
-    final first = LinuxFileStorage(directory: directory);
-    final second = LinuxFileStorage(directory: directory);
-
-    await Future.wait([
-      first.write('first', 'one'),
-      second.write('second', 'two'),
-    ]);
-
-    expect(await storage.readAll(), {
-      'seed': 'kept',
-      'first': 'one',
-      'second': 'two',
-    });
     expect(
-      (await File('${directory.path}/private-storage.json.lock').stat()).mode &
-          0x1ff,
-      0x180,
-    ); // 0600
+      jsonDecode(
+        await File('${directory.path}/private-storage.json').readAsString(),
+      ),
+      {
+        'version': 1,
+        'values': {
+          'api_key::https://one.example': 'first-key',
+          'draft::42': 'unfinished thought',
+        },
+      },
+    );
   });
 
-  test(
-    'prefix deletion is one gated transaction across storage instances',
-    () async {
-      const prefix = 'discourse_native.draft::https://one.example::';
-      const firstKey = '${prefix}topic_1';
-      const secondKey = '${prefix}topic_2';
-      const laterKey = '${prefix}topic_3';
-      const otherKey = 'discourse_native.draft::https://two.example::topic_1';
-      await storage.write(firstKey, 'first');
-      await storage.write(secondKey, 'second');
-      await storage.write(otherKey, 'other');
+  test('prefix deletion removes only matching values', () async {
+    const prefix = 'discourse_native.draft::https://one.example::';
+    const firstKey = '${prefix}topic_1';
+    const secondKey = '${prefix}topic_2';
+    const otherKey = 'discourse_native.draft::https://two.example::topic_1';
+    await storage.write(firstKey, 'first');
+    await storage.write(secondKey, 'second');
+    await storage.write(otherKey, 'other');
 
-      final clearCommitStarted = Completer<void>();
-      final releaseClearCommit = Completer<void>();
-      addTearDown(() {
-        if (!releaseClearCommit.isCompleted) releaseClearCommit.complete();
-      });
-      var clearCommitCount = 0;
-      final clearing = PrivateDraftPersistence(
-        storage: LinuxFileStorage(
-          directory: directory,
-          beforeCommitForTesting: () async {
-            clearCommitCount++;
-            if (clearCommitStarted.isCompleted) return;
-            clearCommitStarted.complete();
-            await releaseClearCommit.future;
-          },
-        ),
-      );
-      final concurrent = PrivateDraftPersistence(
-        storage: LinuxFileStorage(directory: directory),
-      );
+    await storage.deletePrefix(prefix);
 
-      final clear = clearing.deletePrefix(prefix);
-      await clearCommitStarted.future;
-
-      var laterWriteCompleted = false;
-      final laterWrite = concurrent.write(laterKey, 'later').whenComplete(() {
-        laterWriteCompleted = true;
-      });
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
-      expect(laterWriteCompleted, isFalse);
-
-      releaseClearCommit.complete();
-      await Future.wait([clear, laterWrite]);
-
-      expect(clearCommitCount, 1);
-      expect(await storage.readAll(), {otherKey: 'other', laterKey: 'later'});
-    },
-  );
+    expect(await storage.readAll(), {otherKey: 'other'});
+  });
 
   test('deletes one value without disturbing the rest', () async {
     await storage.write('first', 'one');

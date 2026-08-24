@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:discourse_native/src/diagnostics/resenha_report_exporter.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_report.dart';
 import 'package:discourse_native/src/shell/resenha_diagnostics_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -178,7 +179,7 @@ void main() {
     expect(indexed, ['2001']);
   });
 
-  testWidgets('copies a bounded recent report and exports the full report', (
+  testWidgets('delegates clipboard and streaming export generation', (
     tester,
   ) async {
     final copied = <String>[];
@@ -211,11 +212,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(harness.clipboardBuildCount, 1);
     expect(harness.reportBuildCount, 0);
-    expect(copied, hasLength(1));
-    expect(copied.single, contains('"truncated":true'));
-    expect(copied.single, contains('clipboard_limit'));
-    expect(copied.single, contains('record-19'));
-    expect(copied.single, isNot(contains('record-0-')));
+    expect(copied, ['bounded report from harness']);
 
     await tester.tap(find.byKey(const ValueKey('resenha-export-report')));
     await tester.pumpAndSettle();
@@ -344,7 +341,10 @@ final class _Harness {
 
   Future<ResenhaClipboardReport> buildClipboardReport(int byteLimit) async {
     clipboardBuildCount += 1;
-    return boundResenhaReportForClipboard(report, byteLimit: byteLimit);
+    return const ResenhaClipboardReport(
+      'bounded report from harness',
+      truncated: true,
+    );
   }
 
   Future<void> writeJsonReportTo(StringSink output) async {

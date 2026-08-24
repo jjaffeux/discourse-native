@@ -15,6 +15,7 @@ import '../../models/json.dart';
 import '../../models/site_config.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
+import 'chat_message_timeline.dart';
 import 'chat_preview.dart';
 import 'chat_reactors.dart';
 import 'chat_stream_target.dart';
@@ -338,10 +339,6 @@ class ChatController extends FrameSafeNotifier {
   /// so a failure that could only be retried by an event which will not happen
   /// would be a dead end for the life of the session.
   static const int maxChannelAttempts = 3;
-
-  /// Where a message with no wire date sorts: before every message that has
-  /// one, and among its own kind by id.
-  static final DateTime _wireEpoch = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// Facts about requests rather than about records, which is why they are here
   /// and not in the [Store]: a channel that has never been fetched has nowhere
@@ -1743,12 +1740,15 @@ class ChatController extends FrameSafeNotifier {
       _setStream(
         key,
         window.copyWith(
-          // Through [_admitLiveId], not by appending: this is the same live
-          // arrival the root channel publishes, and which of the two channels
-          // delivers it first is a race. A message whose adopted
+          // Through the timeline reducer, not by appending: this is the same
+          // live arrival the root channel publishes, and which of the two
+          // channels delivers it first is a race. A message whose adopted
           // `client_created_at` sorts before the newest one held has to land
           // in the same place either way.
-          messageIds: _admitLiveId(siteUrl, canonical, window.messageIds),
+          messageIds: ChatMessageTimeline.admitLive(
+            held: _timelineSnapshot(siteUrl, window.messageIds),
+            message: canonical,
+          ),
           localMessageIds: _retireCanonicalLocals(siteUrl, window, [canonical]),
         ),
       );
@@ -1906,6 +1906,17 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
+  /// A read-only view of one canonical timeline for a synchronous reduction.
+  ///
+  /// The reducer owns no Store dependency. Keeping lookup lazy preserves the
+  /// ordinary live path's single newest-row read; only a clock-skew insertion
+  /// has to walk the accumulated window.
+  ChatTimelineSnapshot _timelineSnapshot(String siteUrl, List<int> ids) =>
+      ChatTimelineSnapshot(
+        ids: ids,
+        messageById: (id) => store.read<ChatMessage>(siteUrl, id),
+      );
+
   /// Folds messages parked beyond a window into the list that closes its seam.
   ///
   /// A `sent` event can outrun the response reaching the present: published
@@ -1922,17 +1933,19 @@ class ChatController extends FrameSafeNotifier {
     Set<int> pendingIds,
     List<int> held,
   ) {
-    final stragglers = _pendingBeyondWindow(siteUrl, pendingIds, held);
-    final merged = stragglers.isEmpty
-        ? held
-        : _sortedIds(siteUrl, stragglers, held: held);
+    final seam = ChatMessageTimeline.closeSeam(
+      held: _timelineSnapshot(siteUrl, held),
+      pending: [
+        for (final id in pendingIds) ?store.read<ChatMessage>(siteUrl, id),
+      ],
+    );
     pendingIds.clear();
     // The stragglers travel back out because arriving in the id list is only
     // half of what a canonical message does: the sender's own optimistic row
     // is still standing in for it, and every other route that admits an id
     // retires that row in the same breath. A straggler that skipped it would
     // render the reader's message twice.
-    return (ids: merged, stragglers: stragglers);
+    return (ids: seam.ids, stragglers: seam.admittedPending);
   }
 
   /// Commits a live record, reprojecting the windows holding it when the
@@ -2156,7 +2169,10 @@ class ChatController extends FrameSafeNotifier {
     _setStream(
       key,
       window.copyWith(
-        messageIds: _admitLiveId(siteUrl, message, window.messageIds),
+        messageIds: ChatMessageTimeline.admitLive(
+          held: _timelineSnapshot(siteUrl, window.messageIds),
+          message: message,
+        ),
         localMessageIds: _retireCanonicalLocals(siteUrl, window, [message]),
         clearError: true,
       ),
@@ -3367,7 +3383,11 @@ class ChatController extends FrameSafeNotifier {
         final List<int> messageIds;
         var retired = page.messages;
         if (page.canLoadMoreFuture) {
-          messageIds = _sortedIds(siteUrl, page.messages);
+          messageIds = ChatMessageTimeline.merge(
+            held: _timelineSnapshot(siteUrl, const []),
+            arrived: page.messages,
+            mode: ChatTimelineMergeMode.sortedUnion,
+          );
           pendingIds.addAll(arrivedWhileLoading.map((message) => message.id));
         } else {
           // A `sent` event can outrun the response that reaches the present:
@@ -3377,7 +3397,11 @@ class ChatController extends FrameSafeNotifier {
           final seam = _withSeamStragglers(
             siteUrl,
             pendingIds,
-            _sortedIds(siteUrl, [...page.messages, ...arrivedWhileLoading]),
+            ChatMessageTimeline.merge(
+              held: _timelineSnapshot(siteUrl, const []),
+              arrived: [...page.messages, ...arrivedWhileLoading],
+              mode: ChatTimelineMergeMode.sortedUnion,
+            ),
           );
           messageIds = seam.ids;
           retired = [...page.messages, ...seam.stragglers];
@@ -3512,10 +3536,10 @@ class ChatController extends FrameSafeNotifier {
         }
         store.putAll(siteUrl, page.messages);
         final current = _streams[key] ?? const ChatStreamState();
-        final merged = _mergePageIds(
-          page.messages,
-          held: current.messageIds,
-          prepend: true,
+        final merged = ChatMessageTimeline.merge(
+          held: _timelineSnapshot(siteUrl, current.messageIds),
+          arrived: page.messages,
+          mode: ChatTimelineMergeMode.prependPage,
         );
         _setStream(
           key,
@@ -3628,10 +3652,10 @@ class ChatController extends FrameSafeNotifier {
         }
         store.putAll(siteUrl, page.messages);
         final current = _streams[key] ?? const ChatStreamState();
-        var merged = _mergePageIds(
-          page.messages,
-          held: current.messageIds,
-          prepend: false,
+        var merged = ChatMessageTimeline.merge(
+          held: _timelineSnapshot(siteUrl, current.messageIds),
+          arrived: page.messages,
+          mode: ChatTimelineMergeMode.appendPage,
         );
         final canLoadMoreFuture =
             merged.length > current.messageIds.length && page.canLoadMoreFuture;
@@ -3955,138 +3979,6 @@ class ChatController extends FrameSafeNotifier {
     _directIds.remove(siteUrl);
     _lastOpenedChannelIds.remove(siteUrl);
     notifySafely();
-  }
-
-  /// The order chat ids are held in, for one pair.
-  ///
-  /// `(created_at, id)` is the site's own `ORDER BY`, and the tiebreak is
-  /// load-bearing rather than tidy: `created_at` is serialised as iso8601, so
-  /// two messages written in the same second carry equal dates on the wire.
-  bool _sortsAfter(
-    ChatMessage message, {
-    required DateTime at,
-    required int id,
-  }) => switch ((message.createdAt ?? _wireEpoch).compareTo(at)) {
-    > 0 => true,
-    0 => message.id > id,
-    _ => false,
-  };
-
-  DateTime _sortDateOf(String siteUrl, int messageId) =>
-      store.read<ChatMessage>(siteUrl, messageId)?.createdAt ?? _wireEpoch;
-
-  /// The parked live records that belong at the live edge of [ids].
-  ///
-  /// Pending ids are messages published while the window could not append
-  /// them. A window that now claims the present already holds any of them the
-  /// server saw when it built the response — only those published after that
-  /// are still missing, and they are exactly the ones that sort after
-  /// everything held. Older leftovers sit behind the window's past edge,
-  /// where merging them would fake contiguity over a gap.
-  List<ChatMessage> _pendingBeyondWindow(
-    String siteUrl,
-    Set<int> pendingIds,
-    List<int> ids,
-  ) {
-    if (pendingIds.isEmpty) return const [];
-    final newestId = ids.lastOrNull;
-    if (newestId == null) {
-      return [
-        for (final id in pendingIds) ?store.read<ChatMessage>(siteUrl, id),
-      ];
-    }
-    final newestAt = _sortDateOf(siteUrl, newestId);
-    return [
-      for (final id in pendingIds)
-        if (store.read<ChatMessage>(siteUrl, id) case final message?)
-          if (_sortsAfter(message, at: newestAt, id: newestId)) message,
-    ];
-  }
-
-  /// Where a live arrival joins a window that already claims the present.
-  ///
-  /// Deriving that position means re-reading and re-sorting every message the
-  /// reader has paged back through, which is what [_mergePageIds] exists to
-  /// avoid — and here it is wasted work as well, because a message published
-  /// to a window at the live edge sorts after everything already in it. Only a
-  /// sender whose clock disagrees can land elsewhere: Discourse adopts
-  /// `client_created_at` when it is reasonable. That case still gets the full
-  /// derivation.
-  ///
-  /// The caller has already established that [message] is not held, so this
-  /// does not have to dedupe the way [_sortedIds] does.
-  List<int> _admitLiveId(String siteUrl, ChatMessage message, List<int> held) {
-    final newestId = held.lastOrNull;
-    if (newestId != null &&
-        !_sortsAfter(
-          message,
-          at: _sortDateOf(siteUrl, newestId),
-          id: newestId,
-        )) {
-      return _sortedIds(siteUrl, [message], held: held);
-    }
-    return List.unmodifiable([...held, message.id]);
-  }
-
-  /// Union by id, ordered by `(createdAt, id)`.
-  ///
-  /// Deduping by id and not by identity, because the same message arrives twice
-  /// whenever a page overlaps a boundary; the store has already merged the two
-  /// copies into one record, and the list must not name it twice or the row is
-  /// built twice.
-  ///
-  /// Dart's sort is unstable, so a date-only comparator lets two messages
-  /// carrying the same wire second swap places every time a page is merged and
-  /// the list visibly reshuffles under the reader. The merge also has to be
-  /// idempotent — folding a page that overlaps one already held must give the
-  /// identical list — and a comparator that can return zero cannot promise
-  /// that. Hence the [_sortsAfter] tiebreak.
-  List<int> _sortedIds(
-    String siteUrl,
-    Iterable<ChatMessage> arrived, {
-    List<int> held = const [],
-  }) {
-    final dates = <int, DateTime>{
-      for (final id in held)
-        if (store.read<ChatMessage>(siteUrl, id) case final message?)
-          id: message.createdAt ?? _wireEpoch,
-      for (final message in arrived)
-        message.id: message.createdAt ?? _wireEpoch,
-    };
-
-    return dates.keys.toList()..sort((a, b) {
-      final byDate = dates[a]!.compareTo(dates[b]!);
-      return byDate != 0 ? byDate : a.compareTo(b);
-    });
-  }
-
-  /// Adds one directional page without sorting the whole accumulated window.
-  ///
-  /// The API contract says a past page precedes the held cursor and a future
-  /// page follows it. Sorting and deduplicating the at-most-50 arrivals is
-  /// therefore sufficient; re-reading and sorting every older message made
-  /// each trip back through a channel progressively more expensive.
-  List<int> _mergePageIds(
-    Iterable<ChatMessage> arrived, {
-    required List<int> held,
-    required bool prepend,
-  }) {
-    final heldIds = held.toSet();
-    final dates = <int, DateTime>{
-      for (final message in arrived)
-        if (!heldIds.contains(message.id))
-          message.id: message.createdAt ?? _wireEpoch,
-    };
-    final fresh = dates.keys.toList()
-      ..sort((a, b) {
-        final byDate = dates[a]!.compareTo(dates[b]!);
-        return byDate != 0 ? byDate : a.compareTo(b);
-      });
-    if (fresh.isEmpty) return held;
-
-    return List.unmodifiable(
-      prepend ? [...fresh, ...held] : [...held, ...fresh],
-    );
   }
 
   @override

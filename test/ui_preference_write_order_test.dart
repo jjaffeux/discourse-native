@@ -6,7 +6,6 @@ import 'package:discourse_native/src/data/diagnostics_panel_width_store.dart';
 import 'package:discourse_native/src/data/serial_operation_queue.dart';
 import 'package:discourse_native/src/data/sidebar_section_store.dart';
 import 'package:discourse_native/src/data/sidebar_width_store.dart';
-import 'package:discourse_native/src/data/topic_recommendations_panel_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -156,39 +155,6 @@ void main() {
     expect(await replacementRead, isFalse);
     expect(persistence.reads, 1);
   });
-
-  test('topic panel persists the latest requested state', () async {
-    final persistence = _ControlledTopicPanelPersistence();
-    final store = TopicRecommendationsPanelStore(persistence: persistence);
-    final replacementStore = TopicRecommendationsPanelStore(
-      persistence: persistence,
-    );
-
-    final firstWrite = store.write(
-      siteUrl: 'https://meta.discourse.org',
-      collapsed: true,
-    );
-    await persistence.firstWriteStarted.future;
-    final secondWrite = store.write(
-      siteUrl: 'https://meta.discourse.org',
-      collapsed: false,
-    );
-    final replacementRead = replacementStore.read(
-      siteUrl: 'https://meta.discourse.org',
-    );
-    await Future<void>.delayed(Duration.zero);
-
-    expect(persistence.attemptedStates, [true]);
-    expect(persistence.reads, 0);
-
-    persistence.finishFirstWrite.complete();
-    await Future.wait([firstWrite, secondWrite]);
-
-    expect(persistence.attemptedStates, [true, false]);
-    expect(persistence.persistedState, isFalse);
-    expect(await replacementRead, isFalse);
-    expect(persistence.reads, 1);
-  });
 }
 
 ComposerGeometryPreference _geometry({required double width}) =>
@@ -302,35 +268,6 @@ final class _ControlledSidebarSectionPersistence
   Future<bool> writeCollapsed({
     required String siteUrl,
     required String sectionId,
-    required bool collapsed,
-  }) async {
-    attemptedStates.add(collapsed);
-    if (attemptedStates.length == 1) {
-      firstWriteStarted.complete();
-      await finishFirstWrite.future;
-    }
-    persistedState = collapsed;
-    return true;
-  }
-}
-
-final class _ControlledTopicPanelPersistence
-    implements TopicRecommendationsPanelPersistence {
-  final firstWriteStarted = Completer<void>();
-  final finishFirstWrite = Completer<void>();
-  final List<bool> attemptedStates = [];
-  bool? persistedState;
-  int reads = 0;
-
-  @override
-  Future<bool?> readCollapsed({required String siteUrl}) async {
-    reads++;
-    return persistedState;
-  }
-
-  @override
-  Future<bool> writeCollapsed({
-    required String siteUrl,
     required bool collapsed,
   }) async {
     attemptedStates.add(collapsed);

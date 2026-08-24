@@ -5,9 +5,9 @@ typedef OriginCooldownTimerFactory =
 
 /// One extend-only cooldown backed by a monotonic clock.
 ///
-/// Queue policy deliberately stays with each coordinator. This object owns
-/// only deadline extension, wake rescheduling, and timer cancellation so wall
-/// clock changes cannot release or prolong origin backpressure.
+/// Queue policy stays with the origin request gate. This object owns only
+/// deadline extension, wake rescheduling, and timer cancellation so wall clock
+/// changes cannot release or prolong origin backpressure.
 final class OriginCooldown {
   OriginCooldown({
     Duration Function()? clock,
