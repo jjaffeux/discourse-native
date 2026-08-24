@@ -9,6 +9,7 @@ import '../data/topic_recommendations_panel_store.dart';
 import '../data/topic_recommendations_tab_store.dart';
 import '../foundation/calendar_day.dart';
 import '../models/post.dart';
+import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
@@ -25,6 +26,7 @@ import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'small_action.dart';
+import 'time_gap.dart';
 import 'topic_list_view.dart';
 import 'user_card.dart';
 
@@ -56,6 +58,7 @@ class TopicView extends StatefulWidget {
 }
 
 typedef _TopicDayStart = ({DateTime day, int postIndex});
+typedef _TopicTimeGap = ({int daysSince, int postIndex});
 
 /// The inverse of one immutable post stream, used to retain keyed list rows.
 ///
@@ -467,6 +470,43 @@ class _TopicViewState extends State<TopicView> {
   List<_TopicDayStart> _dayStartsCache = const [];
   List<int>? _dayStartsFor;
   String? _dayStartsSite;
+
+  List<_TopicTimeGap> _timeGaps(
+    ShellController controller,
+    String siteUrl,
+    List<int> postIds,
+    int showAfterDays,
+  ) {
+    if (_timeGapsSite == siteUrl &&
+        _timeGapsShowAfterDays == showAfterDays &&
+        listEquals(_timeGapsFor, postIds)) {
+      return _timeGapsCache;
+    }
+
+    final gaps = <_TopicTimeGap>[];
+    Post? previous;
+    for (var index = 0; index < postIds.length; index++) {
+      final post = controller.store.read<Post>(siteUrl, postIds[index]);
+      final daysSince = timeGapDaysBetween(
+        previous?.createdAt,
+        post?.createdAt,
+      );
+      if (daysSince != null && daysSince > showAfterDays) {
+        gaps.add((daysSince: daysSince, postIndex: index));
+      }
+      previous = post;
+    }
+    _timeGapsCache = gaps;
+    _timeGapsFor = postIds;
+    _timeGapsSite = siteUrl;
+    _timeGapsShowAfterDays = showAfterDays;
+    return gaps;
+  }
+
+  List<_TopicTimeGap> _timeGapsCache = const [];
+  List<int>? _timeGapsFor;
+  String? _timeGapsSite;
+  int? _timeGapsShowAfterDays;
 
   /// Loads enough of an around-post window to know where [day] really began,
   /// then places that day's first post at the top. This is the topic analogue
@@ -914,6 +954,15 @@ class _TopicViewState extends State<TopicView> {
     final dayByPostIndex = {
       for (final start in dayStarts) start.postIndex: start.day,
     };
+    final timeGapByPostIndex = {
+      for (final gap in _timeGaps(
+        controller,
+        siteUrl,
+        postIds,
+        snapshot.showTimeGapDays,
+      ))
+        gap.postIndex: gap.daysSince,
+    };
     _restoreInitialPost(controller, snapshot);
     _restoreViewportAfterPrepend(controller, snapshot, hasHeader: showHeader);
     _scheduleLook();
@@ -1023,7 +1072,9 @@ class _TopicViewState extends State<TopicView> {
           final day = dayByPostIndex[postIndex];
           return _TopicPostItem(
             key: ValueKey(postId),
+            postId: postId,
             day: day,
+            timeGapDays: timeGapByPostIndex[postIndex],
             hideDay: day != null && day == _floatingDay,
             onDayTap: day == null ? null : () => _jumpToDayStart(day),
             child: _StoredPost(
@@ -1221,6 +1272,7 @@ class _TopicViewSnapshot {
     required this.initialPostIndex,
     required this.recommendations,
     required this.canAssignLegacyTargets,
+    required this.showTimeGapDays,
   });
 
   factory _TopicViewSnapshot.from(ShellController controller) {
@@ -1258,6 +1310,9 @@ class _TopicViewSnapshot {
       recommendations: controller.currentTopic?.recommendations,
       canAssignLegacyTargets:
           siteUrl != null && controller.canAssignForTarget(siteUrl, null),
+      showTimeGapDays: siteUrl == null
+          ? SiteConfig.defaultShowTimeGapDays
+          : controller.siteConfigFor(siteUrl).showTimeGapDays,
     );
   }
 
@@ -1273,6 +1328,7 @@ class _TopicViewSnapshot {
   final int? initialPostIndex;
   final TopicRecommendations? recommendations;
   final bool canAssignLegacyTargets;
+  final int showTimeGapDays;
 
   @override
   bool operator ==(Object other) =>
@@ -1288,7 +1344,8 @@ class _TopicViewSnapshot {
           hasMore == other.hasMore &&
           hasEarlier == other.hasEarlier &&
           recommendations == other.recommendations &&
-          canAssignLegacyTargets == other.canAssignLegacyTargets;
+          canAssignLegacyTargets == other.canAssignLegacyTargets &&
+          showTimeGapDays == other.showTimeGapDays;
 
   @override
   int get hashCode => Object.hash(
@@ -1303,6 +1360,7 @@ class _TopicViewSnapshot {
     hasEarlier,
     recommendations,
     canAssignLegacyTargets,
+    showTimeGapDays,
   );
 }
 
@@ -1561,13 +1619,17 @@ class _MoreTopicsTabButton extends StatelessWidget {
 class _TopicPostItem extends StatelessWidget {
   const _TopicPostItem({
     super.key,
+    required this.postId,
     required this.day,
+    required this.timeGapDays,
     required this.hideDay,
     required this.onDayTap,
     required this.child,
   });
 
+  final int postId;
   final DateTime? day;
+  final int? timeGapDays;
   final bool hideDay;
   final VoidCallback? onDayTap;
   final Widget child;
@@ -1589,6 +1651,11 @@ class _TopicPostItem extends StatelessWidget {
                 onTap: onDayTap!,
               ),
             ),
+          ),
+        if (timeGapDays case final daysSince?)
+          TimeGapNotice(
+            key: ValueKey(('topic-time-gap', postId)),
+            daysSince: daysSince,
           ),
         child,
       ],

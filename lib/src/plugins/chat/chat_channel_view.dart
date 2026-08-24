@@ -5,8 +5,10 @@ import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../../foundation/calendar_day.dart';
+import '../../models/site_config.dart';
 import '../../shell/loading_skeleton.dart';
 import '../../shell/shell_scope.dart';
+import '../../shell/time_gap.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -45,20 +47,27 @@ class ChatChannelView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<String?>(
+    return ShellSelector<({String? siteUrl, int showTimeGapDays})>(
       select: (controller) {
-        return controller.currentInstance?.url;
+        final siteUrl = controller.currentInstance?.url;
+        return (
+          siteUrl: siteUrl,
+          showTimeGapDays: siteUrl == null
+              ? SiteConfig.defaultShowTimeGapDays
+              : controller.siteConfigFor(siteUrl).showTimeGapDays,
+        );
       },
-      builder: (context, siteUrl, _) => siteUrl == null
+      builder: (context, selection, _) => selection.siteUrl == null
           ? const SizedBox.shrink()
           : _ChatChannelBody(
               key: ValueKey((
-                siteUrl,
+                selection.siteUrl,
                 channelId,
                 PluginScope.require(context, chatControllerService),
               )),
-              siteUrl: siteUrl,
+              siteUrl: selection.siteUrl!,
               channelId: channelId,
+              showTimeGapDays: selection.showTimeGapDays,
               chat: PluginScope.require(context, chatControllerService),
             ),
     );
@@ -75,11 +84,13 @@ class _ChatChannelBody extends StatefulWidget {
     super.key,
     required this.siteUrl,
     required this.channelId,
+    required this.showTimeGapDays,
     required this.chat,
   });
 
   final String siteUrl;
   final int channelId;
+  final int showTimeGapDays;
   final ChatController chat;
 
   @override
@@ -94,6 +105,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   List<int>? _projectedLocalMessageIds;
   int? _projectedLastRead;
   int? _projectedRevision;
+  int? _projectedShowTimeGapDays;
   List<ChatStreamItem> _items = const [];
   int? _highlightMessageId;
   int _highlightRequest = 0;
@@ -322,7 +334,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     if (identical(_projectedMessageIds, stream.messageIds) &&
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
         _projectedLastRead == stream.lastReadOnOpen &&
-        _projectedRevision == stream.revision) {
+        _projectedRevision == stream.revision &&
+        _projectedShowTimeGapDays == widget.showTimeGapDays) {
       return;
     }
 
@@ -336,6 +349,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       _items = buildChatStream(
         messages,
         lastReadMessageId: stream.lastReadOnOpen,
+        showTimeGapDays: widget.showTimeGapDays,
       );
     }
 
@@ -343,6 +357,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     _projectedLocalMessageIds = stream.localMessageIds;
     _projectedLastRead = stream.lastReadOnOpen;
     _projectedRevision = stream.revision;
+    _projectedShowTimeGapDays = widget.showTimeGapDays;
   }
 
   /// Projects an older page without walking the accumulated history again.
@@ -357,7 +372,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     if (previous == null || previous.isEmpty) return false;
     if (!identical(_projectedLocalMessageIds, stream.localMessageIds) ||
         _projectedLastRead != stream.lastReadOnOpen ||
-        _projectedRevision != stream.revision) {
+        _projectedRevision != stream.revision ||
+        _projectedShowTimeGapDays != widget.showTimeGapDays) {
       return false;
     }
 
@@ -390,6 +406,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       lastReadMessageId: stream.lastReadOnOpen,
       newestMessageId:
           stream.localMessageIds.lastOrNull ?? stream.messageIds.lastOrNull,
+      showTimeGapDays: widget.showTimeGapDays,
     );
     if (projected == null) return false;
     _items = projected;
@@ -1219,6 +1236,11 @@ class _StreamState extends State<ChatMessageStream>
                     ),
                   ),
                 ),
+                ChatStreamTimeGap(:final messageId, :final daysSince) =>
+                  TimeGapNotice(
+                    key: ValueKey(('chat-time-gap', messageId)),
+                    daysSince: daysSince,
+                  ),
                 ChatStreamDeleted(:final count) => _DeletedRun(count: count),
                 ChatStreamNewDivider() => const _NewDivider(),
                 null => const SizedBox.shrink(),

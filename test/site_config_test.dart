@@ -23,6 +23,7 @@ Map<String, dynamic> settings({
   bool? taggingEnabled,
   int? maxTagSearchResults,
   bool? usePgHeadlinesForExcerpt,
+  int? showTimeGapDays,
   bool? fixedCategoryPositions,
   bool? allowUncategorizedTopics,
   Object? defaultNavigationMenuCategories,
@@ -56,6 +57,7 @@ Map<String, dynamic> settings({
   'tagging_enabled': ?taggingEnabled,
   'max_tag_search_results': ?maxTagSearchResults,
   'use_pg_headlines_for_excerpt': ?usePgHeadlinesForExcerpt,
+  'show_time_gap_days': ?showTimeGapDays,
   'fixed_category_positions': ?fixedCategoryPositions,
   'allow_uncategorized_topics': ?allowUncategorizedTopics,
   'default_navigation_menu_categories': ?defaultNavigationMenuCategories,
@@ -104,6 +106,7 @@ void main() {
       expect(unknown.taggingEnabled, isTrue);
       expect(unknown.maxTagSearchResults, 5);
       expect(unknown.usePgHeadlinesForExcerpt, isFalse);
+      expect(unknown.showTimeGapDays, SiteConfig.defaultShowTimeGapDays);
       expect(unknown.gifsEnabled, isFalse);
       expect(unknown.gifFileDetail, SiteConfig.defaultGifFileDetail);
       expect(unknown.gifResultLimitEnabled, isFalse);
@@ -137,6 +140,24 @@ void main() {
       expect(config.logSearchQueries, isFalse);
       expect(config.taggingEnabled, isFalse);
       expect(config.usePgHeadlinesForExcerpt, isTrue);
+    });
+
+    test('reads and bounds the post time-gap threshold', () {
+      expect(
+        SiteConfig.fromSettings(settings(showTimeGapDays: 30)).showTimeGapDays,
+        30,
+      );
+      expect(
+        SiteConfig.fromSettings(settings(showTimeGapDays: 0)).showTimeGapDays,
+        0,
+      );
+      for (final invalid in [-1, SiteConfig.maximumShowTimeGapDays + 1]) {
+        expect(
+          SiteConfig.fromSettings(settings(showTimeGapDays: invalid))
+              .showTimeGapDays,
+          SiteConfig.defaultShowTimeGapDays,
+        );
+      }
     });
 
     test('reads the tag search page the site will accept', () {
@@ -475,6 +496,7 @@ void main() {
         taggingEnabled: false,
         maxTagSearchResults: 30,
         usePgHeadlinesForExcerpt: true,
+        showTimeGapDays: 30,
         fixedCategoryPositions: true,
         allowUncategorizedTopics: true,
         defaultNavigationMenuCategories: '7|3',
