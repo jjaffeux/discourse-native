@@ -1906,7 +1906,7 @@ void main() {
   ) async {
     await pumpShell(tester, desktop);
 
-    final destination = sidebarDestination('Drafts');
+    final destination = sidebarDestination('Filter');
     final inkWell = find
         .ancestor(of: destination, matching: find.byType(InkWell))
         .first;
@@ -3306,7 +3306,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('signed-out readers do not see Messages in the sidebar', (
+    testWidgets('signed-out readers do not see account pages in the sidebar', (
       tester,
     ) async {
       final api = FakeDiscourseApi(feeds: {'/latest.json': latest});
@@ -3314,6 +3314,7 @@ void main() {
       await pumpShell(tester, desktop, api: api);
 
       expect(sidebarDestination('Messages'), findsNothing);
+      expect(sidebarDestination('Drafts'), findsNothing);
       expect(api.feedPaths, ['/latest.json']);
     });
 

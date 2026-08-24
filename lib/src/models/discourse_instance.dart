@@ -170,8 +170,8 @@ class DiscourseInstance {
   /// Routes every Discourse has before any forum response arrives. Categories
   /// and chat channels are appended by the shell once their live data loads.
   ///
-  /// Messages belongs to an account rather than the public forum, so anonymous
-  /// readers do not get a destination that cannot resolve an inbox.
+  /// Messages and drafts belong to an account rather than the public forum, so
+  /// anonymous readers do not get destinations that cannot resolve their data.
   List<SidebarSection> get sections =>
       isConnected ? _connectedSections : _anonymousSections;
 
@@ -189,7 +189,6 @@ class DiscourseInstance {
           label: 'Topics',
           icon: DIcons.layerGroup,
         ),
-        SidebarDestination(id: 'drafts', label: 'Drafts', icon: DIcons.pencil),
         // Core keeps Filter in the secondary Community links. Native has no
         // More drawer, so its equivalent is the final visible row.
         SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
