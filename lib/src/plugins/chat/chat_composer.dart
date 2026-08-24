@@ -430,24 +430,29 @@ class _ChatComposerState extends State<ChatComposer> {
                 _closeDisabledEmojiAutocomplete(emojiEnabled);
                 return emojiEnabled
                     ? EmojiPickerAnchor(
-                        child: Builder(
-                          builder: (buttonContext) => IconButton(
-                            key: const ValueKey('chat-composer-emoji'),
-                            onPressed:
-                                _pickingGif ||
-                                    _pickingEmoji ||
-                                    !(_chat?.canSendMessage(
-                                          widget.siteUrl,
-                                          widget.channelId,
-                                        ) ??
-                                        false)
-                                ? null
-                                : () => unawaited(
-                                    _pickEmoji(pickerContext: buttonContext),
-                                  ),
-                            icon: const DIcon(DIcons.discourseEmojis, size: 18),
-                            tooltip: 'Add emoji',
-                            color: theme.colorScheme.onSurfaceVariant,
+                        child: Center(
+                          child: Builder(
+                            builder: (buttonContext) => IconButton(
+                              key: const ValueKey('chat-composer-emoji'),
+                              onPressed:
+                                  _pickingGif ||
+                                      _pickingEmoji ||
+                                      !(_chat?.canSendMessage(
+                                            widget.siteUrl,
+                                            widget.channelId,
+                                          ) ??
+                                          false)
+                                  ? null
+                                  : () => unawaited(
+                                      _pickEmoji(pickerContext: buttonContext),
+                                    ),
+                              icon: const DIcon(
+                                DIcons.discourseEmojis,
+                                size: 18,
+                              ),
+                              tooltip: 'Add emoji',
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
                       )
@@ -458,40 +463,44 @@ class _ChatComposerState extends State<ChatComposer> {
               select: (shell) =>
                   shell.siteConfigFor(composer.target.siteUrl).gifsEnabled,
               builder: (context, gifsEnabled, _) => gifsEnabled
-                  ? IconButton(
-                      key: const ValueKey('chat-composer-gif'),
-                      onPressed:
-                          _pickingGif ||
-                              _pickingEmoji ||
-                              !(_chat?.canSendMessage(
-                                    widget.siteUrl,
-                                    widget.channelId,
-                                  ) ??
-                                  false)
-                          ? null
-                          : () => unawaited(_pickGif()),
-                      icon: const DIcon(DIcons.gif, size: 18),
-                      tooltip: 'Send GIF',
-                      color: theme.colorScheme.onSurfaceVariant,
+                  ? Center(
+                      child: IconButton(
+                        key: const ValueKey('chat-composer-gif'),
+                        onPressed:
+                            _pickingGif ||
+                                _pickingEmoji ||
+                                !(_chat?.canSendMessage(
+                                      widget.siteUrl,
+                                      widget.channelId,
+                                    ) ??
+                                    false)
+                            ? null
+                            : () => unawaited(_pickGif()),
+                        icon: const DIcon(DIcons.gif, size: 18),
+                        tooltip: 'Send GIF',
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     )
                   : const SizedBox.shrink(),
             ),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: composer.text,
-              builder: (context, value, _) => IconButton(
-                key: const ValueKey('chat-composer-send'),
-                onPressed:
-                    _pickingGif ||
-                        _pickingEmoji ||
-                        value.text.trim().isEmpty ||
-                        composer.hasActiveUploads ||
-                        !(_chat?.canSendMessageTo(widget.siteUrl, _target) ??
-                            false)
-                    ? null
-                    : () => _send(composer),
-                icon: const DIcon(DIcons.paperPlane, size: 18),
-                tooltip: 'Send message',
-                color: theme.colorScheme.primary,
+              builder: (context, value, _) => Center(
+                child: IconButton(
+                  key: const ValueKey('chat-composer-send'),
+                  onPressed:
+                      _pickingGif ||
+                          _pickingEmoji ||
+                          value.text.trim().isEmpty ||
+                          composer.hasActiveUploads ||
+                          !(_chat?.canSendMessageTo(widget.siteUrl, _target) ??
+                              false)
+                      ? null
+                      : () => _send(composer),
+                  icon: const DIcon(DIcons.paperPlane, size: 18),
+                  tooltip: 'Send message',
+                  color: theme.colorScheme.primary,
+                ),
               ),
             ),
             GestureDetector(

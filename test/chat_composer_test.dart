@@ -132,10 +132,19 @@ void main() {
     expect(find.byTooltip('Insert date/time  Ctrl Shift .'), findsNothing);
     expect(find.byTooltip('Add to message'), findsNothing);
     expect(find.byTooltip('Add emoji'), findsOneWidget);
-    expect(
-      tester.getSize(find.byKey(const ValueKey('chat-composer'))).height,
-      58,
+    final composer = tester.getRect(
+      find.byKey(const ValueKey('chat-composer')),
     );
+    expect(composer.height, 58);
+    for (final key in const [
+      'chat-composer-emoji',
+      'chat-composer-gif',
+      'chat-composer-send',
+    ]) {
+      final button = tester.getRect(find.byKey(ValueKey(key)));
+      expect(button.height, lessThan(composer.height));
+      expect(button.center.dy, composer.center.dy);
+    }
   });
 
   testWidgets('keeps both send actions idle while the GIF picker is open', (
