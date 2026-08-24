@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_images.dart';
 import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
+import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -152,6 +153,32 @@ void main() {
     );
     expect(controller.collapsedImageAtOffset(projected.start), isNull);
     expect(controller.collapsedImageAtOffset(projected.end), isNull);
+  });
+
+  testWidgets('carries the target site into a resolved image preview', (
+    tester,
+  ) async {
+    const siteUrl = 'https://meta.discourse.org';
+    final controller = MarkdownEditingController(
+      text: '![secure|640x480]($siteUrl/secure-uploads/image.png)',
+      imageSiteUrl: siteUrl,
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: TextField(controller: controller, maxLines: null)),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
+          .siteUrl,
+      siteUrl,
+    );
+    expect(tester.widget<SiteImage>(find.byType(SiteImage)).siteUrl, siteUrl);
   });
 
   testWidgets('a failing short-url lookup does not retry every frame', (

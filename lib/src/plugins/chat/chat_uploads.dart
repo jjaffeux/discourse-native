@@ -7,6 +7,7 @@ import '../../foundation/diagnostic_errors.dart';
 import '../../shell/image_decode.dart';
 import '../../shell/lightbox.dart';
 import '../../shell/open_link.dart';
+import '../../shell/site_image.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -94,8 +95,9 @@ class _Image extends StatelessWidget {
         : math.min(sourceWidth, ChatUploads.maxHeight * ratio);
     void open() => _open(context, absolute);
 
-    Widget picture = Image.network(
-      absolute(upload.thumbnailUrl ?? upload.url),
+    Widget picture = SiteImage(
+      url: upload.thumbnailUrl ?? upload.url,
+      siteUrl: siteUrl,
       fit: BoxFit.contain,
       width: double.infinity,
       cacheWidth: imagePhysicalPixels(context, width),
@@ -168,6 +170,7 @@ class _Image extends StatelessWidget {
               LightboxGallery(
                 images: images,
                 initialIndex: index < 0 ? 0 : index,
+                siteUrl: siteUrl,
               ),
           transitionsBuilder: (context, animation, secondary, child) =>
               FadeTransition(opacity: animation, child: child),

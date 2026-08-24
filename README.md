@@ -360,6 +360,15 @@ Post bodies are the `cooked` field — HTML the site already rendered, with its
 markdown, oneboxes, mentions and emoji resolved. `flutter_widget_from_html_core`
 draws it; reimplementing any of that client side would be a mistake.
 
+Post, composer, grid, lightbox, onebox, and chat-upload images share one
+site-image loader. That matters when a site enables secure uploads: Discourse
+answers an anonymous `/secure-uploads/…` request with a 404 even though the
+authenticated upload itself succeeded. The loader sends the user API identity
+only to the forum origin, follows redirects explicitly, and never forwards
+those headers to the signed object-store or CDN URL. Its encoded-byte cache is
+memory-only and is discarded with the site's account lifecycle, so reconnecting
+as another account cannot reuse private media from the previous session.
+
 Two things worth knowing if you touch the lists:
 
 - The load-more footer may only appear **while actually loading**. Keying it on

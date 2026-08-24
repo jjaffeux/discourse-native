@@ -15,7 +15,7 @@ import 'cooked_dom.dart';
 import 'image_decode.dart';
 import 'open_link.dart';
 import 'platform.dart';
-import 'site_url.dart';
+import 'site_image.dart';
 
 /// Renders Discourse's post images, and the gallery behind them.
 ///
@@ -313,11 +313,9 @@ class LightboxTile extends StatelessWidget {
                   onTap: activate,
                   child: Hero(
                     tag: image.heroTag,
-                    child: Image.network(
-                      resolveSiteUrl(
-                        image.thumbnailSrc ?? image.fullSrc,
-                        siteUrl,
-                      ),
+                    child: SiteImage(
+                      url: image.thumbnailSrc ?? image.fullSrc,
+                      siteUrl: siteUrl,
                       fit: fit,
                       width: double.infinity,
                       height: fillsBox ? double.infinity : null,
@@ -476,9 +474,34 @@ class _LightboxGalleryState extends State<LightboxGallery> {
       ),
       builder: (context, index) {
         final image = widget.images[index];
-        return PhotoViewGalleryPageOptions(
-          imageProvider: NetworkImage(
-            resolveSiteUrl(image.fullSrc, widget.siteUrl),
+        return PhotoViewGalleryPageOptions.customChild(
+          child: SiteImage(
+            url: image.fullSrc,
+            siteUrl: widget.siteUrl,
+            fit: BoxFit.contain,
+            width: double.infinity,
+            height: double.infinity,
+            excludeFromSemantics: true,
+            loadingBuilder: (context) => const Center(
+              child: SizedBox.square(
+                dimension: 24,
+                child: AdaptiveActivityIndicator(
+                  color: Colors.white,
+                  cupertinoRadius: 12,
+                  materialStrokeWidth: 2,
+                ),
+              ),
+            ),
+            errorBuilder: (context, error, stackTrace) {
+              reportImageError(
+                error,
+                stackTrace,
+                operation: 'lightbox.fullImage',
+              );
+              return const Center(
+                child: UnavailableImage(color: Colors.white54),
+              );
+            },
           ),
           heroAttributes: PhotoViewHeroAttributes(tag: image.heroTag),
           semanticLabel: image.title,
@@ -487,14 +510,6 @@ class _LightboxGalleryState extends State<LightboxGallery> {
           maxScale: PhotoViewComputedScale.covered * 3,
           onTapUp: (context, details, value) =>
               setState(() => _chromeVisible = !_chromeVisible),
-          errorBuilder: (context, error, stackTrace) {
-            reportImageError(
-              error,
-              stackTrace,
-              operation: 'lightbox.fullImage',
-            );
-            return const Center(child: UnavailableImage(color: Colors.white54));
-          },
         );
       },
     );

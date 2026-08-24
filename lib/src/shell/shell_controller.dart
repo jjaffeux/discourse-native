@@ -11,6 +11,7 @@ import '../data/draft_store.dart';
 import '../data/emoji_picker_store.dart';
 import '../data/forum_tab_store.dart';
 import '../data/instance_store.dart';
+import '../data/site_image_repository.dart';
 import '../data/site_lifecycle.dart';
 import '../data/site_tracker.dart';
 import '../data/store.dart';
@@ -153,6 +154,7 @@ class ShellController extends FrameSafeNotifier {
     this.forumTabsEnabled = true,
     Store? store,
     SiteLifecycle? lifecycle,
+    SiteImageRepository? siteImages,
     this.trackers = SiteTracker.new,
     Updater updater = const UnsupportedUpdater(),
     UpdateStore? updateStore,
@@ -167,6 +169,7 @@ class ShellController extends FrameSafeNotifier {
        assert(anchorPersistDebounce >= Duration.zero),
        store = store ?? Store(),
        lifecycle = lifecycle ?? SiteLifecycle(),
+       _providedSiteImages = siteImages,
        plugins = plugins ?? installedPlugins,
        updates = UpdateController(
          updater: updater,
@@ -216,6 +219,7 @@ class ShellController extends FrameSafeNotifier {
   final DraftStore drafts;
   final EmojiPickerStore emojiPickerStore;
   final SiteLifecycle lifecycle;
+  final SiteImageRepository? _providedSiteImages;
   final ResenhaDiagnosticsRecorder resenhaDiagnostics;
   final InstalledPlugins plugins;
 
@@ -225,6 +229,9 @@ class ShellController extends FrameSafeNotifier {
     api,
     api.models,
   );
+  late final SiteImageRepository siteImages =
+      _providedSiteImages ??
+      SiteImageRepository(credentials: authenticator, lifecycle: lifecycle);
 
   late final PluginSession _pluginSession = plugins.openSession(
     PluginHostBindings(<PluginHostPort<Object>>[
@@ -7527,6 +7534,7 @@ class ShellController extends FrameSafeNotifier {
 
   void _forgetSiteState(String siteUrl) {
     lifecycle.invalidate(siteUrl);
+    siteImages.forget(siteUrl);
     _removeWorkspace(siteUrl);
     if (currentInstance?.url == siteUrl) search.clear();
     _draftSaveRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
@@ -8111,6 +8119,7 @@ class ShellController extends FrameSafeNotifier {
     accountActivity.dispose();
     draftList.dispose();
     topicFeeds.dispose();
+    siteImages.dispose();
     chatNavigation.dispose();
     _observePluginLifecycle(_pluginSession.close(), 'plugins.session.close');
     search.dispose();

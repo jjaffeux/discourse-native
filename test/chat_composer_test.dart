@@ -197,9 +197,7 @@ void main() {
     await tester.pumpWidget(_TestView(shell: fixture.shell));
     await tester.pumpAndSettle();
 
-    final targetFinder = find.byKey(
-      const ValueKey('chat-upload-drop-target'),
-    );
+    final targetFinder = find.byKey(const ValueKey('chat-upload-drop-target'));
     final target = tester.widget<DropTarget>(targetFinder);
     final position = tester.getCenter(targetFinder);
     target.onDragEntered!(

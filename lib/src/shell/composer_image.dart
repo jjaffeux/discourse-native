@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'composer_images.dart';
 import 'image_decode.dart';
+import 'site_image.dart';
 
 class ComposerImagePreview extends StatelessWidget {
   const ComposerImagePreview({
@@ -10,11 +10,13 @@ class ComposerImagePreview extends StatelessWidget {
     required this.image,
     required this.url,
     required this.onNaturalSize,
+    this.siteUrl,
     this.highlighted = false,
   });
 
   final ComposerImageBlock image;
   final String? url;
+  final String? siteUrl;
   final void Function(Size size) onNaturalSize;
   final bool highlighted;
 
@@ -71,120 +73,26 @@ class ComposerImagePreview extends StatelessWidget {
         ),
         child: source == null
             ? _ImageFallback(label: image.alt)
-            : _isSvg(source)
-            ? SvgPicture.network(
-                source,
+            : SiteImage(
+                url: source,
+                siteUrl: siteUrl,
                 fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => _ImageFallback(label: image.alt),
-                placeholderBuilder: (_) => const Center(
+                cacheWidth: image.hasDimensions
+                    ? imagePhysicalPixels(context, size.width)
+                    : null,
+                cacheHeight: image.hasDimensions
+                    ? imagePhysicalPixels(context, size.height)
+                    : null,
+                onNaturalSize: image.hasDimensions ? null : onNaturalSize,
+                excludeFromSemantics: true,
+                loadingBuilder: (_) => const Center(
                   child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 ),
-              )
-            : _MeasuredNetworkImage(
-                url: source,
-                logicalSize: size,
-                measureNaturalSize: !image.hasDimensions,
-                onNaturalSize: onNaturalSize,
-                fallback: _ImageFallback(label: image.alt),
+                errorBuilder: (_, _, _) => _ImageFallback(label: image.alt),
               ),
       ),
     );
   }
-
-  static bool _isSvg(String url) =>
-      Uri.tryParse(url)?.path.toLowerCase().endsWith('.svg') == true;
-}
-
-class _MeasuredNetworkImage extends StatefulWidget {
-  const _MeasuredNetworkImage({
-    required this.url,
-    required this.logicalSize,
-    required this.measureNaturalSize,
-    required this.onNaturalSize,
-    required this.fallback,
-  });
-
-  final String url;
-  final Size logicalSize;
-  final bool measureNaturalSize;
-  final void Function(Size size) onNaturalSize;
-  final Widget fallback;
-
-  @override
-  State<_MeasuredNetworkImage> createState() => _MeasuredNetworkImageState();
-}
-
-class _MeasuredNetworkImageState extends State<_MeasuredNetworkImage> {
-  ImageStream? _stream;
-  ImageStreamListener? _listener;
-  String? _url;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _listen();
-  }
-
-  @override
-  void didUpdateWidget(_MeasuredNetworkImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url ||
-        oldWidget.measureNaturalSize != widget.measureNaturalSize) {
-      _listen();
-    }
-  }
-
-  void _listen() {
-    if (!widget.measureNaturalSize) {
-      _stopListening();
-      return;
-    }
-    if (_url == widget.url && _listener != null) return;
-    _stopListening();
-    final next = NetworkImage(
-      widget.url,
-    ).resolve(createLocalImageConfiguration(context));
-    final listener = ImageStreamListener((info, _) {
-      widget.onNaturalSize(
-        Size(info.image.width.toDouble(), info.image.height.toDouble()),
-      );
-    });
-    _stream = next;
-    _url = widget.url;
-    _listener = listener;
-    next.addListener(listener);
-  }
-
-  void _stopListening() {
-    final listener = _listener;
-    if (listener != null) _stream?.removeListener(listener);
-    _stream = null;
-    _listener = null;
-    _url = null;
-  }
-
-  @override
-  void dispose() {
-    _stopListening();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Image(
-    image: composerPreviewImageProvider(
-      context,
-      url: widget.url,
-      logicalSize: widget.logicalSize,
-      measureNaturalSize: widget.measureNaturalSize,
-    ),
-    fit: BoxFit.contain,
-    frameBuilder: (context, child, frame, _) => frame == null
-        ? const Center(
-            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-          )
-        : child,
-    errorBuilder: (_, _, _) => widget.fallback,
-  );
 }
 
 /// Creates the preview provider without resolving it, so decode policy can be
