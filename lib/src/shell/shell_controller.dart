@@ -55,6 +55,7 @@ import '../models/user_draft.dart';
 import '../plugins/assign/assignment.dart';
 import '../plugins/assign/assignment_controller.dart';
 import '../plugins/chat/chat_controller.dart';
+import '../plugins/chat/chat_message.dart';
 import '../plugins/chat/chat_plugin.dart';
 import '../plugins/chat/chat_route.dart';
 import '../plugins/chat/chat_stream_target.dart';
@@ -4674,6 +4675,7 @@ class ShellController extends FrameSafeNotifier {
   final Set<String> _postWritesInFlight = {};
 
   final Set<String> _topicBookmarkWritesInFlight = {};
+  final Set<String> _chatBookmarkWritesInFlight = {};
   final Map<String, int> _bookmarkVersions = {};
   final Map<String, int> _siteBookmarkVersions = {};
 
@@ -4721,6 +4723,9 @@ class ShellController extends FrameSafeNotifier {
       BookmarkTargetType.topic => _topicBookmarkWritesInFlight.contains(
         _topicKey(targetSite, topicId),
       ),
+      BookmarkTargetType.chatMessage => _chatBookmarkWritesInFlight.contains(
+        _postKey(targetSite, targetId),
+      ),
     };
   }
 
@@ -4764,6 +4769,9 @@ class ShellController extends FrameSafeNotifier {
     BookmarkAutoDeletePreference? autoDeletePreference,
   }) async {
     final instance = currentInstance;
+    final refreshTarget = targetType == BookmarkTargetType.chatMessage
+        ? 'chat message'
+        : 'topic';
     if (instance == null || !instance.isConnected) {
       return const BookmarkWriteResult.refused(
         'Reconnect to this forum to bookmark it.',
@@ -4803,19 +4811,29 @@ class ShellController extends FrameSafeNotifier {
         );
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
-          _reconcileBookmarks(instance, topicId);
-          return const BookmarkWriteResult.reconciled(
-            "Couldn't confirm whether the bookmark was created. The topic is being refreshed.",
+          _reconcileBookmarks(
+            instance,
+            topicId,
+            targetType: targetType,
+            targetId: targetId,
+          );
+          return BookmarkWriteResult.reconciled(
+            "Couldn't confirm whether the bookmark was created. The $refreshTarget is being refreshed.",
           );
         }
         return BookmarkWriteResult.refused(error.message);
       } catch (error, stackTrace) {
         if (lease.isCurrent) {
           _reportOperationalError(error, stackTrace, 'bookmark.create');
-          _reconcileBookmarks(instance, topicId);
+          _reconcileBookmarks(
+            instance,
+            topicId,
+            targetType: targetType,
+            targetId: targetId,
+          );
         }
-        return const BookmarkWriteResult.reconciled(
-          "Couldn't confirm whether the bookmark was created. The topic is being refreshed.",
+        return BookmarkWriteResult.reconciled(
+          "Couldn't confirm whether the bookmark was created. The $refreshTarget is being refreshed.",
         );
       }
       final postNumber = targetType == BookmarkTargetType.post
@@ -4838,7 +4856,12 @@ class ShellController extends FrameSafeNotifier {
           'The bookmark was saved on the forum.',
         );
       }
-      _reconcileBookmarks(instance, topicId);
+      _reconcileBookmarks(
+        instance,
+        topicId,
+        targetType: targetType,
+        targetId: targetId,
+      );
       return BookmarkWriteResult.saved(bookmark);
     } finally {
       lease.commit(
@@ -4865,6 +4888,9 @@ class ShellController extends FrameSafeNotifier {
         'This bookmark cannot be edited here.',
       );
     }
+    final refreshTarget = targetType == BookmarkTargetType.chatMessage
+        ? 'chat message'
+        : 'topic';
     final siteUrl = instance.url;
     if (!_beginBookmarkWrite(siteUrl, topicId, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
@@ -4893,19 +4919,29 @@ class ShellController extends FrameSafeNotifier {
         );
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
-          _reconcileBookmarks(instance, topicId);
-          return const BookmarkWriteResult.reconciled(
-            "Couldn't confirm the bookmark changes. The topic is being refreshed.",
+          _reconcileBookmarks(
+            instance,
+            topicId,
+            targetType: targetType,
+            targetId: targetId,
+          );
+          return BookmarkWriteResult.reconciled(
+            "Couldn't confirm the bookmark changes. The $refreshTarget is being refreshed.",
           );
         }
         return BookmarkWriteResult.refused(error.message);
       } catch (error, stackTrace) {
         if (lease.isCurrent) {
           _reportOperationalError(error, stackTrace, 'bookmark.update');
-          _reconcileBookmarks(instance, topicId);
+          _reconcileBookmarks(
+            instance,
+            topicId,
+            targetType: targetType,
+            targetId: targetId,
+          );
         }
-        return const BookmarkWriteResult.reconciled(
-          "Couldn't confirm the bookmark changes. The topic is being refreshed.",
+        return BookmarkWriteResult.reconciled(
+          "Couldn't confirm the bookmark changes. The $refreshTarget is being refreshed.",
         );
       }
       final updated = bookmark.copyWith(
@@ -4923,7 +4959,12 @@ class ShellController extends FrameSafeNotifier {
           'The bookmark was updated on the forum.',
         );
       }
-      _reconcileBookmarks(instance, topicId);
+      _reconcileBookmarks(
+        instance,
+        topicId,
+        targetType: targetType,
+        targetId: targetId,
+      );
       return BookmarkWriteResult.saved(updated);
     } finally {
       lease.commit(
@@ -4957,6 +4998,9 @@ class ShellController extends FrameSafeNotifier {
         'This bookmark cannot be deleted here.',
       );
     }
+    final refreshTarget = targetType == BookmarkTargetType.chatMessage
+        ? 'chat message'
+        : 'topic';
     final siteUrl = instance.url;
     if (!_beginBookmarkWrite(siteUrl, topicId, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
@@ -4974,28 +5018,39 @@ class ShellController extends FrameSafeNotifier {
       if (credential.failure case final failure?) {
         return BookmarkWriteResult.refused(failure.message);
       }
-      final bool topicBookmarked;
+      final bool? topicBookmarked;
       try {
         topicBookmarked = await api.deleteBookmark(
           siteUrl: siteUrl,
           apiKey: credential.apiKey!,
           bookmarkId: bookmark.id,
+          targetType: targetType,
         );
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
-          _reconcileBookmarks(instance, topicId);
-          return const BookmarkWriteResult.reconciled(
-            "Couldn't confirm the deletion. The topic is being refreshed.",
+          _reconcileBookmarks(
+            instance,
+            topicId,
+            targetType: targetType,
+            targetId: targetId,
+          );
+          return BookmarkWriteResult.reconciled(
+            "Couldn't confirm the deletion. The $refreshTarget is being refreshed.",
           );
         }
         return BookmarkWriteResult.refused(error.message);
       } catch (error, stackTrace) {
         if (lease.isCurrent) {
           _reportOperationalError(error, stackTrace, 'bookmark.delete');
-          _reconcileBookmarks(instance, topicId);
+          _reconcileBookmarks(
+            instance,
+            topicId,
+            targetType: targetType,
+            targetId: targetId,
+          );
         }
-        return const BookmarkWriteResult.reconciled(
-          "Couldn't confirm the deletion. The topic is being refreshed.",
+        return BookmarkWriteResult.reconciled(
+          "Couldn't confirm the deletion. The $refreshTarget is being refreshed.",
         );
       }
       final applied = lease.commit(() {
@@ -5011,7 +5066,12 @@ class ShellController extends FrameSafeNotifier {
           'The bookmark was deleted on the forum.',
         );
       }
-      _reconcileBookmarks(instance, topicId);
+      _reconcileBookmarks(
+        instance,
+        topicId,
+        targetType: targetType,
+        targetId: targetId,
+      );
       return const BookmarkWriteResult.saved();
     } finally {
       lease.commit(
@@ -5104,10 +5164,19 @@ class ShellController extends FrameSafeNotifier {
     BookmarkTargetType.topic => _beginTopicBookmarkWrite(
       _topicKey(siteUrl, topicId),
     ),
+    BookmarkTargetType.chatMessage => _beginChatBookmarkWrite(
+      _postKey(siteUrl, targetId),
+    ),
   };
 
   bool _beginTopicBookmarkWrite(String key) {
     if (!_topicBookmarkWritesInFlight.add(key)) return false;
+    _notify();
+    return true;
+  }
+
+  bool _beginChatBookmarkWrite(String key) {
+    if (!_chatBookmarkWritesInFlight.add(key)) return false;
     _notify();
     return true;
   }
@@ -5124,10 +5193,22 @@ class ShellController extends FrameSafeNotifier {
       case BookmarkTargetType.topic:
         _topicBookmarkWritesInFlight.remove(_topicKey(siteUrl, topicId));
         _notify();
+      case BookmarkTargetType.chatMessage:
+        _chatBookmarkWritesInFlight.remove(_postKey(siteUrl, targetId));
+        _notify();
     }
   }
 
   void _applyBookmark(String siteUrl, int topicId, Bookmark bookmark) {
+    final targetType = bookmark.coreTargetType;
+    final targetId = bookmark.bookmarkableId;
+    if (targetType == BookmarkTargetType.chatMessage) {
+      if (targetId != null) {
+        _chatPlugin?.putMessageBookmark(siteUrl, targetId, bookmark);
+      }
+      _notify();
+      return;
+    }
     _advanceBookmarkVersion(siteUrl, topicId);
     store.update<TopicDetail>(
       siteUrl,
@@ -5135,7 +5216,7 @@ class ShellController extends FrameSafeNotifier {
       (detail) => detail.withBookmark(bookmark),
     );
     final postId = bookmark.bookmarkableId;
-    if (bookmark.coreTargetType == BookmarkTargetType.post && postId != null) {
+    if (targetType == BookmarkTargetType.post && postId != null) {
       store.update<Post>(
         siteUrl,
         postId,
@@ -5154,8 +5235,17 @@ class ShellController extends FrameSafeNotifier {
     String siteUrl,
     int topicId,
     Bookmark bookmark, {
-    required bool topicBookmarked,
+    required bool? topicBookmarked,
   }) {
+    final targetType = bookmark.coreTargetType;
+    final targetId = bookmark.bookmarkableId;
+    if (targetType == BookmarkTargetType.chatMessage) {
+      if (targetId != null) {
+        _chatPlugin?.removeMessageBookmark(siteUrl, targetId);
+      }
+      _notify();
+      return;
+    }
     _advanceBookmarkVersion(siteUrl, topicId);
     store.update<TopicDetail>(
       siteUrl,
@@ -5163,13 +5253,13 @@ class ShellController extends FrameSafeNotifier {
       (detail) => detail.withoutBookmark(bookmark.id),
     );
     final postId = bookmark.bookmarkableId;
-    if (bookmark.coreTargetType == BookmarkTargetType.post && postId != null) {
+    if (targetType == BookmarkTargetType.post && postId != null) {
       store.update<Post>(siteUrl, postId, (post) => post.withBookmark(null));
     }
     store.update<Topic>(
       siteUrl,
       topicId,
-      (topic) => topic.copyWith(bookmarked: topicBookmarked),
+      (topic) => topic.copyWith(bookmarked: topicBookmarked == true),
     );
     _notify();
   }
@@ -5191,16 +5281,29 @@ class ShellController extends FrameSafeNotifier {
     _notify();
   }
 
-  void _reconcileBookmarks(DiscourseInstance instance, int topicId) {
-    final route = currentContent;
-    final row = store.read<Topic>(instance.url, topicId);
-    unawaited(
-      _refetchTopic(
-        instance.url,
-        topicId,
-        route?.topicId == topicId ? route?.slug ?? '' : row?.slug ?? '',
-      ),
-    );
+  void _reconcileBookmarks(
+    DiscourseInstance instance,
+    int topicId, {
+    BookmarkTargetType targetType = BookmarkTargetType.topic,
+    int? targetId,
+  }) {
+    if (targetType == BookmarkTargetType.chatMessage && targetId != null) {
+      final message = store.read<ChatMessage>(instance.url, targetId);
+      final chat = _chatPlugin;
+      if (message != null && chat != null) {
+        unawaited(chat.reconcileMessageBookmark(instance.url, message));
+      }
+    } else {
+      final route = currentContent;
+      final row = store.read<Topic>(instance.url, topicId);
+      unawaited(
+        _refetchTopic(
+          instance.url,
+          topicId,
+          route?.topicId == topicId ? route?.slug ?? '' : row?.slug ?? '',
+        ),
+      );
+    }
     unawaited(accountActivity.loadBookmarks(instance, force: true));
   }
 
@@ -7558,6 +7661,9 @@ class ShellController extends FrameSafeNotifier {
     _postWritesInFlight.removeWhere((key) => key.startsWith('$siteUrl~'));
     _topicBookmarkWritesInFlight.removeWhere(
       (key) => key.startsWith('$siteUrl#'),
+    );
+    _chatBookmarkWritesInFlight.removeWhere(
+      (key) => key.startsWith('$siteUrl~'),
     );
     _bookmarkVersions.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _siteBookmarkVersions.remove(siteUrl);

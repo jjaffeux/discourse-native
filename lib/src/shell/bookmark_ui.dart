@@ -9,6 +9,7 @@ import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
 import '../models/bookmark_reminder.dart';
 import '../models/post.dart';
+import '../plugins/chat/chat_message.dart';
 import '../plugins/local_dates/local_date.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -51,6 +52,37 @@ Future<void> showPostBookmarkMenu({
     topicId: topicId,
     bookmark: result.bookmark,
     cooked: post.cooked,
+  );
+}
+
+Future<void> showChatMessageBookmarkMenu({
+  required BuildContext context,
+  required ShellController controller,
+  required String siteUrl,
+  required ChatMessage message,
+}) async {
+  final result = await showShellSheet<_QuickMenuResult>(
+    context: context,
+    title: message.bookmark == null
+        ? 'Bookmark chat message'
+        : 'Chat message bookmark',
+    dialogOnDesktop: true,
+    builder: (_) => _BookmarkQuickSheet(
+      controller: controller,
+      topicId: 0,
+      targetType: BookmarkTargetType.chatMessage,
+      targetId: message.id,
+      initialBookmark: message.bookmark,
+    ),
+  );
+  if (result == null || !context.mounted) return;
+  await showBookmarkEditor(
+    context: context,
+    controller: controller,
+    siteUrl: siteUrl,
+    topicId: 0,
+    bookmark: result.bookmark,
+    cooked: message.cooked,
   );
 }
 

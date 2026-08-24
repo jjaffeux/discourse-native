@@ -3,10 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'json.dart';
 import 'notification.dart';
 
-/// The two core records the native client can bookmark.
+/// The records the native client can bookmark in place.
 enum BookmarkTargetType {
   post('Post'),
-  topic('Topic');
+  topic('Topic'),
+  chatMessage('Chat::Message');
 
   const BookmarkTargetType(this.wireName);
 
@@ -101,6 +102,25 @@ class Bookmark {
     );
   }
 
+  /// The complete bookmark object attached by `Chat::MessageSerializer`.
+  static Bookmark? fromChatMessageJson(Map<String, dynamic> json) {
+    final raw = json['bookmark'];
+    if (raw is! Map<String, dynamic>) return null;
+    final bookmarkId = jsonIntOrNull(raw['id']);
+    final messageId = jsonIntOrNull(json['id']);
+    final targetId = jsonIntOrNull(raw['bookmarkable_id']);
+    if (bookmarkId == null ||
+        bookmarkId <= 0 ||
+        messageId == null ||
+        messageId <= 0 ||
+        targetId != messageId ||
+        jsonText(raw['bookmarkable_type']) !=
+            BookmarkTargetType.chatMessage.wireName) {
+      return null;
+    }
+    return Bookmark.fromJson(raw);
+  }
+
   /// Where the bookmark points, with a topic link taken back off whatever host
   /// the site wrote it against.
   ///
@@ -134,7 +154,7 @@ class Bookmark {
   final int id;
 
   /// The server-side target. Unknown plugin types are retained for activity
-  /// rows even though native creation is deliberately limited to core types.
+  /// rows even though native creation is limited to the types above.
   final int? bookmarkableId;
   final String? bookmarkableType;
   final int? postNumber;

@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -24,6 +25,7 @@ ChatMessage message(
   int second = 0,
   int minute = 0,
   List<ChatReaction> reactions = const [],
+  Bookmark? bookmark,
 }) => ChatMessage(
   id: id,
   channelId: 9,
@@ -31,6 +33,7 @@ ChatMessage message(
   author: const ChatMessageAuthor(id: 2, username: 'sam'),
   createdAt: DateTime.utc(2026, 5, 5, 10, minute, second),
   reactions: reactions,
+  bookmark: bookmark,
 );
 
 ChatMessagePage page(
@@ -314,6 +317,43 @@ void main() {
   // The controller uses frame-safe notifiers, whose scheduler-phase check needs
   // a binding even in these non-widget tests.
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'a read dispatched before a bookmark mutation preserves local state',
+    () async {
+      final api = _BookmarkReadRaceApi();
+      final credentials = FakeApiCredentialReader()..keys[site] = 'key';
+      final store = Store()
+        ..put(site, channel(9))
+        ..put(site, message(42));
+      final chat = ChatController(
+        api: api,
+        credentials: credentials,
+        store: store,
+      );
+      addTearDown(chat.dispose);
+
+      final staleRead = chat.openChannel(site, 9, force: true);
+      await api.firstStarted.future;
+      const bookmark = Bookmark(
+        id: 81,
+        bookmarkableId: 42,
+        bookmarkableType: 'Chat::Message',
+      );
+      chat.putMessageBookmark(site, 42, bookmark);
+      api.firstResponse.complete(page([message(42)]));
+      await staleRead;
+
+      expect(store.read<ChatMessage>(site, 42)?.bookmark, bookmark);
+
+      final authoritativeRead = chat.openChannel(site, 9, force: true);
+      await api.secondStarted.future;
+      api.secondResponse.complete(page([message(42)]));
+      await authoritativeRead;
+
+      expect(store.read<ChatMessage>(site, 42)?.bookmark, isNull);
+    },
+  );
 
   group('loading a site’s channels', () {
     test(
@@ -4240,5 +4280,38 @@ final class _PagingRaceApi extends FakeDiscourseApi {
       return newPage.future;
     }
     throw StateError('Unexpected chat page before $before');
+  }
+}
+
+final class _BookmarkReadRaceApi extends FakeDiscourseApi {
+  final Completer<void> firstStarted = Completer<void>();
+  final Completer<ChatMessagePage> firstResponse = Completer<ChatMessagePage>();
+  final Completer<void> secondStarted = Completer<void>();
+  final Completer<ChatMessagePage> secondResponse =
+      Completer<ChatMessagePage>();
+  int calls = 0;
+
+  @override
+  Future<ChatMessagePage> chatMessages({
+    required String siteUrl,
+    required int channelId,
+    int? before,
+    int? after,
+    int? targetMessageId,
+    bool fromLastRead = false,
+    int pageSize = 50,
+    String? apiKey,
+    String? clientId,
+  }) {
+    calls++;
+    if (calls == 1) {
+      firstStarted.complete();
+      return firstResponse.future;
+    }
+    if (calls == 2) {
+      secondStarted.complete();
+      return secondResponse.future;
+    }
+    throw StateError('Unexpected chat message request $calls');
   }
 }

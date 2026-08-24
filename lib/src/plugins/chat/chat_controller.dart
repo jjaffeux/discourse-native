@@ -11,6 +11,7 @@ import '../../data/site_tracker.dart';
 import '../../data/store.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
+import '../../models/bookmark.dart';
 import '../../models/discourse_user.dart';
 import '../../models/json.dart';
 import '../../models/site_config.dart';
@@ -421,6 +422,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<_ChatReactionWriteKey, Object> _reactionWrites = {};
   final Map<_ChatReactorsKey, Object> _reactorRequests = {};
   final Map<_ChatReactorsKey, String> _reactorErrors = {};
+  final Map<String, int> _bookmarkVersions = {};
   int _nextLocalMessageId = -1;
   int _nextStagedSequence = 0;
 
@@ -769,6 +771,80 @@ class ChatController extends FrameSafeNotifier {
 
   Ref<ChatMessage> messageRef(String siteUrl, int messageId) =>
       store.ref<ChatMessage>(siteUrl, messageId);
+
+  bool canBookmarkMessage(String siteUrl, ChatMessage message) {
+    final user = _currentUserFor(siteUrl);
+    final heldChannel = channel(siteUrl, message.channelId);
+    return user != null &&
+        message.id > 0 &&
+        !message.isOptimistic &&
+        !message.isDeleted &&
+        heldChannel != null &&
+        heldChannel.canModifyMessages(isStaff: user.staff);
+  }
+
+  int _bookmarkVersion(String siteUrl) => _bookmarkVersions[siteUrl] ?? 0;
+
+  void _advanceBookmarkVersion(String siteUrl) {
+    _bookmarkVersions[siteUrl] = _bookmarkVersion(siteUrl) + 1;
+  }
+
+  void putMessageBookmark(String siteUrl, int messageId, Bookmark bookmark) {
+    _advanceBookmarkVersion(siteUrl);
+    store.update<ChatMessage>(
+      siteUrl,
+      messageId,
+      (message) => message.withBookmark(bookmark),
+    );
+  }
+
+  void removeMessageBookmark(String siteUrl, int messageId) {
+    _advanceBookmarkVersion(siteUrl);
+    store.update<ChatMessage>(
+      siteUrl,
+      messageId,
+      (message) => message.withBookmark(null),
+    );
+  }
+
+  Future<void> reconcileMessageBookmark(String siteUrl, ChatMessage message) {
+    final threadId = message.threadId;
+    if (threadId != null && message.thread == null) {
+      return openThread(
+        siteUrl,
+        ChatThreadTarget(channelId: message.channelId, threadId: threadId),
+        targetMessageId: message.id,
+        force: true,
+      );
+    }
+    return openChannel(
+      siteUrl,
+      message.channelId,
+      targetMessageId: message.id,
+      force: true,
+    );
+  }
+
+  void _putMessages(
+    String siteUrl,
+    Iterable<ChatMessage> incoming, {
+    required int bookmarkVersionAtDispatch,
+  }) {
+    final preserveBookmarks =
+        bookmarkVersionAtDispatch != _bookmarkVersion(siteUrl);
+    store.putAll(
+      siteUrl,
+      preserveBookmarks
+          ? [
+              for (final message in incoming)
+                switch (store.read<ChatMessage>(siteUrl, message.id)) {
+                  final held? => message.withBookmarkOf(held),
+                  null => message,
+                },
+            ]
+          : incoming,
+    );
+  }
 
   /// Whether this reader may add a reaction to one message.
   ///
@@ -1786,7 +1862,7 @@ class ChatController extends FrameSafeNotifier {
         window.atPresent &&
         !window.messageIds.contains(messageId)) {
       final canonical = ChatMessage.fromJson(payload, siteUrl);
-      store.put(siteUrl, canonical);
+      _putLiveMessage(siteUrl, canonical);
       _setStream(
         key,
         window.copyWith(
@@ -1848,7 +1924,7 @@ class ChatController extends FrameSafeNotifier {
         if (payload is! Map<String, dynamic>) return;
         final message = ChatMessage.fromJson(payload, siteUrl);
         if (message.channelId == channelId && message.thread != null) {
-          store.put(siteUrl, message);
+          _putLiveMessage(siteUrl, message);
         }
         break;
       case 'update_thread_original_message':
@@ -2008,8 +2084,11 @@ class ChatController extends FrameSafeNotifier {
   /// that a store write alone leaves mounted panes stale.
   void _putLiveMessage(String siteUrl, ChatMessage message) {
     final replaced = store.read<ChatMessage>(siteUrl, message.id);
-    store.put(siteUrl, message);
-    if (replaced != null && replaced.isDeleted != message.isDeleted) {
+    final effective = replaced?.bookmark != null && message.bookmark == null
+        ? message.withBookmarkOf(replaced!)
+        : message;
+    store.put(siteUrl, effective);
+    if (replaced != null && replaced.isDeleted != effective.isDeleted) {
       _bumpStreamsHolding(siteUrl, message.id);
     }
   }
@@ -2804,7 +2883,7 @@ class ChatController extends FrameSafeNotifier {
       final currentUserId = _currentUserFor(siteUrl)?.id;
       if (currentUserId != null && canonical.author.id != currentUserId) return;
 
-      store.put(siteUrl, canonical);
+      _putLiveMessage(siteUrl, canonical);
       if (window.messageIds.contains(canonical.id)) {
         _removeLocalMessage(siteUrl, target, id);
       } else {
@@ -3407,6 +3486,7 @@ class ChatController extends FrameSafeNotifier {
         return _ChatWindowFetchResult.cancelled;
       }
 
+      final bookmarkVersion = _bookmarkVersion(siteUrl);
       final page = target.threadId == null
           ? await api.chatMessages(
               siteUrl: siteUrl,
@@ -3439,7 +3519,11 @@ class ChatController extends FrameSafeNotifier {
             if (!heldIds.contains(id) && !pageIds.contains(id))
               ?store.read<ChatMessage>(siteUrl, id),
         ];
-        store.putAll(siteUrl, page.messages);
+        _putMessages(
+          siteUrl,
+          page.messages,
+          bookmarkVersionAtDispatch: bookmarkVersion,
+        );
         final pendingIds = _pendingLiveMessageIds.putIfAbsent(key, () => {});
         final List<int> messageIds;
         var retired = page.messages;
@@ -3571,6 +3655,7 @@ class ChatController extends FrameSafeNotifier {
       final clientId = await credentials.clientId();
       if (!_requestIsCurrent(lease, ownsRequest)) return;
 
+      final bookmarkVersion = _bookmarkVersion(siteUrl);
       final page = target.threadId == null
           ? await api.chatMessages(
               siteUrl: siteUrl,
@@ -3595,7 +3680,11 @@ class ChatController extends FrameSafeNotifier {
             !identical(_pageRequests[guard], request)) {
           return;
         }
-        store.putAll(siteUrl, page.messages);
+        _putMessages(
+          siteUrl,
+          page.messages,
+          bookmarkVersionAtDispatch: bookmarkVersion,
+        );
         final current = _streams[key] ?? const ChatStreamState();
         final merged = ChatMessageTimeline.merge(
           held: _timelineSnapshot(siteUrl, current.messageIds),
@@ -3687,6 +3776,7 @@ class ChatController extends FrameSafeNotifier {
       final clientId = await credentials.clientId();
       if (!_requestIsCurrent(lease, ownsRequest)) return;
 
+      final bookmarkVersion = _bookmarkVersion(siteUrl);
       final page = target.threadId == null
           ? await api.chatMessages(
               siteUrl: siteUrl,
@@ -3711,7 +3801,11 @@ class ChatController extends FrameSafeNotifier {
             !identical(_pageRequests[guard], request)) {
           return;
         }
-        store.putAll(siteUrl, page.messages);
+        _putMessages(
+          siteUrl,
+          page.messages,
+          bookmarkVersionAtDispatch: bookmarkVersion,
+        );
         final current = _streams[key] ?? const ChatStreamState();
         var merged = ChatMessageTimeline.merge(
           held: _timelineSnapshot(siteUrl, current.messageIds),
@@ -4007,6 +4101,7 @@ class ChatController extends FrameSafeNotifier {
     _reactionWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
     _reactorRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
     _reactorErrors.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _bookmarkVersions.remove(siteUrl);
     _activeChannelViews.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _rootViewTokens.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _threadViewTokens.removeWhere((key, _) => key.startsWith('$siteUrl~'));
@@ -4144,6 +4239,7 @@ class ChatController extends FrameSafeNotifier {
     _reactionWrites.clear();
     _reactorRequests.clear();
     _reactorErrors.clear();
+    _bookmarkVersions.clear();
     for (final ref in _streamRefs.values) {
       ref.dispose();
     }

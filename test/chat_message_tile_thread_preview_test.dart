@@ -1,4 +1,8 @@
+import 'dart:async';
+
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
@@ -294,6 +298,118 @@ void main() {
     expect(replies, [same(message)]);
   });
 
+  testWidgets('signed-in hover creates a chat message bookmark once', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: const DiscourseUser(id: 1, username: 'reader'),
+      bookmarkList: const [],
+    );
+    final controller = await _controller(
+      _message(null),
+      signedIn: true,
+      api: api,
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+    await _hoverMessage(tester);
+
+    final action = find.byTooltip('Bookmark');
+    expect(action, findsOneWidget);
+    expect(tester.getSize(action), const Size.square(44));
+
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+
+    expect(api.createdBookmarks, hasLength(1));
+    expect(
+      api.createdBookmarks.single.targetType,
+      BookmarkTargetType.chatMessage,
+    );
+    expect(api.createdBookmarks.single.targetId, 7);
+    expect(find.text('Bookmarked!'), findsOneWidget);
+    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.bookmark?.id, 1000);
+  });
+
+  testWidgets('a chat bookmark shows its state and edit action', (
+    tester,
+  ) async {
+    final controller = await _controller(
+      _message(
+        null,
+        bookmark: Bookmark(
+          id: 81,
+          bookmarkableId: 7,
+          bookmarkableType: 'Chat::Message',
+          reminderAt: DateTime.now().add(const Duration(days: 1)),
+        ),
+      ),
+      signedIn: true,
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label ==
+                'Chat message bookmarked with a reminder',
+      ),
+      findsOneWidget,
+    );
+
+    await _hoverMessage(tester);
+    final action = find.byTooltip('Edit bookmark');
+    expect(action, findsOneWidget);
+    expect(tester.getSize(action), const Size.square(44));
+  });
+
+  testWidgets('the hover bookmark action disables while its write is active', (
+    tester,
+  ) async {
+    final api = _GatedBookmarkApi();
+    final controller = await _controller(
+      _message(null),
+      signedIn: true,
+      api: api,
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+
+    final write = controller.createBookmark(
+      topicId: 0,
+      targetType: BookmarkTargetType.chatMessage,
+      targetId: 7,
+    );
+    await api.started.future;
+    await tester.pump();
+    await _hoverMessage(tester);
+
+    final action = find.byTooltip('Bookmark');
+    expect(action, findsOneWidget);
+    final button = tester.widget<IconButton>(
+      find.ancestor(of: action, matching: find.byType(IconButton)),
+    );
+    expect(button.onPressed, isNull);
+    expect(button.icon, isA<SizedBox>());
+
+    api.response.complete(91);
+    expect((await write).saved, isTrue);
+  });
+
   testWidgets('exposes Reply in thread as a custom semantics action', (
     tester,
   ) async {
@@ -485,6 +601,28 @@ void main() {
     expect(replies, [same(message)]);
     expect(find.text('Message actions'), findsNothing);
   });
+
+  testWidgets('a signed-in touch long press offers bookmarking', (
+    tester,
+  ) async {
+    final controller = await _controller(_message(null), signedIn: true);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        platform: TargetPlatform.android,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byKey(_messageTileKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Message actions'), findsOneWidget);
+    expect(find.text('Bookmark'), findsOneWidget);
+  });
 }
 
 ChatThreadPreview _thread({int replyCount = 5}) => ChatThreadPreview(
@@ -513,6 +651,7 @@ ChatMessage _message(
   int? threadId,
   DateTime? deletedAt,
   List<ChatReaction> reactions = const [],
+  Bookmark? bookmark,
 }) => ChatMessage(
   id: 7,
   channelId: 9,
@@ -520,17 +659,27 @@ ChatMessage _message(
   author: const ChatMessageAuthor(id: 99, username: '', name: 'Root author'),
   deletedAt: deletedAt,
   reactions: reactions,
+  bookmark: bookmark,
   threadId: threadId ?? thread?.threadId,
   thread: thread,
 );
 
-Future<ShellController> _controller(ChatMessage message) async {
+Future<ShellController> _controller(
+  ChatMessage message, {
+  bool signedIn = false,
+  FakeDiscourseApi? api,
+}) async {
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
   final controller = ShellController(
     instanceStore: FakeInstanceStore([
-      const DiscourseInstance(url: _siteUrl, title: 'Meta', apiVersion: 4),
+      DiscourseInstance(
+        url: _siteUrl,
+        title: 'Meta',
+        apiVersion: 4,
+        user: signedIn ? const DiscourseUser(id: 1, username: 'reader') : null,
+      ),
     ]),
-    api: FakeDiscourseApi(),
+    api: api ?? FakeDiscourseApi(),
     authenticator: authenticator,
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
@@ -610,3 +759,29 @@ Finder _replySemanticsOwner() => find.byWidgetPredicate(
           ) ??
           false),
 );
+
+final class _GatedBookmarkApi extends FakeDiscourseApi {
+  _GatedBookmarkApi()
+    : super(
+        user: const DiscourseUser(id: 1, username: 'reader'),
+        bookmarkList: const [],
+      );
+
+  final Completer<void> started = Completer<void>();
+  final Completer<int> response = Completer<int>();
+
+  @override
+  Future<int> createBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required BookmarkTargetType targetType,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+    String? clientId,
+  }) {
+    started.complete();
+    return response.future;
+  }
+}

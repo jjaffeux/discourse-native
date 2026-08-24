@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +11,7 @@ ChatMessage message({
   List<ChatReaction> reactions = const [
     ChatReaction(emoji: 'heart', count: 2, reacted: true),
   ],
+  Bookmark? bookmark,
 }) => ChatMessage(
   id: 7,
   channelId: 3,
@@ -30,6 +32,7 @@ ChatMessage message({
     username: 'alex',
   ),
   reactions: reactions,
+  bookmark: bookmark,
 );
 
 void main() {
@@ -66,6 +69,35 @@ void main() {
     expect(ref.value?.cooked, '<p>Edited</p>');
     expect(ref.value?.reactions.single.count, 3);
   });
+
+  test(
+    'bookmark changes replace the record and mutation helpers preserve it',
+    () {
+      const bookmark = Bookmark(
+        id: 81,
+        bookmarkableId: 7,
+        bookmarkableType: 'Chat::Message',
+        name: 'Later',
+      );
+      final store = Store()..put(siteUrl, message());
+      final ref = store.ref<ChatMessage>(siteUrl, 7);
+      var changes = 0;
+      ref.addListener(() => changes++);
+
+      store.put(siteUrl, message(bookmark: bookmark));
+      final held = ref.value!;
+
+      expect(changes, 1);
+      expect(held.bookmark, bookmark);
+      expect(held.withReaction('clap', reacted: true).bookmark, bookmark);
+      expect(
+        held.withDeletedAt(DateTime.utc(2026, 8, 8, 12)).bookmark,
+        bookmark,
+      );
+      expect(held.withBookmark(null).bookmark, isNull);
+      expect(message(), isNot(message(bookmark: bookmark)));
+    },
+  );
 
   test(
     'optimistic identity and send-state changes replace the local record',

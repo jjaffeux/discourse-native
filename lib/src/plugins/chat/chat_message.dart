@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../data/store.dart';
+import '../../models/bookmark.dart';
 import '../../models/composer_upload.dart';
 import '../../models/json.dart';
 import 'chat_preview.dart';
@@ -573,6 +574,7 @@ class ChatMessage with Storable<ChatMessage> {
     this.replyTo,
     this.threadId,
     this.thread,
+    this.bookmark,
     this.reactions = const [],
     this.uploads = const [],
     this.optimisticRaw,
@@ -664,6 +666,7 @@ class ChatMessage with Storable<ChatMessage> {
       // into one without it.
       threadId: jsonIntOrNull(json['thread_id']),
       thread: ChatThreadPreview.fromJson(json['thread'], siteUrl),
+      bookmark: Bookmark.fromChatMessageJson(json),
       // The key is left out entirely when nobody has reacted, which is most
       // messages — so the empty list is the default rather than something to
       // parse.
@@ -802,6 +805,7 @@ class ChatMessage with Storable<ChatMessage> {
   /// The thread this message started, or null if it started none.
   final ChatThreadPreview? thread;
 
+  final Bookmark? bookmark;
   final List<ChatReaction> reactions;
   final List<ChatUpload> uploads;
 
@@ -893,6 +897,7 @@ class ChatMessage with Storable<ChatMessage> {
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
+    bookmark: bookmark,
     reactions: List.unmodifiable(reactions),
     uploads: uploads,
     optimisticRaw: optimisticRaw,
@@ -922,6 +927,7 @@ class ChatMessage with Storable<ChatMessage> {
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
+    bookmark: bookmark,
     reactions: reactions,
     uploads: uploads,
     optimisticRaw: optimisticRaw,
@@ -951,6 +957,7 @@ class ChatMessage with Storable<ChatMessage> {
     replyTo: canonical.replyTo,
     threadId: canonical.threadId,
     thread: canonical.thread,
+    bookmark: canonical.bookmark,
     reactions: canonical.reactions,
     uploads: canonical.uploads,
     optimisticRaw: optimisticRaw,
@@ -974,6 +981,7 @@ class ChatMessage with Storable<ChatMessage> {
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
+    bookmark: bookmark,
     reactions: reactions,
     uploads: uploads,
     optimisticRaw: optimisticRaw,
@@ -999,6 +1007,7 @@ class ChatMessage with Storable<ChatMessage> {
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
+    bookmark: bookmark,
     reactions: List.unmodifiable(reactions),
     uploads: uploads,
     optimisticRaw: optimisticRaw,
@@ -1024,6 +1033,7 @@ class ChatMessage with Storable<ChatMessage> {
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
+    bookmark: bookmark,
     reactions: reactions,
     uploads: uploads,
     optimisticRaw: optimisticRaw,
@@ -1035,6 +1045,33 @@ class ChatMessage with Storable<ChatMessage> {
     sendError: sendError,
     deliveryUncertain: deliveryUncertain,
   );
+
+  ChatMessage withBookmark(Bookmark? bookmark) => ChatMessage(
+    id: id,
+    channelId: channelId,
+    cooked: cooked,
+    author: author,
+    createdAt: createdAt,
+    deletedAt: deletedAt,
+    edited: edited,
+    isWebhook: isWebhook,
+    replyTo: replyTo,
+    threadId: threadId,
+    thread: thread,
+    bookmark: bookmark,
+    reactions: reactions,
+    uploads: uploads,
+    optimisticRaw: optimisticRaw,
+    preview: preview,
+    stagedId: stagedId,
+    serverId: serverId,
+    canonicalReceived: canonicalReceived,
+    delivery: delivery,
+    sendError: sendError,
+    deliveryUncertain: deliveryUncertain,
+  );
+
+  ChatMessage withBookmarkOf(ChatMessage other) => withBookmark(other.bookmark);
 
   /// Paging windows overlap at their boundary; an unchanged copy should not
   /// wake the row already drawing this record.
@@ -1056,6 +1093,7 @@ class ChatMessage with Storable<ChatMessage> {
           other.replyTo == replyTo &&
           other.threadId == threadId &&
           other.thread == thread &&
+          other.bookmark == bookmark &&
           listEquals(other.reactions, reactions) &&
           listEquals(other.uploads, uploads) &&
           other.optimisticRaw == optimisticRaw &&
@@ -1080,6 +1118,7 @@ class ChatMessage with Storable<ChatMessage> {
     replyTo,
     threadId,
     thread,
+    bookmark,
     Object.hashAll(reactions),
     Object.hashAll(uploads),
     optimisticRaw,
