@@ -15,7 +15,7 @@ Post parse(List<Map<String, Object?>>? summary) => Post.fromJson({
 
 void main() {
   group('actions_summary', () {
-    test('reads the like row and ignores the flags around it', () {
+    test('reads the like row independently of the flags around it', () {
       final post = parse([
         {'id': 6, 'can_act': true},
         {'id': 2, 'count': 3, 'can_act': true},

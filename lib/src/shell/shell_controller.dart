@@ -37,6 +37,7 @@ import '../models/notification_feed.dart';
 import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
+import '../models/post_flag.dart';
 import '../models/post_likers.dart';
 import '../models/search_results.dart';
 import '../models/sidebar.dart';
@@ -1482,6 +1483,31 @@ class ShellController extends FrameSafeNotifier {
   final Map<String, CategoryFeed> _categoryFeeds = {};
   final Map<String, _CategorySidebarCache> _categorySidebarCache = {};
   final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
+  final Map<String, SitePostActionCatalog> _postActionCatalogs = {};
+
+  /// Flag metadata in the order supplied by this site's `/site.json`.
+  List<PostFlagType> postFlagTypesFor(String siteUrl) =>
+      _postActionCatalogs[siteUrl]?.postFlags ?? const [];
+
+  /// The flag reasons both the site catalog and this personalized post allow.
+  List<PostFlagType> availablePostFlagTypes(String siteUrl, Post post) {
+    if (post.hidden || post.isDeleted || post.actedFlagSummaries.isNotEmpty) {
+      return const [];
+    }
+    final available = [
+      for (final type in postFlagTypesFor(siteUrl))
+        if (type.enabled && type.appliesToPost && post.canFlagWith(type.id))
+          type,
+    ];
+    final notifyUser = available.indexWhere(
+      (type) => type.nameKey == 'notify_user',
+    );
+    if (notifyUser > 0) {
+      final type = available.removeAt(notifyUser);
+      available.insert(0, type);
+    }
+    return List.unmodifiable(available);
+  }
 
   /// The list currently filling the main region, if the destination has one.
   /// Which feed the main region is showing.
@@ -4054,6 +4080,90 @@ class ShellController extends FrameSafeNotifier {
     );
   }
 
+  /// Privately flags [post] with one server-advertised reason.
+  ///
+  /// Unlike a like, this is not guessed locally. The editor stays open until
+  /// the personalized post response proves both that the action succeeded and
+  /// what the post looks like after any moderation rules ran.
+  Future<String?> createPostFlag(
+    String siteUrl,
+    Post post,
+    PostFlagType flagType, {
+    String? message,
+  }) async {
+    final instance = _instanceAt(siteUrl);
+    final held = store.read<Post>(siteUrl, post.id);
+    PostFlagType? currentType;
+    for (final type in postFlagTypesFor(siteUrl)) {
+      if (type.id == flagType.id) {
+        currentType = type;
+        break;
+      }
+    }
+    if (instance?.isConnected != true) {
+      return const WriteException(WriteFailure.forbidden).message;
+    }
+    if (held == null ||
+        held.hidden ||
+        held.isDeleted ||
+        held.actedFlagSummaries.isNotEmpty ||
+        currentType == null ||
+        !currentType.enabled ||
+        !currentType.appliesToPost ||
+        !held.canFlagWith(currentType.id)) {
+      return 'This post can no longer be flagged.';
+    }
+
+    final submittedMessage = currentType.requireMessage ? message ?? '' : null;
+    final length = submittedMessage?.length ?? 0;
+    final minimum = siteConfigFor(siteUrl).minPersonalMessagePostLength;
+    if (currentType.requireMessage &&
+        (length < minimum || length > PostFlagType.maximumMessageLength)) {
+      return 'Your message must be between $minimum and '
+          '${PostFlagType.maximumMessageLength} characters.';
+    }
+
+    final key = _postKey(siteUrl, held.id);
+    if (!_beginPostWrite(key)) {
+      return 'Another action on this post is still being saved.';
+    }
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent) {
+        return 'Your connection changed. Reopen the flag form and try again.';
+      }
+      if (credential.failure case final failure?) return failure.message;
+
+      try {
+        final fresh = await api.createPostFlag(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          postId: held.id,
+          postActionTypeId: currentType.id,
+          message: submittedMessage,
+        );
+        if (!lease.isCurrent) {
+          return 'Your connection changed. Reopen the flag form and try again.';
+        }
+        lease.commit(() {
+          store.put(siteUrl, fresh);
+          _notify();
+        });
+        return null;
+      } on WriteException catch (error) {
+        return error.message;
+      } catch (error, stackTrace) {
+        if (lease.isCurrent) {
+          _reportOperationalError(error, stackTrace, 'post.flag');
+        }
+        return const WriteException(WriteFailure.unreachable).message;
+      }
+    } finally {
+      lease.commit(() => _endPostWrite(siteUrl, held.id));
+    }
+  }
+
   /// Adds this reader's like to [post], or takes it back if it is already
   /// there.
   ///
@@ -5148,6 +5258,7 @@ class ShellController extends FrameSafeNotifier {
             ? updated
             : updated
                   .withLikesOf(held)
+                  .withPostActionsOf(held)
                   .withPlugins(
                     api.models.mergeAfterPostEdit(
                       held: held.plugins,
@@ -6244,6 +6355,9 @@ class ShellController extends FrameSafeNotifier {
           nextPage: nextPage,
           canCreateTopic: result.canCreateTopic,
         );
+        if (result.postActionCatalog case final catalog?) {
+          _postActionCatalogs[instance.url] = catalog;
+        }
         if (!result.complete) _categorised.remove(instance.url);
         _notify();
       });
@@ -6786,6 +6900,7 @@ class ShellController extends FrameSafeNotifier {
     _categoryPageRequests.remove(siteUrl);
     _categorySidebarCache.remove(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
+    _postActionCatalogs.remove(siteUrl);
     _customSidebarSections.remove(siteUrl);
     _customSidebarSectionsLoaded.remove(siteUrl);
     _customSidebarSectionAttemptedAt.remove(siteUrl);
