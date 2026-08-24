@@ -785,40 +785,47 @@ class _ThreadSummaryContents extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  if (name != null)
-                    Flexible(
-                      child: Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  if (name != null && thread.lastReplyAt != null)
-                    const SizedBox(width: 4),
-                  if (thread.lastReplyAt case final at?)
-                    Text(
-                      relativeTime(at),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.discourse.primaryHigh,
-                      ),
-                    ),
-                  const Spacer(),
-                  Text(
-                    _replyCountLabel(thread.replyCount),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w600,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        if (name != null)
+                          Flexible(
+                            child: Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        if (name != null && thread.lastReplyAt != null)
+                          const SizedBox(width: 4),
+                        if (thread.lastReplyAt case final at?)
+                          Text(
+                            relativeTime(at),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.discourse.primaryHigh,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   if (_participantTotal(thread) > 0) ...[
                     const SizedBox(width: 8),
                     _ThreadParticipants(siteUrl: siteUrl, thread: thread),
+                    const SizedBox(width: 8),
                   ],
+                  Text(
+                    _replyCountLabel(thread.replyCount),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
               if (_nonEmpty(thread.lastReplyExcerpt) case final excerpt?) ...[
