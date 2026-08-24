@@ -151,6 +151,18 @@ class _ReactionPillState extends State<ReactionPill> {
   static const double _panelWidth = 260;
 
   final GlobalKey<HoverPanelState> _panel = GlobalKey<HoverPanelState>();
+  bool _hovered = false;
+  bool _focused = false;
+
+  void _setHovered(bool value) {
+    if (_hovered == value) return;
+    setState(() => _hovered = value);
+  }
+
+  void _setFocused(bool value) {
+    if (_focused == value) return;
+    setState(() => _focused = value);
+  }
 
   void _load() => unawaited(widget.loadReactors());
 
@@ -188,6 +200,12 @@ class _ReactionPillState extends State<ReactionPill> {
     final label = widget.count == 1
         ? '1 ${widget.reaction} reaction'
         : '${widget.count} ${widget.reaction} reactions';
+    final background = _hovered || _focused
+        ? Color.alphaBlend(
+            theme.colorScheme.onSurface.withValues(alpha: 0.08),
+            theme.shell.floating,
+          )
+        : theme.shell.floating;
 
     return HoverPanel(
       key: _panel,
@@ -213,16 +231,19 @@ class _ReactionPillState extends State<ReactionPill> {
               type: MaterialType.transparency,
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
+                onEnter: (_) => _setHovered(true),
+                onExit: (_) => _setHovered(false),
                 child: InkWell(
                   onTap: _toggle,
                   onLongPress: context.isTouch ? _openSheet : null,
+                  onFocusChange: _setFocused,
                   borderRadius: BorderRadius.circular(14),
                   child: ExcludeSemantics(
                     child: Container(
                       key: widget.visualKey,
                       padding: const EdgeInsets.fromLTRB(8, 4, 9, 4),
                       decoration: BoxDecoration(
-                        color: theme.shell.floating,
+                        color: background,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: widget.selected
