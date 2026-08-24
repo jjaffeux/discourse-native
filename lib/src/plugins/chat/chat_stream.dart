@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import '../../foundation/calendar_day.dart';
+import '../../models/site_config.dart';
+import '../../shell/time_gap.dart';
 import 'chat_message.dart';
 
 /// One row of a channel, in the order it is read.
@@ -50,6 +52,23 @@ final class ChatStreamDay extends ChatStreamItem {
   int get hashCode => day.hashCode;
 }
 
+/// A long silence immediately before [messageId].
+final class ChatStreamTimeGap extends ChatStreamItem {
+  const ChatStreamTimeGap({required this.messageId, required this.daysSince});
+
+  final int messageId;
+  final int daysSince;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ChatStreamTimeGap &&
+      other.messageId == messageId &&
+      other.daysSince == daysSince;
+
+  @override
+  int get hashCode => Object.hash(messageId, daysSince);
+}
+
 /// A run of consecutive deleted messages, drawn as one row.
 ///
 /// Only a moderator is ever sent these, and without the collapse they see a
@@ -97,6 +116,7 @@ List<ChatStreamItem> buildChatStream(
   List<ChatMessage> messages, {
   int? lastReadMessageId,
   int? newestMessageId,
+  int showTimeGapDays = SiteConfig.defaultShowTimeGapDays,
 }) {
   final items = <ChatStreamItem>[];
 
@@ -126,6 +146,11 @@ List<ChatStreamItem> buildChatStream(
     final day = calendarDay(message.createdAt);
     final previousDay = calendarDay(previous?.createdAt);
     final dayChanged = day != null && day != previousDay;
+    final daysSince = timeGapDaysBetween(
+      previous?.createdAt,
+      message.createdAt,
+    );
+    final showTimeGap = daysSince != null && daysSince > showTimeGapDays;
 
     if (dayChanged) {
       // A day separator ends whatever was above it, deleted run included:
@@ -133,6 +158,11 @@ List<ChatStreamItem> buildChatStream(
       // half of them were not written on.
       flushDeleted();
       items.add(ChatStreamDay(day));
+    }
+
+    if (showTimeGap) {
+      flushDeleted();
+      items.add(ChatStreamTimeGap(messageId: message.id, daysSince: daysSince));
     }
 
     if (showDivider && message.id == firstUnreadId) {
@@ -155,6 +185,7 @@ List<ChatStreamItem> buildChatStream(
         id: message.id,
         chained:
             !dayChanged &&
+            !showTimeGap &&
             !(showDivider && message.id == firstUnreadId) &&
             _chains(message, previous),
       ),
@@ -182,6 +213,7 @@ List<ChatStreamItem>? prependChatStream({
   required List<ChatMessage> existingLeading,
   int? lastReadMessageId,
   int? newestMessageId,
+  int showTimeGapDays = SiteConfig.defaultShowTimeGapDays,
 }) {
   if (prepended.isEmpty || existingLeading.isEmpty) return null;
 
@@ -198,6 +230,7 @@ List<ChatStreamItem>? prependChatStream({
       [...prepended, ...existingLeading],
       lastReadMessageId: lastReadMessageId,
       newestMessageId: newestMessageId,
+      showTimeGapDays: showTimeGapDays,
     ),
     ...existingItems.skip(boundaryRow + 1),
   ];

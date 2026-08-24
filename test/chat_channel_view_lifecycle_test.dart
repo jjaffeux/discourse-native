@@ -676,6 +676,38 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'chat renders the elapsed time before a message after a long gap',
+    (tester) async {
+      final api = _ChatApi(openPages: const {});
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      final messages = [
+        _message(1, createdAt: DateTime.utc(2026, 1, 1)),
+        _message(2, createdAt: DateTime.utc(2026, 1, 9)),
+      ];
+      controller.store
+        ..put(firstSite, _channel(lastRead: 2))
+        ..putAll(firstSite, messages);
+
+      await tester.pumpWidget(
+        _TestStreamView(
+          controller: controller,
+          messages: messages,
+          stream: const ChatStreamState(
+            messageIds: [1, 2],
+            fetchedOnce: true,
+            fetches: 1,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey(('chat-time-gap', 2))), findsOneWidget);
+      expect(find.text('8 days later'), findsOneWidget);
+    },
+  );
 }
 
 void _resumeLifecycle(WidgetTester tester) {

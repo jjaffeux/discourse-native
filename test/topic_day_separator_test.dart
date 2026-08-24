@@ -13,6 +13,45 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/fakes.dart';
 
 void main() {
+  testWidgets('calls out a gap strictly longer than the site threshold', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final posts = [
+      _post(1, day: DateTime(2020, 1, 1)),
+      _post(2, day: DateTime(2020, 1, 8)),
+      _post(3, day: DateTime(2020, 1, 16)),
+    ];
+    final controller = _controller(site);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (final post in posts) post.id],
+          postsCount: posts.length,
+        ),
+      )
+      ..putAll(site.url, posts);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey(('topic-time-gap', 2))),
+      findsNothing,
+      reason: 'the web rule is strictly greater than the seven-day default',
+    );
+    expect(find.byKey(const ValueKey(('topic-time-gap', 3))), findsOneWidget);
+    expect(find.text('8 days later'), findsOneWidget);
+  });
+
   testWidgets('the last passed day floats and returns to its first post', (
     tester,
   ) async {

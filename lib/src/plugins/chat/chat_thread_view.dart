@@ -319,6 +319,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   List<int>? _projectedLocalMessageIds;
   int? _projectedLastRead;
   int? _projectedRevision;
+  int? _projectedShowTimeGapDays;
   List<ChatMessage> _messages = const [];
   List<ChatStreamItem> _items = const [];
   int _focusComposerRequest = 0;
@@ -481,20 +482,26 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   }
 
   void _syncProjection(ChatStreamState stream) {
+    final showTimeGapDays = ShellScope.read(context)
+        .siteConfigFor(widget.siteUrl)
+        .showTimeGapDays;
     if (identical(_projectedMessageIds, stream.messageIds) &&
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
         _projectedLastRead == stream.lastReadOnOpen &&
-        _projectedRevision == stream.revision) {
+        _projectedRevision == stream.revision &&
+        _projectedShowTimeGapDays == showTimeGapDays) {
       return;
     }
     _projectedMessageIds = stream.messageIds;
     _projectedLocalMessageIds = stream.localMessageIds;
     _projectedLastRead = stream.lastReadOnOpen;
     _projectedRevision = stream.revision;
+    _projectedShowTimeGapDays = showTimeGapDays;
     _messages = widget.chat.messagesFor(widget.siteUrl, widget.target);
     _items = buildChatStream(
       _messages,
       lastReadMessageId: stream.lastReadOnOpen,
+      showTimeGapDays: showTimeGapDays,
     );
   }
 }
