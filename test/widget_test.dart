@@ -12232,6 +12232,37 @@ void main() {
         await pumpUntilRead(tester);
 
         expect(api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
+        expect(
+          find.byKey(const ValueKey('sidebar-badge-chat-c-9')),
+          findsNothing,
+        );
+      });
+
+      testWidgets('clears a stale unread dot when already read to the bottom', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          chatChannelsBySite: {
+            site: ChatChannels(
+              public: [channel(9, unread: 1, lastRead: 3)],
+              direct: const [],
+            ),
+          },
+          chatMessagesByKey: {
+            key(9): page([msg(1), msg(2, minute: 1), msg(3, minute: 2)]),
+          },
+        );
+
+        await pumpChat(tester, api: api);
+        await tester.tap(sidebarDestination('Bugs'));
+        await pumpUntilRead(tester);
+
+        expect(api.chatReadsMarked, isEmpty);
+        expect(
+          find.byKey(const ValueKey('sidebar-badge-chat-c-9')),
+          findsNothing,
+        );
       });
 
       testWidgets('does not credit a reader who leaves before the dwell', (
