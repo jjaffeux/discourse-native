@@ -143,6 +143,35 @@ void main() {
     });
   });
 
+  group('long time gaps', () {
+    test(
+      'puts one before a message after more than the default seven days',
+      () {
+        final items = buildChatStream([at(1, day: 5), at(2, day: 13)]);
+        final gap = items.whereType<ChatStreamTimeGap>().single;
+
+        expect(gap, const ChatStreamTimeGap(messageId: 2, daysSince: 8));
+        expect(items[items.indexOf(gap) + 1], isA<ChatStreamMessage>());
+        expect(chainedAt(items, 2), isFalse);
+      },
+    );
+
+    test('uses a strict, site-configurable threshold', () {
+      expect(
+        buildChatStream([at(1, day: 5), at(2, day: 12)])
+            .whereType<ChatStreamTimeGap>(),
+        isEmpty,
+      );
+      expect(
+        buildChatStream([
+          at(1, day: 5),
+          at(2, day: 13),
+        ], showTimeGapDays: 30).whereType<ChatStreamTimeGap>(),
+        isEmpty,
+      );
+    });
+  });
+
   group('runs of deleted messages', () {
     test('collapses consecutive deleted messages into one row', () {
       final items = buildChatStream([
@@ -236,6 +265,21 @@ void main() {
   });
 
   group('prepending a projected page', () {
+    test('discovers a long gap across the newly joined page seam', () {
+      final older = [at(1, day: 1)];
+      final held = [at(2, day: 10)];
+
+      final incremental = prependChatStream(
+        existingItems: buildChatStream(held),
+        prepended: older,
+        existingLeading: held,
+        newestMessageId: held.last.id,
+      );
+
+      expect(incremental, buildChatStream([...older, ...held]));
+      expect(incremental!.whereType<ChatStreamTimeGap>(), hasLength(1));
+    });
+
     test('matches a full projection across a chained page seam', () {
       final older = [at(1), at(2, minute: 1)];
       final held = [at(3, minute: 2), at(4, minute: 3)];

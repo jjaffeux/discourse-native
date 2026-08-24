@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
-import '../../foundation/calendar_day.dart';
+import '../../models/site_config.dart';
 import '../../shell/loading_skeleton.dart';
 import '../../shell/shell_scope.dart';
+import '../../shell/stream_day_separator.dart';
+import '../../shell/time_gap.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -45,20 +47,27 @@ class ChatChannelView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<String?>(
+    return ShellSelector<({String? siteUrl, int showTimeGapDays})>(
       select: (controller) {
-        return controller.currentInstance?.url;
+        final siteUrl = controller.currentInstance?.url;
+        return (
+          siteUrl: siteUrl,
+          showTimeGapDays: siteUrl == null
+              ? SiteConfig.defaultShowTimeGapDays
+              : controller.siteConfigFor(siteUrl).showTimeGapDays,
+        );
       },
-      builder: (context, siteUrl, _) => siteUrl == null
+      builder: (context, selection, _) => selection.siteUrl == null
           ? const SizedBox.shrink()
           : _ChatChannelBody(
               key: ValueKey((
-                siteUrl,
+                selection.siteUrl,
                 channelId,
                 PluginScope.require(context, chatControllerService),
               )),
-              siteUrl: siteUrl,
+              siteUrl: selection.siteUrl!,
               channelId: channelId,
+              showTimeGapDays: selection.showTimeGapDays,
               chat: PluginScope.require(context, chatControllerService),
             ),
     );
@@ -75,11 +84,13 @@ class _ChatChannelBody extends StatefulWidget {
     super.key,
     required this.siteUrl,
     required this.channelId,
+    required this.showTimeGapDays,
     required this.chat,
   });
 
   final String siteUrl;
   final int channelId;
+  final int showTimeGapDays;
   final ChatController chat;
 
   @override
@@ -94,6 +105,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   List<int>? _projectedLocalMessageIds;
   int? _projectedLastRead;
   int? _projectedRevision;
+  int? _projectedShowTimeGapDays;
   List<ChatStreamItem> _items = const [];
   int? _highlightMessageId;
   int _highlightRequest = 0;
@@ -322,7 +334,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     if (identical(_projectedMessageIds, stream.messageIds) &&
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
         _projectedLastRead == stream.lastReadOnOpen &&
-        _projectedRevision == stream.revision) {
+        _projectedRevision == stream.revision &&
+        _projectedShowTimeGapDays == widget.showTimeGapDays) {
       return;
     }
 
@@ -336,6 +349,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       _items = buildChatStream(
         messages,
         lastReadMessageId: stream.lastReadOnOpen,
+        showTimeGapDays: widget.showTimeGapDays,
       );
     }
 
@@ -343,6 +357,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     _projectedLocalMessageIds = stream.localMessageIds;
     _projectedLastRead = stream.lastReadOnOpen;
     _projectedRevision = stream.revision;
+    _projectedShowTimeGapDays = widget.showTimeGapDays;
   }
 
   /// Projects an older page without walking the accumulated history again.
@@ -357,7 +372,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     if (previous == null || previous.isEmpty) return false;
     if (!identical(_projectedLocalMessageIds, stream.localMessageIds) ||
         _projectedLastRead != stream.lastReadOnOpen ||
-        _projectedRevision != stream.revision) {
+        _projectedRevision != stream.revision ||
+        _projectedShowTimeGapDays != widget.showTimeGapDays) {
       return false;
     }
 
@@ -390,6 +406,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       lastReadMessageId: stream.lastReadOnOpen,
       newestMessageId:
           stream.localMessageIds.lastOrNull ?? stream.messageIds.lastOrNull,
+      showTimeGapDays: widget.showTimeGapDays,
     );
     if (projected == null) return false;
     _items = projected;
@@ -1008,8 +1025,8 @@ class _StreamState extends State<ChatMessageStream>
     final nextIndex = candidateIndex + 1;
     if (nextIndex < days.length) {
       final nextTop = topOf(days[nextIndex].row);
-      if (nextTop < _DaySeparator.height) {
-        offset = nextTop - _DaySeparator.height;
+      if (nextTop < StreamDaySeparator.height) {
+        offset = nextTop - StreamDaySeparator.height;
       }
     }
     _setFloatingDay(days[candidateIndex].day, offset);
@@ -1213,12 +1230,17 @@ class _StreamState extends State<ChatMessageStream>
                   ignoring: day == _floatingDay,
                   child: Opacity(
                     opacity: day == _floatingDay ? 0 : 1,
-                    child: _DaySeparator(
+                    child: StreamDaySeparator(
                       key: ValueKey(('chat-day', day)),
                       day: day,
                     ),
                   ),
                 ),
+                ChatStreamTimeGap(:final messageId, :final daysSince) =>
+                  TimeGapNotice(
+                    key: ValueKey(('chat-time-gap', messageId)),
+                    daysSince: daysSince,
+                  ),
                 ChatStreamDeleted(:final count) => _DeletedRun(count: count),
                 ChatStreamNewDivider() => const _NewDivider(),
                 null => const SizedBox.shrink(),
@@ -1231,12 +1253,10 @@ class _StreamState extends State<ChatMessageStream>
             left: 0,
             right: 0,
             top: _floatingDayOffset,
-            child: IgnorePointer(
-              child: _DaySeparator(
-                key: ValueKey(('chat-floating-day', day)),
-                day: day,
-                floating: true,
-              ),
+            child: StreamDaySeparator(
+              key: ValueKey(('chat-floating-day', day)),
+              day: day,
+              floating: true,
             ),
           ),
         if (_awayFromPresent)
@@ -1408,70 +1428,6 @@ class _JumpToPresent extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// The line between two days of conversation.
-class _DaySeparator extends StatelessWidget {
-  const _DaySeparator({super.key, required this.day, this.floating = false});
-
-  static const double height = 44;
-
-  final DateTime day;
-  final bool floating;
-
-  /// Today and yesterday by name, everything else by date. The reader's days,
-  /// not the site's — [day] is already local midnight.
-  String get _label => dayLabel(day, now: DateTime.now());
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final label = _label;
-
-    return SizedBox(
-      height: height,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (!floating)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Divider(height: 1, color: theme.shell.divider),
-            ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: floating
-                  ? theme.colorScheme.surfaceContainerLow
-                  : theme.shell.content,
-              border: Border.all(
-                color: floating
-                    ? theme.colorScheme.surfaceContainerHigh
-                    : Colors.transparent,
-              ),
-              borderRadius: BorderRadius.circular(4),
-              boxShadow: floating
-                  ? const [
-                      BoxShadow(
-                        color: Color(0x1F000000),
-                        blurRadius: 3,
-                        offset: Offset(0, 1),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

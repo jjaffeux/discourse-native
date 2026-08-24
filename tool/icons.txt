@@ -83,6 +83,7 @@ at
 bell
 far-bell
 discourse-bell-exclamation
+discourse-bell-slash
 paper-plane
 toggle-on
 toggle-off
@@ -118,6 +119,7 @@ d-unliked = far-heart
 d-tracking = bell
 d-regular = far-bell
 d-watching = discourse-bell-exclamation
+d-muted = discourse-bell-slash
 # What the chat plugin's own chat-setup.js replaces it with.
 d-chat = comment
 topic.closed = lock

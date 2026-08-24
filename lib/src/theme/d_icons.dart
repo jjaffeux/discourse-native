@@ -354,6 +354,11 @@ abstract final class DIcons {
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor"><path d="M439.4 362.3c-19.3-20.8-55.5-52-55.5-154.3 0-77.7-54.5-139.9-127.9-155.2V32c0-17.7-14.3-32-32-32s-32 14.3-32 32v20.8C118.6 68.1 64.1 130.3 64.1 208c0 102.3-36.2 133.5-55.5 154.3-6 6.4-8.6 14.1-8.6 21.7.1 16.4 13 32 32.1 32h383.8c19.1 0 32-15.6 32.1-32 .1-7.6-2.6-15.3-8.6-21.7zM201.7 116.6h44.6c6.5 0 11.7 5.5 11.4 12l-6.5 123.8c-.3 6.1-5.3 10.9-11.4 10.9h-31.6c-6.1 0-11.1-4.8-11.4-10.9l-6.5-123.8c-.3-6.6 4.9-12 11.4-12zM224 361.3c-18.6 0-33.7-15.1-33.7-33.7s15.1-33.7 33.7-33.7 33.7 15.1 33.7 33.7-15.1 33.7-33.7 33.7zM224 512c35.3 0 64-28.7 64-64H160c0 35.3 28.7 64 64 64z"/></svg>',
   );
 
+  static const DIconData discourseBellSlash = DIconData(
+    'discourse-bell-slash',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor"><path d="M442.7 396.2L36.5 70.7c-6.9-5.5-17-4.4-22.5 2.5L4 85.6c-5.5 6.9-4.4 17 2.5 22.5l406.2 325.5c6.9 5.5 17 4.4 22.5-2.5l10-12.5c5.5-6.9 3.7-17.7-3.2-23.2l.7.8zM67.5 368c16.7-22 34.5-55.8 41.4-110.6l-45.5-35.6C60.2 312.6 27 342.5 8.6 362.3 2.6 368.7 0 376.4 0 384c.1 16.4 13 32 32.1 32h279.7l-61.4-48H67.5zM224 96c61.9 0 112 50.1 112 112 0 .2-.1.4-.1.6 0 16.8 1.2 31.8 2.8 45.7l59.5 46.5c-8.3-22.1-14.3-51.5-14.3-92.9 0-77.7-54.5-139.9-127.9-155.2V32c0-17.7-14.3-32-32-32s-32 14.3-32 32v20.8c-26 5.4-49.4 16.9-69.1 32.7l38.2 29.8C179 103.2 200.6 96 224 96zm0 416c35.3 0 64-28.6 64-64H160c0 35.4 28.7 64 64 64z"/></svg>',
+  );
+
   static const DIconData paperPlane = DIconData(
     'paper-plane',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M498.1 5.6c10.1 7 15.4 19.1 13.5 31.2l-64 416c-1.5 9.7-7.4 18.2-16 23s-18.9 5.4-28 1.6L284 427.7l-68.5 74.1c-8.9 9.7-22.9 12.9-35.2 8.1S160 493.2 160 480l0-83.6c0-4 1.5-7.8 4.2-10.8L331.8 202.8c5.8-6.3 5.6-16-.4-22s-15.7-6.4-22-.7L106 360.8 17.7 316.6C7.1 311.3 .3 300.7 0 288.9s5.9-22.8 16.1-28.7l448-256c10.7-6.1 23.9-5.5 34 1.4z"/></svg>',
@@ -521,6 +526,7 @@ abstract final class DIcons {
     'bell': bell,
     'far-bell': farBell,
     'discourse-bell-exclamation': discourseBellExclamation,
+    'discourse-bell-slash': discourseBellSlash,
     'paper-plane': paperPlane,
     'toggle-on': toggleOn,
     'toggle-off': toggleOff,
@@ -545,6 +551,7 @@ abstract final class DIcons {
     'd-tracking': bell,
     'd-regular': farBell,
     'd-watching': discourseBellExclamation,
+    'd-muted': discourseBellSlash,
     'd-chat': comment,
     'topic.closed': lock,
     'topic.opened': unlock,

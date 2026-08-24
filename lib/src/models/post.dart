@@ -403,6 +403,7 @@ class TopicDetail with Storable<TopicDetail> {
     this.canEdit = false,
     this.canEditTags = false,
     this.tags = const [],
+    this.notificationLevel = TopicNotificationLevel.normal,
     this.archived = false,
     this.draft,
     this.draftSequence = 0,
@@ -452,6 +453,9 @@ class TopicDetail with Storable<TopicDetail> {
         tags: List.unmodifiable(
           jsonArray(json['tags']).map(TopicTag.parse).whereType<TopicTag>(),
         ),
+        notificationLevel: TopicNotificationLevel.fromJson(
+          details['notification_level'],
+        ),
         archived: json['archived'] == true,
         // The topic payload already carries any draft for it, so opening a
         // composer needs no request of its own.
@@ -497,6 +501,9 @@ class TopicDetail with Storable<TopicDetail> {
   final bool canEdit;
   final bool canEditTags;
   final List<TopicTag> tags;
+
+  /// How closely this reader follows the topic.
+  final TopicNotificationLevel notificationLevel;
 
   /// Archived topics reject poll writes even when their posts remain visible.
   final bool archived;
@@ -612,6 +619,9 @@ class TopicDetail with Storable<TopicDetail> {
   TopicDetail withRecommendations(TopicRecommendations recommendations) =>
       copyWith(recommendations: recommendations);
 
+  TopicDetail withNotificationLevel(TopicNotificationLevel level) =>
+      copyWith(notificationLevel: level);
+
   /// The topic with one complete optional-feature snapshot.
   TopicDetail withPlugins(PluginData next) => TopicDetail(
     id: id,
@@ -625,6 +635,7 @@ class TopicDetail with Storable<TopicDetail> {
     canEdit: canEdit,
     canEditTags: canEditTags,
     tags: tags,
+    notificationLevel: notificationLevel,
     archived: archived,
     draft: draft,
     draftSequence: draftSequence,
@@ -681,6 +692,7 @@ class TopicDetail with Storable<TopicDetail> {
     List<TopicTag>? tags,
     bool? canEdit,
     bool? canEditTags,
+    TopicNotificationLevel? notificationLevel,
     TopicRecommendations? recommendations,
     PluginData? plugins,
   }) => TopicDetail(
@@ -697,6 +709,7 @@ class TopicDetail with Storable<TopicDetail> {
     canEdit: canEdit ?? this.canEdit,
     canEditTags: canEditTags ?? this.canEditTags,
     tags: tags == null ? this.tags : List.unmodifiable(tags),
+    notificationLevel: notificationLevel ?? this.notificationLevel,
     archived: archived ?? this.archived,
     draft: clearDraft ? null : (draft ?? this.draft),
     draftSequence: draftSequence ?? this.draftSequence,
@@ -719,6 +732,7 @@ class TopicDetail with Storable<TopicDetail> {
           other.canEdit == canEdit &&
           other.canEditTags == canEditTags &&
           listEquals(other.tags, tags) &&
+          other.notificationLevel == notificationLevel &&
           other.archived == archived &&
           other.draft == draft &&
           other.draftSequence == draftSequence &&
@@ -738,6 +752,7 @@ class TopicDetail with Storable<TopicDetail> {
     canEdit,
     canEditTags,
     Object.hashAll(tags),
+    notificationLevel,
     archived,
     draft,
     draftSequence,
