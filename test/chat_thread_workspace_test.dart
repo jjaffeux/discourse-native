@@ -153,7 +153,10 @@ void main() {
         expect(divider, findsOneWidget);
         expect(tester.getSize(divider).width, 8);
         final border = find.byKey(const ValueKey('chat-thread-divider-border'));
-        expect(tester.getSize(border).width, 1);
+        expect(
+          tester.getSize(border),
+          Size(1, tester.getSize(divider).height),
+        );
         final theme = Theme.of(tester.element(border));
         expect(
           tester
