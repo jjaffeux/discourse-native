@@ -1,3 +1,5 @@
+import 'dart:ui' show CheckedState;
+
 import 'package:discourse_native/src/data/chat_thread_panel_width_store.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -18,6 +20,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -208,6 +211,121 @@ void main() {
     },
   );
 
+  testWidgets('thread notification choices use an anchored descriptive menu', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    addTearDown(fixture.shell.dispose);
+    final semantics = tester.ensureSemantics();
+    try {
+      await _pumpWorkspace(tester, fixture.shell, width: 1000);
+
+      final trigger = find.byTooltip('Thread notifications');
+      final triggerRect = tester.getRect(trigger);
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+
+      final surface = find.byKey(const ValueKey('choice-menu-surface'));
+      expect(surface, findsOneWidget);
+      expect(tester.getSize(surface).width, 336);
+      expect(
+        tester.getTopLeft(surface).dy,
+        inInclusiveRange(triggerRect.bottom + 8, triggerRect.bottom + 12),
+      );
+      expect(find.text('Thread notifications'), findsOneWidget);
+      expect(find.text('Mentions only'), findsOneWidget);
+      expect(find.text('Mentions and unread reply count'), findsOneWidget);
+      expect(find.text('Every reply and unread count'), findsOneWidget);
+      expect(find.byType(PopupMenuButton), findsNothing);
+
+      final selected = tester.getSemantics(
+        find.byKey(
+          const ValueKey((
+            'choice-menu-option',
+            ChatThreadNotificationLevel.tracking,
+          )),
+        ),
+      );
+      expect(
+        selected.getSemanticsData().flagsCollection.isChecked,
+        CheckedState.isTrue,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(surface, findsNothing);
+      expect(fixture.api.chatThreadNotificationLevelsUpdated, const [
+        (
+          channelId: _channelId,
+          threadId: _threadId,
+          notificationLevel: ChatThreadNotificationLevel.watching,
+        ),
+      ]);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('thread notification menu respects reduced motion', (
+    tester,
+  ) async {
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(
+      tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+    );
+    final fixture = await _fixture();
+    addTearDown(fixture.shell.dispose);
+
+    await _pumpWorkspace(tester, fixture.shell, width: 1000);
+    await tester.tap(find.byTooltip('Thread notifications'));
+    await tester.pump();
+
+    final surface = find.byKey(const ValueKey('choice-menu-surface'));
+    expect(surface, findsOneWidget);
+    final fade = tester.widget<FadeTransition>(
+      find.ancestor(of: surface, matching: find.byType(FadeTransition)).first,
+    );
+    final scale = tester.widget<ScaleTransition>(
+      find.ancestor(of: surface, matching: find.byType(ScaleTransition)).first,
+    );
+    expect(fade.opacity.value, 1);
+    expect(scale.scale.value, 1);
+  });
+
+  testWidgets('thread notification choices use a sheet on touch', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    addTearDown(fixture.shell.dispose);
+
+    await _pumpWorkspace(
+      tester,
+      fixture.shell,
+      width: 390,
+      platform: TargetPlatform.iOS,
+    );
+
+    await tester.tap(find.byTooltip('Thread notifications'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('choice-menu-surface')), findsNothing);
+    expect(find.byTooltip('Close'), findsOneWidget);
+    expect(find.text('Thread notifications'), findsOneWidget);
+    expect(find.text('Mentions and unread reply count'), findsOneWidget);
+
+    await tester.tap(find.text('Normal'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Close'), findsNothing);
+    expect(
+      fixture.api.chatThreadNotificationLevelsUpdated.single.notificationLevel,
+      ChatThreadNotificationLevel.normal,
+    );
+  });
+
   test(
     'panel width store restores a valid write and rejects invalid values',
     () async {
@@ -312,6 +430,7 @@ Future<void> _pumpWorkspace(
   WidgetTester tester,
   ShellController shell, {
   required double width,
+  TargetPlatform? platform,
 }) async {
   tester.view.physicalSize = Size(width, width < 600 ? 844 : 900);
   tester.view.devicePixelRatio = 1;
@@ -321,7 +440,9 @@ Future<void> _pumpWorkspace(
     ShellScope(
       controller: shell,
       child: MaterialApp(
-        theme: AppTheme.light,
+        theme: AppTheme.light.copyWith(
+          platform: platform ?? TargetPlatform.macOS,
+        ),
         home: Scaffold(body: MainContent(layout: ShellLayout.forWidth(width))),
       ),
     ),

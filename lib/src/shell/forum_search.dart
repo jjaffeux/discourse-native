@@ -271,6 +271,8 @@ class _ForumSearchState extends State<ForumSearch> {
             shadowColor: WidgetStatePropertyAll(Colors.transparent),
             elevation: WidgetStatePropertyAll(0),
             padding: WidgetStatePropertyAll(EdgeInsets.zero),
+            side: WidgetStatePropertyAll(BorderSide.none),
+            shape: WidgetStatePropertyAll(RoundedRectangleBorder()),
           ),
           menuChildren: [
             SizedBox(

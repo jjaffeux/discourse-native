@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
 import '../../shell/avatar_image.dart';
+import '../../shell/select.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
@@ -470,7 +471,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
           ),
           if (widget.statusesEnabled && statuses.isNotEmpty) ...[
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            DSelectField<String>(
               key: const Key('assignment-status'),
               initialValue: _status,
               isExpanded: true,

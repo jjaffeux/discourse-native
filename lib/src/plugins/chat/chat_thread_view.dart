@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../data/chat_thread_panel_width_store.dart';
 import '../../shell/adaptive_shell.dart';
+import '../../shell/choice_menu.dart';
 import '../../shell/forum_search.dart';
 import '../../shell/shell_metrics.dart';
 import '../../shell/shell_scope.dart';
@@ -637,75 +638,46 @@ class _NotificationLevelButton extends StatelessWidget {
   final ChatThreadTarget target;
   final ChatThread? thread;
 
+  static const _options = [
+    ChoiceMenuOption(
+      value: ChatThreadNotificationLevel.normal,
+      title: 'Normal',
+      description: 'Mentions only',
+    ),
+    ChoiceMenuOption(
+      value: ChatThreadNotificationLevel.tracking,
+      title: 'Tracking',
+      description: 'Mentions and unread reply count',
+    ),
+    ChoiceMenuOption(
+      value: ChatThreadNotificationLevel.watching,
+      title: 'Watching',
+      description: 'Every reply and unread count',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final current =
         thread?.membership?.notificationLevel ??
         ChatThreadNotificationLevel.normal;
-    return PopupMenuButton<ChatThreadNotificationLevel>(
-      tooltip: 'Thread notifications',
+    return ChoiceMenuAnchor<ChatThreadNotificationLevel>(
+      title: 'Thread notifications',
+      value: current,
+      options: _options,
       enabled: thread != null,
       onSelected: (level) => unawaited(
         ShellScope.read(
           context,
         ).chat.updateThreadNotificationLevel(siteUrl, target, level),
       ),
-      itemBuilder: (context) => [
-        for (final level in const [
-          ChatThreadNotificationLevel.normal,
-          ChatThreadNotificationLevel.tracking,
-          ChatThreadNotificationLevel.watching,
-        ])
-          PopupMenuItem(
-            value: level,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 24,
-                  child: level == current
-                      ? const DIcon(DIcons.check, size: 16)
-                      : null,
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(_levelTitle(level)),
-                      Text(
-                        _levelDescription(level),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-      icon: const DIcon(DIcons.bell, size: 18),
+      builder: (context, openMenu) => IconButton(
+        tooltip: 'Thread notifications',
+        onPressed: openMenu,
+        icon: const DIcon(DIcons.bell, size: 18),
+      ),
     );
   }
-
-  static String _levelTitle(ChatThreadNotificationLevel level) =>
-      switch (level) {
-        ChatThreadNotificationLevel.normal => 'Normal',
-        ChatThreadNotificationLevel.tracking => 'Tracking',
-        ChatThreadNotificationLevel.watching => 'Watching',
-        ChatThreadNotificationLevel.muted => 'Muted',
-      };
-
-  static String _levelDescription(ChatThreadNotificationLevel level) =>
-      switch (level) {
-        ChatThreadNotificationLevel.normal => 'Notify me about mentions.',
-        ChatThreadNotificationLevel.tracking =>
-          'Show mentions and an unread reply count.',
-        ChatThreadNotificationLevel.watching =>
-          'Notify me about every reply and show unread counts.',
-        ChatThreadNotificationLevel.muted => 'Do not notify me.',
-      };
 }
 
 class _PaneHeaderShell extends StatelessWidget {

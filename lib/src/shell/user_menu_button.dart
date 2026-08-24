@@ -166,6 +166,8 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               shadowColor: WidgetStatePropertyAll(Colors.transparent),
               elevation: WidgetStatePropertyAll(0),
               padding: WidgetStatePropertyAll(EdgeInsets.zero),
+              side: WidgetStatePropertyAll(BorderSide.none),
+              shape: WidgetStatePropertyAll(RoundedRectangleBorder()),
             ),
             menuChildren: [UserMenuPanel(onDismiss: _menu.close)],
             child: Semantics(

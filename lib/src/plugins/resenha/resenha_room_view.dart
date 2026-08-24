@@ -8,7 +8,9 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:livekit_client/livekit_client.dart' as lk;
 
 import '../../shell/avatar_image.dart';
+import '../../shell/select.dart';
 import '../../shell/shell_scope.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'resenha_controller.dart';
@@ -373,6 +375,9 @@ class _ParticipantTile extends StatelessWidget {
                   alignment: Alignment.topRight,
                   child: PopupMenuButton<String>(
                     tooltip: 'Participant actions',
+                    popUpAnimationStyle: discoursePopupMenuAnimationStyle(
+                      context,
+                    ),
                     onSelected: (action) async {
                       if (action == 'kick') {
                         await controller.kick(participant.id);
@@ -912,7 +917,7 @@ class _DevicePicker extends StatelessWidget {
   final ValueChanged<String?> onChanged;
 
   @override
-  Widget build(BuildContext context) => DropdownButtonFormField<String>(
+  Widget build(BuildContext context) => DSelectField<String>(
     initialValue: value,
     decoration: InputDecoration(labelText: label),
     onChanged: devices.isEmpty ? null : onChanged,
@@ -1323,6 +1328,9 @@ class _ResenhaMembersDialogState extends State<_ResenhaMembersDialog> {
                       children: [
                         PopupMenuButton<ResenhaRole>(
                           tooltip: 'Change role',
+                          popUpAnimationStyle: discoursePopupMenuAnimationStyle(
+                            context,
+                          ),
                           onSelected: (role) => _updateMember(membership, role),
                           itemBuilder: (context) => [
                             for (final role in ResenhaRole.values)
@@ -1354,7 +1362,7 @@ class _ResenhaMembersDialogState extends State<_ResenhaMembersDialog> {
                 ),
               ),
               const SizedBox(width: 8),
-              DropdownButton<ResenhaRole>(
+              DSelect<ResenhaRole>(
                 value: _newRole,
                 onChanged: (value) =>
                     setState(() => _newRole = value ?? _newRole),

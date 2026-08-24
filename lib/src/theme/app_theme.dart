@@ -21,6 +21,24 @@ const Color discourseSuccess = Color(0xFF009900);
 /// Core Discourse's modal backdrop: black animated to 60% opacity.
 const Color discourseModalBarrier = Color(0x99000000);
 
+const Duration discourseMenuOpenDuration = Duration(milliseconds: 140);
+const Duration discourseMenuCloseDuration = Duration(milliseconds: 100);
+
+/// The compact menu motion used where Flutter owns the popup route.
+///
+/// Rich choice menus use the same timing with an app-owned transition. Raw
+/// popup menus cannot replace Flutter's grow transition, but this removes its
+/// slow 300ms stagger and keeps reduced-motion behavior consistent.
+AnimationStyle discoursePopupMenuAnimationStyle(BuildContext context) =>
+    MediaQuery.disableAnimationsOf(context)
+    ? AnimationStyle.noAnimation
+    : const AnimationStyle(
+        duration: discourseMenuOpenDuration,
+        reverseDuration: discourseMenuCloseDuration,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+
 /// Discourse's 16px modular type scale, resolved from `font-variables.scss`.
 ///
 /// Keeping the values here avoids silently falling back to Material's smaller
@@ -598,6 +616,21 @@ abstract final class AppTheme {
     final modalShadow = Colors.black.withValues(
       alpha: brightness == Brightness.dark ? 1 : 0.6,
     );
+    final menuShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+      side: BorderSide(color: shell.divider),
+    );
+    final menuStyle = MenuStyle(
+      backgroundColor: WidgetStatePropertyAll(shell.floating),
+      shadowColor: WidgetStatePropertyAll(Colors.black.withValues(alpha: 0.4)),
+      surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+      elevation: const WidgetStatePropertyAll(8),
+      padding: const WidgetStatePropertyAll(EdgeInsets.all(6)),
+      side: WidgetStatePropertyAll(BorderSide(color: shell.divider)),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
 
     return ThemeData(
       colorScheme: resolvedColorScheme,
@@ -624,6 +657,40 @@ abstract final class AppTheme {
         color: shell.divider,
         thickness: 1,
         space: 1,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: shell.floating,
+        shape: menuShape,
+        menuPadding: const EdgeInsets.all(6),
+        elevation: 8,
+        shadowColor: Colors.black.withValues(alpha: 0.4),
+        surfaceTintColor: Colors.transparent,
+        textStyle: textTheme.bodyMedium,
+        position: PopupMenuPosition.under,
+      ),
+      menuTheme: MenuThemeData(style: menuStyle),
+      menuButtonTheme: MenuButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.focused) ||
+                states.contains(WidgetState.pressed)) {
+              return shell.hover;
+            }
+            return Colors.transparent;
+          }),
+        ),
+      ),
+      dropdownMenuTheme: DropdownMenuThemeData(
+        textStyle: textTheme.bodyMedium,
+        menuStyle: menuStyle,
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: shell.content,

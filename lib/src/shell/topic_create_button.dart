@@ -68,6 +68,8 @@ class _TopicCreateButtonState extends State<TopicCreateButton> {
             shadowColor: WidgetStatePropertyAll(Colors.transparent),
             elevation: WidgetStatePropertyAll(0),
             padding: WidgetStatePropertyAll(EdgeInsets.zero),
+            side: WidgetStatePropertyAll(BorderSide.none),
+            shape: WidgetStatePropertyAll(RoundedRectangleBorder()),
           ),
           menuChildren: [
             if (instance != null)

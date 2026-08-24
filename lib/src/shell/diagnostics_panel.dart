@@ -649,6 +649,7 @@ class _MultiSelectMenu extends StatelessWidget {
     return PopupMenuButton<String>(
       enabled: values.isNotEmpty,
       tooltip: 'Filter by ${label.toLowerCase()}',
+      popUpAnimationStyle: discoursePopupMenuAnimationStyle(context),
       onSelected: onToggle,
       itemBuilder: (context) => [
         for (final value in values)
