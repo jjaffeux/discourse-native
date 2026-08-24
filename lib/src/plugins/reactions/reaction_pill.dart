@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../shell/avatar_image.dart';
+import '../../shell/emoji_picker.dart';
 import '../../shell/hover_panel.dart';
 import '../../shell/platform.dart';
 import '../../shell/shell_sheet.dart';
 import '../../shell/site_emoji_image.dart';
 import '../../shell/user_card.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
 import 'post_reactors.dart';
 
 /// The shared layout for reaction pills under either a post or chat message.
@@ -25,6 +28,73 @@ class ReactionPills extends Padding {
           child: Wrap(spacing: 6, runSpacing: 6, children: children),
         ),
       );
+}
+
+/// The trailing way to choose an emoji that does not already have a pill.
+///
+/// Chat and topic reactions own different pickers and write semantics, so the
+/// button supplies its anchored context and leaves the action to its caller.
+/// The transparent smile matches Discourse chat while the surrounding square
+/// keeps the same minimum target as a reaction pill.
+class ReactionPickerButton extends StatefulWidget {
+  const ReactionPickerButton({super.key, required this.onOpenPicker});
+
+  final Future<void> Function(BuildContext) onOpenPicker;
+
+  @override
+  State<ReactionPickerButton> createState() => _ReactionPickerButtonState();
+}
+
+class _ReactionPickerButtonState extends State<ReactionPickerButton> {
+  bool _opening = false;
+
+  Future<void> _open(BuildContext context) async {
+    if (_opening) return;
+    setState(() => _opening = true);
+    try {
+      await widget.onOpenPicker(context);
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return EmojiPickerAnchor(
+      child: Builder(
+        builder: (buttonContext) => Semantics(
+          container: true,
+          button: true,
+          label: 'Add reaction',
+          child: Tooltip(
+            message: 'Add reaction',
+            excludeFromSemantics: true,
+            child: SizedBox.square(
+              dimension: ReactionPill.minTarget,
+              child: Material(
+                type: MaterialType.transparency,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: InkWell(
+                    onTap: _opening ? null : () => _open(buttonContext),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Center(
+                      child: DIcon(
+                        DIcons.farFaceSmile,
+                        size: 18,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// One emoji/count reaction and the people behind it.

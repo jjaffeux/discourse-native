@@ -723,6 +723,50 @@ class ChatController extends FrameSafeNotifier {
   Ref<ChatMessage> messageRef(String siteUrl, int messageId) =>
       store.ref<ChatMessage>(siteUrl, messageId);
 
+  /// Whether this reader may add a reaction to one message.
+  ///
+  /// Chat's interaction permission belongs to the channel as well as the
+  /// message: silenced readers and readers who left a channel may still read
+  /// old reactions, but only a followed channel accepts an add.
+  bool canAddReactionToMessage(String siteUrl, ChatMessage message) =>
+      _canChangeMessageReaction(siteUrl, message, requireFollowing: true);
+
+  /// Whether this reader may remove their reaction from one message.
+  ///
+  /// Discourse deliberately permits undoing a reaction after leaving a
+  /// channel, while adding still requires following it.
+  bool canRemoveReactionFromMessage(String siteUrl, ChatMessage message) =>
+      _canChangeMessageReaction(siteUrl, message, requireFollowing: false);
+
+  bool _canChangeMessageReaction(
+    String siteUrl,
+    ChatMessage message, {
+    required bool requireFollowing,
+  }) {
+    if (isDisposed ||
+        message.id <= 0 ||
+        message.isDeleted ||
+        message.isOptimistic) {
+      return false;
+    }
+    final heldChannel = channel(siteUrl, message.channelId);
+    return heldChannel != null &&
+        (!requireFollowing || heldChannel.membership.following) &&
+        heldChannel.canModifyMessages(
+          isStaff: _currentUserFor(siteUrl)?.staff ?? false,
+        );
+  }
+
+  /// Adds this reader to an emoji chosen from the full picker.
+  ///
+  /// Choosing an emoji is an explicit add in Discourse chat, not a toggle. If
+  /// the reader already holds it, there is nothing to write and it stays put.
+  Future<String?> addMessageReaction(
+    String siteUrl,
+    int messageId,
+    String emoji,
+  ) => _setMessageReaction(siteUrl, messageId, emoji, reacted: true);
+
   /// Adds or removes this reader from one existing chat reaction.
   ///
   /// The message record is changed before credentials or the network are
@@ -735,7 +779,14 @@ class ChatController extends FrameSafeNotifier {
     String siteUrl,
     int messageId,
     String emoji,
-  ) async {
+  ) => _setMessageReaction(siteUrl, messageId, emoji);
+
+  Future<String?> _setMessageReaction(
+    String siteUrl,
+    int messageId,
+    String emoji, {
+    bool? reacted,
+  }) async {
     if (isDisposed) return null;
     final message = store.read<ChatMessage>(siteUrl, messageId);
     if (message == null ||
@@ -745,6 +796,17 @@ class ChatController extends FrameSafeNotifier {
         emoji.isEmpty) {
       return null;
     }
+    final held = message.reactions
+        .where((reaction) => reaction.emoji == emoji)
+        .firstOrNull;
+    final wasReacted = held?.reacted ?? false;
+    final adding = reacted ?? !wasReacted;
+    if (adding == wasReacted) return null;
+    if (!(adding
+        ? canAddReactionToMessage(siteUrl, message)
+        : canRemoveReactionFromMessage(siteUrl, message))) {
+      return null;
+    }
 
     final key = (siteUrl: siteUrl, messageId: messageId, emoji: emoji);
     if (_reactionWrites.containsKey(key)) return null;
@@ -752,10 +814,6 @@ class ChatController extends FrameSafeNotifier {
     final lease = lifecycle.capture(siteUrl);
     _reactionWrites[key] = request;
 
-    final held = message.reactions
-        .where((reaction) => reaction.emoji == emoji)
-        .firstOrNull;
-    final adding = !(held?.reacted ?? false);
     final readerId = _currentUserFor(siteUrl)?.id;
     store.put(
       siteUrl,
@@ -788,6 +846,14 @@ class ChatController extends FrameSafeNotifier {
       }
       final clientId = await credentials.clientId();
       if (!ownsRequest()) return null;
+      final current = store.read<ChatMessage>(siteUrl, messageId);
+      if (current == null ||
+          !(adding
+              ? canAddReactionToMessage(siteUrl, current)
+              : canRemoveReactionFromMessage(siteUrl, current))) {
+        rollback();
+        return null;
+      }
       await api.setChatMessageReaction(
         siteUrl: siteUrl,
         apiKey: apiKey,

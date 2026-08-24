@@ -6,11 +6,11 @@ import '../models/site_emoji.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
-/// The composer surface whose emoji usage is being remembered.
+/// The surface whose emoji usage is being remembered.
 ///
-/// Web Discourse keeps topic and chat favorites apart. Native does the same so
-/// a reader's conversational emoji do not displace the ones they use in posts.
-enum EmojiPickerContext { topic, chat }
+/// Web Discourse keeps topic, chat, and reaction favorites apart. Native does
+/// the same so one kind of emoji use does not displace another.
+enum EmojiPickerContext { topic, chat, postReactions }
 
 /// Encoded, per-forum emoji picker preferences.
 ///
@@ -267,12 +267,14 @@ final class _EmojiPickerPreferences {
     required this.tone,
     required this.topicHistory,
     required this.chatHistory,
+    required this.postReactionsHistory,
   });
 
   static const empty = _EmojiPickerPreferences(
     tone: EmojiSkinTone.neutral,
     topicHistory: [],
     chatHistory: [],
+    postReactionsHistory: [],
   );
 
   factory _EmojiPickerPreferences.fromEncoded(String encoded) {
@@ -297,16 +299,21 @@ final class _EmojiPickerPreferences {
       tone: EmojiSkinTone.fromCode(rawTone),
       topicHistory: _decodeHistory(history?[EmojiPickerContext.topic.name]),
       chatHistory: _decodeHistory(history?[EmojiPickerContext.chat.name]),
+      postReactionsHistory: _decodeHistory(
+        history?[EmojiPickerContext.postReactions.name],
+      ),
     );
   }
 
   final EmojiSkinTone tone;
   final List<String> topicHistory;
   final List<String> chatHistory;
+  final List<String> postReactionsHistory;
 
   List<String> historyFor(EmojiPickerContext context) => switch (context) {
     EmojiPickerContext.topic => topicHistory,
     EmojiPickerContext.chat => chatHistory,
+    EmojiPickerContext.postReactions => postReactionsHistory,
   };
 
   _EmojiPickerPreferences withTone(EmojiSkinTone value) => value == tone
@@ -315,6 +322,7 @@ final class _EmojiPickerPreferences {
           tone: value,
           topicHistory: topicHistory,
           chatHistory: chatHistory,
+          postReactionsHistory: postReactionsHistory,
         );
 
   _EmojiPickerPreferences withTrackedEmoji(
@@ -339,11 +347,19 @@ final class _EmojiPickerPreferences {
       tone: tone,
       topicHistory: history,
       chatHistory: chatHistory,
+      postReactionsHistory: postReactionsHistory,
     ),
     EmojiPickerContext.chat => _EmojiPickerPreferences(
       tone: tone,
       topicHistory: topicHistory,
       chatHistory: history,
+      postReactionsHistory: postReactionsHistory,
+    ),
+    EmojiPickerContext.postReactions => _EmojiPickerPreferences(
+      tone: tone,
+      topicHistory: topicHistory,
+      chatHistory: chatHistory,
+      postReactionsHistory: history,
     ),
   };
 
@@ -353,6 +369,7 @@ final class _EmojiPickerPreferences {
     'history': {
       EmojiPickerContext.topic.name: topicHistory,
       EmojiPickerContext.chat.name: chatHistory,
+      EmojiPickerContext.postReactions.name: postReactionsHistory,
     },
   });
 

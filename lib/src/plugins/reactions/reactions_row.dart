@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/post.dart';
 import '../../shell/shell_scope.dart';
 import 'reaction.dart';
+import 'reaction_picker.dart';
 import 'reaction_pill.dart';
 import 'reactions_controller.dart';
 
@@ -49,6 +50,12 @@ class ReactionsRow extends StatelessWidget {
             ),
             reactorsBuilder: (_) =>
                 ReactorList(siteUrl: siteUrl, post: post, filter: entry.id),
+          ),
+        if (post.canReact)
+          ReactionPickerButton(
+            key: ValueKey('post-reaction-picker-${post.id}'),
+            onOpenPicker: (pickerContext) =>
+                showPostReactionPicker(pickerContext, siteUrl, post),
           ),
       ],
     );

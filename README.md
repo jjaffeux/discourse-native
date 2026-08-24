@@ -671,6 +671,16 @@ also labels from the reaction the reader *holds*, not from
 `current_user_used_main_reaction`: someone who clapped has a shadow like, so the
 naive label reads "Like this post" on a tap that would replace their clap.
 
+A populated reaction row ends with the same smile affordance chat uses, so a
+reader does not have to reopen the post menu to choose something else. It is
+shown only while the post remains writable; an empty row still relies on the
+menu because there is nothing under the post to attach it to. Ordinarily it
+opens the site's configured reaction grid. When
+`discourse_reactions_allow_any_emoji` is true it opens the full searchable site
+emoji catalog instead — arbitrary emoji are never offered on a site whose
+route would reject them. Reaction picks keep their own favorites history, as
+the web client does, rather than displacing topic-composer emoji.
+
 Live updates ride `/topic/{id}/reactions`, subscribed to only while that topic
 is the one on screen. The message carries which emoji changed and no counts at
 all, so it is an invalidation hint — the post is read again through
@@ -805,11 +815,19 @@ same viewer a post's do — `LightboxImage` is a plain value object and
 in the way. Everything else is a row with a filename and a size.
 
 Reactions are drawn and their incremental live events update the held message.
-A threaded root draws one accessible latest-reply card — author, time, excerpt,
-total replies and representative participants — which opens at the latest
-reply. The complete root also appears inside the thread, where that card is
-suppressed to avoid recursive navigation. Reply actions use hover/context-menu
-and keyboard access on desktop and a long-press sheet on touch platforms.
+Once a message has a reaction, its row ends with the web client's outlined
+smile button and opens the full site emoji picker in the chat favorites
+context. A picker choice is an explicit add, not the toggle an existing pill
+performs, so choosing an emoji the reader already holds leaves it in place.
+The picker and additions remain unavailable when the message is not persisted
+or its channel is unfollowed, silenced, archived, or otherwise unwritable. An
+already-held reaction may still be removed after leaving an otherwise writable
+channel, matching the server's undo rule. A threaded root draws one accessible
+latest-reply card — author, time, excerpt, total replies and
+representative participants — which opens at the latest reply. The complete
+root also appears inside the thread, where that card is suppressed to avoid
+recursive navigation. Reply actions use hover/context-menu and keyboard access
+on desktop and a long-press sheet on touch platforms.
 
 Sidebar activity follows each channel's `/chat/{id}/new-messages` stream from
 the cursor captured with the channel-list response. That updates last-message

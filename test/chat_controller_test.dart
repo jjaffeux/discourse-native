@@ -2289,6 +2289,7 @@ void main() {
             ]),
           },
         );
+        subject.store.put(site, channel(9));
         await subject.chat.openChannel(site, 9);
 
         final writing = subject.chat.toggleMessageReaction(site, 1, 'clap');
@@ -2304,6 +2305,106 @@ void main() {
           ChatReactionAction.add,
         );
         expect(subject.store.read<ChatMessage>(site, 1), optimistic);
+      },
+    );
+
+    test('picker add leaves an already-held reaction in place', () async {
+      final subject = build(
+        messages: {
+          key(9): page([
+            message(
+              1,
+              reactions: const [
+                ChatReaction(emoji: 'heart', count: 2, reacted: true),
+              ],
+            ),
+          ]),
+        },
+      );
+      subject.store.put(site, channel(9));
+      await subject.chat.openChannel(site, 9);
+      final held = subject.store.read<ChatMessage>(site, 1)!;
+
+      expect(await subject.chat.addMessageReaction(site, 1, 'heart'), isNull);
+
+      expect(subject.api.chatReactionsSet, isEmpty);
+      expect(subject.store.read<ChatMessage>(site, 1), same(held));
+    });
+
+    test('reaction writes require a followed writable channel', () async {
+      final subject = build(
+        channels: {
+          site: ChatChannels(
+            public: [channel(9, following: false)],
+            direct: const [],
+          ),
+        },
+        messages: {
+          key(9): page([
+            message(
+              1,
+              reactions: const [ChatReaction(emoji: 'heart', count: 2)],
+            ),
+          ]),
+        },
+      );
+      await subject.chat.loadChannels(site);
+      await subject.chat.openChannel(site, 9);
+
+      expect(
+        subject.chat.canAddReactionToMessage(
+          site,
+          subject.store.read<ChatMessage>(site, 1)!,
+        ),
+        isFalse,
+      );
+      expect(
+        await subject.chat.toggleMessageReaction(site, 1, 'heart'),
+        isNull,
+      );
+      expect(subject.api.chatReactionsSet, isEmpty);
+    });
+
+    test(
+      'a reader can remove their reaction after leaving a channel',
+      () async {
+        final subject = build(
+          channels: {
+            site: ChatChannels(
+              public: [channel(9, following: false)],
+              direct: const [],
+            ),
+          },
+          messages: {
+            key(9): page([
+              message(
+                1,
+                reactions: const [
+                  ChatReaction(emoji: 'heart', count: 2, reacted: true),
+                ],
+              ),
+            ]),
+          },
+        );
+        await subject.chat.loadChannels(site);
+        await subject.chat.openChannel(site, 9);
+        final held = subject.store.read<ChatMessage>(site, 1)!;
+
+        expect(subject.chat.canAddReactionToMessage(site, held), isFalse);
+        expect(subject.chat.canRemoveReactionFromMessage(site, held), isTrue);
+
+        expect(
+          await subject.chat.toggleMessageReaction(site, 1, 'heart'),
+          isNull,
+        );
+        expect(subject.api.chatReactionsSet, hasLength(1));
+        expect(
+          subject.api.chatReactionsSet.single.action,
+          ChatReactionAction.remove,
+        );
+        expect(subject.store.read<ChatMessage>(site, 1)!.reactions, const [
+          ChatReaction(emoji: 'heart', count: 1),
+        ]);
       },
     );
 
@@ -2323,6 +2424,7 @@ void main() {
           },
           reactionGate: gate,
         );
+        subject.store.put(site, channel(9));
         final tracker = attachTracker(subject.chat);
         await subject.chat.openChannel(site, 9);
         final view = subject.chat.beginViewingChannel(site, 9);
@@ -2367,6 +2469,7 @@ void main() {
             ]),
           },
         );
+        subject.store.put(site, channel(9));
         await subject.chat.openChannel(site, 9);
 
         expect(
@@ -2397,6 +2500,7 @@ void main() {
           errors: ['That emoji is unavailable.'],
         ),
       );
+      subject.store.put(site, channel(9));
       await subject.chat.openChannel(site, 9);
 
       final error = await subject.chat.toggleMessageReaction(site, 1, 'clap');
@@ -2423,6 +2527,7 @@ void main() {
           },
           reactionGate: gate,
         );
+        subject.store.put(site, channel(9));
         await subject.chat.openChannel(site, 9);
 
         final first = subject.chat.toggleMessageReaction(site, 1, 'clap');
@@ -2453,6 +2558,7 @@ void main() {
           },
           reactionGate: gate,
         );
+        subject.store.put(site, channel(9));
         await subject.chat.openChannel(site, 9);
 
         final writing = subject.chat.toggleMessageReaction(site, 1, 'clap');
@@ -2474,6 +2580,7 @@ void main() {
         final credentials = _GatedCredentials(credentialGate)
           ..keys[site] = 'key';
         final subject = build(credentialReader: credentials);
+        subject.store.put(site, channel(9));
         subject.store.put(
           site,
           message(1, reactions: const [ChatReaction(emoji: 'clap', count: 2)]),
@@ -2486,6 +2593,42 @@ void main() {
         await writing;
 
         expect(subject.api.chatReactionsSet, isEmpty);
+      },
+    );
+
+    test(
+      'a channel removed during credentials rolls the reaction back',
+      () async {
+        final credentialGate = Completer<void>();
+        final credentials = _GatedCredentials(credentialGate)
+          ..keys[site] = 'key';
+        final subject = build(
+          credentialReader: credentials,
+          messages: {
+            key(9): page([
+              message(
+                1,
+                reactions: const [ChatReaction(emoji: 'clap', count: 2)],
+              ),
+            ]),
+          },
+        );
+        subject.store.put(site, channel(9));
+        subject.store.put(
+          site,
+          message(1, reactions: const [ChatReaction(emoji: 'clap', count: 2)]),
+        );
+
+        final writing = subject.chat.toggleMessageReaction(site, 1, 'clap');
+        await credentials.started.future;
+        subject.store.remove<ChatChannel>(site, 9);
+        credentialGate.complete();
+
+        expect(await writing, isNull);
+        expect(subject.api.chatReactionsSet, isEmpty);
+        expect(subject.store.read<ChatMessage>(site, 1)!.reactions, const [
+          ChatReaction(emoji: 'clap', count: 2),
+        ]);
       },
     );
 

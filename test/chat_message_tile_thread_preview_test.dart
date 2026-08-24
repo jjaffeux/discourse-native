@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
@@ -208,6 +209,44 @@ void main() {
       findsNothing,
     );
     expect(find.text('5 replies'), findsNothing);
+  });
+
+  testWidgets('reaction permissions follow live channel changes', (
+    tester,
+  ) async {
+    final controller = await _controller(
+      _message(null, reactions: const [ChatReaction(emoji: 'clap', count: 2)]),
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Add reaction'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
+      isSemantics(onTapHint: 'add this reaction'),
+    );
+
+    controller.store.put(
+      _siteUrl,
+      const ChatChannel(
+        id: 9,
+        title: 'Support',
+        kind: ChatChannelKind.category,
+        status: ChatChannelStatus.readOnly,
+        membership: ChatMembership(following: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Add reaction'), findsNothing);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
+      isSemantics(onTapHint: 'show who reacted'),
+    );
   });
 
   testWidgets('hover shows a 44 pixel action for the exact message', (
@@ -469,12 +508,14 @@ ChatMessage _message(
   ChatThreadPreview? thread, {
   int? threadId,
   DateTime? deletedAt,
+  List<ChatReaction> reactions = const [],
 }) => ChatMessage(
   id: 7,
   channelId: 9,
   cooked: '<p>Root message</p>',
   author: const ChatMessageAuthor(id: 99, username: '', name: 'Root author'),
   deletedAt: deletedAt,
+  reactions: reactions,
   threadId: threadId ?? thread?.threadId,
   thread: thread,
 );
@@ -491,6 +532,15 @@ Future<ShellController> _controller(ChatMessage message) async {
     trackers: FakeSiteTracker.reset(),
   );
   await controller.load();
+  controller.store.put(
+    _siteUrl,
+    const ChatChannel(
+      id: 9,
+      title: 'Support',
+      kind: ChatChannelKind.category,
+      membership: ChatMembership(following: true),
+    ),
+  );
   controller.store.put(_siteUrl, message);
   return controller;
 }

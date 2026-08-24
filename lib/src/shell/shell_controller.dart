@@ -5642,6 +5642,11 @@ class ShellController extends FrameSafeNotifier {
   /// rather than drawing twitter's and correcting itself.
   SiteConfig siteConfigFor(String siteUrl) => _presentation.configFor(siteUrl);
 
+  /// Waits for client settings the site actually supplied when a choice of
+  /// route or interaction cannot safely be made from defaults alone.
+  Future<SiteConfig?> resolveSiteConfig(String siteUrl) =>
+      _presentation.resolveConfig(siteUrl);
+
   /// The same, for the site on screen.
   SiteConfig get currentSiteConfig {
     final instance = currentInstance;

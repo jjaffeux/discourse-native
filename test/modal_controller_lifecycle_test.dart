@@ -492,6 +492,78 @@ void main() {
     expect(find.textContaining('Too fast'), findsNothing);
   });
 
+  testWidgets('an open reaction picker cannot act after a session change', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi();
+    final auth = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
+    final controller = _controller(
+      api: api,
+      instances: [instance('meta.example').copyWith(config: _reactionConfig())],
+      authenticator: auth,
+    );
+    await controller.load();
+    addTearDown(controller.dispose);
+
+    Future<void> openPicker(BuildContext context) =>
+        showReactionPicker(context, _siteUrl, _reactablePost());
+
+    await tester.pumpWidget(_host(controller, openPicker));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    controller.lifecycle.invalidate(_siteUrl);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(ReactionGrid),
+        matching: find.byType(InkWell),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(api.reacted, isEmpty);
+  });
+
+  testWidgets('a changed session cannot report a stale reaction error', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final api = FakeDiscourseApi(
+      reactionGate: gate,
+      reactionFailure: const WriteException(WriteFailure.rateLimited),
+    );
+    final auth = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
+    final controller = _controller(
+      api: api,
+      instances: [instance('meta.example').copyWith(config: _reactionConfig())],
+      authenticator: auth,
+    );
+    await controller.load();
+    addTearDown(controller.dispose);
+
+    Future<void> openPicker(BuildContext context) =>
+        showReactionPicker(context, _siteUrl, _reactablePost());
+
+    await tester.pumpWidget(_host(controller, openPicker));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(ReactionGrid),
+        matching: find.byType(InkWell),
+      ),
+    );
+    await tester.pump();
+    expect(api.reacted, [(postId: 1, reaction: 'heart')]);
+
+    controller.lifecycle.invalidate(_siteUrl);
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.textContaining('Too fast'), findsNothing);
+  });
+
   testWidgets('a replaced controller cannot report a stale post error', (
     tester,
   ) async {
@@ -566,6 +638,24 @@ Widget _contentHost(ShellController controller, Widget child) => ShellScope(
     home: Scaffold(body: Center(child: child)),
   ),
 );
+
+SiteConfig _reactionConfig() => SiteConfig.fromSettings(const {
+  'discourse_reactions_enabled': true,
+  'discourse_reactions_reaction_for_like': 'heart',
+  'discourse_reactions_enabled_reactions': 'heart',
+});
+
+Post _reactablePost() => Post.fromJson(const {
+  'id': 1,
+  'post_number': 1,
+  'username': 'author',
+  'cooked': '',
+  'actions_summary': [
+    {'id': Post.likeActionId, 'can_act': true},
+  ],
+  'reactions': <Object>[],
+  'reaction_users_count': 0,
+}, _siteUrl);
 
 Future<ShellController> _loadedController({
   required FakeDiscourseApi api,

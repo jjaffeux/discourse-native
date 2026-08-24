@@ -48,6 +48,7 @@ import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
+import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/empty_state.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -7973,11 +7974,13 @@ void main() {
       required List<Post> posts,
       SiteConfig? config,
       Map<String, String> customEmojis = const {},
+      List<SiteEmoji> emojis = const [],
       Map<String, PostReactors> reactorsById = const {},
       Map<int, Post> postsById = const {},
       Map<int, Post> reactionResponses = const {},
       WriteException? reactionFailure,
       Completer<void>? reactionGate,
+      Completer<void>? siteConfigGate,
     }) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
@@ -7991,9 +7994,11 @@ void main() {
           ),
         },
         siteConfigs: config == null ? const {} : {site: config},
+        siteConfigGate: siteConfigGate,
         customEmojisBySite: customEmojis.isEmpty
             ? const {}
             : {site: customEmojis},
+        emojisBySite: emojis.isEmpty ? const {} : {site: emojis},
         postsById: postsById,
         reactorsById: reactorsById,
         reactionResponses: reactionResponses,
@@ -8045,6 +8050,177 @@ void main() {
       expect(pill('7'), findsNothing);
     });
 
+    testWidgets('an existing reaction row offers another configured reaction', (
+      tester,
+    ) async {
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(reactions: [(id: 'clap', count: 2)], userCount: 2),
+        ],
+      );
+      final semantics = tester.ensureSemantics();
+      try {
+        final launcher = find.bySemanticsLabel('Add reaction');
+        expect(launcher, findsOneWidget);
+        expect(tester.getSize(launcher), const Size.square(44));
+        expect(
+          tester.getSemantics(launcher),
+          isSemantics(isButton: true, isFocusable: true, hasTapAction: true),
+        );
+
+        await tester.tap(launcher);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ReactionGrid), findsOneWidget);
+        await tester.tap(find.bySemanticsLabel('+1'));
+        await tester.pumpAndSettle();
+
+        expect(api.reacted, [(postId: 1, reaction: '+1')]);
+        expect(find.bySemanticsLabel('1 +1 reaction'), findsOneWidget);
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets('an any-emoji post reaction row opens the full picker', (
+      tester,
+    ) async {
+      final api = await openTopic(
+        tester,
+        config: SiteConfig.fromSettings(const {
+          'discourse_reactions_enabled': true,
+          'discourse_reactions_reaction_for_like': 'heart',
+          'discourse_reactions_enabled_reactions': 'clap',
+          'discourse_reactions_allow_any_emoji': true,
+        }),
+        emojis: const [
+          SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
+        ],
+        posts: [
+          post(reactions: [(id: 'clap', count: 2)], userCount: 2),
+        ],
+      );
+
+      await tester.tap(find.bySemanticsLabel('Add reaction'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EmojiPicker), findsOneWidget);
+      await tester.tap(find.byTooltip(':wave:'));
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, [(postId: 1, reaction: 'wave')]);
+      expect(find.bySemanticsLabel('1 wave reaction'), findsOneWidget);
+    });
+
+    testWidgets('the post picker waits for the site reaction policy', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      await openTopic(
+        tester,
+        config: SiteConfig.fromSettings(const {
+          'discourse_reactions_enabled': true,
+          'discourse_reactions_reaction_for_like': 'heart',
+          'discourse_reactions_enabled_reactions': 'clap',
+          'discourse_reactions_allow_any_emoji': true,
+        }),
+        emojis: const [
+          SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
+        ],
+        posts: [
+          post(reactions: [(id: 'clap', count: 2)], userCount: 2),
+        ],
+        siteConfigGate: gate,
+      );
+
+      await tester.tap(find.bySemanticsLabel('Add reaction'));
+      await tester.tap(find.bySemanticsLabel('Add reaction'));
+      await tester.pump();
+      expect(find.byType(ReactionGrid), findsNothing);
+      expect(find.byType(EmojiPicker), findsNothing);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReactionGrid), findsNothing);
+      expect(find.byType(EmojiPicker), findsOneWidget);
+    });
+
+    testWidgets('a picker cannot react after the post loses permission', (
+      tester,
+    ) async {
+      final api = await openTopic(
+        tester,
+        config: SiteConfig.fromSettings(const {
+          'discourse_reactions_enabled': true,
+          'discourse_reactions_reaction_for_like': 'heart',
+          'discourse_reactions_enabled_reactions': 'clap',
+          'discourse_reactions_allow_any_emoji': true,
+        }),
+        emojis: const [
+          SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
+        ],
+        posts: [
+          post(reactions: [(id: 'clap', count: 2)], userCount: 2),
+        ],
+      );
+      final controller = ShellScope.read(
+        tester.element(find.byType(ReactionsRow)),
+      );
+
+      await tester.tap(find.bySemanticsLabel('Add reaction'));
+      await tester.pumpAndSettle();
+      controller.store.put(
+        site,
+        post(reactions: [(id: 'clap', count: 2)], userCount: 2, canAct: false),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(ReactionPickerButton), findsNothing);
+      expect(find.byType(EmojiPicker), findsOneWidget);
+
+      await tester.tap(find.byTooltip(':wave:'));
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, isEmpty);
+    });
+
+    testWidgets('the full picker survives its last post pill disappearing', (
+      tester,
+    ) async {
+      final api = await openTopic(
+        tester,
+        config: SiteConfig.fromSettings(const {
+          'discourse_reactions_enabled': true,
+          'discourse_reactions_reaction_for_like': 'heart',
+          'discourse_reactions_enabled_reactions': 'clap',
+          'discourse_reactions_allow_any_emoji': true,
+        }),
+        emojis: const [
+          SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
+        ],
+        posts: [
+          post(reactions: [(id: 'clap', count: 1)], userCount: 1),
+        ],
+      );
+      final controller = ShellScope.read(
+        tester.element(find.byType(ReactionsRow)),
+      );
+
+      await tester.tap(find.bySemanticsLabel('Add reaction'));
+      await tester.pumpAndSettle();
+      controller.store.put(site, post());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReactionPickerButton), findsNothing);
+      expect(find.byType(EmojiPicker), findsOneWidget);
+      await tester.tap(find.byTooltip(':wave:'));
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, [(postId: 1, reaction: 'wave')]);
+    });
+
     testWidgets('a post nobody has reacted to says so by saying nothing', (
       tester,
     ) async {
@@ -8052,6 +8228,7 @@ void main() {
 
       expect(find.byType(ReactionsRow), findsOneWidget);
       expect(pill('0'), findsNothing);
+      expect(find.byType(ReactionPickerButton), findsNothing);
     });
 
     testWidgets('clicking an existing reaction adds the reader to it', (
@@ -8122,6 +8299,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ReactorList), findsOneWidget);
+      expect(find.byType(ReactionPickerButton), findsNothing);
       expect(api.reactorsRequested, [(postId: 1, filter: 'clap')]);
       expect(api.reacted, isEmpty);
     });
@@ -9867,7 +10045,9 @@ void main() {
       int mentions = 0,
       bool muted = false,
       bool starred = false,
+      bool following = true,
       bool readRestricted = false,
+      ChatChannelStatus status = ChatChannelStatus.open,
       int? lastRead,
     }) => ChatChannel(
       id: id,
@@ -9879,8 +10059,9 @@ void main() {
           ? null
           : Color(int.parse('FF$color', radix: 16)),
       readRestricted: readRestricted,
+      status: status,
       membership: ChatMembership(
-        following: true,
+        following: following,
         muted: muted,
         starred: starred,
         lastReadMessageId: lastRead,
@@ -10940,6 +11121,179 @@ void main() {
         ]);
         expect(find.bySemanticsLabel('2 heart reactions'), findsOneWidget);
         expect(find.bySemanticsLabel('3 clap reactions'), findsOneWidget);
+      });
+
+      testWidgets('an existing message reaction offers the full emoji picker', (
+        tester,
+      ) async {
+        final previousPlatform = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            user: me,
+            chatChannelsBySite: {
+              site: ChatChannels(public: [channel(9)], direct: const []),
+            },
+            chatMessagesByKey: {
+              key(9): page([
+                msg(
+                  1,
+                  reactions: const [ChatReaction(emoji: 'clap', count: 2)],
+                ),
+              ]),
+            },
+            emojisBySite: const {
+              site: [
+                SiteEmoji(
+                  name: 'wave',
+                  url: 'https://meta.discourse.org/wave.png',
+                ),
+              ],
+            },
+          );
+          await pumpChat(tester, api: api);
+          await tester.tap(sidebarDestination('Bugs'));
+          await tester.pumpAndSettle();
+
+          final launcher = find.bySemanticsLabel('Add reaction');
+          expect(launcher, findsOneWidget);
+          expect(tester.getSize(launcher), const Size.square(44));
+          final launcherRect = tester.getRect(launcher);
+          await tester.tap(launcher);
+          await tester.pumpAndSettle();
+
+          expect(find.byType(EmojiPicker), findsOneWidget);
+          final pickerRect = tester.getRect(
+            find.byKey(const ValueKey('emoji-picker-desktop-popover')),
+          );
+          expect(pickerRect.left, closeTo(launcherRect.left, 0.01));
+          expect(pickerRect.bottom, closeTo(launcherRect.top - 8, 0.01));
+          await tester.tap(find.byTooltip(':wave:'));
+          await tester.pumpAndSettle();
+
+          expect(api.chatReactionsSet, hasLength(1));
+          expect(api.chatReactionsSet.single.channelId, 9);
+          expect(api.chatReactionsSet.single.messageId, 1);
+          expect(api.chatReactionsSet.single.emoji, 'wave');
+          expect(api.chatReactionsSet.single.action, ChatReactionAction.add);
+          expect(find.bySemanticsLabel('1 wave reaction'), findsOneWidget);
+        } finally {
+          debugDefaultTargetPlatformOverride = previousPlatform;
+        }
+      });
+
+      testWidgets('the chat picker survives its last pill disappearing', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)], direct: const []),
+          },
+          chatMessagesByKey: {
+            key(9): page([
+              msg(1, reactions: const [ChatReaction(emoji: 'clap', count: 1)]),
+            ]),
+          },
+          emojisBySite: const {
+            site: [
+              SiteEmoji(
+                name: 'wave',
+                url: 'https://meta.discourse.org/wave.png',
+              ),
+            ],
+          },
+        );
+        await pumpChat(tester, api: api);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+        final controller = ShellScope.read(
+          tester.element(find.byType(ReactionPills)),
+        );
+
+        await tester.tap(find.bySemanticsLabel('Add reaction'));
+        await tester.pumpAndSettle();
+        controller.store.put(site, msg(1));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ReactionPickerButton), findsNothing);
+        expect(find.byType(EmojiPicker), findsOneWidget);
+        await tester.tap(find.byTooltip(':wave:'));
+        await tester.pumpAndSettle();
+
+        expect(api.chatReactionsSet, hasLength(1));
+        expect(api.chatReactionsSet.single.emoji, 'wave');
+        expect(api.chatReactionsSet.single.action, ChatReactionAction.add);
+      });
+
+      testWidgets('a read-only channel keeps its reaction row read-only', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9, status: ChatChannelStatus.readOnly)],
+          messages: {
+            key(9): page([
+              msg(1, reactions: const [ChatReaction(emoji: 'clap', count: 2)]),
+            ]),
+          },
+        );
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ReactionPickerButton), findsNothing);
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
+          isSemantics(onTapHint: 'show who reacted'),
+        );
+      });
+
+      testWidgets('leaving a channel still permits removing your reaction', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(
+              public: [channel(9, following: false)],
+              direct: const [],
+            ),
+          },
+          chatMessagesByKey: {
+            key(9): page([
+              msg(
+                1,
+                reactions: const [
+                  ChatReaction(emoji: 'heart', count: 2, reacted: true),
+                  ChatReaction(emoji: 'clap', count: 2),
+                ],
+              ),
+            ]),
+          },
+        );
+        await pumpChat(tester, api: api);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ReactionPickerButton), findsNothing);
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('2 heart reactions')),
+          isSemantics(onTapHint: 'remove your reaction'),
+        );
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
+          isSemantics(onTapHint: 'show who reacted'),
+        );
+
+        await tester.tap(find.bySemanticsLabel('2 heart reactions'));
+        await tester.pumpAndSettle();
+
+        expect(api.chatReactionsSet, hasLength(1));
+        expect(api.chatReactionsSet.single.action, ChatReactionAction.remove);
+        expect(api.chatReactionsSet.single.emoji, 'heart');
       });
 
       testWidgets('hovering a message reaction uses chat reactor data', (

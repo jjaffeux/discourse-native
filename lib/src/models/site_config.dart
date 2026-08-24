@@ -321,7 +321,8 @@ class SiteConfig {
   final List<String> offeredReactions;
 
   /// Whether the site lets any emoji be used, not only the offered ones. The
-  /// picker still offers the list; this says the row may hold others.
+  /// compact picker still offers the configured list; a full emoji picker may
+  /// additionally offer the site's whole catalog when this is true.
   final bool allowAnyEmoji;
 
   /// Whether the site draws its reaction picker desaturated.

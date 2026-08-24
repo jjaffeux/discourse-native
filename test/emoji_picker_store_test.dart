@@ -166,6 +166,11 @@ void main() {
       context: EmojiPickerContext.chat,
       emoji: 'heart:t2',
     );
+    await store.trackEmoji(
+      siteUrl: meta,
+      context: EmojiPickerContext.postReactions,
+      emoji: 'tada',
+    );
 
     await store.clearHistory(siteUrl: meta, context: EmojiPickerContext.topic);
 
@@ -186,7 +191,61 @@ void main() {
       ),
       ['heart:t2'],
     );
+    expect(
+      store.favoriteEmojiCodesFor(
+        siteUrl: meta,
+        context: EmojiPickerContext.postReactions,
+        catalog: _catalog(['tada']),
+      ),
+      ['tada'],
+    );
     expect(store.skinToneFor(siteUrl: meta), EmojiSkinTone.t4);
+  });
+
+  test('adding post reaction history upgrades a legacy v1 document', () async {
+    final persistence = _MemoryPersistence()
+      ..values[meta] = jsonEncode({
+        'version': 1,
+        'tone': 't5',
+        'history': {
+          'topic': ['wave'],
+          'chat': ['heart:t2'],
+        },
+      });
+    final store = EmojiPickerStore(persistence: persistence);
+
+    await store.trackEmoji(
+      siteUrl: meta,
+      context: EmojiPickerContext.postReactions,
+      emoji: 'tada',
+    );
+
+    final reloaded = EmojiPickerStore(persistence: persistence);
+    expect(await reloaded.readSkinTone(siteUrl: meta), EmojiSkinTone.t5);
+    expect(
+      await reloaded.favoriteEmojiCodes(
+        siteUrl: meta,
+        context: EmojiPickerContext.topic,
+        catalog: _catalog(['wave']),
+      ),
+      ['wave'],
+    );
+    expect(
+      await reloaded.favoriteEmojiCodes(
+        siteUrl: meta,
+        context: EmojiPickerContext.chat,
+        catalog: _catalog(['heart']),
+      ),
+      ['heart:t2'],
+    );
+    expect(
+      await reloaded.favoriteEmojiCodes(
+        siteUrl: meta,
+        context: EmojiPickerContext.postReactions,
+        catalog: _catalog(['tada']),
+      ),
+      ['tada'],
+    );
   });
 
   test('explicit t2 through t6 codes survive persistence', () async {

@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../data/emoji_picker_store.dart';
 import '../../shell/cooked_html.dart';
+import '../../shell/emoji_picker.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
@@ -13,6 +15,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../reactions/reaction_pill.dart';
+import 'chat_channel.dart';
 import 'chat_message.dart';
 import 'chat_preview.dart';
 import 'chat_preview_body.dart';
@@ -487,7 +490,20 @@ class _Reactions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final chat = ShellScope.identityOf(context).chat;
+    return ValueListenableBuilder<ChatChannel?>(
+      valueListenable: chat.channelRef(siteUrl, message.channelId),
+      builder: (context, _, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final controller = ShellScope.identityOf(context);
+    final canAdd = controller.chat.canAddReactionToMessage(siteUrl, message);
+    bool canToggle(ChatReaction reaction) => reaction.reacted
+        ? controller.chat.canRemoveReactionFromMessage(siteUrl, message)
+        : canAdd;
+
     return ReactionPills(
       key: const ValueKey('chat-reactions'),
       children: [
@@ -497,15 +513,19 @@ class _Reactions extends StatelessWidget {
             reaction: reaction.emoji,
             count: reaction.count,
             selected: reaction.reacted,
-            onTapHint: reaction.reacted
+            onTapHint: !canToggle(reaction)
+                ? 'show who reacted'
+                : reaction.reacted
                 ? 'remove your reaction'
                 : 'add this reaction',
             interactionOwner: controller,
-            onToggle: () => controller.chat.toggleMessageReaction(
-              siteUrl,
-              message.id,
-              reaction.emoji,
-            ),
+            onToggle: canToggle(reaction)
+                ? () => controller.chat.toggleMessageReaction(
+                    siteUrl,
+                    message.id,
+                    reaction.emoji,
+                  )
+                : null,
             loadReactors: () => controller.chat.loadMessageReactors(
               siteUrl: siteUrl,
               channelId: message.channelId,
@@ -519,7 +539,66 @@ class _Reactions extends StatelessWidget {
             ),
             visualKey: ValueKey('chat-reaction-${reaction.emoji}'),
           ),
+        if (canAdd)
+          ReactionPickerButton(
+            key: ValueKey('chat-reaction-picker-${message.id}'),
+            onOpenPicker: _pickReaction,
+          ),
       ],
+    );
+  }
+
+  Future<void> _pickReaction(BuildContext context) async {
+    final controller = ShellScope.read(context);
+    if (!controller.chat.canAddReactionToMessage(siteUrl, message)) return;
+    final lease = controller.lifecycle.capture(siteUrl);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+
+    final picked = await showEmojiPicker(
+      context: context,
+      siteUrl: siteUrl,
+      pickerContext: EmojiPickerContext.chat,
+      store: controller.emojiPickerStore,
+      loadCatalog: ({refresh = false}) => refresh
+          ? controller.refreshEmojiCatalog(siteUrl)
+          : controller.ensureEmojiCatalog(siteUrl),
+      loadSearchAliases: ({refresh = false}) => refresh
+          ? controller.refreshEmojiSearchAliases(siteUrl)
+          : controller.ensureEmojiSearchAliases(siteUrl),
+    );
+    if (picked == null || !lease.isCurrent) return;
+    if (context.mounted &&
+        !identical(ShellScope.maybeRead(context), controller)) {
+      return;
+    }
+    final current = controller.chat.messageRef(siteUrl, message.id).value;
+    if (current == null ||
+        !controller.chat.canAddReactionToMessage(siteUrl, current)) {
+      return;
+    }
+
+    unawaited(
+      controller.emojiPickerStore.trackEmoji(
+        siteUrl: siteUrl,
+        context: EmojiPickerContext.chat,
+        emoji: picked,
+      ),
+    );
+    unawaited(
+      controller.chat.addMessageReaction(siteUrl, message.id, picked).then((
+        error,
+      ) {
+        if (error == null ||
+            !lease.isCurrent ||
+            messenger == null ||
+            !messenger.mounted) {
+          return;
+        }
+        if (!identical(ShellScope.maybeRead(messenger.context), controller)) {
+          return;
+        }
+        messenger.showSnackBar(SnackBar(content: Text(error)));
+      }),
     );
   }
 }

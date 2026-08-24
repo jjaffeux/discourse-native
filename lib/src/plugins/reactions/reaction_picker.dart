@@ -2,31 +2,99 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../data/emoji_picker_store.dart';
+import '../../data/site_lifecycle.dart';
 import '../../models/post.dart';
 import '../../shell/emoji.dart';
+import '../../shell/emoji_picker.dart';
 import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import 'reaction.dart';
 
-/// Offers the emoji a site allows, so a reader can give one.
+/// Opens the row-level chooser for a post that already has reactions.
 ///
-/// Reached from the post's action menu, which is where the affordance for a
-/// post nobody has reacted to lives — the row underneath draws nothing until
-/// somebody has, exactly as the like count does.
-///
-/// Two surfaces. Touch gets a nested sheet, which is the case `nested` was
-/// built for: it is opened from inside the action sheet and leaves that one in
-/// place behind it. A pointer gets a modal card rather than a popup anchored to
-/// the menu button — the menu closes the instant the pointer leaves it, by
-/// design and with a comment saying so, and an anchored picker would have to
-/// reach in and suspend that. Anchoring it is worth doing; it is not worth
-/// doing by making the action menu's close rule conditional.
-Future<void> showReactionPicker(
+/// Most sites permit only their configured reaction set, which remains the
+/// compact grid used by the post menu. A site that explicitly permits any
+/// emoji gets the complete searchable catalog from the smile button instead.
+Future<void> showPostReactionPicker(
   BuildContext context,
   String siteUrl,
   Post post,
-) {
+) async {
+  final controller = ShellScope.read(context);
+  final lease = controller.lifecycle.capture(siteUrl);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final config = await controller.resolveSiteConfig(siteUrl);
+  if (!lease.isCurrent || !context.mounted) return;
+  if (!identical(ShellScope.maybeRead(context), controller)) return;
+  final current = controller.store.read<Post>(siteUrl, post.id);
+  if (current == null || !current.canReact) return;
+  if (config?.allowAnyEmoji != true) {
+    return showReactionPicker(context, siteUrl, current, nested: false);
+  }
+
+  final picked = await showEmojiPicker(
+    context: context,
+    siteUrl: siteUrl,
+    pickerContext: EmojiPickerContext.postReactions,
+    store: controller.emojiPickerStore,
+    loadCatalog: ({refresh = false}) => refresh
+        ? controller.refreshEmojiCatalog(siteUrl)
+        : controller.ensureEmojiCatalog(siteUrl),
+    loadSearchAliases: ({refresh = false}) => refresh
+        ? controller.refreshEmojiSearchAliases(siteUrl)
+        : controller.ensureEmojiSearchAliases(siteUrl),
+  );
+  if (picked == null || !lease.isCurrent) return;
+  if (context.mounted &&
+      !identical(ShellScope.maybeRead(context), controller)) {
+    return;
+  }
+  final latest = controller.store.read<Post>(siteUrl, post.id);
+  if (latest == null || !latest.canReact) return;
+
+  unawaited(
+    controller.emojiPickerStore.trackEmoji(
+      siteUrl: siteUrl,
+      context: EmojiPickerContext.postReactions,
+      emoji: picked,
+    ),
+  );
+  _report(
+    messenger,
+    controller,
+    lease,
+    controller.toggleReaction(latest, picked, siteUrl: siteUrl),
+  );
+}
+
+/// Offers the emoji a site allows, so a reader can give one.
+///
+/// Reached from the post's action menu, and from a populated row on a site that
+/// limits reactions to this configured set. The menu is where the affordance
+/// for a post nobody has reacted to lives — the row underneath draws nothing
+/// until somebody has, exactly as the like count does.
+///
+/// Two surfaces. Touch gets a sheet; the menu caller asks for a nested one so
+/// the action sheet remains behind it, while the row caller opens a top-level
+/// sheet. A pointer gets a modal card rather than a popup anchored to the menu
+/// button — the menu closes the instant the pointer leaves it, by design and
+/// with a comment saying so, and an anchored picker would have to reach in and
+/// suspend that. Anchoring it is worth doing; it is not worth doing by making
+/// the action menu's close rule conditional.
+Future<void> showReactionPicker(
+  BuildContext context,
+  String siteUrl,
+  Post post, {
+  bool nested = true,
+}) {
+  final controller = ShellScope.read(context);
+  final session = _ReactionPickerSession(
+    controller: controller,
+    lease: controller.lifecycle.capture(siteUrl),
+    storeBacked: controller.store.read<Post>(siteUrl, post.id) != null,
+  );
   final isTouch = switch (Theme.of(context).platform) {
     TargetPlatform.iOS || TargetPlatform.android => true,
     _ => false,
@@ -36,8 +104,9 @@ Future<void> showReactionPicker(
     return showShellSheet<void>(
       context: context,
       title: 'React',
-      nested: true,
-      builder: (sheetContext) => ReactionGrid(
+      nested: nested,
+      builder: (sheetContext) => ReactionGrid._withSession(
+        session,
         siteUrl: siteUrl,
         post: post,
         onPicked: Navigator.of(sheetContext).pop,
@@ -52,7 +121,8 @@ Future<void> showReactionPicker(
         constraints: const BoxConstraints(maxWidth: 340),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: ReactionGrid(
+          child: ReactionGrid._withSession(
+            session,
             siteUrl: siteUrl,
             post: post,
             onPicked: Navigator.of(dialogContext).pop,
@@ -70,6 +140,13 @@ class ReactionGrid extends StatelessWidget {
     required this.siteUrl,
     required this.post,
     required this.onPicked,
+  }) : _session = null;
+
+  const ReactionGrid._withSession(
+    this._session, {
+    required this.siteUrl,
+    required this.post,
+    required this.onPicked,
   });
 
   /// Wide enough to read as a palette rather than a list, narrow enough that
@@ -82,6 +159,7 @@ class ReactionGrid extends StatelessWidget {
   final String siteUrl;
   final Post post;
   final VoidCallback onPicked;
+  final _ReactionPickerSession? _session;
 
   @override
   Widget build(BuildContext context) {
@@ -93,9 +171,14 @@ class ReactionGrid extends StatelessWidget {
 
   Widget _buildGrid(BuildContext context) {
     final theme = Theme.of(context);
-    final controller = ShellScope.read(context);
-    final config = controller.siteConfigFor(siteUrl);
-    final held = post.reactions?.mine?.id;
+    final presentationController = ShellScope.read(context);
+    final interactionController =
+        _session?.controller ?? presentationController;
+    final config = presentationController.siteConfigFor(siteUrl);
+    final storedPost = interactionController.store.read<Post>(siteUrl, post.id);
+    final storeBacked = _session?.storeBacked ?? storedPost != null;
+    final current = storedPost ?? (storeBacked ? null : post);
+    final held = current?.reactions?.mine?.id;
 
     // Empty until the site's settings have landed, and on a site that would not
     // answer for them. Saying so is better than an empty box that reads as a
@@ -118,14 +201,39 @@ class ReactionGrid extends StatelessWidget {
         for (final id in config.offeredReactions)
           _ReactionCell(
             id: id,
-            url: controller.emojiUrlFor(siteUrl, id),
+            url: presentationController.emojiUrlFor(siteUrl, id),
             held: id == held,
             onTap: () {
+              final messenger = ScaffoldMessenger.maybeOf(context);
+              final lease =
+                  _session?.lease ??
+                  interactionController.lifecycle.capture(siteUrl);
+              final stillOwnsInteraction =
+                  lease.isCurrent &&
+                  identical(
+                    ShellScope.maybeRead(context),
+                    interactionController,
+                  );
               onPicked();
+              if (!stillOwnsInteraction) return;
+              final latest = interactionController.store.read<Post>(
+                siteUrl,
+                post.id,
+              );
+              // A standalone grid can be handed a post directly. A grid that
+              // started from the identity map must not resurrect that post if
+              // a live update removes it while the dialog is open.
+              final target = latest ?? (storeBacked ? null : post);
+              if (target == null || !target.canReact) return;
               _report(
-                context,
-                controller,
-                controller.toggleReaction(post, id, siteUrl: siteUrl),
+                messenger,
+                interactionController,
+                lease,
+                interactionController.toggleReaction(
+                  target,
+                  id,
+                  siteUrl: siteUrl,
+                ),
               );
             },
           ),
@@ -146,23 +254,40 @@ class ReactionGrid extends StatelessWidget {
       child: grid,
     );
   }
+}
 
-  static void _report(
-    BuildContext context,
-    ShellController controller,
-    Future<String?> work,
-  ) {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    unawaited(
-      work.then((error) {
-        if (error == null || messenger == null || !messenger.mounted) return;
-        if (!identical(ShellScope.maybeRead(messenger.context), controller)) {
-          return;
-        }
-        messenger.showSnackBar(SnackBar(content: Text(error)));
-      }),
-    );
-  }
+void _report(
+  ScaffoldMessengerState? messenger,
+  ShellController controller,
+  SiteLease lease,
+  Future<String?> work,
+) {
+  unawaited(
+    work.then((error) {
+      if (error == null ||
+          !lease.isCurrent ||
+          messenger == null ||
+          !messenger.mounted) {
+        return;
+      }
+      if (!identical(ShellScope.maybeRead(messenger.context), controller)) {
+        return;
+      }
+      messenger.showSnackBar(SnackBar(content: Text(error)));
+    }),
+  );
+}
+
+final class _ReactionPickerSession {
+  const _ReactionPickerSession({
+    required this.controller,
+    required this.lease,
+    required this.storeBacked,
+  });
+
+  final ShellController controller;
+  final SiteLease lease;
+  final bool storeBacked;
 }
 
 class _ReactionCell extends StatelessWidget {

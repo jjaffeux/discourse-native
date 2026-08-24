@@ -483,6 +483,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.siteAppearances = const {},
     this.appearanceGate,
     this.siteConfigs = const {},
+    this.siteConfigGate,
     this.gifCategoriesBySite = const {},
     this.gifSearchPages = const {},
     this.gifFailure,
@@ -708,6 +709,7 @@ class FakeDiscourseApi implements DiscourseApi {
   /// settings are gets a site drawn as plain core, which is what every test
   /// that is not about an optional feature wants to see.
   final Map<String, SiteConfig> siteConfigs;
+  final Completer<void>? siteConfigGate;
 
   /// Featured categories and cursor pages returned by the GIF proxy.
   final Map<String, List<GifCategory>> gifCategoriesBySite;
@@ -1274,6 +1276,7 @@ class FakeDiscourseApi implements DiscourseApi {
     String? clientId,
   }) async {
     siteConfigsRequested.add(siteUrl);
+    await siteConfigGate?.future;
     final config = siteConfigs[siteUrl];
     if (config == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
