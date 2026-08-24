@@ -246,6 +246,11 @@ void main() {
       );
       probe('TopicTagSearch', () => TopicTagSearch.fromJson(json), json);
       probe('TopicTag', () => TopicTag.parse(loose), loose);
+      probe(
+        'TopicNotificationLevel',
+        () => TopicNotificationLevel.fromJson(loose),
+        loose,
+      );
 
       probe('ChatUser', () => ChatUser.fromJson(json, site), json);
       probe('ChatMembership', () => ChatMembership.fromJson(loose), loose);

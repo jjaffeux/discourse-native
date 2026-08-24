@@ -5,6 +5,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -108,12 +109,40 @@ void main() {
         )
         .map((container) => container.decoration)
         .whereType<BoxDecoration>()
+        .where(
+          (decoration) =>
+              decoration.border ==
+              Border.all(color: theme.colorScheme.surfaceContainerHigh),
+        )
         .single;
     expect(floatingDecoration.color, theme.colorScheme.surfaceContainerLow);
     expect(
       floatingDecoration.border,
       Border.all(color: theme.colorScheme.surfaceContainerHigh),
     );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(floatingFirst));
+    await tester.pump();
+
+    final hoveredDecoration = tester
+        .widgetList<Container>(
+          find.descendant(of: floatingFirst, matching: find.byType(Container)),
+        )
+        .map((container) => container.decoration)
+        .whereType<BoxDecoration>()
+        .where(
+          (decoration) =>
+              decoration.border ==
+              Border.all(color: theme.colorScheme.surfaceContainerHigh),
+        )
+        .single;
+    expect(hoveredDecoration.color, theme.shell.hover);
+
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
+
     final floatingFirstSemantics = find.bySemanticsLabel(
       'Go to start of 2 January 2020',
     );

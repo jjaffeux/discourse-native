@@ -2292,6 +2292,9 @@ class ShellController extends FrameSafeNotifier {
   final Set<String> _topicsStale = {};
   final Set<String> _postsLoading = {};
   final Set<String> _earlierPostsLoading = {};
+  final Map<String, int> _topicNotificationRevisions = {};
+  final Map<String, Future<void>> _topicNotificationTails = {};
+  final Map<String, TopicNotificationLevel> _topicNotificationConfirmed = {};
 
   static String _topicKey(String siteUrl, int topicId) => '$siteUrl#$topicId';
 
@@ -2913,6 +2916,143 @@ class ShellController extends FrameSafeNotifier {
           .withPlugins(detail.plugins),
     );
     return detail;
+  }
+
+  /// Changes how closely the current account follows one topic.
+  ///
+  /// The selected level is painted immediately. Writes for one topic are
+  /// serialized, and a newer selection supersedes an older one that has not
+  /// reached the server yet. If the latest write fails, the last confirmed
+  /// level is restored.
+  Future<bool> updateTopicNotificationLevel(
+    String siteUrl,
+    int topicId,
+    TopicNotificationLevel level,
+  ) {
+    if (isDisposed || topicId <= 0) return Future.value(false);
+    final held = store.read<TopicDetail>(siteUrl, topicId);
+    if (held == null) return Future.value(false);
+
+    final key = _topicKey(siteUrl, topicId);
+    if (held.notificationLevel == level &&
+        !_topicNotificationTails.containsKey(key)) {
+      return Future.value(true);
+    }
+    _topicNotificationConfirmed.putIfAbsent(key, () => held.notificationLevel);
+    final revision = (_topicNotificationRevisions[key] ?? 0) + 1;
+    _topicNotificationRevisions[key] = revision;
+    store.update<TopicDetail>(
+      siteUrl,
+      topicId,
+      (topic) => topic.withNotificationLevel(level),
+    );
+    _notify();
+
+    final write = _QueuedTopicNotification(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      level: level,
+      revision: revision,
+      lease: lifecycle.capture(siteUrl),
+    );
+    final previousTail = _topicNotificationTails[key] ?? Future.value();
+    late final Future<void> tail;
+    tail = previousTail
+        .catchError((_) {
+          // Every write settles internally. Keep one unexpected failure from
+          // stranding later selections in the queue.
+        })
+        .then((_) => _performTopicNotificationWrite(key, write))
+        .whenComplete(() {
+          if (!identical(_topicNotificationTails[key], tail)) return;
+          final _ = _topicNotificationTails.remove(key);
+          _topicNotificationRevisions.remove(key);
+          _topicNotificationConfirmed.remove(key);
+        });
+    _topicNotificationTails[key] = tail;
+    unawaited(tail);
+    return write.result.future;
+  }
+
+  Future<void> _performTopicNotificationWrite(
+    String key,
+    _QueuedTopicNotification write,
+  ) async {
+    bool isLatest() =>
+        _topicNotificationRevisions[key] == write.revision &&
+        write.lease.isCurrent &&
+        !isDisposed;
+
+    if (!isLatest()) {
+      write.complete(false);
+      return;
+    }
+
+    try {
+      final credential = await _credentialForWrite(write.siteUrl);
+      if (!isLatest()) {
+        write.complete(false);
+        return;
+      }
+      if (credential.failure != null) {
+        _rollbackTopicNotification(key, write);
+        write.complete(false);
+        return;
+      }
+      final clientId = await authenticator.clientId();
+      if (!isLatest()) {
+        write.complete(false);
+        return;
+      }
+      await api.updateTopicNotificationLevel(
+        siteUrl: write.siteUrl,
+        apiKey: credential.apiKey!,
+        topicId: write.topicId,
+        notificationLevel: write.level,
+        clientId: clientId,
+      );
+      if (!write.lease.isCurrent || isDisposed) {
+        write.complete(false);
+        return;
+      }
+      _topicNotificationConfirmed[key] = write.level;
+      if (isLatest()) {
+        write.lease.commit(() {
+          store.update<TopicDetail>(
+            write.siteUrl,
+            write.topicId,
+            (topic) => topic.withNotificationLevel(write.level),
+          );
+          _notify();
+        });
+      }
+      write.complete(true);
+    } catch (error, stackTrace) {
+      if (write.lease.isCurrent && !isDisposed) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'topic.updateNotificationLevel',
+          severity: DiagnosticSeverity.warning,
+        );
+        if (isLatest()) _rollbackTopicNotification(key, write);
+      }
+      write.complete(false);
+    }
+  }
+
+  void _rollbackTopicNotification(String key, _QueuedTopicNotification write) {
+    if (!write.lease.isCurrent || isDisposed) return;
+    final confirmed = _topicNotificationConfirmed[key];
+    if (confirmed == null) return;
+    write.lease.commit(() {
+      store.update<TopicDetail>(
+        write.siteUrl,
+        write.topicId,
+        (topic) => topic.withNotificationLevel(confirmed),
+      );
+      _notify();
+    });
   }
 
   /// Credits the reader through the farthest post the viewport has shown.
@@ -6464,6 +6604,15 @@ class ShellController extends FrameSafeNotifier {
     _topicsStale.removeWhere((key) => key.startsWith('$siteUrl#'));
     _postsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _earlierPostsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _topicNotificationRevisions.removeWhere(
+      (key, _) => key.startsWith('$siteUrl#'),
+    );
+    _topicNotificationTails.removeWhere(
+      (key, _) => key.startsWith('$siteUrl#'),
+    );
+    _topicNotificationConfirmed.removeWhere(
+      (key, _) => key.startsWith('$siteUrl#'),
+    );
     _topicReads.forget(siteUrl);
 
     _categorised.remove(siteUrl);
@@ -6988,6 +7137,9 @@ class ShellController extends FrameSafeNotifier {
     if (_tabSelectionPersistencePending || _anchorPersistencePending) {
       _persistWorkspaces();
     }
+    _topicNotificationRevisions.clear();
+    _topicNotificationTails.clear();
+    _topicNotificationConfirmed.clear();
     _topicReads.dispose();
     for (final instance in _instances) {
       lifecycle.invalidate(instance.url);
@@ -7012,5 +7164,26 @@ class ShellController extends FrameSafeNotifier {
     _trackers.clear();
     if (ownsApi) api.close();
     super.dispose();
+  }
+}
+
+final class _QueuedTopicNotification {
+  _QueuedTopicNotification({
+    required this.siteUrl,
+    required this.topicId,
+    required this.level,
+    required this.revision,
+    required this.lease,
+  });
+
+  final String siteUrl;
+  final int topicId;
+  final TopicNotificationLevel level;
+  final int revision;
+  final SiteLease lease;
+  final Completer<bool> result = Completer<bool>();
+
+  void complete(bool succeeded) {
+    if (!result.isCompleted) result.complete(succeeded);
   }
 }

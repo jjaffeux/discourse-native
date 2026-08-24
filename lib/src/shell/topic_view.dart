@@ -26,6 +26,7 @@ import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'small_action.dart';
+import 'stream_day_separator.dart';
 import 'time_gap.dart';
 import 'topic_list_view.dart';
 import 'user_card.dart';
@@ -420,8 +421,8 @@ class _TopicViewState extends State<TopicView> {
     var offset = 0.0;
     if (nextIndex < _laidOutDayStarts.length) {
       final nextTop = topOf(_laidOutDayStarts[nextIndex]);
-      if (nextTop < _TopicDaySeparator.height) {
-        offset = nextTop - _TopicDaySeparator.height;
+      if (nextTop < StreamDaySeparator.height) {
+        offset = nextTop - StreamDaySeparator.height;
       }
     }
     _setFloatingDay(current.day, offset);
@@ -1100,7 +1101,7 @@ class _TopicViewState extends State<TopicView> {
                   left: 0,
                   right: 0,
                   top: _floatingDayOffset,
-                  child: _TopicDaySeparator(
+                  child: StreamDaySeparator(
                     key: ValueKey(('topic-floating-day', floatingDay)),
                     day: floatingDay,
                     floating: true,
@@ -1645,7 +1646,7 @@ class _TopicPostItem extends StatelessWidget {
             ignoring: hideDay,
             child: Opacity(
               opacity: hideDay ? 0 : 1,
-              child: _TopicDaySeparator(
+              child: StreamDaySeparator(
                 key: ValueKey(('topic-day', day)),
                 day: day,
                 onTap: onDayTap!,
@@ -1659,102 +1660,6 @@ class _TopicPostItem extends StatelessWidget {
           ),
         child,
       ],
-    );
-  }
-}
-
-/// The date line in the stream and the bordered pill it becomes once pinned.
-class _TopicDaySeparator extends StatelessWidget {
-  const _TopicDaySeparator({
-    super.key,
-    required this.day,
-    required this.onTap,
-    this.floating = false,
-  });
-
-  static const double height = 44;
-
-  final DateTime day;
-  final VoidCallback onTap;
-  final bool floating;
-
-  String get _label => dayLabel(day, now: DateTime.now());
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final label = _label;
-    // Core's pinned date uses primary-50 against a primary-200 border. The
-    // matching Material roles preserve that contrast for each site palette.
-    final background = floating
-        ? theme.colorScheme.surfaceContainerLow
-        : theme.shell.content;
-
-    return SizedBox(
-      height: height,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (!floating)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Divider(height: 1, color: theme.shell.divider),
-            ),
-          Semantics(
-            button: true,
-            label: 'Go to start of $label',
-            onTap: onTap,
-            excludeSemantics: true,
-            child: Tooltip(
-              message: 'Go to start of $label',
-              excludeFromSemantics: true,
-              child: Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(4),
-                  onTap: onTap,
-                  child: SizedBox(
-                    height: height,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: background,
-                          border: Border.all(
-                            color: floating
-                                ? theme.colorScheme.surfaceContainerHigh
-                                : Colors.transparent,
-                          ),
-                          borderRadius: BorderRadius.circular(4),
-                          boxShadow: floating
-                              ? const [
-                                  BoxShadow(
-                                    color: Color(0x1F000000),
-                                    blurRadius: 3,
-                                    offset: Offset(0, 1),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: Text(
-                          label,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
