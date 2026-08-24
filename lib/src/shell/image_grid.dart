@@ -137,9 +137,9 @@ class ImageGridData {
   static List<dom.Element> _prepareItems(dom.Element grid) {
     final targets = <dom.Element>[];
 
-    for (final child in grid.children) {
-      if (child.localName == 'p' && child.children.isNotEmpty) {
-        for (final nested in child.children) {
+    for (final child in childElements(grid)) {
+      if (child.localName == 'p') {
+        for (final nested in childElements(child)) {
           if (nested.localName != 'br' && nested.localName != 'p') {
             targets.add(nested);
           }

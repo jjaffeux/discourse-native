@@ -50,7 +50,7 @@ class CodeBlockData {
   /// A git blob onebox: one `<li>` per line, numbered from `start`.
   static List<CodeLine> _numbered(dom.Element ol) {
     final start = int.tryParse(ol.attributes['start'] ?? '');
-    final items = ol.children.where((e) => e.localName == 'li').toList();
+    final items = childrenWhere(ol, (e) => e.localName == 'li');
 
     return [
       for (final (index, li) in items.indexed)

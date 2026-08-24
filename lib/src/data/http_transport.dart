@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../diagnostics/diagnostics_redactor.dart';
+import '../foundation/loopback_host.dart';
 
 /// A URL that cannot safely carry a Discourse API request.
 final class UnsafeHttpTransportException implements Exception {
@@ -45,7 +46,7 @@ Uri requireSafeHttpUrl(Uri url) {
     }
   }
   if (url.scheme == 'https') return url;
-  if (url.scheme == 'http' && _isLoopbackHost(url.host)) return url;
+  if (url.scheme == 'http' && isLoopbackHost(url.host)) return url;
 
   throw UnsafeHttpTransportException(url);
 }
@@ -57,24 +58,6 @@ Uri resolveSafeHttpRedirect(Uri source, String location) {
     throw UnsafeHttpTransportException(target);
   }
   return requireSafeHttpUrl(target);
-}
-
-bool _isLoopbackHost(String host) {
-  var normalized = host.toLowerCase();
-  if (normalized.endsWith('.')) {
-    normalized = normalized.substring(0, normalized.length - 1);
-  }
-
-  if (normalized == 'localhost' ||
-      normalized.endsWith('.localhost') ||
-      normalized == '::1') {
-    return true;
-  }
-
-  final octets = normalized.split('.').map(int.tryParse).toList();
-  return octets.length == 4 &&
-      octets.every((octet) => octet != null && octet >= 0 && octet <= 255) &&
-      octets.first == 127;
 }
 
 /// Enforces transport safety at the final request boundary and refuses

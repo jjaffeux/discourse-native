@@ -93,7 +93,8 @@ pin, the lockfile, and the README's Requirements line must move together.
   is serialized and committed), `data/serial_operation_queue.dart` (how reads
   observe already-accepted preference writes), `data/origin_request_gate.dart`
   (how per-origin concurrency, bounded backlogs, cooldown policies, leases, and
-  shutdown are coordinated),
+  shutdown are coordinated), `foundation/loopback_host.dart` (which hosts may
+  use plaintext development transports),
   `plugins/chat/chat_message_timeline.dart` (how canonical chat-message ids are
   merged across pages, live arrivals, and the seam back to the present),
   `plugins/resenha/resenha_diagnostics_report.dart` (how ordinary and deep

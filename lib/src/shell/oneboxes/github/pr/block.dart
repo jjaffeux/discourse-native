@@ -213,15 +213,13 @@ class GithubPullRequestData {
     final article =
         descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
         aside;
-    final rows = article.children
-        .where((e) => e.classes.contains('github-row'))
-        .toList();
-    final row = rows.isNotEmpty ? rows.first : article;
+    final row =
+        childWhere(article, (e) => e.classes.contains('github-row')) ?? article;
 
-    final titleLink = descendantWhere(
-      row,
-      (e) => e.localName == 'h4',
-    )?.children.where((e) => e.localName == 'a').firstOrNull;
+    final titleHeading = descendantWhere(row, (e) => e.localName == 'h4');
+    final titleLink = titleHeading == null
+        ? null
+        : childWhere(titleHeading, (e) => e.localName == 'a');
 
     final iconContainer = descendantWhere(
       row,
@@ -233,7 +231,7 @@ class GithubPullRequestData {
     );
     final codes = branches == null
         ? <dom.Element>[]
-        : branches.children.where((e) => e.localName == 'code').toList();
+        : childrenWhere(branches, (e) => e.localName == 'code');
 
     final info = descendantWhere(row, (e) => e.classes.contains('github-info'));
     final dateEl = info == null
