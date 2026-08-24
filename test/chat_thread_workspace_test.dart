@@ -173,10 +173,7 @@ void main() {
                 find.descendant(of: border, matching: find.byType(ColoredBox)),
               )
               .color,
-          Color.alphaBlend(
-            theme.colorScheme.onSurface.withValues(alpha: 0.12),
-            theme.shell.divider,
-          ),
+          theme.shell.divider,
         );
         final node = tester.getSemantics(divider);
         final data = node.getSemanticsData();

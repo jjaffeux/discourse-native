@@ -233,11 +233,7 @@ class _ThreadPaneDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final divider = Color.alphaBlend(
-      theme.colorScheme.onSurface.withValues(alpha: 0.12),
-      theme.shell.divider,
-    );
+    final divider = Theme.of(context).shell.divider;
     final canIncrease = width < maximumWidth;
     final canDecrease = width > minimumWidth;
     final increasedWidth = (width + 24).clamp(minimumWidth, maximumWidth);
