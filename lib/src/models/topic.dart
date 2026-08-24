@@ -26,6 +26,7 @@ class Topic with Storable<Topic> {
     this.bumpedAt,
     this.pinned = false,
     this.closed = false,
+    this.bookmarked = false,
     this.unreadPosts = 0,
     this.newPosts = 0,
     this.seen = true,
@@ -75,6 +76,7 @@ class Topic with Storable<Topic> {
       bumpedAt: jsonDate(json['bumped_at']),
       pinned: json['pinned'] == true,
       closed: json['closed'] == true,
+      bookmarked: json['bookmarked'] == true,
       unreadPosts: jsonInt(json['unread_posts']),
       newPosts: jsonInt(json['new_posts']),
       seen: json['unseen'] != true,
@@ -121,6 +123,7 @@ class Topic with Storable<Topic> {
   final DateTime? bumpedAt;
   final bool pinned;
   final bool closed;
+  final bool bookmarked;
 
   /// Posts the user has not read. Zero when signed out.
   final int unreadPosts;
@@ -217,6 +220,7 @@ class Topic with Storable<Topic> {
     List<TopicTag>? tags,
     List<String>? posterAvatars,
     PluginData? plugins,
+    bool? bookmarked,
     bool markRead = false,
   }) => Topic(
     id: id,
@@ -230,6 +234,7 @@ class Topic with Storable<Topic> {
     bumpedAt: bumpedAt,
     pinned: pinned,
     closed: closed,
+    bookmarked: bookmarked ?? this.bookmarked,
     unreadPosts: markRead ? 0 : unreadPosts,
     newPosts: markRead ? 0 : newPosts,
     seen: markRead ? true : seen,
@@ -262,6 +267,7 @@ class Topic with Storable<Topic> {
     bumpedAt: bumpedAt,
     pinned: pinned,
     closed: closed,
+    bookmarked: bookmarked,
     unreadPosts: unreadPosts,
     newPosts: newPosts,
     seen: seen,
@@ -289,6 +295,7 @@ class Topic with Storable<Topic> {
           other.bumpedAt == bumpedAt &&
           other.pinned == pinned &&
           other.closed == closed &&
+          other.bookmarked == bookmarked &&
           other.unreadPosts == unreadPosts &&
           other.newPosts == newPosts &&
           other.seen == seen &&
@@ -313,6 +320,7 @@ class Topic with Storable<Topic> {
     bumpedAt,
     pinned,
     closed,
+    bookmarked,
     unreadPosts,
     newPosts,
     seen,

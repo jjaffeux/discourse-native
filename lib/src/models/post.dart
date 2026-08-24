@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
 import '../plugins/plugin_data.dart';
+import 'bookmark.dart';
 import 'composer_draft.dart';
 import 'json.dart';
 import 'topic.dart';
@@ -33,6 +34,7 @@ class Post with Storable<Post> {
     this.canLike = false,
     this.canUnlike = false,
     this.raw,
+    this.bookmark,
     this.plugins = PluginData.none,
   });
 
@@ -90,6 +92,7 @@ class Post with Storable<Post> {
       // Only present when asked for. Reading needs the cooked HTML; writing
       // needs this, because it is the thing that was actually typed.
       raw: jsonText(json['raw']),
+      bookmark: Bookmark.fromPostJson(json),
       // Whatever the site's optional features had to say about this post, which
       // on a site running plain core is nothing at all.
       plugins: extensions.readPost(json, siteUrl),
@@ -190,6 +193,9 @@ class Post with Storable<Post> {
   /// needs the source until something wants to compare or edit it.
   final String? raw;
 
+  /// This reader's bookmark on the post, including its reminder metadata.
+  final Bookmark? bookmark;
+
   /// What the site's optional features said about this post, keyed by the type
   /// each of them answers with, through its stable typed key.
   ///
@@ -270,6 +276,11 @@ class Post with Storable<Post> {
   /// it tests.
   Post withPluginsOf(Post other) => copyWith(plugins: other.plugins);
 
+  Post withBookmark(Bookmark? next) =>
+      copyWith(bookmark: next, clearBookmark: next == null);
+
+  Post withBookmarkOf(Post other) => withBookmark(other.bookmark);
+
   /// Only the fields anything here has reason to change. Everything else is
   /// the site's to say, and is carried across untouched.
   Post copyWith({
@@ -278,6 +289,8 @@ class Post with Storable<Post> {
     bool? liked,
     bool? canLike,
     bool? canUnlike,
+    Bookmark? bookmark,
+    bool clearBookmark = false,
     PluginData? plugins,
   }) => Post(
     id: id,
@@ -303,6 +316,7 @@ class Post with Storable<Post> {
     canLike: canLike ?? this.canLike,
     canUnlike: canUnlike ?? this.canUnlike,
     raw: raw ?? this.raw,
+    bookmark: clearBookmark ? null : (bookmark ?? this.bookmark),
     plugins: plugins ?? this.plugins,
   );
 
@@ -333,6 +347,7 @@ class Post with Storable<Post> {
           other.canLike == canLike &&
           other.canUnlike == canUnlike &&
           other.raw == raw &&
+          other.bookmark == bookmark &&
           other.plugins == plugins;
 
   @override
@@ -360,6 +375,7 @@ class Post with Storable<Post> {
     canLike,
     canUnlike,
     raw,
+    bookmark,
     plugins,
   ]);
 }
@@ -404,6 +420,7 @@ class TopicDetail with Storable<TopicDetail> {
     this.archived = false,
     this.draft,
     this.draftSequence = 0,
+    this.bookmarks = const [],
     this.recommendations,
     this.plugins = PluginData.none,
   });
@@ -452,6 +469,10 @@ class TopicDetail with Storable<TopicDetail> {
         // composer needs no request of its own.
         draft: ComposerDraft.decode(json['draft']),
         draftSequence: jsonInt(json['draft_sequence']),
+        bookmarks: List.unmodifiable([
+          for (final bookmark in jsonObjects(json['bookmarks']))
+            Bookmark.fromJson(bookmark),
+        ]),
         recommendations: TopicRecommendations.fromJson(
           json,
           siteUrl,
@@ -491,6 +512,22 @@ class TopicDetail with Storable<TopicDetail> {
 
   /// What the next draft save must be sequenced against.
   final int draftSequence;
+
+  /// Every bookmark this reader owns in the topic, including unloaded posts.
+  final List<Bookmark> bookmarks;
+
+  Bookmark? get topicBookmark => bookmarks
+      .where((bookmark) => bookmark.coreTargetType == BookmarkTargetType.topic)
+      .firstOrNull;
+
+  List<Bookmark> get postBookmarks => List.unmodifiable(
+    bookmarks
+        .where((bookmark) => bookmark.coreTargetType == BookmarkTargetType.post)
+        .toList()
+      ..sort((a, b) => (a.postNumber ?? 0).compareTo(b.postNumber ?? 0)),
+  );
+
+  bool get hasBookmarks => bookmarks.isNotEmpty;
 
   /// The lists Discourse places after the final post. Null means this response
   /// was not the final post window and therefore had nothing to say about them.
@@ -539,6 +576,28 @@ class TopicDetail with Storable<TopicDetail> {
   TopicDetail withRecommendations(TopicRecommendations recommendations) =>
       copyWith(recommendations: recommendations);
 
+  TopicDetail withBookmark(Bookmark bookmark) => copyWith(
+    bookmarks: [
+      for (final held in bookmarks)
+        if (held.id != bookmark.id &&
+            !(held.bookmarkableId == bookmark.bookmarkableId &&
+                held.bookmarkableType == bookmark.bookmarkableType))
+          held,
+      bookmark,
+    ],
+  );
+
+  TopicDetail withoutBookmark(int bookmarkId) => copyWith(
+    bookmarks: bookmarks
+        .where((bookmark) => bookmark.id != bookmarkId)
+        .toList(),
+  );
+
+  TopicDetail withoutBookmarks() => copyWith(bookmarks: const []);
+
+  TopicDetail withBookmarksOf(TopicDetail other) =>
+      copyWith(bookmarks: other.bookmarks);
+
   /// The topic with one complete optional-feature snapshot.
   TopicDetail withPlugins(PluginData next) => TopicDetail(
     id: id,
@@ -553,6 +612,7 @@ class TopicDetail with Storable<TopicDetail> {
     archived: archived,
     draft: draft,
     draftSequence: draftSequence,
+    bookmarks: bookmarks,
     recommendations: recommendations,
     plugins: next,
   );
@@ -588,6 +648,7 @@ class TopicDetail with Storable<TopicDetail> {
     ComposerDraft? draft,
     bool clearDraft = false,
     int? draftSequence,
+    List<Bookmark>? bookmarks,
     bool? archived,
     int? categoryId,
     bool clearCategory = false,
@@ -609,6 +670,9 @@ class TopicDetail with Storable<TopicDetail> {
     archived: archived ?? this.archived,
     draft: clearDraft ? null : (draft ?? this.draft),
     draftSequence: draftSequence ?? this.draftSequence,
+    bookmarks: bookmarks == null
+        ? this.bookmarks
+        : List.unmodifiable(bookmarks),
     recommendations: recommendations ?? this.recommendations,
     plugins: plugins ?? this.plugins,
   );
@@ -629,6 +693,7 @@ class TopicDetail with Storable<TopicDetail> {
           other.archived == archived &&
           other.draft == draft &&
           other.draftSequence == draftSequence &&
+          listEquals(other.bookmarks, bookmarks) &&
           other.recommendations == recommendations &&
           other.plugins == plugins;
 
@@ -646,6 +711,7 @@ class TopicDetail with Storable<TopicDetail> {
     archived,
     draft,
     draftSequence,
+    Object.hashAll(bookmarks),
     recommendations,
     plugins,
   );

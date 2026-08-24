@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/bookmark.dart';
 import '../models/post.dart';
 import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import 'bookmark_ui.dart';
 import 'platform.dart';
 import 'post_action.dart';
 import 'shell_controller.dart';
@@ -157,6 +161,7 @@ class _PostActionsState extends State<PostActions> {
   /// payload, so it too is an answer the site gave.
   List<PostAction> _actions(BuildContext context, ShellController controller) {
     final post = widget.post;
+    final topic = controller.currentTopic;
     final registry = PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
     final contribution = registry.postMenu(context, widget.siteUrl, post);
 
@@ -177,6 +182,35 @@ class _PostActionsState extends State<PostActions> {
           onInvoke: () => _report(
             controller,
             controller.toggleLike(post, siteUrl: widget.siteUrl),
+          ),
+        ),
+      if (controller.currentInstance?.url == widget.siteUrl &&
+          controller.currentInstance?.user != null &&
+          topic != null)
+        PostAction(
+          icon: switch (post.bookmark?.reminderAt) {
+            final DateTime _ => DIcons.discourseBookmarkClock,
+            null when post.bookmark != null => DIcons.bookmark,
+            null => DIcons.farBookmark,
+          },
+          label: post.bookmark == null ? 'Bookmark' : 'Edit bookmark',
+          tooltip: post.bookmark == null
+              ? 'Bookmark this post'
+              : 'Edit this post bookmark',
+          enabled: !controller.bookmarkWriteInFlight(
+            siteUrl: widget.siteUrl,
+            topicId: topic.id,
+            targetType: BookmarkTargetType.post,
+            targetId: post.id,
+          ),
+          onInvoke: () => unawaited(
+            showPostBookmarkMenu(
+              context: context,
+              controller: controller,
+              siteUrl: widget.siteUrl,
+              topicId: topic.id,
+              post: post,
+            ),
           ),
         ),
       if (_postShareUrl(controller) case final url?)
@@ -304,12 +338,15 @@ class _PostActionsState extends State<PostActions> {
               ),
               title: Text(action.label),
               contentPadding: EdgeInsets.zero,
-              onTap: () {
-                // Closed first: the composer an action opens must not arrive
-                // under the sheet it was reached from.
-                Navigator.of(sheetContext).pop();
-                action.onInvoke();
-              },
+              enabled: action.enabled,
+              onTap: action.enabled
+                  ? () {
+                      // Closed first: the composer an action opens must not arrive
+                      // under the sheet it was reached from.
+                      Navigator.of(sheetContext).pop();
+                      action.onInvoke();
+                    }
+                  : null,
             ),
         ],
       ),
@@ -326,10 +363,21 @@ class _PostActionsState extends State<PostActions> {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<({bool canReply, Object presentation})>(
+    return ShellSelector<
+      ({bool canReply, Object presentation, bool bookmarkBusy})
+    >(
       select: (controller) => (
         canReply: controller.canReplyHere,
         presentation: controller.presentationTokenFor(widget.siteUrl),
+        bookmarkBusy: switch (controller.currentTopic) {
+          final topic? => controller.bookmarkWriteInFlight(
+            siteUrl: widget.siteUrl,
+            topicId: topic.id,
+            targetType: BookmarkTargetType.post,
+            targetId: widget.post.id,
+          ),
+          null => false,
+        },
       ),
       builder: (context, _, child) => _buildActions(context),
     );
@@ -441,7 +489,7 @@ class _PostActionsMenu extends StatelessWidget {
               for (final (index, action) in actions.indexed)
                 IconButton(
                   focusNode: index == 0 ? firstActionFocus : null,
-                  onPressed: () => onInvoke(action),
+                  onPressed: action.enabled ? () => onInvoke(action) : null,
                   icon: action.leading(context, size: 17),
                   tooltip: action.tooltip,
                   constraints: const BoxConstraints.tightFor(

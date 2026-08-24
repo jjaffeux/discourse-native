@@ -50,6 +50,7 @@ class SiteConfig {
     this.defaultNavigationMenuCategoryIds = const [],
     this.badgesEnabled = true,
     this.allowUsernameInShareLinks = true,
+    this.suggestWeekendsInDatePickers = true,
     this.resenha = const ResenhaClientConfig(),
   });
 
@@ -183,6 +184,8 @@ class SiteConfig {
       ),
       badgesEnabled: json['enable_badges'] != false,
       allowUsernameInShareLinks: json['allow_username_in_share_links'] != false,
+      suggestWeekendsInDatePickers:
+          json['suggest_weekends_in_date_pickers'] != false,
       resenha: ResenhaClientConfig.fromSettings(json),
     );
   }
@@ -249,6 +252,7 @@ class SiteConfig {
     ),
     badgesEnabled: json['badgesEnabled'] != false,
     allowUsernameInShareLinks: json['allowUsernameInShareLinks'] != false,
+    suggestWeekendsInDatePickers: json['suggestWeekendsInDatePickers'] != false,
     resenha: jsonObject(json['resenha']).isEmpty
         ? const ResenhaClientConfig()
         : ResenhaClientConfig.fromJson(jsonObject(json['resenha'])),
@@ -288,6 +292,7 @@ class SiteConfig {
     'defaultNavigationMenuCategoryIds': defaultNavigationMenuCategoryIds,
     'badgesEnabled': badgesEnabled,
     'allowUsernameInShareLinks': allowUsernameInShareLinks,
+    'suggestWeekendsInDatePickers': suggestWeekendsInDatePickers,
     'resenha': resenha.toJson(),
   };
 
@@ -382,6 +387,8 @@ class SiteConfig {
   /// while both of these client settings permit referral badges.
   final bool badgesEnabled;
   final bool allowUsernameInShareLinks;
+
+  final bool suggestWeekendsInDatePickers;
 
   final ResenhaClientConfig resenha;
 
