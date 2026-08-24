@@ -925,7 +925,7 @@ class DiscourseApi
     if (user == null) {
       throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
     }
-    return UserCard.fromJson(user, siteUrl);
+    return models.userCard(user, siteUrl);
   }
 
   /// The site's client settings — every setting Discourse marks `client: true`,
@@ -2540,6 +2540,37 @@ class DiscourseApi
       siteUrl: siteUrl,
       filter: reaction,
     );
+  }
+
+  /// Finds or creates a direct-message channel with one user.
+  ///
+  /// This is the same upsert route used by Chat's web user-card button. The
+  /// server remains authoritative for both permission and whether an existing
+  /// one-to-one channel can be reused.
+  @override
+  Future<ChatChannel> upsertChatDirectMessageChannel({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    _validateComposerLookupValue(username);
+    final body = await _write(
+      Uri.parse('$siteUrl/chat/api/direct-message-channels.json'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'target_usernames': [username],
+        'upsert': true,
+      },
+    );
+    final channel = body['channel'];
+    if (channel is! Map<String, dynamic>) {
+      throw const FormatException('Missing direct-message chat channel.');
+    }
+    return ChatChannel.fromJson(channel, siteUrl);
   }
 
   /// Every chat channel this account follows, public and direct, with the

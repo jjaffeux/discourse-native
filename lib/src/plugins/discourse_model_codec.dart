@@ -1,6 +1,7 @@
 import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/topic.dart';
+import '../models/user_card.dart';
 import 'plugin_data.dart';
 
 /// Constructs core wire models with one explicitly installed extension decoder.
@@ -24,6 +25,9 @@ final class DiscourseModelCodec {
 
   TopicPayload topic(Map<String, dynamic> json, String siteUrl) =>
       TopicDetail.parse(json, siteUrl, extensions: extensions);
+
+  UserCard userCard(Map<String, dynamic> json, String siteUrl) =>
+      UserCard.fromJson(json, siteUrl, extensions: extensions);
 
   PostCreation postCreation(Map<String, dynamic> json, String siteUrl) =>
       PostCreation.fromJson(json, siteUrl, extensions: extensions);

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
+import '../plugins/plugin_data.dart';
 import 'json.dart';
 
 /// The summary of an account behind `/u/{username}/card.json`.
@@ -15,15 +16,24 @@ class UserCard with Storable<UserCard> {
     this.title,
     this.bioExcerpt,
     this.avatarUrl,
+    this.location,
+    this.website,
+    this.websiteName,
     this.createdAt,
     this.lastPostedAt,
+    this.timeRead = 0,
     this.badgeCount = 0,
     this.isStaff = false,
     this.isSuspended = false,
+    this.plugins = PluginData.none,
   });
 
   /// [json] is the `user` object from the card payload.
-  factory UserCard.fromJson(Map<String, dynamic> json, String siteUrl) {
+  factory UserCard.fromJson(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+  }) {
     return UserCard(
       username: jsonString(json['username']),
       name: jsonText(json['name']),
@@ -31,15 +41,24 @@ class UserCard with Storable<UserCard> {
       // HTML, like a post's `cooked` — Discourse resolves mentions and emoji
       // in a bio the same way.
       bioExcerpt: jsonText(json['bio_excerpt']),
-      avatarUrl: resolveAvatarUrl(jsonText(json['avatar_template']), siteUrl),
+      avatarUrl: resolveAvatarUrl(
+        jsonText(json['avatar_template']),
+        siteUrl,
+        size: 240,
+      ),
+      location: jsonText(json['location']),
+      website: jsonText(json['website']),
+      websiteName: jsonText(json['website_name']),
       createdAt: jsonDate(json['created_at']),
       lastPostedAt: jsonDate(json['last_posted_at']),
+      timeRead: jsonInt(json['time_read']),
       badgeCount: jsonInt(json['badge_count']),
       isStaff: json['admin'] == true || json['moderator'] == true,
       // A suspension that has not expired; the card says so rather than
       // pretending the account is ordinary.
       isSuspended:
           jsonDate(json['suspended_till'])?.isAfter(DateTime.now()) ?? false,
+      plugins: extensions.readUserCard(json, siteUrl),
     );
   }
 
@@ -53,11 +72,18 @@ class UserCard with Storable<UserCard> {
   final String? bioExcerpt;
 
   final String? avatarUrl;
+  final String? location;
+  final String? website;
+  final String? websiteName;
   final DateTime? createdAt;
   final DateTime? lastPostedAt;
+  final int timeRead;
   final int badgeCount;
   final bool isStaff;
   final bool isSuspended;
+
+  /// Values contributed by serializers belonging to installed plugins.
+  final PluginData plugins;
 
   String get displayName => name ?? username;
 
@@ -87,11 +113,16 @@ class UserCard with Storable<UserCard> {
           other.title == title &&
           other.bioExcerpt == bioExcerpt &&
           other.avatarUrl == avatarUrl &&
+          other.location == location &&
+          other.website == website &&
+          other.websiteName == websiteName &&
           other.createdAt == createdAt &&
           other.lastPostedAt == lastPostedAt &&
+          other.timeRead == timeRead &&
           other.badgeCount == badgeCount &&
           other.isStaff == isStaff &&
-          other.isSuspended == isSuspended;
+          other.isSuspended == isSuspended &&
+          other.plugins == plugins;
 
   @override
   int get hashCode => Object.hash(
@@ -100,10 +131,15 @@ class UserCard with Storable<UserCard> {
     title,
     bioExcerpt,
     avatarUrl,
+    location,
+    website,
+    websiteName,
     createdAt,
     lastPostedAt,
+    timeRead,
     badgeCount,
     isStaff,
     isSuspended,
+    plugins,
   );
 }

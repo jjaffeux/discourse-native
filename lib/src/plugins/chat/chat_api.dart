@@ -7,6 +7,13 @@ enum ChatReactionAction { add, remove }
 
 /// Wire contract owned by the Chat module.
 abstract interface class ChatApi {
+  Future<ChatChannel> upsertChatDirectMessageChannel({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  });
+
   Future<ChatChannels> chatChannels({
     required String siteUrl,
     String? apiKey,

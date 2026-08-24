@@ -143,9 +143,9 @@ int categoryColorValue(String color) {
 ///
 /// Templates are normally site-relative and carry a `{size}` placeholder,
 /// while CDN-backed sites may answer with a protocol-relative or absolute URL.
-String? resolveAvatarUrl(String? template, String siteUrl) {
+String? resolveAvatarUrl(String? template, String siteUrl, {int size = 90}) {
   if (template == null || template.isEmpty) return null;
-  final sized = template.replaceAll('{size}', '90');
+  final sized = template.replaceAll('{size}', '$size');
   if (sized.startsWith('//')) return 'https:$sized';
   if (sized.startsWith('http')) return sized;
   return '$siteUrl${sized.startsWith('/') ? '' : '/'}$sized';

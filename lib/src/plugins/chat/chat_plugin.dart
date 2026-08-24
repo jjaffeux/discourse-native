@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/content_route.dart';
 import '../../models/sidebar.dart';
+import '../../models/user_card.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
@@ -12,6 +13,7 @@ import 'chat_channel_view.dart';
 import 'chat_header_button.dart';
 import 'chat_route.dart';
 import 'chat_thread_view.dart';
+import 'chat_user_card.dart';
 
 /// `chat`, as this app knows it.
 ///
@@ -48,11 +50,32 @@ class ChatPlugin
         SidebarPlugin,
         ContentPlugin,
         ContentChromePlugin,
-        ShellHeaderPlugin {
+        ShellHeaderPlugin,
+        UserCardRecordPlugin<ChatUserCardData>,
+        UserCardActionPlugin {
   const ChatPlugin();
 
   @override
   String get name => 'chat';
+
+  @override
+  PluginDataKey<ChatUserCardData> get record => chatUserCardKey;
+
+  @override
+  ChatUserCardData? readUserCard(Map<String, dynamic> json, String siteUrl) =>
+      json.containsKey('can_chat_user')
+      ? ChatUserCardData(canChat: json['can_chat_user'] == true)
+      : null;
+
+  @override
+  List<Widget> userCardActions(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+    VoidCallback close,
+  ) => user.plugins.get(chatUserCardKey)?.canChat == true
+      ? [ChatUserCardButton(siteUrl: siteUrl, user: user, close: close)]
+      : const [];
 
   @override
   List<SidebarSection> sidebarSections(BuildContext context) {

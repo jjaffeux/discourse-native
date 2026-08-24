@@ -79,6 +79,8 @@ abstract interface class PluginDataDecoder {
 
   PluginData readTopic(Map<String, dynamic> json, String siteUrl);
 
+  PluginData readUserCard(Map<String, dynamic> json, String siteUrl);
+
   PluginData mergeAfterPostEdit({
     required PluginData held,
     required PluginData incoming,
@@ -95,6 +97,10 @@ final class EmptyPluginDataDecoder implements PluginDataDecoder {
 
   @override
   PluginData readTopic(Map<String, dynamic> json, String siteUrl) =>
+      PluginData.none;
+
+  @override
+  PluginData readUserCard(Map<String, dynamic> json, String siteUrl) =>
       PluginData.none;
 
   @override

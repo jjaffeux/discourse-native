@@ -463,6 +463,54 @@ class ChatController extends FrameSafeNotifier {
   List<ChatChannel> directChannels(String siteUrl) =>
       _resolve(siteUrl, _directIds[siteUrl]);
 
+  /// Finds or creates the one-to-one direct-message channel for [username].
+  ///
+  /// The returned channel is committed to the shared store before the future
+  /// completes, so shell navigation can open it immediately. Core never needs
+  /// to know how Chat resolves a user into a channel.
+  Future<ChatChannel?> upsertDirectMessageChannel(
+    String siteUrl,
+    String username,
+  ) async {
+    final target = username.trim();
+    if (isDisposed || target.isEmpty) return null;
+    final lease = lifecycle.capture(siteUrl);
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (isDisposed || !lease.isCurrent) return null;
+      if (apiKey == null) {
+        throw const WriteException(WriteFailure.forbidden);
+      }
+      final clientId = await credentials.clientId();
+      if (isDisposed || !lease.isCurrent) return null;
+      final channel = await api.upsertChatDirectMessageChannel(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        username: target,
+      );
+      if (isDisposed || !lease.isCurrent || channel.id <= 0) return null;
+
+      lease.commit(() {
+        store.put(siteUrl, channel);
+        final direct = _directIds[siteUrl] ?? const <int>[];
+        _directIds[siteUrl] = [
+          channel.id,
+          for (final id in direct)
+            if (id != channel.id) id,
+        ];
+        notifySafely();
+      });
+      return channel;
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        _report(error, stackTrace, 'chat.upsertDirectMessage');
+      }
+      rethrow;
+    }
+  }
+
   static int _notificationContribution(ChatChannel channel) =>
       channel.isDirectMessage
       ? channel.tracking.unreadCount

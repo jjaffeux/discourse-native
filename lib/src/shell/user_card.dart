@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/user_card.dart';
+import '../plugins/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -159,7 +160,8 @@ class _UserCardPopup extends StatelessWidget {
     required this.anchor,
   });
 
-  static const double width = 320;
+  /// Matches the web card's 39em canvas at Discourse's 16px base size.
+  static const double width = 624;
 
   /// Gap between the card and whatever was clicked.
   static const double _gap = 8;
@@ -248,6 +250,7 @@ class _ControllerUserCardPopupState extends State<_ControllerUserCardPopup> {
                 controller: widget.controller,
                 username: widget.username,
                 siteUrl: widget.siteUrl,
+                close: dismiss,
               ),
             ),
           ),
@@ -267,20 +270,24 @@ class _CardSurface extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Material(
+      key: const ValueKey<String>('user-card-surface'),
       color: theme.shell.floating,
       elevation: 8,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(4),
       clipBehavior: Clip.antiAlias,
       // A `Container`, not a `DecoratedBox`: a bordered decoration's
       // dimensions are padding a `Container` applies and a `DecoratedBox`
       // does not, so the panel's contents would sit under its own border and
       // be clipped by the rounded `Material` around it.
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.shell.divider),
+      child: SizedBox(
+        width: double.infinity,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: theme.shell.divider),
+          ),
+          child: child,
         ),
-        child: child,
       ),
     );
   }
@@ -291,17 +298,19 @@ class _CardBody extends StatelessWidget {
     required this.controller,
     required this.username,
     required this.siteUrl,
+    required this.close,
   });
 
   final ShellController controller;
   final String username;
   final String siteUrl;
+  final VoidCallback close;
 
   @override
   Widget build(BuildContext context) {
     final card = controller.userCard(username, siteUrl: siteUrl);
     if (card != null) {
-      return _CardContent(card: card, siteUrl: siteUrl);
+      return _CardContent(card: card, siteUrl: siteUrl, close: close);
     }
 
     final error = controller.userCardError(username, siteUrl: siteUrl);
@@ -318,131 +327,127 @@ class _CardBody extends StatelessWidget {
 }
 
 class _CardContent extends StatelessWidget {
-  const _CardContent({required this.card, required this.siteUrl});
+  const _CardContent({
+    required this.card,
+    required this.siteUrl,
+    required this.close,
+  });
 
   final UserCard card;
   final String siteUrl;
+  final VoidCallback close;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final pluginActions = PluginScope.of(
+      context,
+    ).registry.userCardActions(context, siteUrl, card, close);
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipOval(
-                  child: SizedBox(
-                    width: 56,
-                    height: 56,
-                    child: AvatarImage(
-                      url: card.avatarUrl,
-                      size: 56,
-                      fallback: ColoredBox(
-                        color: theme.shell.panel,
-                        child: Center(
-                          child: Text(
-                            card.username.isEmpty
-                                ? '?'
-                                : card.username.characters.first.toUpperCase(),
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        card.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        '@${card.username}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall,
-                      ),
-                      if (card.title case final title?) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
-                      if (card.isStaff || card.isSuspended) ...[
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6,
-                          children: [
-                            if (card.isStaff)
-                              _Badge(
-                                label: 'staff',
-                                color: theme.colorScheme.primary,
-                              ),
-                            if (card.isSuspended)
-                              _Badge(
-                                label: 'suspended',
-                                color: theme.colorScheme.error,
-                              ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (card.bioExcerpt case final bio?) ...[
-              const SizedBox(height: 14),
-              CookedHtml(
-                html: bio,
-                textStyle: theme.textTheme.bodyMedium?.copyWith(
-                  height: DiscourseTypography.lineHeightCooked,
-                ),
-                siteUrl: siteUrl,
-              ),
-            ],
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 16,
-              runSpacing: 6,
-              children: [
-                if (card.createdAt case final joined?)
-                  _Stat(label: 'Joined', value: _month(joined)),
-                if (card.lastPostedAt case final last?)
-                  _Stat(label: 'Last post', value: _month(last)),
-                if (card.badgeCount > 0)
-                  _Stat(label: 'Badges', value: '${card.badgeCount}'),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () => openExternalLink('$siteUrl${card.path}'),
+        padding: const EdgeInsets.all(12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 500;
+            final profileAction = SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  close();
+                  unawaited(openExternalLink('$siteUrl${card.path}'));
+                },
                 icon: const DIcon(DIcons.upRightFromSquare, size: 16),
                 label: const Text('View profile'),
               ),
-            ),
-          ],
+            );
+            final actions = [...pluginActions, profileAction];
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (narrow) ...[
+                  _CardIdentity(card: card, avatarSize: 88, compact: true),
+                  const SizedBox(height: 12),
+                  _CardActions(actions: actions, horizontal: true),
+                ] else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _CardIdentity(
+                          card: card,
+                          avatarSize: 112,
+                          compact: false,
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      SizedBox(
+                        width: 156,
+                        child: _CardActions(actions: actions),
+                      ),
+                    ],
+                  ),
+                if (card.bioExcerpt case final bio?) ...[
+                  const SizedBox(height: 12),
+                  CookedHtml(
+                    html: bio,
+                    textStyle: theme.textTheme.bodyMedium?.copyWith(
+                      height: DiscourseTypography.lineHeightCooked,
+                    ),
+                    siteUrl: siteUrl,
+                  ),
+                ],
+                if (card.website != null || card.location != null) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 6,
+                    children: [
+                      if (card.website case final website?)
+                        _CardDetail(
+                          icon: const DIcon(DIcons.globe, size: 16),
+                          label: card.websiteName ?? _websiteLabel(website),
+                          onTap: () => unawaited(openExternalLink(website)),
+                        ),
+                      if (card.location case final location?)
+                        _CardDetail(
+                          icon: const Icon(
+                            Icons.location_on_outlined,
+                            size: 16,
+                          ),
+                          label: location,
+                        ),
+                    ],
+                  ),
+                ],
+                if (card.createdAt != null ||
+                    card.lastPostedAt != null ||
+                    card.timeRead > 0) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    children: [
+                      if (card.lastPostedAt case final last?)
+                        _Metadata(label: 'Last post', value: _month(last)),
+                      if (card.createdAt case final joined?)
+                        _Metadata(label: 'Joined', value: _month(joined)),
+                      if (card.timeRead > 0)
+                        _Metadata(
+                          label: 'Time read',
+                          value: _duration(card.timeRead),
+                        ),
+                    ],
+                  ),
+                ],
+                if (card.badgeCount > 0) ...[
+                  const SizedBox(height: 10),
+                  _BadgeCount(count: card.badgeCount),
+                ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -465,10 +470,154 @@ class _CardContent extends StatelessWidget {
 
   static String _month(DateTime when) =>
       '${_months[when.month - 1]} ${when.year}';
+
+  static String _duration(int seconds) {
+    final hours = seconds ~/ Duration.secondsPerHour;
+    if (hours > 0) return '${hours}h';
+    final minutes = seconds ~/ Duration.secondsPerMinute;
+    return minutes > 0 ? '${minutes}m' : '${seconds}s';
+  }
+
+  static String _websiteLabel(String website) {
+    final uri = Uri.tryParse(website);
+    if (uri?.host case final String host when host.isNotEmpty) {
+      return '${host.startsWith('www.') ? host.substring(4) : host}${uri!.path == '/' ? '' : uri.path}';
+    }
+    return website;
+  }
 }
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
+class _CardIdentity extends StatelessWidget {
+  const _CardIdentity({
+    required this.card,
+    required this.avatarSize,
+    required this.compact,
+  });
+
+  final UserCard card;
+  final double avatarSize;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipOval(
+          child: SizedBox.square(
+            dimension: avatarSize,
+            child: AvatarImage(
+              url: card.avatarUrl,
+              size: avatarSize,
+              fallback: ColoredBox(
+                color: theme.shell.panel,
+                child: Center(
+                  child: Text(
+                    card.username.isEmpty
+                        ? '?'
+                        : card.username.characters.first.toUpperCase(),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                card.displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontSize: compact
+                      ? DiscourseTypography.fontUp3
+                      : DiscourseTypography.fontUp5,
+                  height: DiscourseTypography.lineHeightMedium,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                '@${card.username}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium,
+              ),
+              if (card.title case final title?)
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyLarge,
+                ),
+              if (card.isStaff || card.isSuspended) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    if (card.isStaff)
+                      _Badge(label: 'staff', color: theme.colorScheme.primary),
+                    if (card.isSuspended)
+                      _Badge(
+                        label: 'suspended',
+                        color: theme.colorScheme.error,
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CardActions extends StatelessWidget {
+  const _CardActions({required this.actions, this.horizontal = false});
+
+  final List<Widget> actions;
+  final bool horizontal;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!horizontal) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var index = 0; index < actions.length; index++) ...[
+            if (index > 0) const SizedBox(height: 6),
+            actions[index],
+          ],
+        ],
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = actions.length == 1
+            ? constraints.maxWidth
+            : (constraints.maxWidth - 8) / 2;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final action in actions) SizedBox(width: width, child: action),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _Metadata extends StatelessWidget {
+  const _Metadata({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -481,20 +630,81 @@ class _Stat extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label.toUpperCase(),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            letterSpacing: 0.6,
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: '$label ',
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              TextSpan(text: value),
+            ],
           ),
+          style: theme.textTheme.bodySmall,
         ),
-        Text(
-          value,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w600,
+      ],
+    );
+  }
+}
+
+class _CardDetail extends StatelessWidget {
+  const _CardDetail({required this.icon, required this.label, this.onTap});
+
+  final Widget icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onSurface;
+    final child = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconTheme(
+          data: IconThemeData(color: color),
+          child: icon,
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              decoration: onTap == null ? null : TextDecoration.underline,
+            ),
           ),
         ),
       ],
+    );
+    if (onTap == null) return child;
+    return InkWell(onTap: onTap, child: child);
+  }
+}
+
+class _BadgeCount extends StatelessWidget {
+  const _BadgeCount({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: theme.shell.panel,
+        border: Border.all(color: theme.shell.divider),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const DIcon(DIcons.certificate, size: 16),
+          const SizedBox(width: 5),
+          Text('$count badges', style: theme.textTheme.bodySmall),
+        ],
+      ),
     );
   }
 }

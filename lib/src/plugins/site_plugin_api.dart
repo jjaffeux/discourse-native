@@ -6,6 +6,7 @@ import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
 import '../models/topic.dart';
+import '../models/user_card.dart';
 import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
@@ -91,6 +92,32 @@ abstract interface class TopicRecordPlugin<T extends Object>
   /// one feature's state, so the reader owns that distinction. Core merely
   /// preserves the typed answer on the record it came from.
   T? readTopic(Map<String, dynamic> json, String siteUrl);
+}
+
+/// A feature record embedded in the user-card payload.
+///
+/// User cards are intentionally parsed through the same installed registry as
+/// posts and topics. Fields such as Chat's `can_chat_user` only exist when the
+/// corresponding server plugin contributes them; keeping them opaque to core
+/// preserves that ownership while still letting the native card expose the
+/// feature's controls.
+abstract interface class UserCardRecordPlugin<T extends Object>
+    implements PluginRecord<T> {
+  T? readUserCard(Map<String, dynamic> json, String siteUrl);
+}
+
+/// Adds controls to a user card.
+///
+/// The card owns the responsive controls region. Contributions are widgets so
+/// a plugin can retain its own pending/error state while core controls only
+/// their placement and ordering.
+abstract interface class UserCardActionPlugin {
+  List<Widget> userCardActions(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+    VoidCallback close,
+  );
 }
 
 /// Replaces a top-level element inside a post's cooked body.

@@ -9,12 +9,30 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_card.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const siteUrl = 'https://meta.discourse.org';
 
 void main() {
+  test('user cards retain plugin-owned serializer records', () {
+    final enabled = UserCard.fromJson(
+      const {'username': 'sam', 'can_chat_user': true},
+      siteUrl,
+      extensions: pluginRegistry,
+    );
+    final absent = UserCard.fromJson(
+      const {'username': 'lee'},
+      siteUrl,
+      extensions: pluginRegistry,
+    );
+
+    expect(enabled.plugins.get(chatUserCardKey)?.canChat, isTrue);
+    expect(absent.plugins.get(chatUserCardKey), isNull);
+  });
+
   group('malformed nested payloads', () {
     test('topic lists skip malformed records and default malformed fields', () {
       final list = TopicList.fromJson(const {

@@ -2899,6 +2899,49 @@ void _feedGroups() {
     });
   });
 
+  group('chatDirectMessages', () {
+    test('upserts a DM channel for the user-card Chat action', () async {
+      late http.Request seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(
+            jsonEncode({
+              'channel': {
+                'id': 55,
+                'title': 'sam',
+                'chatable_type': 'DirectMessage',
+                'chatable': {
+                  'group': false,
+                  'users': [
+                    {'id': 2, 'username': 'sam'},
+                  ],
+                },
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final channel = await api.upsertChatDirectMessageChannel(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        clientId: 'client',
+        username: 'sam',
+      );
+
+      expect(seen.method, 'POST');
+      expect(seen.url.path, '/chat/api/direct-message-channels.json');
+      expect(jsonDecode(seen.body), {
+        'target_usernames': ['sam'],
+        'upsert': true,
+      });
+      expect(channel.id, 55);
+      expect(channel.isDirectMessage, isTrue);
+    });
+  });
+
   group('chatChannels', () {
     /// The two-bucket envelope `Chat::ChannelIndexSerializer` writes.
     MockClient serving(void Function(http.Request) record) => MockClient((
@@ -3868,7 +3911,11 @@ void _feedGroups() {
                 'title': 'Team',
                 'bio_excerpt': '<p>Hello</p>',
                 'avatar_template': '/user_avatar/j/{size}.png',
+                'location': 'Paris',
+                'website': 'https://example.net/about',
+                'website_name': 'example.net/about',
                 'created_at': '2015-03-04T10:00:00.000Z',
+                'time_read': 7200,
                 'badge_count': 12,
                 'moderator': true,
               },
@@ -3886,8 +3933,12 @@ void _feedGroups() {
       expect(card.username, 'joffreyj');
       expect(card.displayName, 'Joffrey');
       expect(card.title, 'Team');
-      expect(card.avatarUrl, 'https://example.com/user_avatar/j/90.png');
+      expect(card.avatarUrl, 'https://example.com/user_avatar/j/240.png');
+      expect(card.location, 'Paris');
+      expect(card.website, 'https://example.net/about');
+      expect(card.websiteName, 'example.net/about');
       expect(card.createdAt, DateTime.utc(2015, 3, 4, 10));
+      expect(card.timeRead, 7200);
       expect(card.badgeCount, 12);
       expect(card.isStaff, isTrue);
       expect(card.isSuspended, isFalse);

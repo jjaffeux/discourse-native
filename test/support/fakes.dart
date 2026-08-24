@@ -522,6 +522,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.pollRemovalResponses = const {},
     this.pollVoteFailure,
     this.pollVoteGate,
+    this.directMessageChannelsByUsername = const {},
     this.chatChannelsBySite = const {},
     this.chatChannelGate,
     this.chatMessagesByKey = const {},
@@ -874,6 +875,11 @@ class FakeDiscourseApi implements DiscourseApi {
   /// not about chat wants. Nothing asks in the first place unless
   /// [totals] reports `hasChatEnabled`, which itself defaults to off.
   final Map<String, ChatChannels> chatChannelsBySite;
+
+  /// Returned by [upsertChatDirectMessageChannel], keyed by target username.
+  final Map<String, ChatChannel> directMessageChannelsByUsername;
+
+  final List<String> directMessageChannelsRequested = [];
 
   /// Site urls passed to [chatChannels], in order.
   final List<String> chatChannelsRequested = [];
@@ -1843,6 +1849,21 @@ class FakeDiscourseApi implements DiscourseApi {
     final found = reactorsById[PostReactors.key(postId, reaction)];
     if (found == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
+  }
+
+  @override
+  Future<ChatChannel> upsertChatDirectMessageChannel({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    directMessageChannelsRequested.add(username);
+    final found = directMessageChannelsByUsername[username];
+    if (found == null) {
+      throw const WriteException(WriteFailure.unreachable);
     }
     return found;
   }

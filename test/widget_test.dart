@@ -6293,7 +6293,11 @@ void main() {
       name: 'Joffrey',
       title: 'Team member',
       bioExcerpt: '<p>Builds the thing.</p>',
+      location: 'Paris',
+      website: 'https://discourse.org',
+      websiteName: 'discourse.org',
       createdAt: DateTime.utc(2015, 3, 4),
+      timeRead: 7200,
       badgeCount: 12,
     );
 
@@ -6334,8 +6338,88 @@ void main() {
       expect(find.text('@joffreyj'), findsOneWidget);
       expect(find.text('Team member'), findsOneWidget);
       expect(renderedText('Builds the thing.'), findsOneWidget);
-      expect(find.text('Mar 2015'), findsOneWidget);
+      expect(find.text('Paris'), findsOneWidget);
+      expect(find.text('discourse.org'), findsOneWidget);
+      expect(find.textContaining('Mar 2015'), findsOneWidget);
+      expect(find.textContaining('2h'), findsOneWidget);
+      expect(find.text('12 badges'), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const ValueKey('user-card-surface'))).width,
+        624,
+      );
       semantics.dispose();
+    });
+
+    testWidgets('Chat contributes a card action and opens a direct message', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(
+        id: 7,
+        username: 'reader',
+        hasChatEnabled: true,
+      );
+      final chatCard = UserCard.fromJson(
+        const {
+          'username': 'joffreyj',
+          'name': 'Joffrey',
+          'can_chat_user': true,
+        },
+        'https://meta.discourse.org',
+        extensions: pluginRegistry,
+      );
+      const directMessage = ChatChannel(
+        id: 55,
+        title: 'Joffrey',
+        kind: ChatChannelKind.directMessage,
+      );
+      final api = FakeDiscourseApi(
+        user: reader,
+        feeds: {'/latest.json': listed},
+        topics: {7: detail},
+        cards: {'joffreyj': chatCard},
+        directMessageChannelsByUsername: const {'joffreyj': directMessage},
+        chatMessagesByKey: const {
+          '55': (
+            messages: <ChatMessage>[],
+            canLoadMorePast: false,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          ),
+        },
+      );
+      final auth = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'api-key';
+
+      await pumpShell(
+        tester,
+        phone,
+        api: api,
+        authenticator: auth,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: reader),
+        ],
+      );
+      await tester.tap(find.text('Topics'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Joffrey'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(FilledButton, 'Chat'), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const ValueKey('user-card-surface'))).width,
+        366,
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Chat'));
+      await tester.pumpAndSettle();
+
+      expect(api.directMessageChannelsRequested, ['joffreyj']);
+      expect(find.byType(ChatChannelView), findsOneWidget);
+      expect(find.byKey(const ValueKey('user-card-surface')), findsNothing);
     });
 
     testWidgets('tapping the name opens the same card, already held', (

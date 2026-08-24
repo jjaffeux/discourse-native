@@ -6,6 +6,7 @@ import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
 import '../models/topic.dart';
+import '../models/user_card.dart';
 import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
 import 'chat/chat_preview.dart';
@@ -82,6 +83,16 @@ final class PluginRegistry implements PluginDataDecoder {
     var values = PluginData.none;
     for (final plugin in plugins.whereType<TopicRecordPlugin<Object>>()) {
       final value = plugin.readTopic(json, siteUrl);
+      if (value != null) values = values.withValueFor(plugin.record, value);
+    }
+    return values;
+  }
+
+  @override
+  PluginData readUserCard(Map<String, dynamic> json, String siteUrl) {
+    var values = PluginData.none;
+    for (final plugin in plugins.whereType<UserCardRecordPlugin<Object>>()) {
+      final value = plugin.readUserCard(json, siteUrl);
       if (value != null) values = values.withValueFor(plugin.record, value);
     }
     return values;
@@ -196,6 +207,16 @@ final class PluginRegistry implements PluginDataDecoder {
   ) => [
     for (final plugin in plugins.whereType<ComposerToolbarPlugin>())
       ...plugin.composerToolbar(context, composer),
+  ];
+
+  List<Widget> userCardActions(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+    VoidCallback close,
+  ) => [
+    for (final plugin in plugins.whereType<UserCardActionPlugin>())
+      ...plugin.userCardActions(context, siteUrl, user, close),
   ];
 
   List<SidebarSection> sidebarSections(BuildContext context) => [
