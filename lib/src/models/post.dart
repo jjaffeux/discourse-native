@@ -4,6 +4,7 @@ import '../data/store.dart';
 import '../plugins/plugin_data.dart';
 import 'composer_draft.dart';
 import 'json.dart';
+import 'post_flag.dart';
 import 'topic.dart';
 
 /// One post in a topic.
@@ -23,6 +24,7 @@ class Post with Storable<Post> {
     this.canEdit = false,
     this.canDelete = false,
     this.canRecover = false,
+    this.hidden = false,
     this.deletedAt,
     this.userDeleted = false,
     this.postType = regularPostType,
@@ -32,6 +34,7 @@ class Post with Storable<Post> {
     this.liked = false,
     this.canLike = false,
     this.canUnlike = false,
+    this.postActions = const [],
     this.raw,
     this.plugins = PluginData.none,
   });
@@ -74,6 +77,7 @@ class Post with Storable<Post> {
       canEdit: json['can_edit'] == true,
       canDelete: json['can_delete'] == true,
       canRecover: json['can_recover'] == true,
+      hidden: json['hidden'] == true,
       // Only staff are ever shown a deleted post; for everyone else Discourse
       // leaves it out of the stream entirely.
       deletedAt: jsonDate(json['deleted_at']),
@@ -87,6 +91,7 @@ class Post with Storable<Post> {
       liked: like.acted,
       canLike: like.canAct,
       canUnlike: like.canUndo,
+      postActions: _postActionSummaries(json['actions_summary']),
       // Only present when asked for. Reading needs the cooked HTML; writing
       // needs this, because it is the thing that was actually typed.
       raw: jsonText(json['raw']),
@@ -119,6 +124,14 @@ class Post with Storable<Post> {
     return (count: 0, acted: false, canAct: false, canUndo: false);
   }
 
+  static List<PostActionSummary> _postActionSummaries(Object? summaries) =>
+      List.unmodifiable([
+        for (final entry in jsonObjects(summaries))
+          if (jsonInt(entry['id']) case final id
+              when id > 0 && id != likeActionId)
+            PostActionSummary.fromJson(entry),
+      ]);
+
   final int id;
   final int postNumber;
   final String username;
@@ -139,6 +152,12 @@ class Post with Storable<Post> {
   /// Whether this reader may delete it, and — once it is gone — put it back.
   final bool canDelete;
   final bool canRecover;
+
+  /// Whether Discourse has temporarily hidden this post after flagging.
+  ///
+  /// For readers who may not see the original, [cooked] is already the
+  /// server-localized placeholder. This bit gates actions such as flagging.
+  final bool hidden;
 
   /// When it was deleted, for the staff who can still see it.
   final DateTime? deletedAt;
@@ -175,6 +194,21 @@ class Post with Storable<Post> {
   /// false once the site's undo window has run out on a like already given.
   final bool canLike;
   final bool canUnlike;
+
+  /// Personalized non-like post actions, which are flag rows in core.
+  final List<PostActionSummary> postActions;
+
+  PostActionSummary? actionSummary(int typeId) {
+    for (final summary in postActions) {
+      if (summary.id == typeId) return summary;
+    }
+    return null;
+  }
+
+  bool canFlagWith(int typeId) => actionSummary(typeId)?.canAct == true;
+
+  List<PostActionSummary> get actedFlagSummaries =>
+      List.unmodifiable(postActions.where((summary) => summary.acted));
 
   /// Whether tapping the heart would do anything.
   ///
@@ -258,6 +292,14 @@ class Post with Storable<Post> {
     canUnlike: other.canUnlike,
   );
 
+  /// This post, but with [other]'s personalized non-like action state.
+  ///
+  /// Post edit responses omit the reader's actions, just as they omit their
+  /// like. Keeping the held rows prevents an edit from re-offering a flag the
+  /// reader already submitted or erasing its confirmation.
+  Post withPostActionsOf(Post other) =>
+      copyWith(postActions: other.postActions);
+
   /// The post with one optional feature's answer replaced.
   Post withPlugins(PluginData next) => copyWith(plugins: next);
 
@@ -278,6 +320,8 @@ class Post with Storable<Post> {
     bool? liked,
     bool? canLike,
     bool? canUnlike,
+    bool? hidden,
+    List<PostActionSummary>? postActions,
     PluginData? plugins,
   }) => Post(
     id: id,
@@ -293,6 +337,7 @@ class Post with Storable<Post> {
     canEdit: canEdit,
     canDelete: canDelete,
     canRecover: canRecover,
+    hidden: hidden ?? this.hidden,
     deletedAt: deletedAt,
     userDeleted: userDeleted,
     postType: postType,
@@ -302,6 +347,9 @@ class Post with Storable<Post> {
     liked: liked ?? this.liked,
     canLike: canLike ?? this.canLike,
     canUnlike: canUnlike ?? this.canUnlike,
+    postActions: postActions == null
+        ? this.postActions
+        : List.unmodifiable(postActions),
     raw: raw ?? this.raw,
     plugins: plugins ?? this.plugins,
   );
@@ -323,6 +371,7 @@ class Post with Storable<Post> {
           other.canEdit == canEdit &&
           other.canDelete == canDelete &&
           other.canRecover == canRecover &&
+          other.hidden == hidden &&
           other.deletedAt == deletedAt &&
           other.userDeleted == userDeleted &&
           other.postType == postType &&
@@ -332,6 +381,7 @@ class Post with Storable<Post> {
           other.liked == liked &&
           other.canLike == canLike &&
           other.canUnlike == canUnlike &&
+          listEquals(other.postActions, postActions) &&
           other.raw == raw &&
           other.plugins == plugins;
 
@@ -350,6 +400,7 @@ class Post with Storable<Post> {
     canEdit,
     canDelete,
     canRecover,
+    hidden,
     deletedAt,
     userDeleted,
     postType,
@@ -359,6 +410,7 @@ class Post with Storable<Post> {
     liked,
     canLike,
     canUnlike,
+    Object.hashAll(postActions),
     raw,
     plugins,
   ]);

@@ -1659,6 +1659,7 @@ void _feedGroups() {
         expect(categories.map((c) => c.id), [1, 2, 3, 4, 5]);
         expect(result.rootCategoryIds, [1, 5]);
         expect(result.canCreateTopic, isTrue);
+        expect(result.postActionCatalog, isNull);
         expect(categories.first.colorValue, 0xFF0088CC);
         expect(categories.first.styleType, 'icon');
         expect(categories.first.icon, 'folder');
@@ -1900,6 +1901,24 @@ void _feedGroups() {
             expect(request.url.path, '/site.json');
             return http.Response(
               jsonEncode({
+                'post_action_types': [
+                  {
+                    'id': 3,
+                    'name_key': 'off_topic',
+                    'name': 'Off-Topic',
+                    'description': '<p>Not relevant</p>',
+                    'is_flag': true,
+                    'enabled': true,
+                    'applies_to': ['Post'],
+                    'system': true,
+                  },
+                  {
+                    'id': 2,
+                    'name_key': 'like',
+                    'name': 'Like',
+                    'is_flag': false,
+                  },
+                ],
                 'categories': [
                   {'id': 1, 'name': 'Site duplicate', 'color': 'AAAAAA'},
                   {'id': 8, 'name': 'Parent', 'color': '222222'},
@@ -1928,6 +1947,7 @@ void _feedGroups() {
         expect(result.categories.first.name, 'Visible from page');
         expect(result.categories.first.color, '111111');
         expect(result.categories.first.featuredTopics.single.id, 11);
+        expect(result.postActionCatalog?.postFlags.single.id, 3);
       },
     );
 
@@ -1960,7 +1980,10 @@ void _feedGroups() {
 
         await siteStarted.future.timeout(const Duration(seconds: 1));
         releaseCategories.complete();
-        expect((await loading).complete, isTrue);
+        final result = await loading;
+        expect(result.complete, isTrue);
+        expect(result.postActionCatalog, isNotNull);
+        expect(result.postActionCatalog?.postFlags, isEmpty);
       },
     );
 
@@ -2073,6 +2096,7 @@ void _feedGroups() {
 
       expect(result.complete, isFalse);
       expect(result.categories.map((category) => category.id), [1]);
+      expect(result.postActionCatalog, isNull);
     });
   });
 
@@ -4980,6 +5004,124 @@ void _writeGroups() {
             (e) => e.message,
             'message',
             "You can't like your own post",
+          ),
+        ),
+      );
+    });
+  });
+
+  group('createPostFlag', () {
+    String flaggedPost() => jsonEncode({
+      'id': 42,
+      'post_number': 7,
+      'username': 'sam',
+      'cooked': '<p>hi</p>',
+      'actions_summary': [
+        {'id': 3, 'acted': true},
+        {'id': 2, 'count': 4, 'can_act': true},
+      ],
+    });
+
+    test('posts the exact flag body and reads the unwrapped post', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(flaggedPost(), 200);
+        }),
+      );
+
+      final post = await api.createPostFlag(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        clientId: 'native-client',
+        postId: 42,
+        postActionTypeId: 3,
+      );
+
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/post_actions.json');
+      expect(sent.headers['User-Api-Key'], 'the-key');
+      expect(sent.headers['User-Api-Client-Id'], 'native-client');
+      expect(jsonDecode(sent.body), {'id': 42, 'post_action_type_id': 3});
+      expect(post.actedFlagSummaries.single.id, 3);
+      expect(post.likeCount, 4);
+    });
+
+    test(
+      'includes a required explanation without moderation parameters',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(flaggedPost(), 200);
+          }),
+        );
+
+        await api.createPostFlag(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postId: 42,
+          postActionTypeId: 7,
+          message: 'Please review this carefully.',
+        );
+
+        expect(jsonDecode(sent.body), {
+          'id': 42,
+          'post_action_type_id': 7,
+          'message': 'Please review this carefully.',
+        });
+      },
+    );
+
+    test('never accepts an empty successful response as a submitted flag', () {
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('', 204)),
+      );
+
+      expect(
+        api.createPostFlag(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postId: 42,
+          postActionTypeId: 3,
+        ),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.failure,
+            'failure',
+            WriteFailure.unreachable,
+          ),
+        ),
+      );
+    });
+
+    test('preserves the shared server-validation message mapping', () {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'errors': ['Please enter at least 10 characters.'],
+            }),
+            422,
+          ),
+        ),
+      );
+
+      expect(
+        api.createPostFlag(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postId: 42,
+          postActionTypeId: 7,
+          message: 'short',
+        ),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.message,
+            'message',
+            'Please enter at least 10 characters.',
           ),
         ),
       );

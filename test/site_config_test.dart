@@ -108,6 +108,34 @@ void main() {
       expect(unknown.gifFileDetail, SiteConfig.defaultGifFileDetail);
       expect(unknown.gifResultLimitEnabled, isFalse);
       expect(unknown.gifMaxResults, SiteConfig.defaultGifMaxResults);
+      expect(unknown.minPersonalMessagePostLength, 10);
+      expect(unknown.allowAllUsersToFlagIllegalContent, isFalse);
+      expect(unknown.anonymousFlagReportEmail, isNull);
+    });
+
+    test('reads flag message and anonymous illegal-report settings', () {
+      final config = SiteConfig.fromSettings(const {
+        'min_personal_message_post_length': 17,
+        'allow_all_users_to_flag_illegal_content': true,
+        'contact_email': ' contact@example.com ',
+        'email_address_to_report_illegal_content': ' legal@example.com ',
+      });
+
+      expect(config.minPersonalMessagePostLength, 17);
+      expect(config.allowAllUsersToFlagIllegalContent, isTrue);
+      expect(config.contactEmail, 'contact@example.com');
+      expect(config.illegalContentReportEmail, 'legal@example.com');
+      expect(config.anonymousFlagReportEmail, 'legal@example.com');
+    });
+
+    test('falls back from the illegal-report address to contact email', () {
+      final config = SiteConfig.fromSettings(const {
+        'allow_all_users_to_flag_illegal_content': true,
+        'contact_email': 'team@example.com',
+        'email_address_to_report_illegal_content': ' ',
+      });
+
+      expect(config.anonymousFlagReportEmail, 'team@example.com');
     });
 
     test('reads and bounds the minimum search length', () {
@@ -502,6 +530,21 @@ void main() {
       // Nothing here may be required: InstanceStore answers a decode failure by
       // forgetting every site the user had.
       expect(SiteConfig.fromJson(const {}), const SiteConfig.unknown());
+    });
+
+    test('persists flag settings backward-compatibly', () {
+      const config = SiteConfig(
+        minPersonalMessagePostLength: 20,
+        allowAllUsersToFlagIllegalContent: true,
+        contactEmail: 'contact@example.com',
+        illegalContentReportEmail: 'legal@example.com',
+      );
+
+      expect(SiteConfig.fromJson(config.toJson()), config);
+      expect(
+        SiteConfig.fromJson(const {}).minPersonalMessagePostLength,
+        SiteConfig.defaultMinPersonalMessagePostLength,
+      );
     });
 
     test('compares by value, so an unchanged answer is not rewritten', () {
