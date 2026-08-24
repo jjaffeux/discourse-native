@@ -45,6 +45,10 @@ void main() {
         expect(find.text('5 replies'), findsOneWidget);
         expect(find.text('It works'), findsOneWidget);
         expect(find.text('+3'), findsOneWidget);
+        expect(
+          tester.getTopRight(find.text('5 replies')).dx,
+          closeTo(tester.getTopRight(target).dx - 8, 0.01),
+        );
 
         final avatars = tester
             .widgetList<ChatUserAvatar>(
