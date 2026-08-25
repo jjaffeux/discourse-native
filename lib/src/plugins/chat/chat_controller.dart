@@ -1022,7 +1022,10 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Joins or reversibly unfollows one public channel from the directory.
+  /// Joins a public channel or unfollows any channel membership.
+  ///
+  /// Direct messages cannot be joined from the directory, but closing one in
+  /// core is the same reversible follow write and removes it from the sidebar.
   Future<String?> updateChannelFollowing(
     String siteUrl,
     ChatChannel candidate,
@@ -1032,8 +1035,8 @@ class ChatController extends FrameSafeNotifier {
       return 'This channel can no longer be changed.';
     }
     final held = channel(siteUrl, candidate.id) ?? candidate;
-    if (held.isDirectMessage) {
-      return 'Direct messages cannot be changed from Browse Channels.';
+    if (held.isDirectMessage && following) {
+      return 'Direct messages cannot be joined from Browse Channels.';
     }
     if (held.membership.following == following) return null;
     if (following && (!held.canJoin || held.status != ChatChannelStatus.open)) {
@@ -1077,7 +1080,7 @@ class ChatController extends FrameSafeNotifier {
       if (!isCurrent()) return null;
 
       final changed = membership.following != held.membership.following;
-      final memberDelta = !changed
+      final memberDelta = held.isDirectMessage || !changed
           ? 0
           : membership.following
           ? 1
@@ -1088,16 +1091,19 @@ class ChatController extends FrameSafeNotifier {
       );
       lease.commit(() {
         store.put(siteUrl, next);
-        final ids = _publicIds.putIfAbsent(siteUrl, () => []);
+        final ids = (held.isDirectMessage ? _directIds : _publicIds)
+            .putIfAbsent(siteUrl, () => []);
         if (membership.following) {
           if (!ids.contains(next.id)) ids.add(next.id);
-          ids.sort((left, right) {
-            final a = channel(siteUrl, left);
-            final b = channel(siteUrl, right);
-            return (a?.slug ?? a?.title ?? '').toLowerCase().compareTo(
-              (b?.slug ?? b?.title ?? '').toLowerCase(),
-            );
-          });
+          if (!held.isDirectMessage) {
+            ids.sort((left, right) {
+              final a = channel(siteUrl, left);
+              final b = channel(siteUrl, right);
+              return (a?.slug ?? a?.title ?? '').toLowerCase().compareTo(
+                (b?.slug ?? b?.title ?? '').toLowerCase(),
+              );
+            });
+          }
           if (!membership.muted) {
             (_newMessageCursors[siteUrl] ??= {}).putIfAbsent(
               next.id,
@@ -1438,7 +1444,7 @@ class ChatController extends FrameSafeNotifier {
     final preferredId = _lastOpenedChannelIds[siteUrl] ?? lastChannelId;
     if (preferredId != null) {
       final last = channel(siteUrl, preferredId);
-      if (last != null) return last;
+      if (last?.membership.following == true) return last;
     }
     return _sortDirectMessageActivity(
           directChannels(siteUrl).toList(),

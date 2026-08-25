@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/content_route.dart';
@@ -12,6 +14,7 @@ import '../plugin_services.dart';
 import '../site_plugin_api.dart';
 import 'chat_browse_channels_view.dart';
 import 'chat_channel.dart';
+import 'chat_channel_actions.dart';
 import 'chat_channel_info_view.dart';
 import 'chat_channel_search.dart';
 import 'chat_channel_star_button.dart';
@@ -171,19 +174,28 @@ class ChatPlugin
         SidebarSection(
           id: 'chat-starred-channels',
           title: 'Starred channels',
-          destinations: [for (final channel in starred) destination(channel)],
+          destinations: [
+            for (final channel in starred)
+              destination(channel, siteUrl: siteUrl),
+          ],
         ),
       if (public.isNotEmpty)
         SidebarSection(
           id: 'chat',
           title: 'Chat',
-          destinations: [for (final channel in public) destination(channel)],
+          destinations: [
+            for (final channel in public)
+              destination(channel, siteUrl: siteUrl),
+          ],
         ),
       if (direct.isNotEmpty)
         SidebarSection(
           id: 'direct-messages',
           title: 'Direct messages',
-          destinations: [for (final channel in direct) destination(channel)],
+          destinations: [
+            for (final channel in direct)
+              destination(channel, siteUrl: siteUrl),
+          ],
         ),
     ];
   }
@@ -360,27 +372,42 @@ class ChatPlugin
   /// glyph for several people; a channel shows its emoji, or `comment` — which
   /// is what Discourse's own `d-chat` resolves to — tinted with the colour of
   /// the category it lives in.
-  static SidebarDestination destination(ChatChannel channel) =>
-      SidebarDestination(
-        id: ChatRoute.channel(channel.id).routeId,
-        label: channel.title,
-        icon: switch (channel.kind) {
-          ChatChannelKind.directMessage when channel.users.length > 1 =>
-            DIcons.users,
-          ChatChannelKind.directMessage => DIcons.user,
-          _ => DIcons.comment,
-        },
-        emoji: channel.emoji,
-        avatarUrl: channel.avatarUrl,
-        avatarUserId: channel.isDirectMessage && channel.users.length == 1
-            ? channel.users.first.id
-            : null,
-        iconColor: channel.categoryColor,
-        prefixBadgeIcon: channel.isCategoryChannel && channel.readRestricted
-            ? DIcons.lock
-            : null,
-        badge: channel.badge,
-      );
+  static SidebarDestination destination(
+    ChatChannel channel, {
+    String? siteUrl,
+  }) => SidebarDestination(
+    id: ChatRoute.channel(channel.id).routeId,
+    label: channel.title,
+    icon: switch (channel.kind) {
+      ChatChannelKind.directMessage when channel.users.length > 1 =>
+        DIcons.users,
+      ChatChannelKind.directMessage => DIcons.user,
+      _ => DIcons.comment,
+    },
+    emoji: channel.emoji,
+    avatarUrl: channel.avatarUrl,
+    avatarUserId: channel.isDirectMessage && channel.users.length == 1
+        ? channel.users.first.id
+        : null,
+    iconColor: channel.categoryColor,
+    prefixBadgeIcon: channel.isCategoryChannel && channel.readRestricted
+        ? DIcons.lock
+        : null,
+    badge: channel.badge,
+    hoverActionBuilder: siteUrl == null
+        ? null
+        : (context) =>
+              ChatChannelMenuButton(siteUrl: siteUrl, channelId: channel.id),
+    onLongPress: siteUrl == null
+        ? null
+        : (context) => unawaited(
+            ChatChannelMenuButton.showSheet(
+              context: context,
+              siteUrl: siteUrl,
+              channelId: channel.id,
+            ),
+          ),
+  );
 }
 
 class _ChatChannelHeaderAvatar extends StatelessWidget {

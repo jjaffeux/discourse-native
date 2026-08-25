@@ -12906,6 +12906,264 @@ void main() {
         expect(sidebarDestination('hawk'), findsOneWidget);
       });
 
+      testWidgets('reveals the web channel menu on desktop hover', (
+        tester,
+      ) async {
+        final previous = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await pumpChat(tester, public: [channel(9)]);
+
+          final reveal = find.byKey(
+            const ValueKey('sidebar-hover-action-chat-c-9'),
+          );
+          expect(tester.widget<AnimatedOpacity>(reveal).opacity, 0);
+
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          addTearDown(mouse.removePointer);
+          await mouse.moveTo(tester.getCenter(sidebarDestination('Bugs')));
+          await tester.pumpAndSettle();
+
+          expect(tester.widget<AnimatedOpacity>(reveal).opacity, 1);
+          expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('chat-channel-menu-button-9')),
+              matching: find.dIcon(DIcons.ellipsisVertical),
+            ),
+            findsOneWidget,
+          );
+
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-menu-button-9')),
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            find.widgetWithText(SubmenuButton, 'Notifications'),
+            findsOneWidget,
+          );
+          expect(
+            find.widgetWithText(MenuItemButton, 'Channel settings'),
+            findsOneWidget,
+          );
+          expect(
+            find.widgetWithText(MenuItemButton, 'Add to starred channels'),
+            findsOneWidget,
+          );
+          expect(
+            find.widgetWithText(MenuItemButton, 'Leave channel'),
+            findsOneWidget,
+          );
+
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-menu-settings-9')),
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            find.byKey(const ValueKey('chat-channel-settings')),
+            findsOneWidget,
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = previous;
+        }
+      });
+
+      testWidgets('changes channel notifications and starring from the menu', (
+        tester,
+      ) async {
+        final previous = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            user: me,
+            chatChannelsBySite: {
+              site: ChatChannels(public: [channel(9)]),
+            },
+          );
+          await pumpChat(tester, api: api);
+
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          addTearDown(mouse.removePointer);
+          await mouse.moveTo(tester.getCenter(sidebarDestination('Bugs')));
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-menu-button-9')),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-notifications-9')),
+          );
+          await tester.pumpAndSettle();
+
+          final selected = find.descendant(
+            of: find.byKey(
+              const ValueKey('chat-channel-notification-9-mention'),
+            ),
+            matching: find.dIcon(DIcons.check),
+          );
+          expect(selected, findsOneWidget);
+
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-notification-9-always')),
+          );
+          await tester.pumpAndSettle();
+
+          expect(api.chatChannelNotificationsUpdated, const [
+            (
+              channelId: 9,
+              muted: null,
+              notificationLevel: ChatChannelNotificationLevel.always,
+            ),
+          ]);
+
+          await mouse.moveTo(Offset.zero);
+          await tester.pumpAndSettle();
+          await mouse.moveTo(tester.getCenter(sidebarDestination('Bugs')));
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-menu-button-9')),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-menu-star-9')),
+          );
+          await tester.pumpAndSettle();
+
+          expect(api.chatChannelStarsUpdated, const [
+            (channelId: 9, starred: true),
+          ]);
+          expect(find.text('STARRED CHANNELS'), findsOneWidget);
+        } finally {
+          debugDefaultTargetPlatformOverride = previous;
+        }
+      });
+
+      testWidgets(
+        'closes a direct message and falls back to a public channel',
+        (tester) async {
+          final previous = debugDefaultTargetPlatformOverride;
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            final api = FakeDiscourseApi(
+              totals: withChat,
+              user: me,
+              chatChannelsBySite: {
+                site: ChatChannels(public: [channel(9)], direct: [dm(12)]),
+              },
+              chatMessagesByKey: {key(9): page(const [])},
+            );
+            await pumpChat(tester, api: api);
+
+            final mouse = await tester.createGesture(
+              kind: PointerDeviceKind.mouse,
+            );
+            await mouse.addPointer(location: Offset.zero);
+            addTearDown(mouse.removePointer);
+            await mouse.moveTo(tester.getCenter(sidebarDestination('hawk')));
+            await tester.pumpAndSettle();
+            await tester.tap(
+              find.byKey(const ValueKey('chat-channel-menu-button-12')),
+            );
+            await tester.pumpAndSettle();
+
+            expect(
+              find.widgetWithText(MenuItemButton, 'Close channel'),
+              findsOneWidget,
+            );
+            await tester.tap(
+              find.byKey(const ValueKey('chat-channel-menu-leave-12')),
+            );
+            await tester.pumpAndSettle();
+
+            expect(api.chatChannelFollowsUpdated, const [
+              (channelId: 12, following: false),
+            ]);
+            expect(sidebarDestination('hawk'), findsNothing);
+            expect(sidebarDestination('Bugs'), findsOneWidget);
+            final shell = ShellScope.read(
+              tester.element(find.byType(MainContent)),
+            );
+            expect(shell.currentContent?.id, ChatChannel.routeId(9));
+          } finally {
+            debugDefaultTargetPlatformOverride = previous;
+          }
+        },
+      );
+
+      testWidgets('opens the channel actions from a long press on touch', (
+        tester,
+      ) async {
+        final previous = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+        try {
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            user: me,
+            chatChannelsBySite: {
+              site: ChatChannels(public: [channel(9)]),
+            },
+          );
+          await pumpChat(tester, api: api, size: phone);
+
+          expect(
+            find.byKey(const ValueKey('chat-channel-menu-button-9')),
+            findsNothing,
+          );
+          await tester.longPress(sidebarDestination('Bugs'));
+          await tester.pumpAndSettle();
+
+          expect(
+            find.widgetWithText(ListTile, 'Notifications'),
+            findsOneWidget,
+          );
+          expect(
+            find.widgetWithText(ListTile, 'Channel settings'),
+            findsOneWidget,
+          );
+          expect(
+            find.widgetWithText(ListTile, 'Add to starred channels'),
+            findsOneWidget,
+          );
+          expect(
+            find.widgetWithText(ListTile, 'Leave channel'),
+            findsOneWidget,
+          );
+
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-notifications-9')),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Mentions only'), findsOneWidget);
+
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-notification-9-always')),
+          );
+          await tester.pumpAndSettle();
+
+          expect(api.chatChannelNotificationsUpdated, const [
+            (
+              channelId: 9,
+              muted: null,
+              notificationLevel: ChatChannelNotificationLevel.always,
+            ),
+          ]);
+          expect(
+            find.widgetWithText(ListTile, 'Channel settings'),
+            findsNothing,
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = previous;
+        }
+      });
+
       testWidgets('browses, filters, and joins public channels', (
         tester,
       ) async {
