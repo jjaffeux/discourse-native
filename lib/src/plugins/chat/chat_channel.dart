@@ -39,6 +39,9 @@ enum ChatChannelStatus {
   };
 }
 
+/// Server-side status buckets exposed by Discourse's Browse Channels route.
+enum ChatChannelBrowseStatus { all, open, closed, archived }
+
 /// One account in a direct message channel.
 ///
 /// Thin, like `PostReactor`: this is a name and a face beside a sidebar row,
@@ -86,14 +89,29 @@ class ChatUser {
 ///
 /// Not a record of its own: it has no identity apart from the channel it
 /// arrives inside, and it is only ever one reader's view of one channel.
+enum ChatChannelNotificationLevel {
+  never,
+  mention,
+  always;
+
+  static ChatChannelNotificationLevel read(Object? value) => switch (value) {
+    'never' || 0 => never,
+    'always' || 2 => always,
+    _ => mention,
+  };
+}
+
 @immutable
 class ChatMembership {
   const ChatMembership({
     this.following = false,
     this.muted = false,
+    this.notificationLevel = ChatChannelNotificationLevel.mention,
     this.starred = false,
     this.lastReadMessageId,
     this.lastViewedAt,
+    this.lastViewedPinsAt,
+    this.hasUnseenPins = false,
   });
 
   /// A channel the reader has no membership row for. `/chat/api/me/channels`
@@ -106,14 +124,20 @@ class ChatMembership {
     return ChatMembership(
       following: value['following'] == true,
       muted: value['muted'] == true,
+      notificationLevel: ChatChannelNotificationLevel.read(
+        value['notification_level'],
+      ),
       starred: value['starred'] == true,
       lastReadMessageId: jsonIntOrNull(value['last_read_message_id']),
       lastViewedAt: jsonDate(value['last_viewed_at']),
+      lastViewedPinsAt: jsonDate(value['last_viewed_pins_at']),
+      hasUnseenPins: value['has_unseen_pins'] == true,
     );
   }
 
   final bool following;
   final bool muted;
+  final ChatChannelNotificationLevel notificationLevel;
 
   /// Whether the reader promoted this channel into Discourse's leading
   /// "Starred channels" sidebar section.
@@ -134,6 +158,8 @@ class ChatMembership {
   /// When this channel was last opened, used by core to distinguish newly
   /// active unread threads from older thread state.
   final DateTime? lastViewedAt;
+  final DateTime? lastViewedPinsAt;
+  final bool hasUnseenPins;
 
   /// This membership with the reader credited up to [messageId].
   ///
@@ -144,18 +170,71 @@ class ChatMembership {
   ChatMembership withLastRead(int messageId) => ChatMembership(
     following: following,
     muted: muted,
+    notificationLevel: notificationLevel,
     starred: starred,
     lastReadMessageId: messageId,
     lastViewedAt: lastViewedAt,
+    lastViewedPinsAt: lastViewedPinsAt,
+    hasUnseenPins: hasUnseenPins,
   );
 
   /// This membership after the channel pane was in front of the reader.
   ChatMembership withLastViewedAt(DateTime viewedAt) => ChatMembership(
     following: following,
     muted: muted,
+    notificationLevel: notificationLevel,
     starred: starred,
     lastReadMessageId: lastReadMessageId,
     lastViewedAt: viewedAt,
+    lastViewedPinsAt: lastViewedPinsAt,
+    hasUnseenPins: hasUnseenPins,
+  );
+
+  ChatMembership withStarred(bool starred) => ChatMembership(
+    following: following,
+    muted: muted,
+    notificationLevel: notificationLevel,
+    starred: starred,
+    lastReadMessageId: lastReadMessageId,
+    lastViewedAt: lastViewedAt,
+    lastViewedPinsAt: lastViewedPinsAt,
+    hasUnseenPins: hasUnseenPins,
+  );
+
+  ChatMembership withPinsViewed(DateTime viewedAt) => ChatMembership(
+    following: following,
+    muted: muted,
+    notificationLevel: notificationLevel,
+    starred: starred,
+    lastReadMessageId: lastReadMessageId,
+    lastViewedAt: lastViewedAt,
+    lastViewedPinsAt: viewedAt,
+    hasUnseenPins: false,
+  );
+
+  ChatMembership withUnseenPins(bool hasUnseenPins) => ChatMembership(
+    following: following,
+    muted: muted,
+    notificationLevel: notificationLevel,
+    starred: starred,
+    lastReadMessageId: lastReadMessageId,
+    lastViewedAt: lastViewedAt,
+    lastViewedPinsAt: lastViewedPinsAt,
+    hasUnseenPins: hasUnseenPins,
+  );
+
+  ChatMembership withNotifications({
+    bool? muted,
+    ChatChannelNotificationLevel? notificationLevel,
+  }) => ChatMembership(
+    following: following,
+    muted: muted ?? this.muted,
+    notificationLevel: notificationLevel ?? this.notificationLevel,
+    starred: starred,
+    lastReadMessageId: lastReadMessageId,
+    lastViewedAt: lastViewedAt,
+    lastViewedPinsAt: lastViewedPinsAt,
+    hasUnseenPins: hasUnseenPins,
   );
 
   @override
@@ -163,13 +242,24 @@ class ChatMembership {
       other is ChatMembership &&
       other.following == following &&
       other.muted == muted &&
+      other.notificationLevel == notificationLevel &&
       other.starred == starred &&
       other.lastReadMessageId == lastReadMessageId &&
-      other.lastViewedAt == lastViewedAt;
+      other.lastViewedAt == lastViewedAt &&
+      other.lastViewedPinsAt == lastViewedPinsAt &&
+      other.hasUnseenPins == hasUnseenPins;
 
   @override
-  int get hashCode =>
-      Object.hash(following, muted, starred, lastReadMessageId, lastViewedAt);
+  int get hashCode => Object.hash(
+    following,
+    muted,
+    notificationLevel,
+    starred,
+    lastReadMessageId,
+    lastViewedAt,
+    lastViewedPinsAt,
+    hasUnseenPins,
+  );
 }
 
 /// How much of a channel this account has not seen.
@@ -280,15 +370,25 @@ class ChatChannels {
   const ChatChannels({
     this.public = const [],
     this.direct = const [],
+    this.hasThreads = false,
     this.presence = const ChatPresence(),
     this.newMessageBusLastIds = const {},
     this.channelMessageBusLastIds = const {},
     this.newChannelBusLastId,
     this.userTrackingBusLastId,
+    this.userHasThreadsBusLastId,
   });
 
   final List<ChatChannel> public;
   final List<ChatChannel> direct;
+
+  /// Whether this account has at least one thread membership.
+  ///
+  /// Core serializes this on the channel-list envelope and uses it to decide
+  /// whether the account-level "My Threads" destination exists. It is not the
+  /// same as any one channel supporting threads: an account with no joined
+  /// threads should not get an empty permanent navigation row.
+  final bool hasThreads;
   final ChatPresence presence;
 
   /// The `/chat/{id}/new-messages` position captured with each channel.
@@ -308,7 +408,56 @@ class ChatChannels {
   /// Envelope-level cursors captured by the same channel-list response.
   final int? newChannelBusLastId;
   final int? userTrackingBusLastId;
+  final int? userHasThreadsBusLastId;
 }
+
+/// One page from `/chat/api/channels`, including the server's continuation.
+@immutable
+class ChatChannelBrowsePage {
+  const ChatChannelBrowsePage({this.channels = const [], this.hasMore = false});
+
+  static const int pageSize = 25;
+
+  factory ChatChannelBrowsePage.fromJson(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    int limit = pageSize,
+  }) {
+    final channels = List<ChatChannel>.unmodifiable([
+      for (final entry in jsonObjects(json['channels']).take(limit))
+        ChatChannel.fromJson(entry, siteUrl),
+    ]);
+    return ChatChannelBrowsePage(
+      channels: channels,
+      // Core supplies a load-more URL on non-terminal Collection pages. The
+      // short-page guard also makes this robust against older serializers
+      // which emitted the key unconditionally.
+      hasMore:
+          channels.length == limit &&
+          jsonText(jsonObject(json['meta'])['load_more_url']) != null,
+    );
+  }
+
+  final List<ChatChannel> channels;
+  final bool hasMore;
+}
+
+typedef ChatChannelBrowseResult = ({
+  ChatChannelBrowsePage? page,
+  String? error,
+});
+
+/// One bounded page from a channel's privacy-safe member list.
+typedef ChatChannelMembersPage = ({
+  List<ChatUser> members,
+  int totalRows,
+  bool canLoadMore,
+});
+
+typedef ChatChannelMembersResult = ({
+  ChatChannelMembersPage? page,
+  String? error,
+});
 
 /// One chat channel this account follows.
 @immutable
@@ -317,6 +466,7 @@ class ChatChannel with Storable<ChatChannel> {
     required this.id,
     required this.title,
     required this.kind,
+    this.chatableId,
     this.slug,
     this.emoji,
     this.description,
@@ -324,6 +474,14 @@ class ChatChannel with Storable<ChatChannel> {
     this.readRestricted = false,
     this.status = ChatChannelStatus.open,
     this.userSilenced = false,
+    this.canModerate = false,
+    this.canDeleteSelf = false,
+    this.canDeleteOthers = false,
+    this.canManagePins = false,
+    this.canFlag = false,
+    this.pinnedMessagesCount = 0,
+    this.membershipsCount = 0,
+    this.canJoin = false,
     this.isGroup = false,
     this.users = const [],
     this.membership = ChatMembership.none,
@@ -372,6 +530,7 @@ class ChatChannel with Storable<ChatChannel> {
       // for plain over fancy.
       title: jsonText(json['unicode_title']) ?? jsonText(json['title']) ?? '',
       kind: kind,
+      chatableId: jsonIntOrNull(json['chatable_id']),
       slug: jsonText(json['slug']),
       // A bare name, `bug` rather than `:bug:`, and the key is dropped
       // altogether when a channel has none.
@@ -383,6 +542,14 @@ class ChatChannel with Storable<ChatChannel> {
       readRestricted: chatable['read_restricted'] == true,
       status: ChatChannelStatus.read(json['status']),
       userSilenced: metadata['user_silenced'] == true,
+      canModerate: metadata['can_moderate'] == true,
+      canDeleteSelf: metadata['can_delete_self'] == true,
+      canDeleteOthers: metadata['can_delete_others'] == true,
+      canManagePins: metadata['can_manage_pins'] == true,
+      canFlag: metadata['can_flag'] == true,
+      pinnedMessagesCount: jsonInt(json['pinned_messages_count']),
+      membershipsCount: jsonInt(json['memberships_count']),
+      canJoin: metadata['can_join_chat_channel'] == true,
       isGroup: chatable['group'] == true,
       users: kind == ChatChannelKind.directMessage
           ? List.unmodifiable([
@@ -485,12 +652,16 @@ class ChatChannel with Storable<ChatChannel> {
           maximum: maximumDirectMessageChannels,
         ),
       ),
+      hasThreads: json['has_threads'] == true,
       presence: ChatPresence.fromJson(json['global_presence_channel_state']),
       newMessageBusLastIds: Map.unmodifiable(newMessageBusLastIds),
       channelMessageBusLastIds: Map.unmodifiable(channelMessageBusLastIds),
       newChannelBusLastId: jsonIntOrNull(envelopeLastIds['new_channel']),
       userTrackingBusLastId: jsonIntOrNull(
         envelopeLastIds['user_tracking_state'],
+      ),
+      userHasThreadsBusLastId: jsonIntOrNull(
+        envelopeLastIds['user_has_threads'],
       ),
     );
   }
@@ -501,6 +672,7 @@ class ChatChannel with Storable<ChatChannel> {
   final String title;
 
   final ChatChannelKind kind;
+  final int? chatableId;
   final String? slug;
 
   /// The bare emoji name a channel was given, or null. Resolved to artwork
@@ -517,6 +689,16 @@ class ChatChannel with Storable<ChatChannel> {
   final bool readRestricted;
   final ChatChannelStatus status;
   final bool userSilenced;
+  final bool canModerate;
+  final bool canDeleteSelf;
+  final bool canDeleteOthers;
+  final bool canManagePins;
+  final bool canFlag;
+  final int pinnedMessagesCount;
+  final int membershipsCount;
+  final bool canJoin;
+
+  bool get hasPinnedMessages => pinnedMessagesCount > 0;
 
   bool canModifyMessages({required bool isStaff}) =>
       !userSilenced &&
@@ -621,6 +803,7 @@ class ChatChannel with Storable<ChatChannel> {
     id: id,
     title: title,
     kind: kind,
+    chatableId: chatableId,
     slug: slug,
     emoji: emoji,
     description: description,
@@ -628,9 +811,213 @@ class ChatChannel with Storable<ChatChannel> {
     readRestricted: readRestricted,
     status: status,
     userSilenced: userSilenced,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+    pinnedMessagesCount: pinnedMessagesCount,
+    membershipsCount: membershipsCount,
+    canJoin: canJoin,
     isGroup: isGroup,
     users: users,
     membership: membership.withLastViewedAt(viewedAt),
+    tracking: tracking,
+    unreadThreadOverview: unreadThreadOverview,
+    threadingEnabled: threadingEnabled,
+    lastMessageId: lastMessageId,
+    lastMessageAt: lastMessageAt,
+  );
+
+  /// Moves this channel into or out of the account's starred sidebar bucket.
+  ChatChannel withStarred(bool starred) => ChatChannel(
+    id: id,
+    title: title,
+    kind: kind,
+    chatableId: chatableId,
+    slug: slug,
+    emoji: emoji,
+    description: description,
+    categoryColor: categoryColor,
+    readRestricted: readRestricted,
+    status: status,
+    userSilenced: userSilenced,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+    pinnedMessagesCount: pinnedMessagesCount,
+    membershipsCount: membershipsCount,
+    canJoin: canJoin,
+    isGroup: isGroup,
+    users: users,
+    membership: membership.withStarred(starred),
+    tracking: tracking,
+    unreadThreadOverview: unreadThreadOverview,
+    threadingEnabled: threadingEnabled,
+    lastMessageId: lastMessageId,
+    lastMessageAt: lastMessageAt,
+  );
+
+  /// Optimistically exposes or hides the channel's separate thread timeline.
+  ChatChannel withThreadingEnabled(bool enabled) => ChatChannel(
+    id: id,
+    title: title,
+    kind: kind,
+    chatableId: chatableId,
+    slug: slug,
+    emoji: emoji,
+    description: description,
+    categoryColor: categoryColor,
+    readRestricted: readRestricted,
+    status: status,
+    userSilenced: userSilenced,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+    pinnedMessagesCount: pinnedMessagesCount,
+    membershipsCount: membershipsCount,
+    canJoin: canJoin,
+    isGroup: isGroup,
+    users: users,
+    membership: membership,
+    tracking: tracking,
+    unreadThreadOverview: unreadThreadOverview,
+    threadingEnabled: enabled,
+    lastMessageId: lastMessageId,
+    lastMessageAt: lastMessageAt,
+  );
+
+  /// This channel with the site's authoritative current-user membership.
+  ///
+  /// Membership-setting routes return only that nested record rather than a
+  /// complete channel. Keeping the replacement here prevents one preference
+  /// write from rebuilding and accidentally dropping unrelated channel data.
+  ChatChannel withMembership(
+    ChatMembership membership, {
+    int? membershipsCount,
+  }) => ChatChannel(
+    id: id,
+    title: title,
+    kind: kind,
+    chatableId: chatableId,
+    slug: slug,
+    emoji: emoji,
+    description: description,
+    categoryColor: categoryColor,
+    readRestricted: readRestricted,
+    status: status,
+    userSilenced: userSilenced,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+    pinnedMessagesCount: pinnedMessagesCount,
+    membershipsCount: membershipsCount ?? this.membershipsCount,
+    canJoin: canJoin,
+    isGroup: isGroup,
+    users: users,
+    membership: membership,
+    tracking: tracking,
+    unreadThreadOverview: unreadThreadOverview,
+    threadingEnabled: threadingEnabled,
+    lastMessageId: lastMessageId,
+    lastMessageAt: lastMessageAt,
+  );
+
+  ChatChannel withPinnedMessagesCount(int count, {bool? hasUnseenPins}) =>
+      ChatChannel(
+        id: id,
+        title: title,
+        kind: kind,
+        chatableId: chatableId,
+        slug: slug,
+        emoji: emoji,
+        description: description,
+        categoryColor: categoryColor,
+        readRestricted: readRestricted,
+        status: status,
+        userSilenced: userSilenced,
+        canModerate: canModerate,
+        canDeleteSelf: canDeleteSelf,
+        canDeleteOthers: canDeleteOthers,
+        canManagePins: canManagePins,
+        canFlag: canFlag,
+        pinnedMessagesCount: count < 0 ? 0 : count,
+        membershipsCount: membershipsCount,
+        canJoin: canJoin,
+        isGroup: isGroup,
+        users: users,
+        membership: hasUnseenPins == null
+            ? membership
+            : membership.withUnseenPins(hasUnseenPins),
+        tracking: tracking,
+        unreadThreadOverview: unreadThreadOverview,
+        threadingEnabled: threadingEnabled,
+        lastMessageId: lastMessageId,
+        lastMessageAt: lastMessageAt,
+      );
+
+  ChatChannel withPinsViewed(DateTime viewedAt) => ChatChannel(
+    id: id,
+    title: title,
+    kind: kind,
+    chatableId: chatableId,
+    slug: slug,
+    emoji: emoji,
+    description: description,
+    categoryColor: categoryColor,
+    readRestricted: readRestricted,
+    status: status,
+    userSilenced: userSilenced,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+    pinnedMessagesCount: pinnedMessagesCount,
+    membershipsCount: membershipsCount,
+    canJoin: canJoin,
+    isGroup: isGroup,
+    users: users,
+    membership: membership.withPinsViewed(viewedAt),
+    tracking: tracking,
+    unreadThreadOverview: unreadThreadOverview,
+    threadingEnabled: threadingEnabled,
+    lastMessageId: lastMessageId,
+    lastMessageAt: lastMessageAt,
+  );
+
+  ChatChannel withPinSnapshot({
+    required int count,
+    ChatMembership? membership,
+  }) => ChatChannel(
+    id: id,
+    title: title,
+    kind: kind,
+    chatableId: chatableId,
+    slug: slug,
+    emoji: emoji,
+    description: description,
+    categoryColor: categoryColor,
+    readRestricted: readRestricted,
+    status: status,
+    userSilenced: userSilenced,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+    pinnedMessagesCount: count < 0 ? 0 : count,
+    membershipsCount: membershipsCount,
+    canJoin: canJoin,
+    isGroup: isGroup,
+    users: users,
+    membership: membership ?? this.membership,
     tracking: tracking,
     unreadThreadOverview: unreadThreadOverview,
     threadingEnabled: threadingEnabled,
@@ -652,6 +1039,7 @@ class ChatChannel with Storable<ChatChannel> {
         id: id,
         title: title,
         kind: kind,
+        chatableId: chatableId,
         slug: slug,
         emoji: emoji,
         description: description,
@@ -659,6 +1047,14 @@ class ChatChannel with Storable<ChatChannel> {
         readRestricted: readRestricted,
         status: status,
         userSilenced: userSilenced,
+        canModerate: canModerate,
+        canDeleteSelf: canDeleteSelf,
+        canDeleteOthers: canDeleteOthers,
+        canManagePins: canManagePins,
+        canFlag: canFlag,
+        pinnedMessagesCount: pinnedMessagesCount,
+        membershipsCount: membershipsCount,
+        canJoin: canJoin,
         isGroup: isGroup,
         users: users,
         membership: membership.withLastRead(messageId),
@@ -687,6 +1083,7 @@ class ChatChannel with Storable<ChatChannel> {
     id: id,
     title: title,
     kind: kind,
+    chatableId: chatableId,
     slug: slug,
     emoji: emoji,
     description: description,
@@ -694,6 +1091,14 @@ class ChatChannel with Storable<ChatChannel> {
     readRestricted: readRestricted,
     status: status,
     userSilenced: userSilenced,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+    pinnedMessagesCount: pinnedMessagesCount,
+    membershipsCount: membershipsCount,
+    canJoin: canJoin,
     isGroup: isGroup,
     users: users,
     membership: lastReadMessageId == null
@@ -750,6 +1155,7 @@ class ChatChannel with Storable<ChatChannel> {
       id: id,
       title: title,
       kind: kind,
+      chatableId: chatableId,
       slug: slug,
       emoji: emoji,
       description: description,
@@ -757,6 +1163,14 @@ class ChatChannel with Storable<ChatChannel> {
       readRestricted: readRestricted,
       status: status,
       userSilenced: userSilenced,
+      canModerate: canModerate,
+      canDeleteSelf: canDeleteSelf,
+      canDeleteOthers: canDeleteOthers,
+      canManagePins: canManagePins,
+      canFlag: canFlag,
+      pinnedMessagesCount: pinnedMessagesCount,
+      membershipsCount: membershipsCount,
+      canJoin: canJoin,
       isGroup: isGroup,
       users: users,
       membership: markRead ? membership.withLastRead(messageId) : membership,
@@ -773,6 +1187,47 @@ class ChatChannel with Storable<ChatChannel> {
       threadingEnabled: threadingEnabled,
       lastMessageId: messageId,
       lastMessageAt: createdAt,
+    );
+  }
+
+  /// Applies an authoritative channel-settings response without discarding
+  /// the reader state that response does not serialize.
+  ///
+  /// `/chat/api/channels/{id}` returns the channel and membership, but no
+  /// sibling tracking report or unread-thread overview. Replacing the stored
+  /// record literally would make every unread badge disappear after a rename.
+  ChatChannel withServerSettings(ChatChannel incoming) {
+    if (incoming.id != id) return this;
+    return ChatChannel(
+      id: incoming.id,
+      title: incoming.title,
+      kind: incoming.kind,
+      chatableId: incoming.chatableId,
+      slug: incoming.slug,
+      emoji: incoming.emoji,
+      description: incoming.description,
+      categoryColor: incoming.categoryColor,
+      readRestricted: incoming.readRestricted,
+      status: incoming.status,
+      userSilenced: incoming.userSilenced,
+      canModerate: incoming.canModerate,
+      canDeleteSelf: incoming.canDeleteSelf,
+      canDeleteOthers: incoming.canDeleteOthers,
+      canManagePins: incoming.canManagePins,
+      canFlag: incoming.canFlag,
+      pinnedMessagesCount: incoming.pinnedMessagesCount,
+      membershipsCount: incoming.membershipsCount,
+      canJoin: incoming.canJoin,
+      isGroup: incoming.isGroup,
+      users: incoming.users,
+      membership: incoming.membership.following
+          ? incoming.membership
+          : membership,
+      tracking: tracking,
+      unreadThreadOverview: unreadThreadOverview,
+      threadingEnabled: incoming.threadingEnabled,
+      lastMessageId: incoming.lastMessageId ?? lastMessageId,
+      lastMessageAt: incoming.lastMessageAt ?? lastMessageAt,
     );
   }
 
@@ -814,6 +1269,7 @@ class ChatChannel with Storable<ChatChannel> {
           other.id == id &&
           other.title == title &&
           other.kind == kind &&
+          other.chatableId == chatableId &&
           other.slug == slug &&
           other.emoji == emoji &&
           other.description == description &&
@@ -821,6 +1277,14 @@ class ChatChannel with Storable<ChatChannel> {
           other.readRestricted == readRestricted &&
           other.status == status &&
           other.userSilenced == userSilenced &&
+          other.canModerate == canModerate &&
+          other.canDeleteSelf == canDeleteSelf &&
+          other.canDeleteOthers == canDeleteOthers &&
+          other.canManagePins == canManagePins &&
+          other.canFlag == canFlag &&
+          other.pinnedMessagesCount == pinnedMessagesCount &&
+          other.membershipsCount == membershipsCount &&
+          other.canJoin == canJoin &&
           other.isGroup == isGroup &&
           listEquals(other.users, users) &&
           other.membership == membership &&
@@ -835,6 +1299,7 @@ class ChatChannel with Storable<ChatChannel> {
     id,
     title,
     kind,
+    chatableId,
     slug,
     emoji,
     description,
@@ -842,6 +1307,14 @@ class ChatChannel with Storable<ChatChannel> {
     readRestricted,
     status,
     userSilenced,
+    canModerate,
+    canDeleteSelf,
+    canDeleteOthers,
+    canManagePins,
+    canFlag,
+    pinnedMessagesCount,
+    membershipsCount,
+    canJoin,
     isGroup,
     Object.hashAll(users),
     membership,

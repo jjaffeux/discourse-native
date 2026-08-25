@@ -20,6 +20,7 @@ import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
+import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
@@ -3852,6 +3853,19 @@ void main() {
       Map<int, List<int>> gapsAfter = const {},
       TopicRecommendations? recommendations,
       TopicNotificationLevel notificationLevel = TopicNotificationLevel.normal,
+      bool pinned = false,
+      bool unpinned = false,
+      bool pinnedGlobally = false,
+      bool closed = false,
+      bool archived = false,
+      bool visible = true,
+      bool canCloseTopic = false,
+      bool canArchiveTopic = false,
+      bool canToggleTopicVisibility = false,
+      bool canDeleteTopic = false,
+      bool canRecoverTopic = false,
+      bool canFlagTopic = false,
+      List<PostActionSummary> topicActions = const [],
     }) => topicPayload(
       id: 7,
       title: 'A real topic',
@@ -3861,6 +3875,19 @@ void main() {
       gapsAfter: gapsAfter,
       recommendations: recommendations,
       notificationLevel: notificationLevel,
+      pinned: pinned,
+      unpinned: unpinned,
+      pinnedGlobally: pinnedGlobally,
+      closed: closed,
+      archived: archived,
+      visible: visible,
+      canCloseTopic: canCloseTopic,
+      canArchiveTopic: canArchiveTopic,
+      canToggleTopicVisibility: canToggleTopicVisibility,
+      canDeleteTopic: canDeleteTopic,
+      canRecoverTopic: canRecoverTopic,
+      canFlagTopic: canFlagTopic,
+      topicActions: topicActions,
     );
 
     testWidgets('tapping a row replaces the list with the topic', (
@@ -3881,6 +3908,173 @@ void main() {
       // The cooked HTML is rendered, not shown as markup.
       expect(renderedText('First post body'), findsOneWidget);
       expect(renderedText('<p>'), findsNothing);
+    });
+
+    testWidgets('topic sharing copies and hands off core’s canonical link', (
+      tester,
+    ) async {
+      final copied = watchClipboard(tester);
+      const shareChannel = MethodChannel('dev.fluttercommunity.plus/share');
+      final shares = <MethodCall>[];
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(shareChannel, (call) async {
+        shares.add(call);
+        return 'test-share-target';
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(shareChannel, null));
+      const reader = DiscourseUser(username: 'Reader');
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+        user: reader,
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: reader, config: const SiteConfig.unknown()),
+        ],
+        api: api,
+        authenticator: authenticator,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Share this topic'));
+      await tester.pumpAndSettle();
+
+      const url = 'https://meta.discourse.org/t/a-real-topic/7?u=reader';
+      expect(find.text('Share this topic'), findsOneWidget);
+      expect(find.text(url), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('topic-share-copy')));
+      await tester.pumpAndSettle();
+      expect(copied, [url]);
+
+      await tester.tap(find.byKey(const ValueKey('topic-share-system')));
+      await tester.pumpAndSettle();
+      expect(shares, hasLength(1));
+      expect(shares.single.method, 'share');
+      expect((shares.single.arguments as Map)['text'], url);
+      expect((shares.single.arguments as Map)['subject'], 'A real topic');
+    });
+
+    testWidgets('post sharing targets that post and can continue elsewhere', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(id: 7, username: 'Reader');
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            canCreatePost: true,
+            canReplyAsNewTopic: true,
+            posts: [
+              post(1, 1, 'First post body'),
+              post(2, 2, 'Second post body'),
+            ],
+          ),
+        },
+        user: reader,
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: reader, config: const SiteConfig.unknown()),
+        ],
+        api: api,
+        authenticator: authenticator,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(renderedText('Second post body')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Share this post'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Share post #2'), findsOneWidget);
+      expect(
+        find.text('https://meta.discourse.org/t/a-real-topic/7/2?u=reader'),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('topic-share-reply-as-new-topic')),
+      );
+      await tester.pumpAndSettle();
+
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      expect(shell.visibleComposer, isNotNull);
+      expect(
+        shell.visibleComposer?.raw,
+        'Continue the discussion from [A real topic]'
+        '(https://meta.discourse.org/t/a-real-topic/7/2)',
+      );
+    });
+
+    testWidgets('a permitted reader can flag the whole topic', (tester) async {
+      const spam = PostFlagType(
+        id: 8,
+        nameKey: 'spam',
+        name: 'Spam',
+        description: '<p>This topic is promotional.</p>',
+        appliesTo: ['Topic'],
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: detail(
+            canFlagTopic: true,
+            topicActions: const [PostActionSummary(id: 8, canAct: true)],
+          ),
+        },
+        categoryPostActionCatalog: const SitePostActionCatalog(
+          topicFlags: [spam],
+        ),
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: const DiscourseUser(id: 1, username: 'reader')),
+        ],
+        api: api,
+        authenticator: authenticator,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Flag this topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Spam'), findsOneWidget);
+      expect(renderedText('This topic is promotional.'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('post-flag-submit')));
+      await tester.pumpAndSettle();
+
+      expect(api.topicFlagsCreated, [
+        (topicId: 7, postActionTypeId: 8, message: null),
+      ]);
+      expect(find.byTooltip('Flag this topic'), findsNothing);
     });
 
     testWidgets('shows the web topic map beneath the opening post', (
@@ -4180,6 +4374,291 @@ void main() {
         TopicNotificationLevel.tracking,
       );
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('topic actions follow guardian status gates and update state', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(username: 'reader', name: 'Reader');
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: detail(
+            canCloseTopic: true,
+            canArchiveTopic: true,
+            canToggleTopicVisibility: true,
+          ),
+        },
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: reader),
+        ],
+        api: api,
+        authenticator: authenticator,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+
+      Future<void> choose(String label) async {
+        await tester.tap(find.byTooltip('Topic actions'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+      }
+
+      await choose('Close topic');
+      expect(
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).currentTopic?.closed,
+        isTrue,
+      );
+      await choose('Archive topic');
+      expect(
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).currentTopic?.archived,
+        isTrue,
+      );
+      await choose('Make topic unlisted');
+      expect(
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).currentTopic?.visible,
+        isFalse,
+      );
+      expect(api.topicStatusesUpdated, const [
+        (topicId: 7, status: TopicStatusProperty.closed, enabled: true),
+        (topicId: 7, status: TopicStatusProperty.archived, enabled: true),
+        (topicId: 7, status: TopicStatusProperty.visible, enabled: false),
+      ]);
+
+      await tester.tap(find.byTooltip('Topic actions'));
+      await tester.pumpAndSettle();
+      expect(find.text('Open topic'), findsOneWidget);
+      expect(find.text('Unarchive topic'), findsOneWidget);
+      expect(find.text('Make topic visible'), findsOneWidget);
+    });
+
+    testWidgets('staff can delete and recover a topic from its action menu', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(
+        username: 'moderator',
+        name: 'Moderator',
+        staff: true,
+      );
+      final api = FakeDiscourseApi(
+        user: reader,
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(canDeleteTopic: true)},
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: reader),
+        ],
+        api: api,
+        authenticator: authenticator,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Topic actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-delete-confirm')));
+      await tester.pumpAndSettle();
+
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      expect(api.topicsDeleted, [7]);
+      expect(shell.currentTopic?.deletedAt, isNotNull);
+      expect(shell.currentTopic?.canRecoverTopic, isTrue);
+
+      await tester.tap(find.byTooltip('Topic actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Recover topic'));
+      await tester.pumpAndSettle();
+
+      expect(api.topicsRecovered, [7]);
+      expect(shell.currentTopic?.deletedAt, isNull);
+      expect(shell.currentTopic?.canDeleteTopic, isTrue);
+    });
+
+    testWidgets('topic actions are absent without a serialized guardian gate', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Topic actions'), findsNothing);
+    });
+
+    testWidgets('a personalized topic pin can be dismissed and restored', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(username: 'reader', name: 'Reader');
+      final api = FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [
+            Topic(
+              id: 7,
+              title: 'A real topic',
+              slug: 'a-real-topic',
+              pinned: true,
+            ),
+          ],
+        },
+        topics: {7: detail(pinned: true, pinnedGlobally: true)},
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: reader),
+        ],
+        api: api,
+        authenticator: authenticator,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+
+      final trigger = find.byTooltip('Pinned topic options');
+      expect(trigger, findsOneWidget);
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(find.text('Pinned globally'), findsOneWidget);
+      expect(find.text('Unpinned'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey(('choice-menu-option', false))),
+      );
+      await tester.pumpAndSettle();
+
+      var shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      expect(api.topicPinPreferencesUpdated, const [
+        (topicId: 7, pinned: false),
+      ]);
+      expect(shell.currentTopic?.pinned, isFalse);
+      expect(shell.currentTopic?.unpinned, isTrue);
+      expect(
+        shell.store.read<Topic>('https://meta.discourse.org', 7)?.pinned,
+        isFalse,
+      );
+
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey(('choice-menu-option', true))),
+      );
+      await tester.pumpAndSettle();
+
+      shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      expect(api.topicPinPreferencesUpdated, const [
+        (topicId: 7, pinned: false),
+        (topicId: 7, pinned: true),
+      ]);
+      expect(shell.currentTopic?.pinned, isTrue);
+      expect(shell.currentTopic?.unpinned, isFalse);
+      expect(
+        shell.store.read<Topic>('https://meta.discourse.org', 7)?.pinned,
+        isTrue,
+      );
+    });
+
+    testWidgets('a rejected topic pin change restores the prior preference', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(username: 'reader', name: 'Reader');
+      final api = FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [
+            Topic(
+              id: 7,
+              title: 'A real topic',
+              slug: 'a-real-topic',
+              pinned: true,
+            ),
+          ],
+        },
+        topics: {7: detail(pinned: true)},
+        writeFailure: const WriteException(WriteFailure.forbidden),
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: reader)],
+        api: api,
+        authenticator: authenticator,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Pinned topic options'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey(('choice-menu-option', false))),
+      );
+      await tester.pumpAndSettle();
+
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      expect(shell.currentTopic?.pinned, isTrue);
+      expect(shell.currentTopic?.unpinned, isFalse);
+      expect(
+        shell.store.read<Topic>('https://meta.discourse.org', 7)?.pinned,
+        isTrue,
+      );
+      expect(find.byType(SnackBar), findsOneWidget);
+    });
+
+    testWidgets('ordinary topics do not show personalized pin controls', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(username: 'reader');
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+      );
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: reader)],
+        api: api,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Pinned topic options'), findsNothing);
     });
 
     testWidgets('signed-out topics do not expose notification controls', (
@@ -7537,6 +8016,8 @@ void main() {
       bool canEdit = true,
       bool canDelete = true,
       bool canRecover = false,
+      bool wiki = false,
+      bool canWiki = false,
       DateTime? deletedAt,
     }) => Post(
       id: 1,
@@ -7546,6 +8027,8 @@ void main() {
       canEdit: canEdit,
       canDelete: canDelete,
       canRecover: canRecover,
+      wiki: wiki,
+      canWiki: canWiki,
       deletedAt: deletedAt,
     );
 
@@ -7721,6 +8204,960 @@ void main() {
 
       expect(find.byTooltip('Put this post back'), findsOneWidget);
       expect(find.byTooltip('Delete this post'), findsNothing);
+    });
+
+    testWidgets('a guardian-authorized post can become and stop being a wiki', (
+      tester,
+    ) async {
+      final api = await openTopic(
+        tester,
+        post: mine(canWiki: true),
+        postsById: {
+          1: const Post(
+            id: 1,
+            postNumber: 1,
+            username: 'joffreyj',
+            cooked: '<p>First post body</p>',
+            wiki: true,
+            canWiki: true,
+          ),
+        },
+      );
+
+      final gesture = await hoverPost(tester);
+      await tester.tap(
+        find.byTooltip('Allow community members to edit this post'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.postWikiUpdates, const [(postId: 1, wiki: true)]);
+      expect(find.text('wiki'), findsOneWidget);
+
+      // Supply the state the second authoritative refresh will return.
+      api.postsById[1] = const Post(
+        id: 1,
+        postNumber: 1,
+        username: 'joffreyj',
+        cooked: '<p>First post body</p>',
+        wiki: false,
+        canWiki: true,
+      );
+      await gesture.moveTo(Offset.zero);
+      await tester.pump();
+      await gesture.moveTo(tester.getCenter(renderedText('First post body')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Return this to ordinary post editing'));
+      await tester.pumpAndSettle();
+
+      expect(api.postWikiUpdates, const [
+        (postId: 1, wiki: true),
+        (postId: 1, wiki: false),
+      ]);
+      expect(find.text('wiki'), findsNothing);
+    });
+
+    testWidgets('staff can lock and unlock an authored post', (tester) async {
+      const staff = DiscourseUser(
+        id: 9,
+        username: 'moderator',
+        name: 'Moderator',
+        staff: true,
+      );
+      final refreshed = <int, Post>{
+        1: const Post(
+          id: 1,
+          postNumber: 1,
+          userId: 7,
+          username: 'joffreyj',
+          cooked: '<p>Lockable body</p>',
+          locked: true,
+        ),
+      };
+      final api = FakeDiscourseApi(
+        user: staff,
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                userId: 7,
+                username: 'joffreyj',
+                cooked: '<p>Lockable body</p>',
+              ),
+            ],
+          ),
+        },
+        postsById: refreshed,
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: staff),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      final gesture = await hoverPost(tester, body: 'Lockable body');
+      await tester.tap(find.byTooltip('Prevent further edits to this post'));
+      await tester.pumpAndSettle();
+      expect(api.postLockUpdates, const [(postId: 1, locked: true)]);
+      expect(find.text('locked'), findsOneWidget);
+
+      refreshed[1] = const Post(
+        id: 1,
+        postNumber: 1,
+        userId: 7,
+        username: 'joffreyj',
+        cooked: '<p>Lockable body</p>',
+      );
+      await gesture.moveTo(Offset.zero);
+      await tester.pump();
+      await gesture.moveTo(tester.getCenter(renderedText('Lockable body')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Allow this post to be edited again'));
+      await tester.pumpAndSettle();
+
+      expect(api.postLockUpdates, const [
+        (postId: 1, locked: true),
+        (postId: 1, locked: false),
+      ]);
+      expect(find.text('locked'), findsNothing);
+    });
+
+    testWidgets('staff can restore a flagged-hidden post', (tester) async {
+      const staff = DiscourseUser(
+        id: 9,
+        username: 'moderator',
+        name: 'Moderator',
+        staff: true,
+      );
+      final api = FakeDiscourseApi(
+        user: staff,
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                userId: 7,
+                username: 'joffreyj',
+                cooked: '<p>Hidden body</p>',
+                hidden: true,
+              ),
+            ],
+          ),
+        },
+        postsById: const {
+          1: Post(
+            id: 1,
+            postNumber: 1,
+            userId: 7,
+            username: 'joffreyj',
+            cooked: '<p>Visible body</p>',
+          ),
+        },
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: staff),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('hidden'), findsOneWidget);
+      await hoverPost(tester, body: 'Hidden body');
+      await tester.tap(find.byTooltip('Restore this hidden post'));
+      await tester.pumpAndSettle();
+
+      expect(api.postsUnhidden, [1]);
+      expect(find.text('hidden'), findsNothing);
+      expect(renderedText('Visible body'), findsOneWidget);
+    });
+
+    testWidgets('staff can convert and revert a moderator post', (
+      tester,
+    ) async {
+      const staff = DiscourseUser(
+        id: 9,
+        username: 'moderator',
+        name: 'Moderator',
+        staff: true,
+      );
+      final refreshed = <int, Post>{
+        1: const Post(
+          id: 1,
+          postNumber: 1,
+          userId: 7,
+          username: 'joffreyj',
+          cooked: '<p>Official body</p>',
+          postType: Post.moderatorPostType,
+        ),
+      };
+      final api = FakeDiscourseApi(
+        user: staff,
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                userId: 7,
+                username: 'joffreyj',
+                cooked: '<p>Official body</p>',
+              ),
+            ],
+          ),
+        },
+        postsById: refreshed,
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: staff),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      final gesture = await hoverPost(tester, body: 'Official body');
+      await tester.tap(
+        find.byTooltip('Mark this as an official moderator post'),
+      );
+      await tester.pumpAndSettle();
+      expect(api.postTypeUpdates, const [
+        (postId: 1, postType: Post.moderatorPostType),
+      ]);
+      expect(find.text('moderator'), findsOneWidget);
+
+      refreshed[1] = const Post(
+        id: 1,
+        postNumber: 1,
+        userId: 7,
+        username: 'joffreyj',
+        cooked: '<p>Official body</p>',
+      );
+      await gesture.moveTo(Offset.zero);
+      await tester.pump();
+      await gesture.moveTo(tester.getCenter(renderedText('Official body')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byTooltip('Remove the moderator styling from this post'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.postTypeUpdates, const [
+        (postId: 1, postType: Post.moderatorPostType),
+        (postId: 1, postType: Post.regularPostType),
+      ]);
+      expect(find.text('moderator'), findsNothing);
+    });
+
+    testWidgets('staff-note guardians can add and remove a post notice', (
+      tester,
+    ) async {
+      const staff = DiscourseUser(
+        id: 9,
+        username: 'moderator',
+        name: 'Moderator',
+        staff: true,
+      );
+      final refreshed = <int, Post>{
+        1: const Post(
+          id: 1,
+          postNumber: 1,
+          userId: 7,
+          username: 'joffreyj',
+          cooked: '<p>Noticeable body</p>',
+          notice: PostNotice(
+            type: 'custom',
+            raw: 'Please read this carefully.',
+            cooked: '<p>Please <strong>read</strong> this carefully.</p>',
+          ),
+        ),
+      };
+      final api = FakeDiscourseApi(
+        user: staff,
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                userId: 7,
+                username: 'joffreyj',
+                cooked: '<p>Noticeable body</p>',
+              ),
+            ],
+            canEditStaffNotes: true,
+          ),
+        },
+        postsById: refreshed,
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: staff),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      final gesture = await hoverPost(tester, body: 'Noticeable body');
+      await tester.tap(find.byTooltip('Add a staff notice above this post'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('post-notice-text')),
+        '  Please read this carefully.  ',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('post-notice-save')));
+      await tester.pumpAndSettle();
+
+      expect(api.postNoticeUpdates, const [
+        (postId: 1, notice: 'Please read this carefully.'),
+      ]);
+      expect(find.byKey(const ValueKey('post-notice-1')), findsOneWidget);
+      expect(renderedText('Please read this carefully.'), findsOneWidget);
+
+      refreshed[1] = const Post(
+        id: 1,
+        postNumber: 1,
+        userId: 7,
+        username: 'joffreyj',
+        cooked: '<p>Noticeable body</p>',
+      );
+      await gesture.moveTo(Offset.zero);
+      await tester.pump();
+      await gesture.moveTo(tester.getCenter(renderedText('Noticeable body')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Change or remove the staff notice'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('post-notice-delete')));
+      await tester.pumpAndSettle();
+
+      expect(api.postNoticeUpdates, const [
+        (postId: 1, notice: 'Please read this carefully.'),
+        (postId: 1, notice: null),
+      ]);
+      expect(find.byKey(const ValueKey('post-notice-1')), findsNothing);
+    });
+
+    testWidgets('post-owner guardians can reassign one post directly', (
+      tester,
+    ) async {
+      const ownerGuardian = DiscourseUser(
+        id: 9,
+        username: 'moderator',
+        name: 'Moderator',
+        canChangePostOwner: true,
+      );
+      final api = FakeDiscourseApi(
+        user: ownerGuardian,
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                userId: 7,
+                username: 'joffreyj',
+                cooked: '<p>Owned body</p>',
+              ),
+            ],
+          ),
+        },
+        userSearches: const {
+          'kris': [FoundUser(username: 'kris', name: 'Kris')],
+        },
+        postsById: const {
+          1: Post(
+            id: 1,
+            postNumber: 1,
+            userId: 12,
+            username: 'kris',
+            name: 'Kris',
+            cooked: '<p>Owned body</p>',
+          ),
+        },
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Meta',
+          ).copyWith(user: ownerGuardian),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      await hoverPost(tester, body: 'Owned body');
+      await tester.tap(find.byTooltip('Assign this post to another account'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('topic-change-owner-search')),
+        'kris',
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-change-owner-submit')));
+      await tester.pumpAndSettle();
+
+      expect(api.postOwnersChanged, hasLength(1));
+      expect(api.postOwnersChanged.single.topicId, 7);
+      expect(api.postOwnersChanged.single.postIds, [1]);
+      expect(api.postOwnersChanged.single.username, 'kris');
+      expect(find.text('Kris'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('topic-selected-posts-toolbar')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('admins can permanently delete a reply after preflight', (
+      tester,
+    ) async {
+      final deletedReply = Post(
+        id: 2,
+        postNumber: 2,
+        username: 'sam',
+        cooked: '<p>Deleted reply body</p>',
+        deletedAt: DateTime.utc(2026, 8, 25),
+        canRecover: true,
+        canPermanentlyDelete: true,
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [
+              const Post(
+                id: 1,
+                postNumber: 1,
+                username: 'joffreyj',
+                cooked: '<p>First permanent body</p>',
+              ),
+              deletedReply,
+            ],
+          ),
+        },
+        // The authoritative post refresh answers with nothing for id 2 after
+        // the force-destroy write, which removes it from the visible stream.
+        postsById: const {
+          1: Post(
+            id: 1,
+            postNumber: 1,
+            username: 'joffreyj',
+            cooked: '<p>First permanent body</p>',
+          ),
+        },
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: me),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      await hoverPost(tester, body: 'Deleted reply body');
+      await tester.tap(find.byTooltip('Permanently delete this post'));
+      await tester.pumpAndSettle();
+      expect(api.permanentDeletionChecks, [2]);
+      expect(
+        find.byKey(const ValueKey('post-permanent-delete-dialog')),
+        findsOneWidget,
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('post-permanent-delete-confirmation')),
+        'PERMANENTLY DELETE',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('post-permanent-delete-submit')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.postsPermanentlyDeleted, const [(topicId: 7, postId: 2)]);
+      expect(renderedText('Deleted reply body'), findsNothing);
+      expect(renderedText('First permanent body'), findsOneWidget);
+    });
+
+    testWidgets('permanent-delete preflight surfaces the server refusal', (
+      tester,
+    ) async {
+      final deletedReply = Post(
+        id: 2,
+        postNumber: 2,
+        username: 'sam',
+        cooked: '<p>Cooldown reply body</p>',
+        deletedAt: DateTime.utc(2026, 8, 25),
+        canPermanentlyDelete: true,
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(id: 7, title: 'A real topic', posts: [deletedReply]),
+        },
+        permanentDeletionAllowed: false,
+        permanentDeletionReason: 'Wait five minutes or use another admin.',
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: me),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      await hoverPost(tester, body: 'Cooldown reply body');
+      await tester.tap(find.byTooltip('Permanently delete this post'));
+      await tester.pumpAndSettle();
+
+      expect(api.permanentDeletionChecks, [2]);
+      expect(
+        find.text('Wait five minutes or use another admin.'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('post-permanent-delete-dialog')),
+        findsNothing,
+      );
+      expect(api.postsPermanentlyDeleted, isEmpty);
+    });
+
+    testWidgets('permanently deleting the opening post removes the topic', (
+      tester,
+    ) async {
+      final openingPost = Post(
+        id: 1,
+        postNumber: 1,
+        username: 'sam',
+        cooked: '<p>Deleted opening body</p>',
+        deletedAt: DateTime.utc(2026, 8, 25),
+        canRecover: true,
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [openingPost],
+            deletedAt: DateTime.utc(2026, 8, 25),
+            canRecoverTopic: true,
+            canPermanentlyDelete: true,
+          ),
+        },
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: me),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      await hoverPost(tester, body: 'Deleted opening body');
+      await tester.tap(find.byTooltip('Permanently delete this post'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('post-permanent-delete-confirmation')),
+        'permanently delete',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('post-permanent-delete-submit')),
+      );
+      await tester.pumpAndSettle();
+
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      expect(api.permanentDeletionChecks, [1]);
+      expect(api.topicsPermanentlyDeleted, [7]);
+      expect(shell.currentContent?.topicId, isNull);
+      expect(find.byType(TopicView), findsNothing);
+      expect(renderedText('Deleted opening body'), findsNothing);
+    });
+
+    testWidgets('selects, merges, and bulk-deletes guardian-authorized posts', (
+      tester,
+    ) async {
+      const first = Post(
+        id: 1,
+        postNumber: 1,
+        username: 'joffreyj',
+        cooked: '<p>First selected body</p>',
+        canDelete: true,
+      );
+      const second = Post(
+        id: 2,
+        postNumber: 2,
+        username: 'joffreyj',
+        cooked: '<p>Second selected body</p>',
+        canDelete: true,
+      );
+      const third = Post(
+        id: 3,
+        postNumber: 3,
+        username: 'sam',
+        cooked: '<p>Third selected body</p>',
+        canDelete: true,
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [first, second, third],
+            canSplitMergeTopic: true,
+          ),
+        },
+        // A selected-post mutation re-reads every affected id. The merged
+        // first post survives; the second and later-deleted third do not.
+        postsById: {
+          1: const Post(
+            id: 1,
+            postNumber: 1,
+            username: 'joffreyj',
+            cooked: '<p>Merged selected body</p>',
+            canDelete: true,
+          ),
+        },
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: me),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('topic-status-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-select-posts')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('topic-selected-posts-toolbar')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('topic-post-select-1')));
+      await tester.tap(find.byKey(const ValueKey('topic-post-select-2')));
+      await tester.pumpAndSettle();
+      expect(find.text('2 posts selected'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('topic-selected-posts-merge')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('topic-selected-merge-confirm')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.merged, const [
+        [1, 2],
+      ]);
+      expect(renderedText('Merged selected body'), findsOneWidget);
+      expect(renderedText('Second selected body'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('topic-selected-posts-toolbar')),
+        findsNothing,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('topic-status-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-select-posts')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-post-select-3')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('topic-selected-posts-delete')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('topic-selected-delete-confirm')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.bulkDeleted, const [
+        [3],
+      ]);
+      expect(renderedText('Third selected body'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('topic-selected-posts-toolbar')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('moves selected posts to a searched existing topic', (
+      tester,
+    ) async {
+      const sourcePosts = [
+        Post(
+          id: 1,
+          postNumber: 1,
+          username: 'joffreyj',
+          cooked: '<p>Move this body</p>',
+        ),
+        Post(
+          id: 2,
+          postNumber: 2,
+          username: 'sam',
+          cooked: '<p>Leave this body</p>',
+        ),
+      ];
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: sourcePosts,
+            canMovePosts: true,
+          ),
+          99: topicPayload(
+            id: 99,
+            title: 'Destination topic',
+            posts: const [
+              Post(
+                id: 99,
+                postNumber: 1,
+                username: 'sam',
+                cooked: '<p>Destination body</p>',
+              ),
+            ],
+          ),
+        },
+        searchResults: const {
+          'Destination': SearchResults(
+            hits: [
+              SearchPostHit(
+                postId: 99,
+                topicId: 99,
+                postNumber: 1,
+                topicTitle: 'Destination topic',
+                topicSlug: 'destination-topic',
+                username: 'sam',
+                excerpt: SearchExcerpt([]),
+              ),
+            ],
+          ),
+        },
+      );
+      api.topicMoveUrl = '/t/destination-topic/99';
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: me),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-status-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-select-posts')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-post-select-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-selected-posts-move')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Existing topic'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('topic-move-posts-search')),
+        'Destination',
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(find.text('Destination topic'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('topic-move-posts-chronological')),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('topic-move-posts-submit')));
+      await tester.pumpAndSettle();
+
+      expect(api.movedTopicPosts, hasLength(1));
+      expect(api.movedTopicPosts.single.topicId, 7);
+      expect(api.movedTopicPosts.single.postIds, [1]);
+      expect(api.movedTopicPosts.single.destinationTopicId, 99);
+      expect(api.movedTopicPosts.single.chronologicalOrder, isTrue);
+      expect(renderedText('Destination body'), findsOneWidget);
+      expect(api.topicsOpened, contains(99));
+    });
+
+    testWidgets('changes the owner of same-author selected posts', (
+      tester,
+    ) async {
+      const first = Post(
+        id: 1,
+        postNumber: 1,
+        username: 'joffreyj',
+        cooked: '<p>First owner body</p>',
+      );
+      const second = Post(
+        id: 2,
+        postNumber: 2,
+        username: 'joffreyj',
+        cooked: '<p>Second owner body</p>',
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [first, second],
+            canSplitMergeTopic: true,
+          ),
+        },
+        userSearches: const {
+          'kris': [FoundUser(username: 'kris', name: 'Kris')],
+        },
+        user: const DiscourseUser(
+          id: 7,
+          username: 'joffreyj',
+          name: 'Joffrey',
+          canChangePostOwner: true,
+        ),
+        postsById: const {
+          1: Post(
+            id: 1,
+            postNumber: 1,
+            username: 'kris',
+            name: 'Kris',
+            cooked: '<p>First owner body</p>',
+          ),
+          2: Post(
+            id: 2,
+            postNumber: 2,
+            username: 'kris',
+            name: 'Kris',
+            cooked: '<p>Second owner body</p>',
+          ),
+        },
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(
+            user: const DiscourseUser(
+              username: 'joffreyj',
+              name: 'Joffrey',
+              canChangePostOwner: true,
+            ),
+          ),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-status-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-select-posts')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-post-select-1')));
+      await tester.tap(find.byKey(const ValueKey('topic-post-select-2')));
+      await tester.pumpAndSettle();
+      final action = find.byKey(
+        const ValueKey('topic-selected-posts-change-owner'),
+      );
+      await tester.ensureVisible(action);
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('topic-change-owner-search')),
+        'kris',
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(find.text('Kris'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('topic-change-owner-submit')));
+      await tester.pumpAndSettle();
+
+      expect(api.postOwnersChanged, hasLength(1));
+      expect(api.postOwnersChanged.single.topicId, 7);
+      expect(api.postOwnersChanged.single.postIds, [1, 2]);
+      expect(api.postOwnersChanged.single.username, 'kris');
+      expect(find.text('Kris'), findsNWidgets(2));
+      expect(
+        find.byKey(const ValueKey('topic-selected-posts-toolbar')),
+        findsNothing,
+      );
     });
 
     testWidgets('a post that is really gone stops being drawn', (tester) async {
@@ -10539,14 +11976,19 @@ void main() {
       String title = 'Bugs',
       String? slug,
       String? emoji,
+      String? description,
       String? color,
       int unread = 0,
       int mentions = 0,
       bool muted = false,
       bool starred = false,
+      ChatChannelNotificationLevel notificationLevel =
+          ChatChannelNotificationLevel.mention,
       bool following = true,
       bool readRestricted = false,
       ChatChannelStatus status = ChatChannelStatus.open,
+      bool canJoin = false,
+      int membershipsCount = 0,
       int? lastRead,
     }) => ChatChannel(
       id: id,
@@ -10554,14 +11996,18 @@ void main() {
       kind: ChatChannelKind.category,
       slug: slug ?? title.toLowerCase(),
       emoji: emoji,
+      description: description,
       categoryColor: color == null
           ? null
           : Color(int.parse('FF$color', radix: 16)),
       readRestricted: readRestricted,
       status: status,
+      canJoin: canJoin,
+      membershipsCount: membershipsCount,
       membership: ChatMembership(
         following: following,
         muted: muted,
+        notificationLevel: notificationLevel,
         starred: starred,
         lastReadMessageId: lastRead,
       ),
@@ -11024,6 +12470,78 @@ void main() {
         expect(sidebarDestination('hawk'), findsOneWidget);
       });
 
+      testWidgets('browses, filters, and joins public channels', (
+        tester,
+      ) async {
+        final joined = channel(9, membershipsCount: 42);
+        final support = channel(
+          10,
+          title: 'Support',
+          description: 'Ask the community for help.',
+          following: false,
+          canJoin: true,
+          membershipsCount: 7,
+        );
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [joined]),
+          },
+          chatBrowsePagesByKey: {
+            FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+              channels: [joined, support],
+            ),
+            FakeDiscourseApi.chatBrowseKey(filter: 'sup'):
+                ChatChannelBrowsePage(channels: [support]),
+          },
+        );
+        await pumpChat(tester, api: api);
+
+        await tester.tap(sidebarDestination('Browse channels'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Ask the community for help.'), findsOneWidget);
+        expect(find.text('7 members'), findsOneWidget);
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-browse-filter')),
+          'sup',
+        );
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('chat-browse-channel-9')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('chat-browse-channel-10')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('chat-join-10')));
+        await tester.pumpAndSettle();
+
+        expect(api.chatBrowseRequested, const [
+          (
+            filter: '',
+            status: ChatChannelBrowseStatus.all,
+            offset: 0,
+            limit: ChatChannelBrowsePage.pageSize,
+          ),
+          (
+            filter: 'sup',
+            status: ChatChannelBrowseStatus.all,
+            offset: 0,
+            limit: ChatChannelBrowsePage.pageSize,
+          ),
+        ]);
+        expect(api.chatChannelFollowsUpdated, const [
+          (channelId: 10, following: true),
+        ]);
+        expect(sidebarDestination('Support'), findsOneWidget);
+        expect(find.byKey(const ValueKey('chat-unfollow-10')), findsOneWidget);
+      });
+
       testWidgets('reorders direct messages when a new message arrives', (
         tester,
       ) async {
@@ -11334,6 +12852,355 @@ void main() {
     });
 
     group('a channel', () {
+      testWidgets('shows and filters the channel member directory', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(
+              public: [
+                channel(9, description: 'A place to discuss bug reports.'),
+              ],
+              direct: const [],
+            ),
+          },
+          chatMessagesByKey: {key(9): page(const [])},
+          chatChannelMemberPagesByKey: {
+            FakeDiscourseApi.chatChannelMembersKey(9): (
+              members: const [
+                ChatUser(id: 2, username: 'sam', name: 'Sam'),
+                ChatUser(id: 3, username: 'hawk', name: 'Hawk'),
+              ],
+              totalRows: 2,
+              canLoadMore: false,
+            ),
+            FakeDiscourseApi.chatChannelMembersKey(9, username: 'ha'): (
+              members: const [ChatUser(id: 3, username: 'hawk', name: 'Hawk')],
+              totalRows: 2,
+              canLoadMore: false,
+            ),
+          },
+        );
+        await pumpChat(tester, api: api);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-info-button')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('A place to discuss bug reports.'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('chat-channel-edit-title')),
+          findsNothing,
+        );
+        expect(find.text('Members (2)'), findsOneWidget);
+        expect(find.text('Sam'), findsOneWidget);
+        expect(find.text('Hawk'), findsOneWidget);
+
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-channel-member-filter')),
+          'ha',
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Sam'), findsNothing);
+        expect(find.text('Hawk'), findsOneWidget);
+        expect(api.chatChannelMembersRequested, const [
+          (channelId: 9, username: '', offset: 0, limit: 20),
+          (channelId: 9, username: 'ha', offset: 0, limit: 20),
+        ]);
+      });
+
+      testWidgets('staff rename a category channel from its info sheet', (
+        tester,
+      ) async {
+        const staff = DiscourseUser(
+          id: 7,
+          username: 'joffreyj',
+          name: 'Joffrey',
+          staff: true,
+        );
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: staff,
+          chatChannelsBySite: {
+            site: ChatChannels(
+              public: [channel(9, slug: 'bugs')],
+              direct: const [],
+            ),
+          },
+          chatChannelUpdateResponse: channel(
+            9,
+            title: 'Bug reports',
+            slug: 'bug-reports',
+          ),
+          chatMessagesByKey: {key(9): page(const [])},
+          chatChannelMemberPagesByKey: {
+            FakeDiscourseApi.chatChannelMembersKey(9): (
+              members: const [],
+              totalRows: 0,
+              canLoadMore: false,
+            ),
+          },
+        );
+        await pumpChat(tester, api: api, user: staff);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-info-button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-channel-edit-title')));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-channel-title-input')),
+          'Bug reports',
+        );
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-channel-slug-input')),
+          'bug-reports',
+        );
+        await tester.tap(find.byKey(const ValueKey('chat-channel-title-save')));
+        await tester.pumpAndSettle();
+
+        expect(api.chatChannelMetadataUpdates, const [
+          (
+            channelId: 9,
+            name: 'Bug reports',
+            slug: 'bug-reports',
+            description: null,
+          ),
+        ]);
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        expect(shell.chat.channel(site, 9)?.title, 'Bug reports');
+        expect(sidebarDestination('Bug reports'), findsOneWidget);
+      });
+
+      testWidgets('staff can remove a category channel description', (
+        tester,
+      ) async {
+        const staff = DiscourseUser(
+          id: 7,
+          username: 'joffreyj',
+          name: 'Joffrey',
+          staff: true,
+        );
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: staff,
+          chatChannelsBySite: {
+            site: ChatChannels(
+              public: [channel(9, description: 'Old description')],
+              direct: const [],
+            ),
+          },
+          chatChannelUpdateResponse: channel(9),
+          chatMessagesByKey: {key(9): page(const [])},
+          chatChannelMemberPagesByKey: {
+            FakeDiscourseApi.chatChannelMembersKey(9): (
+              members: const [],
+              totalRows: 0,
+              canLoadMore: false,
+            ),
+          },
+        );
+        await pumpChat(tester, api: api, user: staff);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-info-button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-edit-description')),
+        );
+        await tester.pumpAndSettle();
+
+        final descriptionInput = find.byKey(
+          const ValueKey('chat-channel-description-input'),
+        );
+        await tester.enterText(descriptionInput, 'x');
+        await tester.enterText(descriptionInput, '');
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-description-save')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(api.chatChannelMetadataUpdates.single.description, '');
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        expect(shell.chat.channel(site, 9)?.description, isNull);
+        expect(find.text('No description.'), findsOneWidget);
+      });
+
+      testWidgets('staff toggle threading from an open channel’s info sheet', (
+        tester,
+      ) async {
+        const staff = DiscourseUser(
+          id: 7,
+          username: 'joffreyj',
+          name: 'Joffrey',
+          staff: true,
+        );
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: staff,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)], direct: const []),
+          },
+          chatChannelUpdateResponse: const ChatChannel(
+            id: 9,
+            title: 'Bugs',
+            kind: ChatChannelKind.category,
+            slug: 'bugs',
+            membership: ChatMembership(following: true),
+            threadingEnabled: true,
+          ),
+          chatMessagesByKey: {key(9): page(const [])},
+          chatChannelMemberPagesByKey: {
+            FakeDiscourseApi.chatChannelMembersKey(9): (
+              members: const [],
+              totalRows: 0,
+              canLoadMore: false,
+            ),
+          },
+        );
+        await pumpChat(tester, api: api, user: staff);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-info-button')),
+        );
+        await tester.pumpAndSettle();
+
+        final threadingSwitch = find.byKey(
+          const ValueKey('chat-channel-threading-switch'),
+        );
+        expect(threadingSwitch, findsOneWidget);
+        expect(tester.widget<SwitchListTile>(threadingSwitch).value, isFalse);
+
+        await tester.tap(threadingSwitch);
+        await tester.pumpAndSettle();
+
+        expect(api.chatChannelThreadingUpdates, const [
+          (channelId: 9, enabled: true),
+        ]);
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        expect(shell.chat.channel(site, 9)?.threadingEnabled, isTrue);
+        expect(tester.widget<SwitchListTile>(threadingSwitch).value, isTrue);
+      });
+
+      testWidgets('staff close an open category channel after confirmation', (
+        tester,
+      ) async {
+        const staff = DiscourseUser(
+          id: 7,
+          username: 'joffreyj',
+          name: 'Joffrey',
+          staff: true,
+        );
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: staff,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)], direct: const []),
+          },
+          chatChannelStatusResponse: channel(
+            9,
+            status: ChatChannelStatus.closed,
+          ),
+          chatMessagesByKey: {key(9): page(const [])},
+          chatChannelMemberPagesByKey: {
+            FakeDiscourseApi.chatChannelMembersKey(9): (
+              members: const [],
+              totalRows: 0,
+              canLoadMore: false,
+            ),
+          },
+        );
+        await pumpChat(tester, api: api, user: staff);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-info-button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-toggle-status')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Close channel'), findsWidgets);
+        expect(find.textContaining('prevents non-staff users'), findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-status-confirm')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(api.chatChannelStatusesUpdated, const [
+          (channelId: 9, status: ChatChannelStatus.closed),
+        ]);
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        expect(shell.chat.channel(site, 9)?.status, ChatChannelStatus.closed);
+        expect(find.text('Open channel'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('chat-channel-threading-switch')),
+          findsNothing,
+        );
+      });
+
+      testWidgets('changes push notifications from the channel header', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)], direct: const []),
+          },
+          chatMessagesByKey: {key(9): page(const [])},
+          chatChannelNotificationMembership: const ChatMembership(
+            following: true,
+          ),
+        );
+        await pumpChat(tester, api: api);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-notification-button')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Never'), findsOneWidget);
+        expect(find.text('Mentions'), findsOneWidget);
+        expect(find.text('All activity'), findsOneWidget);
+        expect(find.text('Mute channel'), findsOneWidget);
+
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-notification-always')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(api.chatChannelNotificationsUpdated, const [
+          (
+            channelId: 9,
+            muted: null,
+            notificationLevel: ChatChannelNotificationLevel.always,
+          ),
+        ]);
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        expect(
+          shell.chat.channel(site, 9)?.membership.notificationLevel,
+          ChatChannelNotificationLevel.always,
+        );
+      });
+
       testWidgets('draws a round avatar rather than an oval', (tester) async {
         // The gutter that keeps a chained row's body aligned is a fixed width,
         // and a fixed width is a *tight* constraint — which a SizedBox inside it

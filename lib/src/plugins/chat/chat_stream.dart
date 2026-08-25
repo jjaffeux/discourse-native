@@ -74,16 +74,18 @@ final class ChatStreamTimeGap extends ChatStreamItem {
 /// Only a moderator is ever sent these, and without the collapse they see a
 /// column of empty tiles where a conversation used to be.
 final class ChatStreamDeleted extends ChatStreamItem {
-  const ChatStreamDeleted(this.count);
+  ChatStreamDeleted(Iterable<int> messageIds)
+    : messageIds = List.unmodifiable(messageIds);
 
-  final int count;
+  final List<int> messageIds;
+  int get count => messageIds.length;
 
   @override
   bool operator ==(Object other) =>
-      other is ChatStreamDeleted && other.count == count;
+      other is ChatStreamDeleted && listEquals(other.messageIds, messageIds);
 
   @override
-  int get hashCode => count.hashCode;
+  int get hashCode => Object.hashAll(messageIds);
 }
 
 /// Where the messages the reader has not seen begin.
@@ -134,12 +136,12 @@ List<ChatStreamItem> buildChatStream(
       firstUnreadId != (newestMessageId ?? messages.lastOrNull?.id);
 
   ChatMessage? previous;
-  var deletedRun = 0;
+  final deletedRun = <int>[];
 
   void flushDeleted() {
-    if (deletedRun == 0) return;
+    if (deletedRun.isEmpty) return;
     items.add(ChatStreamDeleted(deletedRun));
-    deletedRun = 0;
+    deletedRun.clear();
   }
 
   for (final message in messages) {
@@ -171,7 +173,7 @@ List<ChatStreamItem> buildChatStream(
     }
 
     if (message.isDeleted) {
-      deletedRun++;
+      deletedRun.add(message.id);
       // Deliberately still the previous message for the next row's chaining
       // rule, which asks whether the row above was deleted precisely so that a
       // collapsed run breaks the chain across it.
@@ -250,6 +252,10 @@ List<ChatStreamItem>? prependChatStream({
 bool _chains(ChatMessage message, ChatMessage? previous) {
   // Nothing above to join.
   if (previous == null) return false;
+
+  // Core always gives a pinned message its own speaker header, even when the
+  // same author spoke immediately before it.
+  if (message.pinned) return false;
 
   // A deleted message became a "N messages deleted" row, which is a different
   // voice interrupting; and the row after it has no visible neighbour to share

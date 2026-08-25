@@ -25,6 +25,7 @@ ChatThread threadDetail({
   String? title,
   bool force = false,
   ChatThreadPreview? preview,
+  int originalAuthorId = 2,
 }) => ChatThread(
   id: target.threadId,
   channelId: target.channelId,
@@ -42,15 +43,50 @@ ChatThread threadDetail({
           lastReadMessageId: 17,
         )
       : null,
-  originalMessage: const ChatThreadOriginalMessage(
+  originalMessage: ChatThreadOriginalMessage(
     id: 100,
     channelId: 9,
-    author: ChatMessageAuthor(id: 2, username: 'sam'),
+    author: ChatMessageAuthor(id: originalAuthorId, username: 'sam'),
     message: 'Original',
     cooked: '<p>Original</p>',
     excerpt: 'Original',
   ),
 );
+
+ChatThread listedThread(
+  int id, {
+  int? originalMessageId,
+  DateTime? lastReplyAt,
+  DateTime? deletedAt,
+  ChatTracking tracking = ChatTracking.none,
+  bool hasReplies = true,
+}) {
+  final originalId = originalMessageId ?? id * 10;
+  final lastMessageId = hasReplies ? originalId + 1 : originalId;
+  return ChatThread(
+    id: id,
+    channelId: 9,
+    status: 'open',
+    replyCount: hasReplies ? 1 : 0,
+    title: 'Thread $id',
+    tracking: tracking,
+    lastMessageId: lastMessageId,
+    preview: ChatThreadPreview(
+      threadId: id,
+      replyCount: hasReplies ? 1 : 0,
+      lastReplyId: lastMessageId,
+      lastReplyAt: lastReplyAt,
+      lastReplyExcerpt: 'Reply $id',
+    ),
+    originalMessage: ChatThreadOriginalMessage(
+      id: originalId,
+      channelId: 9,
+      author: const ChatMessageAuthor(id: 2, username: 'sam'),
+      excerpt: 'Original $id',
+      deletedAt: deletedAt,
+    ),
+  );
+}
 
 ChatMessage threadMessage(int id) => ChatMessage(
   id: id,
@@ -344,6 +380,7 @@ final class _SequencedNotificationApi extends FakeDiscourseApi {
 ({ChatController chat, Store store}) _controllerFor(
   ChatApi api, {
   Store? store,
+  DiscourseUser user = currentUser,
 }) {
   final credentials = FakeApiCredentialReader()..keys[site] = 'key';
   final resolvedStore = store ?? Store();
@@ -351,7 +388,7 @@ final class _SequencedNotificationApi extends FakeDiscourseApi {
     api: api,
     credentials: credentials,
     store: resolvedStore,
-    currentUserFor: (_) => currentUser,
+    currentUserFor: (_) => user,
     minimumWindowRefreshInterval: Duration.zero,
     clock: () => DateTime.utc(2026, 8, 12, 12),
   );
@@ -374,6 +411,211 @@ FakeSiteTracker attachTracker(ChatController chat) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('My Threads caches and appends core account pages', () async {
+    final secondThread = threadDetail(
+      replyCount: 1,
+      title: 'Second thread',
+    ).copyWith(lastMessageId: 80);
+    final pageTwoThread = ChatThread(
+      id: 23,
+      channelId: 12,
+      status: 'open',
+      replyCount: secondThread.replyCount,
+      title: secondThread.title,
+      lastMessageId: secondThread.lastMessageId,
+      originalMessage: const ChatThreadOriginalMessage(
+        id: 200,
+        channelId: 12,
+        author: ChatMessageAuthor(id: 3, username: 'lee'),
+        excerpt: 'Second original',
+      ),
+    );
+    final api = FakeDiscourseApi(
+      chatChannelsBySite: const {site: ChatChannels(hasThreads: true)},
+      chatThreadPagesByOffset: {
+        0: ChatThreadPage(
+          threads: [threadDetail(title: 'Deploy plan')],
+          channels: [followedChannel()],
+          hasMore: true,
+        ),
+        1: ChatThreadPage(
+          threads: [pageTwoThread],
+          channels: const [
+            ChatChannel(
+              id: 12,
+              title: 'Design',
+              kind: ChatChannelKind.category,
+            ),
+          ],
+        ),
+      },
+    );
+    final subject = _controllerFor(api);
+
+    await subject.chat.loadChannels(site);
+    expect(subject.chat.hasThreads(site), isTrue);
+
+    await subject.chat.loadMyThreads(site);
+    await subject.chat.loadMyThreads(site);
+    expect(api.chatThreadPagesRequested, [(offset: 0, limit: 10)]);
+    expect(subject.chat.myThreads(site).map((thread) => thread.id), [22]);
+    expect(subject.chat.channel(site, 9)?.title, 'Support');
+    expect(subject.chat.myThreadsHaveMore(site), isTrue);
+
+    await subject.chat.loadMyThreads(site, more: true);
+    expect(api.chatThreadPagesRequested.last, (offset: 1, limit: 10));
+    expect(subject.chat.myThreads(site).map((thread) => thread.id), [22, 23]);
+    expect(subject.chat.channel(site, 12)?.title, 'Design');
+    expect(subject.chat.myThreadsHaveMore(site), isFalse);
+  });
+
+  test('channel threads page, filter, and sort like the web list', () async {
+    final api = FakeDiscourseApi(
+      chatChannelsBySite: {
+        site: ChatChannels(public: [followedChannel()]),
+      },
+      chatChannelThreadPagesByKey: {
+        FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
+          threads: [
+            listedThread(1, lastReplyAt: DateTime.utc(2026, 8, 12, 11)),
+            listedThread(
+              2,
+              lastReplyAt: DateTime.utc(2026, 8, 12, 9),
+              tracking: const ChatTracking(unreadCount: 1),
+            ),
+            listedThread(
+              3,
+              lastReplyAt: DateTime.utc(2026, 8, 12, 8),
+              tracking: const ChatTracking(watchedThreadsUnreadCount: 1),
+            ),
+            listedThread(4, hasReplies: false),
+            listedThread(5, deletedAt: DateTime.utc(2026, 8, 12, 10)),
+          ],
+          hasMore: true,
+        ),
+        FakeDiscourseApi.chatChannelThreadPageKey(9, 5): ChatThreadPage(
+          threads: [
+            listedThread(6, lastReplyAt: DateTime.utc(2026, 8, 12, 12)),
+          ],
+        ),
+      },
+    );
+    final subject = _controllerFor(api);
+
+    await subject.chat.loadChannels(site);
+    await subject.chat.loadChannelThreads(site, 9);
+    await subject.chat.loadChannelThreads(site, 9);
+
+    expect(api.chatChannelThreadPagesRequested, [
+      (channelId: 9, offset: 0, limit: 10),
+    ]);
+    expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+      3,
+      2,
+      1,
+    ]);
+    expect(subject.chat.channelThreadsHaveMore(site, 9), isTrue);
+
+    await subject.chat.loadChannelThreads(site, 9, more: true);
+
+    expect(api.chatChannelThreadPagesRequested.last, (
+      channelId: 9,
+      offset: 5,
+      limit: 10,
+    ));
+    expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+      3,
+      2,
+      6,
+      1,
+    ]);
+    expect(subject.chat.channelThreadsHaveMore(site, 9), isFalse);
+  });
+
+  test(
+    'live tracking, deletion, and restoration reproject channel threads',
+    () async {
+      final api = FakeDiscourseApi(
+        chatChannelsBySite: {
+          site: ChatChannels(public: [followedChannel()]),
+        },
+        chatChannelThreadPagesByKey: {
+          FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
+            threads: [
+              listedThread(
+                22,
+                originalMessageId: 100,
+                lastReplyAt: DateTime.utc(2026, 8, 12, 9),
+              ),
+              listedThread(
+                23,
+                originalMessageId: 200,
+                lastReplyAt: DateTime.utc(2026, 8, 12, 11),
+              ),
+            ],
+          ),
+        },
+      );
+      final subject = _controllerFor(api);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      await subject.chat.loadChannelThreads(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        23,
+        22,
+      ]);
+
+      tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+        'channel_id': 9,
+        'thread_id': 22,
+        'unread_count': 0,
+        'mention_count': 0,
+        'watched_threads_unread_count': 0,
+        'thread_tracking': {'watched_threads_unread_count': 1},
+      });
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        22,
+        23,
+      ]);
+
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'delete',
+        'deleted_id': 100,
+        'deleted_at': '2026-08-12T12:00:00.000Z',
+      });
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        23,
+      ]);
+
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'restore',
+        'chat_message': {
+          'id': 100,
+          'chat_channel_id': 9,
+          'thread_id': 22,
+          'cooked': '<p>Original 22</p>',
+          'created_at': '2026-08-12T08:00:00.000Z',
+          'user': {'id': 2, 'username': 'sam'},
+          'thread': {
+            'id': 22,
+            'reply_count': 1,
+            'preview': {
+              'last_reply_id': 221,
+              'last_reply_created_at': '2026-08-12T09:00:00.000Z',
+            },
+          },
+        },
+      });
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        22,
+        23,
+      ]);
+    },
+  );
 
   test(
     'openThread waits for detail, stores its cursor, then targets messages',
@@ -594,6 +836,71 @@ void main() {
       );
     },
   );
+
+  test('original author can update the thread title', () async {
+    final api = _AdversarialThreadApi(
+      detail: threadDetail(originalAuthorId: currentUser.id!),
+    );
+    final store = Store()
+      ..put(site, threadDetail(originalAuthorId: currentUser.id!));
+    final subject = _controllerFor(api, store: store);
+
+    expect(
+      subject.chat.canEditThreadTitle(
+        site,
+        subject.chat.thread(site, target.threadId),
+      ),
+      isTrue,
+    );
+    expect(
+      await subject.chat.updateThreadTitle(site, target, 'Deploy plan'),
+      isTrue,
+    );
+
+    expect(api.chatThreadTitlesUpdated, const [
+      (channelId: 9, threadId: 22, title: 'Deploy plan'),
+    ]);
+    expect(subject.chat.thread(site, target.threadId)?.title, 'Deploy plan');
+  });
+
+  test('thread title updates are hidden from ordinary participants', () async {
+    final api = _AdversarialThreadApi(detail: threadDetail());
+    final store = Store()..put(site, threadDetail());
+    final subject = _controllerFor(api, store: store);
+
+    expect(
+      subject.chat.canEditThreadTitle(
+        site,
+        subject.chat.thread(site, target.threadId),
+      ),
+      isFalse,
+    );
+    expect(
+      await subject.chat.updateThreadTitle(site, target, 'Not mine'),
+      isFalse,
+    );
+    expect(api.chatThreadTitlesUpdated, isEmpty);
+    expect(subject.chat.thread(site, target.threadId)?.title, isNull);
+  });
+
+  test('staff can update another author\'s thread title', () async {
+    final api = _AdversarialThreadApi(detail: threadDetail());
+    final store = Store()..put(site, threadDetail());
+    final subject = _controllerFor(
+      api,
+      store: store,
+      user: const DiscourseUser(id: 7, username: 'moderator', staff: true),
+    );
+
+    expect(
+      await subject.chat.updateThreadTitle(site, target, 'Moderated title'),
+      isTrue,
+    );
+    expect(
+      subject.chat.thread(site, target.threadId)?.title,
+      'Moderated title',
+    );
+  });
 
   test(
     'failed optimistic notification update restores an absent membership',

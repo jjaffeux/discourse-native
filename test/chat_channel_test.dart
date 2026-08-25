@@ -15,11 +15,22 @@ Map<String, dynamic> categoryChannel({
   bool readRestricted = false,
   bool muted = false,
   bool starred = false,
+  String? notificationLevel,
   int? lastReadMessageId,
   String? lastViewedAt,
   bool threading = false,
   String? status,
   bool userSilenced = false,
+  bool canModerate = false,
+  bool canDeleteSelf = false,
+  bool canDeleteOthers = false,
+  bool canManagePins = false,
+  bool canFlag = false,
+  int pinnedMessagesCount = 0,
+  int membershipsCount = 0,
+  bool canJoin = false,
+  bool hasUnseenPins = false,
+  String? lastViewedPinsAt,
 }) => {
   'id': id,
   'title': title,
@@ -35,14 +46,27 @@ Map<String, dynamic> categoryChannel({
     'read_restricted': readRestricted,
   },
   'threading_enabled': threading,
+  'pinned_messages_count': pinnedMessagesCount,
+  'memberships_count': membershipsCount,
   'status': ?status,
-  'meta': {if (userSilenced) 'user_silenced': true},
+  'meta': {
+    if (userSilenced) 'user_silenced': true,
+    'can_moderate': canModerate,
+    'can_delete_self': canDeleteSelf,
+    'can_delete_others': canDeleteOthers,
+    'can_manage_pins': canManagePins,
+    'can_flag': canFlag,
+    'can_join_chat_channel': canJoin,
+  },
   'current_user_membership': {
     'following': true,
     'muted': muted,
     'starred': starred,
+    'notification_level': ?notificationLevel,
     'last_read_message_id': ?lastReadMessageId,
     'last_viewed_at': ?lastViewedAt,
+    'last_viewed_pins_at': ?lastViewedPinsAt,
+    'has_unseen_pins': hasUnseenPins,
   },
 };
 
@@ -97,6 +121,8 @@ Map<String, dynamic> payload({
   Map<String, dynamic>? presence,
   int? newChannelLastId,
   int? userTrackingLastId,
+  int? userHasThreadsLastId,
+  bool hasThreads = false,
 }) => {
   'public_channels': public,
   'direct_message_channels': direct,
@@ -106,10 +132,12 @@ Map<String, dynamic> payload({
   },
   'unread_thread_overview': unreadThreads ?? const <String, dynamic>{},
   'global_presence_channel_state': ?presence,
+  'has_threads': hasThreads,
   'meta': {
     'message_bus_last_ids': {
       'new_channel': ?newChannelLastId,
       'user_tracking_state': ?userTrackingLastId,
+      'user_has_threads': ?userHasThreadsLastId,
     },
   },
 };
@@ -173,6 +201,54 @@ void main() {
       expect(channel.categoryColor, const Color(0xFF0088CC));
     });
 
+    test('retains the category identity behind a public channel', () {
+      final channel = channelFrom(categoryChannel());
+
+      expect(channel.chatableId, 1);
+      expect(channel.withStarred(true).chatableId, 1);
+      expect(channel.withLastRead(4, caughtUp: true).chatableId, 1);
+    });
+
+    test('retains Browse Channels membership metadata through copies', () {
+      final channel = channelFrom(
+        categoryChannel(membershipsCount: 42, canJoin: true),
+      );
+
+      expect(channel.membershipsCount, 42);
+      expect(channel.canJoin, isTrue);
+      expect(channel.withStarred(true).membershipsCount, 42);
+      expect(channel.withLastRead(4, caughtUp: true).canJoin, isTrue);
+      expect(
+        channel
+            .withMembership(
+              const ChatMembership(following: true),
+              membershipsCount: 43,
+            )
+            .membershipsCount,
+        43,
+      );
+    });
+
+    test('reads a bounded Browse Channels page and its continuation', () {
+      final page = ChatChannelBrowsePage.fromJson(
+        {
+          'channels': [
+            categoryChannel(id: 9, title: 'Bugs'),
+            categoryChannel(id: 10, title: 'Support'),
+          ],
+          'meta': const {'load_more_url': '/chat/api/channels?offset=2'},
+        },
+        site,
+        limit: 2,
+      );
+
+      expect(page.channels.map((channel) => channel.title), [
+        'Bugs',
+        'Support',
+      ]);
+      expect(page.hasMore, isTrue);
+    });
+
     test('reads no colour at all from something that is not one', () {
       expect(channelFrom(categoryChannel(color: 'nope')).categoryColor, isNull);
     });
@@ -190,6 +266,46 @@ void main() {
       expect(readOnly.canModifyMessages(isStaff: true), isFalse);
       expect(archived.canModifyMessages(isStaff: true), isFalse);
       expect(silenced.canModifyMessages(isStaff: true), isFalse);
+    });
+
+    test('retains the server’s message moderation permissions', () {
+      final channel = channelFrom(
+        categoryChannel(
+          canModerate: true,
+          canDeleteSelf: true,
+          canDeleteOthers: true,
+          canManagePins: true,
+          canFlag: true,
+        ),
+      );
+
+      expect(channel.canModerate, isTrue);
+      expect(channel.canDeleteSelf, isTrue);
+      expect(channel.canDeleteOthers, isTrue);
+      expect(channel.canManagePins, isTrue);
+      expect(channel.canFlag, isTrue);
+    });
+
+    test('retains pin count and the reader’s unseen-pin state', () {
+      final channel = channelFrom(
+        categoryChannel(
+          pinnedMessagesCount: 3,
+          hasUnseenPins: true,
+          lastViewedPinsAt: '2026-08-25T09:00:00.000Z',
+        ),
+      );
+
+      expect(channel.hasPinnedMessages, isTrue);
+      expect(channel.pinnedMessagesCount, 3);
+      expect(channel.membership.hasUnseenPins, isTrue);
+      expect(channel.membership.lastViewedPinsAt, DateTime.utc(2026, 8, 25, 9));
+      expect(
+        channel
+            .withPinsViewed(DateTime.utc(2026, 8, 25, 10))
+            .membership
+            .hasUnseenPins,
+        isFalse,
+      );
     });
 
     test(
@@ -241,6 +357,32 @@ void main() {
       expect(channelFrom(directChannel()).membership.starred, isFalse);
     });
 
+    test('reads the reader’s channel push-notification preference', () {
+      expect(
+        channelFrom(
+          categoryChannel(notificationLevel: 'always'),
+        ).membership.notificationLevel,
+        ChatChannelNotificationLevel.always,
+      );
+      expect(
+        channelFrom(
+          categoryChannel(notificationLevel: 'never'),
+        ).membership.notificationLevel,
+        ChatChannelNotificationLevel.never,
+      );
+      // Older sites and unfamiliar values use core's ordinary mentions mode.
+      expect(
+        channelFrom(categoryChannel()).membership.notificationLevel,
+        ChatChannelNotificationLevel.mention,
+      );
+      expect(
+        channelFrom(
+          categoryChannel(notificationLevel: 'future-level'),
+        ).membership.notificationLevel,
+        ChatChannelNotificationLevel.mention,
+      );
+    });
+
     test('treats a non-boolean starred value as not starred', () {
       final json = directChannel();
       json['current_user_membership'] = <String, dynamic>{
@@ -264,6 +406,47 @@ void main() {
       expect(
         channel.withLastRead(42, caughtUp: true).membership.starred,
         isTrue,
+      );
+    });
+
+    test('updates only the reader’s starred membership preference', () {
+      final channel = channelFrom(categoryChannel(starred: false));
+      final starred = channel.withStarred(true);
+
+      expect(starred.membership.starred, isTrue);
+      expect(starred.membership.following, channel.membership.following);
+      expect(starred.membership.muted, channel.membership.muted);
+      expect(starred.title, channel.title);
+      expect(starred.withStarred(false), channel);
+    });
+
+    test('changes notification fields without dropping membership state', () {
+      final channel = channelFrom(
+        categoryChannel(
+          muted: true,
+          starred: true,
+          notificationLevel: 'never',
+          lastReadMessageId: 42,
+        ),
+      );
+      final changed = channel.withMembership(
+        channel.membership.withNotifications(
+          muted: false,
+          notificationLevel: ChatChannelNotificationLevel.always,
+        ),
+      );
+
+      expect(changed.membership.muted, isFalse);
+      expect(
+        changed.membership.notificationLevel,
+        ChatChannelNotificationLevel.always,
+      );
+      expect(changed.membership.starred, isTrue);
+      expect(changed.membership.lastReadMessageId, 42);
+      expect(changed.title, channel.title);
+      expect(
+        changed.withLastRead(43, caughtUp: false).membership.notificationLevel,
+        ChatChannelNotificationLevel.always,
       );
     });
 
@@ -495,12 +678,19 @@ void main() {
 
     test('keeps the global chat cursors from the same snapshot', () {
       final channels = ChatChannel.parse(
-        payload(newChannelLastId: 80, userTrackingLastId: 81),
+        payload(
+          newChannelLastId: 80,
+          userTrackingLastId: 81,
+          userHasThreadsLastId: 82,
+          hasThreads: true,
+        ),
         site,
       );
 
       expect(channels.newChannelBusLastId, 80);
       expect(channels.userTrackingBusLastId, 81);
+      expect(channels.userHasThreadsBusLastId, 82);
+      expect(channels.hasThreads, isTrue);
     });
 
     test('reads an empty payload as no channels rather than as a failure', () {
@@ -637,6 +827,50 @@ void main() {
       expect(withCounts(categoryChannel(), unread: 99).badge.count, 0);
     });
   });
+
+  test(
+    'a settings response preserves tracking the route does not serialize',
+    () {
+      final unreadAt = DateTime.utc(2026, 8, 25, 10);
+      final lastMessageAt = DateTime.utc(2026, 8, 25, 9);
+      final held = ChatChannel(
+        id: 9,
+        title: 'Bugs',
+        kind: ChatChannelKind.category,
+        slug: 'bugs',
+        description: 'Old description',
+        membership: const ChatMembership(
+          following: true,
+          starred: true,
+          lastReadMessageId: 40,
+        ),
+        tracking: const ChatTracking(unreadCount: 3, mentionCount: 1),
+        unreadThreadOverview: {77: unreadAt},
+        threadingEnabled: true,
+        lastMessageId: 50,
+        lastMessageAt: lastMessageAt,
+      );
+      const incoming = ChatChannel(
+        id: 9,
+        title: 'Bug reports',
+        kind: ChatChannelKind.category,
+        slug: 'bug-reports',
+        description: 'New description',
+        membership: ChatMembership(following: true),
+        threadingEnabled: true,
+      );
+
+      final updated = held.withServerSettings(incoming);
+
+      expect(updated.title, 'Bug reports');
+      expect(updated.slug, 'bug-reports');
+      expect(updated.description, 'New description');
+      expect(updated.tracking, held.tracking);
+      expect(updated.unreadThreadOverview, {77: unreadAt});
+      expect(updated.lastMessageId, 50);
+      expect(updated.lastMessageAt, lastMessageAt);
+    },
+  );
 
   group('route ids', () {
     test(

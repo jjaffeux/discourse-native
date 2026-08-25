@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
@@ -22,6 +23,7 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.example';
 const _messageTileKey = ValueKey('message-tile');
 const _replyInThreadAction = CustomSemanticsAction(label: 'Reply in thread');
+const _copyLinkAction = CustomSemanticsAction(label: 'Copy link');
 
 void main() {
   testWidgets(
@@ -112,6 +114,16 @@ void main() {
 
         final target = find.byKey(
           ChatMessageTile.threadPreviewKey(thread.threadId),
+        );
+        // Canonical messages now own a keyboard-focusable action surface for
+        // Copy link before focus advances into the embedded thread card.
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          tester.getSemantics(
+            find.byKey(ChatMessageTile.actionsKey(_message(null).id)),
+          ),
+          isSemantics(isFocusable: true, isFocused: true),
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
@@ -226,7 +238,6 @@ void main() {
       _message(null, reactions: const [ChatReaction(emoji: 'clap', count: 2)]),
     );
     addTearDown(controller.dispose);
-
     await tester.pumpWidget(
       _TestTile(controller: controller, onOpenThread: (_) {}),
     );
@@ -332,6 +343,104 @@ void main() {
     expect(tester.widget<Stack>(actionStack).clipBehavior, Clip.none);
   });
 
+  testWidgets('copies the canonical channel message link', (tester) async {
+    final controller = await _controller(_message(null));
+    final copied = _watchClipboard(tester);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+    await _hoverMessage(tester);
+
+    final action = find.byTooltip('Copy link');
+    expect(action, findsOneWidget);
+    expect(tester.getSize(action), const Size.square(44));
+
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+
+    expect(copied, ['https://meta.example/chat/c/-/9/7']);
+    expect(find.text('Link copied!'), findsOneWidget);
+  });
+
+  testWidgets('copies a thread-shaped link in thread context', (tester) async {
+    final controller = await _controller(_message(null, threadId: 3));
+    final copied = _watchClipboard(tester);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        contextThreadId: 3,
+        platform: TargetPlatform.android,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byKey(_messageTileKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Copy link'));
+    await tester.pumpAndSettle();
+
+    expect(copied, ['https://meta.example/chat/c/-/9/t/3/7']);
+    expect(find.text('Link copied!'), findsOneWidget);
+  });
+
+  testWidgets('copies source message text from the mobile action sheet', (
+    tester,
+  ) async {
+    final controller = await _controller(_message(null, raw: '**source**'));
+    final copied = _watchClipboard(tester);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        platform: TargetPlatform.android,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byKey(_messageTileKey));
+    await tester.pumpAndSettle();
+    expect(find.text('Copy text'), findsOneWidget);
+    await tester.tap(find.text('Copy text'));
+    await tester.pumpAndSettle();
+
+    expect(copied, ['**source**']);
+    expect(find.text('Message copied!'), findsOneWidget);
+  });
+
+  testWidgets('exposes Copy link as a custom semantics action', (tester) async {
+    final controller = await _controller(_message(null));
+    final copied = _watchClipboard(tester);
+    addTearDown(controller.dispose);
+
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        _TestTile(controller: controller, onOpenThread: (_) {}),
+      );
+      await tester.pumpAndSettle();
+
+      final owner = _copyLinkSemanticsOwner();
+      expect(owner, findsOneWidget);
+      tester
+          .widget<Semantics>(owner)
+          .properties
+          .customSemanticsActions![_copyLinkAction]!();
+      await tester.pumpAndSettle();
+
+      expect(copied, ['https://meta.example/chat/c/-/9/7']);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('signed-in hover creates a chat message bookmark once', (
     tester,
   ) async {
@@ -345,7 +454,6 @@ void main() {
       api: api,
     );
     addTearDown(controller.dispose);
-
     await tester.pumpWidget(
       _TestTile(controller: controller, onOpenThread: (_) {}),
     );
@@ -367,6 +475,245 @@ void main() {
     expect(api.createdBookmarks.single.targetId, 7);
     expect(find.text('Bookmarked!'), findsOneWidget);
     expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.bookmark?.id, 1000);
+  });
+
+  testWidgets('an author edits source Markdown from message actions', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: const DiscourseUser(id: 1, username: 'reader'),
+    );
+    final controller = await _controller(
+      _message(null, raw: 'before', authorId: 1),
+      signedIn: true,
+      api: api,
+    );
+    addTearDown(controller.dispose);
+    expect(controller.currentInstance?.user?.id, 1);
+    expect(
+      controller.chat.canEditMessage(
+        _siteUrl,
+        controller.store.read<ChatMessage>(_siteUrl, 7)!,
+      ),
+      isTrue,
+    );
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.raw, 'before');
+    expect(controller.currentInstance?.user?.id, 1);
+    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.author.id, 1);
+    expect(
+      controller.chat.canEditMessage(
+        _siteUrl,
+        controller.store.read<ChatMessage>(_siteUrl, 7)!,
+      ),
+      isTrue,
+    );
+    await tester.longPress(find.byKey(_messageTileKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Message actions'), findsOneWidget);
+    expect(find.text('Edit'), findsOneWidget);
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit message'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('chat-message-edit-field')),
+      '**after**',
+    );
+    await tester.tap(find.byKey(const ValueKey('chat-message-edit-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit message'), findsNothing);
+    final request = api.chatMessagesEdited.single;
+    expect(request.channelId, 9);
+    expect(request.messageId, 7);
+    expect(request.message, '**after**');
+    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.raw, '**after**');
+    expect(
+      controller.store.read<ChatMessage>(_siteUrl, 7)?.canonicalReceived,
+      isFalse,
+    );
+  });
+
+  testWidgets('another author has no edit action', (tester) async {
+    final controller = await _controller(
+      _message(null, raw: 'before', authorId: 99),
+      signedIn: true,
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byKey(_messageTileKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Message actions'), findsOneWidget);
+    expect(find.text('Edit'), findsNothing);
+  });
+
+  testWidgets('an author deletes a message from the adaptive actions', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: const DiscourseUser(id: 1, username: 'reader'),
+    );
+    final controller = await _controller(
+      _message(null, raw: 'mine', authorId: 1),
+      signedIn: true,
+      canDeleteSelf: true,
+      api: api,
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byKey(_messageTileKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete'), findsOneWidget);
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(api.chatMessagesDeleted, [(channelId: 9, messageId: 7)]);
+    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.isDeleted, isTrue);
+  });
+
+  testWidgets('a channel pin manager pins and unpins from message actions', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: const DiscourseUser(id: 1, username: 'reader'),
+    );
+    final controller = await _controller(
+      _message(null),
+      signedIn: true,
+      canManagePins: true,
+      api: api,
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+    await _hoverMessage(tester);
+
+    expect(find.byTooltip('Pin'), findsOneWidget);
+    await tester.tap(find.byTooltip('Pin'));
+    await tester.pumpAndSettle();
+
+    expect(api.chatMessagePinsUpdated, [
+      (channelId: 9, messageId: 7, pinned: true),
+    ]);
+    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.pinned, isTrue);
+    expect(_pinnedBadge(), findsOneWidget);
+    expect(find.byTooltip('Unpin'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Unpin'));
+    await tester.pumpAndSettle();
+    expect(api.chatMessagePinsUpdated.last, (
+      channelId: 9,
+      messageId: 7,
+      pinned: false,
+    ));
+    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.pinned, isFalse);
+    expect(_pinnedBadge(), findsNothing);
+  });
+
+  testWidgets('a pinned message badge is visible without pin permission', (
+    tester,
+  ) async {
+    final controller = await _controller(_message(null, pinned: true));
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+
+    expect(_pinnedBadge(), findsOneWidget);
+    await _hoverMessage(tester);
+    expect(find.byTooltip('Unpin'), findsNothing);
+  });
+
+  testWidgets('staff can queue an HTML rebuild from message actions', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: const DiscourseUser(id: 1, username: 'reader', staff: true),
+    );
+    final controller = await _controller(
+      _message(null),
+      signedIn: true,
+      staff: true,
+      api: api,
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+    await _hoverMessage(tester);
+
+    expect(find.byTooltip('Rebuild HTML'), findsOneWidget);
+    await tester.tap(find.byTooltip('Rebuild HTML'));
+    await tester.pumpAndSettle();
+
+    expect(api.chatMessagesRebaked, [(channelId: 9, messageId: 7)]);
+    expect(find.text('HTML rebuild queued.'), findsOneWidget);
+  });
+
+  testWidgets('flags another author’s message with an advertised reason', (
+    tester,
+  ) async {
+    const flag = PostFlagType(
+      id: 7,
+      nameKey: 'spam',
+      name: 'Spam',
+      description: 'This message is an advertisement.',
+      appliesTo: ['Chat::Message'],
+    );
+    const catalog = SitePostActionCatalog(postFlags: [flag]);
+    final api = FakeDiscourseApi(
+      user: const DiscourseUser(id: 1, username: 'reader'),
+      categoryPostActionCatalog: catalog,
+    );
+    final controller = await _controller(
+      _message(null, authorId: 99, availableFlags: const ['spam']),
+      signedIn: true,
+      canFlag: true,
+      flagCatalog: catalog,
+      api: api,
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+    await _hoverMessage(tester);
+
+    expect(find.byTooltip('Flag'), findsOneWidget);
+    await tester.tap(find.byTooltip('Flag'));
+    await tester.pumpAndSettle();
+    expect(find.text('Spam'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('post-flag-submit')));
+    await tester.pumpAndSettle();
+
+    expect(api.chatMessagesFlagged, [
+      (channelId: 9, messageId: 7, flagTypeId: 7, message: null),
+    ]);
+    expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.userFlagStatus, 0);
   });
 
   testWidgets('a chat bookmark shows its state and edit action', (
@@ -682,18 +1029,25 @@ ChatThreadPreview _thread({int replyCount = 5}) => ChatThreadPreview(
 
 ChatMessage _message(
   ChatThreadPreview? thread, {
+  String raw = '',
+  int authorId = 99,
   int? threadId,
   DateTime? deletedAt,
+  bool pinned = false,
   List<ChatReaction> reactions = const [],
   Bookmark? bookmark,
+  List<String> availableFlags = const [],
 }) => ChatMessage(
   id: 7,
   channelId: 9,
+  raw: raw,
   cooked: '<p>Root message</p>',
-  author: const ChatMessageAuthor(id: 99, username: '', name: 'Root author'),
+  author: ChatMessageAuthor(id: authorId, username: '', name: 'Root author'),
   deletedAt: deletedAt,
+  pinned: pinned,
   reactions: reactions,
   bookmark: bookmark,
+  availableFlags: availableFlags,
   threadId: threadId ?? thread?.threadId,
   thread: thread,
 );
@@ -701,31 +1055,48 @@ ChatMessage _message(
 Future<ShellController> _controller(
   ChatMessage message, {
   bool signedIn = false,
+  bool staff = false,
+  bool canDeleteSelf = false,
+  bool canDeleteOthers = false,
+  bool canModerate = false,
+  bool canManagePins = false,
+  bool canFlag = false,
+  SitePostActionCatalog? flagCatalog,
   FakeDiscourseApi? api,
 }) async {
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
+  final resolvedApi =
+      api ?? FakeDiscourseApi(categoryPostActionCatalog: flagCatalog);
   final controller = ShellController(
     instanceStore: FakeInstanceStore([
       DiscourseInstance(
         url: _siteUrl,
         title: 'Meta',
         apiVersion: 4,
-        user: signedIn ? const DiscourseUser(id: 1, username: 'reader') : null,
+        user: signedIn
+            ? DiscourseUser(id: 1, username: 'reader', staff: staff)
+            : null,
       ),
     ]),
-    api: api ?? FakeDiscourseApi(),
+    api: resolvedApi,
     authenticator: authenticator,
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
   );
   await controller.load();
+  if (flagCatalog != null) await controller.loadCategories(_siteUrl);
   controller.store.put(
     _siteUrl,
-    const ChatChannel(
+    ChatChannel(
       id: 9,
       title: 'Support',
       kind: ChatChannelKind.category,
-      membership: ChatMembership(following: true),
+      canDeleteSelf: canDeleteSelf,
+      canDeleteOthers: canDeleteOthers,
+      canModerate: canModerate,
+      canManagePins: canManagePins,
+      canFlag: canFlag,
+      membership: const ChatMembership(following: true),
     ),
   );
   controller.store.put(_siteUrl, message);
@@ -738,6 +1109,7 @@ class _TestTile extends StatelessWidget {
     required this.onOpenThread,
     this.messageId = 7,
     this.onReplyInThread,
+    this.contextThreadId,
     this.showThreadSummary = true,
     this.chained = false,
     this.platform = TargetPlatform.macOS,
@@ -747,6 +1119,7 @@ class _TestTile extends StatelessWidget {
   final int messageId;
   final ValueChanged<ChatThreadPreview> onOpenThread;
   final ValueChanged<ChatMessage>? onReplyInThread;
+  final int? contextThreadId;
   final bool showThreadSummary;
   final bool chained;
   final TargetPlatform platform;
@@ -766,6 +1139,7 @@ class _TestTile extends StatelessWidget {
               siteUrl: _siteUrl,
               messageId: messageId,
               chained: chained,
+              contextThreadId: contextThreadId,
               onOpenThread: onOpenThread,
               onReplyInThread: onReplyInThread,
               showThreadSummary: showThreadSummary,
@@ -793,6 +1167,33 @@ Finder _replySemanticsOwner() => find.byWidgetPredicate(
           ) ??
           false),
 );
+
+Finder _copyLinkSemanticsOwner() => find.byWidgetPredicate(
+  (widget) =>
+      widget is Semantics &&
+      (widget.properties.customSemanticsActions?.containsKey(_copyLinkAction) ??
+          false),
+);
+
+Finder _pinnedBadge() => find.byWidgetPredicate(
+  (widget) =>
+      widget is Semantics && widget.properties.label == 'Pinned chat message',
+);
+
+List<String> _watchClipboard(WidgetTester tester) {
+  final copied = <String>[];
+  final messenger = tester.binding.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method == 'Clipboard.setData') {
+      copied.add((call.arguments as Map)['text'] as String);
+    }
+    return null;
+  });
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+  );
+  return copied;
+}
 
 final class _GatedBookmarkApi extends FakeDiscourseApi {
   _GatedBookmarkApi()

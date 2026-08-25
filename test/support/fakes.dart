@@ -38,6 +38,7 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -475,12 +476,17 @@ class FakeDiscourseApi implements DiscourseApi {
     this.topics = const {},
     this.summaryTopics = const {},
     this.topicGate,
+    this.topicPinGate,
+    this.topicStatusGate,
+    this.topicDeletionGate,
     this.postsById = const {},
     this.postRecommendations = const {},
     this.postGate,
     this.cards = const {},
     this.creation,
     this.writeFailure,
+    this.permanentDeletionAllowed = true,
+    this.permanentDeletionReason,
     this.draftFailure,
     this.draftGate,
     this.likeResponses = const {},
@@ -489,6 +495,8 @@ class FakeDiscourseApi implements DiscourseApi {
     this.flagResponses = const {},
     this.flagFailure,
     this.flagGate,
+    this.topicFlagFailure,
+    this.topicFlagGate,
     this.likersById = const {},
     this.likerGate,
     this.siteAppearances = const {},
@@ -531,10 +539,33 @@ class FakeDiscourseApi implements DiscourseApi {
     this.directMessageChannelsByUsername = const {},
     this.chatChannelsBySite = const {},
     this.chatChannelsById = const {},
+    this.chatChannelUpdateResponse,
+    this.chatChannelUpdateGate,
+    this.chatChannelUpdateFailure,
+    this.chatChannelStatusResponse,
+    this.chatChannelStatusGate,
+    this.chatChannelStatusFailure,
     this.chatChannelGate,
+    this.chatChannelStarGate,
+    this.chatChannelStarFailure,
+    this.chatChannelNotificationMembership = const ChatMembership(
+      following: true,
+    ),
+    this.chatChannelNotificationGate,
+    this.chatChannelNotificationFailure,
+    this.chatChannelMemberPagesByKey = const {},
+    this.chatChannelMemberGate,
+    this.chatBrowsePagesByKey = const {},
+    this.chatBrowseGate,
+    this.chatChannelFollowMembership = const ChatMembership(following: true),
+    this.chatChannelUnfollowMembership = const ChatMembership(),
+    this.chatChannelFollowGate,
+    this.chatChannelFollowFailure,
     this.chatSearchPagesByKey = const {},
     this.chatSearchGate,
     this.chatMessagesByKey = const {},
+    this.chatThreadPagesByOffset = const {},
+    this.chatChannelThreadPagesByKey = const {},
     this.chatThreadsByKey = const {},
     this.createdChatThreadsByKey = const {},
     this.chatThreadMembershipsByKey = const {},
@@ -543,6 +574,25 @@ class FakeDiscourseApi implements DiscourseApi {
     this.chatSendFailure,
     this.chatSendGate,
     this.chatSentMessageId = 1,
+    this.chatEditFailure,
+    this.chatEditGate,
+    this.chatMessageMutationFailure,
+    this.chatMessageMutationGate,
+    this.chatMoveFailure,
+    this.chatMoveGate,
+    this.chatMoveFirstMessageId = 1000,
+    this.chatRebakeFailure,
+    this.chatRebakeGate,
+    this.chatQuoteMarkdown = '[chat quote]',
+    this.chatQuoteFailure,
+    this.chatQuoteGate,
+    this.chatPinFailure,
+    this.chatPinGate,
+    this.chatPinsByChannel = const {},
+    this.chatPinsGate,
+    this.chatPinsReadFailure,
+    this.chatFlagFailure,
+    this.chatFlagGate,
     this.composerUploadResult,
     this.chatReactionFailure,
     this.chatReactionGate,
@@ -673,6 +723,15 @@ class FakeDiscourseApi implements DiscourseApi {
   /// state before the topic payload arrives.
   final Completer<void>? topicGate;
 
+  /// When set, topic status writes wait so tests can observe their busy gate.
+  final Completer<void>? topicStatusGate;
+
+  /// When set, topic delete/recover writes wait for deterministic UI tests.
+  final Completer<void>? topicDeletionGate;
+
+  /// When set, personalized pin writes wait for deterministic optimistic tests.
+  final Completer<void>? topicPinGate;
+
   /// Returned by [posts], keyed by post id.
   final Map<int, Post> postsById;
 
@@ -694,6 +753,12 @@ class FakeDiscourseApi implements DiscourseApi {
   final List<({int topicId, int postNumber})> topicReadsRecorded = [];
   final List<({int topicId, TopicNotificationLevel notificationLevel})>
   topicNotificationLevelsUpdated = [];
+  final List<({int topicId, TopicStatusProperty status, bool enabled})>
+  topicStatusesUpdated = [];
+  final List<int> topicsDeleted = [];
+  final List<int> topicsRecovered = [];
+  final List<int> topicsPermanentlyDeleted = [];
+  final List<({int topicId, bool pinned})> topicPinPreferencesUpdated = [];
   final List<List<int>> postFetches = [];
 
   final List<String> feedPaths = [];
@@ -708,6 +773,9 @@ class FakeDiscourseApi implements DiscourseApi {
   /// Thrown by [createPost] instead of answering, so a test can drive the
   /// refusal paths without a server.
   final WriteException? writeFailure;
+  final bool permanentDeletionAllowed;
+  final String? permanentDeletionReason;
+  final List<int> permanentDeletionChecks = [];
 
   /// Every [createPost] call, in order, as the arguments it was given.
   final List<Map<String, Object?>> created = [];
@@ -721,6 +789,24 @@ class FakeDiscourseApi implements DiscourseApi {
   /// Post ids passed to [deletePost] and [recoverPost], in order.
   final List<int> deleted = [];
   final List<int> recovered = [];
+  final List<({int topicId, int postId})> postsPermanentlyDeleted = [];
+  final List<List<int>> bulkDeleted = [];
+  final List<List<int>> merged = [];
+  final List<
+    ({
+      int topicId,
+      List<int> postIds,
+      int? destinationTopicId,
+      String? title,
+      int? categoryId,
+      List<int> tagIds,
+      bool chronologicalOrder,
+    })
+  >
+  movedTopicPosts = [];
+  String topicMoveUrl = '/t/moved-topic/99';
+  final List<({int topicId, List<int> postIds, String username})>
+  postOwnersChanged = [];
 
   /// Post ids passed to [likePost] and [unlikePost], in order.
   final List<int> liked = [];
@@ -744,6 +830,10 @@ class FakeDiscourseApi implements DiscourseApi {
   final Completer<void>? flagGate;
   final List<({int postId, int postActionTypeId, String? message})>
   flagsCreated = [];
+  final WriteException? topicFlagFailure;
+  final Completer<void>? topicFlagGate;
+  final List<({int topicId, int postActionTypeId, String? message})>
+  topicFlagsCreated = [];
 
   /// Returned by [postLikers], keyed by post id; a missing one fails.
   final Map<int, List<PostLiker>> likersById;
@@ -917,6 +1007,17 @@ class FakeDiscourseApi implements DiscourseApi {
   final Map<String, ChatChannels> chatChannelsBySite;
 
   final Map<int, ChatChannel> chatChannelsById;
+  final ChatChannel? chatChannelUpdateResponse;
+  final Completer<void>? chatChannelUpdateGate;
+  final WriteException? chatChannelUpdateFailure;
+  final ChatChannel? chatChannelStatusResponse;
+  final Completer<void>? chatChannelStatusGate;
+  final WriteException? chatChannelStatusFailure;
+  final List<({int channelId, String? name, String? slug, String? description})>
+  chatChannelMetadataUpdates = [];
+  final List<({int channelId, bool enabled})> chatChannelThreadingUpdates = [];
+  final List<({int channelId, ChatChannelStatus status})>
+  chatChannelStatusesUpdated = [];
   final List<int> chatChannelDetailsRequested = [];
 
   /// Returned by [upsertChatDirectMessageChannel], keyed by target username.
@@ -930,6 +1031,52 @@ class FakeDiscourseApi implements DiscourseApi {
   /// When set, [chatChannels] waits on it, so a test can hold the sidebar in
   /// the moment before the sections exist.
   final Completer<void>? chatChannelGate;
+
+  final Completer<void>? chatChannelStarGate;
+  final WriteException? chatChannelStarFailure;
+  final List<({int channelId, bool starred})> chatChannelStarsUpdated = [];
+
+  final ChatMembership chatChannelNotificationMembership;
+  final Completer<void>? chatChannelNotificationGate;
+  final WriteException? chatChannelNotificationFailure;
+  final List<
+    ({
+      int channelId,
+      bool? muted,
+      ChatChannelNotificationLevel? notificationLevel,
+    })
+  >
+  chatChannelNotificationsUpdated = [];
+
+  final Map<String, ChatChannelMembersPage> chatChannelMemberPagesByKey;
+  final Completer<void>? chatChannelMemberGate;
+  final List<({int channelId, String username, int offset, int limit})>
+  chatChannelMembersRequested = [];
+
+  static String chatChannelMembersKey(
+    int channelId, {
+    String username = '',
+    int offset = 0,
+  }) => '$channelId~${username.trim()}~$offset';
+
+  final Map<String, ChatChannelBrowsePage> chatBrowsePagesByKey;
+  final Completer<void>? chatBrowseGate;
+  final List<
+    ({String filter, ChatChannelBrowseStatus status, int offset, int limit})
+  >
+  chatBrowseRequested = [];
+
+  static String chatBrowseKey({
+    String filter = '',
+    ChatChannelBrowseStatus status = ChatChannelBrowseStatus.all,
+    int offset = 0,
+  }) => '${status.name}~${filter.trim()}~$offset';
+
+  final ChatMembership chatChannelFollowMembership;
+  final ChatMembership chatChannelUnfollowMembership;
+  final Completer<void>? chatChannelFollowGate;
+  final WriteException? chatChannelFollowFailure;
+  final List<({int channelId, bool following})> chatChannelFollowsUpdated = [];
 
   final Map<String, ChatSearchPage> chatSearchPagesByKey;
   final Completer<void>? chatSearchGate;
@@ -957,12 +1104,16 @@ class FakeDiscourseApi implements DiscourseApi {
   final Map<String, ChatMessagePage> chatMessagesByKey;
 
   /// Thread detail and write answers keyed by the helpers below.
+  final Map<int, ChatThreadPage> chatThreadPagesByOffset;
+  final Map<String, ChatThreadPage> chatChannelThreadPagesByKey;
   final Map<String, ChatThread> chatThreadsByKey;
   final Map<String, ChatThread> createdChatThreadsByKey;
   final Map<String, ChatThreadMembership> chatThreadMembershipsByKey;
 
   static String chatThreadKey(int channelId, int threadId) =>
       '$channelId~$threadId';
+  static String chatChannelThreadPageKey(int channelId, int offset) =>
+      '$channelId~page~$offset';
   static String createdChatThreadKey(int channelId, int originalMessageId) =>
       '$channelId~original~$originalMessageId';
 
@@ -1002,8 +1153,13 @@ class FakeDiscourseApi implements DiscourseApi {
   chatMessagesRequested = [];
 
   final List<({int channelId, int threadId})> chatThreadsRequested = [];
+  final List<({int offset, int limit})> chatThreadPagesRequested = [];
+  final List<({int channelId, int offset, int limit})>
+  chatChannelThreadPagesRequested = [];
   final List<({int channelId, int originalMessageId, String? title})>
   chatThreadsCreated = [];
+  final List<({int channelId, int threadId, String title})>
+  chatThreadTitlesUpdated = [];
   final List<
     ({
       int channelId,
@@ -1054,6 +1210,52 @@ class FakeDiscourseApi implements DiscourseApi {
     })
   >
   chatMessagesSent = [];
+
+  final WriteException? chatEditFailure;
+  final Completer<void>? chatEditGate;
+  final List<
+    ({
+      String siteUrl,
+      int channelId,
+      int messageId,
+      String message,
+      List<int> uploadIds,
+    })
+  >
+  chatMessagesEdited = [];
+
+  final WriteException? chatMessageMutationFailure;
+  final Completer<void>? chatMessageMutationGate;
+  final WriteException? chatMoveFailure;
+  final Completer<void>? chatMoveGate;
+  final int chatMoveFirstMessageId;
+  final WriteException? chatRebakeFailure;
+  final Completer<void>? chatRebakeGate;
+  final List<({int channelId, int messageId})> chatMessagesDeleted = [];
+  final List<({int channelId, List<int> messageIds})>
+  chatMessageBatchesDeleted = [];
+  final List<({int channelId, int destinationChannelId, List<int> messageIds})>
+  chatMessageMoves = [];
+  final List<({int channelId, int messageId})> chatMessagesRestored = [];
+  final List<({int channelId, int messageId})> chatMessagesRebaked = [];
+  final String chatQuoteMarkdown;
+  final WriteException? chatQuoteFailure;
+  final Completer<void>? chatQuoteGate;
+  final List<({int channelId, List<int> messageIds})> chatQuotesGenerated = [];
+
+  final WriteException? chatPinFailure;
+  final Completer<void>? chatPinGate;
+  final List<({int channelId, int messageId, bool pinned})>
+  chatMessagePinsUpdated = [];
+  final Map<int, ChatPins> chatPinsByChannel;
+  final Completer<void>? chatPinsGate;
+  final WriteException? chatPinsReadFailure;
+  final List<int> chatPinsRead = [];
+
+  final WriteException? chatFlagFailure;
+  final Completer<void>? chatFlagGate;
+  final List<({int channelId, int messageId, int flagTypeId, String? message})>
+  chatMessagesFlagged = [];
 
   /// Chat reaction writes, their optional gate, and an injected refusal.
   final WriteException? chatReactionFailure;
@@ -1347,6 +1549,78 @@ class FakeDiscourseApi implements DiscourseApi {
   }
 
   @override
+  Future<void> updateTopicPinForUser({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required bool pinned,
+    String? clientId,
+  }) async {
+    topicPinPreferencesUpdated.add((topicId: topicId, pinned: pinned));
+    await topicPinGate?.future;
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> updateTopicStatus({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required TopicStatusProperty status,
+    required bool enabled,
+    String? clientId,
+  }) async {
+    topicStatusesUpdated.add((
+      topicId: topicId,
+      status: status,
+      enabled: enabled,
+    ));
+    await topicStatusGate?.future;
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> deleteTopic({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) async {
+    topicsDeleted.add(topicId);
+    await topicDeletionGate?.future;
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> permanentlyDeleteTopic({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) async {
+    topicsPermanentlyDeleted.add(topicId);
+    await topicDeletionGate?.future;
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> recoverTopic({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) async {
+    topicsRecovered.add(topicId);
+    await topicDeletionGate?.future;
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
   Future<List<Post>> posts({
     required String siteUrl,
     required int topicId,
@@ -1503,6 +1777,8 @@ class FakeDiscourseApi implements DiscourseApi {
     required String siteUrl,
     required String term,
     String? typeFilter,
+    bool searchForId = false,
+    String? restrictToArchetype,
     String? apiKey,
     String? clientId,
   }) async {
@@ -1862,6 +2138,169 @@ class FakeDiscourseApi implements DiscourseApi {
   }
 
   @override
+  Future<({bool allowed, String? reason})> checkPermanentPostDeletion({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) async {
+    permanentDeletionChecks.add(postId);
+    return (allowed: permanentDeletionAllowed, reason: permanentDeletionReason);
+  }
+
+  @override
+  Future<void> permanentlyDeletePost({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required int postId,
+    String? clientId,
+  }) async {
+    postsPermanentlyDeleted.add((topicId: topicId, postId: postId));
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> deletePosts({
+    required String siteUrl,
+    required String apiKey,
+    required List<int> postIds,
+    String? clientId,
+  }) async {
+    bulkDeleted.add(List.unmodifiable(postIds));
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> mergePosts({
+    required String siteUrl,
+    required String apiKey,
+    required List<int> postIds,
+    String? clientId,
+  }) async {
+    merged.add(List.unmodifiable(postIds));
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<String> movePosts({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required List<int> postIds,
+    int? destinationTopicId,
+    String? title,
+    int? categoryId,
+    List<int> tagIds = const [],
+    bool chronologicalOrder = false,
+    String? clientId,
+  }) async {
+    movedTopicPosts.add((
+      topicId: topicId,
+      postIds: List.unmodifiable(postIds),
+      destinationTopicId: destinationTopicId,
+      title: title,
+      categoryId: categoryId,
+      tagIds: List.unmodifiable(tagIds),
+      chronologicalOrder: chronologicalOrder,
+    ));
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+    return topicMoveUrl;
+  }
+
+  @override
+  Future<void> changePostOwners({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required List<int> postIds,
+    required String username,
+    String? clientId,
+  }) async {
+    postOwnersChanged.add((
+      topicId: topicId,
+      postIds: List.unmodifiable(postIds),
+      username: username,
+    ));
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  final List<({int postId, bool wiki})> postWikiUpdates = [];
+  final List<({int postId, bool locked})> postLockUpdates = [];
+  final List<int> postsUnhidden = [];
+  final List<({int postId, int postType})> postTypeUpdates = [];
+  final List<({int postId, String? notice})> postNoticeUpdates = [];
+
+  @override
+  Future<void> updatePostWiki({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required bool wiki,
+    String? clientId,
+  }) async {
+    postWikiUpdates.add((postId: postId, wiki: wiki));
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> updatePostLocked({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required bool locked,
+    String? clientId,
+  }) async {
+    postLockUpdates.add((postId: postId, locked: locked));
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> unhidePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) async {
+    postsUnhidden.add(postId);
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> updatePostType({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required int postType,
+    String? clientId,
+  }) async {
+    postTypeUpdates.add((postId: postId, postType: postType));
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> updatePostNotice({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? notice,
+    String? clientId,
+  }) async {
+    postNoticeUpdates.add((postId: postId, notice: notice));
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
   Future<void> recoverPost({
     required String siteUrl,
     required String apiKey,
@@ -1909,6 +2348,25 @@ class FakeDiscourseApi implements DiscourseApi {
       throw const WriteException(WriteFailure.unreachable);
     }
     return response;
+  }
+
+  @override
+  Future<void> createTopicFlag({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required int postActionTypeId,
+    String? message,
+    String? clientId,
+  }) async {
+    topicFlagsCreated.add((
+      topicId: topicId,
+      postActionTypeId: postActionTypeId,
+      message: message,
+    ));
+    await topicFlagGate?.future;
+    final failure = topicFlagFailure ?? writeFailure;
+    if (failure != null) throw failure;
   }
 
   @override
@@ -2062,6 +2520,179 @@ class FakeDiscourseApi implements DiscourseApi {
   }
 
   @override
+  Future<ChatChannel> updateChatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? name,
+    String? slug,
+    String? description,
+    bool? threadingEnabled,
+    String? clientId,
+  }) async {
+    chatChannelMetadataUpdates.add((
+      channelId: channelId,
+      name: name,
+      slug: slug,
+      description: description,
+    ));
+    if (threadingEnabled case final enabled?) {
+      chatChannelThreadingUpdates.add((channelId: channelId, enabled: enabled));
+    }
+    if (chatChannelUpdateGate case final gate?) await gate.future;
+    if (chatChannelUpdateFailure case final failure?) throw failure;
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+    final response = chatChannelUpdateResponse ?? chatChannelsById[channelId];
+    if (response == null) {
+      throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
+    }
+    return response;
+  }
+
+  @override
+  Future<ChatChannel> updateChatChannelStatus({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required ChatChannelStatus status,
+    String? clientId,
+  }) async {
+    chatChannelStatusesUpdated.add((channelId: channelId, status: status));
+    if (chatChannelStatusGate case final gate?) await gate.future;
+    if (chatChannelStatusFailure case final failure?) throw failure;
+    final response = chatChannelStatusResponse ?? chatChannelsById[channelId];
+    if (response == null) {
+      throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
+    }
+    return response;
+  }
+
+  @override
+  Future<void> updateChatChannelStarred({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required bool starred,
+    String? clientId,
+  }) async {
+    chatChannelStarsUpdated.add((channelId: channelId, starred: starred));
+    await chatChannelStarGate?.future;
+    final failure = chatChannelStarFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<ChatMembership> updateChatChannelNotifications({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    bool? muted,
+    ChatChannelNotificationLevel? notificationLevel,
+    String? clientId,
+  }) async {
+    chatChannelNotificationsUpdated.add((
+      channelId: channelId,
+      muted: muted,
+      notificationLevel: notificationLevel,
+    ));
+    await chatChannelNotificationGate?.future;
+    final failure = chatChannelNotificationFailure;
+    if (failure != null) throw failure;
+    return chatChannelNotificationMembership.withNotifications(
+      muted: muted,
+      notificationLevel: notificationLevel,
+    );
+  }
+
+  @override
+  Future<ChatChannelMembersPage> chatChannelMembers({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String username = '',
+    int offset = 0,
+    int limit = 20,
+    String? clientId,
+  }) async {
+    chatChannelMembersRequested.add((
+      channelId: channelId,
+      username: username,
+      offset: offset,
+      limit: limit,
+    ));
+    await chatChannelMemberGate?.future;
+    final found =
+        chatChannelMemberPagesByKey[chatChannelMembersKey(
+          channelId,
+          username: username,
+          offset: offset,
+        )];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
+  }
+
+  @override
+  Future<ChatChannelBrowsePage> browseChatChannels({
+    required String siteUrl,
+    required String apiKey,
+    String filter = '',
+    ChatChannelBrowseStatus status = ChatChannelBrowseStatus.all,
+    int offset = 0,
+    int limit = ChatChannelBrowsePage.pageSize,
+    String? clientId,
+  }) async {
+    chatBrowseRequested.add((
+      filter: filter,
+      status: status,
+      offset: offset,
+      limit: limit,
+    ));
+    await chatBrowseGate?.future;
+    final found =
+        chatBrowsePagesByKey[chatBrowseKey(
+          filter: filter,
+          status: status,
+          offset: offset,
+        )];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
+  }
+
+  @override
+  Future<ChatMembership> followChatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) => _updateChatChannelFollowing(channelId, true);
+
+  @override
+  Future<ChatMembership> unfollowChatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) => _updateChatChannelFollowing(channelId, false);
+
+  Future<ChatMembership> _updateChatChannelFollowing(
+    int channelId,
+    bool following,
+  ) async {
+    chatChannelFollowsUpdated.add((channelId: channelId, following: following));
+    await chatChannelFollowGate?.future;
+    final failure = chatChannelFollowFailure;
+    if (failure != null) throw failure;
+    return following
+        ? chatChannelFollowMembership
+        : chatChannelUnfollowMembership;
+  }
+
+  @override
   Future<ChatSearchPage> searchChatMessages({
     required String siteUrl,
     required String apiKey,
@@ -2201,6 +2832,47 @@ class FakeDiscourseApi implements DiscourseApi {
   }
 
   @override
+  Future<ChatThreadPage> chatThreads({
+    required String siteUrl,
+    required String apiKey,
+    int offset = 0,
+    int limit = ChatThreadPage.pageSize,
+    String? clientId,
+  }) async {
+    chatThreadPagesRequested.add((offset: offset, limit: limit));
+    final found = chatThreadPagesByOffset[offset];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
+  }
+
+  @override
+  Future<ChatThreadPage> chatChannelThreads({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    int offset = 0,
+    int limit = ChatThreadPage.pageSize,
+    String? clientId,
+  }) async {
+    chatChannelThreadPagesRequested.add((
+      channelId: channelId,
+      offset: offset,
+      limit: limit,
+    ));
+    final found =
+        chatChannelThreadPagesByKey[chatChannelThreadPageKey(
+          channelId,
+          offset,
+        )];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
+  }
+
+  @override
   Future<ChatThread> createChatThread({
     required String siteUrl,
     required String apiKey,
@@ -2223,6 +2895,22 @@ class FakeDiscourseApi implements DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return found;
+  }
+
+  @override
+  Future<void> updateChatThreadTitle({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required String title,
+    String? clientId,
+  }) async {
+    chatThreadTitlesUpdated.add((
+      channelId: channelId,
+      threadId: threadId,
+      title: title,
+    ));
   }
 
   @override
@@ -2270,6 +2958,192 @@ class FakeDiscourseApi implements DiscourseApi {
     if (chatSendGate != null) await chatSendGate!.future;
     if (chatSendFailure != null) throw chatSendFailure!;
     return chatSentMessageId;
+  }
+
+  @override
+  Future<void> editChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required String message,
+    List<int> uploadIds = const [],
+    String? clientId,
+  }) async {
+    chatMessagesEdited.add((
+      siteUrl: siteUrl,
+      channelId: channelId,
+      messageId: messageId,
+      message: message,
+      uploadIds: List.unmodifiable(uploadIds),
+    ));
+    await chatEditGate?.future;
+    final failure = chatEditFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> deleteChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    chatMessagesDeleted.add((channelId: channelId, messageId: messageId));
+    await chatMessageMutationGate?.future;
+    final failure = chatMessageMutationFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> deleteChatMessages({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required List<int> messageIds,
+    String? clientId,
+  }) async {
+    chatMessageBatchesDeleted.add((
+      channelId: channelId,
+      messageIds: List.unmodifiable(messageIds),
+    ));
+    await chatMessageMutationGate?.future;
+    final failure = chatMessageMutationFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<ChatMessageMove> moveChatMessages({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int destinationChannelId,
+    required List<int> messageIds,
+    String? clientId,
+  }) async {
+    chatMessageMoves.add((
+      channelId: channelId,
+      destinationChannelId: destinationChannelId,
+      messageIds: List.unmodifiable(messageIds),
+    ));
+    await chatMoveGate?.future;
+    final failure = chatMoveFailure;
+    if (failure != null) throw failure;
+    return (
+      destinationChannelId: destinationChannelId,
+      firstMovedMessageId: chatMoveFirstMessageId,
+    );
+  }
+
+  @override
+  Future<void> restoreChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    chatMessagesRestored.add((channelId: channelId, messageId: messageId));
+    await chatMessageMutationGate?.future;
+    final failure = chatMessageMutationFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> rebakeChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    chatMessagesRebaked.add((channelId: channelId, messageId: messageId));
+    await chatRebakeGate?.future;
+    final failure = chatRebakeFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<String> generateChatQuote({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required List<int> messageIds,
+    String? clientId,
+  }) async {
+    chatQuotesGenerated.add((
+      channelId: channelId,
+      messageIds: List.unmodifiable(messageIds),
+    ));
+    await chatQuoteGate?.future;
+    final failure = chatQuoteFailure;
+    if (failure != null) throw failure;
+    return chatQuoteMarkdown;
+  }
+
+  @override
+  Future<void> updateChatMessagePinned({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required bool pinned,
+    String? clientId,
+  }) async {
+    chatMessagePinsUpdated.add((
+      channelId: channelId,
+      messageId: messageId,
+      pinned: pinned,
+    ));
+    await chatPinGate?.future;
+    final failure = chatPinFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<ChatPins> chatPinnedMessages({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) async {
+    await chatPinsGate?.future;
+    return chatPinsByChannel[channelId] ??
+        (pins: const <ChatPin>[], membership: null);
+  }
+
+  @override
+  Future<void> markChatPinsRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) async {
+    chatPinsRead.add(channelId);
+    final failure = chatPinsReadFailure;
+    if (failure != null) throw failure;
+  }
+
+  @override
+  Future<void> flagChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required int flagTypeId,
+    String? message,
+    String? clientId,
+  }) async {
+    chatMessagesFlagged.add((
+      channelId: channelId,
+      messageId: messageId,
+      flagTypeId: flagTypeId,
+      message: message,
+    ));
+    await chatFlagGate?.future;
+    final failure = chatFlagFailure;
+    if (failure != null) throw failure;
   }
 
   @override
@@ -2745,7 +3619,26 @@ TopicPayload topicPayload({
   bool isNestedView = false,
   int? categoryId,
   bool canCreatePost = false,
+  bool canReplyAsNewTopic = false,
   TopicNotificationLevel notificationLevel = TopicNotificationLevel.normal,
+  bool pinned = false,
+  bool unpinned = false,
+  bool pinnedGlobally = false,
+  bool closed = false,
+  bool archived = false,
+  bool visible = true,
+  DateTime? deletedAt,
+  bool canCloseTopic = false,
+  bool canArchiveTopic = false,
+  bool canToggleTopicVisibility = false,
+  bool canDeleteTopic = false,
+  bool canRecoverTopic = false,
+  bool canPermanentlyDelete = false,
+  bool canFlagTopic = false,
+  bool canEditStaffNotes = false,
+  bool canMovePosts = false,
+  bool canSplitMergeTopic = false,
+  List<PostActionSummary> topicActions = const [],
   ComposerDraft? draft,
   int draftSequence = 0,
   TopicRecommendations? recommendations,
@@ -2769,7 +3662,26 @@ TopicPayload topicPayload({
     isNestedView: isNestedView,
     categoryId: categoryId,
     canCreatePost: canCreatePost,
+    canReplyAsNewTopic: canReplyAsNewTopic,
     notificationLevel: notificationLevel,
+    pinned: pinned,
+    unpinned: unpinned,
+    pinnedGlobally: pinnedGlobally,
+    closed: closed,
+    archived: archived,
+    visible: visible,
+    deletedAt: deletedAt,
+    canCloseTopic: canCloseTopic,
+    canArchiveTopic: canArchiveTopic,
+    canToggleTopicVisibility: canToggleTopicVisibility,
+    canDeleteTopic: canDeleteTopic,
+    canRecoverTopic: canRecoverTopic,
+    canPermanentlyDelete: canPermanentlyDelete,
+    canFlagTopic: canFlagTopic,
+    canEditStaffNotes: canEditStaffNotes,
+    canMovePosts: canMovePosts,
+    canSplitMergeTopic: canSplitMergeTopic,
+    topicActions: topicActions,
     draft: draft,
     draftSequence: draftSequence,
     recommendations: recommendations,

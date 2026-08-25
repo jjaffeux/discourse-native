@@ -356,9 +356,109 @@ posts. In both cases paging is by id (`/t/{id}/posts.json?post_ids[]=…`) rathe
 than by page number. Fetched posts are merged in post-number order, not append
 order.
 
+The floating topic-progress control follows core's stream-index semantics: its
+current and total values count visible stream entries, and its expandable
+slider can jump to any one of them. A stream index is not assumed to be a post
+number because deleted and hidden posts make those values diverge. Like the web
+client, an unloaded target is first resolved by id through the bounded posts
+endpoint, then its real `post_number` opens an around-post topic window.
+
+The topic actions menu also takes its authority directly from core's
+`TopicViewDetailsSerializer`. Close/open, archive/unarchive and
+list/unlist controls exist only when their respective `can_*` key is present,
+then write the same `PUT /t/{id}/status` contract as the web admin menu. Status
+writes are serialized per topic, and close/open is also projected onto any
+cached list row, so a slow mutation cannot race a second action on that topic.
+The same menu now honors `details.can_delete` and `details.can_recover`.
+Deletion is confirmed, calls `DELETE /t/{id}` with the current topic as its
+moderation context, and returns an ordinary author to the underlying list;
+staff remain on the soft-deleted topic and can restore it through
+`PUT /t/{id}/recover`. Both permissions and `deleted_at` are projected only
+after the site accepts the write.
+
+Personal pin dismissal follows the separate, account-scoped web contract. A
+topic carrying `pinned` or `unpinned` exposes the Pinned/Unpinned choice (and
+keeps the `pinned_globally` label); changing it writes `PUT /t/{id}/clear-pin`
+or `PUT /t/{id}/re-pin`. The detail and cached list row update optimistically
+and roll back together if the site refuses the change.
+
+Topic sharing follows core's `Topic#shareUrl`: the canonical
+`/t/{slug-or-topic}/{id}` link includes the lower-cased reader referral only
+when badges and username share links are enabled. The adaptive share surface
+keeps the complete link selectable, copies it directly, and hands its title and
+URL to the platform share sheet. When the topic payload advertises
+`details.can_reply_as_new_topic`, that same surface can open a category-aware
+new-topic composer over the source topic. It prepends core's canonical
+“Continue the discussion from…” backlink without discarding a restored draft.
+Each post's hover, keyboard, and touch actions also open that share surface
+with its post-number URL. Its Reply as new topic action keeps the backlink
+post-specific while the one-tap Copy link remains available beside it.
+
+Whole-topic flagging is distinct from flagging the opening post. The header
+action requires `details.can_flag_topic`, intersects the topic's top-level
+`actions_summary` with `/site.json`'s separately localized
+`topic_flag_types`, and submits the topic id with `flag_topic: true` through
+core's post-action bridge. The common composer uses topic-specific copy while
+retaining the same message bounds and accessibility behavior as post and chat
+flags.
+
 Post bodies are the `cooked` field — HTML the site already rendered, with its
 markdown, oneboxes, mentions and emoji resolved. `flutter_widget_from_html_core`
 draws it; reimplementing any of that client side would be a mistake.
+
+Wiki state is likewise server-owned. Posts read both `wiki` and the guardian's
+`can_wiki`; authorized post actions toggle the exact
+`PUT /posts/{id}/wiki` field route and then re-read the post rather than
+guessing at permissions or edit metadata. Wiki posts carry a visible marker so
+their broader edit affordance is apparent before someone opens the composer.
+The same post action surfaces mirror core's staff-only lock control when a
+serialized post has an author: `PUT /posts/{id}/locked` toggles the field, the
+post is re-read after the write, and a visible Locked marker keeps the editing
+restriction apparent to the author and staff who receive that serializer key.
+Staff also receive the web client's Unhide action for posts carrying `hidden`;
+it calls `PUT /posts/{id}/unhide`, re-reads the post, and replaces the visible
+Hidden marker and placeholder with the site's restored content. Non-whisper
+posts expose web's staff-only Convert to moderator post/Revert action through
+`PUT /posts/{id}/post_type`; the serialized type controls both the next action
+and a visible Moderator marker after the authoritative refresh.
+
+Custom post notices follow their own topic guardian rather than a blanket staff
+check. `details.can_edit_staff_notes` exposes Add/Change notice on posts in the
+current stream; saving or removing one uses `PUT /posts/{id}/notice` and then
+re-reads the post. The banner renders the server's `notice.cooked` HTML, while
+the raw value is retained only for editing, so markdown and site extensions
+remain the reference implementation's responsibility.
+
+Permanent deletion is kept separate from ordinary soft deletion. A deleted
+reply's `can_permanently_delete`, or the opening post's matching topic-detail
+flag, only exposes the action; the client still calls
+`GET /posts/{id}/permanently_delete_check` and surfaces core's cooldown or
+different-admin refusal. An accepted preflight requires typing “permanently
+delete” before the app sends `force_destroy: true` to the post or topic delete
+route. Replies are removed by an authoritative stream refresh, while a
+destroyed topic evicts its cached posts and returns to the underlying list.
+
+Topic post selection follows `details.can_split_merge_topic`, not a locally
+inferred staff role. The admin menu enters a stream-scoped selection mode with
+per-post checkboxes, select-all-loaded and clear controls. A selection whose
+posts all advertise `can_delete` can use core's
+`DELETE /posts/destroy_many`; two or more deletable posts by the same author
+can use `PUT /posts/merge_posts`. Both writes reserve every affected post,
+retain the selection after a refusal, and re-read the selected ids in bounded
+batches after success so soft deletes, hard deletes, and the surviving merged
+post reflect the server's answer. `details.can_move_posts` independently adds
+Move. Its existing-topic chooser uses the web search modifiers
+(`type_filter=topic`, `search_for_id=true`, regular archetype), supports
+chronological insertion, and the new-topic path accepts a title and creatable
+category. Both submit `POST /t/{source}/move-posts`, repair the source from
+authoritative post reads, and navigate to the returned destination URL. The
+account-level `can_change_post_owner` serializer flag adds Change owner only
+when the selected posts share one author. The same debounced user chooser also
+supports a one-element change directly from an individual post's admin actions,
+matching web's shortcut without entering selection mode. Both forms submit
+`POST /t/{topic}/change-owner`; success re-reads each affected post so the new
+avatar, display name, and username remain server-owned, while a refusal keeps
+the selection and chosen account available for correction.
 
 Post, composer, grid, lightbox, onebox, and chat-upload images share one
 site-image loader. That matters when a site enables secure uploads: Discourse
@@ -731,6 +831,16 @@ threads. A thread can be opened from its latest-reply summary or created with a
 message's Reply action. At 1200 logical pixels and above Chat owns a resizable
 channel/thread workspace; narrower shells push the thread as the next screen.
 
+**Browse channels** mirrors the web directory with server-side text and status
+filters, client-side joined/not-joined filtering, and 25-row pagination from
+`GET /chat/api/channels`. Cards retain the server's description, member count,
+lock/status, and join guardian. Joining posts to
+`/chat/api/channels/{id}/memberships/me`; Unfollow uses the reversible
+`DELETE .../memberships/me/follows` route. The returned membership immediately
+updates the card, shared store, sidebar ordering, and live activity
+subscriptions, so a newly joined channel opens natively without a second list
+fetch.
+
 **It cannot use the enablement rule the rest of that interface turns on.** A
 post arrives whether or not you care about reactions, so its payload can be the
 gate. A channel list arrives only if you ask, so its absence proves nothing — a
@@ -770,6 +880,18 @@ message in its parent pane without closing the thread. Search state lives in a
 separate lifecycle-safe controller: query changes, site disconnects, and a
 closed filter invalidate late responses, while search text remains transient
 and never enters diagnostics or persisted presentation state.
+
+The account-level **My threads** destination is similarly conditional: the
+channel-list envelope must report `has_threads`, so an account with no joined
+threads does not get a permanent empty row. It reads
+`GET /chat/api/me/threads` in core's ten-thread pages and preserves the
+server's unread-first/activity order. Each result's embedded channel is stored
+with the thread because the list crosses conversations; titles fall back to
+the original-message excerpt, thread tracking draws the unread mark, and a tap
+opens the ordinary native thread workspace. The snapshot's
+`user_has_threads` cursor starts the same account MessageBus subscription as
+the web client, so joining a first thread elsewhere reveals the destination
+without waiting for another channel-list fetch.
 
 The two hooks are `sidebarSections` and `content`. The first returns **models**
 rather than a widget — unlike `postFooter`, because the sidebar is a list of
@@ -846,8 +968,9 @@ exactly Discourse's two rules already written down: the scroll threshold is its
 load-at-top, and building the last row is its fill-pane safety net.
 
 Messages group into runs the way Discourse's do — same author, within five
-minutes, previous not deleted, neither a webhook message, and a reply only when
-it answers the row directly above. One rule of Discourse's is dropped: it also
+minutes, previous not deleted, neither a webhook message, a pinned message
+always starting a new run, and a reply only when it answers the row directly
+above. One rule of Discourse's is dropped: it also
 breaks the chain at the first message of the latest fetched page, because its
 stream is assembled from pages whose adjacency it cannot vouch for. Here
 contiguity is an invariant, so a page boundary carries no information and
@@ -889,7 +1012,7 @@ reconcile reads and counts from the account's other sessions. A mounted channel
 or thread also reference-counts `/chat/{id}` from the cursor in the same HTTP
 snapshot; an active thread additionally follows
 `/chat/{id}/thread/{thread_id}` from its detail cursor. Sent, processed, edit,
-refresh, reaction, delete, bulk-delete and restore events are deduplicated
+refresh, reaction, pin, unpin, delete, bulk-delete and restore events are deduplicated
 across replay/reconnect. `update_thread_original_message` is authoritative for
 reply count, latest reply and participants; the active detail is coalesced and
 refetched because core's event does not carry cross-client title changes.
@@ -899,8 +1022,103 @@ and composer-focus requests are one-shot destinations, so selecting another
 message in an already-open thread reveals it without stacking duplicate routes.
 Connected-site channel and thread links from notifications, bookmarks and
 internal navigation are offered to native Chat before browser fallback.
+Thread-enabled channels expose the web client's **Threads** header action. Its
+`GET /chat/api/channels/{id}/threads` route pages ten raw rows at a time, hides
+deleted originals and roots with no replies, then dynamically orders watched
+unread threads, other unread threads and latest reply activity. Channel-root
+events keep that projection live: tracking changes and reply previews reorder
+it, deletes remove a row, and restores return it. Opening a result preserves
+the list under the thread in Back history; the account-level My threads route
+does the same.
+The channel header also completes the sidebar's starred-channel loop. Its
+filled/outlined star updates the current membership optimistically and writes
+the web client's `PUT /chat/api/channels/{id}/memberships/me` contract; success
+moves the channel between ordinary and Starred sections immediately, while a
+refusal restores the original membership and bucket.
+The adjacent notification control mirrors the web sidebar's two independent
+membership settings. Push delivery can be Never, Mentions or All activity,
+while Mute separately suppresses unread indicators and alerts. Each choice is
+projected immediately, writes the nested
+`PUT /chat/api/channels/{id}/notifications-settings/me` payload, then replaces
+the projection with the membership serializer's answer or restores it after a
+refusal; changing one setting never implicitly changes the other.
+Channel info exposes the serialized description and the same privacy-safe
+member directory as the web route. It pages twenty rows at a time from
+`GET /chat/api/channels/{id}/memberships`, filters server-side by username,
+ignores every other member's private membership preferences, and opens the
+ordinary native user card from a result.
+Staff can also rename a followed category channel, update its URL slug and
+add, change or remove its 280-character description there. Those editors use
+core's `PUT /chat/api/channels/{id}` channel envelope and merge the returned
+settings without discarding unread tracking that this response omits.
+For an open category channel, the same staff settings surface toggles
+`threading_enabled`. The switch projects immediately, restores the old value
+if core refuses the write, and enabling it exposes the channel's already
+separate thread timeline without mixing thread replies into the main stream.
+Staff can close an open category channel, or reopen a closed one, after the
+same consequence-focused confirmation as web. This uses the dedicated
+`PUT /chat/api/channels/{id}/status` service; read-only and archived states
+remain owned by the separate archive workflow.
+Every canonical message has the web client's Copy link action on pointer,
+keyboard and touch surfaces. Channel rows copy
+`/chat/c/-/{channel}/{message}` while a row rendered inside a thread copies
+`/chat/c/-/{channel}/t/{thread}/{message}`; optimistic rows wait for their
+server id before offering a link. The mobile sheet also mirrors core's Copy
+text action and places the original Markdown source on the clipboard rather
+than flattening cooked HTML.
+Persisted channel and thread rows also expose the web client's Select action.
+Selection is scoped to its pane, replaces the composer with a bulk-action bar,
+and asks core's `/chat/{channel}/quote` transcript service for canonical
+`[chat]` Markdown before copying. Quote opens or reuses a topic draft over the
+chat workspace, prefilling a public channel's category and inserting the
+transcript after any restored draft. Allowed selections can be soft-deleted in one
+`DELETE /chat/api/channels/{channel}/messages` request after confirmation; the
+same per-message guardian checks and 200-message limit as the web client are
+enforced before anything changes locally.
+Moderators in public channels also get Move: a destination chooser lists the
+other followed public channels, posts core's nested `move` payload, projects
+the source rows as deleted, and opens the first newly-created message in the
+destination channel just as the web modal does.
+Authors can also edit canonical message Markdown from the same adaptive action
+surface. The editor preserves existing attachment ids, projects a safe native
+preview immediately, writes core's
+`PUT /chat/api/channels/{channel}/messages/{message}` contract, and restores
+the previous content if the site refuses it; the live cooked echo remains
+authoritative.
+Delete and Restore use the channel serializer's `can_delete_self`,
+`can_delete_others` and `can_moderate` gates plus each message's
+`deleted_by_id`, then call core's message DELETE and `/restore` routes. Deleted
+runs retain their message ids, so a permitted reader can restore one collapsed
+message directly or choose the exact message from a longer run.
+Channel pin managers get the web client's Pin/Unpin action and pinned-message
+badge. It projects immediately, writes POST or DELETE to the shared
+`/chat/api/channels/{channel}/messages/{message}/pin` route, rolls back only pin
+state after a refusal, and consumes core's incremental pin events so another
+client updates mounted native rows and their speaker grouping.
+Channels with pins also load core's bounded twenty-pin snapshot into a compact
+bar above the stream. Its excerpt jumps to the exact message (cycling through
+older pins), the list sheet names who pinned each message, and opening that
+sheet writes `/pins/read` and clears the membership's unseen-pin marker. Pin
+and unpin events reconcile both the serializer's authoritative count and an
+already-loaded list.
+Flagging follows both halves of core's permission answer: the channel's
+`can_flag` guardian result and the message serializer's personalized
+`available_flags` names. Only site catalog reasons applying to `Chat::Message`
+are offered, the shared accessible flag composer handles required moderator
+notes, and submission posts to the chat message `/flags` route. Core's private
+`self_flagged` event then removes the action from every mounted copy of that
+message.
+Staff also get core's **Rebuild HTML** action in writable channels. It queues
+the asynchronous rebake through the legacy `PUT /chat/{channel}/{message}/rebake`
+route, serializes against other writes to that row, and waits for the processed
+MessageBus event to provide the authoritative cooked result.
+Thread settings follow the web client's guardian gate: staff and the author of
+the original message can edit its optional title, up to core's 100-character
+limit. A successful title write commits the known value and dirties any
+concurrent detail read, so an older response cannot immediately put the old
+title back.
 Thread notification settings expose core's Normal, Tracking and Watching
-levels; Muted, thread lists, “My Threads” and title editing remain out of scope.
+levels; Muted remains out of scope.
 
 ### GIFs
 

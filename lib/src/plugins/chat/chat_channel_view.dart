@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../../models/site_config.dart';
+import '../../shell/adaptive_dialog_action.dart';
 import '../../shell/loading_skeleton.dart';
 import '../../shell/shell_scope.dart';
+import '../../shell/shell_sheet.dart';
 import '../../shell/stream_day_separator.dart';
 import '../../shell/time_gap.dart';
 import '../../theme/app_theme.dart';
@@ -14,11 +17,13 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
 import '../plugin_services.dart';
+import 'chat_channel.dart';
 import 'chat_channel_search.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_message_tile.dart';
+import 'chat_pinned_bar.dart';
 import 'chat_route.dart';
 import 'chat_stream.dart';
 import 'chat_stream_target.dart';
@@ -110,6 +115,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   List<ChatStreamItem> _items = const [];
   int? _highlightMessageId;
   int _highlightRequest = 0;
+  bool _selectingMessages = false;
+  final Set<int> _selectedMessageIds = {};
   final ChatUploadDropController _uploadDropController =
       ChatUploadDropController();
 
@@ -195,6 +202,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         ),
         builder: (context, stream, _) => _buildChannel(
           stream,
+          channel: channel,
           channelTitle: channel?.title ?? 'Chat',
           canCreateThread:
               channel?.threadingEnabled == true &&
@@ -209,6 +217,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
   Widget _buildChannel(
     ChatStreamState stream, {
+    required ChatChannel? channel,
     required String channelTitle,
     required bool canCreateThread,
   }) {
@@ -232,6 +241,10 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
             _openThread(context, widget.siteUrl, widget.channelId, preview),
         canCreateThread: canCreateThread,
         onReplyInThread: (message) => _replyInThread(context, message),
+        selectingMessages: _selectingMessages,
+        selectedMessageIds: _selectedMessageIds,
+        onStartSelecting: _startSelecting,
+        onSelectionChanged: _setMessageSelected,
       );
     } else if (stream.loading) {
       content = const _ChatLoadingSkeleton(
@@ -257,8 +270,23 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
             siteUrl: widget.siteUrl,
             channelId: widget.channelId,
           ),
+          if (channel?.hasPinnedMessages == true)
+            ChatPinnedBar(
+              siteUrl: widget.siteUrl,
+              channel: channel!,
+              chat: widget.chat,
+              onJumpToMessage: _jumpToPinned,
+            ),
           Expanded(child: content),
-          if (stream.error == null || hasMessages)
+          if (_selectingMessages)
+            ChatMessageSelectionBar(
+              siteUrl: widget.siteUrl,
+              channelId: widget.channelId,
+              messageIds: _selectedMessageIds,
+              chat: widget.chat,
+              onCancel: _cancelSelecting,
+            )
+          else if (stream.error == null || hasMessages)
             ChatComposer(
               key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
               siteUrl: widget.siteUrl,
@@ -270,9 +298,48 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     );
   }
 
+  void _startSelecting(int messageId) {
+    setState(() {
+      _selectingMessages = true;
+      _selectedMessageIds.add(messageId);
+    });
+  }
+
+  void _setMessageSelected(int messageId, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedMessageIds.add(messageId);
+      } else {
+        _selectedMessageIds.remove(messageId);
+      }
+    });
+  }
+
+  void _cancelSelecting() {
+    setState(() {
+      _selectingMessages = false;
+      _selectedMessageIds.clear();
+    });
+  }
+
   void _clearHighlight(int request) {
     if (!mounted || request != _highlightRequest) return;
     setState(() => _highlightMessageId = null);
+  }
+
+  void _jumpToPinned(int messageId) {
+    setState(() {
+      _highlightMessageId = messageId;
+      _highlightRequest++;
+    });
+    unawaited(
+      widget.chat.openChannel(
+        widget.siteUrl,
+        widget.channelId,
+        targetMessageId: messageId,
+        force: true,
+      ),
+    );
   }
 
   Future<void> _replyInThread(BuildContext context, ChatMessage message) async {
@@ -454,6 +521,10 @@ class ChatMessageStream extends StatefulWidget {
     this.onReplyInThread,
     this.canCreateThread = false,
     this.showThreadSummaries = true,
+    this.selectingMessages = false,
+    this.selectedMessageIds = const {},
+    this.onStartSelecting,
+    this.onSelectionChanged,
   });
 
   final String siteUrl;
@@ -469,6 +540,10 @@ class ChatMessageStream extends StatefulWidget {
   final ValueChanged<ChatMessage>? onReplyInThread;
   final bool canCreateThread;
   final bool showThreadSummaries;
+  final bool selectingMessages;
+  final Set<int> selectedMessageIds;
+  final ValueChanged<int>? onStartSelecting;
+  final void Function(int messageId, bool selected)? onSelectionChanged;
 
   int get channelId => target.channelId;
 
@@ -1231,12 +1306,20 @@ class _StreamState extends State<ChatMessageStream>
                         siteUrl: siteUrl,
                         messageId: id,
                         chained: chained,
+                        contextThreadId: widget.target.threadId,
                         onOpenThread: widget.onOpenThread,
                         onReplyInThread:
                             message?.thread != null || widget.canCreateThread
                             ? widget.onReplyInThread
                             : null,
                         showThreadSummary: widget.showThreadSummaries,
+                        onSelect: id > 0 && widget.onStartSelecting != null
+                            ? () => widget.onStartSelecting!(id)
+                            : null,
+                        selecting: widget.selectingMessages,
+                        selected: widget.selectedMessageIds.contains(id),
+                        onSelectedChanged: (selected) =>
+                            widget.onSelectionChanged?.call(id, selected),
                       ),
                     ),
                   ),
@@ -1255,7 +1338,10 @@ class _StreamState extends State<ChatMessageStream>
                     key: ValueKey(('chat-time-gap', messageId)),
                     daysSince: daysSince,
                   ),
-                ChatStreamDeleted(:final count) => _DeletedRun(count: count),
+                ChatStreamDeleted(:final messageIds) => _DeletedRun(
+                  siteUrl: siteUrl,
+                  messageIds: messageIds,
+                ),
                 ChatStreamNewDivider() => const _NewDivider(),
                 null => const SizedBox.shrink(),
               };
@@ -1334,6 +1420,353 @@ class _StreamState extends State<ChatMessageStream>
     if (_scroll.hasClients) _scroll.jumpTo(0);
     _syncAwayFromPresent();
     _noteWhatIsOnScreen();
+  }
+}
+
+/// Replaces the composer while one pane is selecting persisted messages.
+class ChatMessageSelectionBar extends StatefulWidget {
+  const ChatMessageSelectionBar({
+    super.key,
+    required this.siteUrl,
+    required this.channelId,
+    required this.messageIds,
+    required this.chat,
+    required this.onCancel,
+  });
+
+  final String siteUrl;
+  final int channelId;
+  final Set<int> messageIds;
+  final ChatController chat;
+  final VoidCallback onCancel;
+
+  @override
+  State<ChatMessageSelectionBar> createState() =>
+      _ChatMessageSelectionBarState();
+}
+
+class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
+  bool _copying = false;
+  bool _deleting = false;
+  bool _moving = false;
+  bool _quoting = false;
+
+  Future<void> _copy() async {
+    if (_copying ||
+        _deleting ||
+        _moving ||
+        _quoting ||
+        widget.messageIds.isEmpty) {
+      return;
+    }
+    setState(() => _copying = true);
+    final result = await widget.chat.generateMessageQuote(
+      widget.siteUrl,
+      widget.channelId,
+      widget.messageIds,
+    );
+    var notice = result.error;
+    if (result.markdown case final markdown?) {
+      try {
+        await Clipboard.setData(ClipboardData(text: markdown));
+        notice = 'Messages copied!';
+      } catch (_) {
+        notice = "Couldn't copy messages.";
+      }
+    }
+    if (!mounted) return;
+    setState(() => _copying = false);
+    if (notice != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(notice)));
+    }
+  }
+
+  Future<void> _quote() async {
+    if (_copying ||
+        _deleting ||
+        _moving ||
+        _quoting ||
+        widget.messageIds.isEmpty) {
+      return;
+    }
+    final shell = ShellScope.read(context);
+    setState(() => _quoting = true);
+    final result = await widget.chat.generateMessageQuote(
+      widget.siteUrl,
+      widget.channelId,
+      widget.messageIds,
+    );
+    var notice = result.error;
+    if (result.markdown case final markdown?) {
+      notice = await shell.openChatQuote(
+        widget.siteUrl,
+        widget.channelId,
+        markdown,
+      );
+    }
+    if (!mounted) return;
+    setState(() => _quoting = false);
+    if (notice != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(notice)));
+    }
+  }
+
+  Future<void> _move(List<ChatChannel> destinations) async {
+    if (_copying ||
+        _deleting ||
+        _moving ||
+        _quoting ||
+        widget.messageIds.isEmpty ||
+        destinations.isEmpty) {
+      return;
+    }
+    final count = widget.messageIds.length;
+    final destinationId = await showDiscourseDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        int? selected;
+        return StatefulBuilder(
+          builder: (context, setDialogState) => DiscourseAlertDialog(
+            title: const Text('Move messages'),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Move $count selected '
+                    '${count == 1 ? 'message' : 'messages'} to:',
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<int>(
+                    key: const ValueKey('chat-move-destination'),
+                    initialValue: selected,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Destination channel',
+                    ),
+                    items: [
+                      for (final channel in destinations)
+                        DropdownMenuItem(
+                          value: channel.id,
+                          child: Text(
+                            channel.title,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => selected = value),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              AdaptiveDialogAction(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              AdaptiveDialogAction(
+                key: const ValueKey('confirm-move-chat-messages'),
+                onPressed: selected == null
+                    ? null
+                    : () => Navigator.pop(dialogContext, selected),
+                kind: AdaptiveDialogActionKind.primary,
+                child: const Text('Move'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (destinationId == null || !mounted) return;
+
+    final ids = widget.messageIds.toSet();
+    final shell = ShellScope.read(context);
+    setState(() => _moving = true);
+    final result = await widget.chat.moveMessages(
+      widget.siteUrl,
+      widget.channelId,
+      destinationId,
+      ids,
+    );
+    if (!mounted) return;
+    setState(() => _moving = false);
+    if (result.error case final error?) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    if (result.move case final move?) {
+      widget.onCancel();
+      shell.openChatChannel(
+        move.destinationChannelId,
+        messageId: move.firstMovedMessageId,
+      );
+    }
+  }
+
+  Future<void> _delete() async {
+    if (_copying ||
+        _deleting ||
+        _moving ||
+        _quoting ||
+        widget.messageIds.isEmpty) {
+      return;
+    }
+    final ids = widget.messageIds.toSet();
+    final count = ids.length;
+    final confirmed = await showDiscourseDialog<bool>(
+      context: context,
+      builder: (dialogContext) => DiscourseAlertDialog(
+        title: const Text('Delete selected messages?'),
+        content: Text(
+          'Are you sure you want to delete $count '
+          '${count == 1 ? 'message' : 'messages'}?',
+        ),
+        actions: [
+          AdaptiveDialogAction(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          AdaptiveDialogAction(
+            key: const ValueKey('confirm-delete-chat-messages'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            kind: AdaptiveDialogActionKind.destructive,
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deleting = true);
+    final error = await widget.chat.deleteMessages(
+      widget.siteUrl,
+      widget.channelId,
+      ids,
+    );
+    if (!mounted) return;
+    setState(() => _deleting = false);
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(error ?? 'Messages deleted.')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = widget.messageIds.length;
+    final canDelete = widget.chat.canDeleteMessages(
+      widget.siteUrl,
+      widget.channelId,
+      widget.messageIds,
+    );
+    final source = widget.chat.channel(widget.siteUrl, widget.channelId);
+    final moveDestinations = widget.chat.messageMoveDestinations(
+      widget.siteUrl,
+      widget.channelId,
+    );
+    final offersMove =
+        source?.isCategoryChannel == true &&
+        source?.canModerate == true &&
+        moveDestinations.isNotEmpty;
+    final canMove = widget.chat.canMoveMessages(
+      widget.siteUrl,
+      widget.channelId,
+      widget.messageIds,
+    );
+    final busy = _copying || _deleting || _moving || _quoting;
+    return Material(
+      key: const ValueKey('chat-message-selection-bar'),
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '$count ${count == 1 ? 'message' : 'messages'} selected',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              IconButton(
+                key: const ValueKey('chat-quote-selection'),
+                tooltip: 'Quote selected messages',
+                onPressed: count == 0 || busy ? null : _quote,
+                icon: _quoting
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const DIcon(DIcons.quoteLeft, size: 18),
+              ),
+              FilledButton.icon(
+                key: const ValueKey('chat-copy-selection'),
+                onPressed: count == 0 || busy ? null : _copy,
+                icon: _copying
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const DIcon(DIcons.copy, size: 16),
+                label: const Text('Copy'),
+              ),
+              const SizedBox(width: 4),
+              if (offersMove)
+                IconButton(
+                  key: const ValueKey('chat-move-selection'),
+                  tooltip: 'Move selected messages to another channel',
+                  onPressed: canMove && !busy
+                      ? () => _move(moveDestinations)
+                      : null,
+                  icon: _moving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const DIcon(DIcons.rightFromBracket, size: 18),
+                ),
+              IconButton(
+                key: const ValueKey('chat-delete-selection'),
+                tooltip: count > ChatController.maximumBulkDeleteMessages
+                    ? 'Select no more than '
+                          '${ChatController.maximumBulkDeleteMessages} messages'
+                    : 'Delete selected messages',
+                onPressed: canDelete && !busy ? _delete : null,
+                icon: _deleting
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const DIcon(DIcons.trashCan, size: 18),
+              ),
+              IconButton(
+                key: const ValueKey('chat-cancel-selection'),
+                tooltip: 'Cancel selection',
+                onPressed: busy ? null : widget.onCancel,
+                icon: const DIcon(DIcons.xmark, size: 18),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1478,24 +1911,94 @@ class _NewDivider extends StatelessWidget {
 
 /// A run of deleted messages, which only a moderator is ever shown.
 class _DeletedRun extends StatelessWidget {
-  const _DeletedRun({required this.count});
+  const _DeletedRun({required this.siteUrl, required this.messageIds});
 
-  final int count;
+  final String siteUrl;
+  final List<int> messageIds;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      child: Text(
-        count == 1 ? '1 message deleted' : '$count messages deleted',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.error,
-          fontStyle: FontStyle.italic,
-        ),
-      ),
+    final chat = PluginScope.require(context, chatControllerService);
+    return ListenableBuilder(
+      listenable: chat,
+      builder: (context, _) {
+        final restorable = [
+          for (final id in messageIds)
+            if (chat.messageRef(siteUrl, id).value case final message?
+                when chat.canRestoreMessage(siteUrl, message))
+              message,
+        ];
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 2, 12, 2),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  messageIds.length == 1
+                      ? '1 message deleted'
+                      : '${messageIds.length} messages deleted',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.error,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+              if (restorable.isNotEmpty)
+                TextButton.icon(
+                  onPressed: () => _restore(context, chat, restorable),
+                  icon: const DIcon(DIcons.arrowRotateLeft, size: 14),
+                  label: Text(restorable.length == 1 ? 'Restore' : 'Restore…'),
+                ),
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  Future<void> _restore(
+    BuildContext context,
+    ChatController chat,
+    List<ChatMessage> messages,
+  ) async {
+    if (messages.length > 1) {
+      await showShellSheet<void>(
+        context: context,
+        title: 'Restore deleted message',
+        padding: EdgeInsets.zero,
+        builder: (sheetContext) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final message in messages)
+              ListTile(
+                leading: const DIcon(DIcons.arrowRotateLeft, size: 18),
+                title: Text('Message by ${message.author.displayName}'),
+                subtitle: Text('Message ${message.id}'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(_restoreOne(context, chat, message.id));
+                },
+              ),
+          ],
+        ),
+      );
+      return;
+    }
+    await _restoreOne(context, chat, messages.single.id);
+  }
+
+  Future<void> _restoreOne(
+    BuildContext context,
+    ChatController chat,
+    int messageId,
+  ) async {
+    final error = await chat.restoreMessage(siteUrl, messageId);
+    if (!context.mounted || error == null) return;
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(error)));
   }
 }
 

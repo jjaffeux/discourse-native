@@ -4,13 +4,20 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification.dart';
+import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,12 +41,22 @@ ChatChannel _channel(int id, {String title = 'Support'}) => ChatChannel(
   threadingEnabled: true,
 );
 
-ChatThread _thread(int channelId, int threadId) => ChatThread(
-  id: threadId,
-  channelId: channelId,
-  status: 'open',
-  replyCount: 1,
-);
+ChatThread _thread(int channelId, int threadId) {
+  final originalMessageId = threadId == 3 ? 40 : threadId * 10;
+  return ChatThread(
+    id: threadId,
+    channelId: channelId,
+    status: 'open',
+    replyCount: 1,
+    lastMessageId: originalMessageId + 1,
+    originalMessage: ChatThreadOriginalMessage(
+      id: originalMessageId,
+      channelId: channelId,
+      author: const ChatMessageAuthor(id: 2, username: 'sam'),
+      excerpt: 'Original message',
+    ),
+  );
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +67,10 @@ void main() {
   setUp(() async {
     api = FakeDiscourseApi(
       user: _user,
+      totals: const NotificationTotals(
+        chatNotifications: 0,
+        hasChatEnabled: true,
+      ),
       chatNotificationList: const [
         DiscourseNotification(
           id: 51,
@@ -61,7 +82,11 @@ void main() {
       ],
       feeds: const {'/latest.json': []},
       chatChannelsBySite: {
-        _site: ChatChannels(public: [_channel(9)], direct: const []),
+        _site: ChatChannels(
+          public: [_channel(9)],
+          direct: const [],
+          hasThreads: true,
+        ),
         _otherSite: ChatChannels(
           public: [_channel(12, title: 'Other support')],
           direct: const [],
@@ -71,6 +96,55 @@ void main() {
         FakeDiscourseApi.chatThreadKey(9, 3): _thread(9, 3),
         FakeDiscourseApi.chatThreadKey(9, 4): _thread(9, 4),
         FakeDiscourseApi.chatThreadKey(12, 7): _thread(12, 7),
+      },
+      chatThreadPagesByOffset: {
+        0: ChatThreadPage(
+          threads: const [
+            ChatThread(
+              id: 3,
+              channelId: 9,
+              status: 'open',
+              replyCount: 4,
+              title: 'Support thread',
+              tracking: ChatTracking(unreadCount: 2),
+              originalMessage: ChatThreadOriginalMessage(
+                id: 40,
+                channelId: 9,
+                author: ChatMessageAuthor(id: 2, username: 'sam'),
+                excerpt: 'Can someone check this?',
+              ),
+            ),
+          ],
+          channels: [_channel(9)],
+        ),
+      },
+      chatChannelThreadPagesByKey: {
+        FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
+          threads: [
+            ChatThread(
+              id: 3,
+              channelId: 9,
+              status: 'open',
+              replyCount: 4,
+              title: 'Support thread',
+              lastMessageId: 44,
+              tracking: const ChatTracking(unreadCount: 2),
+              preview: ChatThreadPreview(
+                threadId: 3,
+                replyCount: 4,
+                lastReplyId: 44,
+                lastReplyAt: DateTime.utc(2026, 8, 24, 12),
+                lastReplyExcerpt: 'Latest answer',
+              ),
+              originalMessage: const ChatThreadOriginalMessage(
+                id: 40,
+                channelId: 9,
+                author: ChatMessageAuthor(id: 2, username: 'sam'),
+                excerpt: 'Can someone check this?',
+              ),
+            ),
+          ],
+        ),
       },
     );
     final authenticator = FakeAuthenticator()
@@ -337,6 +411,175 @@ void main() {
     expect(api.markedRead, [51]);
     expect(shell.currentContent?.id, 'chat-c-9-t-3');
     expect(shell.chatNavigation.value?.messageId, 44);
+  });
+
+  testWidgets('My threads appears, loads account rows, and opens a thread', (
+    tester,
+  ) async {
+    await shell.chat.loadChannels(_site);
+    shell.accountActivity.applyCounts(
+      _site,
+      (_) =>
+          const NotificationTotals(chatNotifications: 0, hasChatEnabled: true),
+    );
+    expect(shell.currentTotals?.hasChatEnabled, isTrue);
+    expect(shell.chat.hasThreads(_site), isTrue);
+    late List<SidebarSection> sections;
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Builder(
+            builder: (context) {
+              sections = const ChatPlugin().sidebarSections(context);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+    expect(
+      sections
+          .expand((section) => section.destinations)
+          .map((destination) => destination.id),
+      contains(ChatPlugin.myThreadsRouteId),
+    );
+
+    shell.selectDestination(
+      const SidebarDestination(
+        id: ChatPlugin.myThreadsRouteId,
+        label: 'My threads',
+        icon: DIcons.comments,
+      ),
+    );
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: MainContent(layout: ShellLayout.forWidth(900))),
+        ),
+      ),
+    );
+    for (
+      var attempt = 0;
+      attempt < 20 && find.text('Support thread').evaluate().isEmpty;
+      attempt++
+    ) {
+      await tester.pump();
+    }
+
+    expect(find.text('Support thread'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('chat-my-thread-unread-3')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('chat-my-thread-3')));
+    await tester.pump();
+    expect(shell.currentContent?.id, 'chat-c-9-t-3');
+    expect(shell.contentStack.map((route) => route.id), [
+      ChatPlugin.myThreadsRouteId,
+      'chat-c-9-t-3',
+    ]);
+    expect(shell.handleBack(), isTrue);
+    expect(shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
+  });
+
+  testWidgets('channel header opens its live thread list and preserves Back', (
+    tester,
+  ) async {
+    await shell.chat.loadChannels(_site);
+    shell.accountActivity.applyCounts(
+      _site,
+      (_) =>
+          const NotificationTotals(chatNotifications: 0, hasChatEnabled: true),
+    );
+    expect(shell.openChatChannel(9), isTrue);
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: MainContent(layout: ShellLayout.forWidth(900))),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('chat-channel-threads-button')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('chat-channel-threads-button')));
+    await tester.pump();
+    expect(shell.currentContent?.id, ChatPlugin.channelThreadsRouteId(9));
+
+    for (
+      var attempt = 0;
+      attempt < 20 &&
+          find
+              .byKey(const ValueKey('chat-channel-thread-3'))
+              .evaluate()
+              .isEmpty;
+      attempt++
+    ) {
+      await tester.pump();
+    }
+    expect(find.text('Support thread'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('chat-channel-thread-unread-3')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('chat-channel-thread-3')));
+    await tester.pump();
+    expect(shell.contentStack.map((route) => route.id), [
+      'chat-c-9',
+      ChatPlugin.channelThreadsRouteId(9),
+      'chat-c-9-t-3',
+    ]);
+
+    expect(shell.handleBack(), isTrue);
+    await tester.pump();
+    expect(shell.currentContent?.id, ChatPlugin.channelThreadsRouteId(9));
+    expect(find.byKey(const ValueKey('chat-channel-thread-3')), findsOneWidget);
+  });
+
+  testWidgets('channel header stars and unstars the current channel', (
+    tester,
+  ) async {
+    await shell.chat.loadChannels(_site);
+    expect(shell.openChatChannel(9), isTrue);
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: MainContent(layout: ShellLayout.forWidth(900))),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byTooltip('Add to starred channels'), findsOneWidget);
+    await tester.tap(find.byTooltip('Add to starred channels'));
+    await tester.pumpAndSettle();
+
+    expect(api.chatChannelStarsUpdated, const [(channelId: 9, starred: true)]);
+    expect(shell.chat.channel(_site, 9)?.membership.starred, isTrue);
+    expect(find.byTooltip('Remove from starred channels'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Remove from starred channels'));
+    await tester.pumpAndSettle();
+    expect(api.chatChannelStarsUpdated, const [
+      (channelId: 9, starred: true),
+      (channelId: 9, starred: false),
+    ]);
+    expect(shell.chat.channel(_site, 9)?.membership.starred, isFalse);
   });
 
   test('imperative thread opening selects its owning site', () async {

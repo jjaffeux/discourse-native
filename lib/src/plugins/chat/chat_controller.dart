@@ -14,11 +14,13 @@ import '../../foundation/frame_safe_notifier.dart';
 import '../../models/bookmark.dart';
 import '../../models/discourse_user.dart';
 import '../../models/json.dart';
+import '../../models/post_flag.dart';
 import '../../models/site_config.dart';
 import 'chat_api.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
 import 'chat_message_timeline.dart';
+import 'chat_pin.dart';
 import 'chat_preview.dart';
 import 'chat_reactors.dart';
 import 'chat_stream_target.dart';
@@ -32,6 +34,34 @@ typedef _ChatReactorsKey = ({
   String? filter,
 });
 typedef ChatNotificationsDelta = void Function(String siteUrl, int delta);
+
+@immutable
+class ChatPinsState {
+  const ChatPinsState({
+    this.pins = const [],
+    this.loading = false,
+    this.fetched = false,
+    this.error,
+  });
+
+  final List<ChatPin> pins;
+  final bool loading;
+  final bool fetched;
+  final String? error;
+
+  ChatPinsState copyWith({
+    List<ChatPin>? pins,
+    bool? loading,
+    bool? fetched,
+    String? error,
+    bool clearError = false,
+  }) => ChatPinsState(
+    pins: pins ?? this.pins,
+    loading: loading ?? this.loading,
+    fetched: fetched ?? this.fetched,
+    error: clearError ? null : error ?? this.error,
+  );
+}
 
 /// What Discourse's chat shortcut paints over its comment icon.
 @immutable
@@ -353,12 +383,24 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, Object> _channelRuns = {};
   final Map<String, Future<ChatChannel?>> _channelDetailRequests = {};
   final Map<String, Object> _channelDetailRuns = {};
+  final Map<String, Future<void>> _myThreadRequests = {};
+  final Map<String, Object> _myThreadRuns = {};
+  final Map<String, Future<void>> _channelThreadListRequests = {};
+  final Map<String, Object> _channelThreadListRuns = {};
 
   /// Channel ids in the order the sidebar draws them. The channels themselves
   /// are in the [Store]; these two lists are the orderings, which no record
   /// holds.
   final Map<String, List<int>> _publicIds = {};
   final Map<String, List<int>> _directIds = {};
+  final Map<String, List<int>> _myThreadIds = {};
+  final Map<String, int> _myThreadOffsets = {};
+  final Map<String, bool> _myThreadsHaveMore = {};
+  final Map<String, bool> _hasThreads = {};
+  final Map<String, Set<int>> _partialChannelIds = {};
+  final Map<String, List<int>> _channelThreadIds = {};
+  final Map<String, int> _channelThreadOffsets = {};
+  final Map<String, bool> _channelThreadsHaveMore = {};
   final Map<String, int> _lastOpenedChannelIds = {};
 
   /// The channel panes currently mounted, with a generation token so disposal
@@ -397,6 +439,9 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, int?> _userTrackingCursors = {};
   final Map<String, List<SiteMessageBusSubscription>>
   _userTrackingSubscriptions = {};
+  final Map<String, int?> _userHasThreadsCursors = {};
+  final Map<String, SiteMessageBusSubscription> _userHasThreadsSubscriptions =
+      {};
   final Set<String> _newChannelsAwaitingFirstMessage = {};
 
   /// One channel's stream, keyed `'$siteUrl~$channelId'`.
@@ -417,6 +462,21 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, int> _threadNotificationRevisions = {};
   final Map<String, Future<void>> _threadNotificationTails = {};
   final Map<String, ChatThreadMembership?> _threadNotificationConfirmed = {};
+  final Map<String, Object> _channelStarWrites = {};
+  final Map<String, Object> _channelNotificationWrites = {};
+  final Map<String, Object> _channelFollowWrites = {};
+  final Map<String, Object> _channelSettingsWrites = {};
+  final Map<({String siteUrl, int messageId}), Object> _messageEditWrites = {};
+  final Map<({String siteUrl, int messageId}), Object> _messageDeletionWrites =
+      {};
+  final Map<({String siteUrl, int messageId}), Object> _messagePinWrites = {};
+  final Map<({String siteUrl, int messageId}), Object> _messageFlagWrites = {};
+  final Map<({String siteUrl, int messageId}), Object> _messageRebakeWrites =
+      {};
+  final Map<({String siteUrl, int channelId}), Object> _messageQuoteWrites = {};
+  final Map<String, Object> _pinListRequests = {};
+  final Map<String, FrameSafeValueNotifier<ChatPinsState>> _pinListRefs = {};
+  final Map<String, Object> _threadTitleWrites = {};
   final Map<String, _ChatSendQueue> _sendQueues = {};
   final Map<String, SiteMessageBusSubscription> _sendSubscriptions = {};
   final Set<({String siteUrl, ChatStreamTarget target})>
@@ -429,10 +489,15 @@ class ChatController extends FrameSafeNotifier {
   int _nextStagedSequence = 0;
 
   static String _channelsKey(String siteUrl) => '$siteUrl~channels';
+  static String _myThreadsKey(String siteUrl) => '$siteUrl~my-threads';
+  static String _channelThreadsKey(String siteUrl, int channelId) =>
+      '$siteUrl~channel-$channelId-threads';
   static String _targetKey(String siteUrl, ChatStreamTarget target) =>
       '$siteUrl~${target.storageKey}';
   static String _streamKey(String siteUrl, int id) =>
       _targetKey(siteUrl, ChatChannelTarget(id));
+  static String _pinsKey(String siteUrl, int channelId) =>
+      '$siteUrl~channel-$channelId-pins';
   static String _olderTargetKey(String siteUrl, ChatStreamTarget target) =>
       '${_targetKey(siteUrl, target)}~past';
   static String _newerTargetKey(String siteUrl, ChatStreamTarget target) =>
@@ -466,6 +531,696 @@ class ChatController extends FrameSafeNotifier {
 
   List<ChatChannel> directChannels(String siteUrl) =>
       _resolve(siteUrl, _directIds[siteUrl]);
+
+  bool hasThreads(String siteUrl) => _hasThreads[siteUrl] ?? false;
+
+  bool channelStarWriteInFlight(String siteUrl, int channelId) =>
+      _channelStarWrites.containsKey(_streamKey(siteUrl, channelId));
+
+  bool channelNotificationWriteInFlight(String siteUrl, int channelId) =>
+      _channelNotificationWrites.containsKey(_streamKey(siteUrl, channelId));
+
+  /// Stars or unstars one followed channel through the current membership.
+  Future<String?> updateChannelStarred(
+    String siteUrl,
+    int channelId,
+    bool starred,
+  ) async {
+    if (isDisposed || channelId <= 0) {
+      return 'This channel can no longer be changed.';
+    }
+    final held = channel(siteUrl, channelId);
+    if (held == null || !held.membership.following) {
+      return 'Only followed channels can be starred.';
+    }
+    if (held.membership.starred == starred) return null;
+
+    final key = _streamKey(siteUrl, channelId);
+    if (_channelStarWrites.containsKey(key)) {
+      return 'Another channel change is still finishing.';
+    }
+    final token = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _channelStarWrites[key] = token;
+
+    bool isCurrent() =>
+        identical(_channelStarWrites[key], token) &&
+        lease.isCurrent &&
+        !isDisposed;
+
+    void project(ChatChannel value) {
+      lease.commit(() {
+        store.put(siteUrl, value);
+        notifySafely();
+      });
+    }
+
+    project(held.withStarred(starred));
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!isCurrent()) return null;
+      if (apiKey == null) {
+        project(held);
+        return 'Reconnect this site to change the channel.';
+      }
+      final clientId = await credentials.clientId();
+      if (!isCurrent()) return null;
+      await api.updateChatChannelStarred(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        channelId: channelId,
+        starred: starred,
+        clientId: clientId,
+      );
+      return null;
+    } on WriteException catch (error) {
+      if (isCurrent()) project(held);
+      return error.message;
+    } catch (error, stackTrace) {
+      if (isCurrent()) {
+        _report(
+          error,
+          stackTrace,
+          'chat.updateChannelStarred',
+          severity: DiagnosticSeverity.warning,
+        );
+        project(held);
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      if (identical(_channelStarWrites[key], token)) {
+        final _ = _channelStarWrites.remove(key);
+      }
+      if (!isDisposed) notifySafely();
+    }
+  }
+
+  /// Changes either of the two channel notification preferences.
+  ///
+  /// Core treats muting and push frequency as independent fields, so neither
+  /// optional argument is allowed to reset the other one implicitly.
+  Future<String?> updateChannelNotifications(
+    String siteUrl,
+    int channelId, {
+    bool? muted,
+    ChatChannelNotificationLevel? notificationLevel,
+  }) async {
+    if (isDisposed || channelId <= 0) {
+      return 'This channel can no longer be changed.';
+    }
+    if (muted == null && notificationLevel == null) {
+      return 'Choose a channel notification setting to change.';
+    }
+    final held = channel(siteUrl, channelId);
+    if (held == null || !held.membership.following) {
+      return 'Only followed channels have notification settings.';
+    }
+    final projectedMembership = held.membership.withNotifications(
+      muted: muted,
+      notificationLevel: notificationLevel,
+    );
+    if (projectedMembership == held.membership) return null;
+
+    final key = _streamKey(siteUrl, channelId);
+    if (_channelNotificationWrites.containsKey(key)) {
+      return 'Another notification change is still finishing.';
+    }
+    final token = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _channelNotificationWrites[key] = token;
+
+    bool isCurrent() =>
+        identical(_channelNotificationWrites[key], token) &&
+        lease.isCurrent &&
+        !isDisposed;
+
+    void project(ChatMembership membership) {
+      lease.commit(() {
+        final current = channel(siteUrl, channelId) ?? held;
+        store.put(siteUrl, current.withMembership(membership));
+        notifySafely();
+      });
+    }
+
+    project(projectedMembership);
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!isCurrent()) return null;
+      if (apiKey == null) {
+        project(held.membership);
+        return 'Reconnect this site to change channel notifications.';
+      }
+      final clientId = await credentials.clientId();
+      if (!isCurrent()) return null;
+      final membership = await api.updateChatChannelNotifications(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        channelId: channelId,
+        muted: muted,
+        notificationLevel: notificationLevel,
+        clientId: clientId,
+      );
+      if (isCurrent()) project(membership);
+      return null;
+    } on WriteException catch (error) {
+      if (isCurrent()) project(held.membership);
+      return error.message;
+    } catch (error, stackTrace) {
+      if (isCurrent()) {
+        _report(
+          error,
+          stackTrace,
+          'chat.updateChannelNotifications',
+          severity: DiagnosticSeverity.warning,
+        );
+        project(held.membership);
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      if (identical(_channelNotificationWrites[key], token)) {
+        final _ = _channelNotificationWrites.remove(key);
+      }
+      if (!isDisposed) notifySafely();
+    }
+  }
+
+  /// Reads one privacy-safe member page for channel information.
+  Future<ChatChannelMembersResult> fetchChannelMembers(
+    String siteUrl,
+    int channelId, {
+    String username = '',
+    int offset = 0,
+    int limit = 20,
+  }) async {
+    if (isDisposed || channelId <= 0) {
+      return (page: null, error: 'This member list is no longer available.');
+    }
+    final held = channel(siteUrl, channelId);
+    if (held == null || !held.membership.following) {
+      return (page: null, error: 'Only followed channels show their members.');
+    }
+    final lease = lifecycle.capture(siteUrl);
+    bool isCurrent() => !isDisposed && lease.isCurrent;
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!isCurrent()) return (page: null, error: null);
+      if (apiKey == null) {
+        return (
+          page: null,
+          error: 'Reconnect this site to see channel members.',
+        );
+      }
+      final clientId = await credentials.clientId();
+      if (!isCurrent()) return (page: null, error: null);
+      final page = await api.chatChannelMembers(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        channelId: channelId,
+        username: username,
+        offset: offset,
+        limit: limit,
+        clientId: clientId,
+      );
+      return isCurrent()
+          ? (page: page, error: null)
+          : (page: null, error: null);
+    } on SiteLookupException catch (error, stackTrace) {
+      if (isCurrent()) {
+        _report(error, stackTrace, 'chat.loadChannelMembers');
+      }
+      return (page: null, error: error.message);
+    } catch (error, stackTrace) {
+      if (isCurrent()) {
+        _report(error, stackTrace, 'chat.loadChannelMembers');
+      }
+      return (page: null, error: "Couldn't load this channel's members.");
+    }
+  }
+
+  /// Reads one server-filtered page from the public channel directory.
+  Future<ChatChannelBrowseResult> fetchBrowseChannels(
+    String siteUrl, {
+    String filter = '',
+    ChatChannelBrowseStatus status = ChatChannelBrowseStatus.all,
+    int offset = 0,
+    int limit = ChatChannelBrowsePage.pageSize,
+  }) async {
+    if (isDisposed) {
+      return (
+        page: null,
+        error: 'The channel directory is no longer available.',
+      );
+    }
+    final lease = lifecycle.capture(siteUrl);
+    bool isCurrent() => !isDisposed && lease.isCurrent;
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!isCurrent()) return (page: null, error: null);
+      if (apiKey == null) {
+        return (
+          page: null,
+          error: 'Reconnect this site to browse chat channels.',
+        );
+      }
+      final clientId = await credentials.clientId();
+      if (!isCurrent()) return (page: null, error: null);
+      final page = await api.browseChatChannels(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        filter: filter,
+        status: status,
+        offset: offset,
+        limit: limit,
+        clientId: clientId,
+      );
+      return isCurrent()
+          ? (page: page, error: null)
+          : (page: null, error: null);
+    } on SiteLookupException catch (error, stackTrace) {
+      if (isCurrent()) _report(error, stackTrace, 'chat.browseChannels');
+      return (page: null, error: error.message);
+    } catch (error, stackTrace) {
+      if (isCurrent()) _report(error, stackTrace, 'chat.browseChannels');
+      return (page: null, error: "Couldn't load chat channels.");
+    }
+  }
+
+  bool channelFollowWriteInFlight(String siteUrl, int channelId) =>
+      _channelFollowWrites.containsKey(_streamKey(siteUrl, channelId));
+
+  bool channelSettingsWriteInFlight(String siteUrl, int channelId) =>
+      _channelSettingsWrites.containsKey(_streamKey(siteUrl, channelId));
+
+  bool canEditChannelMetadata(String siteUrl, int channelId) {
+    final held = channel(siteUrl, channelId);
+    return _currentUserFor(siteUrl)?.staff == true &&
+        held?.isCategoryChannel == true &&
+        held!.membership.following;
+  }
+
+  /// Renames a public channel or changes/removes its description.
+  ///
+  /// Core's web editor sends the existing slug alongside a title edit, while
+  /// description is its own field and an empty string means removal.
+  Future<String?> updateChannelMetadata(
+    String siteUrl,
+    int channelId, {
+    String? name,
+    String? slug,
+    String? description,
+    bool? threadingEnabled,
+  }) async {
+    final held = channel(siteUrl, channelId);
+    if (held == null || !canEditChannelMetadata(siteUrl, channelId)) {
+      return 'This channel cannot be edited.';
+    }
+    if (name == null &&
+        slug == null &&
+        description == null &&
+        threadingEnabled == null) {
+      return null;
+    }
+    if (slug != null && (slug.trim().isEmpty || slug.trim().length > 100)) {
+      return 'The channel slug must be between 1 and 100 characters.';
+    }
+    if (description != null && description.length > 280) {
+      return 'The channel description cannot exceed 280 characters.';
+    }
+    final nextName = name?.trim();
+    final nextSlug = slug?.trim();
+    final nameChanged = name != null && nextName != held.title;
+    final slugChanged = slug != null && nextSlug != held.slug;
+    final descriptionChanged =
+        description != null && description != held.description;
+    final threadingChanged =
+        threadingEnabled != null && threadingEnabled != held.threadingEnabled;
+    if (!nameChanged &&
+        !slugChanged &&
+        !descriptionChanged &&
+        !threadingChanged) {
+      return null;
+    }
+
+    final key = _streamKey(siteUrl, channelId);
+    if (_channelSettingsWrites.containsKey(key)) {
+      return 'Another channel change is still finishing.';
+    }
+    final token = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _channelSettingsWrites[key] = token;
+    bool isCurrent() =>
+        identical(_channelSettingsWrites[key], token) &&
+        lease.isCurrent &&
+        !isDisposed;
+    if (threadingChanged) {
+      store.put(siteUrl, held.withThreadingEnabled(threadingEnabled));
+    }
+    notifySafely();
+
+    void restoreThreading() {
+      if (!threadingChanged || !isCurrent()) return;
+      lease.commit(() {
+        final current = channel(siteUrl, channelId);
+        if (current != null) {
+          store.put(
+            siteUrl,
+            current.withThreadingEnabled(held.threadingEnabled),
+          );
+        }
+        notifySafely();
+      });
+    }
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!isCurrent()) return null;
+      if (apiKey == null) return 'Reconnect this site to edit the channel.';
+      final clientId = await credentials.clientId();
+      if (!isCurrent()) return null;
+      final fresh = await api.updateChatChannel(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        channelId: channelId,
+        name: name == null ? null : nextName,
+        slug: nextSlug,
+        description: description,
+        threadingEnabled: threadingEnabled,
+        clientId: clientId,
+      );
+      if (!isCurrent()) return null;
+      lease.commit(() {
+        final current = channel(siteUrl, channelId);
+        if (current != null) {
+          store.put(siteUrl, current.withServerSettings(fresh));
+        }
+        notifySafely();
+      });
+      return null;
+    } on WriteException catch (error) {
+      restoreThreading();
+      return error.message;
+    } catch (error, stackTrace) {
+      restoreThreading();
+      if (isCurrent()) _report(error, stackTrace, 'chat.updateChannelMetadata');
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      if (identical(_channelSettingsWrites[key], token)) {
+        _channelSettingsWrites.remove(key);
+        if (!isDisposed) notifySafely();
+      }
+    }
+  }
+
+  /// Enables or disables the separate thread timeline for an open category
+  /// channel, matching the web settings switch.
+  Future<String?> updateChannelThreading(
+    String siteUrl,
+    int channelId,
+    bool enabled,
+  ) {
+    final held = channel(siteUrl, channelId);
+    if (held == null ||
+        !canEditChannelMetadata(siteUrl, channelId) ||
+        held.status != ChatChannelStatus.open) {
+      return Future.value('Threading cannot be changed for this channel.');
+    }
+    return updateChannelMetadata(siteUrl, channelId, threadingEnabled: enabled);
+  }
+
+  bool canChangeChannelStatus(String siteUrl, int channelId) {
+    final held = channel(siteUrl, channelId);
+    return _currentUserFor(siteUrl)?.staff == true &&
+        held?.isCategoryChannel == true &&
+        held!.membership.following &&
+        (held.status == ChatChannelStatus.open ||
+            held.status == ChatChannelStatus.closed);
+  }
+
+  /// Closes an open category channel or reopens a closed one. Core reserves
+  /// read-only and archived transitions for the archive workflow.
+  Future<String?> setChannelClosed(
+    String siteUrl,
+    int channelId, {
+    required bool closed,
+  }) async {
+    final held = channel(siteUrl, channelId);
+    final target = closed ? ChatChannelStatus.closed : ChatChannelStatus.open;
+    if (held == null || !canChangeChannelStatus(siteUrl, channelId)) {
+      return 'This channel’s status cannot be changed.';
+    }
+    if (held.status == target) return null;
+    if ((closed && held.status != ChatChannelStatus.open) ||
+        (!closed && held.status != ChatChannelStatus.closed)) {
+      return 'This channel’s status cannot be changed.';
+    }
+
+    final key = _streamKey(siteUrl, channelId);
+    if (_channelSettingsWrites.containsKey(key)) {
+      return 'Another channel change is still finishing.';
+    }
+    final token = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _channelSettingsWrites[key] = token;
+    bool isCurrent() =>
+        identical(_channelSettingsWrites[key], token) &&
+        lease.isCurrent &&
+        !isDisposed;
+    notifySafely();
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!isCurrent()) return null;
+      if (apiKey == null) return 'Reconnect this site to change the channel.';
+      final clientId = await credentials.clientId();
+      if (!isCurrent()) return null;
+      final fresh = await api.updateChatChannelStatus(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        channelId: channelId,
+        status: target,
+        clientId: clientId,
+      );
+      if (!isCurrent()) return null;
+      lease.commit(() {
+        final current = channel(siteUrl, channelId);
+        if (current != null) {
+          store.put(siteUrl, current.withServerSettings(fresh));
+        }
+        notifySafely();
+      });
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (isCurrent()) _report(error, stackTrace, 'chat.setChannelClosed');
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      if (identical(_channelSettingsWrites[key], token)) {
+        _channelSettingsWrites.remove(key);
+        if (!isDisposed) notifySafely();
+      }
+    }
+  }
+
+  /// Joins or reversibly unfollows one public channel from the directory.
+  Future<String?> updateChannelFollowing(
+    String siteUrl,
+    ChatChannel candidate,
+    bool following,
+  ) async {
+    if (isDisposed || candidate.id <= 0) {
+      return 'This channel can no longer be changed.';
+    }
+    final held = channel(siteUrl, candidate.id) ?? candidate;
+    if (held.isDirectMessage) {
+      return 'Direct messages cannot be changed from Browse Channels.';
+    }
+    if (held.membership.following == following) return null;
+    if (following && (!held.canJoin || held.status != ChatChannelStatus.open)) {
+      return 'This channel cannot be joined.';
+    }
+
+    final key = _streamKey(siteUrl, held.id);
+    if (_channelFollowWrites.containsKey(key)) {
+      return 'Another channel change is still finishing.';
+    }
+    final token = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _channelFollowWrites[key] = token;
+
+    bool isCurrent() =>
+        identical(_channelFollowWrites[key], token) &&
+        lease.isCurrent &&
+        !isDisposed;
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!isCurrent()) return null;
+      if (apiKey == null) {
+        return 'Reconnect this site to change the channel.';
+      }
+      final clientId = await credentials.clientId();
+      if (!isCurrent()) return null;
+      final membership = following
+          ? await api.followChatChannel(
+              siteUrl: siteUrl,
+              apiKey: apiKey,
+              channelId: held.id,
+              clientId: clientId,
+            )
+          : await api.unfollowChatChannel(
+              siteUrl: siteUrl,
+              apiKey: apiKey,
+              channelId: held.id,
+              clientId: clientId,
+            );
+      if (!isCurrent()) return null;
+
+      final changed = membership.following != held.membership.following;
+      final memberDelta = !changed
+          ? 0
+          : membership.following
+          ? 1
+          : -1;
+      final next = held.withMembership(
+        membership,
+        membershipsCount: held.membershipsCount + memberDelta,
+      );
+      lease.commit(() {
+        store.put(siteUrl, next);
+        final ids = _publicIds.putIfAbsent(siteUrl, () => []);
+        if (membership.following) {
+          if (!ids.contains(next.id)) ids.add(next.id);
+          ids.sort((left, right) {
+            final a = channel(siteUrl, left);
+            final b = channel(siteUrl, right);
+            return (a?.slug ?? a?.title ?? '').toLowerCase().compareTo(
+              (b?.slug ?? b?.title ?? '').toLowerCase(),
+            );
+          });
+          if (!membership.muted) {
+            (_newMessageCursors[siteUrl] ??= {}).putIfAbsent(
+              next.id,
+              () => null,
+            );
+            _syncNewMessageSubscriptions(siteUrl);
+          }
+          (_rootMessageCursors[siteUrl] ??= {}).putIfAbsent(
+            next.id,
+            () => null,
+          );
+        } else {
+          ids.remove(next.id);
+          _newMessageCursors[siteUrl]?.remove(next.id);
+          _rootMessageCursors[siteUrl]?.remove(next.id);
+          try {
+            _newMessageSubscriptions.remove(key)?.cancel();
+          } catch (error, stackTrace) {
+            _report(
+              error,
+              stackTrace,
+              'chat.channelFollow.unsubscribe',
+              severity: DiagnosticSeverity.warning,
+            );
+          }
+        }
+        notifySafely();
+      });
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (isCurrent()) {
+        _report(
+          error,
+          stackTrace,
+          'chat.updateChannelFollowing',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      if (identical(_channelFollowWrites[key], token)) {
+        final _ = _channelFollowWrites.remove(key);
+      }
+      if (!isDisposed) notifySafely();
+    }
+  }
+
+  List<ChatThread> myThreads(String siteUrl) => [
+    for (final id in _myThreadIds[siteUrl] ?? const <int>[])
+      ?store.read<ChatThread>(siteUrl, id),
+  ];
+
+  bool myThreadsLoaded(String siteUrl) => _myThreadIds.containsKey(siteUrl);
+
+  bool myThreadsLoading(String siteUrl) =>
+      _myThreadRequests.containsKey(_myThreadsKey(siteUrl)) &&
+      !myThreadsLoaded(siteUrl);
+
+  bool myThreadsLoadingMore(String siteUrl) =>
+      _myThreadRequests.containsKey(_myThreadsKey(siteUrl)) &&
+      myThreadsLoaded(siteUrl);
+
+  bool myThreadsHaveMore(String siteUrl) =>
+      _myThreadsHaveMore[siteUrl] ?? false;
+
+  String? myThreadsError(String siteUrl) => _errors[_myThreadsKey(siteUrl)];
+
+  List<ChatThread> channelThreads(String siteUrl, int channelId) {
+    final key = _channelThreadsKey(siteUrl, channelId);
+    final threads = <ChatThread>[
+      for (final id in _channelThreadIds[key] ?? const <int>[])
+        if (store.read<ChatThread>(siteUrl, id) case final thread?
+            when thread.channelId == channelId &&
+                thread.originalMessage?.deletedAt == null &&
+                thread.originalMessage?.id != thread.lastMessageId)
+          thread,
+    ];
+    threads.sort(_compareChannelThreads);
+    return List.unmodifiable(threads);
+  }
+
+  bool channelThreadsLoaded(String siteUrl, int channelId) =>
+      _channelThreadIds.containsKey(_channelThreadsKey(siteUrl, channelId));
+
+  bool channelThreadsLoading(String siteUrl, int channelId) {
+    final key = _channelThreadsKey(siteUrl, channelId);
+    return _channelThreadListRequests.containsKey(key) &&
+        !_channelThreadIds.containsKey(key);
+  }
+
+  bool channelThreadsLoadingMore(String siteUrl, int channelId) {
+    final key = _channelThreadsKey(siteUrl, channelId);
+    return _channelThreadListRequests.containsKey(key) &&
+        _channelThreadIds.containsKey(key);
+  }
+
+  bool channelThreadsHaveMore(String siteUrl, int channelId) =>
+      _channelThreadsHaveMore[_channelThreadsKey(siteUrl, channelId)] ?? false;
+
+  String? channelThreadsError(String siteUrl, int channelId) =>
+      _errors[_channelThreadsKey(siteUrl, channelId)];
+
+  static int _compareChannelThreads(ChatThread a, ChatThread b) {
+    final aWatched = a.tracking.watchedThreadsUnreadCount > 0;
+    final bWatched = b.tracking.watchedThreadsUnreadCount > 0;
+    if (aWatched != bWatched) return aWatched ? -1 : 1;
+
+    final aUnread = a.tracking.unreadCount > 0;
+    final bUnread = b.tracking.unreadCount > 0;
+    if (aUnread != bUnread) return aUnread ? -1 : 1;
+
+    final aAt = a.preview?.lastReplyAt;
+    final bAt = b.preview?.lastReplyAt;
+    if (aAt != null && bAt != null) {
+      final byActivity = bAt.compareTo(aAt);
+      if (byActivity != 0) return byActivity;
+    } else if (aAt != bAt) {
+      return aAt == null ? 1 : -1;
+    }
+    return b.id.compareTo(a.id);
+  }
 
   /// Finds or creates the one-to-one direct-message channel for [username].
   ///
@@ -677,8 +1432,8 @@ class ChatController extends FrameSafeNotifier {
   /// Where the shortcut lands: the channel most recently opened in this app,
   /// then the server's last channel when it is still in the account's followed
   /// lists, then the newest direct message, then the first public channel. The
-  /// latter two are the native fallback for core's browse screen, which this
-  /// client does not have yet.
+  /// latter two are the useful direct-entry fallback when no specific channel
+  /// has been selected yet.
   ChatChannel? shortcutChannel(String siteUrl, {int? lastChannelId}) {
     final preferredId = _lastOpenedChannelIds[siteUrl] ?? lastChannelId;
     if (preferredId != null) {
@@ -705,7 +1460,10 @@ class ChatController extends FrameSafeNotifier {
   Future<ChatChannel?> ensureChannel(String siteUrl, int channelId) {
     if (isDisposed || channelId <= 0) return Future.value();
     final held = channel(siteUrl, channelId);
-    if (held != null) return Future.value(held);
+    if (held != null &&
+        !(_partialChannelIds[siteUrl]?.contains(channelId) ?? false)) {
+      return Future.value(held);
+    }
     final key = _streamKey(siteUrl, channelId);
     final active = _channelDetailRequests[key];
     if (active != null) return active;
@@ -748,7 +1506,10 @@ class ChatController extends FrameSafeNotifier {
       if (!_requestIsCurrent(lease, ownsRequest) || fetched.id != channelId) {
         return null;
       }
-      return lease.commit(() => store.put(siteUrl, fetched))
+      return lease.commit(() {
+            _partialChannelIds[siteUrl]?.remove(channelId);
+            store.put(siteUrl, fetched);
+          })
           ? channel(siteUrl, channelId)
           : null;
     } catch (error, stackTrace) {
@@ -834,6 +1595,112 @@ class ChatController extends FrameSafeNotifier {
   Ref<ChatMessage> messageRef(String siteUrl, int messageId) =>
       store.ref<ChatMessage>(siteUrl, messageId);
 
+  ValueListenable<ChatPinsState> pinsListenable(
+    String siteUrl,
+    int channelId,
+  ) => _pinListRefs.putIfAbsent(
+    _pinsKey(siteUrl, channelId),
+    () => FrameSafeValueNotifier(const ChatPinsState()),
+  );
+
+  Future<void> loadPinnedMessages(
+    String siteUrl,
+    int channelId, {
+    bool force = false,
+  }) async {
+    final key = _pinsKey(siteUrl, channelId);
+    final ref = _pinListRefs.putIfAbsent(
+      key,
+      () => FrameSafeValueNotifier(const ChatPinsState()),
+    );
+    if (!force && (ref.value.fetched || _pinListRequests.containsKey(key))) {
+      return;
+    }
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _pinListRequests[key] = request;
+    ref.value = ref.value.copyWith(loading: true, clearError: true);
+
+    bool ownsRequest() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_pinListRequests[key], request);
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!ownsRequest()) return;
+      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
+      final clientId = await credentials.clientId();
+      if (!ownsRequest()) return;
+      final snapshot = await api.chatPinnedMessages(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: channelId,
+      );
+      if (!ownsRequest()) return;
+      lease.commit(() {
+        for (final pin in snapshot.pins) {
+          _putLiveMessage(siteUrl, pin.message);
+        }
+        final heldChannel = channel(siteUrl, channelId);
+        if (heldChannel != null) {
+          store.put(
+            siteUrl,
+            heldChannel.withPinSnapshot(
+              count: snapshot.pins.length,
+              membership: snapshot.membership,
+            ),
+          );
+        }
+        ref.value = ChatPinsState(
+          pins: List.unmodifiable(snapshot.pins),
+          fetched: true,
+        );
+      });
+    } catch (error, stackTrace) {
+      if (!ownsRequest()) return;
+      _report(error, stackTrace, 'chat.loadPinnedMessages');
+      ref.value = ref.value.copyWith(
+        loading: false,
+        fetched: true,
+        error: 'Could not load pinned messages.',
+      );
+    } finally {
+      if (identical(_pinListRequests[key], request)) {
+        _pinListRequests.remove(key);
+      }
+    }
+  }
+
+  Future<void> markPinnedMessagesRead(String siteUrl, int channelId) async {
+    final held = channel(siteUrl, channelId);
+    if (held == null || !held.membership.following) return;
+    final lease = lifecycle.capture(siteUrl);
+    store.put(siteUrl, held.withPinsViewed(_clock().toUtc()));
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (isDisposed || !lease.isCurrent || apiKey == null) return;
+      final clientId = await credentials.clientId();
+      if (isDisposed || !lease.isCurrent) return;
+      await api.markChatPinsRead(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: channelId,
+      );
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        _report(
+          error,
+          stackTrace,
+          'chat.markPinnedMessagesRead',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+    }
+  }
+
   bool canBookmarkMessage(String siteUrl, ChatMessage message) {
     final user = _currentUserFor(siteUrl);
     final heldChannel = channel(siteUrl, message.channelId);
@@ -843,6 +1710,866 @@ class ChatController extends FrameSafeNotifier {
         !message.isDeleted &&
         heldChannel != null &&
         heldChannel.canModifyMessages(isStaff: user.staff);
+  }
+
+  bool canEditMessage(String siteUrl, ChatMessage message) {
+    final user = _currentUserFor(siteUrl);
+    final heldChannel = channel(siteUrl, message.channelId);
+    return !isDisposed &&
+        user?.id != null &&
+        user!.id == message.author.id &&
+        message.id > 0 &&
+        message.raw.trim().isNotEmpty &&
+        !message.isOptimistic &&
+        !message.isDeleted &&
+        heldChannel != null &&
+        heldChannel.canModifyMessages(isStaff: user.staff);
+  }
+
+  bool canDeleteMessage(String siteUrl, ChatMessage message) {
+    final user = _currentUserFor(siteUrl);
+    final heldChannel = channel(siteUrl, message.channelId);
+    if (isDisposed ||
+        user?.id == null ||
+        message.id <= 0 ||
+        message.isOptimistic ||
+        message.isDeleted ||
+        heldChannel == null ||
+        !heldChannel.canModifyMessages(isStaff: user!.staff)) {
+      return false;
+    }
+    return message.author.id == user.id
+        ? heldChannel.canDeleteSelf
+        : heldChannel.canDeleteOthers;
+  }
+
+  /// Core exposes this capability on the channel only when pinned messages
+  /// are enabled and the current guardian may manage them.
+  bool canPinMessage(String siteUrl, ChatMessage message) =>
+      !isDisposed &&
+      _currentUserFor(siteUrl) != null &&
+      message.id > 0 &&
+      !message.isOptimistic &&
+      !message.isDeleted &&
+      channel(siteUrl, message.channelId)?.canManagePins == true;
+
+  /// The web client exposes Rebuild HTML only to staff in a writable channel.
+  bool canRebakeMessage(String siteUrl, ChatMessage message) {
+    final user = _currentUserFor(siteUrl);
+    final heldChannel = channel(siteUrl, message.channelId);
+    return !isDisposed &&
+        user?.staff == true &&
+        message.id > 0 &&
+        !message.isOptimistic &&
+        heldChannel != null &&
+        heldChannel.canModifyMessages(isStaff: true);
+  }
+
+  bool canFlagMessage(String siteUrl, ChatMessage message) {
+    final user = _currentUserFor(siteUrl);
+    return !isDisposed &&
+        user?.id != null &&
+        user!.id != message.author.id &&
+        message.id > 0 &&
+        !message.isOptimistic &&
+        !message.isDeleted &&
+        !message.isWebhook &&
+        message.userFlagStatus == null &&
+        message.availableFlags.isNotEmpty &&
+        channel(siteUrl, message.channelId)?.canFlag == true;
+  }
+
+  List<PostFlagType> availableChatFlagTypes(
+    String siteUrl,
+    ChatMessage message,
+    List<PostFlagType> catalog,
+  ) {
+    if (!canFlagMessage(siteUrl, message)) return const [];
+    final available = message.availableFlags.toSet();
+    return List.unmodifiable([
+      for (final type in catalog)
+        if (type.enabled &&
+            type.appliesToChatMessage &&
+            available.contains(type.nameKey))
+          type,
+    ]);
+  }
+
+  Future<String?> flagMessage(
+    String siteUrl,
+    int messageId,
+    PostFlagType flagType, {
+    String? message,
+  }) async {
+    final held = store.read<ChatMessage>(siteUrl, messageId);
+    if (held == null || !canFlagMessage(siteUrl, held)) {
+      return 'This message can no longer be flagged.';
+    }
+    if (!flagType.enabled ||
+        !flagType.appliesToChatMessage ||
+        !held.availableFlags.contains(flagType.nameKey)) {
+      return 'This flag reason is no longer available.';
+    }
+    final submittedMessage = flagType.requireMessage ? message ?? '' : null;
+    final minimum = _siteConfigFor(siteUrl).minPersonalMessagePostLength;
+    final length = submittedMessage?.length ?? 0;
+    if (flagType.requireMessage &&
+        (length < minimum || length > PostFlagType.maximumMessageLength)) {
+      return 'Your message must be between $minimum and '
+          '${PostFlagType.maximumMessageLength} characters.';
+    }
+
+    final key = (siteUrl: siteUrl, messageId: messageId);
+    if (_messageFlagWrites.containsKey(key) ||
+        _messageEditWrites.containsKey(key) ||
+        _messageDeletionWrites.containsKey(key) ||
+        _messagePinWrites.containsKey(key) ||
+        _messageRebakeWrites.containsKey(key)) {
+      return 'Another message change is still finishing.';
+    }
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _messageFlagWrites[key] = request;
+
+    bool ownsRequest() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_messageFlagWrites[key], request);
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!ownsRequest()) return null;
+      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
+      final clientId = await credentials.clientId();
+      if (!ownsRequest()) return null;
+      final current = store.read<ChatMessage>(siteUrl, messageId);
+      if (current == null ||
+          !canFlagMessage(siteUrl, current) ||
+          !current.availableFlags.contains(flagType.nameKey)) {
+        return 'This message can no longer be flagged.';
+      }
+      await api.flagChatMessage(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: current.channelId,
+        messageId: current.id,
+        flagTypeId: flagType.id,
+        message: submittedMessage,
+      );
+      if (!ownsRequest()) return null;
+      lease.commit(() {
+        store.update<ChatMessage>(
+          siteUrl,
+          messageId,
+          (message) => message.withUserFlagStatus(0),
+        );
+      });
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (ownsRequest()) _report(error, stackTrace, 'chat.flagMessage');
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      if (identical(_messageFlagWrites[key], request)) {
+        _messageFlagWrites.remove(key);
+      }
+    }
+  }
+
+  bool messagePinWriteInFlight(String siteUrl, int messageId) =>
+      _messagePinWrites.containsKey((siteUrl: siteUrl, messageId: messageId));
+
+  /// Mirrors core's eager pin switch, while retaining every unrelated field
+  /// that may change before a refused request rolls back.
+  Future<String?> setMessagePinned(
+    String siteUrl,
+    int messageId, {
+    required bool pinned,
+  }) async {
+    final held = store.read<ChatMessage>(siteUrl, messageId);
+    if (held == null || !canPinMessage(siteUrl, held)) {
+      return 'This message can no longer be ${pinned ? 'pinned' : 'unpinned'}.';
+    }
+    if (held.pinned == pinned) return null;
+
+    final key = (siteUrl: siteUrl, messageId: messageId);
+    if (_messagePinWrites.containsKey(key) ||
+        _messageEditWrites.containsKey(key) ||
+        _messageDeletionWrites.containsKey(key) ||
+        _messageFlagWrites.containsKey(key) ||
+        _messageRebakeWrites.containsKey(key)) {
+      return 'Another message change is still finishing.';
+    }
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _messagePinWrites[key] = request;
+
+    bool ownsRequest() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_messagePinWrites[key], request);
+
+    void project(bool next) {
+      lease.commit(() {
+        final latest = store.read<ChatMessage>(siteUrl, messageId);
+        if (latest == null || latest.pinned == next) return;
+        store.put(siteUrl, latest.withPinned(next));
+        store.update<ChatChannel>(
+          siteUrl,
+          latest.channelId,
+          (channel) => channel.withPinnedMessagesCount(
+            channel.pinnedMessagesCount + (next ? 1 : -1),
+          ),
+        );
+        // Pinning forces the message to begin a speaker run in core.
+        _bumpStreamsHolding(siteUrl, messageId);
+      });
+    }
+
+    project(pinned);
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!ownsRequest()) return null;
+      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
+      final clientId = await credentials.clientId();
+      if (!ownsRequest()) return null;
+      final current = store.read<ChatMessage>(siteUrl, messageId);
+      if (current == null || !canPinMessage(siteUrl, current)) {
+        project(held.pinned);
+        return 'This message can no longer be ${pinned ? 'pinned' : 'unpinned'}.';
+      }
+      await api.updateChatMessagePinned(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: held.channelId,
+        messageId: held.id,
+        pinned: pinned,
+      );
+      return null;
+    } on WriteException catch (error) {
+      if (ownsRequest()) project(held.pinned);
+      return error.message;
+    } catch (error, stackTrace) {
+      if (ownsRequest()) {
+        _report(error, stackTrace, 'chat.${pinned ? 'pin' : 'unpin'}Message');
+        project(held.pinned);
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      if (identical(_messagePinWrites[key], request)) {
+        _messagePinWrites.remove(key);
+      }
+    }
+  }
+
+  bool canRestoreMessage(String siteUrl, ChatMessage message) {
+    final user = _currentUserFor(siteUrl);
+    final heldChannel = channel(siteUrl, message.channelId);
+    if (isDisposed ||
+        user?.id == null ||
+        message.id <= 0 ||
+        !message.isDeleted ||
+        heldChannel == null ||
+        !heldChannel.canModifyMessages(isStaff: user!.staff)) {
+      return false;
+    }
+    if (message.author.id != user.id) {
+      return user.staff || heldChannel.canModerate;
+    }
+    return user.staff ||
+        heldChannel.canModerate ||
+        message.deletedById == user.id;
+  }
+
+  bool messageDeletionWriteInFlight(String siteUrl, int messageId) =>
+      _messageDeletionWrites.containsKey((
+        siteUrl: siteUrl,
+        messageId: messageId,
+      ));
+
+  Future<String?> deleteMessage(String siteUrl, int messageId) =>
+      _setMessageDeleted(siteUrl, messageId, deleted: true);
+
+  static const int maximumBulkDeleteMessages = 200;
+
+  bool canDeleteMessages(
+    String siteUrl,
+    int channelId,
+    Iterable<int> messageIds,
+  ) {
+    final ids = messageIds.toSet();
+    if (ids.isEmpty || ids.length > maximumBulkDeleteMessages) return false;
+    return ids.every((id) {
+      final message = store.read<ChatMessage>(siteUrl, id);
+      return message != null &&
+          message.channelId == channelId &&
+          canDeleteMessage(siteUrl, message);
+    });
+  }
+
+  /// Soft-deletes one web-compatible selection in a single core request.
+  Future<String?> deleteMessages(
+    String siteUrl,
+    int channelId,
+    Iterable<int> messageIds,
+  ) async {
+    final ids = messageIds.toSet().toList()..sort();
+    if (ids.isEmpty) return 'Select at least one message.';
+    if (ids.length > maximumBulkDeleteMessages) {
+      return 'Select no more than $maximumBulkDeleteMessages messages to delete.';
+    }
+    if (!canDeleteMessages(siteUrl, channelId, ids)) {
+      return 'One or more messages can no longer be deleted.';
+    }
+
+    final keys = [for (final id in ids) (siteUrl: siteUrl, messageId: id)];
+    for (final key in keys) {
+      if (_messageDeletionWrites.containsKey(key) ||
+          _messageEditWrites.containsKey(key) ||
+          _messagePinWrites.containsKey(key) ||
+          _messageFlagWrites.containsKey(key) ||
+          _messageRebakeWrites.containsKey(key)) {
+        return 'Another message change is still finishing.';
+      }
+    }
+
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    for (final key in keys) {
+      _messageDeletionWrites[key] = request;
+    }
+
+    bool ownsRequest() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        keys.every((key) => identical(_messageDeletionWrites[key], request));
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!ownsRequest()) return null;
+      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
+      final clientId = await credentials.clientId();
+      if (!ownsRequest()) return null;
+      if (!canDeleteMessages(siteUrl, channelId, ids)) {
+        return 'One or more messages can no longer be deleted.';
+      }
+
+      await api.deleteChatMessages(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: channelId,
+        messageIds: ids,
+      );
+      if (!ownsRequest()) return null;
+
+      lease.commit(() {
+        final deletedAt = _clock().toUtc();
+        final deletedById = _currentUserFor(siteUrl)?.id;
+        for (final id in ids) {
+          final latest = store.read<ChatMessage>(siteUrl, id);
+          if (latest == null || latest.isDeleted) continue;
+          store.put(
+            siteUrl,
+            latest.withDeletedAt(deletedAt, deletedById: deletedById),
+          );
+          _bumpStreamsHolding(siteUrl, id);
+          _setLoadedThreadOriginalDeleted(
+            siteUrl,
+            channelId,
+            id,
+            deletedAt: deletedAt,
+          );
+        }
+      });
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (ownsRequest()) {
+        _report(error, stackTrace, 'chat.deleteMessages');
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      for (final key in keys) {
+        if (identical(_messageDeletionWrites[key], request)) {
+          _messageDeletionWrites.remove(key);
+        }
+      }
+    }
+  }
+
+  bool canMoveMessages(
+    String siteUrl,
+    int channelId,
+    Iterable<int> messageIds,
+  ) {
+    final source = channel(siteUrl, channelId);
+    final ids = messageIds.toSet();
+    if (isDisposed ||
+        _currentUserFor(siteUrl) == null ||
+        source == null ||
+        !source.isCategoryChannel ||
+        !source.canModerate ||
+        ids.isEmpty) {
+      return false;
+    }
+    return ids.every((id) {
+      final message = store.read<ChatMessage>(siteUrl, id);
+      return message != null &&
+          message.id > 0 &&
+          message.channelId == channelId &&
+          !message.isOptimistic &&
+          !message.isDeleted;
+    });
+  }
+
+  List<ChatChannel> messageMoveDestinations(
+    String siteUrl,
+    int sourceChannelId,
+  ) => List.unmodifiable([
+    for (final channel in publicChannels(siteUrl))
+      if (channel.id != sourceChannelId && channel.isCategoryChannel) channel,
+  ]);
+
+  Future<({ChatMessageMove? move, String? error})> moveMessages(
+    String siteUrl,
+    int channelId,
+    int destinationChannelId,
+    Iterable<int> messageIds,
+  ) async {
+    final ids = messageIds.toSet().toList()..sort();
+    if (!canMoveMessages(siteUrl, channelId, ids)) {
+      return (
+        move: null,
+        error: 'One or more messages can no longer be moved.',
+      );
+    }
+    final destinations = messageMoveDestinations(siteUrl, channelId);
+    if (!destinations.any((channel) => channel.id == destinationChannelId)) {
+      return (move: null, error: 'Choose another public channel.');
+    }
+
+    final keys = [for (final id in ids) (siteUrl: siteUrl, messageId: id)];
+    for (final key in keys) {
+      if (_messageDeletionWrites.containsKey(key) ||
+          _messageEditWrites.containsKey(key) ||
+          _messagePinWrites.containsKey(key) ||
+          _messageFlagWrites.containsKey(key) ||
+          _messageRebakeWrites.containsKey(key)) {
+        return (
+          move: null,
+          error: 'Another message change is still finishing.',
+        );
+      }
+    }
+
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    for (final key in keys) {
+      _messageDeletionWrites[key] = request;
+    }
+
+    bool ownsRequest() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        keys.every((key) => identical(_messageDeletionWrites[key], request));
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!ownsRequest()) return (move: null, error: null);
+      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
+      final clientId = await credentials.clientId();
+      if (!ownsRequest()) return (move: null, error: null);
+      if (!canMoveMessages(siteUrl, channelId, ids) ||
+          !messageMoveDestinations(
+            siteUrl,
+            channelId,
+          ).any((channel) => channel.id == destinationChannelId)) {
+        return (
+          move: null,
+          error: 'The selected messages or destination changed.',
+        );
+      }
+
+      final move = await api.moveChatMessages(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: channelId,
+        destinationChannelId: destinationChannelId,
+        messageIds: ids,
+      );
+      if (!ownsRequest()) return (move: null, error: null);
+
+      lease.commit(() {
+        final deletedAt = _clock().toUtc();
+        final deletedById = _currentUserFor(siteUrl)?.id;
+        for (final id in ids) {
+          final latest = store.read<ChatMessage>(siteUrl, id);
+          if (latest == null || latest.isDeleted) continue;
+          store.put(
+            siteUrl,
+            latest.withDeletedAt(deletedAt, deletedById: deletedById),
+          );
+          _bumpStreamsHolding(siteUrl, id);
+          _setLoadedThreadOriginalDeleted(
+            siteUrl,
+            channelId,
+            id,
+            deletedAt: deletedAt,
+          );
+        }
+      });
+      return (move: move, error: null);
+    } on WriteException catch (error) {
+      return (move: null, error: error.message);
+    } catch (error, stackTrace) {
+      if (ownsRequest()) _report(error, stackTrace, 'chat.moveMessages');
+      return (
+        move: null,
+        error: const WriteException(WriteFailure.unreachable).message,
+      );
+    } finally {
+      for (final key in keys) {
+        if (identical(_messageDeletionWrites[key], request)) {
+          _messageDeletionWrites.remove(key);
+        }
+      }
+    }
+  }
+
+  Future<String?> restoreMessage(String siteUrl, int messageId) =>
+      _setMessageDeleted(siteUrl, messageId, deleted: false);
+
+  Future<String?> _setMessageDeleted(
+    String siteUrl,
+    int messageId, {
+    required bool deleted,
+  }) async {
+    final held = store.read<ChatMessage>(siteUrl, messageId);
+    final allowed =
+        held != null &&
+        (deleted
+            ? canDeleteMessage(siteUrl, held)
+            : canRestoreMessage(siteUrl, held));
+    if (!allowed) {
+      return deleted
+          ? 'This message can no longer be deleted.'
+          : 'This message can no longer be restored.';
+    }
+
+    final key = (siteUrl: siteUrl, messageId: messageId);
+    if (_messageDeletionWrites.containsKey(key) ||
+        _messageEditWrites.containsKey(key) ||
+        _messagePinWrites.containsKey(key) ||
+        _messageFlagWrites.containsKey(key) ||
+        _messageRebakeWrites.containsKey(key)) {
+      return 'Another message change is still finishing.';
+    }
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _messageDeletionWrites[key] = request;
+
+    bool ownsRequest() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_messageDeletionWrites[key], request);
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!ownsRequest()) return null;
+      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
+      final clientId = await credentials.clientId();
+      if (!ownsRequest()) return null;
+      final current = store.read<ChatMessage>(siteUrl, messageId);
+      if (current == null ||
+          !(deleted
+              ? canDeleteMessage(siteUrl, current)
+              : canRestoreMessage(siteUrl, current))) {
+        return deleted
+            ? 'This message can no longer be deleted.'
+            : 'This message can no longer be restored.';
+      }
+      if (deleted) {
+        await api.deleteChatMessage(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: held.channelId,
+          messageId: held.id,
+        );
+      } else {
+        await api.restoreChatMessage(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: held.channelId,
+          messageId: held.id,
+        );
+      }
+      if (!ownsRequest()) return null;
+      lease.commit(() {
+        final latest = store.read<ChatMessage>(siteUrl, messageId);
+        if (latest == null || latest.isDeleted == deleted) return;
+        final deletedAt = deleted ? _clock().toUtc() : null;
+        store.put(
+          siteUrl,
+          latest.withDeletedAt(
+            deletedAt,
+            deletedById: deleted ? _currentUserFor(siteUrl)?.id : null,
+            clearDeletedById: !deleted,
+          ),
+        );
+        _bumpStreamsHolding(siteUrl, messageId);
+        _setLoadedThreadOriginalDeleted(
+          siteUrl,
+          latest.channelId,
+          messageId,
+          deletedAt: deletedAt,
+          clear: !deleted,
+        );
+      });
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (ownsRequest()) {
+        _report(
+          error,
+          stackTrace,
+          'chat.${deleted ? 'delete' : 'restore'}Message',
+        );
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      if (identical(_messageDeletionWrites[key], request)) {
+        _messageDeletionWrites.remove(key);
+      }
+    }
+  }
+
+  bool messageEditWriteInFlight(String siteUrl, int messageId) =>
+      _messageEditWrites.containsKey((siteUrl: siteUrl, messageId: messageId));
+
+  bool messageRebakeWriteInFlight(String siteUrl, int messageId) =>
+      _messageRebakeWrites.containsKey((
+        siteUrl: siteUrl,
+        messageId: messageId,
+      ));
+
+  Future<String?> rebakeMessage(String siteUrl, int messageId) async {
+    final held = store.read<ChatMessage>(siteUrl, messageId);
+    if (held == null || !canRebakeMessage(siteUrl, held)) {
+      return 'This message can no longer be rebuilt.';
+    }
+
+    final key = (siteUrl: siteUrl, messageId: messageId);
+    if (_messageRebakeWrites.containsKey(key) ||
+        _messageEditWrites.containsKey(key) ||
+        _messageDeletionWrites.containsKey(key) ||
+        _messagePinWrites.containsKey(key) ||
+        _messageFlagWrites.containsKey(key)) {
+      return 'Another message change is still finishing.';
+    }
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _messageRebakeWrites[key] = request;
+
+    bool ownsRequest() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_messageRebakeWrites[key], request);
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!ownsRequest()) return null;
+      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
+      final clientId = await credentials.clientId();
+      if (!ownsRequest()) return null;
+      final current = store.read<ChatMessage>(siteUrl, messageId);
+      if (current == null || !canRebakeMessage(siteUrl, current)) {
+        return 'This message can no longer be rebuilt.';
+      }
+      await api.rebakeChatMessage(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: current.channelId,
+        messageId: current.id,
+      );
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (ownsRequest()) _report(error, stackTrace, 'chat.rebakeMessage');
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      if (identical(_messageRebakeWrites[key], request)) {
+        _messageRebakeWrites.remove(key);
+      }
+    }
+  }
+
+  bool messageQuoteWriteInFlight(String siteUrl, int channelId) =>
+      _messageQuoteWrites.containsKey((siteUrl: siteUrl, channelId: channelId));
+
+  /// Requests core's transcript serializer so copied selections retain the
+  /// same authors, timestamps, links, and `[chat]` markup as the web client.
+  Future<({String? markdown, String? error})> generateMessageQuote(
+    String siteUrl,
+    int channelId,
+    Iterable<int> messageIds,
+  ) async {
+    final ids = messageIds.toSet().toList()..sort();
+    if (ids.isEmpty) {
+      return (markdown: null, error: 'Select at least one message.');
+    }
+    for (final id in ids) {
+      final held = store.read<ChatMessage>(siteUrl, id);
+      if (id <= 0 || held == null || held.channelId != channelId) {
+        return (
+          markdown: null,
+          error: 'One of those messages is no longer available.',
+        );
+      }
+    }
+
+    final key = (siteUrl: siteUrl, channelId: channelId);
+    if (_messageQuoteWrites.containsKey(key)) {
+      return (markdown: null, error: 'That transcript is still being built.');
+    }
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _messageQuoteWrites[key] = request;
+
+    bool ownsRequest() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_messageQuoteWrites[key], request);
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!ownsRequest()) return (markdown: null, error: null);
+      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
+      final clientId = await credentials.clientId();
+      if (!ownsRequest()) return (markdown: null, error: null);
+      final markdown = await api.generateChatQuote(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: channelId,
+        messageIds: ids,
+      );
+      return ownsRequest()
+          ? (markdown: markdown, error: null)
+          : (markdown: null, error: null);
+    } on WriteException catch (error) {
+      return (markdown: null, error: error.message);
+    } catch (error, stackTrace) {
+      if (ownsRequest()) {
+        _report(error, stackTrace, 'chat.generateMessageQuote');
+      }
+      return (
+        markdown: null,
+        error: const WriteException(WriteFailure.unreachable).message,
+      );
+    } finally {
+      if (identical(_messageQuoteWrites[key], request)) {
+        _messageQuoteWrites.remove(key);
+      }
+    }
+  }
+
+  /// Edits the canonical Markdown and projects the same safe local preview the
+  /// send path uses until MessageBus supplies authoritative cooked HTML.
+  Future<String?> editMessage(String siteUrl, int messageId, String raw) async {
+    final held = store.read<ChatMessage>(siteUrl, messageId);
+    if (held == null || !canEditMessage(siteUrl, held)) {
+      return 'This message can no longer be edited.';
+    }
+    if (raw.trim().isEmpty) return 'A message cannot be empty.';
+    if (raw.length > ChatMessage.maximumEditLength) {
+      return 'Messages can be at most ${ChatMessage.maximumEditLength} characters.';
+    }
+    if (raw == held.raw) return null;
+
+    final key = (siteUrl: siteUrl, messageId: messageId);
+    if (_messageEditWrites.containsKey(key) ||
+        _messageDeletionWrites.containsKey(key) ||
+        _messagePinWrites.containsKey(key) ||
+        _messageFlagWrites.containsKey(key) ||
+        _messageRebakeWrites.containsKey(key)) {
+      return 'Another edit is still finishing.';
+    }
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _messageEditWrites[key] = request;
+
+    bool ownsRequest() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_messageEditWrites[key], request);
+
+    final preview = _previewEngine.project(
+      ChatPreviewRequest(raw: raw, siteConfig: _siteConfigFor(siteUrl)),
+    );
+    store.put(siteUrl, held.withPendingEdit(raw, preview));
+
+    bool canonicalEditArrived() {
+      final current = store.read<ChatMessage>(siteUrl, messageId);
+      return current?.canonicalReceived == true && current?.raw == raw;
+    }
+
+    void rollback() {
+      if (!ownsRequest() || canonicalEditArrived()) return;
+      lease.commit(() {
+        final latest = store.read<ChatMessage>(siteUrl, messageId);
+        if (latest != null) store.put(siteUrl, latest.withContentOf(held));
+      });
+    }
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!ownsRequest()) return null;
+      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
+      final clientId = await credentials.clientId();
+      if (!ownsRequest()) return null;
+      final current = store.read<ChatMessage>(siteUrl, messageId);
+      if (current == null || current.raw != raw) {
+        rollback();
+        return 'This message changed before the edit could be saved.';
+      }
+      await api.editChatMessage(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: held.channelId,
+        messageId: held.id,
+        message: raw,
+        uploadIds: [
+          for (final upload in held.uploads)
+            if (upload.id > 0) upload.id,
+        ],
+      );
+      return null;
+    } on WriteException catch (error) {
+      if (canonicalEditArrived()) return null;
+      rollback();
+      return error.message;
+    } catch (error, stackTrace) {
+      if (canonicalEditArrived()) return null;
+      if (ownsRequest()) _report(error, stackTrace, 'chat.editMessage');
+      rollback();
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      if (identical(_messageEditWrites[key], request)) {
+        _messageEditWrites.remove(key);
+      }
+    }
   }
 
   int _bookmarkVersion(String siteUrl) => _bookmarkVersions[siteUrl] ?? 0;
@@ -1470,6 +3197,10 @@ class ChatController extends FrameSafeNotifier {
       _userTrackingCursors[siteUrl],
       channels.userTrackingBusLastId,
     );
+    _userHasThreadsCursors[siteUrl] = _newerCursor(
+      _userHasThreadsCursors[siteUrl],
+      channels.userHasThreadsBusLastId,
+    );
     _newChannelsAwaitingFirstMessage.removeWhere(
       (key) => key.startsWith('$siteUrl~'),
     );
@@ -1566,6 +3297,40 @@ class ChatController extends FrameSafeNotifier {
       }
     }
 
+    if (currentUserId != null &&
+        _userHasThreadsCursors.containsKey(siteUrl) &&
+        !_userHasThreadsSubscriptions.containsKey(siteUrl)) {
+      try {
+        _userHasThreadsSubscriptions[siteUrl] = tracker
+            .watchPluginChannelWithPosition(
+              '/chat/user-has-threads/$currentUserId',
+              (data, messageId) {
+                try {
+                  if (data is Map<String, dynamic> &&
+                      data['has_threads'] == true &&
+                      !hasThreads(siteUrl)) {
+                    _hasThreads[siteUrl] = true;
+                    notifySafely();
+                  }
+                } finally {
+                  _userHasThreadsCursors[siteUrl] = _newerCursor(
+                    _userHasThreadsCursors[siteUrl],
+                    messageId,
+                  );
+                }
+              },
+              lastId: _userHasThreadsCursors[siteUrl],
+            );
+      } catch (error, stackTrace) {
+        _report(
+          error,
+          stackTrace,
+          'chat.userHasThreads.subscribe',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+    }
+
     for (final entry in cursors.entries) {
       final key = _streamKey(siteUrl, entry.key);
       if (_newMessageSubscriptions.containsKey(key)) continue;
@@ -1605,6 +3370,8 @@ class ChatController extends FrameSafeNotifier {
     final newChannel = _newChannelSubscriptions.remove(siteUrl);
     if (newChannel != null) cancelled.add(newChannel);
     cancelled.addAll(_userTrackingSubscriptions.remove(siteUrl) ?? const []);
+    final userHasThreads = _userHasThreadsSubscriptions.remove(siteUrl);
+    if (userHasThreads != null) cancelled.add(userHasThreads);
     for (final subscription in cancelled) {
       try {
         subscription.cancel();
@@ -1640,6 +3407,7 @@ class ChatController extends FrameSafeNotifier {
     if (wasListed) return;
 
     store.put(siteUrl, incoming);
+    _partialChannelIds[siteUrl]?.remove(incoming.id);
     if (_activeChannelViews.containsKey(_streamKey(siteUrl, incoming.id))) {
       _advanceLastViewedAt(siteUrl, incoming.id, notify: false);
     }
@@ -1691,6 +3459,10 @@ class ChatController extends FrameSafeNotifier {
         (current) =>
             current.copyWith(tracking: ChatTracking.fromJson(threadTracking)),
       );
+      // A mounted channel thread list sorts unread rows ahead of the rest.
+      // The Store notifies a row holding this thread, but the list itself owns
+      // that ordering and therefore needs a controller invalidation too.
+      notifySafely();
     }
   }
 
@@ -1980,6 +3752,14 @@ class ChatController extends FrameSafeNotifier {
         if (data['staged_id'] is String) {
           _applySendMessage(siteUrl, target, data);
         }
+        if (data['type'] == 'restore') {
+          _setLoadedThreadOriginalDeleted(
+            siteUrl,
+            channelId,
+            message.id,
+            clear: true,
+          );
+        }
         break;
       case 'thread_created':
         final payload = data['chat_message'];
@@ -2025,6 +3805,8 @@ class ChatController extends FrameSafeNotifier {
               lastMessageId: parsed.lastReplyId,
             ),
           );
+          // Activity is the final sort key in the channel-local thread list.
+          notifySafely();
         }
         // The event intentionally omits the title. A visible root preview is
         // enough reason to load detail even when this thread has never been
@@ -2037,12 +3819,40 @@ class ChatController extends FrameSafeNotifier {
         break;
       case 'delete':
         _applyDeleteEvent(siteUrl, data);
+        if (jsonIntOrNull(data['deleted_id']) case final originalId?) {
+          _setLoadedThreadOriginalDeleted(
+            siteUrl,
+            channelId,
+            originalId,
+            deletedAt: jsonDate(data['deleted_at']) ?? _clock().toUtc(),
+          );
+        }
         break;
       case 'bulk_delete':
         _applyBulkDeleteEvent(siteUrl, data);
+        final deletedAt = jsonDate(data['deleted_at']) ?? _clock().toUtc();
+        for (final value
+            in data['deleted_ids'] is List
+                ? data['deleted_ids'] as List
+                : const []) {
+          if (jsonIntOrNull(value) case final originalId?) {
+            _setLoadedThreadOriginalDeleted(
+              siteUrl,
+              channelId,
+              originalId,
+              deletedAt: deletedAt,
+            );
+          }
+        }
         break;
       case 'reaction':
         _applyReactionEvent(siteUrl, data);
+        break;
+      case 'pin' || 'unpin':
+        _applyPinEvent(siteUrl, data, channelId: channelId);
+        break;
+      case 'self_flagged':
+        _applySelfFlaggedEvent(siteUrl, data);
         break;
     }
   }
@@ -2090,6 +3900,14 @@ class ChatController extends FrameSafeNotifier {
       case 'reaction':
         if (jsonIntOrNull(data['chat_message_id']) == originalId) return;
         _applyReactionEvent(siteUrl, data);
+        break;
+      case 'pin' || 'unpin':
+        if (jsonIntOrNull(data['chat_message_id']) == originalId) return;
+        _applyPinEvent(siteUrl, data, channelId: target.channelId);
+        break;
+      case 'self_flagged':
+        if (jsonIntOrNull(data['chat_message_id']) == originalId) return;
+        _applySelfFlaggedEvent(siteUrl, data);
         break;
     }
   }
@@ -2150,7 +3968,9 @@ class ChatController extends FrameSafeNotifier {
         ? message.withBookmarkOf(replaced!)
         : message;
     store.put(siteUrl, effective);
-    if (replaced != null && replaced.isDeleted != effective.isDeleted) {
+    if (replaced != null &&
+        (replaced.isDeleted != effective.isDeleted ||
+            replaced.pinned != effective.pinned)) {
       _bumpStreamsHolding(siteUrl, message.id);
     }
   }
@@ -2175,6 +3995,68 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
+  void _applyPinEvent(
+    String siteUrl,
+    Map<String, dynamic> data, {
+    int? channelId,
+  }) {
+    final messageId = jsonIntOrNull(data['chat_message_id']);
+    if (messageId == null) return;
+    final message = store.read<ChatMessage>(siteUrl, messageId);
+    final pinned = data['type'] == 'pin';
+    var changed = false;
+    if (message != null && message.pinned != pinned) {
+      changed = true;
+      store.put(siteUrl, message.withPinned(pinned));
+      _bumpStreamsHolding(siteUrl, messageId);
+    }
+
+    final resolvedChannelId =
+        message?.channelId ?? channelId ?? jsonIntOrNull(data['channel_id']);
+    if (resolvedChannelId != null) {
+      store.update<ChatChannel>(siteUrl, resolvedChannelId, (channel) {
+        final authoritative = jsonIntOrNull(data['pinned_message_count']);
+        final count =
+            authoritative ??
+            channel.pinnedMessagesCount + (changed ? (pinned ? 1 : -1) : 0);
+        final actor = jsonIntOrNull(data['pinned_by_id']);
+        final unseen =
+            pinned && actor != null && actor != _currentUserFor(siteUrl)?.id
+            ? true
+            : channel.membership.hasUnseenPins;
+        return channel.withPinnedMessagesCount(count, hasUnseenPins: unseen);
+      });
+
+      final ref = _pinListRefs[_pinsKey(siteUrl, resolvedChannelId)];
+      if (ref != null && ref.value.fetched) {
+        if (!pinned) {
+          ref.value = ref.value.copyWith(
+            pins: List.unmodifiable([
+              for (final pin in ref.value.pins)
+                if (pin.messageId != messageId) pin,
+            ]),
+            clearError: true,
+          );
+        } else {
+          unawaited(
+            loadPinnedMessages(siteUrl, resolvedChannelId, force: true),
+          );
+        }
+      }
+    }
+  }
+
+  void _applySelfFlaggedEvent(String siteUrl, Map<String, dynamic> data) {
+    final messageId = jsonIntOrNull(data['chat_message_id']);
+    final status = jsonIntOrNull(data['user_flag_status']);
+    if (messageId == null || status == null) return;
+    store.update<ChatMessage>(
+      siteUrl,
+      messageId,
+      (message) => message.withUserFlagStatus(status),
+    );
+  }
+
   void _applyDeleteEvent(
     String siteUrl,
     Map<String, dynamic> data, {
@@ -2186,7 +4068,10 @@ class ChatController extends FrameSafeNotifier {
     if (message != null) {
       store.put(
         siteUrl,
-        message.withDeletedAt(jsonDate(data['deleted_at']) ?? _clock().toUtc()),
+        message.withDeletedAt(
+          jsonDate(data['deleted_at']) ?? _clock().toUtc(),
+          deletedById: jsonIntOrNull(data['deleted_by_id']),
+        ),
       );
       if (!message.isDeleted) _bumpStreamsHolding(siteUrl, deletedId);
     }
@@ -2229,11 +4114,56 @@ class ChatController extends FrameSafeNotifier {
           siteUrl,
           message.withDeletedAt(
             jsonDate(data['deleted_at']) ?? _clock().toUtc(),
+            deletedById: jsonIntOrNull(data['deleted_by_id']),
           ),
         );
         if (!message.isDeleted) _bumpStreamsHolding(siteUrl, deletedId);
       }
     }
+  }
+
+  /// Mirrors core's channel-thread-list reducer for an original-message
+  /// delete or restore.
+  ///
+  /// Thread-list rows hold a compact original rather than the canonical
+  /// [ChatMessage]. Root channel events therefore have to project the state
+  /// onto each loaded list explicitly; otherwise deleting an original leaves
+  /// its thread visible until the next HTTP refresh.
+  void _setLoadedThreadOriginalDeleted(
+    String siteUrl,
+    int channelId,
+    int originalMessageId, {
+    DateTime? deletedAt,
+    bool clear = false,
+  }) {
+    final candidateIds = <int>{
+      ...?_channelThreadIds[_channelThreadsKey(siteUrl, channelId)],
+      ...?_myThreadIds[siteUrl],
+    };
+    var changed = false;
+    for (final threadId in candidateIds) {
+      final held = thread(siteUrl, threadId);
+      final original = held?.originalMessage;
+      if (held == null ||
+          held.channelId != channelId ||
+          original == null ||
+          original.id != originalMessageId) {
+        continue;
+      }
+      final nextDeletedAt = clear ? null : deletedAt;
+      if (original.deletedAt == nextDeletedAt) continue;
+      store.put(
+        siteUrl,
+        held.copyWith(
+          originalMessage: original.copyWith(
+            deletedAt: deletedAt,
+            clearDeletedAt: clear,
+          ),
+        ),
+      );
+      changed = true;
+    }
+    if (changed) notifySafely();
   }
 
   /// Applies one `reaction` event to a stored message.
@@ -3024,6 +4954,10 @@ class ChatController extends FrameSafeNotifier {
             : 0;
         store.putAll(siteUrl, channels.public);
         store.putAll(siteUrl, channels.direct);
+        _partialChannelIds[siteUrl]?.removeAll([
+          for (final channel in [...channels.public, ...channels.direct])
+            channel.id,
+        ]);
         for (final channel in [...channels.public, ...channels.direct]) {
           if (_activeChannelViews.containsKey(
             _streamKey(siteUrl, channel.id),
@@ -3033,6 +4967,7 @@ class ChatController extends FrameSafeNotifier {
         }
         _publicIds[siteUrl] = [for (final c in channels.public) c.id];
         _directIds[siteUrl] = [for (final c in channels.direct) c.id];
+        _hasThreads[siteUrl] = channels.hasThreads;
         if (replacingSnapshot) {
           final delta = _chatNotifications(siteUrl) - previousNotifications;
           if (delta != 0) onChatNotificationsDelta?.call(siteUrl, delta);
@@ -3055,6 +4990,187 @@ class ChatController extends FrameSafeNotifier {
           notifySafely();
         });
       }
+    }
+  }
+
+  /// Fetches this account's threads in core's ten-row pages.
+  ///
+  /// A first page is cached until explicitly refreshed. Pagination retains the
+  /// server's order (unread memberships first, then newest activity) and uses
+  /// the wire offset rather than the deduplicated local row count.
+  Future<void> loadMyThreads(
+    String siteUrl, {
+    bool more = false,
+    bool force = false,
+  }) {
+    if (isDisposed) return Future.value();
+    if (more && !myThreadsHaveMore(siteUrl)) return Future.value();
+    if (!more && !force && myThreadsLoaded(siteUrl)) return Future.value();
+
+    final key = _myThreadsKey(siteUrl);
+    final active = _myThreadRequests[key];
+    if (active != null) return active;
+
+    final offset = more ? (_myThreadOffsets[siteUrl] ?? 0) : 0;
+    final run = Object();
+    _myThreadRuns[key] = run;
+    late final Future<void> request;
+    request = _loadMyThreads(siteUrl, key, offset, run).whenComplete(() {
+      if (identical(_myThreadRequests[key], request)) {
+        final _ = _myThreadRequests.remove(key);
+      }
+      if (identical(_myThreadRuns[key], run)) _myThreadRuns.remove(key);
+      notifySafely();
+    });
+    _myThreadRequests[key] = request;
+    notifySafely();
+    return request;
+  }
+
+  Future<void> _loadMyThreads(
+    String siteUrl,
+    String key,
+    int offset,
+    Object run,
+  ) async {
+    final lease = lifecycle.capture(siteUrl);
+    bool ownsRequest() => identical(_myThreadRuns[key], run);
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
+      final clientId = await credentials.clientId();
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+
+      final page = await api.chatThreads(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        offset: offset,
+      );
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      lease.commit(() {
+        for (final embedded in page.channels) {
+          if (channel(siteUrl, embedded.id) != null) continue;
+          store.put(siteUrl, embedded);
+          (_partialChannelIds[siteUrl] ??= {}).add(embedded.id);
+        }
+        store.putAll(siteUrl, page.threads);
+        final incoming = [for (final thread in page.threads) thread.id];
+        if (offset == 0) {
+          _myThreadIds[siteUrl] = List.unmodifiable(incoming);
+        } else {
+          final seen = <int>{};
+          _myThreadIds[siteUrl] = List.unmodifiable([
+            for (final id in [...?_myThreadIds[siteUrl], ...incoming])
+              if (seen.add(id)) id,
+          ]);
+        }
+        _myThreadOffsets[siteUrl] = offset + page.threads.length;
+        _myThreadsHaveMore[siteUrl] = page.hasMore;
+        if (page.threads.isNotEmpty || page.hasMore) {
+          _hasThreads[siteUrl] = true;
+        } else if (offset == 0) {
+          _hasThreads[siteUrl] = false;
+        }
+        _errors.remove(key);
+      });
+    } catch (error, stackTrace) {
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      _report(error, stackTrace, 'chat.loadMyThreads');
+      lease.commit(() {
+        _errors[key] = 'Could not load your chat threads.';
+      });
+    }
+  }
+
+  Future<void> loadChannelThreads(
+    String siteUrl,
+    int channelId, {
+    bool more = false,
+    bool force = false,
+  }) {
+    if (isDisposed || channelId <= 0) return Future.value();
+    final heldChannel = channel(siteUrl, channelId);
+    if (heldChannel?.threadingEnabled != true) return Future.value();
+    final key = _channelThreadsKey(siteUrl, channelId);
+    if (more && !channelThreadsHaveMore(siteUrl, channelId)) {
+      return Future.value();
+    }
+    if (!more && !force && _channelThreadIds.containsKey(key)) {
+      return Future.value();
+    }
+    final active = _channelThreadListRequests[key];
+    if (active != null) return active;
+
+    final offset = more ? (_channelThreadOffsets[key] ?? 0) : 0;
+    final run = Object();
+    _channelThreadListRuns[key] = run;
+    late final Future<void> request;
+    request = _loadChannelThreads(siteUrl, channelId, key, offset, run)
+        .whenComplete(() {
+          if (identical(_channelThreadListRequests[key], request)) {
+            final _ = _channelThreadListRequests.remove(key);
+          }
+          if (identical(_channelThreadListRuns[key], run)) {
+            _channelThreadListRuns.remove(key);
+          }
+          notifySafely();
+        });
+    _channelThreadListRequests[key] = request;
+    notifySafely();
+    return request;
+  }
+
+  Future<void> _loadChannelThreads(
+    String siteUrl,
+    int channelId,
+    String key,
+    int offset,
+    Object run,
+  ) async {
+    final lease = lifecycle.capture(siteUrl);
+    bool ownsRequest() => identical(_channelThreadListRuns[key], run);
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_requestIsCurrent(lease, ownsRequest) || apiKey == null) return;
+      final clientId = await credentials.clientId();
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      final page = await api.chatChannelThreads(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: channelId,
+        offset: offset,
+      );
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      lease.commit(() {
+        store.putAll(siteUrl, page.threads);
+        final incoming = [
+          for (final thread in page.threads)
+            if (thread.channelId == channelId) thread.id,
+        ];
+        if (offset == 0) {
+          _channelThreadIds[key] = List.unmodifiable(incoming);
+        } else {
+          final seen = <int>{};
+          _channelThreadIds[key] = List.unmodifiable([
+            for (final id in [...?_channelThreadIds[key], ...incoming])
+              if (seen.add(id)) id,
+          ]);
+        }
+        _channelThreadOffsets[key] = offset + page.threads.length;
+        _channelThreadsHaveMore[key] = page.hasMore;
+        _errors.remove(key);
+      });
+    } catch (error, stackTrace) {
+      if (!_requestIsCurrent(lease, ownsRequest)) return;
+      _report(error, stackTrace, 'chat.loadChannelThreads');
+      lease.commit(() {
+        _errors[key] = 'Could not load this channel’s threads.';
+      });
     }
   }
 
@@ -3309,10 +5425,37 @@ class ChatController extends FrameSafeNotifier {
       }
       lease.commit(() {
         store.put(siteUrl, created);
+        _hasThreads[siteUrl] = true;
+        if (_myThreadIds[siteUrl] case final ids?) {
+          final alreadyListed = ids.contains(created.id);
+          _myThreadIds[siteUrl] = [
+            created.id,
+            for (final id in ids)
+              if (id != created.id) id,
+          ];
+          if (!alreadyListed) {
+            _myThreadOffsets[siteUrl] =
+                (_myThreadOffsets[siteUrl] ?? ids.length) + 1;
+          }
+        }
+        final channelThreadsKey = _channelThreadsKey(siteUrl, channelId);
+        if (_channelThreadIds[channelThreadsKey] case final ids?) {
+          final alreadyListed = ids.contains(created.id);
+          _channelThreadIds[channelThreadsKey] = [
+            created.id,
+            for (final id in ids)
+              if (id != created.id) id,
+          ];
+          if (!alreadyListed) {
+            _channelThreadOffsets[channelThreadsKey] =
+                (_channelThreadOffsets[channelThreadsKey] ?? ids.length) + 1;
+          }
+        }
         final original = store.read<ChatMessage>(siteUrl, originalMessageId);
         if (original != null && created.preview != null) {
           store.put(siteUrl, original.withThreadPreview(created.preview));
         }
+        notifySafely();
       });
       return created;
     } catch (error, stackTrace) {
@@ -3320,6 +5463,94 @@ class ChatController extends FrameSafeNotifier {
         _report(error, stackTrace, 'chat.createThread');
       }
       return null;
+    }
+  }
+
+  /// Whether core would offer this account the thread settings action.
+  ///
+  /// Discourse permits staff and the original message's author. The server
+  /// remains authoritative; this mirrors the web client's presentation gate
+  /// so other participants are not offered an action that must be refused.
+  bool canEditThreadTitle(String siteUrl, ChatThread? thread) {
+    final user = _currentUserFor(siteUrl);
+    final authorId = thread?.originalMessage?.author.id;
+    return thread != null &&
+        user != null &&
+        (user.staff || (user.id != null && user.id == authorId));
+  }
+
+  /// Updates the only editable thread setting exposed by core.
+  ///
+  /// The write response contains no thread record. Commit the known title,
+  /// then dirty detail so a concurrent refresh cannot leave older metadata on
+  /// screen and the next ordinary read still reconciles every server field.
+  Future<bool> updateThreadTitle(
+    String siteUrl,
+    ChatThreadTarget target,
+    String title,
+  ) async {
+    if (isDisposed ||
+        target.channelId <= 0 ||
+        target.threadId <= 0 ||
+        title.length > 100) {
+      return false;
+    }
+    final held = thread(siteUrl, target.threadId);
+    if (held?.channelId != target.channelId ||
+        !canEditThreadTitle(siteUrl, held)) {
+      return false;
+    }
+    final key = _targetKey(siteUrl, target);
+    if (_threadTitleWrites.containsKey(key)) return false;
+    final token = Object();
+    final lease = lifecycle.capture(siteUrl);
+    _threadTitleWrites[key] = token;
+
+    bool isCurrent() =>
+        identical(_threadTitleWrites[key], token) &&
+        lease.isCurrent &&
+        !isDisposed;
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!isCurrent() || apiKey == null) return false;
+      final clientId = await credentials.clientId();
+      if (!isCurrent() ||
+          !canEditThreadTitle(siteUrl, thread(siteUrl, target.threadId))) {
+        return false;
+      }
+      await api.updateChatThreadTitle(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        channelId: target.channelId,
+        threadId: target.threadId,
+        title: title,
+        clientId: clientId,
+      );
+      if (!isCurrent()) return false;
+      lease.commit(() {
+        store.update<ChatThread>(
+          siteUrl,
+          target.threadId,
+          (current) => current.copyWith(title: title),
+        );
+        _threadDetailDirty.add(key);
+      });
+      return true;
+    } catch (error, stackTrace) {
+      if (isCurrent()) {
+        _report(
+          error,
+          stackTrace,
+          'chat.updateThreadTitle',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      return false;
+    } finally {
+      if (identical(_threadTitleWrites[key], token)) {
+        final _ = _threadTitleWrites.remove(key);
+      }
     }
   }
 
@@ -4157,10 +6388,27 @@ class ChatController extends FrameSafeNotifier {
     _rootMessageCursors.remove(siteUrl);
     _newChannelCursors.remove(siteUrl);
     _userTrackingCursors.remove(siteUrl);
+    _userHasThreadsCursors.remove(siteUrl);
     _newChannelsAwaitingFirstMessage.removeWhere(
       (key) => key.startsWith('$siteUrl~'),
     );
     _reactionWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _messageEditWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _messageDeletionWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _messagePinWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _messageFlagWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _messageRebakeWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _messageQuoteWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _pinListRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    final forgottenPinRefs = <FrameSafeValueNotifier<ChatPinsState>>[];
+    _pinListRefs.removeWhere((key, ref) {
+      if (!key.startsWith('$siteUrl~')) return false;
+      forgottenPinRefs.add(ref);
+      return true;
+    });
+    for (final ref in forgottenPinRefs) {
+      ref.value = const ChatPinsState();
+    }
     _reactorRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
     _reactorErrors.removeWhere((key, _) => key.siteUrl == siteUrl);
     _bookmarkVersions.remove(siteUrl);
@@ -4177,6 +6425,12 @@ class ChatController extends FrameSafeNotifier {
     _channelRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _channelDetailRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _channelDetailRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _myThreadRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _myThreadRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _channelThreadListRequests.removeWhere(
+      (key, _) => key.startsWith('$siteUrl~'),
+    );
+    _channelThreadListRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _errors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _attempts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _streams.removeWhere((key, _) => key.startsWith('$siteUrl~'));
@@ -4202,6 +6456,13 @@ class ChatController extends FrameSafeNotifier {
     _threadNotificationConfirmed.removeWhere(
       (key, _) => key.startsWith('$siteUrl~'),
     );
+    _channelStarWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _channelNotificationWrites.removeWhere(
+      (key, _) => key.startsWith('$siteUrl~'),
+    );
+    _channelFollowWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _channelSettingsWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _threadTitleWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     final forgottenRefs = <FrameSafeValueNotifier<ChatStreamState>>[];
     _streamRefs.removeWhere((key, ref) {
       if (!key.startsWith('$siteUrl~')) return false;
@@ -4217,6 +6478,16 @@ class ChatController extends FrameSafeNotifier {
     }
     _publicIds.remove(siteUrl);
     _directIds.remove(siteUrl);
+    _myThreadIds.remove(siteUrl);
+    _myThreadOffsets.remove(siteUrl);
+    _myThreadsHaveMore.remove(siteUrl);
+    _hasThreads.remove(siteUrl);
+    _partialChannelIds.remove(siteUrl);
+    _channelThreadIds.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _channelThreadOffsets.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _channelThreadsHaveMore.removeWhere(
+      (key, _) => key.startsWith('$siteUrl~'),
+    );
     _lastOpenedChannelIds.remove(siteUrl);
     notifySafely();
   }
@@ -4259,6 +6530,15 @@ class ChatController extends FrameSafeNotifier {
     }
     _userTrackingSubscriptions.clear();
     _userTrackingCursors.clear();
+    for (final subscription in _userHasThreadsSubscriptions.values) {
+      try {
+        subscription.cancel();
+      } catch (_) {
+        // Disposal continues through every independent subscription.
+      }
+    }
+    _userHasThreadsSubscriptions.clear();
+    _userHasThreadsCursors.clear();
     _newChannelsAwaitingFirstMessage.clear();
     _activeChannelViews.clear();
     for (final subscription in _rootSubscriptions.values) {
@@ -4292,6 +6572,15 @@ class ChatController extends FrameSafeNotifier {
     _threadNotificationRevisions.clear();
     _threadNotificationTails.clear();
     _threadNotificationConfirmed.clear();
+    _channelStarWrites.clear();
+    _channelNotificationWrites.clear();
+    _channelFollowWrites.clear();
+    _channelSettingsWrites.clear();
+    _threadTitleWrites.clear();
+    _myThreadRequests.clear();
+    _myThreadRuns.clear();
+    _channelThreadListRequests.clear();
+    _channelThreadListRuns.clear();
     for (final subscription in _sendSubscriptions.values) {
       try {
         subscription.cancel();
@@ -4303,6 +6592,17 @@ class ChatController extends FrameSafeNotifier {
     _sendSubscriptions.clear();
     _sendSubscriptionTargets.clear();
     _reactionWrites.clear();
+    _messageEditWrites.clear();
+    _messageDeletionWrites.clear();
+    _messagePinWrites.clear();
+    _messageFlagWrites.clear();
+    _messageRebakeWrites.clear();
+    _messageQuoteWrites.clear();
+    _pinListRequests.clear();
+    for (final ref in _pinListRefs.values) {
+      ref.dispose();
+    }
+    _pinListRefs.clear();
     _reactorRequests.clear();
     _reactorErrors.clear();
     _bookmarkVersions.clear();

@@ -59,6 +59,23 @@ const ChatThread _thread = ChatThread(
   ),
 );
 
+const ChatThread _editableThread = ChatThread(
+  id: _threadId,
+  channelId: _channelId,
+  status: 'open',
+  replyCount: 5,
+  title: _threadTitle,
+  membership: ChatThreadMembership(
+    threadId: _threadId,
+    notificationLevel: ChatThreadNotificationLevel.tracking,
+  ),
+  originalMessage: ChatThreadOriginalMessage(
+    id: 10,
+    channelId: _channelId,
+    author: ChatMessageAuthor(id: 7, username: 'reader', name: 'Reader'),
+  ),
+);
+
 const ChatMessage _threadOriginal = ChatMessage(
   id: 41,
   channelId: _channelId,
@@ -368,6 +385,32 @@ void main() {
     expect(scale.scale.value, 1);
   });
 
+  testWidgets('original author can edit the thread title', (tester) async {
+    final fixture = await _fixture(editableThread: true);
+    addTearDown(fixture.shell.dispose);
+
+    await _pumpWorkspace(tester, fixture.shell, width: 1000);
+
+    expect(find.byTooltip('Thread settings'), findsOneWidget);
+    await tester.tap(find.byTooltip('Thread settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Thread settings'), findsOneWidget);
+    final titleField = find.byKey(const ValueKey('chat-thread-title-field'));
+    expect(titleField, findsOneWidget);
+    expect(tester.widget<TextField>(titleField).maxLength, 100);
+
+    await tester.enterText(titleField, 'Deploy plan');
+    await tester.tap(find.byKey(const ValueKey('chat-thread-title-save')));
+    await tester.pumpAndSettle();
+
+    expect(fixture.api.chatThreadTitlesUpdated, const [
+      (channelId: _channelId, threadId: _threadId, title: 'Deploy plan'),
+    ]);
+    expect(find.text('Thread settings'), findsNothing);
+    expect(find.text('Deploy plan'), findsOneWidget);
+  });
+
   testWidgets('thread notification choices use a sheet on touch', (
     tester,
   ) async {
@@ -476,8 +519,12 @@ void _expectThreadBodyTargets(WidgetTester tester) {
 
 Future<({ShellController shell, _WorkspaceApi api})> _fixture({
   bool terminalThread = false,
+  bool editableThread = false,
 }) async {
-  final api = _WorkspaceApi(terminalThread: terminalThread);
+  final api = _WorkspaceApi(
+    terminalThread: terminalThread,
+    thread: editableThread ? _editableThread : _thread,
+  );
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
       const DiscourseInstance(
@@ -548,7 +595,7 @@ final class _MemoryPanelWidthPersistence
 }
 
 final class _WorkspaceApi extends FakeDiscourseApi {
-  _WorkspaceApi({this.terminalThread = false})
+  _WorkspaceApi({this.terminalThread = false, this.thread = _thread})
     : super(
         user: _reader,
         totals: const NotificationTotals(
@@ -560,10 +607,11 @@ final class _WorkspaceApi extends FakeDiscourseApi {
           _siteUrl: ChatChannels(public: [_channel]),
         },
         chatMessagesByKey: const {'9': _channelPage, 'thread-9-3': _threadPage},
-        chatThreadsByKey: const {'9~3': _thread},
+        chatThreadsByKey: {'9~3': thread},
       );
 
   final bool terminalThread;
+  final ChatThread thread;
   final List<({int channelId, int threadId, int messageId})> threadReads = [];
 
   @override

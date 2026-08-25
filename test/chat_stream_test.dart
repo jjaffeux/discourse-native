@@ -11,6 +11,7 @@ ChatMessage at(
   int day = 5,
   bool deleted = false,
   bool webhook = false,
+  bool pinned = false,
   int? replyToId,
 }) => ChatMessage(
   id: id,
@@ -20,6 +21,7 @@ ChatMessage at(
   // Local, because the day separators are the reader's days.
   createdAt: DateTime(2026, 5, day, 10, minute),
   deletedAt: deleted ? DateTime(2026, 5, day, 11) : null,
+  pinned: pinned,
   isWebhook: webhook,
   replyTo: replyToId == null
       ? null
@@ -80,6 +82,18 @@ void main() {
       ]);
 
       expect(chainedAt(items, 3), isFalse);
+    });
+
+    test('gives a pinned message its own speaker header', () {
+      final items = buildChatStream([
+        at(1),
+        at(2, minute: 1, pinned: true),
+        at(3, minute: 2),
+      ]);
+
+      expect(chainedAt(items, 2), isFalse);
+      // Core only forces the pinned row itself to show a header.
+      expect(chainedAt(items, 3), isTrue);
     });
 
     test('chains a reply only when it is replying to the message above it', () {
@@ -185,6 +199,7 @@ void main() {
       ]);
 
       expect(items.whereType<ChatStreamDeleted>().single.count, 3);
+      expect(items.whereType<ChatStreamDeleted>().single.messageIds, [2, 3, 4]);
       expect(messagesOf(items).map((m) => m.id), [1, 5]);
     });
 

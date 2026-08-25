@@ -24,6 +24,7 @@ import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
@@ -234,6 +235,7 @@ void main() {
         json,
       );
       probe('Post', () => Post.fromJson(json, site), json);
+      probe('PostNotice', () => PostNotice.fromJson(loose), loose);
       probe('PostInboundLink', () => PostInboundLink.fromJson(json), json);
       probe('PostCreation', () => PostCreation.fromJson(json, site), json);
       probe(
@@ -301,6 +303,11 @@ void main() {
       probe('ChatPresence', () => ChatPresence.fromJson(loose), loose);
       probe('ChatChannel', () => ChatChannel.fromJson(json, site), json);
       probe(
+        'ChatChannelBrowsePage',
+        () => ChatChannelBrowsePage.fromJson(json, site),
+        json,
+      );
+      probe(
         'ChatMessageAuthor',
         () => ChatMessageAuthor.fromJson(loose, site),
         loose,
@@ -314,6 +321,7 @@ void main() {
         loose,
       );
       probe('ChatMessage', () => ChatMessage.fromJson(json, site), json);
+      probe('ChatPin', () => ChatPin.fromJson(json, site), json);
       probe('ChatSearchPage', () => ChatSearchPage.fromJson(json, site), json);
       probe(
         'ChatThreadMembership',
@@ -326,6 +334,7 @@ void main() {
         loose,
       );
       probe('ChatThread', () => ChatThread.fromJson(json, site), json);
+      probe('ChatThreadPage', () => ChatThreadPage.fromJson(json, site), json);
       probe(
         'ChatThreadNotificationLevel',
         () => ChatThreadNotificationLevel.fromJson(loose),

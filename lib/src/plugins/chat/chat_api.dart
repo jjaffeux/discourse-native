@@ -1,10 +1,13 @@
 import 'chat_channel.dart';
 import 'chat_message.dart';
+import 'chat_pin.dart';
 import 'chat_reactors.dart';
 import 'chat_search.dart';
 import 'chat_thread.dart';
 
 enum ChatReactionAction { add, remove }
+
+typedef ChatMessageMove = ({int destinationChannelId, int firstMovedMessageId});
 
 /// Wire contract owned by the Chat module.
 abstract interface class ChatApi {
@@ -25,6 +28,93 @@ abstract interface class ChatApi {
     required String siteUrl,
     required String apiKey,
     required int channelId,
+    String? clientId,
+  });
+
+  Future<ChatChannel> updateChatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? name,
+    String? slug,
+    String? description,
+    bool? threadingEnabled,
+    String? clientId,
+  });
+
+  Future<ChatChannel> updateChatChannelStatus({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required ChatChannelStatus status,
+    String? clientId,
+  });
+
+  Future<void> updateChatChannelStarred({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required bool starred,
+    String? clientId,
+  });
+
+  Future<ChatMembership> updateChatChannelNotifications({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    bool? muted,
+    ChatChannelNotificationLevel? notificationLevel,
+    String? clientId,
+  });
+
+  Future<ChatChannelMembersPage> chatChannelMembers({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String username = '',
+    int offset = 0,
+    int limit = 20,
+    String? clientId,
+  });
+
+  Future<ChatChannelBrowsePage> browseChatChannels({
+    required String siteUrl,
+    required String apiKey,
+    String filter = '',
+    ChatChannelBrowseStatus status = ChatChannelBrowseStatus.all,
+    int offset = 0,
+    int limit = ChatChannelBrowsePage.pageSize,
+    String? clientId,
+  });
+
+  Future<ChatMembership> followChatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  });
+
+  Future<ChatMembership> unfollowChatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  });
+
+  Future<ChatThreadPage> chatThreads({
+    required String siteUrl,
+    required String apiKey,
+    int offset = 0,
+    int limit = ChatThreadPage.pageSize,
+    String? clientId,
+  });
+
+  Future<ChatThreadPage> chatChannelThreads({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    int offset = 0,
+    int limit = ChatThreadPage.pageSize,
     String? clientId,
   });
 
@@ -89,6 +179,15 @@ abstract interface class ChatApi {
     String? clientId,
   });
 
+  Future<void> updateChatThreadTitle({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required String title,
+    String? clientId,
+  });
+
   Future<ChatThreadMembership> updateChatThreadNotificationLevel({
     required String siteUrl,
     required String apiKey,
@@ -107,6 +206,98 @@ abstract interface class ChatApi {
     int? threadId,
     String? stagedId,
     DateTime? clientCreatedAt,
+    String? clientId,
+  });
+
+  Future<void> editChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required String message,
+    List<int> uploadIds = const [],
+    String? clientId,
+  });
+
+  Future<void> deleteChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  });
+
+  Future<void> deleteChatMessages({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required List<int> messageIds,
+    String? clientId,
+  });
+
+  Future<ChatMessageMove> moveChatMessages({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int destinationChannelId,
+    required List<int> messageIds,
+    String? clientId,
+  });
+
+  Future<void> restoreChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  });
+
+  Future<void> rebakeChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  });
+
+  Future<String> generateChatQuote({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required List<int> messageIds,
+    String? clientId,
+  });
+
+  Future<void> updateChatMessagePinned({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required bool pinned,
+    String? clientId,
+  });
+
+  Future<ChatPins> chatPinnedMessages({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  });
+
+  Future<void> markChatPinsRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  });
+
+  Future<void> flagChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required int flagTypeId,
+    String? message,
     String? clientId,
   });
 

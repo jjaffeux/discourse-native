@@ -7,9 +7,11 @@ import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
@@ -22,16 +24,29 @@ const String other = 'https://other.example';
 
 ChatMessage message(
   int id, {
+  String? raw,
+  int authorId = 2,
   int second = 0,
   int minute = 0,
   List<ChatReaction> reactions = const [],
   Bookmark? bookmark,
+  DateTime? deletedAt,
+  int? deletedById,
+  bool pinned = false,
+  List<String> availableFlags = const [],
+  int? userFlagStatus,
 }) => ChatMessage(
   id: id,
   channelId: 9,
   cooked: '<p>$id</p>',
-  author: const ChatMessageAuthor(id: 2, username: 'sam'),
+  raw: raw ?? '$id',
+  author: ChatMessageAuthor(id: authorId, username: 'sam'),
   createdAt: DateTime.utc(2026, 5, 5, 10, minute, second),
+  deletedAt: deletedAt,
+  deletedById: deletedById,
+  pinned: pinned,
+  availableFlags: availableFlags,
+  userFlagStatus: userFlagStatus,
   reactions: reactions,
   bookmark: bookmark,
 );
@@ -51,10 +66,22 @@ ChatMessagePage page(
 ChatChannel channel(
   int id, {
   String title = 'Bugs',
+  String? slug,
+  String? description,
   ChatChannelKind kind = ChatChannelKind.category,
   bool following = true,
   bool muted = false,
   bool starred = false,
+  ChatChannelNotificationLevel notificationLevel =
+      ChatChannelNotificationLevel.mention,
+  bool canModerate = false,
+  bool canDeleteSelf = false,
+  bool canDeleteOthers = false,
+  bool canManagePins = false,
+  bool canFlag = false,
+  bool canJoin = false,
+  int membershipsCount = 0,
+  ChatChannelStatus status = ChatChannelStatus.open,
   int? lastRead,
   int unread = 0,
   int mentions = 0,
@@ -69,9 +96,20 @@ ChatChannel channel(
   id: id,
   title: title,
   kind: kind,
+  slug: slug,
+  description: description,
+  canModerate: canModerate,
+  canDeleteSelf: canDeleteSelf,
+  canDeleteOthers: canDeleteOthers,
+  canManagePins: canManagePins,
+  canFlag: canFlag,
+  canJoin: canJoin,
+  membershipsCount: membershipsCount,
+  status: status,
   membership: ChatMembership(
     following: following,
     muted: muted,
+    notificationLevel: notificationLevel,
     starred: starred,
     lastReadMessageId: lastRead,
     lastViewedAt: lastViewedAt,
@@ -103,8 +141,45 @@ ChatChannel channel(
   WriteException? sendFailure,
   Completer<void>? sendGate,
   int? sentMessageId = 1,
+  WriteException? editFailure,
+  Completer<void>? editGate,
+  WriteException? messageMutationFailure,
+  Completer<void>? messageMutationGate,
+  WriteException? pinFailure,
+  Completer<void>? pinGate,
+  Map<int, ChatPins> pins = const {},
+  WriteException? flagFailure,
+  Completer<void>? flagGate,
+  WriteException? rebakeFailure,
+  Completer<void>? rebakeGate,
+  String quoteMarkdown = '[chat quote]',
+  WriteException? quoteFailure,
+  Completer<void>? quoteGate,
   WriteException? reactionFailure,
   Completer<void>? reactionGate,
+  WriteException? channelStarFailure,
+  Completer<void>? channelStarGate,
+  ChatChannel? channelUpdateResponse,
+  Completer<void>? channelUpdateGate,
+  WriteException? channelUpdateFailure,
+  ChatChannel? channelStatusResponse,
+  Completer<void>? channelStatusGate,
+  WriteException? channelStatusFailure,
+  ChatMembership channelNotificationMembership = const ChatMembership(
+    following: true,
+  ),
+  WriteException? channelNotificationFailure,
+  Completer<void>? channelNotificationGate,
+  Map<String, ChatChannelMembersPage> channelMemberPages = const {},
+  Completer<void>? channelMemberGate,
+  Map<String, ChatChannelBrowsePage> browsePages = const {},
+  Completer<void>? browseGate,
+  ChatMembership channelFollowMembership = const ChatMembership(
+    following: true,
+  ),
+  ChatMembership channelUnfollowMembership = const ChatMembership(),
+  WriteException? channelFollowFailure,
+  Completer<void>? channelFollowGate,
   Map<String, ChatMessageReactors> chatReactors = const {},
   Completer<void>? reactorReadGate,
   FakeApiCredentialReader? credentialReader,
@@ -124,8 +199,41 @@ ChatChannel channel(
     chatSendFailure: sendFailure,
     chatSendGate: sendGate,
     chatSentMessageId: sentMessageId,
+    chatEditFailure: editFailure,
+    chatEditGate: editGate,
+    chatMessageMutationFailure: messageMutationFailure,
+    chatMessageMutationGate: messageMutationGate,
+    chatPinFailure: pinFailure,
+    chatPinGate: pinGate,
+    chatPinsByChannel: pins,
+    chatFlagFailure: flagFailure,
+    chatFlagGate: flagGate,
+    chatRebakeFailure: rebakeFailure,
+    chatRebakeGate: rebakeGate,
+    chatQuoteMarkdown: quoteMarkdown,
+    chatQuoteFailure: quoteFailure,
+    chatQuoteGate: quoteGate,
     chatReactionFailure: reactionFailure,
     chatReactionGate: reactionGate,
+    chatChannelStarFailure: channelStarFailure,
+    chatChannelStarGate: channelStarGate,
+    chatChannelUpdateResponse: channelUpdateResponse,
+    chatChannelUpdateGate: channelUpdateGate,
+    chatChannelUpdateFailure: channelUpdateFailure,
+    chatChannelStatusResponse: channelStatusResponse,
+    chatChannelStatusGate: channelStatusGate,
+    chatChannelStatusFailure: channelStatusFailure,
+    chatChannelNotificationMembership: channelNotificationMembership,
+    chatChannelNotificationFailure: channelNotificationFailure,
+    chatChannelNotificationGate: channelNotificationGate,
+    chatChannelMemberPagesByKey: channelMemberPages,
+    chatChannelMemberGate: channelMemberGate,
+    chatBrowsePagesByKey: browsePages,
+    chatBrowseGate: browseGate,
+    chatChannelFollowMembership: channelFollowMembership,
+    chatChannelUnfollowMembership: channelUnfollowMembership,
+    chatChannelFollowFailure: channelFollowFailure,
+    chatChannelFollowGate: channelFollowGate,
     chatReactorsById: chatReactors,
     chatReactorGate: reactorReadGate,
   );
@@ -435,6 +543,364 @@ void main() {
           13,
           14,
         ]);
+      },
+    );
+
+    test('stars a channel optimistically through its membership', () async {
+      final gate = Completer<void>();
+      final subject = build(
+        channels: {
+          site: ChatChannels(public: [channel(9)]),
+        },
+        channelStarGate: gate,
+        currentUser: currentUser,
+      );
+      await subject.chat.loadChannels(site);
+
+      final update = subject.chat.updateChannelStarred(site, 9, true);
+      expect(subject.chat.channel(site, 9)?.membership.starred, isTrue);
+      expect(subject.chat.starredChannels(site).map((item) => item.id), [9]);
+      expect(subject.chat.channelStarWriteInFlight(site, 9), isTrue);
+
+      gate.complete();
+      expect(await update, isNull);
+      expect(subject.api.chatChannelStarsUpdated, const [
+        (channelId: 9, starred: true),
+      ]);
+      expect(subject.chat.channelStarWriteInFlight(site, 9), isFalse);
+    });
+
+    test('restores the sidebar bucket when starring is refused', () async {
+      final subject = build(
+        channels: {
+          site: ChatChannels(public: [channel(9)]),
+        },
+        channelStarFailure: const WriteException(WriteFailure.forbidden),
+        currentUser: currentUser,
+      );
+      await subject.chat.loadChannels(site);
+
+      expect(await subject.chat.updateChannelStarred(site, 9, true), isNotNull);
+
+      expect(subject.chat.channel(site, 9)?.membership.starred, isFalse);
+      expect(subject.chat.starredChannels(site), isEmpty);
+      expect(
+        subject.chat.unstarredPublicChannels(site).map((item) => item.id),
+        [9],
+      );
+    });
+
+    test(
+      'staff update public channel metadata without losing unread state',
+      () async {
+        const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
+        final subject = build(
+          channels: {
+            site: ChatChannels(public: [channel(9, unread: 3, mentions: 1)]),
+          },
+          channelUpdateResponse: channel(
+            9,
+            title: 'Bug reports',
+            slug: 'bug-reports',
+            description: 'A better description.',
+          ),
+          currentUser: staff,
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+
+        expect(
+          await subject.chat.updateChannelMetadata(
+            site,
+            9,
+            name: ' Bug reports ',
+            slug: ' bug-reports ',
+            description: 'A better description.',
+          ),
+          isNull,
+        );
+
+        expect(subject.api.chatChannelMetadataUpdates, const [
+          (
+            channelId: 9,
+            name: 'Bug reports',
+            slug: 'bug-reports',
+            description: 'A better description.',
+          ),
+        ]);
+        final updated = subject.chat.channel(site, 9)!;
+        expect(updated.title, 'Bug reports');
+        expect(updated.description, 'A better description.');
+        expect(updated.tracking.unreadCount, 3);
+        expect(updated.tracking.mentionCount, 1);
+      },
+    );
+
+    test('ordinary readers cannot update category channel metadata', () async {
+      final subject = build(
+        channels: {
+          site: ChatChannels(public: [channel(9)]),
+        },
+        currentUser: currentUser,
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+
+      expect(
+        await subject.chat.updateChannelMetadata(site, 9, description: 'Nope'),
+        'This channel cannot be edited.',
+      );
+      expect(subject.api.chatChannelMetadataUpdates, isEmpty);
+    });
+
+    test(
+      'staff toggle threading optimistically on open category channels',
+      () async {
+        const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
+        final gate = Completer<void>();
+        final subject = build(
+          channels: {
+            site: ChatChannels(public: [channel(9)]),
+          },
+          channelUpdateResponse: channel(9, threadingEnabled: true),
+          channelUpdateGate: gate,
+          currentUser: staff,
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+
+        final writing = subject.chat.updateChannelThreading(site, 9, true);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(subject.chat.channel(site, 9)?.threadingEnabled, isTrue);
+        expect(subject.chat.channelSettingsWriteInFlight(site, 9), isTrue);
+        expect(subject.api.chatChannelThreadingUpdates, const [
+          (channelId: 9, enabled: true),
+        ]);
+
+        gate.complete();
+        expect(await writing, isNull);
+        expect(subject.chat.channelSettingsWriteInFlight(site, 9), isFalse);
+      },
+    );
+
+    test('a refused threading change restores the server setting', () async {
+      const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
+      final subject = build(
+        channels: {
+          site: ChatChannels(public: [channel(9)]),
+        },
+        channelUpdateFailure: const WriteException(WriteFailure.forbidden),
+        currentUser: staff,
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+
+      expect(
+        await subject.chat.updateChannelThreading(site, 9, true),
+        isNotNull,
+      );
+      expect(subject.chat.channel(site, 9)?.threadingEnabled, isFalse);
+    });
+
+    test('threading cannot be toggled while a channel is closed', () async {
+      const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
+      final subject = build(
+        channels: {
+          site: ChatChannels(
+            public: [channel(9, status: ChatChannelStatus.closed)],
+          ),
+        },
+        currentUser: staff,
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+
+      expect(
+        await subject.chat.updateChannelThreading(site, 9, true),
+        'Threading cannot be changed for this channel.',
+      );
+      expect(subject.api.chatChannelThreadingUpdates, isEmpty);
+    });
+
+    test('staff close a category channel through the status service', () async {
+      const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
+      final gate = Completer<void>();
+      final subject = build(
+        channels: {
+          site: ChatChannels(public: [channel(9, unread: 3)]),
+        },
+        channelStatusResponse: channel(9, status: ChatChannelStatus.closed),
+        channelStatusGate: gate,
+        currentUser: staff,
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+
+      final writing = subject.chat.setChannelClosed(site, 9, closed: true);
+      await Future<void>.delayed(Duration.zero);
+      expect(subject.chat.channelSettingsWriteInFlight(site, 9), isTrue);
+      expect(subject.api.chatChannelStatusesUpdated, const [
+        (channelId: 9, status: ChatChannelStatus.closed),
+      ]);
+
+      gate.complete();
+      expect(await writing, isNull);
+      expect(subject.chat.channel(site, 9)?.status, ChatChannelStatus.closed);
+      expect(subject.chat.channel(site, 9)?.tracking.unreadCount, 3);
+    });
+
+    test('a refused channel close leaves the channel open', () async {
+      const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
+      final subject = build(
+        channels: {
+          site: ChatChannels(public: [channel(9)]),
+        },
+        channelStatusFailure: const WriteException(WriteFailure.forbidden),
+        currentUser: staff,
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+
+      expect(
+        await subject.chat.setChannelClosed(site, 9, closed: true),
+        isNotNull,
+      );
+      expect(subject.chat.channel(site, 9)?.status, ChatChannelStatus.open);
+    });
+
+    test('ordinary readers cannot close category channels', () async {
+      final subject = build(
+        channels: {
+          site: ChatChannels(public: [channel(9)]),
+        },
+        currentUser: currentUser,
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+
+      expect(subject.chat.canChangeChannelStatus(site, 9), isFalse);
+      expect(
+        await subject.chat.setChannelClosed(site, 9, closed: true),
+        'This channel’s status cannot be changed.',
+      );
+      expect(subject.api.chatChannelStatusesUpdated, isEmpty);
+    });
+
+    test('updates channel notification settings optimistically', () async {
+      final gate = Completer<void>();
+      final subject = build(
+        channels: {
+          site: ChatChannels(public: [channel(9, starred: true, lastRead: 7)]),
+        },
+        channelNotificationMembership: const ChatMembership(
+          following: true,
+          starred: true,
+          lastReadMessageId: 7,
+        ),
+        channelNotificationGate: gate,
+        currentUser: currentUser,
+      );
+      await subject.chat.loadChannels(site);
+
+      final update = subject.chat.updateChannelNotifications(
+        site,
+        9,
+        notificationLevel: ChatChannelNotificationLevel.always,
+      );
+      expect(
+        subject.chat.channel(site, 9)?.membership.notificationLevel,
+        ChatChannelNotificationLevel.always,
+      );
+      expect(subject.chat.channel(site, 9)?.membership.starred, isTrue);
+      expect(subject.chat.channelNotificationWriteInFlight(site, 9), isTrue);
+
+      gate.complete();
+      expect(await update, isNull);
+      expect(subject.api.chatChannelNotificationsUpdated, const [
+        (
+          channelId: 9,
+          muted: null,
+          notificationLevel: ChatChannelNotificationLevel.always,
+        ),
+      ]);
+      expect(subject.chat.channel(site, 9)?.membership.lastReadMessageId, 7);
+      expect(subject.chat.channelNotificationWriteInFlight(site, 9), isFalse);
+    });
+
+    test('changes muting without changing the push level', () async {
+      final subject = build(
+        channels: {
+          site: ChatChannels(
+            public: [
+              channel(
+                9,
+                notificationLevel: ChatChannelNotificationLevel.always,
+              ),
+            ],
+          ),
+        },
+        channelNotificationMembership: const ChatMembership(
+          following: true,
+          notificationLevel: ChatChannelNotificationLevel.always,
+        ),
+        currentUser: currentUser,
+      );
+      await subject.chat.loadChannels(site);
+
+      expect(
+        await subject.chat.updateChannelNotifications(site, 9, muted: true),
+        isNull,
+      );
+
+      final membership = subject.chat.channel(site, 9)!.membership;
+      expect(membership.muted, isTrue);
+      expect(membership.notificationLevel, ChatChannelNotificationLevel.always);
+      expect(subject.api.chatChannelNotificationsUpdated.single, (
+        channelId: 9,
+        muted: true,
+        notificationLevel: null,
+      ));
+    });
+
+    test(
+      'restores channel notification settings when the write is refused',
+      () async {
+        final subject = build(
+          channels: {
+            site: ChatChannels(
+              public: [
+                channel(
+                  9,
+                  muted: false,
+                  notificationLevel: ChatChannelNotificationLevel.mention,
+                ),
+              ],
+            ),
+          },
+          channelNotificationFailure: const WriteException(
+            WriteFailure.forbidden,
+          ),
+          currentUser: currentUser,
+        );
+        await subject.chat.loadChannels(site);
+
+        expect(
+          await subject.chat.updateChannelNotifications(
+            site,
+            9,
+            muted: true,
+            notificationLevel: ChatChannelNotificationLevel.never,
+          ),
+          isNotNull,
+        );
+
+        final membership = subject.chat.channel(site, 9)!.membership;
+        expect(membership.muted, isFalse);
+        expect(
+          membership.notificationLevel,
+          ChatChannelNotificationLevel.mention,
+        );
       },
     );
 
@@ -987,6 +1453,27 @@ void main() {
     });
 
     test(
+      'a user thread event reveals My Threads from its snapshot cursor',
+      () async {
+        final subject = build(
+          currentUser: currentUser,
+          channels: {site: const ChatChannels(userHasThreadsBusLastId: 82)},
+        );
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+
+        expect(subject.chat.hasThreads(site), isFalse);
+        expect(tracker.pluginChannelLastIds['/chat/user-has-threads/7'], 82);
+
+        tracker.deliverPluginMessage('/chat/user-has-threads/7', {
+          'has_threads': true,
+        });
+
+        expect(subject.chat.hasThreads(site), isTrue);
+      },
+    );
+
+    test(
       'tracker replacement rebinds and safely replays live channels',
       () async {
         final subject = build(
@@ -1292,6 +1779,134 @@ void main() {
         subject.api.chatChannelsRequested.length,
         ChatController.maxChannelAttempts,
       );
+    });
+
+    test(
+      'loads a filtered channel member page through the active session',
+      () async {
+        const members = (
+          members: [ChatUser(id: 2, username: 'sam', name: 'Sam')],
+          totalRows: 3,
+          canLoadMore: false,
+        );
+        final subject = build(
+          channels: {
+            site: ChatChannels(public: [channel(9)]),
+          },
+          channelMemberPages: {
+            FakeDiscourseApi.chatChannelMembersKey(
+              9,
+              username: 'sam',
+              offset: 20,
+            ): members,
+          },
+          currentUser: currentUser,
+        );
+        await subject.chat.loadChannels(site);
+
+        final result = await subject.chat.fetchChannelMembers(
+          site,
+          9,
+          username: 'sam',
+          offset: 20,
+        );
+
+        expect(result.error, isNull);
+        expect(result.page, members);
+        expect(subject.api.chatChannelMembersRequested, const [
+          (channelId: 9, username: 'sam', offset: 20, limit: 20),
+        ]);
+      },
+    );
+
+    test(
+      'browses channels and reconciles join and unfollow immediately',
+      () async {
+        final discoverable = channel(
+          10,
+          title: 'Announcements',
+          slug: 'announcements',
+          following: false,
+          canJoin: true,
+          membershipsCount: 4,
+        );
+        final subject = build(
+          channels: {
+            site: ChatChannels(public: [channel(9, slug: 'bugs')]),
+          },
+          browsePages: {
+            FakeDiscourseApi.chatBrowseKey(
+              filter: 'ann',
+              status: ChatChannelBrowseStatus.open,
+            ): ChatChannelBrowsePage(
+              channels: [discoverable],
+            ),
+          },
+          currentUser: currentUser,
+        );
+        await subject.chat.loadChannels(site);
+
+        final browsed = await subject.chat.fetchBrowseChannels(
+          site,
+          filter: 'ann',
+          status: ChatChannelBrowseStatus.open,
+        );
+        expect(browsed.error, isNull);
+        expect(browsed.page?.channels.single, discoverable);
+        expect(subject.api.chatBrowseRequested, const [
+          (
+            filter: 'ann',
+            status: ChatChannelBrowseStatus.open,
+            offset: 0,
+            limit: ChatChannelBrowsePage.pageSize,
+          ),
+        ]);
+
+        expect(
+          await subject.chat.updateChannelFollowing(site, discoverable, true),
+          isNull,
+        );
+        expect(subject.api.chatChannelFollowsUpdated, const [
+          (channelId: 10, following: true),
+        ]);
+        expect(subject.chat.publicChannels(site).map((channel) => channel.id), [
+          10,
+          9,
+        ]);
+        expect(subject.chat.channel(site, 10)?.membershipsCount, 5);
+
+        final joined = subject.chat.channel(site, 10)!;
+        expect(
+          await subject.chat.updateChannelFollowing(site, joined, false),
+          isNull,
+        );
+        expect(subject.api.chatChannelFollowsUpdated, const [
+          (channelId: 10, following: true),
+          (channelId: 10, following: false),
+        ]);
+        expect(subject.chat.publicChannels(site).map((channel) => channel.id), [
+          9,
+        ]);
+        expect(subject.chat.channel(site, 10)?.membershipsCount, 4);
+      },
+    );
+
+    test('does not join a closed or unauthorized channel', () async {
+      final subject = build(currentUser: currentUser);
+
+      final error = await subject.chat.updateChannelFollowing(
+        site,
+        channel(
+          10,
+          following: false,
+          status: ChatChannelStatus.closed,
+          canJoin: true,
+        ),
+        true,
+      );
+
+      expect(error, 'This channel cannot be joined.');
+      expect(subject.api.chatChannelFollowsUpdated, isEmpty);
     });
 
     test('keeps each site’s channels apart', () async {
@@ -2276,6 +2891,666 @@ void main() {
         expect(subject.chat.messages(site, 9), [canonical]);
       },
     );
+  });
+
+  group('editing a message', () {
+    test('projects source immediately and retains attachment ids', () async {
+      final gate = Completer<void>();
+      final subject = build(currentUser: currentUser, editGate: gate);
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9));
+      subject.store.put(
+        site,
+        const ChatMessage(
+          id: 12,
+          channelId: 9,
+          raw: 'before',
+          cooked: '<p>before</p>',
+          author: ChatMessageAuthor(id: 7, username: 'reader'),
+          uploads: [
+            ChatUpload(
+              id: 31,
+              url: '/uploads/a.png',
+              originalFilename: 'a.png',
+              kind: ChatUploadKind.image,
+            ),
+          ],
+        ),
+      );
+
+      final writing = subject.chat.editMessage(site, 12, '**after**');
+      await Future<void>.delayed(Duration.zero);
+
+      final projected = subject.store.read<ChatMessage>(site, 12)!;
+      expect(projected.raw, '**after**');
+      expect(projected.canonicalReceived, isFalse);
+      expect(projected.edited, isTrue);
+      expect(subject.chat.messageEditWriteInFlight(site, 12), isTrue);
+      final request = subject.api.chatMessagesEdited.single;
+      expect(request.siteUrl, site);
+      expect(request.channelId, 9);
+      expect(request.messageId, 12);
+      expect(request.message, '**after**');
+      expect(request.uploadIds, [31]);
+
+      gate.complete();
+      expect(await writing, isNull);
+      expect(subject.chat.messageEditWriteInFlight(site, 12), isFalse);
+      expect(subject.store.read<ChatMessage>(site, 12)?.raw, '**after**');
+    });
+
+    test(
+      'a refusal restores content without losing a concurrent reaction',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(
+          currentUser: currentUser,
+          editGate: gate,
+          editFailure: const WriteException(WriteFailure.forbidden),
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9));
+        final held = message(12, raw: 'before', authorId: 7);
+        subject.store.put(site, held);
+
+        final writing = subject.chat.editMessage(site, 12, 'after');
+        await Future<void>.delayed(Duration.zero);
+        subject.store.put(
+          site,
+          subject.store.read<ChatMessage>(site, 12)!.withReactions(const [
+            ChatReaction(emoji: 'clap', count: 1),
+          ]),
+        );
+        gate.complete();
+
+        expect(await writing, contains("can't post that here"));
+        final restored = subject.store.read<ChatMessage>(site, 12)!;
+        expect(restored.raw, 'before');
+        expect(restored.cooked, '<p>12</p>');
+        expect(restored.canonicalReceived, isTrue);
+        expect(restored.reactions.single.emoji, 'clap');
+      },
+    );
+
+    test(
+      'does not offer another author’s message to the edit endpoint',
+      () async {
+        final subject = build(currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9));
+        final held = message(12, raw: 'before', authorId: 2);
+        subject.store.put(site, held);
+
+        expect(subject.chat.canEditMessage(site, held), isFalse);
+        expect(
+          await subject.chat.editMessage(site, 12, 'after'),
+          'This message can no longer be edited.',
+        );
+        expect(subject.api.chatMessagesEdited, isEmpty);
+      },
+    );
+  });
+
+  group('pinning a message', () {
+    test('projects a pin and sends the channel capability write', () async {
+      final held = message(12);
+      final subject = build(
+        currentUser: currentUser,
+        messages: {
+          key(9): page([held]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, canManagePins: true));
+      await subject.chat.openChannel(site, 9);
+      final beforeRevision = subject.chat.stream(site, 9).revision;
+
+      expect(subject.chat.canPinMessage(site, held), isTrue);
+      expect(
+        await subject.chat.setMessagePinned(site, 12, pinned: true),
+        isNull,
+      );
+
+      expect(subject.store.read<ChatMessage>(site, 12)?.pinned, isTrue);
+      expect(subject.chat.channel(site, 9)?.pinnedMessagesCount, 1);
+      expect(subject.api.chatMessagePinsUpdated, [
+        (channelId: 9, messageId: 12, pinned: true),
+      ]);
+      expect(subject.chat.stream(site, 9).revision, beforeRevision + 1);
+    });
+
+    test('a refusal rolls back only pin state', () async {
+      final gate = Completer<void>();
+      final subject = build(
+        currentUser: currentUser,
+        pinGate: gate,
+        pinFailure: const WriteException(WriteFailure.forbidden),
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, canManagePins: true));
+      subject.store.put(site, message(12));
+
+      final writing = subject.chat.setMessagePinned(site, 12, pinned: true);
+      await Future<void>.delayed(Duration.zero);
+      expect(subject.store.read<ChatMessage>(site, 12)?.pinned, isTrue);
+      subject.store.update<ChatMessage>(
+        site,
+        12,
+        (message) => message.withReactions(const [
+          ChatReaction(emoji: 'clap', count: 1),
+        ]),
+      );
+      gate.complete();
+
+      expect(await writing, contains("can't post that here"));
+      final restored = subject.store.read<ChatMessage>(site, 12)!;
+      expect(restored.pinned, isFalse);
+      expect(restored.reactions.single.emoji, 'clap');
+    });
+
+    test('does not offer pinning without the serialized capability', () async {
+      final subject = build(currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9));
+      final held = message(12);
+      subject.store.put(site, held);
+
+      expect(subject.chat.canPinMessage(site, held), isFalse);
+      expect(
+        await subject.chat.setMessagePinned(site, 12, pinned: true),
+        'This message can no longer be pinned.',
+      );
+      expect(subject.api.chatMessagePinsUpdated, isEmpty);
+    });
+  });
+
+  group('rebuilding message HTML', () {
+    const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
+
+    test('staff queue a rebuild in a writable channel', () async {
+      final gate = Completer<void>();
+      final held = message(12);
+      final subject = build(currentUser: staff, rebakeGate: gate);
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9));
+      subject.store.put(site, held);
+
+      expect(subject.chat.canRebakeMessage(site, held), isTrue);
+      final writing = subject.chat.rebakeMessage(site, 12);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(subject.chat.messageRebakeWriteInFlight(site, 12), isTrue);
+      expect(subject.api.chatMessagesRebaked, [(channelId: 9, messageId: 12)]);
+      expect(
+        await subject.chat.rebakeMessage(site, 12),
+        'Another message change is still finishing.',
+      );
+
+      gate.complete();
+      expect(await writing, isNull);
+      expect(subject.chat.messageRebakeWriteInFlight(site, 12), isFalse);
+    });
+
+    test('ordinary readers and read-only channels do not expose rebuild', () {
+      final readerSubject = build(currentUser: currentUser);
+      final staffSubject = build(currentUser: staff);
+      addTearDown(readerSubject.chat.dispose);
+      addTearDown(staffSubject.chat.dispose);
+      final held = message(12);
+      readerSubject.store.put(site, channel(9));
+      readerSubject.store.put(site, held);
+      staffSubject.store.put(
+        site,
+        channel(9, status: ChatChannelStatus.readOnly),
+      );
+      staffSubject.store.put(site, held);
+
+      expect(readerSubject.chat.canRebakeMessage(site, held), isFalse);
+      expect(staffSubject.chat.canRebakeMessage(site, held), isFalse);
+    });
+
+    test('a server refusal is surfaced without mutating the message', () async {
+      final held = message(12);
+      final subject = build(
+        currentUser: staff,
+        rebakeFailure: const WriteException(WriteFailure.forbidden),
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9));
+      subject.store.put(site, held);
+
+      expect(await subject.chat.rebakeMessage(site, 12), isNotNull);
+      expect(subject.store.read<ChatMessage>(site, 12), same(held));
+    });
+  });
+
+  group('generating a selected-message transcript', () {
+    test('sorts and de-duplicates loaded message ids for core', () async {
+      final subject = build(quoteMarkdown: '[chat channel="Bugs"]\nHello');
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, message(12));
+      subject.store.put(site, message(14));
+
+      final result = await subject.chat.generateMessageQuote(site, 9, [
+        14,
+        12,
+        14,
+      ]);
+
+      expect(result.error, isNull);
+      expect(result.markdown, '[chat channel="Bugs"]\nHello');
+      expect(subject.api.chatQuotesGenerated.single.channelId, 9);
+      expect(subject.api.chatQuotesGenerated.single.messageIds, [12, 14]);
+    });
+
+    test('rejects cross-channel and overlapping transcript requests', () async {
+      final gate = Completer<void>();
+      final subject = build(quoteGate: gate);
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, message(12));
+      subject.store.put(
+        site,
+        const ChatMessage(
+          id: 30,
+          channelId: 10,
+          cooked: '<p>Other</p>',
+          author: ChatMessageAuthor(id: 2, username: 'sam'),
+        ),
+      );
+
+      expect(
+        (await subject.chat.generateMessageQuote(site, 9, [12, 30])).error,
+        contains('no longer available'),
+      );
+      final first = subject.chat.generateMessageQuote(site, 9, [12]);
+      await Future<void>.delayed(Duration.zero);
+      expect(subject.chat.messageQuoteWriteInFlight(site, 9), isTrue);
+      expect(
+        (await subject.chat.generateMessageQuote(site, 9, [12])).error,
+        contains('still being built'),
+      );
+      gate.complete();
+      expect((await first).error, isNull);
+      expect(subject.chat.messageQuoteWriteInFlight(site, 9), isFalse);
+    });
+  });
+
+  group('the pinned-message snapshot', () {
+    test('stores pin rows, canonical messages, and membership state', () async {
+      final pinned = message(12, pinned: true);
+      final pin = ChatPin(
+        id: 91,
+        messageId: 12,
+        message: pinned,
+        pinnedBy: const ChatMessageAuthor(id: 7, username: 'reader'),
+        excerpt: 'Important answer',
+      );
+      final subject = build(
+        currentUser: currentUser,
+        pins: {
+          9: (
+            pins: [pin],
+            membership: const ChatMembership(
+              following: true,
+              hasUnseenPins: false,
+            ),
+          ),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(
+        site,
+        channel(
+          9,
+          canManagePins: true,
+        ).withPinnedMessagesCount(2, hasUnseenPins: true),
+      );
+
+      await subject.chat.loadPinnedMessages(site, 9);
+
+      final state = subject.chat.pinsListenable(site, 9).value;
+      expect(state.fetched, isTrue);
+      expect(state.pins.single, pin);
+      expect(subject.store.read<ChatMessage>(site, 12), pinned);
+      expect(subject.chat.channel(site, 9)?.pinnedMessagesCount, 1);
+      expect(subject.chat.channel(site, 9)?.membership.hasUnseenPins, isFalse);
+
+      await subject.chat.markPinnedMessagesRead(site, 9);
+      expect(subject.api.chatPinsRead, [9]);
+      expect(subject.chat.channel(site, 9)?.membership.hasUnseenPins, isFalse);
+      expect(
+        subject.chat.channel(site, 9)?.membership.lastViewedPinsAt,
+        isNotNull,
+      );
+    });
+  });
+
+  group('flagging a chat message', () {
+    const notifyModerators = PostFlagType(
+      id: 7,
+      nameKey: 'notify_moderators',
+      name: 'Something else',
+      description: 'Tell the moderators.',
+      requireMessage: true,
+      appliesTo: ['Chat::Message'],
+    );
+    const postOnly = PostFlagType(
+      id: 8,
+      nameKey: 'off_topic',
+      name: 'Off topic',
+      description: 'Only applies to posts.',
+      appliesTo: ['Post'],
+    );
+
+    test('filters the catalog and writes the selected flag once', () async {
+      final held = message(
+        12,
+        authorId: 2,
+        availableFlags: const ['notify_moderators', 'off_topic'],
+      );
+      final subject = build(currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, canFlag: true));
+      subject.store.put(site, held);
+
+      expect(
+        subject.chat.availableChatFlagTypes(site, held, const [
+          postOnly,
+          notifyModerators,
+        ]),
+        const [notifyModerators],
+      );
+      expect(
+        await subject.chat.flagMessage(
+          site,
+          12,
+          notifyModerators,
+          message: 'Please review this chat message.',
+        ),
+        isNull,
+      );
+
+      expect(subject.api.chatMessagesFlagged, [
+        (
+          channelId: 9,
+          messageId: 12,
+          flagTypeId: 7,
+          message: 'Please review this chat message.',
+        ),
+      ]);
+      expect(subject.store.read<ChatMessage>(site, 12)?.userFlagStatus, 0);
+      expect(
+        subject.chat.canFlagMessage(
+          site,
+          subject.store.read<ChatMessage>(site, 12)!,
+        ),
+        isFalse,
+      );
+    });
+
+    test('does not flag the reader’s own message', () async {
+      final held = message(
+        12,
+        authorId: currentUser.id!,
+        availableFlags: const ['notify_moderators'],
+      );
+      final subject = build(currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, canFlag: true));
+      subject.store.put(site, held);
+
+      expect(subject.chat.canFlagMessage(site, held), isFalse);
+      expect(
+        await subject.chat.flagMessage(site, 12, notifyModerators),
+        'This message can no longer be flagged.',
+      );
+      expect(subject.api.chatMessagesFlagged, isEmpty);
+    });
+
+    test('a self_flagged event removes the action from a held row', () async {
+      final held = message(
+        12,
+        authorId: 2,
+        availableFlags: const ['notify_moderators'],
+      );
+      final subject = build(
+        currentUser: currentUser,
+        messages: {
+          key(9): page([held]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, canFlag: true));
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'self_flagged',
+        'chat_message_id': 12,
+        'user_flag_status': 2,
+      });
+
+      expect(subject.store.read<ChatMessage>(site, 12)?.userFlagStatus, 2);
+      expect(
+        subject.chat.canFlagMessage(
+          site,
+          subject.store.read<ChatMessage>(site, 12)!,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('deleting and restoring a message', () {
+    test('moves a moderator selection to another public channel', () async {
+      final source = channel(9, canModerate: true);
+      final destination = channel(10, title: 'Support');
+      final first = message(12, raw: 'first');
+      final second = message(14, raw: 'second');
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(public: [source, destination], direct: const []),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+      subject.store
+        ..put(site, first)
+        ..put(site, second);
+
+      expect(subject.chat.canMoveMessages(site, 9, [12, 14]), isTrue);
+      expect(
+        subject.chat.messageMoveDestinations(site, 9).map((item) => item.id),
+        [10],
+      );
+      final result = await subject.chat.moveMessages(site, 9, 10, [14, 12]);
+
+      expect(result.error, isNull);
+      expect(result.move?.destinationChannelId, 10);
+      expect(result.move?.firstMovedMessageId, 1000);
+      expect(subject.api.chatMessageMoves.single.channelId, 9);
+      expect(subject.api.chatMessageMoves.single.destinationChannelId, 10);
+      expect(subject.api.chatMessageMoves.single.messageIds, [12, 14]);
+      expect(subject.store.read<ChatMessage>(site, 12)?.isDeleted, isTrue);
+      expect(subject.store.read<ChatMessage>(site, 14)?.isDeleted, isTrue);
+    });
+
+    test('does not offer moving from an ordinary or direct channel', () async {
+      final held = message(12);
+      final subject = build(currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+      subject.store
+        ..put(site, channel(9))
+        ..put(site, held);
+      expect(subject.chat.canMoveMessages(site, 9, [12]), isFalse);
+
+      subject.store.put(
+        site,
+        channel(9, kind: ChatChannelKind.directMessage, canModerate: true),
+      );
+      expect(subject.chat.canMoveMessages(site, 9, [12]), isFalse);
+    });
+
+    test('bulk-deletes one validated selection and reprojects it', () async {
+      final first = message(12, raw: 'first', authorId: 7);
+      final second = message(14, raw: 'second', authorId: 7);
+      final subject = build(
+        currentUser: currentUser,
+        messages: {
+          key(9): page([first, second]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, canDeleteSelf: true));
+      await subject.chat.openChannel(site, 9);
+      final beforeRevision = subject.chat.stream(site, 9).revision;
+
+      expect(await subject.chat.deleteMessages(site, 9, [14, 12, 14]), isNull);
+
+      expect(subject.api.chatMessageBatchesDeleted.single.channelId, 9);
+      expect(subject.api.chatMessageBatchesDeleted.single.messageIds, [12, 14]);
+      expect(subject.store.read<ChatMessage>(site, 12)?.isDeleted, isTrue);
+      expect(subject.store.read<ChatMessage>(site, 14)?.isDeleted, isTrue);
+      expect(subject.chat.stream(site, 9).revision, beforeRevision + 2);
+    });
+
+    test(
+      'bulk delete is all-or-nothing when one message is forbidden',
+      () async {
+        final mine = message(12, raw: 'mine', authorId: 7);
+        final theirs = message(14, raw: 'theirs', authorId: 2);
+        final subject = build(currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        subject.store
+          ..put(site, channel(9, canDeleteSelf: true))
+          ..put(site, mine)
+          ..put(site, theirs);
+
+        expect(subject.chat.canDeleteMessages(site, 9, [12, 14]), isFalse);
+        expect(
+          await subject.chat.deleteMessages(site, 9, [12, 14]),
+          contains('can no longer be deleted'),
+        );
+        expect(subject.api.chatMessageBatchesDeleted, isEmpty);
+        expect(subject.store.read<ChatMessage>(site, 12), same(mine));
+        expect(subject.store.read<ChatMessage>(site, 14), same(theirs));
+      },
+    );
+
+    test('deletes the author’s message and reprojects its stream', () async {
+      final held = message(12, raw: 'mine', authorId: 7);
+      final subject = build(
+        currentUser: currentUser,
+        messages: {
+          key(9): page([held]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, canDeleteSelf: true));
+      await subject.chat.openChannel(site, 9);
+      final beforeRevision = subject.chat.stream(site, 9).revision;
+
+      expect(subject.chat.canDeleteMessage(site, held), isTrue);
+      expect(await subject.chat.deleteMessage(site, 12), isNull);
+
+      final deleted = subject.store.read<ChatMessage>(site, 12)!;
+      expect(deleted.isDeleted, isTrue);
+      expect(deleted.deletedById, 7);
+      expect(subject.api.chatMessagesDeleted, [(channelId: 9, messageId: 12)]);
+      expect(subject.chat.stream(site, 9).revision, beforeRevision + 1);
+    });
+
+    test('restores a message the author deleted', () async {
+      final deleted = message(
+        12,
+        raw: 'mine',
+        authorId: 7,
+        deletedAt: DateTime.utc(2026, 8, 25),
+        deletedById: 7,
+      );
+      final subject = build(currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, canDeleteSelf: true));
+      subject.store.put(site, deleted);
+
+      expect(subject.chat.canRestoreMessage(site, deleted), isTrue);
+      expect(await subject.chat.restoreMessage(site, 12), isNull);
+
+      final restored = subject.store.read<ChatMessage>(site, 12)!;
+      expect(restored.isDeleted, isFalse);
+      expect(restored.deletedById, isNull);
+      expect(subject.api.chatMessagesRestored, [(channelId: 9, messageId: 12)]);
+    });
+
+    test('does not restore an author’s message deleted by staff', () async {
+      final deleted = message(
+        12,
+        raw: 'mine',
+        authorId: 7,
+        deletedAt: DateTime.utc(2026, 8, 25),
+        deletedById: 2,
+      );
+      final subject = build(currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, canDeleteSelf: true));
+      subject.store.put(site, deleted);
+
+      expect(subject.chat.canRestoreMessage(site, deleted), isFalse);
+      expect(
+        await subject.chat.restoreMessage(site, 12),
+        'This message can no longer be restored.',
+      );
+      expect(subject.api.chatMessagesRestored, isEmpty);
+    });
+
+    test(
+      'a moderator can delete and restore another author’s message',
+      () async {
+        const moderator = DiscourseUser(id: 7, username: 'reader', staff: true);
+        final held = message(12, raw: 'theirs', authorId: 2);
+        final subject = build(currentUser: moderator);
+        addTearDown(subject.chat.dispose);
+        subject.store.put(
+          site,
+          channel(
+            9,
+            canModerate: true,
+            canDeleteSelf: true,
+            canDeleteOthers: true,
+          ),
+        );
+        subject.store.put(site, held);
+
+        expect(await subject.chat.deleteMessage(site, 12), isNull);
+        expect(
+          subject.chat.canRestoreMessage(
+            site,
+            subject.store.read<ChatMessage>(site, 12)!,
+          ),
+          isTrue,
+        );
+        expect(await subject.chat.restoreMessage(site, 12), isNull);
+        expect(subject.api.chatMessagesDeleted, hasLength(1));
+        expect(subject.api.chatMessagesRestored, hasLength(1));
+      },
+    );
+
+    test('a refusal leaves the visible message intact', () async {
+      final held = message(12, raw: 'mine', authorId: 7);
+      final subject = build(
+        currentUser: currentUser,
+        messageMutationFailure: const WriteException(WriteFailure.forbidden),
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, canDeleteSelf: true));
+      subject.store.put(site, held);
+
+      expect(await subject.chat.deleteMessage(site, 12), isNotNull);
+      expect(subject.store.read<ChatMessage>(site, 12), same(held));
+    });
   });
 
   group('reacting to a message', () {
@@ -3359,6 +4634,79 @@ void main() {
     );
   });
 
+  group('live pins', () {
+    test(
+      'a channel pin updates its count when the message is outside the window',
+      () async {
+        final subject = build(
+          messages: {
+            key(9): page([message(1)]),
+          },
+        );
+        final tracker = attachTracker(subject.chat);
+        subject.store.put(
+          site,
+          channel(9).withPinnedMessagesCount(3, hasUnseenPins: false),
+        );
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        tracker.deliverPluginMessage('/chat/9', {
+          'type': 'pin',
+          'chat_message_id': 99,
+          'pinned_by_id': 2,
+          'pinned_message_count': 4,
+        });
+
+        expect(subject.store.read<ChatMessage>(site, 99), isNull);
+        expect(subject.chat.channel(site, 9)?.pinnedMessagesCount, 4);
+        expect(subject.chat.channel(site, 9)?.membership.hasUnseenPins, isTrue);
+      },
+    );
+
+    test('pin and unpin events update a held row and its grouping', () async {
+      final subject = build(
+        messages: {
+          key(9): page([message(1), message(2, minute: 1)]),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      subject.store.put(site, channel(9));
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+      final before = subject.chat.stream(site, 9).revision;
+      subject.store.put(
+        site,
+        subject.chat.channel(site, 9)!.withPinnedMessagesCount(3),
+      );
+
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'pin',
+        'chat_message_id': 2,
+        'pinned_by_id': currentUser.id,
+        'pinned_message_count': 4,
+      });
+
+      expect(subject.store.read<ChatMessage>(site, 2)?.pinned, isTrue);
+      expect(subject.chat.stream(site, 9).revision, before + 1);
+      expect(subject.chat.channel(site, 9)?.pinnedMessagesCount, 4);
+      expect(subject.chat.channel(site, 9)?.membership.hasUnseenPins, isTrue);
+
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'unpin',
+        'chat_message_id': 2,
+        'unpinned_by_id': currentUser.id,
+        'pinned_message_count': 3,
+      });
+
+      expect(subject.store.read<ChatMessage>(site, 2)?.pinned, isFalse);
+      expect(subject.chat.stream(site, 9).revision, before + 2);
+      expect(subject.chat.channel(site, 9)?.pinnedMessagesCount, 3);
+    });
+  });
+
   group('live deletes and restores', () {
     Map<String, dynamic> deleteEvent(int id) => {
       'type': 'delete',
@@ -3468,6 +4816,9 @@ void main() {
       'delete',
       'bulk_delete',
       'reaction',
+      'pin',
+      'unpin',
+      'self_flagged',
       'thread_created',
       'update_thread_original_message',
       'channel',

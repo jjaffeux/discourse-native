@@ -50,6 +50,35 @@ Map<String, dynamic> threadJson({bool detail = true}) => {
 };
 
 void main() {
+  test('reads an account thread page with tracking and embedded channels', () {
+    final payload = {
+      'meta': {'load_more_url': '/chat/api/me/threads?limit=10&offset=10'},
+      'tracking': {
+        '22': {'unread_count': 3, 'mention_count': 1},
+      },
+      'threads': [
+        {
+          ...threadJson(),
+          'channel': {
+            'id': 9,
+            'title': 'Support',
+            'chatable_type': 'Category',
+            'current_user_membership': {'following': true},
+          },
+        },
+      ],
+    };
+
+    final page = ChatThreadPage.fromJson(payload, site);
+
+    expect(page.hasMore, isTrue);
+    expect(page.threads.single.id, 22);
+    expect(page.threads.single.tracking.unreadCount, 3);
+    expect(page.threads.single.tracking.mentionCount, 1);
+    expect(page.channels.single.title, 'Support');
+    expect(page.channels.single.membership.following, isTrue);
+  });
+
   test('reads thread detail, membership, original message, and preview', () {
     final thread = ChatThread.fromJson(threadJson(), site);
 

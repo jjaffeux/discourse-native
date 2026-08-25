@@ -3,11 +3,13 @@ import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
@@ -159,6 +161,185 @@ void main() {
 
     expect(depths, contains(greaterThan(0)));
     expect(api.olderSites, isEmpty);
+  });
+
+  testWidgets('selects messages and copies core transcript Markdown', (
+    tester,
+  ) async {
+    final copied = <String>[];
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied.add(
+          (call.arguments as Map<Object?, Object?>)['text']! as String,
+        );
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [_messagesPage(1, 2)],
+      },
+      chatQuoteMarkdown: '[chat channel="Chat"]\nSelected\n[/chat]',
+    );
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    controller.store.put(firstSite, _channel(lastRead: 2));
+
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byKey(const ValueKey('chat-message-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<Checkbox>(
+            find.byKey(const ValueKey('chat-message-selector-2')),
+          )
+          .value,
+      isTrue,
+    );
+    expect(find.byKey(const ValueKey('chat-message-selection-bar')), findsOne);
+    expect(find.byKey(const ValueKey('chat-quote-selection')), findsOne);
+    expect(find.text('1 message selected'), findsOne);
+
+    await tester.tap(find.byKey(const ValueKey('chat-message-selector-1')));
+    await tester.pump();
+    expect(find.text('2 messages selected'), findsOne);
+    await tester.tap(find.byKey(const ValueKey('chat-copy-selection')));
+    await tester.pumpAndSettle();
+
+    expect(api.chatQuotesGenerated.single.channelId, 9);
+    expect(api.chatQuotesGenerated.single.messageIds, [1, 2]);
+    expect(copied, ['[chat channel="Chat"]\nSelected\n[/chat]']);
+    expect(find.text('Messages copied!'), findsOne);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('chat-cancel-selection')));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('chat-message-selection-bar')),
+      findsNothing,
+    );
+    expect(find.byType(Checkbox), findsNothing);
+  });
+
+  testWidgets('confirms and bulk-deletes an allowed message selection', (
+    tester,
+  ) async {
+    const user = DiscourseUser(id: 2, username: 'sam');
+    final api = _ChatApi(
+      user: user,
+      openPages: {
+        firstSite: [_messagesPage(1, 2)],
+      },
+    );
+    final controller = await _controller(
+      api,
+      sites: const [firstSite],
+      user: user,
+    );
+    addTearDown(controller.dispose);
+    controller.store.put(firstSite, _channel(lastRead: 2, canDeleteSelf: true));
+
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byKey(const ValueKey('chat-message-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('chat-message-selector-1')));
+    await tester.pump();
+
+    final deleteButton = find.byKey(const ValueKey('chat-delete-selection'));
+    expect(tester.widget<IconButton>(deleteButton).onPressed, isNotNull);
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Delete selected messages?'), findsOne);
+    expect(find.text('Are you sure you want to delete 2 messages?'), findsOne);
+    await tester.tap(
+      find.byKey(const ValueKey('confirm-delete-chat-messages')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(api.chatMessageBatchesDeleted.single.channelId, 9);
+    expect(api.chatMessageBatchesDeleted.single.messageIds, [1, 2]);
+    expect(find.text('2 messages deleted'), findsOne);
+    expect(find.text('Messages deleted.'), findsOne);
+    expect(tester.widget<IconButton>(deleteButton).onPressed, isNull);
+  });
+
+  testWidgets('moves a moderator selection and opens its destination', (
+    tester,
+  ) async {
+    const user = DiscourseUser(id: 7, username: 'moderator', staff: true);
+    const source = ChatChannel(
+      id: 9,
+      title: 'Bugs',
+      kind: ChatChannelKind.category,
+      canModerate: true,
+      membership: ChatMembership(following: true),
+    );
+    const destination = ChatChannel(
+      id: 10,
+      title: 'Support',
+      kind: ChatChannelKind.category,
+      membership: ChatMembership(following: true),
+    );
+    final api = _ChatApi(
+      user: user,
+      chatChannelsBySite: const {
+        firstSite: ChatChannels(public: [source, destination], direct: []),
+      },
+      chatMoveFirstMessageId: 101,
+      openPages: {
+        firstSite: [_messagesPage(1, 2)],
+      },
+    );
+    final controller = await _controller(
+      api,
+      sites: const [firstSite],
+      user: user,
+    );
+    addTearDown(controller.dispose);
+    await controller.chat.loadChannels(firstSite);
+    expect(controller.openChatChannel(9), isTrue);
+
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byKey(const ValueKey('chat-message-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('chat-message-selector-1')));
+    await tester.pump();
+
+    final moveButton = find.byKey(const ValueKey('chat-move-selection'));
+    expect(tester.widget<IconButton>(moveButton).onPressed, isNotNull);
+    await tester.tap(moveButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Move messages'), findsOne);
+    await tester.tap(find.byKey(const ValueKey('chat-move-destination')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Support').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('confirm-move-chat-messages')));
+    await tester.pumpAndSettle();
+
+    expect(api.chatMessageMoves.single.channelId, 9);
+    expect(api.chatMessageMoves.single.destinationChannelId, 10);
+    expect(api.chatMessageMoves.single.messageIds, [1, 2]);
+    expect(controller.currentContent?.id, 'chat-c-10');
+    expect(
+      find.byKey(const ValueKey('chat-message-selection-bar')),
+      findsNothing,
+    );
   });
 
   testWidgets('a queued history page cannot target a replacement window', (
@@ -336,6 +517,73 @@ void main() {
     },
   );
 
+  testWidgets('the pinned bar jumps to a pin and opens the complete list', (
+    tester,
+  ) async {
+    final first = _message(2).withPinned(true);
+    final second = _message(3).withPinned(true);
+    final api = _ChatApi(
+      user: const DiscourseUser(id: 7, username: 'reader'),
+      openPages: {
+        firstSite: [_messagesPage(1, 3), _messagesPage(1, 3)],
+      },
+      chatPinsByChannel: {
+        9: (
+          pins: [
+            ChatPin(
+              id: 91,
+              messageId: 2,
+              message: first,
+              pinnedBy: const ChatMessageAuthor(id: 4, username: 'sam'),
+              excerpt: 'First important answer',
+            ),
+            ChatPin(
+              id: 92,
+              messageId: 3,
+              message: second,
+              pinnedBy: const ChatMessageAuthor(id: 7, username: 'reader'),
+              excerpt: 'Newest important answer',
+            ),
+          ],
+          membership: const ChatMembership(
+            following: true,
+            hasUnseenPins: true,
+          ),
+        ),
+      },
+    );
+    final controller = await _controller(
+      api,
+      sites: const [firstSite],
+      user: const DiscourseUser(id: 7, username: 'reader'),
+    );
+    addTearDown(controller.dispose);
+    controller.store.put(
+      firstSite,
+      _channel(lastRead: 3, pinnedMessagesCount: 2, hasUnseenPins: true),
+    );
+
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pinned message'), findsOneWidget);
+    expect(find.text('Newest important answer'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('chat-pinned-message-bar')));
+    await tester.pumpAndSettle();
+    expect(api.targetMessageIds.last, 3);
+
+    await tester.tap(find.byTooltip('Pinned messages'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pinned messages'), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-pin-91')), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-pin-92')), findsOneWidget);
+    expect(api.chatPinsRead, [9]);
+    expect(
+      controller.chat.channel(firstSite, 9)?.membership.hasUnseenPins,
+      isFalse,
+    );
+  });
+
   testWidgets('the ordinary last-read anchor is never highlighted', (
     tester,
   ) async {
@@ -434,7 +682,9 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byKey(ChatMessageTile.actionsKey(1)), findsNothing);
+      // Copy link remains available on every canonical message even when the
+      // channel becomes read-only; only the reply affordance is withdrawn.
+      expect(find.byKey(ChatMessageTile.actionsKey(1)), findsOneWidget);
       expect(find.byKey(ChatMessageTile.actionsKey(2)), findsOneWidget);
     },
   );
@@ -534,6 +784,54 @@ void main() {
 
     expect(find.textContaining('Message 2', findRichText: true), findsNothing);
     expect(find.text('1 message deleted'), findsOneWidget);
+  });
+
+  testWidgets('a deleted run restores the exact message it retained', (
+    tester,
+  ) async {
+    const reader = DiscourseUser(id: 7, username: 'reader');
+    final deleted = _message(
+      2,
+      authorId: 7,
+      deletedAt: DateTime.utc(2026, 8, 25),
+      deletedById: 7,
+    );
+    final api = _ChatApi(
+      user: reader,
+      openPages: {
+        firstSite: [
+          (
+            messages: [deleted],
+            canLoadMorePast: false,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          ),
+        ],
+      },
+    );
+    final controller = await _controller(
+      api,
+      sites: const [firstSite],
+      user: reader,
+    );
+    addTearDown(controller.dispose);
+    controller.store.put(firstSite, _channel(lastRead: 2, canDeleteSelf: true));
+
+    await controller.chat.openChannel(firstSite, 9);
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 message deleted'), findsOneWidget);
+    expect(find.text('Restore'), findsOneWidget);
+    await tester.tap(find.text('Restore'));
+    await tester.pumpAndSettle();
+
+    expect(api.chatMessagesRestored, [(channelId: 9, messageId: 2)]);
+    expect(find.text('1 message deleted'), findsNothing);
+    expect(
+      find.textContaining('Message 2', findRichText: true),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a live message does not move a reader scrolled into history', (
@@ -733,6 +1031,7 @@ Future<ShellController> _controller(
   _ChatApi api, {
   List<String> sites = const ['https://one.example', 'https://two.example'],
   Store? store,
+  DiscourseUser? user,
 }) async {
   final authenticator = _SynchronousAuthenticator();
   for (final siteUrl in sites) {
@@ -745,6 +1044,7 @@ Future<ShellController> _controller(
           url: siteUrl,
           title: Uri.parse(siteUrl).host,
           apiVersion: 4,
+          user: user,
         ),
     ]),
     api: api,
@@ -821,6 +1121,11 @@ typedef _FailedOpen = ({String siteUrl, int number});
 
 final class _ChatApi extends FakeDiscourseApi {
   _ChatApi({
+    super.user,
+    super.chatChannelsBySite,
+    super.chatPinsByChannel,
+    super.chatQuoteMarkdown,
+    super.chatMoveFirstMessageId,
     required this.openPages,
     this.failNewer = false,
     this.gatedOpen,
@@ -893,11 +1198,22 @@ final class _CountingStore extends Store {
   }
 }
 
-ChatChannel _channel({required int lastRead}) => ChatChannel(
+ChatChannel _channel({
+  required int lastRead,
+  bool canDeleteSelf = false,
+  int pinnedMessagesCount = 0,
+  bool hasUnseenPins = false,
+}) => ChatChannel(
   id: 9,
   title: 'Chat',
   kind: ChatChannelKind.category,
-  membership: ChatMembership(following: true, lastReadMessageId: lastRead),
+  canDeleteSelf: canDeleteSelf,
+  pinnedMessagesCount: pinnedMessagesCount,
+  membership: ChatMembership(
+    following: true,
+    lastReadMessageId: lastRead,
+    hasUnseenPins: hasUnseenPins,
+  ),
   threadingEnabled: true,
 );
 
@@ -918,12 +1234,17 @@ ChatMessage _message(
   String? cooked,
   ChatThreadPreview? thread,
   DateTime? createdAt,
+  int authorId = 2,
+  DateTime? deletedAt,
+  int? deletedById,
 }) => ChatMessage(
   id: id,
   channelId: 9,
   cooked: cooked ?? '<p>Message $id</p>',
-  author: const ChatMessageAuthor(id: 2, username: 'sam'),
+  author: ChatMessageAuthor(id: authorId, username: 'sam'),
   createdAt: createdAt ?? DateTime.utc(2026, 1, 1).add(Duration(minutes: id)),
+  deletedAt: deletedAt,
+  deletedById: deletedById,
   threadId: thread?.threadId,
   thread: thread,
 );

@@ -292,6 +292,7 @@ enum ChatUploadKind {
 @immutable
 class ChatUpload {
   const ChatUpload({
+    this.id = 0,
     required this.url,
     required this.originalFilename,
     required this.kind,
@@ -305,6 +306,7 @@ class ChatUpload {
   factory ChatUpload.fromJson(Map<String, dynamic> json) {
     final filename = jsonString(json['original_filename']);
     return ChatUpload(
+      id: jsonInt(json['id']),
       url: jsonString(json['url']),
       originalFilename: filename,
       kind: ChatUploadKind.read(jsonText(json['extension']), filename),
@@ -320,6 +322,7 @@ class ChatUpload {
 
   factory ChatUpload.fromComposerUpload(ComposerUploadResult upload) =>
       ChatUpload(
+        id: upload.id,
         url: upload.url,
         originalFilename: upload.originalFilename,
         kind: ChatUploadKind.read(null, upload.originalFilename),
@@ -328,6 +331,8 @@ class ChatUpload {
         height: upload.thumbnailHeight ?? upload.height,
       );
 
+  /// Needed when an edit retains this attachment in `upload_ids`.
+  final int id;
   final String url;
   final String originalFilename;
   final ChatUploadKind kind;
@@ -354,6 +359,7 @@ class ChatUpload {
   @override
   bool operator ==(Object other) =>
       other is ChatUpload &&
+      other.id == id &&
       other.url == url &&
       other.originalFilename == originalFilename &&
       other.kind == kind &&
@@ -366,6 +372,7 @@ class ChatUpload {
   @override
   int get hashCode => Object.hash(
     url,
+    id,
     originalFilename,
     kind,
     thumbnailUrl,
@@ -567,8 +574,13 @@ class ChatMessage with Storable<ChatMessage> {
     required this.channelId,
     required this.cooked,
     required this.author,
+    this.raw = '',
     this.createdAt,
     this.deletedAt,
+    this.deletedById,
+    this.pinned = false,
+    this.availableFlags = const [],
+    this.userFlagStatus,
     this.edited = false,
     this.isWebhook = false,
     this.replyTo,
@@ -606,6 +618,9 @@ class ChatMessage with Storable<ChatMessage> {
   /// arbitrary number of message trees.
   static const int maximumPageSize = 50;
 
+  /// Native preview and edit ceiling; core's default maximum is 20,000.
+  static const int maximumEditLength = 20000;
+
   /// A row inserted before credentials or the network are awaited.
   ///
   /// Its negative [id] belongs only to the native store. [stagedId] is the
@@ -629,6 +644,7 @@ class ChatMessage with Storable<ChatMessage> {
       channelId: channelId,
       cooked: '',
       author: author,
+      raw: raw,
       createdAt: createdAt,
       threadId: threadId,
       optimisticRaw: raw,
@@ -652,10 +668,20 @@ class ChatMessage with Storable<ChatMessage> {
       // markdown, the mentions, the oneboxes and the emoji.
       cooked: jsonString(json['cooked']),
       author: ChatMessageAuthor.fromJson(json['user'], siteUrl),
+      // Core keeps the source alongside cooked HTML so an edit starts from
+      // Markdown rather than trying to reverse rendered output.
+      raw: jsonString(json['message']),
       createdAt: jsonDate(json['created_at']),
       // Only ever sent to someone allowed to see it — for everyone else a
       // trashed message is simply not in the stream.
       deletedAt: jsonDate(json['deleted_at']),
+      deletedById: jsonIntOrNull(json['deleted_by_id']),
+      pinned: json['pinned'] == true,
+      availableFlags: List.unmodifiable([
+        for (final value in jsonArray(json['available_flags']).take(20))
+          ?jsonText(value),
+      ]),
+      userFlagStatus: jsonIntOrNull(json['user_flag_status']),
       // The key is written only when it is true and dropped otherwise, so
       // absence is the answer rather than a missing field. Same shape as
       // `actions_summary`.
@@ -780,10 +806,15 @@ class ChatMessage with Storable<ChatMessage> {
   final int channelId;
   final String cooked;
   final ChatMessageAuthor author;
+  final String raw;
   final DateTime? createdAt;
 
   /// When it was trashed, or null. Present only for a reader who may see it.
   final DateTime? deletedAt;
+  final int? deletedById;
+  final bool pinned;
+  final List<String> availableFlags;
+  final int? userFlagStatus;
 
   final bool edited;
 
@@ -890,8 +921,13 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
+    deletedById: deletedById,
+    pinned: pinned,
+    availableFlags: availableFlags,
+    userFlagStatus: userFlagStatus,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -920,8 +956,13 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
+    deletedById: deletedById,
+    pinned: pinned,
+    availableFlags: availableFlags,
+    userFlagStatus: userFlagStatus,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -950,8 +991,13 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: canonical.channelId,
     cooked: canonical.cooked,
     author: canonical.author,
+    raw: canonical.raw,
     createdAt: canonical.createdAt,
     deletedAt: canonical.deletedAt,
+    deletedById: canonical.deletedById,
+    pinned: canonical.pinned,
+    availableFlags: canonical.availableFlags,
+    userFlagStatus: canonical.userFlagStatus,
     edited: canonical.edited,
     isWebhook: canonical.isWebhook,
     replyTo: canonical.replyTo,
@@ -974,8 +1020,13 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
+    deletedById: deletedById,
+    pinned: pinned,
+    availableFlags: availableFlags,
+    userFlagStatus: userFlagStatus,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -1000,8 +1051,13 @@ class ChatMessage with Storable<ChatMessage> {
     channelId: channelId,
     cooked: cooked,
     author: author,
+    raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
+    deletedById: deletedById,
+    pinned: pinned,
+    availableFlags: availableFlags,
+    userFlagStatus: userFlagStatus,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -1021,13 +1077,22 @@ class ChatMessage with Storable<ChatMessage> {
   );
 
   /// Replaces only the server deletion timestamp.
-  ChatMessage withDeletedAt(DateTime? deletedAt) => ChatMessage(
+  ChatMessage withDeletedAt(
+    DateTime? deletedAt, {
+    int? deletedById,
+    bool clearDeletedById = false,
+  }) => ChatMessage(
     id: id,
     channelId: channelId,
     cooked: cooked,
     author: author,
+    raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
+    deletedById: clearDeletedById ? null : deletedById ?? this.deletedById,
+    pinned: pinned,
+    availableFlags: availableFlags,
+    userFlagStatus: userFlagStatus,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -1046,13 +1111,83 @@ class ChatMessage with Storable<ChatMessage> {
     deliveryUncertain: deliveryUncertain,
   );
 
+  /// Projects an edit while the canonical cooked echo is in flight.
+  ChatMessage withPendingEdit(String raw, ChatPreviewResult preview) =>
+      ChatMessage(
+        id: id,
+        channelId: channelId,
+        cooked: cooked,
+        author: author,
+        raw: raw,
+        createdAt: createdAt,
+        deletedAt: deletedAt,
+        deletedById: deletedById,
+        pinned: pinned,
+        availableFlags: availableFlags,
+        userFlagStatus: userFlagStatus,
+        edited: true,
+        isWebhook: isWebhook,
+        replyTo: replyTo,
+        threadId: threadId,
+        thread: thread,
+        bookmark: bookmark,
+        reactions: reactions,
+        uploads: uploads,
+        optimisticRaw: raw,
+        preview: preview,
+        stagedId: stagedId,
+        serverId: serverId,
+        canonicalReceived: false,
+        delivery: delivery,
+        sendError: sendError,
+        deliveryUncertain: deliveryUncertain,
+      );
+
+  /// Restores only editable presentation state after a rejected write.
+  /// Reactions, bookmarks, deletion state and thread previews may have changed
+  /// concurrently and therefore remain those of this message.
+  ChatMessage withContentOf(ChatMessage source) => ChatMessage(
+    id: id,
+    channelId: channelId,
+    cooked: source.cooked,
+    author: author,
+    raw: source.raw,
+    createdAt: createdAt,
+    deletedAt: deletedAt,
+    deletedById: deletedById,
+    pinned: pinned,
+    availableFlags: availableFlags,
+    userFlagStatus: userFlagStatus,
+    edited: source.edited,
+    isWebhook: isWebhook,
+    replyTo: replyTo,
+    threadId: threadId,
+    thread: thread,
+    bookmark: bookmark,
+    reactions: reactions,
+    uploads: uploads,
+    optimisticRaw: source.optimisticRaw,
+    preview: source.preview,
+    stagedId: stagedId,
+    serverId: serverId,
+    canonicalReceived: source.canonicalReceived,
+    delivery: delivery,
+    sendError: sendError,
+    deliveryUncertain: deliveryUncertain,
+  );
+
   ChatMessage withBookmark(Bookmark? bookmark) => ChatMessage(
     id: id,
     channelId: channelId,
     cooked: cooked,
     author: author,
+    raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
+    deletedById: deletedById,
+    pinned: pinned,
+    availableFlags: availableFlags,
+    userFlagStatus: userFlagStatus,
     edited: edited,
     isWebhook: isWebhook,
     replyTo: replyTo,
@@ -1073,6 +1208,68 @@ class ChatMessage with Storable<ChatMessage> {
 
   ChatMessage withBookmarkOf(ChatMessage other) => withBookmark(other.bookmark);
 
+  /// Projects the server's pin state without disturbing a concurrent edit,
+  /// reaction, bookmark, deletion, or thread-preview update.
+  ChatMessage withPinned(bool pinned) => ChatMessage(
+    id: id,
+    channelId: channelId,
+    cooked: cooked,
+    author: author,
+    raw: raw,
+    createdAt: createdAt,
+    deletedAt: deletedAt,
+    deletedById: deletedById,
+    pinned: pinned,
+    availableFlags: availableFlags,
+    userFlagStatus: userFlagStatus,
+    edited: edited,
+    isWebhook: isWebhook,
+    replyTo: replyTo,
+    threadId: threadId,
+    thread: thread,
+    bookmark: bookmark,
+    reactions: reactions,
+    uploads: uploads,
+    optimisticRaw: optimisticRaw,
+    preview: preview,
+    stagedId: stagedId,
+    serverId: serverId,
+    canonicalReceived: canonicalReceived,
+    delivery: delivery,
+    sendError: sendError,
+    deliveryUncertain: deliveryUncertain,
+  );
+
+  ChatMessage withUserFlagStatus(int status) => ChatMessage(
+    id: id,
+    channelId: channelId,
+    cooked: cooked,
+    author: author,
+    raw: raw,
+    createdAt: createdAt,
+    deletedAt: deletedAt,
+    deletedById: deletedById,
+    pinned: pinned,
+    availableFlags: availableFlags,
+    userFlagStatus: status,
+    edited: edited,
+    isWebhook: isWebhook,
+    replyTo: replyTo,
+    threadId: threadId,
+    thread: thread,
+    bookmark: bookmark,
+    reactions: reactions,
+    uploads: uploads,
+    optimisticRaw: optimisticRaw,
+    preview: preview,
+    stagedId: stagedId,
+    serverId: serverId,
+    canonicalReceived: canonicalReceived,
+    delivery: delivery,
+    sendError: sendError,
+    deliveryUncertain: deliveryUncertain,
+  );
+
   /// Paging windows overlap at their boundary; an unchanged copy should not
   /// wake the row already drawing this record.
   @override
@@ -1086,8 +1283,13 @@ class ChatMessage with Storable<ChatMessage> {
           other.channelId == channelId &&
           other.cooked == cooked &&
           other.author == author &&
+          other.raw == raw &&
           other.createdAt == createdAt &&
           other.deletedAt == deletedAt &&
+          other.deletedById == deletedById &&
+          other.pinned == pinned &&
+          listEquals(other.availableFlags, availableFlags) &&
+          other.userFlagStatus == userFlagStatus &&
           other.edited == edited &&
           other.isWebhook == isWebhook &&
           other.replyTo == replyTo &&
@@ -1111,8 +1313,15 @@ class ChatMessage with Storable<ChatMessage> {
     channelId,
     cooked,
     author,
+    raw,
     createdAt,
-    deletedAt,
+    Object.hash(
+      deletedAt,
+      deletedById,
+      pinned,
+      Object.hashAll(availableFlags),
+      userFlagStatus,
+    ),
     edited,
     isWebhook,
     replyTo,
@@ -1125,8 +1334,7 @@ class ChatMessage with Storable<ChatMessage> {
     preview,
     stagedId,
     serverId,
-    canonicalReceived,
-    Object.hash(delivery, sendError, deliveryUncertain),
+    Object.hash(canonicalReceived, delivery, sendError, deliveryUncertain),
   );
 
   @override

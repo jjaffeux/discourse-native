@@ -30,6 +30,7 @@ import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
+import '../plugins/chat/chat_pin.dart';
 import '../plugins/chat/chat_reactors.dart';
 import '../plugins/chat/chat_search.dart';
 import '../plugins/chat/chat_thread.dart';
@@ -3228,6 +3229,576 @@ class DiscourseApi
     return ChatChannel.fromJson(channel, siteUrl);
   }
 
+  /// Updates staff-editable channel metadata and returns the authoritative
+  /// channel serializer. An empty description is intentionally sent: core
+  /// normalizes it to null, which is how its own editor removes one.
+  @override
+  Future<ChatChannel> updateChatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? name,
+    String? slug,
+    String? description,
+    bool? threadingEnabled,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    if (name == null &&
+        slug == null &&
+        description == null &&
+        threadingEnabled == null) {
+      throw ArgumentError('At least one channel field is required.');
+    }
+    final trimmedName = name?.trim();
+    final trimmedSlug = slug?.trim();
+    if (slug != null && (trimmedSlug == null || trimmedSlug.isEmpty)) {
+      throw ArgumentError.value(slug, 'slug', 'must not be empty');
+    }
+    final body = await _write(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'channel': {
+          'name': ?(name == null ? null : trimmedName),
+          'slug': ?(slug == null ? null : trimmedSlug),
+          'description': ?description,
+          'threading_enabled': ?threadingEnabled,
+        },
+      },
+    );
+    final channel = body['channel'];
+    if (channel is! Map<String, dynamic>) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return ChatChannel.fromJson(channel, siteUrl);
+  }
+
+  /// Opens or closes a category channel through core's dedicated status
+  /// service. Read-only and archived are separate archive workflow states and
+  /// are deliberately not accepted here.
+  @override
+  Future<ChatChannel> updateChatChannelStatus({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required ChatChannelStatus status,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    if (status != ChatChannelStatus.open &&
+        status != ChatChannelStatus.closed) {
+      throw ArgumentError.value(status, 'status', 'must be open or closed');
+    }
+    final body = await _write(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId/status.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'status': status.name},
+    );
+    final channel = body['channel'];
+    if (channel is! Map<String, dynamic>) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return ChatChannel.fromJson(channel, siteUrl);
+  }
+
+  /// Moves one followed channel into or out of this account's starred bucket.
+  @override
+  Future<void> updateChatChannelStarred({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required bool starred,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    await _write(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId/memberships/me.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'starred': starred},
+    );
+  }
+
+  /// Updates the independent mute and push-notification channel preferences.
+  @override
+  Future<ChatMembership> updateChatChannelNotifications({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    bool? muted,
+    ChatChannelNotificationLevel? notificationLevel,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    if (muted == null && notificationLevel == null) {
+      throw ArgumentError(
+        'At least one channel notification setting is required.',
+      );
+    }
+    final settings = <String, Object?>{
+      'muted': ?muted,
+      'notification_level': ?notificationLevel?.name,
+    };
+    final body = await _write(
+      Uri.parse(
+        '$siteUrl/chat/api/channels/$channelId/'
+        'notifications-settings/me.json',
+      ),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'notifications_settings': settings},
+    );
+    final membership = body['membership'];
+    if (membership is! Map<String, dynamic>) {
+      throw const FormatException('Missing chat channel membership.');
+    }
+    return ChatMembership.fromJson(membership);
+  }
+
+  /// Lists only public user identity, never another member's private settings.
+  @override
+  Future<ChatChannelMembersPage> chatChannelMembers({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String username = '',
+    int offset = 0,
+    int limit = 20,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    final term = username.trim();
+    if (term.length > maximumSearchTermLength) {
+      throw ArgumentError.value(
+        term.length,
+        'username',
+        'Member filters must be at most $maximumSearchTermLength characters.',
+      );
+    }
+    if (offset < 0) {
+      throw RangeError.value(offset, 'offset', 'must be non-negative');
+    }
+    if (limit < 1 || limit > 50) {
+      throw RangeError.range(limit, 1, 50, 'limit');
+    }
+    final body = await _getObject(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId/memberships').replace(
+        queryParameters: {
+          'offset': '$offset',
+          'limit': '$limit',
+          if (term.isNotEmpty) 'username': term,
+        },
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    final members = List<ChatUser>.unmodifiable([
+      for (final membership in jsonObjects(body['memberships']).take(limit))
+        if (membership['user'] case final Map<String, dynamic> user)
+          if (jsonIntOrNull(user['id']) case final id? when id > 0)
+            ChatUser.fromJson(user, siteUrl),
+    ]);
+    return (
+      members: members,
+      totalRows: jsonInt(jsonObject(body['meta'])['total_rows']),
+      canLoadMore: members.length == limit,
+    );
+  }
+
+  /// Lists discoverable public channels using core's Browse Channels filters.
+  @override
+  Future<ChatChannelBrowsePage> browseChatChannels({
+    required String siteUrl,
+    required String apiKey,
+    String filter = '',
+    ChatChannelBrowseStatus status = ChatChannelBrowseStatus.all,
+    int offset = 0,
+    int limit = ChatChannelBrowsePage.pageSize,
+    String? clientId,
+  }) async {
+    final term = filter.trim();
+    if (term.length > maximumSearchTermLength) {
+      throw ArgumentError.value(
+        term.length,
+        'filter',
+        'Channel filters must be at most $maximumSearchTermLength characters.',
+      );
+    }
+    if (offset < 0) {
+      throw RangeError.value(offset, 'offset', 'must be non-negative');
+    }
+    if (limit < 1 || limit > 50) {
+      throw RangeError.range(limit, 1, 50, 'limit');
+    }
+    final body = await _getObject(
+      Uri.parse('$siteUrl/chat/api/channels').replace(
+        queryParameters: {
+          'status': status.name,
+          'offset': '$offset',
+          'limit': '$limit',
+          if (term.isNotEmpty) 'filter': term,
+        },
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return ChatChannelBrowsePage.fromJson(body, siteUrl, limit: limit);
+  }
+
+  @override
+  Future<ChatMembership> followChatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) => _writeChatChannelFollowing(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    channelId: channelId,
+    following: true,
+    clientId: clientId,
+  );
+
+  @override
+  Future<ChatMembership> unfollowChatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) => _writeChatChannelFollowing(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    channelId: channelId,
+    following: false,
+    clientId: clientId,
+  );
+
+  Future<ChatMembership> _writeChatChannelFollowing({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required bool following,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    final suffix = following
+        ? 'memberships/me.json'
+        : 'memberships/me/follows.json';
+    final body = await _write(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId/$suffix'),
+      siteUrl: siteUrl,
+      method: following ? 'POST' : 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+    final membership = body['membership'];
+    if (membership is! Map<String, dynamic>) {
+      throw const FormatException('Missing chat channel membership.');
+    }
+    return ChatMembership.fromJson(membership);
+  }
+
+  /// Replaces one message's Markdown while retaining its current uploads.
+  @override
+  Future<void> editChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required String message,
+    List<int> uploadIds = const [],
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(messageId, 'messageId');
+    if (message.trim().isEmpty) {
+      throw ArgumentError.value(message, 'message', 'must not be blank');
+    }
+    await _write(
+      Uri.parse(
+        '$siteUrl/chat/api/channels/$channelId/messages/$messageId.json',
+      ),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'message': message, 'upload_ids': uploadIds},
+    );
+  }
+
+  @override
+  Future<void> deleteChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(messageId, 'messageId');
+    await _write(
+      Uri.parse(
+        '$siteUrl/chat/api/channels/$channelId/messages/$messageId.json',
+      ),
+      siteUrl: siteUrl,
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
+
+  @override
+  Future<void> deleteChatMessages({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required List<int> messageIds,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    if (messageIds.isEmpty ||
+        messageIds.length > 200 ||
+        messageIds.any((id) => id <= 0)) {
+      throw ArgumentError.value(
+        messageIds,
+        'messageIds',
+        'must contain between 1 and 200 positive ids',
+      );
+    }
+    await _write(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId/messages.json'),
+      siteUrl: siteUrl,
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'message_ids': messageIds},
+    );
+  }
+
+  @override
+  Future<ChatMessageMove> moveChatMessages({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int destinationChannelId,
+    required List<int> messageIds,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(destinationChannelId, 'destinationChannelId');
+    if (channelId == destinationChannelId) {
+      throw ArgumentError.value(
+        destinationChannelId,
+        'destinationChannelId',
+        'must differ from channelId',
+      );
+    }
+    if (messageIds.isEmpty || messageIds.any((id) => id <= 0)) {
+      throw ArgumentError.value(
+        messageIds,
+        'messageIds',
+        'must contain positive ids',
+      );
+    }
+    final body = await _write(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId/messages/moves.json'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'move': {
+          'message_ids': messageIds,
+          'destination_channel_id': destinationChannelId,
+        },
+      },
+    );
+    final returnedDestination = jsonIntOrNull(body['destination_channel_id']);
+    final firstMovedMessage = jsonIntOrNull(body['first_moved_message_id']);
+    if (returnedDestination == null || firstMovedMessage == null) {
+      throw const FormatException('Missing chat message move destination.');
+    }
+    return (
+      destinationChannelId: returnedDestination,
+      firstMovedMessageId: firstMovedMessage,
+    );
+  }
+
+  @override
+  Future<void> restoreChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(messageId, 'messageId');
+    await _write(
+      Uri.parse(
+        '$siteUrl/chat/api/channels/$channelId/messages/$messageId/restore.json',
+      ),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
+
+  /// Queues core's asynchronous Markdown-to-HTML rebuild for one chat row.
+  @override
+  Future<void> rebakeChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(messageId, 'messageId');
+    await _write(
+      Uri.parse('$siteUrl/chat/$channelId/$messageId/rebake.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
+
+  /// Lets core build the canonical `[chat]` transcript for a selection.
+  @override
+  Future<String> generateChatQuote({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required List<int> messageIds,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    if (messageIds.isEmpty || messageIds.any((id) => id <= 0)) {
+      throw ArgumentError.value(
+        messageIds,
+        'messageIds',
+        'must contain positive ids',
+      );
+    }
+    final body = await _write(
+      Uri.parse('$siteUrl/chat/$channelId/quote.json'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'message_ids': messageIds},
+    );
+    final markdown = body['markdown'];
+    if (markdown is! String || markdown.trim().isEmpty) {
+      throw const FormatException('Missing chat quote markdown.');
+    }
+    return markdown;
+  }
+
+  /// Adds or removes one channel pin. Core uses the same route with method as
+  /// the state, rather than accepting a boolean body.
+  @override
+  Future<void> updateChatMessagePinned({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required bool pinned,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(messageId, 'messageId');
+    await _write(
+      Uri.parse(
+        '$siteUrl/chat/api/channels/$channelId/messages/$messageId/pin.json',
+      ),
+      siteUrl: siteUrl,
+      method: pinned ? 'POST' : 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
+
+  @override
+  Future<ChatPins> chatPinnedMessages({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    final body = await _getObject(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId/pins.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return ChatPin.parse(body, siteUrl);
+  }
+
+  @override
+  Future<void> markChatPinsRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    await _write(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId/pins/read.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
+
+  @override
+  Future<void> flagChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required int flagTypeId,
+    String? message,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(messageId, 'messageId');
+    _requirePositiveId(flagTypeId, 'flagTypeId');
+    await _write(
+      Uri.parse(
+        '$siteUrl/chat/api/channels/$channelId/messages/$messageId/flags.json',
+      ),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'flag_type_id': flagTypeId, 'message': ?message},
+    );
+  }
+
   @override
   Future<ChatSearchPage> searchChatMessages({
     required String siteUrl,
@@ -3470,6 +4041,55 @@ class DiscourseApi
   }
 
   @override
+  Future<ChatThreadPage> chatThreads({
+    required String siteUrl,
+    required String apiKey,
+    int offset = 0,
+    int limit = ChatThreadPage.pageSize,
+    String? clientId,
+  }) async {
+    if (offset < 0) throw RangeError.value(offset, 'offset');
+    if (limit < 1 || limit > ChatThreadPage.pageSize) {
+      throw RangeError.range(limit, 1, ChatThreadPage.pageSize, 'limit');
+    }
+    final body = await _getObject(
+      Uri.parse(
+        '$siteUrl/chat/api/me/threads.json?limit=$limit&offset=$offset',
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return ChatThreadPage.fromJson(body, siteUrl);
+  }
+
+  @override
+  Future<ChatThreadPage> chatChannelThreads({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    int offset = 0,
+    int limit = ChatThreadPage.pageSize,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    if (offset < 0) throw RangeError.value(offset, 'offset');
+    if (limit < 1 || limit > ChatThreadPage.pageSize) {
+      throw RangeError.range(limit, 1, ChatThreadPage.pageSize, 'limit');
+    }
+    final body = await _getObject(
+      Uri.parse(
+        '$siteUrl/chat/api/channels/$channelId/threads.json?'
+        'limit=$limit&offset=$offset',
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return ChatThreadPage.fromJson(body, siteUrl);
+  }
+
+  @override
   Future<ChatThread> createChatThread({
     required String siteUrl,
     required String apiKey,
@@ -3489,6 +4109,27 @@ class DiscourseApi
       body: {'original_message_id': originalMessageId, 'title': ?title},
     );
     return ChatThread.fromJson(body, siteUrl);
+  }
+
+  @override
+  Future<void> updateChatThreadTitle({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required String title,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(threadId, 'threadId');
+    await _write(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId/threads/$threadId.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'title': title},
+    );
   }
 
   @override

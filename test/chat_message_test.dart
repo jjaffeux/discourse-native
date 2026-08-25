@@ -8,11 +8,16 @@ const String site = 'https://meta.discourse.org';
 Map<String, dynamic> message({
   int id = 1,
   int channelId = 9,
+  String raw = 'Hi',
   String cooked = '<p>Hi</p>',
   String createdAt = '2026-05-05T10:00:00.000Z',
   Map<String, dynamic>? user,
   bool? edited,
+  bool? pinned,
+  List<String>? availableFlags,
+  int? userFlagStatus,
   String? deletedAt,
+  int? deletedById,
   Map<String, dynamic>? inReplyTo,
   Map<String, dynamic>? webhook,
   int? threadId,
@@ -23,6 +28,7 @@ Map<String, dynamic> message({
 }) => {
   'id': id,
   'chat_channel_id': channelId,
+  'message': raw,
   'cooked': cooked,
   'created_at': createdAt,
   'excerpt': 'Hi',
@@ -36,7 +42,11 @@ Map<String, dynamic> message({
       },
   // Written only when true, and dropped otherwise.
   'edited': ?edited,
+  'pinned': ?pinned,
+  'available_flags': ?availableFlags,
+  'user_flag_status': ?userFlagStatus,
   'deleted_at': ?deletedAt,
+  'deleted_by_id': ?deletedById,
   'in_reply_to': ?inReplyTo,
   'chat_webhook_event': ?webhook,
   'thread_id': ?threadId,
@@ -259,10 +269,49 @@ void main() {
       },
     );
 
+    test('retains source Markdown and attachment ids for editing', () {
+      final read = messageFrom(
+        message(
+          raw: '**source**',
+          uploads: const [
+            {'id': 42, 'url': '/uploads/a.png', 'original_filename': 'a.png'},
+          ],
+        ),
+      );
+
+      expect(read.raw, '**source**');
+      expect(read.uploads.single.id, 42);
+    });
+
+    test('retains the server pin state and can project only that state', () {
+      final held = messageFrom(message(pinned: true));
+
+      expect(held.pinned, isTrue);
+      expect(held.withPinned(false).pinned, isFalse);
+      expect(held.withPinned(false).raw, held.raw);
+      expect(messageFrom(message()).pinned, isFalse);
+    });
+
+    test('retains personalized chat flag availability and status', () {
+      final held = messageFrom(
+        message(
+          availableFlags: const ['notify_moderators', 'off_topic'],
+          userFlagStatus: 1,
+        ),
+      );
+
+      expect(held.availableFlags, ['notify_moderators', 'off_topic']);
+      expect(held.userFlagStatus, 1);
+      expect(held.withUserFlagStatus(2).userFlagStatus, 2);
+    });
+
     test('knows a deleted message, which only a moderator is ever sent', () {
-      final read = messageFrom(message(deletedAt: '2026-05-05T11:00:00.000Z'));
+      final read = messageFrom(
+        message(deletedAt: '2026-05-05T11:00:00.000Z', deletedById: 7),
+      );
 
       expect(read.isDeleted, isTrue);
+      expect(read.deletedById, 7);
       expect(messageFrom(message()).isDeleted, isFalse);
     });
 

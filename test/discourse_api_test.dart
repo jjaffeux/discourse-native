@@ -5,10 +5,12 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -3052,6 +3054,525 @@ void _feedGroups() {
       },
     );
 
+    test('updates the current channel membership starred setting', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.updateChatChannelStarred(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        starred: true,
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/chat/api/channels/9/memberships/me.json');
+      expect(jsonDecode(sent.body), {'starred': true});
+    });
+
+    test('updates independent channel notification settings', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'membership': {
+                'following': true,
+                'muted': true,
+                'notification_level': 'always',
+                'starred': true,
+                'last_read_message_id': 44,
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final membership = await api.updateChatChannelNotifications(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        muted: true,
+        notificationLevel: ChatChannelNotificationLevel.always,
+      );
+
+      expect(sent.method, 'PUT');
+      expect(
+        sent.url.path,
+        '/chat/api/channels/9/notifications-settings/me.json',
+      );
+      expect(jsonDecode(sent.body), {
+        'notifications_settings': {
+          'muted': true,
+          'notification_level': 'always',
+        },
+      });
+      expect(membership.muted, isTrue);
+      expect(membership.notificationLevel, ChatChannelNotificationLevel.always);
+      expect(membership.starred, isTrue);
+      expect(membership.lastReadMessageId, 44);
+    });
+
+    test('sends only the channel notification field being changed', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'membership': {
+                'following': true,
+                'muted': false,
+                'notification_level': 'mention',
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      await api.updateChatChannelNotifications(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        muted: false,
+      );
+
+      expect(jsonDecode(sent.body), {
+        'notifications_settings': {'muted': false},
+      });
+    });
+
+    test('lists a filtered page of channel members', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'memberships': [
+                {
+                  'user': {
+                    'id': 2,
+                    'username': 'sam',
+                    'name': 'Sam',
+                    'avatar_template': '/user_avatar/sam/{size}.png',
+                  },
+                },
+                {
+                  'user': {
+                    'id': 3,
+                    'username': 'samantha',
+                    'avatar_template': '/user_avatar/samantha/{size}.png',
+                  },
+                },
+                {'user': null},
+              ],
+              'meta': {'total_rows': 42, 'load_more_url': '/next'},
+            }),
+            200,
+          );
+        }),
+      );
+
+      final page = await api.chatChannelMembers(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        username: ' sam ',
+        offset: 20,
+        limit: 2,
+      );
+
+      expect(sent.method, 'GET');
+      expect(sent.url.path, '/chat/api/channels/9/memberships');
+      expect(sent.url.queryParameters, {
+        'offset': '20',
+        'limit': '2',
+        'username': 'sam',
+      });
+      expect(page.members.map((member) => member.username), [
+        'sam',
+        'samantha',
+      ]);
+      expect(page.members.first.avatarUrl, contains('/user_avatar/sam/90.png'));
+      expect(page.totalRows, 42);
+      expect(page.canLoadMore, isTrue);
+    });
+
+    test('browses a filtered page of public channels', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'channels': [
+                {
+                  'id': 9,
+                  'title': 'Bugs',
+                  'slug': 'bugs',
+                  'chatable_type': 'Category',
+                  'chatable': {'color': '0088CC'},
+                  'memberships_count': 42,
+                  'meta': {'can_join_chat_channel': true},
+                },
+              ],
+              'meta': {'load_more_url': '/chat/api/channels?offset=25'},
+            }),
+            200,
+          );
+        }),
+      );
+
+      final page = await api.browseChatChannels(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        filter: ' bugs ',
+        status: ChatChannelBrowseStatus.open,
+        offset: 25,
+        limit: 1,
+      );
+
+      expect(sent.method, 'GET');
+      expect(sent.url.path, '/chat/api/channels');
+      expect(sent.url.queryParameters, {
+        'status': 'open',
+        'offset': '25',
+        'limit': '1',
+        'filter': 'bugs',
+      });
+      expect(page.channels.single.title, 'Bugs');
+      expect(page.channels.single.membershipsCount, 42);
+      expect(page.channels.single.canJoin, isTrue);
+      expect(page.hasMore, isTrue);
+    });
+
+    test('joins and reversibly unfollows channel memberships', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response(
+            jsonEncode({
+              'membership': {
+                'following': request.method == 'POST',
+                'notification_level': 'mention',
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final joined = await api.followChatChannel(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+      );
+      final unfollowed = await api.unfollowChatChannel(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+      );
+
+      expect(sent[0].method, 'POST');
+      expect(sent[0].url.path, '/chat/api/channels/9/memberships/me.json');
+      expect(jsonDecode(sent[0].body), isEmpty);
+      expect(joined.following, isTrue);
+      expect(sent[1].method, 'DELETE');
+      expect(
+        sent[1].url.path,
+        '/chat/api/channels/9/memberships/me/follows.json',
+      );
+      expect(jsonDecode(sent[1].body), isEmpty);
+      expect(unfollowed.following, isFalse);
+    });
+
+    test('edits a chat message and retains its uploads', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.editChatMessage(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        messageId: 12,
+        message: '**corrected**',
+        uploadIds: const [31, 32],
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/chat/api/channels/9/messages/12.json');
+      expect(jsonDecode(sent.body), {
+        'message': '**corrected**',
+        'upload_ids': [31, 32],
+      });
+    });
+
+    test('deletes and restores a chat message on core routes', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.deleteChatMessage(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        messageId: 12,
+      );
+      await api.restoreChatMessage(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        messageId: 12,
+      );
+
+      expect(sent.map((request) => request.method), ['DELETE', 'PUT']);
+      expect(sent.map((request) => request.url.path), [
+        '/chat/api/channels/9/messages/12.json',
+        '/chat/api/channels/9/messages/12/restore.json',
+      ]);
+      expect(sent.map((request) => jsonDecode(request.body)), [
+        <String, dynamic>{},
+        <String, dynamic>{},
+      ]);
+    });
+
+    test('bulk-deletes selected chat messages on the core route', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.deleteChatMessages(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        messageIds: const [12, 14],
+      );
+
+      expect(sent.method, 'DELETE');
+      expect(sent.url.path, '/chat/api/channels/9/messages.json');
+      expect(jsonDecode(sent.body), {
+        'message_ids': [12, 14],
+      });
+    });
+
+    test('moves selected messages between public channels', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'success': 'OK',
+              'destination_channel_id': 10,
+              'destination_channel_title': 'Support',
+              'first_moved_message_id': 101,
+            }),
+            200,
+          );
+        }),
+      );
+
+      final moved = await api.moveChatMessages(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        destinationChannelId: 10,
+        messageIds: const [12, 14],
+      );
+
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/chat/api/channels/9/messages/moves.json');
+      expect(jsonDecode(sent.body), {
+        'move': {
+          'message_ids': [12, 14],
+          'destination_channel_id': 10,
+        },
+      });
+      expect(moved.destinationChannelId, 10);
+      expect(moved.firstMovedMessageId, 101);
+    });
+
+    test('queues a chat message HTML rebuild on the core route', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.rebakeChatMessage(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        messageId: 12,
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/chat/9/12/rebake.json');
+      expect(jsonDecode(sent.body), <String, dynamic>{});
+    });
+
+    test('generates canonical Markdown for selected chat messages', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({'markdown': '[chat channel="Bugs"]\nHello\n[/chat]'}),
+            200,
+          );
+        }),
+      );
+
+      final markdown = await api.generateChatQuote(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        messageIds: const [12, 14],
+      );
+
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/chat/9/quote.json');
+      expect(jsonDecode(sent.body), {
+        'message_ids': [12, 14],
+      });
+      expect(markdown, '[chat channel="Bugs"]\nHello\n[/chat]');
+    });
+
+    test('pins and unpins a chat message with core route methods', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.updateChatMessagePinned(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        messageId: 12,
+        pinned: true,
+      );
+      await api.updateChatMessagePinned(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        messageId: 12,
+        pinned: false,
+      );
+
+      expect(sent.map((request) => request.method), ['POST', 'DELETE']);
+      expect(sent.map((request) => request.url.path), [
+        '/chat/api/channels/9/messages/12/pin.json',
+        '/chat/api/channels/9/messages/12/pin.json',
+      ]);
+      expect(sent.map((request) => jsonDecode(request.body)), [
+        <String, dynamic>{},
+        <String, dynamic>{},
+      ]);
+    });
+
+    test('loads pinned messages and marks their panel read', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          if (request.method == 'GET') {
+            return http.Response(
+              jsonEncode({
+                'pinned_messages': [
+                  {
+                    'id': 91,
+                    'chat_message_id': 12,
+                    'message': {
+                      'id': 12,
+                      'chat_channel_id': 9,
+                      'cooked': '<p>Pin</p>',
+                      'user': {'id': 2, 'username': 'sam'},
+                    },
+                    'pinned_by': {'id': 7, 'username': 'reader'},
+                  },
+                ],
+              }),
+              200,
+            );
+          }
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      final snapshot = await api.chatPinnedMessages(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+      );
+      await api.markChatPinsRead(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+      );
+
+      expect(snapshot.pins.single.messageId, 12);
+      expect(sent.map((request) => request.method), ['GET', 'PUT']);
+      expect(sent.map((request) => request.url.path), [
+        '/chat/api/channels/9/pins.json',
+        '/chat/api/channels/9/pins/read.json',
+      ]);
+      expect(jsonDecode(sent.last.body), <String, dynamic>{});
+    });
+
+    test('flags a chat message with its server-advertised reason', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.flagChatMessage(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        messageId: 12,
+        flagTypeId: 7,
+        message: 'Please review this message.',
+      );
+
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/chat/api/channels/9/messages/12/flags.json');
+      expect(jsonDecode(sent.body), {
+        'flag_type_id': 7,
+        'message': 'Please review this message.',
+      });
+    });
+
     test('reports a site that refuses the way every other read does', () async {
       // 403 is what a site with chat off, or a reader who may not use it, gets.
       final api = DiscourseApi(
@@ -3210,6 +3731,167 @@ void _feedGroups() {
 
       expect(seen.path, '/chat/api/channels/9.json');
       expect(channel.membership.following, isTrue);
+    });
+
+    test('updates channel metadata in core’s channel envelope', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'channel': {
+                'id': 9,
+                'title': 'Bug reports',
+                'slug': 'bug-reports',
+                'description': 'A better description.',
+                'chatable_type': 'Category',
+                'chatable': {'color': '0088CC'},
+                'current_user_membership': {'following': true},
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final updated = await api.updateChatChannel(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        name: '  Bug reports  ',
+        slug: '  bug-reports  ',
+        description: 'A better description.',
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/chat/api/channels/9.json');
+      expect(jsonDecode(sent.body), {
+        'channel': {
+          'name': 'Bug reports',
+          'slug': 'bug-reports',
+          'description': 'A better description.',
+        },
+      });
+      expect(updated.title, 'Bug reports');
+      expect(updated.description, 'A better description.');
+    });
+
+    test('sends an empty description so core removes it', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'channel': {
+                'id': 9,
+                'title': 'Bugs',
+                'chatable_type': 'Category',
+                'chatable': {'color': '0088CC'},
+                'current_user_membership': {'following': true},
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      await api.updateChatChannel(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        description: '',
+      );
+
+      expect(jsonDecode(sent.body), {
+        'channel': {'description': ''},
+      });
+    });
+
+    test('toggles channel threading through the same settings route', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'channel': {
+                'id': 9,
+                'title': 'Bugs',
+                'threading_enabled': true,
+                'chatable_type': 'Category',
+                'chatable': {'color': '0088CC'},
+                'current_user_membership': {'following': true},
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final updated = await api.updateChatChannel(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        threadingEnabled: true,
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/chat/api/channels/9.json');
+      expect(jsonDecode(sent.body), {
+        'channel': {'threading_enabled': true},
+      });
+      expect(updated.threadingEnabled, isTrue);
+    });
+
+    test('closes a channel through core’s dedicated status route', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'channel': {
+                'id': 9,
+                'title': 'Bugs',
+                'status': 'closed',
+                'chatable_type': 'Category',
+                'chatable': {'color': '0088CC'},
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final updated = await api.updateChatChannelStatus(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        status: ChatChannelStatus.closed,
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/chat/api/channels/9/status.json');
+      expect(jsonDecode(sent.body), {'status': 'closed'});
+      expect(updated.status, ChatChannelStatus.closed);
+    });
+
+    test('rejects archive states from the open-close route', () async {
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+
+      await expectLater(
+        api.updateChatChannelStatus(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          channelId: 9,
+          status: ChatChannelStatus.archived,
+        ),
+        throwsArgumentError,
+      );
     });
   });
 
@@ -3566,6 +4248,84 @@ void _feedGroups() {
       expect(thread.preview?.lastReplyId, 108);
     });
 
+    test('fetches one account thread page with core pagination', () async {
+      late http.Request seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(
+            jsonEncode({
+              'meta': {
+                'load_more_url': '/chat/api/me/threads?limit=10&offset=20',
+              },
+              'tracking': {
+                '22': {'unread_count': 2},
+              },
+              'threads': [
+                {
+                  ...serializedThread(),
+                  'channel': {
+                    'id': 9,
+                    'title': 'Support',
+                    'chatable_type': 'Category',
+                  },
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final page = await api.chatThreads(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        offset: 10,
+      );
+
+      expect(seen.method, 'GET');
+      expect(seen.url.path, '/chat/api/me/threads.json');
+      expect(seen.url.queryParameters, {'limit': '10', 'offset': '10'});
+      expect(page.threads.single.tracking.unreadCount, 2);
+      expect(page.channels.single.title, 'Support');
+      expect(page.hasMore, isTrue);
+    });
+
+    test('fetches one channel thread page with core pagination', () async {
+      late http.Request seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(
+            jsonEncode({
+              'meta': {
+                'load_more_url':
+                    '/chat/api/channels/9/threads?limit=10&offset=20',
+              },
+              'tracking': {
+                '22': {'watched_threads_unread_count': 1},
+              },
+              'threads': [serializedThread()],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final page = await api.chatChannelThreads(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        offset: 10,
+      );
+
+      expect(seen.method, 'GET');
+      expect(seen.url.path, '/chat/api/channels/9/threads.json');
+      expect(seen.url.queryParameters, {'limit': '10', 'offset': '10'});
+      expect(page.threads.single.tracking.watchedThreadsUnreadCount, 1);
+      expect(page.hasMore, isTrue);
+    });
+
     test('creates an unrooted thread from an original message', () async {
       late http.Request seen;
       final api = DiscourseApi(
@@ -3633,6 +4393,28 @@ void _feedGroups() {
         membership.notificationLevel,
         ChatThreadNotificationLevel.watching,
       );
+    });
+
+    test('updates a thread title through the core thread route', () async {
+      late http.Request seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.updateChatThreadTitle(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+        threadId: 22,
+        title: 'Deploy plan',
+      );
+
+      expect(seen.method, 'PUT');
+      expect(seen.url.path, '/chat/api/channels/9/threads/22.json');
+      expect(jsonDecode(seen.body), {'title': 'Deploy plan'});
     });
   });
 
@@ -4050,6 +4832,115 @@ void _feedGroups() {
         expect(jsonDecode(sent.body), {'notification_level': 0});
       },
     );
+
+    test('updates a guardian-approved topic status', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+
+      await api.updateTopicStatus(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        topicId: 12,
+        status: TopicStatusProperty.closed,
+        enabled: true,
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/t/12/status');
+      expect(jsonDecode(sent.body), {'status': 'closed', 'enabled': true});
+    });
+
+    test('deletes and recovers a topic through core topic routes', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response('', 200);
+        }),
+      );
+
+      await api.deleteTopic(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        topicId: 12,
+      );
+      await api.recoverTopic(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        topicId: 12,
+      );
+
+      expect(sent.map((request) => request.method), ['DELETE', 'PUT']);
+      expect(sent.map((request) => request.url.path), [
+        '/t/12.json',
+        '/t/12/recover.json',
+      ]);
+      expect(sent.map((request) => jsonDecode(request.body)), [
+        {'context': '/t/12'},
+        {'context': '/t/12'},
+      ]);
+    });
+
+    test('permanently deletes a topic with force_destroy', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('', 204);
+        }),
+      );
+
+      await api.permanentlyDeleteTopic(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        topicId: 12,
+      );
+
+      expect(sent.method, 'DELETE');
+      expect(sent.url.path, '/t/12.json');
+      expect(jsonDecode(sent.body), {
+        'context': '/t/12',
+        'force_destroy': true,
+      });
+    });
+
+    test('dismisses and restores a personalized topic pin', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response('', 200);
+        }),
+      );
+
+      await api.updateTopicPinForUser(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        topicId: 12,
+        pinned: false,
+      );
+      await api.updateTopicPinForUser(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        topicId: 12,
+        pinned: true,
+      );
+
+      expect(sent.map((request) => request.method), everyElement('PUT'));
+      expect(sent.map((request) => request.url.path), [
+        '/t/12/clear-pin',
+        '/t/12/re-pin',
+      ]);
+      expect(sent.map((request) => jsonDecode(request.body)), const [
+        <String, dynamic>{},
+        <String, dynamic>{},
+      ]);
+    });
 
     test('preserves a failed response status for diagnostics', () async {
       final api = DiscourseApi(
@@ -4480,6 +5371,36 @@ void _writeGroups() {
       expect(
         DiscourseUser.fromJson(const {'username': 'old'}).ignoredUsernames,
         isEmpty,
+      );
+    });
+
+    test('reads and persists the post-owner guardian', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'current_user': {
+                'id': 7,
+                'username': 'sam',
+                'can_change_post_owner': true,
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final user = await api.currentUser(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+      );
+      final stored = DiscourseUser.fromJson(user.toJson());
+
+      expect(user.canChangePostOwner, isTrue);
+      expect(stored, user);
+      expect(
+        DiscourseUser.fromJson(const {'username': 'old'}).canChangePostOwner,
+        isFalse,
       );
     });
 
@@ -5142,6 +6063,341 @@ void _writeGroups() {
         ),
       );
     });
+
+    test('preflights and permanently deletes a reply', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          if (request.method == 'GET') {
+            return http.Response(
+              jsonEncode({
+                'can_permanently_delete': false,
+                'reason': 'Wait five minutes.',
+              }),
+              200,
+            );
+          }
+          return http.Response('', 204);
+        }),
+      );
+
+      final check = await api.checkPermanentPostDeletion(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postId: 42,
+      );
+      await api.permanentlyDeletePost(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        topicId: 7,
+        postId: 42,
+      );
+
+      expect(check.allowed, isFalse);
+      expect(check.reason, 'Wait five minutes.');
+      expect(sent.map((request) => request.method), ['GET', 'DELETE']);
+      expect(sent.map((request) => request.url.path), [
+        '/posts/42/permanently_delete_check.json',
+        '/posts/42.json',
+      ]);
+      expect(jsonDecode(sent.last.body), {
+        'context': '/t/7',
+        'force_destroy': true,
+      });
+    });
+  });
+
+  group('selected post moderation', () {
+    test('sends core bulk-delete and merge contracts exactly', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response('', 204);
+        }),
+      );
+
+      await api.deletePosts(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postIds: const [42, 43],
+      );
+      await api.mergePosts(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postIds: const [44, 45],
+      );
+
+      expect(sent.map((request) => request.method), ['DELETE', 'PUT']);
+      expect(sent.map((request) => request.url.path), [
+        '/posts/destroy_many.json',
+        '/posts/merge_posts.json',
+      ]);
+      expect(jsonDecode(sent[0].body), {
+        'post_ids': [42, 43],
+        'agree_with_first_reply_flag': true,
+      });
+      expect(jsonDecode(sent[1].body), {
+        'post_ids': [44, 45],
+      });
+    });
+
+    test('rejects empty, duplicate, and one-post merge selections', () async {
+      final api = DiscourseApi(
+        client: MockClient((_) async => http.Response('', 204)),
+      );
+
+      await expectLater(
+        api.deletePosts(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postIds: const [],
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        api.deletePosts(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postIds: const [42, 42],
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        api.mergePosts(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postIds: const [42],
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test(
+      'moves posts through the source topic and reads its destination',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(
+              jsonEncode({'success': true, 'url': '/t/destination/99'}),
+              200,
+            );
+          }),
+        );
+
+        final url = await api.movePosts(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          topicId: 7,
+          postIds: const [42, 43],
+          destinationTopicId: 99,
+          chronologicalOrder: true,
+        );
+
+        expect(url, '/t/destination/99');
+        expect(sent.method, 'POST');
+        expect(sent.url.path, '/t/7/move-posts.json');
+        expect(jsonDecode(sent.body), {
+          'post_ids': [42, 43],
+          'destination_topic_id': 99,
+          'chronological_order': true,
+        });
+      },
+    );
+
+    test('sends the web topic chooser search modifiers', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await api.searchPosts(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        term: 'destination',
+        typeFilter: 'topic',
+        searchForId: true,
+        restrictToArchetype: 'regular',
+      );
+
+      expect(sent.url.path, '/search/query.json');
+      expect(sent.url.queryParameters, {
+        'term': 'destination',
+        'type_filter': 'topic',
+        'search_for_id': 'true',
+        'restrict_to_archetype': 'regular',
+      });
+    });
+
+    test('changes ownership through the topic route', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(jsonEncode({'success': true}), 200);
+        }),
+      );
+
+      await api.changePostOwners(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        topicId: 7,
+        postIds: const [42, 43],
+        username: 'kris',
+      );
+
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/t/7/change-owner.json');
+      expect(jsonDecode(sent.body), {
+        'post_ids': [42, 43],
+        'username': 'kris',
+      });
+    });
+  });
+
+  group('updatePostWiki', () {
+    test('uses the dedicated post field route', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('', 204);
+        }),
+      );
+
+      await api.updatePostWiki(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postId: 42,
+        wiki: true,
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/posts/42/wiki.json');
+      expect(jsonDecode(sent.body), {'wiki': true});
+    });
+  });
+
+  group('updatePostLocked', () {
+    test('uses the dedicated staff field route', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('', 204);
+        }),
+      );
+
+      await api.updatePostLocked(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postId: 42,
+        locked: true,
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/posts/42/locked.json');
+      expect(jsonDecode(sent.body), {'locked': true});
+    });
+  });
+
+  group('unhidePost', () {
+    test('uses the dedicated moderation route', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('', 204);
+        }),
+      );
+
+      await api.unhidePost(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postId: 42,
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/posts/42/unhide.json');
+      expect(jsonDecode(sent.body), isEmpty);
+    });
+  });
+
+  group('updatePostType', () {
+    test('uses the dedicated moderator-post route', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('', 204);
+        }),
+      );
+
+      await api.updatePostType(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postId: 42,
+        postType: Post.moderatorPostType,
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/posts/42/post_type.json');
+      expect(jsonDecode(sent.body), {'post_type': Post.moderatorPostType});
+    });
+  });
+
+  group('updatePostNotice', () {
+    test(
+      'adds or changes a notice through the dedicated field route',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response('', 204);
+          }),
+        );
+
+        await api.updatePostNotice(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postId: 42,
+          notice: '  Please read this carefully.  ',
+        );
+
+        expect(sent.method, 'PUT');
+        expect(sent.url.path, '/posts/42/notice.json');
+        expect(jsonDecode(sent.body), {
+          'notice': 'Please read this carefully.',
+        });
+      },
+    );
+
+    test('removes a notice by omitting the field', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('', 204);
+        }),
+      );
+
+      await api.updatePostNotice(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postId: 42,
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/posts/42/notice.json');
+      expect(jsonDecode(sent.body), isEmpty);
+    });
   });
 
   group('likePost and unlikePost', () {
@@ -5298,6 +6554,39 @@ void _writeGroups() {
       expect(post.actedFlagSummaries.single.id, 3);
       expect(post.likeCount, 4);
     });
+
+    test(
+      'topic flags identify the topic through core’s action bridge',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response('{}', 200);
+          }),
+        );
+
+        await api.createTopicFlag(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          clientId: 'native-client',
+          topicId: 7,
+          postActionTypeId: 8,
+          message: 'This whole topic is promotional.',
+        );
+
+        expect(sent.method, 'POST');
+        expect(sent.url.path, '/post_actions.json');
+        expect(sent.headers['User-Api-Key'], 'the-key');
+        expect(sent.headers['User-Api-Client-Id'], 'native-client');
+        expect(jsonDecode(sent.body), {
+          'id': 7,
+          'post_action_type_id': 8,
+          'flag_topic': true,
+          'message': 'This whole topic is promotional.',
+        });
+      },
+    );
 
     test(
       'includes a required explanation without moderation parameters',

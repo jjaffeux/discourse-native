@@ -5,6 +5,60 @@ import '../../models/json.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
 
+/// One account-level page from `/chat/api/me/threads`.
+///
+/// Unlike a channel-local thread list, these rows can belong to unrelated
+/// conversations. Core therefore embeds each row's channel in the response;
+/// keeping those records beside the threads lets navigation open any result
+/// without first guessing whether the channel sidebar happened to load it.
+@immutable
+final class ChatThreadPage {
+  const ChatThreadPage({
+    this.threads = const [],
+    this.channels = const [],
+    this.hasMore = false,
+  });
+
+  static const int pageSize = 10;
+
+  factory ChatThreadPage.fromJson(Map<String, dynamic> json, String siteUrl) {
+    final tracking = jsonObject(json['tracking']);
+    final channels = <int, ChatChannel>{};
+
+    ChatTracking trackingFor(int threadId) {
+      final entry = tracking['$threadId'];
+      return entry is Map<String, dynamic>
+          ? ChatTracking.fromJson(entry)
+          : ChatTracking.none;
+    }
+
+    final threads = <ChatThread>[];
+    for (final entry in jsonObjects(json['threads']).take(pageSize)) {
+      final thread = ChatThread.fromJson(entry, siteUrl);
+      if (thread.id <= 0 || thread.channelId <= 0) continue;
+      threads.add(thread.copyWith(tracking: trackingFor(thread.id)));
+
+      final channelJson = entry['channel'];
+      if (channelJson is Map<String, dynamic>) {
+        final channel = ChatChannel.fromJson(channelJson, siteUrl);
+        if (channel.id > 0 && channel.id == thread.channelId) {
+          channels[channel.id] = channel;
+        }
+      }
+    }
+
+    return ChatThreadPage(
+      threads: List.unmodifiable(threads),
+      channels: List.unmodifiable(channels.values),
+      hasMore: jsonText(jsonObject(json['meta'])['load_more_url']) != null,
+    );
+  }
+
+  final List<ChatThread> threads;
+  final List<ChatChannel> channels;
+  final bool hasMore;
+}
+
 /// How closely the current account follows one thread.
 enum ChatThreadNotificationLevel {
   muted(0),
@@ -127,6 +181,20 @@ final class ChatThreadOriginalMessage {
   final DateTime? createdAt;
   final DateTime? deletedAt;
 
+  ChatThreadOriginalMessage copyWith({
+    DateTime? deletedAt,
+    bool clearDeletedAt = false,
+  }) => ChatThreadOriginalMessage(
+    id: id,
+    channelId: channelId,
+    author: author,
+    message: message,
+    cooked: cooked,
+    excerpt: excerpt,
+    createdAt: createdAt,
+    deletedAt: clearDeletedAt ? null : deletedAt ?? this.deletedAt,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is ChatThreadOriginalMessage &&
@@ -213,6 +281,7 @@ final class ChatThread with Storable<ChatThread> {
 
   ChatThread copyWith({
     String? title,
+    bool clearTitle = false,
     String? status,
     int? replyCount,
     int? messageBusLastId,
@@ -229,7 +298,7 @@ final class ChatThread with Storable<ChatThread> {
     channelId: channelId,
     status: status ?? this.status,
     replyCount: replyCount ?? this.replyCount,
-    title: title ?? this.title,
+    title: clearTitle ? null : title ?? this.title,
     messageBusLastId: messageBusLastId ?? this.messageBusLastId,
     membership: clearMembership ? null : membership ?? this.membership,
     tracking: tracking ?? this.tracking,

@@ -17,6 +17,7 @@ import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
 import '../plugin_services.dart';
 import 'chat_channel_search.dart';
+import 'chat_channel_star_button.dart';
 import 'chat_channel_view.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
@@ -26,6 +27,7 @@ import 'chat_route.dart';
 import 'chat_stream.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
+import 'chat_thread_settings.dart';
 
 /// A routed thread and, when the shell is wide enough, its parent channel.
 class ChatThreadWorkspace extends StatelessWidget {
@@ -326,6 +328,8 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   int _focusComposerRequest = 0;
   int? _highlightMessageId;
   int _highlightRequest = 0;
+  bool _selectingMessages = false;
+  final Set<int> _selectedMessageIds = {};
   final ChatUploadDropController _uploadDropController =
       ChatUploadDropController();
 
@@ -412,6 +416,10 @@ class _ChatThreadViewState extends State<ChatThreadView> {
         highlightRequest: _highlightRequest,
         onHighlightComplete: _clearHighlight,
         showThreadSummaries: false,
+        selectingMessages: _selectingMessages,
+        selectedMessageIds: _selectedMessageIds,
+        onStartSelecting: _startSelecting,
+        onSelectionChanged: _setMessageSelected,
       );
     } else if (stream.loading) {
       content = const Center(child: CircularProgressIndicator.adaptive());
@@ -454,7 +462,15 @@ class _ChatThreadViewState extends State<ChatThreadView> {
               ),
             ),
           Expanded(child: content),
-          if (!stream.threadUnavailable &&
+          if (_selectingMessages)
+            ChatMessageSelectionBar(
+              siteUrl: widget.siteUrl,
+              channelId: widget.target.channelId,
+              messageIds: _selectedMessageIds,
+              chat: widget.chat,
+              onCancel: _cancelSelecting,
+            )
+          else if (!stream.threadUnavailable &&
               (stream.error == null || hasMessages))
             ChatComposer(
               key: ValueKey((
@@ -472,6 +488,30 @@ class _ChatThreadViewState extends State<ChatThreadView> {
         ],
       ),
     );
+  }
+
+  void _startSelecting(int messageId) {
+    setState(() {
+      _selectingMessages = true;
+      _selectedMessageIds.add(messageId);
+    });
+  }
+
+  void _setMessageSelected(int messageId, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedMessageIds.add(messageId);
+      } else {
+        _selectedMessageIds.remove(messageId);
+      }
+    });
+  }
+
+  void _cancelSelecting() {
+    setState(() {
+      _selectingMessages = false;
+      _selectedMessageIds.clear();
+    });
   }
 
   void _handleUnavailable(ChatStreamState stream) {
@@ -563,6 +603,7 @@ class _ChannelPaneHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                 ],
+                ChatChannelStarButton(siteUrl: siteUrl, channelId: channelId),
                 ChatChannelSearchButton(siteUrl: siteUrl, channelId: channelId),
                 if (ShellTitleBar.columnsCarryUserMenu) ...[
                   ChatHeaderButton(ringColor: theme.shell.content),
@@ -628,6 +669,20 @@ class _ThreadHeader extends StatelessWidget {
               target: target,
               thread: thread,
             ),
+            if (chat.canEditThreadTitle(siteUrl, thread))
+              IconButton(
+                tooltip: 'Thread settings',
+                onPressed: () => unawaited(
+                  showChatThreadSettings(
+                    context: context,
+                    chat: chat,
+                    siteUrl: siteUrl,
+                    target: target,
+                    thread: thread!,
+                  ),
+                ),
+                icon: const DIcon(DIcons.gear, size: 18),
+              ),
             if (showClose)
               IconButton(
                 tooltip: 'Close thread',
