@@ -10740,6 +10740,37 @@ void main() {
       expect(pill('1'), findsOneWidget);
     });
 
+    testWidgets('an any-emoji site opens the full picker from the toolbar', (
+      tester,
+    ) async {
+      final api = await openTopic(
+        tester,
+        config: SiteConfig.fromSettings(const {
+          'discourse_reactions_enabled': true,
+          'discourse_reactions_reaction_for_like': 'heart',
+          'discourse_reactions_enabled_reactions': 'clap',
+          'discourse_reactions_allow_any_emoji': true,
+        }),
+        emojis: const [
+          SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
+        ],
+        posts: [post()],
+      );
+
+      await hoverPost(tester);
+      await tester.tap(find.byTooltip('Pick a reaction'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReactionGrid), findsNothing);
+      expect(find.byType(EmojiPicker), findsOneWidget);
+
+      await tester.tap(find.byTooltip(':wave:'));
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, [(postId: 1, reaction: 'wave')]);
+      expect(find.bySemanticsLabel('1 wave reaction'), findsOneWidget);
+    });
+
     testWidgets('the write answer updates the reader and not the counts', (
       tester,
     ) async {
