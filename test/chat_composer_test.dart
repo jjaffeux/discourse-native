@@ -18,6 +18,7 @@ import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -123,6 +124,10 @@ void main() {
         originalFilename: 'photo.png',
         shortUrl: 'upload://photo',
         url: 'https://chat.example/uploads/photo.png',
+        thumbnailUrl:
+            'data:image/png;base64,'
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
+            'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
         width: 640,
         height: 480,
       );
@@ -174,7 +179,15 @@ void main() {
         ComposerUploadType.chatComposer,
       );
       expect(find.text('photo.png'), findsOneWidget);
-      expect(find.text('Ready to send'), findsOneWidget);
+      expect(find.text('Ready to send'), findsNothing);
+      final thumbnailFinder = find.byKey(
+        const ValueKey('composer-upload-thumbnail-73'),
+      );
+      final thumbnail = tester.widget<SiteImage>(thumbnailFinder);
+      expect(thumbnail.url, upload.previewUrl);
+      expect(thumbnail.siteUrl, _site);
+      expect(thumbnail.fit, BoxFit.cover);
+      expect(tester.getSize(thumbnailFinder), const Size.square(32));
       expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
 
       await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
@@ -182,7 +195,7 @@ void main() {
 
       expect(fixture.api.chatMessagesSent.single.message, isEmpty);
       expect(fixture.api.chatMessagesSent.single.uploadIds, [73]);
-      expect(find.text('Ready to send'), findsNothing);
+      expect(thumbnailFinder, findsNothing);
     },
   );
 

@@ -30,11 +30,13 @@ import 'composer_quotes.dart';
 import 'composer_suggestions.dart';
 import 'emoji_composer.dart';
 import 'emoji_picker.dart';
+import 'image_decode.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
+import 'site_image.dart';
 
 /// The contents of the floating reply composer.
 ///
@@ -2236,22 +2238,27 @@ class ComposerUploadQueue extends StatelessWidget {
           final upload = composer.uploads[index];
           final failed = upload.status == ComposerUploadStatus.failed;
           final completed = upload.status == ComposerUploadStatus.completed;
+          final thumbnail = completed ? upload.result : null;
           return SizedBox(
             height: failed ? 52 : 40,
             child: Row(
               children: [
                 const SizedBox(width: 10),
-                Icon(
-                  failed
-                      ? Icons.error_outline
-                      : completed
-                      ? Icons.check_circle_outline
-                      : Icons.image_outlined,
-                  size: 18,
-                  color: failed
-                      ? theme.colorScheme.error
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
+                if (thumbnail != null)
+                  _ComposerUploadThumbnail(
+                    siteUrl: composer.target.siteUrl,
+                    filename: upload.file.name,
+                    uploadId: thumbnail.id,
+                    url: thumbnail.previewUrl,
+                  )
+                else
+                  Icon(
+                    failed ? Icons.error_outline : Icons.image_outlined,
+                    size: 18,
+                    color: failed
+                        ? theme.colorScheme.error
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -2277,14 +2284,7 @@ class ComposerUploadQueue extends StatelessWidget {
                             ),
                           ),
                         )
-                      else if (completed)
-                        Text(
-                          'Ready to send',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        )
-                      else
+                      else if (!completed)
                         Padding(
                           padding: const EdgeInsets.only(top: 3),
                           child: LinearProgressIndicator(
@@ -2336,6 +2336,56 @@ class ComposerUploadQueue extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _ComposerUploadThumbnail extends StatelessWidget {
+  const _ComposerUploadThumbnail({
+    required this.siteUrl,
+    required this.filename,
+    required this.uploadId,
+    required this.url,
+  });
+
+  static const double size = 32;
+
+  final String siteUrl;
+  final String filename;
+  final int uploadId;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Icon(
+      Icons.image_outlined,
+      size: 18,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(5),
+      child: ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: SiteImage(
+          key: ValueKey('composer-upload-thumbnail-$uploadId'),
+          url: url,
+          siteUrl: siteUrl,
+          fit: BoxFit.cover,
+          width: size,
+          height: size,
+          cacheWidth: imagePhysicalPixels(context, size),
+          cacheHeight: imagePhysicalPixels(context, size),
+          semanticLabel: 'Preview of $filename',
+          loadingBuilder: (_) => SizedBox.square(
+            dimension: size,
+            child: Center(child: fallback),
+          ),
+          errorBuilder: (_, _, _) => SizedBox.square(
+            dimension: size,
+            child: Center(child: fallback),
+          ),
+        ),
       ),
     );
   }
