@@ -3612,6 +3612,23 @@ void main() {
       expect(tracker.userId, 7);
     });
 
+    testWidgets('the account avatar has a visible hover surface', (
+      tester,
+    ) async {
+      await pumpConnected(tester);
+
+      final avatar = find.byKey(UserMenuButton.avatarKey);
+      final inkWell = tester.widget<InkWell>(avatar);
+      final material = tester.widget<Material>(
+        find.ancestor(of: avatar, matching: find.byType(Material)).first,
+      );
+      final hover = Theme.of(tester.element(avatar)).shell.hover;
+
+      expect(inkWell.hoverColor, hover);
+      expect(inkWell.focusColor, hover);
+      expect(material.type, MaterialType.transparency);
+    });
+
     testWidgets('a notification arriving marks the avatar', (tester) async {
       final tracker = await pumpConnected(tester);
 
