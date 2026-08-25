@@ -57,6 +57,7 @@ import 'package:discourse_native/src/shell/empty_state.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
+import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -78,7 +79,8 @@ import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart' show kSecondaryButton;
+import 'package:flutter/gestures.dart'
+    show PointerEnterEvent, PointerExitEvent, kSecondaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -7809,6 +7811,40 @@ void main() {
       final gesture = await hoverPost(tester);
       expect(find.byTooltip('Reply to this post'), findsOneWidget);
 
+      // Crossing onto the overlaid toolbar must not make the post lose its
+      // hover target before the toolbar can receive the same pointer update.
+      final toolbar = find.byType(HoverActionToolbar);
+      await gesture.moveTo(tester.getCenter(toolbar));
+      await tester.pump();
+      expect(find.byTooltip('Reply to this post'), findsOneWidget);
+
+      // The macOS embedder can report the overlaid toolbar's enter before the
+      // post underneath exits. Neither callback ordering may close the menu.
+      final toolbarRegion = tester.widget<MouseRegion>(
+        find
+            .ancestor(
+              of: toolbar,
+              matching: find.byWidgetPredicate(
+                (widget) => widget is MouseRegion && widget.onHover != null,
+              ),
+            )
+            .first,
+      );
+      final postRegion = tester.widget<MouseRegion>(
+        find
+            .ancestor(
+              of: renderedText('First post body'),
+              matching: find.byWidgetPredicate(
+                (widget) => widget is MouseRegion && widget.onHover != null,
+              ),
+            )
+            .first,
+      );
+      toolbarRegion.onEnter!(const PointerEnterEvent());
+      postRegion.onExit!(const PointerExitEvent());
+      await tester.pump();
+      expect(find.byTooltip('Reply to this post'), findsOneWidget);
+
       // Leaving takes them away on the very next frame — no grace period to
       // wait out, which reads as lag.
       await gesture.moveTo(Offset.zero);
@@ -7920,7 +7956,7 @@ void main() {
       );
 
       await openTopic(tester, api);
-      await hoverPost(tester, body: 'Top of the long post');
+      final gesture = await hoverPost(tester, body: 'Top of the long post');
       expect(find.byTooltip('Reply to this post'), findsOneWidget);
 
       final before = tester.getTopLeft(find.byTooltip('Reply to this post'));
@@ -7935,6 +7971,10 @@ void main() {
       final after = tester.getTopLeft(find.byTooltip('Reply to this post'));
       expect(after.dy, greaterThanOrEqualTo(viewport.top));
       expect(after.dy, lessThan(viewport.bottom));
+
+      await gesture.moveTo(tester.getCenter(find.byType(HoverActionToolbar)));
+      await tester.pump();
+      expect(find.byTooltip('Reply to this post'), findsOneWidget);
     });
 
     testWidgets('the menu goes when its post scrolls out of sight', (

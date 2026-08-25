@@ -57,6 +57,8 @@ class PostActions extends StatefulWidget {
   State<PostActions> createState() => _PostActionsState();
 }
 
+enum _PostActionsHoverTarget { post, toolbar }
+
 class _PostActionsState extends State<PostActions> {
   static const double _inset = 8;
 
@@ -83,10 +85,13 @@ class _PostActionsState extends State<PostActions> {
   /// toolbar alive while the pointer travels between those two overlays.
   bool _overflowOpen = false;
 
-  /// Whether the pointer is over the post or its compact toolbar. This lets an
-  /// overflow menu closed with Escape leave the toolbar visible when the post
-  /// is still hovered, and dismiss it when the pointer has moved elsewhere.
-  bool _pointerInside = false;
+  /// The post and toolbar are separate mouse annotations because the latter is
+  /// painted in an overlay. Embedders may report their enter and exit callbacks
+  /// in either order, so retain both facts instead of letting the last callback
+  /// win.
+  final Set<_PostActionsHoverTarget> _hoveredTargets = {};
+
+  bool get _pointerInside => _hoveredTargets.isNotEmpty;
 
   @override
   void didChangeDependencies() {
@@ -138,20 +143,26 @@ class _PostActionsState extends State<PostActions> {
   }
 
   /// A real pointer movement, as opposed to a row arriving under a still one.
-  void _pointerMoved() {
-    _pointerInside = true;
+  void _pointerMoved(_PostActionsHoverTarget target) {
+    _hoveredTargets.add(target);
     _suppressed = false;
     _open();
   }
 
-  void _pointerEntered() {
-    _pointerInside = true;
+  void _pointerEntered(_PostActionsHoverTarget target) {
+    _hoveredTargets.add(target);
     _open();
   }
 
-  void _pointerExited() {
-    _pointerInside = false;
-    _closeNow();
+  void _pointerExited(_PostActionsHoverTarget target) {
+    _hoveredTargets.remove(target);
+    // The toolbar is an overlaid mouse region. Its enter can arrive before or
+    // after the post's exit, so wait until this pointer update has dispatched
+    // both callbacks before deciding that the pointer truly left.
+    scheduleMicrotask(() {
+      if (!mounted || _pointerInside) return;
+      _closeNow();
+    });
   }
 
   /// Opens the same compact menu as hover and puts keyboard focus inside it.
@@ -168,15 +179,14 @@ class _PostActionsState extends State<PostActions> {
     });
   }
 
-  /// Instant, with nothing to wait out.
-  ///
-  /// The menu sits inside the post's own rectangle, and moving onto it exits
-  /// the post and enters the menu within a single pointer update — the hide
-  /// and the show land in the same frame, so there is no gap to bridge and no
-  /// reason to make leaving feel slow.
+  /// Instant, with nothing to wait out beyond the current pointer update.
   void _closeNow({bool force = false}) {
     if (_overflowOpen && !force) return;
-    if (_portal.isShowing) _portal.hide();
+    if (_portal.isShowing) {
+      _portal.hide();
+      // Removing an overlay does not promise a matching exit callback.
+      _hoveredTargets.remove(_PostActionsHoverTarget.toolbar);
+    }
   }
 
   void _overflowChanged(bool open) {
@@ -637,9 +647,9 @@ class _PostActionsState extends State<PostActions> {
     // a pointer, so a touch screen falls through to the long press below
     // without needing to ask what it is running on.
     final Widget hoverable = MouseRegion(
-      onEnter: (_) => _pointerEntered(),
-      onHover: (_) => _pointerMoved(),
-      onExit: (_) => _pointerExited(),
+      onEnter: (_) => _pointerEntered(_PostActionsHoverTarget.post),
+      onHover: (_) => _pointerMoved(_PostActionsHoverTarget.post),
+      onExit: (_) => _pointerExited(_PostActionsHoverTarget.post),
       child: OverlayPortal(
         controller: _portal,
         overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
@@ -655,9 +665,9 @@ class _PostActionsState extends State<PostActions> {
             );
           },
           child: MouseRegion(
-            onEnter: (_) => _pointerEntered(),
-            onHover: (_) => _pointerMoved(),
-            onExit: (_) => _pointerExited(),
+            onEnter: (_) => _pointerEntered(_PostActionsHoverTarget.toolbar),
+            onHover: (_) => _pointerMoved(_PostActionsHoverTarget.toolbar),
+            onExit: (_) => _pointerExited(_PostActionsHoverTarget.toolbar),
             child: _PostActionsMenu(
               actions: actions,
               firstActionFocus: _firstActionFocus,
