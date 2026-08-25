@@ -161,6 +161,7 @@ class ChatMessageTile extends StatelessWidget {
         final canDelete = chat.canDeleteMessage(siteUrl, message);
         final canPin = chat.canPinMessage(siteUrl, message);
         final canRebake = chat.canRebakeMessage(siteUrl, message);
+        final canAddReaction = chat.canAddReactionToMessage(siteUrl, message);
         final flagTypes = chat.availableChatFlagTypes(
           siteUrl,
           message,
@@ -179,6 +180,7 @@ class ChatMessageTile extends StatelessWidget {
                 canDelete ||
                 canPin ||
                 canRebake ||
+                canAddReaction ||
                 flagTypes.isNotEmpty ||
                 canCopyLink ||
                 onSelect != null
@@ -243,6 +245,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   bool _hovered = false;
   bool _pinning = false;
   bool _rebaking = false;
+  bool _reactionPickerOpening = false;
 
   void _reply() {
     widget.onReply?.call();
@@ -294,6 +297,21 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     siteUrl: widget.siteUrl,
     message: widget.message,
   );
+
+  Future<void> _pickReaction([BuildContext? anchorContext]) async {
+    if (_reactionPickerOpening) return;
+    setState(() => _reactionPickerOpening = true);
+    try {
+      await _pickChatMessageReaction(
+        context: context,
+        anchorContext: anchorContext,
+        siteUrl: widget.siteUrl,
+        message: widget.message,
+      );
+    } finally {
+      if (mounted) setState(() => _reactionPickerOpening = false);
+    }
+  }
 
   Future<void> _edit() => showDialog<void>(
     context: context,
@@ -376,6 +394,10 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     final canDelete = chat.canDeleteMessage(widget.siteUrl, widget.message);
     final canPin = chat.canPinMessage(widget.siteUrl, widget.message);
     final canRebake = chat.canRebakeMessage(widget.siteUrl, widget.message);
+    final canAddReaction = chat.canAddReactionToMessage(
+      widget.siteUrl,
+      widget.message,
+    );
     final flagTypes = chat.availableChatFlagTypes(
       widget.siteUrl,
       widget.message,
@@ -397,6 +419,19 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       builder: (sheetContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (canAddReaction)
+            ListTile(
+              minTileHeight: 52,
+              leading: const DIcon(DIcons.farFaceSmile, size: 18),
+              title: const Text('Add reaction'),
+              enabled: !_reactionPickerOpening,
+              onTap: _reactionPickerOpening
+                  ? null
+                  : () {
+                      Navigator.of(sheetContext).pop();
+                      unawaited(_pickReaction());
+                    },
+            ),
           if (widget.onReply != null)
             ListTile(
               minTileHeight: 52,
@@ -582,7 +617,15 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     final bookmarkLabel = widget.message.bookmark == null
         ? 'Bookmark'
         : 'Edit bookmark';
+    final chat = PluginScope.require(context, chatControllerService);
+    final canAddReaction = chat.canAddReactionToMessage(
+      widget.siteUrl,
+      widget.message,
+    );
     final semanticsActions = <CustomSemanticsAction, VoidCallback>{
+      if (canAddReaction && !_reactionPickerOpening)
+        const CustomSemanticsAction(label: 'Add reaction'): () =>
+            unawaited(_pickReaction()),
       if (widget.onReply != null)
         const CustomSemanticsAction(label: 'Reply in thread'): _reply,
       if (widget.canCopyLink)
@@ -650,6 +693,23 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                         right: 12,
                         child: HoverActionToolbar(
                           children: [
+                            if (canAddReaction)
+                              EmojiPickerAnchor(
+                                child: Builder(
+                                  builder: (anchorContext) => HoverActionButton(
+                                    tooltip: 'Add reaction',
+                                    onPressed: _reactionPickerOpening
+                                        ? null
+                                        : () => unawaited(
+                                            _pickReaction(anchorContext),
+                                          ),
+                                    icon: const DIcon(
+                                      DIcons.farFaceSmile,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             if (widget.onReply != null)
                               HoverActionButton(
                                 tooltip: 'Reply in thread',
@@ -1201,6 +1261,64 @@ class _ReplyIndicator extends StatelessWidget {
   }
 }
 
+Future<void> _pickChatMessageReaction({
+  required BuildContext context,
+  required String siteUrl,
+  required ChatMessage message,
+  BuildContext? anchorContext,
+}) async {
+  final controller = ShellScope.read(context);
+  final chat = PluginScope.require(context, chatControllerService);
+  if (!chat.canAddReactionToMessage(siteUrl, message)) return;
+  final lease = controller.lifecycle.capture(siteUrl);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+
+  final picked = await showEmojiPicker(
+    context: context,
+    anchorContext: anchorContext,
+    siteUrl: siteUrl,
+    pickerContext: EmojiPickerContext.chat,
+    store: controller.emojiPickerStore,
+    loadCatalog: ({refresh = false}) => refresh
+        ? controller.refreshEmojiCatalog(siteUrl)
+        : controller.ensureEmojiCatalog(siteUrl),
+    loadSearchAliases: ({refresh = false}) => refresh
+        ? controller.refreshEmojiSearchAliases(siteUrl)
+        : controller.ensureEmojiSearchAliases(siteUrl),
+  );
+  if (picked == null || !lease.isCurrent) return;
+  if (context.mounted &&
+      !identical(ShellScope.maybeRead(context), controller)) {
+    return;
+  }
+  final current = chat.messageRef(siteUrl, message.id).value;
+  if (current == null || !chat.canAddReactionToMessage(siteUrl, current)) {
+    return;
+  }
+
+  unawaited(
+    controller.emojiPickerStore.trackEmoji(
+      siteUrl: siteUrl,
+      context: EmojiPickerContext.chat,
+      emoji: picked,
+    ),
+  );
+  unawaited(
+    chat.addMessageReaction(siteUrl, message.id, picked).then((error) {
+      if (error == null ||
+          !lease.isCurrent ||
+          messenger == null ||
+          !messenger.mounted) {
+        return;
+      }
+      if (!identical(ShellScope.maybeRead(messenger.context), controller)) {
+        return;
+      }
+      messenger.showSnackBar(SnackBar(content: Text(error)));
+    }),
+  );
+}
+
 class _Reactions extends StatelessWidget {
   const _Reactions({required this.siteUrl, required this.message});
 
@@ -1269,57 +1387,11 @@ class _Reactions extends StatelessWidget {
     );
   }
 
-  Future<void> _pickReaction(BuildContext context) async {
-    final controller = ShellScope.read(context);
-    final chat = PluginScope.require(context, chatControllerService);
-    if (!chat.canAddReactionToMessage(siteUrl, message)) return;
-    final lease = controller.lifecycle.capture(siteUrl);
-    final messenger = ScaffoldMessenger.maybeOf(context);
-
-    final picked = await showEmojiPicker(
-      context: context,
-      siteUrl: siteUrl,
-      pickerContext: EmojiPickerContext.chat,
-      store: controller.emojiPickerStore,
-      loadCatalog: ({refresh = false}) => refresh
-          ? controller.refreshEmojiCatalog(siteUrl)
-          : controller.ensureEmojiCatalog(siteUrl),
-      loadSearchAliases: ({refresh = false}) => refresh
-          ? controller.refreshEmojiSearchAliases(siteUrl)
-          : controller.ensureEmojiSearchAliases(siteUrl),
-    );
-    if (picked == null || !lease.isCurrent) return;
-    if (context.mounted &&
-        !identical(ShellScope.maybeRead(context), controller)) {
-      return;
-    }
-    final current = chat.messageRef(siteUrl, message.id).value;
-    if (current == null || !chat.canAddReactionToMessage(siteUrl, current)) {
-      return;
-    }
-
-    unawaited(
-      controller.emojiPickerStore.trackEmoji(
-        siteUrl: siteUrl,
-        context: EmojiPickerContext.chat,
-        emoji: picked,
-      ),
-    );
-    unawaited(
-      chat.addMessageReaction(siteUrl, message.id, picked).then((error) {
-        if (error == null ||
-            !lease.isCurrent ||
-            messenger == null ||
-            !messenger.mounted) {
-          return;
-        }
-        if (!identical(ShellScope.maybeRead(messenger.context), controller)) {
-          return;
-        }
-        messenger.showSnackBar(SnackBar(content: Text(error)));
-      }),
-    );
-  }
+  Future<void> _pickReaction(BuildContext context) => _pickChatMessageReaction(
+    context: context,
+    siteUrl: siteUrl,
+    message: message,
+  );
 }
 
 /// Chat's API adapter into the same reactor list topic posts use.
