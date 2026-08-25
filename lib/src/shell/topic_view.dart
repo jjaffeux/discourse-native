@@ -927,11 +927,29 @@ class _TopicViewState extends State<TopicView> {
   ) {
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
+    if (snapshot.siteUrl case final siteUrl?) {
+      _syncRecommendationsSite(siteUrl);
+    }
 
     if (snapshot.topicId == null) {
       if (snapshot.loading) {
-        return const _TopicLoadingSkeleton(
+        const topicSkeleton = _TopicLoadingSkeleton(
           key: ValueKey('topic-loading-skeleton'),
+        );
+        if (!widget.showRecommendationsPanel) return topicSkeleton;
+
+        return Row(
+          children: [
+            const Expanded(child: topicSkeleton),
+            _TopicRecommendationsPanel(
+              collapsed: _recommendationsPanelCollapsed,
+              recommendations: null,
+              loading: true,
+              selected: _recommendationsTab,
+              onSelected: _setRecommendationsTab,
+              onCollapsedChanged: _setRecommendationsPanelCollapsed,
+            ),
+          ],
         );
       }
       return Center(
@@ -964,8 +982,16 @@ class _TopicViewState extends State<TopicView> {
     final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
     final hasRecommendations = snapshot.recommendations?.isNotEmpty == true;
     final showRecommendations = !snapshot.hasMore && hasRecommendations;
+    // A null payload is unresolved rather than empty: Discourse only sends
+    // the recommendation fields with the final post window. Reserve the
+    // eventual panel while that window is still outstanding so its arrival
+    // cannot resize the post column.
+    final recommendationsPending =
+        snapshot.recommendations == null &&
+        (snapshot.hasMore || snapshot.loadingMore);
     final showRecommendationsPanel =
-        widget.showRecommendationsPanel && hasRecommendations;
+        widget.showRecommendationsPanel &&
+        (hasRecommendations || recommendationsPending);
 
     // Which posts are on screen, and in what order. The posts themselves are
     // in the store; each tile watches its own, so an edit or a deletion redraws
@@ -973,7 +999,6 @@ class _TopicViewState extends State<TopicView> {
     final postIds = snapshot.postIds;
     final postIndexes = _postIndexes(postIds);
     final siteUrl = snapshot.siteUrl!;
-    _syncRecommendationsSite(siteUrl);
     final topicIdentity = (
       siteUrl,
       snapshot.topicId!,
@@ -1181,7 +1206,8 @@ class _TopicViewState extends State<TopicView> {
         if (showRecommendationsPanel)
           _TopicRecommendationsPanel(
             collapsed: _recommendationsPanelCollapsed,
-            recommendations: snapshot.recommendations!,
+            recommendations: snapshot.recommendations,
+            loading: snapshot.loadingMore,
             selected: _recommendationsTab,
             onSelected: _setRecommendationsTab,
             onCollapsedChanged: _setRecommendationsPanelCollapsed,
@@ -1696,6 +1722,7 @@ class _TopicRecommendationsPanel extends StatelessWidget {
   const _TopicRecommendationsPanel({
     required this.collapsed,
     required this.recommendations,
+    required this.loading,
     required this.selected,
     required this.onSelected,
     required this.onCollapsedChanged,
@@ -1705,7 +1732,8 @@ class _TopicRecommendationsPanel extends StatelessWidget {
   static const double _collapsedWidth = 48;
 
   final bool collapsed;
-  final TopicRecommendations recommendations;
+  final TopicRecommendations? recommendations;
+  final bool loading;
   final TopicRecommendationsTab selected;
   final ValueChanged<TopicRecommendationsTab> onSelected;
   final ValueChanged<bool> onCollapsedChanged;
@@ -1755,17 +1783,115 @@ class _TopicRecommendationsPanel extends StatelessWidget {
                 ),
                 Divider(height: 1, color: theme.shell.divider),
                 Expanded(
-                  child: SingleChildScrollView(
-                    child: _MoreTopics(
-                      key: const ValueKey('topic-recommendations-panel-list'),
-                      recommendations: recommendations,
-                      selected: selected,
-                      onSelected: onSelected,
+                  child: switch (recommendations) {
+                    final recommendations? => SingleChildScrollView(
+                      child: _MoreTopics(
+                        key: const ValueKey('topic-recommendations-panel-list'),
+                        recommendations: recommendations,
+                        selected: selected,
+                        onSelected: onSelected,
+                      ),
                     ),
-                  ),
+                    null when loading => const _MoreTopicsLoadingSkeleton(),
+                    null => const SizedBox.shrink(),
+                  },
                 ),
               ],
             ),
+    );
+  }
+}
+
+/// A topic-list-shaped placeholder for the payload attached to the final post
+/// window. The enclosing panel owns the stable width; this owns only the
+/// loading affordance, so a failed page can stop pulsing without resizing the
+/// post column.
+class _MoreTopicsLoadingSkeleton extends StatelessWidget {
+  const _MoreTopicsLoadingSkeleton();
+
+  static const double _headingHeight = 48;
+
+  @override
+  Widget build(BuildContext context) {
+    final divider = Theme.of(context).shell.divider;
+
+    return LoadingSkeleton(
+      key: const ValueKey('topic-recommendations-loading-skeleton'),
+      semanticsLabel: 'Loading more topics',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final availableHeight = constraints.hasBoundedHeight
+              ? constraints.maxHeight - _headingHeight
+              : TopicListRow.minimumHeight * 4;
+          final rowCount = (availableHeight / TopicListRow.minimumHeight)
+              .ceil()
+              .clamp(1, 12);
+
+          return ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              maxHeight: double.infinity,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(
+                    height: _headingHeight,
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 20, 16, 16),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: LoadingSkeletonBlock(width: 72, height: 10),
+                      ),
+                    ),
+                  ),
+                  for (var index = 0; index < rowCount; index++) ...[
+                    if (index > 0) Divider(height: 1, color: divider),
+                    _MoreTopicsSkeletonRow(index: index),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MoreTopicsSkeletonRow extends StatelessWidget {
+  const _MoreTopicsSkeletonRow({required this.index});
+
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final (titleWidth, metadataWidth) = switch (index % 4) {
+      0 => (0.78, 0.54),
+      1 => (0.62, 0.42),
+      2 => (0.88, 0.64),
+      _ => (0.7, 0.48),
+    };
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: TopicListRow.minimumHeight),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FractionallySizedBox(
+              widthFactor: titleWidth,
+              child: const LoadingSkeletonBlock(height: 11),
+            ),
+            const SizedBox(height: 8),
+            FractionallySizedBox(
+              widthFactor: metadataWidth,
+              child: const LoadingSkeletonBlock(height: 8),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
