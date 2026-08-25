@@ -4503,6 +4503,75 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets(
+      'topic actions show hover affordances and stay inside the viewport',
+      (tester) async {
+        const reader = DiscourseUser(username: 'reader', name: 'Reader');
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {
+            7: detail(
+              canCloseTopic: true,
+              canArchiveTopic: true,
+              canToggleTopicVisibility: true,
+              canDeleteTopic: true,
+            ),
+          },
+        );
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
+
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [
+            instance(
+              'meta.discourse.org',
+              title: 'Discourse Meta',
+            ).copyWith(user: reader),
+          ],
+          api: api,
+          authenticator: authenticator,
+        );
+        await tester.tap(contentText('A real topic'));
+        await tester.pumpAndSettle();
+        tester.view.physicalSize = const Size(508, 700);
+        await tester.pumpAndSettle();
+
+        final trigger = find.byKey(const ValueKey('topic-status-button'));
+        await tester.tap(trigger);
+        await tester.pumpAndSettle();
+
+        final item = find.byKey(const ValueKey('topic-status-closed'));
+        final button = tester.widget<TextButton>(
+          find.descendant(of: item, matching: find.byType(TextButton)),
+        );
+        final theme = Theme.of(tester.element(item));
+        final hoverColor = Color.alphaBlend(
+          theme.colorScheme.onSurface.withValues(
+            alpha: theme.brightness == Brightness.dark ? 0.10 : 0.06,
+          ),
+          theme.shell.floating,
+        );
+        expect(
+          button.style!.backgroundColor!.resolve({WidgetState.hovered}),
+          hoverColor,
+        );
+        expect(
+          button.style!.mouseCursor!.resolve({}),
+          SystemMouseCursors.click,
+        );
+
+        final menuSurface = find.byKey(const ValueKey('command-menu-surface'));
+        expect(menuSurface, findsOneWidget);
+        final menuRect = tester.getRect(menuSurface);
+        expect(menuRect.left, greaterThanOrEqualTo(10));
+        expect(menuRect.top, greaterThanOrEqualTo(10));
+        expect(menuRect.right, lessThanOrEqualTo(498));
+        expect(menuRect.bottom, lessThanOrEqualTo(690));
+      },
+    );
+
     testWidgets('topic actions follow guardian status gates and update state', (
       tester,
     ) async {
@@ -10738,6 +10807,37 @@ void main() {
 
       expect(api.reacted, [(postId: 1, reaction: '+1')]);
       expect(pill('1'), findsOneWidget);
+    });
+
+    testWidgets('an any-emoji site opens the full picker from the toolbar', (
+      tester,
+    ) async {
+      final api = await openTopic(
+        tester,
+        config: SiteConfig.fromSettings(const {
+          'discourse_reactions_enabled': true,
+          'discourse_reactions_reaction_for_like': 'heart',
+          'discourse_reactions_enabled_reactions': 'clap',
+          'discourse_reactions_allow_any_emoji': true,
+        }),
+        emojis: const [
+          SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
+        ],
+        posts: [post()],
+      );
+
+      await hoverPost(tester);
+      await tester.tap(find.byTooltip('Pick a reaction'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReactionGrid), findsNothing);
+      expect(find.byType(EmojiPicker), findsOneWidget);
+
+      await tester.tap(find.byTooltip(':wave:'));
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, [(postId: 1, reaction: 'wave')]);
+      expect(find.bySemanticsLabel('1 wave reaction'), findsOneWidget);
     });
 
     testWidgets('the write answer updates the reader and not the counts', (

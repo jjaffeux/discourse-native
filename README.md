@@ -807,8 +807,8 @@ naive label reads "Like this post" on a tap that would replace their clap.
 A populated reaction row ends with the same smile affordance chat uses, so a
 reader does not have to reopen the post menu to choose something else. It is
 shown only while the post remains writable; an empty row still relies on the
-menu because there is nothing under the post to attach it to. Ordinarily it
-opens the site's configured reaction grid. When
+toolbar because there is nothing under the post to attach it to. Both smile
+affordances ordinarily open the site's configured reaction grid. When
 `discourse_reactions_allow_any_emoji` is true it opens the full searchable site
 emoji catalog instead — arbitrary emoji are never offered on a site whose
 route would reject them. Reaction picks keep their own favorites history, as

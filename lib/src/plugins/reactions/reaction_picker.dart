@@ -12,11 +12,12 @@ import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import 'reaction.dart';
 
-/// Opens the row-level chooser for a post that already has reactions.
+/// Opens the policy-aware chooser for a post reaction affordance.
 ///
-/// Most sites permit only their configured reaction set, which remains the
-/// compact grid used by the post menu. A site that explicitly permits any
-/// emoji gets the complete searchable catalog from the smile button instead.
+/// Most sites permit only their configured reaction set, which remains a
+/// compact grid. A site that explicitly permits any emoji gets the complete
+/// searchable catalog from both the post toolbar and the reaction-row smile
+/// button instead.
 Future<void> showPostReactionPicker(
   BuildContext context,
   String siteUrl,
