@@ -14,6 +14,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
+import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -2287,6 +2288,37 @@ void main() {
   });
 
   group('sending a message', () {
+    test(
+      "groups a staged row with the current user's latest message immediately",
+      () async {
+        final now = DateTime.utc(2026, 5, 5, 10, 1);
+        final subject = build(
+          messages: {
+            key(9): page([message(1, authorId: currentUser.id!)]),
+          },
+          currentUser: currentUser,
+          clock: () => now,
+          sentMessageId: 2,
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.openChannel(site, 9);
+
+        final sending = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('hello again'),
+        )!;
+        final stagedRow = buildChatStream(
+          subject.chat.messages(site, 9),
+        ).whereType<ChatStreamMessage>().last;
+
+        expect(stagedRow.id, sending.localId);
+        expect(stagedRow.chained, isTrue);
+        expect(subject.api.chatMessagesSent, isEmpty);
+        expect(await sending.settled, ChatSendResult.sent);
+      },
+    );
+
     test('stages the local row before credentials can answer', () async {
       final credentialsGate = Completer<void>();
       final credentials = _GatedCredentials(credentialsGate);
