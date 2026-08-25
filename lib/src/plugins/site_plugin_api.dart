@@ -323,6 +323,18 @@ abstract interface class ContentHeaderPlugin {
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route);
 }
 
+/// Makes the standard content title navigate to feature-owned details.
+///
+/// The shell keeps drawing the title and its accessibility treatment; the
+/// plugin supplies only the route-scoped action, so core never has to learn a
+/// feature's route vocabulary.
+abstract interface class ContentHeaderTitlePlugin {
+  VoidCallback? contentHeaderTitleAction(
+    BuildContext context,
+    ContentRoute route,
+  );
+}
+
 enum PluginHeaderSurface { titleBar, content }
 
 /// Adds app-level actions without teaching core which plugin owns them.

@@ -205,7 +205,9 @@ void main() {
       final channel = channelFrom(categoryChannel());
 
       expect(channel.chatableId, 1);
+      expect(channel.categoryName, 'Bug');
       expect(channel.withStarred(true).chatableId, 1);
+      expect(channel.withStarred(true).categoryName, 'Bug');
       expect(channel.withLastRead(4, caughtUp: true).chatableId, 1);
     });
 

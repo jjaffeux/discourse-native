@@ -251,6 +251,17 @@ final class PluginRegistry implements PluginDataDecoder {
           ...plugin.contentHeaderActions(context, route),
       ];
 
+  VoidCallback? contentHeaderTitleAction(
+    BuildContext context,
+    ContentRoute route,
+  ) {
+    for (final plugin in plugins.whereType<ContentHeaderTitlePlugin>()) {
+      final action = plugin.contentHeaderTitleAction(context, route);
+      if (action != null) return action;
+    }
+    return null;
+  }
+
   List<Widget> shellHeaderActions(
     BuildContext context, {
     required PluginHeaderSurface surface,

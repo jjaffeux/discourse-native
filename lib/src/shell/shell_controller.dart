@@ -54,6 +54,7 @@ import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../plugins/assign/assignment.dart';
 import '../plugins/assign/assignment_controller.dart';
+import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_controller.dart';
 import '../plugins/chat/chat_message.dart';
 import '../plugins/chat/chat_plugin.dart';
@@ -2869,6 +2870,29 @@ class ShellController extends FrameSafeNotifier {
     );
   }
 
+  /// Opens the routed channel settings or member directory.
+  ///
+  /// These are siblings under one channel-info route, as they are in core
+  /// Discourse. Moving between the tabs replaces the current sibling so Back
+  /// always returns directly to the channel.
+  bool openChatChannelInfo({
+    required String siteUrl,
+    required int channelId,
+    ChatChannelInfoTab tab = ChatChannelInfoTab.settings,
+  }) {
+    if (channelId <= 0) return false;
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0 || !_instances[index].isConnected) return false;
+    final channel = _chatPlugin?.channel(siteUrl, channelId);
+    if (channel == null) return false;
+    if (index != _instanceIndex) selectInstance(index);
+    return _openChatInfoRoute(
+      siteUrl,
+      channel,
+      ChatRoute.info(channelId: channelId, tab: tab),
+    );
+  }
+
   /// Opens the web-equivalent active-thread index for one known channel.
   bool openChatChannelThreads({
     required String siteUrl,
@@ -2942,6 +2966,8 @@ class ShellController extends FrameSafeNotifier {
     final channel = chat.channel(siteUrl, route.channelId);
     if (channel == null) return false;
 
+    if (route.isInfo) return _openChatInfoRoute(siteUrl, channel, route);
+
     final currentRoute = switch (currentContent?.id) {
       final id? => ChatRoute.parse(id),
       null => null,
@@ -2987,6 +3013,35 @@ class ShellController extends FrameSafeNotifier {
     if (_mobilePane != MobilePane.content) {
       _mobilePane = MobilePane.content;
       _notify();
+    }
+    return true;
+  }
+
+  bool _openChatInfoRoute(
+    String siteUrl,
+    ChatChannel channel,
+    ChatRoute route,
+  ) {
+    if (currentInstance?.url != siteUrl || !route.isInfo) return false;
+
+    final currentRoute = switch (currentContent?.id) {
+      final id? => ChatRoute.parse(id),
+      null => null,
+    };
+    final content = ContentRoute(
+      id: route.routeId,
+      title: channel.title,
+      icon: DIcons.comment,
+    );
+
+    if (currentRoute?.isInfo == true && currentRoute?.channelId == channel.id) {
+      replaceCurrentContent(content);
+    } else {
+      if (currentRoute?.channelId != channel.id ||
+          currentRoute?.isThread == true) {
+        selectDestination(ChatPlugin.destination(channel));
+      }
+      pushContent(content);
     }
     return true;
   }
@@ -4385,9 +4440,8 @@ class ShellController extends FrameSafeNotifier {
       selectedTagIds: composer.tags.map((tag) => tag.id).whereType<int>(),
       // Core rejects a page larger than the site's own setting outright, so
       // the site sets this and the client only caps what it will render.
-      limit: siteConfigFor(
-        target.siteUrl,
-      ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+      limit: siteConfigFor(target.siteUrl).maxTagSearchResults
+          .clamp(1, TopicTagSearch.maximumResults),
     );
   }
 
@@ -9451,6 +9505,23 @@ class ShellController extends FrameSafeNotifier {
     final tab = activeTab;
     if (tab == null) return;
     _replaceActiveTab(tab.push(route));
+    _mobilePane = MobilePane.content;
+    _syncTopicChannels();
+    _notify();
+  }
+
+  /// Replaces the top route without changing the content stack's Back target.
+  void replaceCurrentContent(ContentRoute route) {
+    final tab = activeTab;
+    if (tab == null) return;
+    _replaceActiveTab(
+      tab.copyWith(
+        contentStack: [
+          ...tab.contentStack.take(tab.contentStack.length - 1),
+          route,
+        ],
+      ),
+    );
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();

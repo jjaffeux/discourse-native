@@ -12,8 +12,7 @@ import '../plugin_services.dart';
 import '../site_plugin_api.dart';
 import 'chat_browse_channels_view.dart';
 import 'chat_channel.dart';
-import 'chat_channel_info_button.dart';
-import 'chat_channel_notification_button.dart';
+import 'chat_channel_info_view.dart';
 import 'chat_channel_search.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_threads_view.dart';
@@ -62,6 +61,7 @@ class ChatPlugin
         ContentPlugin,
         ContentChromePlugin,
         ContentHeaderPlugin,
+        ContentHeaderTitlePlugin,
         ShellHeaderPlugin,
         UserCardRecordPlugin<ChatUserCardData>,
         UserCardActionPlugin {
@@ -256,6 +256,17 @@ class ChatPlugin
     }
     final chatRoute = ChatRoute.parse(route.id);
     if (chatRoute == null) return null;
+    if (chatRoute.isInfo) {
+      final siteUrl = ShellScope.read(context).currentInstance?.url;
+      if (siteUrl == null) return const SizedBox.shrink();
+      return ChatChannelInfoView(
+        key: ValueKey((siteUrl, chatRoute.channelId, chatRoute.infoTab)),
+        siteUrl: siteUrl,
+        channelId: chatRoute.channelId,
+        tab: chatRoute.infoTab!,
+        chat: PluginScope.require(context, chatControllerService),
+      );
+    }
     return chatRoute.isThread
         ? ChatThreadWorkspace(route: chatRoute)
         : ChatChannelView(channelId: chatRoute.channelId);
@@ -272,12 +283,12 @@ class ChatPlugin
     if (siteUrl == null || chatRoute == null || chatRoute.isThread) {
       return const [];
     }
+    if (chatRoute.isInfo) {
+      return [
+        ChatChannelStarButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
+      ];
+    }
     return [
-      ChatChannelInfoButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
-      ChatChannelNotificationButton(
-        siteUrl: siteUrl,
-        channelId: chatRoute.channelId,
-      ),
       ChatChannelStarButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
       _ChatChannelThreadsButton(
         siteUrl: siteUrl,
@@ -285,6 +296,26 @@ class ChatPlugin
       ),
       ChatChannelSearchButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
     ];
+  }
+
+  @override
+  VoidCallback? contentHeaderTitleAction(
+    BuildContext context,
+    ContentRoute route,
+  ) {
+    final chatRoute = ChatRoute.parse(route.id);
+    final shell = ShellScope.read(context);
+    final siteUrl = shell.currentInstance?.url;
+    if (siteUrl == null ||
+        chatRoute == null ||
+        chatRoute.isThread ||
+        chatRoute.isInfo) {
+      return null;
+    }
+    return () => shell.openChatChannelInfo(
+      siteUrl: siteUrl,
+      channelId: chatRoute.channelId,
+    );
   }
 
   @override

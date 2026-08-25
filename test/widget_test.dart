@@ -12123,6 +12123,7 @@ void main() {
       String? slug,
       String? emoji,
       String? description,
+      String? categoryName = 'Bug',
       String? color,
       int unread = 0,
       int mentions = 0,
@@ -12143,6 +12144,7 @@ void main() {
       slug: slug ?? title.toLowerCase(),
       emoji: emoji,
       description: description,
+      categoryName: categoryName,
       categoryColor: color == null
           ? null
           : Color(int.parse('FF$color', radix: 16)),
@@ -13045,6 +13047,50 @@ void main() {
     });
 
     group('a channel', () {
+      testWidgets('the channel title opens routed settings and Back returns', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [
+            channel(
+              9,
+              categoryName: 'Management',
+              color: 'A8C832',
+              readRestricted: true,
+            ),
+          ],
+          messages: {key(9): page(const [])},
+          config: const SiteConfig(chatChannelRetentionDays: 180),
+        );
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const ValueKey('content-header-title-action')),
+        );
+        await tester.pumpAndSettle();
+
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        expect(shell.currentContent?.id, 'chat-c-9-info-settings');
+        expect(shell.contentStack.map((route) => route.id), [
+          'chat-c-9',
+          'chat-c-9-info-settings',
+        ]);
+        expect(
+          find.byKey(const ValueKey('chat-channel-settings')),
+          findsOneWidget,
+        );
+        expect(find.text('Management'), findsOneWidget);
+        expect(find.text('180 days'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Back'));
+        await tester.pumpAndSettle();
+
+        expect(shell.currentContent?.id, 'chat-c-9');
+        expect(find.byType(ChatChannelView), findsOneWidget);
+      });
+
       testWidgets('shows and filters the channel member directory', (
         tester,
       ) async {
@@ -13054,7 +13100,11 @@ void main() {
           chatChannelsBySite: {
             site: ChatChannels(
               public: [
-                channel(9, description: 'A place to discuss bug reports.'),
+                channel(
+                  9,
+                  description: 'A place to discuss bug reports.',
+                  membershipsCount: 2,
+                ),
               ],
               direct: const [],
             ),
@@ -13081,7 +13131,7 @@ void main() {
         await tester.pumpAndSettle();
 
         await tester.tap(
-          find.byKey(const ValueKey('chat-channel-info-button')),
+          find.byKey(const ValueKey('content-header-title-action')),
         );
         await tester.pumpAndSettle();
 
@@ -13091,6 +13141,20 @@ void main() {
           findsNothing,
         );
         expect(find.text('Members (2)'), findsOneWidget);
+        expect(find.text('Sam'), findsNothing);
+
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-info-members-tab')),
+        );
+        await tester.pumpAndSettle();
+
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        expect(shell.currentContent?.id, 'chat-c-9-info-members');
+        expect(shell.contentStack.map((route) => route.id), [
+          'chat-c-9',
+          'chat-c-9-info-members',
+        ]);
+
         expect(find.text('Sam'), findsOneWidget);
         expect(find.text('Hawk'), findsOneWidget);
 
@@ -13109,7 +13173,7 @@ void main() {
         ]);
       });
 
-      testWidgets('staff rename a category channel from its info sheet', (
+      testWidgets('staff rename a category channel from routed settings', (
         tester,
       ) async {
         const staff = DiscourseUser(
@@ -13145,7 +13209,7 @@ void main() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
         await tester.tap(
-          find.byKey(const ValueKey('chat-channel-info-button')),
+          find.byKey(const ValueKey('content-header-title-action')),
         );
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-channel-edit-title')));
@@ -13207,7 +13271,7 @@ void main() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
         await tester.tap(
-          find.byKey(const ValueKey('chat-channel-info-button')),
+          find.byKey(const ValueKey('content-header-title-action')),
         );
         await tester.pumpAndSettle();
         await tester.tap(
@@ -13228,10 +13292,13 @@ void main() {
         expect(api.chatChannelMetadataUpdates.single.description, '');
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         expect(shell.chat.channel(site, 9)?.description, isNull);
-        expect(find.text('No description.'), findsOneWidget);
+        expect(
+          find.text('Tell people what this channel is about.'),
+          findsOneWidget,
+        );
       });
 
-      testWidgets('staff toggle threading from an open channel’s info sheet', (
+      testWidgets('staff toggle threading from routed channel settings', (
         tester,
       ) async {
         const staff = DiscourseUser(
@@ -13267,7 +13334,7 @@ void main() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
         await tester.tap(
-          find.byKey(const ValueKey('chat-channel-info-button')),
+          find.byKey(const ValueKey('content-header-title-action')),
         );
         await tester.pumpAndSettle();
 
@@ -13275,7 +13342,7 @@ void main() {
           const ValueKey('chat-channel-threading-switch'),
         );
         expect(threadingSwitch, findsOneWidget);
-        expect(tester.widget<SwitchListTile>(threadingSwitch).value, isFalse);
+        expect(tester.widget<Switch>(threadingSwitch).value, isFalse);
 
         await tester.tap(threadingSwitch);
         await tester.pumpAndSettle();
@@ -13285,7 +13352,7 @@ void main() {
         ]);
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         expect(shell.chat.channel(site, 9)?.threadingEnabled, isTrue);
-        expect(tester.widget<SwitchListTile>(threadingSwitch).value, isTrue);
+        expect(tester.widget<Switch>(threadingSwitch).value, isTrue);
       });
 
       testWidgets('staff close an open category channel after confirmation', (
@@ -13320,7 +13387,7 @@ void main() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
         await tester.tap(
-          find.byKey(const ValueKey('chat-channel-info-button')),
+          find.byKey(const ValueKey('content-header-title-action')),
         );
         await tester.pumpAndSettle();
         await tester.tap(
@@ -13347,7 +13414,7 @@ void main() {
         );
       });
 
-      testWidgets('changes push notifications from the channel header', (
+      testWidgets('changes push notifications from routed channel settings', (
         tester,
       ) async {
         final api = FakeDiscourseApi(
@@ -13366,18 +13433,28 @@ void main() {
         await tester.pumpAndSettle();
 
         await tester.tap(
-          find.byKey(const ValueKey('chat-channel-notification-button')),
+          find.byKey(const ValueKey('content-header-title-action')),
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Never'), findsOneWidget);
-        expect(find.text('Mentions'), findsOneWidget);
-        expect(find.text('All activity'), findsOneWidget);
+        expect(find.text('Mentions only'), findsOneWidget);
         expect(find.text('Mute channel'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('chat-channel-info-button')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('chat-channel-notification-button')),
+          findsNothing,
+        );
 
         await tester.tap(
-          find.byKey(const ValueKey('chat-channel-notification-always')),
+          find.byKey(const ValueKey('chat-channel-notification-setting')),
         );
+        await tester.pumpAndSettle();
+        expect(find.text('Never'), findsOneWidget);
+        expect(find.text('All activity'), findsOneWidget);
+        await tester.tap(find.text('All activity').last);
         await tester.pumpAndSettle();
 
         expect(api.chatChannelNotificationsUpdated, const [
@@ -13392,6 +13469,36 @@ void main() {
           shell.chat.channel(site, 9)?.membership.notificationLevel,
           ChatChannelNotificationLevel.always,
         );
+      });
+
+      testWidgets('leaves a public channel from settings and opens browse', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)], direct: const []),
+          },
+          chatMessagesByKey: {key(9): page(const [])},
+        );
+        await pumpChat(tester, api: api);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('content-header-title-action')),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const ValueKey('chat-channel-leave')));
+        await tester.pumpAndSettle();
+
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        expect(api.chatChannelFollowsUpdated, const [
+          (channelId: 9, following: false),
+        ]);
+        expect(shell.currentContent?.id, 'chat-browse');
+        expect(sidebarDestination('Bugs'), findsNothing);
       });
 
       testWidgets('draws a round avatar rather than an oval', (tester) async {
