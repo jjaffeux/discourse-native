@@ -12,6 +12,7 @@ ChatMessage at(
   bool deleted = false,
   bool webhook = false,
   bool pinned = false,
+  bool optimistic = false,
   int? replyToId,
 }) => ChatMessage(
   id: id,
@@ -23,6 +24,7 @@ ChatMessage at(
   deletedAt: deleted ? DateTime(2026, 5, day, 11) : null,
   pinned: pinned,
   isWebhook: webhook,
+  stagedId: optimistic ? 'staged-$id' : null,
   replyTo: replyToId == null
       ? null
       : ChatReplyTo(id: replyToId, userId: 2, excerpt: '', username: 'u'),
@@ -53,6 +55,18 @@ void main() {
 
       expect(chainedAt(items, 2), isFalse);
     });
+
+    test(
+      "chains the current user's optimistic message before the server echoes it",
+      () {
+        final items = buildChatStream([
+          at(1, author: 7),
+          at(-1, author: 7, minute: 1, optimistic: true),
+        ]);
+
+        expect(chainedAt(items, -1), isTrue);
+      },
+    );
 
     test('breaks the chain after five minutes of silence', () {
       // Exactly five is still one burst; a second past it is a new thought.
