@@ -422,6 +422,7 @@ class DButton extends StatelessWidget {
       visualDensity: VisualDensity.standard,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       splashFactory: NoSplash.splashFactory,
+      mouseCursor: WidgetStateMouseCursor.clickable,
       alignment: Alignment.center,
       backgroundBuilder: (context, states, child) {
         if (!states.contains(WidgetState.focused)) return child!;
