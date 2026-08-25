@@ -1,6 +1,7 @@
 import 'chat_channel.dart';
 import 'chat_message.dart';
 import 'chat_reactors.dart';
+import 'chat_search.dart';
 import 'chat_thread.dart';
 
 enum ChatReactionAction { add, remove }
@@ -17,6 +18,25 @@ abstract interface class ChatApi {
   Future<ChatChannels> chatChannels({
     required String siteUrl,
     String? apiKey,
+    String? clientId,
+  });
+
+  Future<ChatChannel> chatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  });
+
+  Future<ChatSearchPage> searchChatMessages({
+    required String siteUrl,
+    required String apiKey,
+    required String query,
+    int? channelId,
+    ChatSearchSort sort = ChatSearchSort.relevance,
+    int offset = 0,
+    int limit = ChatSearchPage.defaultPageSize,
+    bool excludeThreads = false,
     String? clientId,
   });
 

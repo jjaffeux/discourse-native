@@ -1,5 +1,6 @@
 import 'assign/assignment_controller.dart';
 import 'chat/chat_controller.dart';
+import 'chat/chat_search_controller.dart';
 import 'discourse_ai/ai_summary_controller.dart';
 import 'plugin_manifest.dart';
 import 'plugin_runtime.dart';
@@ -17,6 +18,10 @@ const assignmentControllerService = PluginServiceKey<AssignmentController>(
 const chatControllerService = PluginServiceKey<ChatController>(
   owner: PluginId('chat'),
   name: 'controller',
+);
+const chatSearchControllerService = PluginServiceKey<ChatSearchController>(
+  owner: PluginId('chat'),
+  name: 'search-controller',
 );
 const aiSummaryControllerService = PluginServiceKey<AiSummaryController>(
   owner: PluginId('discourse-ai'),

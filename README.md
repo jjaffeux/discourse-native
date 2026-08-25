@@ -699,10 +699,10 @@ rather than decorating a record, so it contributes the sidebar and content
 capabilities to [`PluginRegistry`](lib/src/plugins/site_plugin.dart) without
 special-casing chat in the shell.
 
-The native workflow covers followed channels, direct messages, composing,
-uploads/GIFs, read state, live updates, and first-class message threads. A
-thread can be opened from its latest-reply summary or created with a message's
-Reply action. At 1200 logical pixels and above Chat owns a resizable
+The native workflow covers followed channels, direct messages, search,
+composing, uploads/GIFs, read state, live updates, and first-class message
+threads. A thread can be opened from its latest-reply summary or created with a
+message's Reply action. At 1200 logical pixels and above Chat owns a resizable
 channel/thread workspace; narrower shells push the thread as the next screen.
 
 **It cannot use the enablement rule the rest of that interface turns on.** A
@@ -724,6 +724,26 @@ There is no loading state and no empty heading, for the reason `SiteConfig` has
 neither: a heading that appears and then vanishes is worse than one that arrives
 late, and a section with a spinner in it says something untrue about how many
 channels there are.
+
+Search is the deliberate exception to the final presentation rule above. The
+separate, headerless Search row and the channel-header action require all of the
+account-level Chat gate **and** an explicit `chat_search_enabled: true` from
+`/site/settings.json`; a missing setting means an older server whose search
+route must not be probed. Global search calls `GET /chat/api/search.json` in
+20-message pages, defaults to relevance, can switch to latest, and includes
+thread replies. Each result keeps the embedded channel only as presentation
+context. Opening one resolves `/chat/api/channels/{id}.json` when that channel
+fell outside the capped followed-channel snapshot, stores the full membership
+record, then targets the exact channel or thread message.
+
+The inline channel filter uses the same endpoint with `channel_id`,
+`sort=latest`, and `exclude_threads=true`. It automatically reveals the newest
+match, cycles through the returned window in both directions, and reuses the
+one-shot navigation handoff so an expanded thread workspace can reveal a
+message in its parent pane without closing the thread. Search state lives in a
+separate lifecycle-safe controller: query changes, site disconnects, and a
+closed filter invalidate late responses, while search text remains transient
+and never enters diagnostics or persisted presentation state.
 
 The two hooks are `sidebarSections` and `content`. The first returns **models**
 rather than a widget — unlike `postFooter`, because the sidebar is a list of

@@ -24,6 +24,7 @@ import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
@@ -303,6 +304,7 @@ void main() {
         loose,
       );
       probe('ChatMessage', () => ChatMessage.fromJson(json, site), json);
+      probe('ChatSearchPage', () => ChatSearchPage.fromJson(json, site), json);
       probe(
         'ChatThreadMembership',
         () => ChatThreadMembership.fromJson(loose),

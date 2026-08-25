@@ -14,6 +14,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
 import '../plugin_services.dart';
+import 'chat_channel_search.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
@@ -245,6 +246,10 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
     return Column(
       children: [
+        ChatChannelSearchBar(
+          siteUrl: widget.siteUrl,
+          channelId: widget.channelId,
+        ),
         Expanded(child: content),
         if (stream.error == null || hasMessages)
           ChatComposer(

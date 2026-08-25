@@ -245,6 +245,12 @@ final class PluginRegistry implements PluginDataDecoder {
       .whereType<ContentChromePlugin>()
       .any((plugin) => plugin.ownsContentChrome(context, route));
 
+  List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) =>
+      [
+        for (final plugin in plugins.whereType<ContentHeaderPlugin>())
+          ...plugin.contentHeaderActions(context, route),
+      ];
+
   List<Widget> shellHeaderActions(
     BuildContext context, {
     required PluginHeaderSurface surface,

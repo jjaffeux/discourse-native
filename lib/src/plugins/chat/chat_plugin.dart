@@ -9,9 +9,11 @@ import '../plugin_scope.dart';
 import '../plugin_services.dart';
 import '../site_plugin_api.dart';
 import 'chat_channel.dart';
+import 'chat_channel_search.dart';
 import 'chat_channel_view.dart';
 import 'chat_header_button.dart';
 import 'chat_route.dart';
+import 'chat_search_view.dart';
 import 'chat_thread_view.dart';
 import 'chat_user_card.dart';
 
@@ -36,9 +38,10 @@ import 'chat_user_card.dart';
 /// reader may use it, and they have not switched it off — three questions
 /// answered by one absent key, scoped by the same guardian that decided the
 /// rest of the payload. `ShellController._refreshOne` reads it, and it decides
-/// only whether to **ask**. What comes back still decides whether to **draw**:
-/// nothing here is drawn from a setting, the sections exist because there are
-/// channels.
+/// only whether to **ask**. What comes back still decides whether to **draw**
+/// channel sections: they exist because there are channels. Search is a
+/// separate endpoint and uses its own explicit client setting so an older site
+/// that has Chat but not search is never probed.
 ///
 /// Which is also why there is no loading state and no empty heading. A heading
 /// that appears and then vanishes is worse than one that arrives late, and a
@@ -50,10 +53,13 @@ class ChatPlugin
         SidebarPlugin,
         ContentPlugin,
         ContentChromePlugin,
+        ContentHeaderPlugin,
         ShellHeaderPlugin,
         UserCardRecordPlugin<ChatUserCardData>,
         UserCardActionPlugin {
   const ChatPlugin();
+
+  static const String searchRouteId = 'chat-search';
 
   @override
   String get name => 'chat';
@@ -87,10 +93,29 @@ class ChatPlugin
     final starred = chat.starredChannels(siteUrl);
     final public = chat.unstarredPublicChannels(siteUrl);
     final direct = chat.unstarredDirectChannels(siteUrl);
+    final searchEnabled =
+        controller.currentInstance?.isConnected == true &&
+        controller.currentInstance?.config.chatSearchEnabled == true &&
+        controller.currentInstance?.user?.hasChatEnabled != false &&
+        controller.currentTotals?.hasChatEnabled == true;
 
     // Nothing before the answer, and nothing after an answer with no channels
     // in it. A heading with no rows under it says something that is not true.
     return [
+      if (searchEnabled)
+        const SidebarSection(
+          id: 'chat-search',
+          title: '',
+          showHeader: false,
+          collapsible: false,
+          destinations: [
+            SidebarDestination(
+              id: searchRouteId,
+              label: 'Search',
+              icon: DIcons.magnifyingGlass,
+            ),
+          ],
+        ),
       if (starred.isNotEmpty)
         SidebarSection(
           id: 'chat-starred-channels',
@@ -118,6 +143,21 @@ class ChatPlugin
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {
+    if (route.id == searchRouteId) {
+      final controller = ShellScope.read(context);
+      final instance = controller.currentInstance;
+      final siteUrl = instance?.url;
+      final available =
+          instance?.isConnected == true &&
+          instance?.config.chatSearchEnabled == true &&
+          instance?.user?.hasChatEnabled != false &&
+          controller.currentTotals?.hasChatEnabled == true;
+      return siteUrl == null
+          ? const SizedBox.shrink()
+          : !available
+          ? const Center(child: Text('Chat search is not available.'))
+          : ChatSearchView(key: ValueKey(siteUrl), siteUrl: siteUrl);
+    }
     final chatRoute = ChatRoute.parse(route.id);
     if (chatRoute == null) return null;
     return chatRoute.isThread
@@ -128,6 +168,18 @@ class ChatPlugin
   @override
   bool ownsContentChrome(BuildContext context, ContentRoute route) =>
       ChatRoute.parse(route.id)?.isThread ?? false;
+
+  @override
+  List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) {
+    final chatRoute = ChatRoute.parse(route.id);
+    final siteUrl = ShellScope.read(context).currentInstance?.url;
+    if (siteUrl == null || chatRoute == null || chatRoute.isThread) {
+      return const [];
+    }
+    return [
+      ChatChannelSearchButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
+    ];
+  }
 
   @override
   List<Widget> shellHeaderActions(

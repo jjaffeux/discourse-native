@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
+import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
@@ -3061,6 +3062,154 @@ void _feedGroups() {
         api.chatChannels(siteUrl: 'https://example.com'),
         throwsA(isA<SiteLookupException>()),
       );
+    });
+  });
+
+  group('chatSearch', () {
+    Map<String, dynamic> message(int id) => {
+      'id': id,
+      'chat_channel_id': 9,
+      'cooked': '<p>needle</p>',
+      'excerpt': 'needle',
+      'created_at': '2026-08-25T10:00:00Z',
+      'user': {'id': 2, 'username': 'sam'},
+      'channel': {
+        'id': 9,
+        'title': 'Bugs',
+        'chatable_type': 'Category',
+        'chatable': {'color': '0088CC'},
+      },
+    };
+
+    test('sends global search paging and sorting parameters', () async {
+      late http.Request seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(
+            jsonEncode({
+              'messages': [message(40)],
+              'meta': {'has_more': true, 'limit': 20, 'offset': 20},
+            }),
+            200,
+          );
+        }),
+      );
+
+      final page = await api.searchChatMessages(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        clientId: 'client',
+        query: '  needle  ',
+        sort: ChatSearchSort.latest,
+        offset: 20,
+      );
+
+      expect(seen.url.path, '/chat/api/search.json');
+      expect(seen.url.queryParameters, {
+        'query': 'needle',
+        'sort': 'latest',
+        'offset': '20',
+        'limit': '20',
+      });
+      expect(seen.headers['User-Api-Key'], 'key');
+      expect(page.hits.single.id, 40);
+      expect(page.hasMore, isTrue);
+    });
+
+    test('scopes channel search and excludes thread replies', () async {
+      late Uri seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request.url;
+          return http.Response(
+            jsonEncode({'messages': const <Object?>[]}),
+            200,
+          );
+        }),
+      );
+
+      await api.searchChatMessages(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        query: 'needle',
+        channelId: 9,
+        sort: ChatSearchSort.latest,
+        excludeThreads: true,
+      );
+
+      expect(seen.queryParameters['channel_id'], '9');
+      expect(seen.queryParameters['exclude_threads'], 'true');
+    });
+
+    test('rejects invalid search values before sending', () async {
+      var requests = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requests++;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      final calls = <Future<void> Function()>[
+        () => api.searchChatMessages(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          query: ' ',
+        ),
+        () => api.searchChatMessages(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          query: 'needle',
+          channelId: 0,
+        ),
+        () => api.searchChatMessages(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          query: 'needle',
+          offset: -1,
+        ),
+        () => api.searchChatMessages(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          query: 'needle',
+          limit: 41,
+        ),
+      ];
+      for (final call in calls) {
+        await expectLater(call(), throwsArgumentError);
+      }
+      expect(requests, 0);
+    });
+
+    test('loads one full channel for result navigation', () async {
+      late Uri seen;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request.url;
+          return http.Response(
+            jsonEncode({
+              'channel': {
+                'id': 9,
+                'title': 'Bugs',
+                'chatable_type': 'Category',
+                'chatable': {'color': '0088CC'},
+                'current_user_membership': {'following': true},
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final channel = await api.chatChannel(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        channelId: 9,
+      );
+
+      expect(seen.path, '/chat/api/channels/9.json');
+      expect(channel.membership.following, isTrue);
     });
   });
 

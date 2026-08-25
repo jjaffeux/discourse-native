@@ -91,6 +91,7 @@ ChatChannel channel(
 /// A controller wired to a fake site the reader is already signed in to.
 ({ChatController chat, FakeDiscourseApi api, Store store}) build({
   Map<String, ChatChannels> channels = const {},
+  Map<int, ChatChannel> channelDetails = const {},
   Map<String, ChatMessagePage> messages = const {},
   Completer<void>? channelGate,
   Completer<void>? messageGate,
@@ -111,6 +112,7 @@ ChatChannel channel(
 }) {
   final api = FakeDiscourseApi(
     chatChannelsBySite: channels,
+    chatChannelsById: channelDetails,
     chatChannelGate: channelGate,
     chatMessagesByKey: messages,
     chatMessageGate: messageGate,
@@ -332,6 +334,25 @@ void main() {
         expect(subject.chat.publicChannels(site).map((c) => c.id), [9, 4]);
         expect(subject.chat.directChannels(site).map((c) => c.id), [12]);
         expect(subject.store.read<ChatChannel>(site, 9)!.title, 'Bugs');
+      },
+    );
+
+    test(
+      'coalesces and stores a full channel needed by search navigation',
+      () async {
+        final subject = build(channelDetails: {9: channel(9)});
+
+        final first = subject.chat.ensureChannel(site, 9);
+        final second = subject.chat.ensureChannel(site, 9);
+
+        expect(identical(first, second), isTrue);
+        expect((await first)?.id, 9);
+        expect(await second, same(subject.store.read<ChatChannel>(site, 9)));
+        expect(subject.api.chatChannelDetailsRequested, [9]);
+        expect(subject.chat.publicChannels(site), isEmpty);
+
+        expect(await subject.chat.ensureChannel(site, 9), isNotNull);
+        expect(subject.api.chatChannelDetailsRequested, [9]);
       },
     );
 

@@ -2676,6 +2676,28 @@ class ShellController extends FrameSafeNotifier {
     );
   }
 
+  /// Reveals a result in a mounted channel pane without changing the durable
+  /// content route. Expanded thread workspaces keep their thread pane open.
+  bool revealChatChannelMessage({
+    required String siteUrl,
+    required int channelId,
+    required int messageId,
+  }) {
+    if (channelId <= 0 || messageId <= 0 || currentInstance?.url != siteUrl) {
+      return false;
+    }
+    final chat = _chatPlugin;
+    if (chat == null || chat.channel(siteUrl, channelId) == null) return false;
+    chatNavigation.offer(
+      ChatNavigationTarget(
+        siteUrl: siteUrl,
+        route: ChatRoute.channel(channelId),
+        messageId: messageId,
+      ),
+    );
+    return true;
+  }
+
   bool _openChatRoute(
     String siteUrl,
     ChatRoute route, {

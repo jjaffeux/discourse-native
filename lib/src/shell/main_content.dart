@@ -268,6 +268,7 @@ class _ContentHeader extends StatelessWidget {
       ),
       _ => const <Widget>[],
     };
+    final contentHeader = registry.contentHeaderActions(context, route);
 
     // On compact the main region has replaced the sidebar, so back always has
     // somewhere to go. On wider layouts it only matters inside the stack.
@@ -372,6 +373,7 @@ class _ContentHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
               ],
+              ...contentHeader,
               ...topicHeader,
               if (route.isTopic &&
                   isConnected &&

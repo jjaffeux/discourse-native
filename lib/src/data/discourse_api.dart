@@ -31,6 +31,7 @@ import '../models/user_draft.dart';
 import '../plugins/chat/chat_channel.dart';
 import '../plugins/chat/chat_message.dart';
 import '../plugins/chat/chat_reactors.dart';
+import '../plugins/chat/chat_search.dart';
 import '../plugins/chat/chat_thread.dart';
 import '../plugins/discourse_model_codec.dart';
 import '../plugins/gifs/gif.dart';
@@ -2647,6 +2648,76 @@ class DiscourseApi
     );
 
     return ChatChannel.parse(body, siteUrl);
+  }
+
+  @override
+  Future<ChatChannel> chatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    final body = await _getObject(
+      Uri.parse('$siteUrl/chat/api/channels/$channelId.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    final channel = body['channel'];
+    if (channel is! Map<String, dynamic>) {
+      throw const FormatException('Missing chat channel.');
+    }
+    return ChatChannel.fromJson(channel, siteUrl);
+  }
+
+  @override
+  Future<ChatSearchPage> searchChatMessages({
+    required String siteUrl,
+    required String apiKey,
+    required String query,
+    int? channelId,
+    ChatSearchSort sort = ChatSearchSort.relevance,
+    int offset = 0,
+    int limit = ChatSearchPage.defaultPageSize,
+    bool excludeThreads = false,
+    String? clientId,
+  }) async {
+    final term = query.trim();
+    if (term.isEmpty) {
+      throw ArgumentError.value(query, 'query', 'must not be blank');
+    }
+    if (term.length > maximumSearchTermLength) {
+      throw ArgumentError.value(
+        term.length,
+        'query',
+        'Search terms must be at most $maximumSearchTermLength characters.',
+      );
+    }
+    if (channelId != null) _requirePositiveId(channelId, 'channelId');
+    if (offset < 0) {
+      throw RangeError.value(offset, 'offset', 'must be non-negative');
+    }
+    if (limit < 1 || limit > ChatSearchPage.maximumPageSize) {
+      throw RangeError.range(limit, 1, ChatSearchPage.maximumPageSize, 'limit');
+    }
+
+    final body = await _getObject(
+      Uri.parse('$siteUrl/chat/api/search.json').replace(
+        queryParameters: {
+          'query': term,
+          if (channelId != null) 'channel_id': '$channelId',
+          'sort': sort.name,
+          'offset': '$offset',
+          'limit': '$limit',
+          if (excludeThreads) 'exclude_threads': 'true',
+        },
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return ChatSearchPage.fromJson(body, siteUrl);
   }
 
   /// One page of a channel's messages, oldest first.

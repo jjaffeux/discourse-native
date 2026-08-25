@@ -39,6 +39,7 @@ import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
+import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
@@ -529,7 +530,10 @@ class FakeDiscourseApi implements DiscourseApi {
     this.pollVoteGate,
     this.directMessageChannelsByUsername = const {},
     this.chatChannelsBySite = const {},
+    this.chatChannelsById = const {},
     this.chatChannelGate,
+    this.chatSearchPagesByKey = const {},
+    this.chatSearchGate,
     this.chatMessagesByKey = const {},
     this.chatThreadsByKey = const {},
     this.createdChatThreadsByKey = const {},
@@ -889,6 +893,9 @@ class FakeDiscourseApi implements DiscourseApi {
   /// [totals] reports `hasChatEnabled`, which itself defaults to off.
   final Map<String, ChatChannels> chatChannelsBySite;
 
+  final Map<int, ChatChannel> chatChannelsById;
+  final List<int> chatChannelDetailsRequested = [];
+
   /// Returned by [upsertChatDirectMessageChannel], keyed by target username.
   final Map<String, ChatChannel> directMessageChannelsByUsername;
 
@@ -900,6 +907,27 @@ class FakeDiscourseApi implements DiscourseApi {
   /// When set, [chatChannels] waits on it, so a test can hold the sidebar in
   /// the moment before the sections exist.
   final Completer<void>? chatChannelGate;
+
+  final Map<String, ChatSearchPage> chatSearchPagesByKey;
+  final Completer<void>? chatSearchGate;
+  final List<
+    ({
+      String query,
+      int? channelId,
+      ChatSearchSort sort,
+      int offset,
+      int limit,
+      bool excludeThreads,
+    })
+  >
+  chatSearchesRequested = [];
+
+  static String chatSearchKey(
+    String query, {
+    int? channelId,
+    ChatSearchSort sort = ChatSearchSort.relevance,
+    int offset = 0,
+  }) => '$query~${channelId ?? 'all'}~${sort.name}~$offset';
 
   /// Returned by [chatMessages], keyed by [chatMessagesKey]; a missing key
   /// fails, so a test only has to name the pages it expects to be asked for.
@@ -1915,6 +1943,56 @@ class FakeDiscourseApi implements DiscourseApi {
     chatChannelsRequested.add(siteUrl);
     if (chatChannelGate != null) await chatChannelGate!.future;
     final found = chatChannelsBySite[siteUrl];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
+  }
+
+  @override
+  Future<ChatChannel> chatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) async {
+    chatChannelDetailsRequested.add(channelId);
+    if (chatChannelGate != null) await chatChannelGate!.future;
+    final found = chatChannelsById[channelId];
+    if (found == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return found;
+  }
+
+  @override
+  Future<ChatSearchPage> searchChatMessages({
+    required String siteUrl,
+    required String apiKey,
+    required String query,
+    int? channelId,
+    ChatSearchSort sort = ChatSearchSort.relevance,
+    int offset = 0,
+    int limit = ChatSearchPage.defaultPageSize,
+    bool excludeThreads = false,
+    String? clientId,
+  }) async {
+    chatSearchesRequested.add((
+      query: query,
+      channelId: channelId,
+      sort: sort,
+      offset: offset,
+      limit: limit,
+      excludeThreads: excludeThreads,
+    ));
+    if (chatSearchGate != null) await chatSearchGate!.future;
+    final found =
+        chatSearchPagesByKey[chatSearchKey(
+          query,
+          channelId: channelId,
+          sort: sort,
+          offset: offset,
+        )];
     if (found == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }

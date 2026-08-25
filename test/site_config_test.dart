@@ -20,6 +20,7 @@ Map<String, dynamic> settings({
   int? maxImageHeight,
   int? minSearchTermLength,
   bool? logSearchQueries,
+  bool? chatSearchEnabled,
   bool? taggingEnabled,
   int? maxTagSearchResults,
   bool? usePgHeadlinesForExcerpt,
@@ -55,6 +56,7 @@ Map<String, dynamic> settings({
   'max_image_height': ?maxImageHeight,
   'min_search_term_length': ?minSearchTermLength,
   'log_search_queries': ?logSearchQueries,
+  'chat_search_enabled': ?chatSearchEnabled,
   'tagging_enabled': ?taggingEnabled,
   'max_tag_search_results': ?maxTagSearchResults,
   'use_pg_headlines_for_excerpt': ?usePgHeadlinesForExcerpt,
@@ -105,6 +107,7 @@ void main() {
       expect(unknown.offeredReactions, isEmpty);
       expect(unknown.minSearchTermLength, 3);
       expect(unknown.logSearchQueries, isTrue);
+      expect(unknown.chatSearchEnabled, isFalse);
       expect(unknown.taggingEnabled, isTrue);
       expect(unknown.maxTagSearchResults, 5);
       expect(unknown.usePgHeadlinesForExcerpt, isFalse);
@@ -186,6 +189,24 @@ void main() {
       expect(config.logSearchQueries, isFalse);
       expect(config.taggingEnabled, isFalse);
       expect(config.usePgHeadlinesForExcerpt, isTrue);
+    });
+
+    test('enables chat search only from an explicit true setting', () {
+      expect(SiteConfig.fromSettings(const {}).chatSearchEnabled, isFalse);
+      expect(
+        SiteConfig.fromSettings(
+          settings(chatSearchEnabled: true),
+        ).chatSearchEnabled,
+        isTrue,
+      );
+      expect(
+        SiteConfig.fromSettings(
+          settings(chatSearchEnabled: false),
+        ).chatSearchEnabled,
+        isFalse,
+      );
+      const enabled = SiteConfig(chatSearchEnabled: true);
+      expect(SiteConfig.fromJson(enabled.toJson()), enabled);
     });
 
     test('reads and bounds the post time-gap threshold', () {

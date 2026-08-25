@@ -318,6 +318,11 @@ abstract interface class ContentChromePlugin {
   bool ownsContentChrome(BuildContext context, ContentRoute route);
 }
 
+/// Adds route-scoped actions to the shell's standard content header.
+abstract interface class ContentHeaderPlugin {
+  List<Widget> contentHeaderActions(BuildContext context, ContentRoute route);
+}
+
 enum PluginHeaderSurface { titleBar, content }
 
 /// Adds app-level actions without teaching core which plugin owns them.

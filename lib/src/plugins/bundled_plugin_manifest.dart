@@ -3,6 +3,7 @@ import 'assign/assign_plugin.dart';
 import 'assign/assignment_controller.dart';
 import 'chat/chat_controller.dart';
 import 'chat/chat_plugin.dart';
+import 'chat/chat_search_controller.dart';
 import 'discourse_ai/ai_summary_api.dart';
 import 'discourse_ai/ai_summary_controller.dart';
 import 'discourse_ai/ai_summary_plugin.dart';
@@ -179,12 +180,27 @@ void _chatSession(PluginRegistrar registrar) {
         onChatNotificationsDelta: bindings.require(chatNotificationsDeltaPort),
         onSiteUnreachable: bindings.require(siteUnreachablePort),
       );
+      final searchController = ChatSearchController(
+        api: bindings.require(discourseApiPort),
+        credentials: bindings.require(credentialReaderPort),
+        store: bindings.require(storePort),
+        lifecycle: bindings.require(siteLifecyclePort),
+      );
       return PluginSessionContribution(
         lifecycle: _ControllerLifecycle(
-          forget: controller.forget,
-          close: controller.dispose,
+          forget: (siteUrl) {
+            controller.forget(siteUrl);
+            searchController.forget(siteUrl);
+          },
+          close: () {
+            controller.dispose();
+            searchController.dispose();
+          },
         ),
-        services: [PluginService<Object>(chatControllerService, controller)],
+        services: [
+          PluginService<Object>(chatControllerService, controller),
+          PluginService<Object>(chatSearchControllerService, searchController),
+        ],
       );
     },
     requires: const [

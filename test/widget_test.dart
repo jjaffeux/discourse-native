@@ -34,6 +34,7 @@ import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
+import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
@@ -10651,6 +10652,7 @@ void main() {
       Completer<void>? channelGate,
       DiscourseUser user = me,
       ChatPresence presence = const ChatPresence(),
+      SiteConfig config = const SiteConfig.unknown(),
     }) async {
       await pumpShell(
         tester,
@@ -10669,9 +10671,13 @@ void main() {
               },
               chatChannelGate: channelGate,
               chatMessagesByKey: messages,
+              siteConfigs: config.chatSearchEnabled ? {site: config} : const {},
             ),
         instances: [
-          instance('meta.discourse.org', title: 'Meta').copyWith(user: user),
+          instance(
+            'meta.discourse.org',
+            title: 'Meta',
+          ).copyWith(user: user, config: config),
         ],
         authenticator: FakeAuthenticator()..keys[site] = 'meta-key',
       );
@@ -10904,6 +10910,102 @@ void main() {
 
         expect(find.text('CHAT'), findsNothing);
         expect(find.text('DIRECT MESSAGES'), findsNothing);
+      });
+
+      testWidgets('offers search only when the site explicitly enables it', (
+        tester,
+      ) async {
+        await pumpChat(tester);
+        expect(sidebarDestination('Search'), findsNothing);
+
+        await pumpChat(
+          tester,
+          config: const SiteConfig(chatSearchEnabled: true),
+        );
+        expect(sidebarDestination('Search'), findsOneWidget);
+
+        await tester.tap(sidebarDestination('Search'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('chat-search-field')), findsOneWidget);
+      });
+
+      testWidgets('toggles the inline search bar from a channel header', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {key(9): page(const [])},
+          config: const SiteConfig(chatSearchEnabled: true),
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('chat-channel-search-button')),
+          findsOneWidget,
+        );
+
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-search-button')),
+        );
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('chat-channel-search-field')),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('opens a global search result at its exact message', (
+        tester,
+      ) async {
+        final searchMessage = msg(40, cooked: '<p>needle</p>');
+        const config = SiteConfig(chatSearchEnabled: true);
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          siteConfigs: const {site: config},
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)], direct: const []),
+          },
+          chatSearchPagesByKey: {
+            FakeDiscourseApi.chatSearchKey('needle'): ChatSearchPage(
+              hits: [
+                ChatSearchHit(
+                  message: searchMessage,
+                  channel: channel(9),
+                  excerpt: 'needle',
+                ),
+              ],
+            ),
+          },
+          chatMessagesByKey: {
+            FakeDiscourseApi.chatMessagesKey(9, targetMessageId: 40): page([
+              searchMessage,
+            ]),
+          },
+        );
+        await pumpChat(tester, api: api, config: config);
+
+        await tester.tap(sidebarDestination('Search'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-search-field')),
+          'needle',
+        );
+        await tester.pump(const Duration(milliseconds: 450));
+        await tester.pumpAndSettle();
+
+        final message = find.byKey(const ValueKey('chat-message-40'));
+        expect(message, findsOneWidget);
+        await tester.tap(
+          find.ancestor(of: message, matching: find.byType(InkWell)).first,
+        );
+        await tester.pumpAndSettle();
+
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        expect(shell.currentContent?.id, 'chat-c-9');
+        expect(api.chatMessagesRequested.last.targetMessageId, 40);
       });
 
       testWidgets('lists the public channels above the direct messages', (

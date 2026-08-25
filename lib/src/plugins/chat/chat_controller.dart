@@ -350,6 +350,8 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, int> _attempts = {};
   final Map<String, Future<void>> _channelRequests = {};
   final Map<String, Object> _channelRuns = {};
+  final Map<String, Future<ChatChannel?>> _channelDetailRequests = {};
+  final Map<String, Object> _channelDetailRuns = {};
 
   /// Channel ids in the order the sidebar draws them. The channels themselves
   /// are in the [Store]; these two lists are the orderings, which no record
@@ -694,6 +696,66 @@ class ChatController extends FrameSafeNotifier {
 
   ChatChannel? channel(String siteUrl, int channelId) =>
       store.read<ChatChannel>(siteUrl, channelId);
+
+  /// Resolves a search result's channel when it fell outside the capped
+  /// followed-channel snapshot. The full detail serializer carries membership;
+  /// the partial channel embedded in a search hit deliberately is not stored.
+  Future<ChatChannel?> ensureChannel(String siteUrl, int channelId) {
+    if (isDisposed || channelId <= 0) return Future.value();
+    final held = channel(siteUrl, channelId);
+    if (held != null) return Future.value(held);
+    final key = _streamKey(siteUrl, channelId);
+    final active = _channelDetailRequests[key];
+    if (active != null) return active;
+
+    final run = Object();
+    _channelDetailRuns[key] = run;
+    late final Future<ChatChannel?> request;
+    request = _ensureChannel(siteUrl, channelId, key, run).whenComplete(() {
+      if (identical(_channelDetailRequests[key], request)) {
+        final removed = _channelDetailRequests.remove(key);
+        assert(identical(removed, request));
+      }
+      if (identical(_channelDetailRuns[key], run)) {
+        _channelDetailRuns.remove(key);
+      }
+    });
+    _channelDetailRequests[key] = request;
+    return request;
+  }
+
+  Future<ChatChannel?> _ensureChannel(
+    String siteUrl,
+    int channelId,
+    String key,
+    Object run,
+  ) async {
+    final lease = lifecycle.capture(siteUrl);
+    bool ownsRequest() => identical(_channelDetailRuns[key], run);
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_requestIsCurrent(lease, ownsRequest) || apiKey == null) return null;
+      final clientId = await credentials.clientId();
+      if (!_requestIsCurrent(lease, ownsRequest)) return null;
+      final fetched = await api.chatChannel(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        channelId: channelId,
+      );
+      if (!_requestIsCurrent(lease, ownsRequest) || fetched.id != channelId) {
+        return null;
+      }
+      return lease.commit(() => store.put(siteUrl, fetched))
+          ? channel(siteUrl, channelId)
+          : null;
+    } catch (error, stackTrace) {
+      if (_requestIsCurrent(lease, ownsRequest)) {
+        _report(error, stackTrace, 'chat.loadChannel');
+      }
+      rethrow;
+    }
+  }
 
   ChatThread? thread(String siteUrl, int threadId) =>
       store.read<ChatThread>(siteUrl, threadId);
@@ -4007,6 +4069,8 @@ class ChatController extends FrameSafeNotifier {
     _loading.removeWhere((key) => key.startsWith('$siteUrl~'));
     _channelRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _channelRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _channelDetailRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _channelDetailRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _errors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _attempts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _streams.removeWhere((key, _) => key.startsWith('$siteUrl~'));
@@ -4104,6 +4168,8 @@ class ChatController extends FrameSafeNotifier {
     _threadMessageCursors.clear();
     _threadDetailRequests.clear();
     _threadDetailDirty.clear();
+    _channelDetailRequests.clear();
+    _channelDetailRuns.clear();
     for (final ref in _presenceRefs.values) {
       ref.dispose();
     }

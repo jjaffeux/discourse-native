@@ -64,6 +64,22 @@ void main() {
     expect(find.byKey(const ValueKey('owned-body')), findsOneWidget);
     expect(find.text('Plugin chrome'), findsOneWidget);
   });
+
+  testWidgets('a content-header plugin adds an action to standard chrome', (
+    tester,
+  ) async {
+    const route = ContentRoute(
+      id: 'test-standard',
+      title: 'Standard route',
+      icon: DIcons.comment,
+    );
+    shell.pushContent(route);
+
+    await _pump(tester, shell, const PluginRegistry([_HeaderActionPlugin()]));
+
+    expect(find.byKey(const ValueKey('plugin-header-action')), findsOneWidget);
+    expect(find.text('Standard route'), findsOneWidget);
+  });
 }
 
 Future<void> _pump(
@@ -120,4 +136,22 @@ class _ChromeOwnerPlugin
   @override
   bool ownsContentChrome(BuildContext context, ContentRoute route) =>
       route.id == 'test-owned';
+}
+
+class _HeaderActionPlugin
+    implements SitePlugin, ContentPlugin, ContentHeaderPlugin {
+  const _HeaderActionPlugin();
+
+  @override
+  String get name => 'header-action-test';
+
+  @override
+  Widget? content(BuildContext context, ContentRoute route) =>
+      route.id == 'test-standard'
+      ? const SizedBox(key: ValueKey('standard-body'))
+      : null;
+
+  @override
+  List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) =>
+      const [SizedBox(key: ValueKey('plugin-header-action'))];
 }

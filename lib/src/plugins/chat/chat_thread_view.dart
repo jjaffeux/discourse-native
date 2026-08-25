@@ -16,6 +16,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
 import '../plugin_services.dart';
+import 'chat_channel_search.dart';
 import 'chat_channel_view.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
@@ -482,9 +483,9 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   }
 
   void _syncProjection(ChatStreamState stream) {
-    final showTimeGapDays = ShellScope.read(context)
-        .siteConfigFor(widget.siteUrl)
-        .showTimeGapDays;
+    final showTimeGapDays = ShellScope.read(
+      context,
+    ).siteConfigFor(widget.siteUrl).showTimeGapDays;
     if (identical(_projectedMessageIds, stream.messageIds) &&
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
         _projectedLastRead == stream.lastReadOnOpen &&
@@ -551,6 +552,7 @@ class _ChannelPaneHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                 ],
+                ChatChannelSearchButton(siteUrl: siteUrl, channelId: channelId),
                 if (ShellTitleBar.columnsCarryUserMenu) ...[
                   ChatHeaderButton(ringColor: theme.shell.content),
                   UserMenuButton(ringColor: theme.shell.content),
