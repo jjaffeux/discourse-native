@@ -365,13 +365,33 @@ Future<TestGesture> hoverPost(
 
 /// Reaches a post action through Core's collapsed action set when necessary.
 Future<void> tapPostAction(WidgetTester tester, String tooltip) async {
-  final action = find.byTooltip(tooltip);
+  var action = find.byTooltip(tooltip);
   if (action.evaluate().isEmpty) {
     final more = find.byTooltip('More actions');
     expect(more, findsOneWidget);
     await tester.tap(more);
     await tester.pumpAndSettle();
+    final label = switch (tooltip) {
+      'Share this post' => 'Share',
+      'Edit this post' => 'Edit',
+      'Delete this post' => 'Delete',
+      'Allow community members to edit this post' => 'Make wiki',
+      'Return this to ordinary post editing' => 'Remove wiki',
+      'Prevent further edits to this post' => 'Lock post',
+      'Allow this post to be edited again' => 'Unlock post',
+      'Restore this hidden post' => 'Unhide post',
+      'Mark this as an official moderator post' => 'Convert to moderator post',
+      'Remove the moderator styling from this post' => 'Revert to regular post',
+      'Add a staff notice above this post' => 'Add post notice',
+      'Change or remove the staff notice' => 'Change post notice',
+      'Assign this post to another account' => 'Change owner',
+      'Permanently delete this post' => 'Permanently delete',
+      'Put this post back' => 'Undelete',
+      _ => throw StateError('No visible label for post action: $tooltip'),
+    };
+    action = find.widgetWithText(MenuItemButton, label);
   }
+  expect(action, findsOneWidget);
   await tester.tap(action);
 }
 
@@ -8351,7 +8371,8 @@ void main() {
       expect(find.byTooltip('More actions'), findsOneWidget);
       await tester.tap(find.byTooltip('More actions'));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('Put this post back'), findsOneWidget);
+      expect(find.text('Undelete'), findsOneWidget);
+      expect(find.byTooltip('Put this post back'), findsNothing);
       expect(find.byTooltip('Delete this post'), findsNothing);
     });
 

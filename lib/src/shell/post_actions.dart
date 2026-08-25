@@ -821,10 +821,7 @@ class _PostActionsMenu extends StatelessWidget {
                           ? WidgetStatePropertyAll(theme.colorScheme.error)
                           : null,
                     ),
-                    child: Tooltip(
-                      message: action.tooltip,
-                      child: Text(action.label),
-                    ),
+                    child: Text(action.label),
                   ),
                 ],
               ],

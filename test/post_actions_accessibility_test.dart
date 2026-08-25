@@ -322,18 +322,18 @@ void main() {
     await tester.tap(find.byTooltip('More actions'));
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Edit this post'), findsOneWidget);
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Make wiki'), findsOneWidget);
+    expect(find.text('Delete'), findsOneWidget);
+    expect(find.byTooltip('Edit this post'), findsNothing);
     expect(
       find.byTooltip('Allow community members to edit this post'),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.byTooltip('Delete this post'), findsOneWidget);
+    expect(find.byTooltip('Delete this post'), findsNothing);
 
     final editAction = find
-        .ancestor(
-          of: find.byTooltip('Edit this post'),
-          matching: find.byType(MenuItemButton),
-        )
+        .ancestor(of: find.text('Edit'), matching: find.byType(MenuItemButton))
         .first;
     final editButton = tester.widget<MenuItemButton>(editAction);
     final theme = Theme.of(tester.element(editAction));
