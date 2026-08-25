@@ -164,7 +164,7 @@ class ReactionsPlugin
             if (target == null) {
               // Nothing known to send. The picker is where a reader chooses,
               // and this is the one path that does not need the setting.
-              unawaited(showReactionPicker(context, siteUrl, post));
+              unawaited(showPostReactionPicker(context, siteUrl, post));
               return;
             }
             report(controller.toggleReaction(post, target, siteUrl: siteUrl));
@@ -178,7 +178,7 @@ class ReactionsPlugin
             tooltip: 'Pick a reaction',
             enabled: !writeInFlight,
             onInvoke: () =>
-                unawaited(showReactionPicker(context, siteUrl, post)),
+                unawaited(showPostReactionPicker(context, siteUrl, post)),
           ),
       ],
     );
