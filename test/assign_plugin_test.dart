@@ -183,6 +183,39 @@ void main() {
     expect(contribution?.entries, isEmpty);
   });
 
+  testWidgets('unassigned topic header uses the Assign icon', (tester) async {
+    const registry = PluginRegistry([AssignPlugin()]);
+    final plugins = registry.readTopic(const {'can_assign': true}, _siteUrl);
+    final topic = TopicDetail(
+      id: 10,
+      title: 'Unassigned topic',
+      stream: const [11],
+      plugins: plugins,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) =>
+                Row(children: _plugin.topicHeader(context, _siteUrl, topic)),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('assign-topic-header')),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.userPlus,
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('topic header has a concise actionable semantic label', (
     tester,
   ) async {
