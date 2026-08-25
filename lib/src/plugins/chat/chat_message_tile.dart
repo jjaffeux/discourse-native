@@ -11,6 +11,7 @@ import '../../shell/bookmark_ui.dart';
 import '../../shell/cooked_html.dart';
 import '../../shell/emoji_picker.dart';
 import '../../shell/hover_action_toolbar.dart';
+import '../../shell/platform.dart';
 import '../../shell/post_flag_editor.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/shell_scope.dart';
@@ -100,6 +101,11 @@ class ChatMessageTile extends StatelessWidget {
 
   /// One body line and the tighter padding used inside a speaker run.
   static const double minimumChainedHeight = 28;
+
+  /// How far the desktop hover actions extend below the shortest message.
+  static const double hoverActionsTop = 4;
+  static const double hoverActionsBottomOverflow =
+      hoverActionsTop + HoverActionButton.height - minimumChainedHeight;
 
   static Key threadPreviewKey(int threadId) =>
       ValueKey<String>('chat-thread-preview-$threadId');
@@ -732,7 +738,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
               onExit: (_) => _pointerExited(),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onLongPress: () => unawaited(_showActions()),
+                onLongPress: context.isTouch
+                    ? () => unawaited(_showActions())
+                    : null,
                 onSecondaryTap: () => unawaited(_showActions()),
                 child: Stack(
                   // Chained rows can be shorter than the 44-pixel desktop
@@ -742,7 +750,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                     widget.child,
                     if (_hovered)
                       Positioned(
-                        top: 4,
+                        top: ChatMessageTile.hoverActionsTop,
                         right: 12,
                         child: HoverActionToolbar(
                           children: [

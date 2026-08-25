@@ -14237,6 +14237,38 @@ void main() {
         );
       });
 
+      testWidgets('keeps newest-message actions above the composer', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {
+            key(9): page([
+              msg(1, cooked: '<p>Older</p>'),
+              msg(2, cooked: '<p>Newer</p>', minute: 1),
+            ]),
+          },
+        );
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(renderedText('Newer')));
+        await tester.pump();
+
+        expect(find.byType(HoverActionToolbar), findsOneWidget);
+        expect(
+          tester.getRect(find.byType(HoverActionToolbar)).bottom,
+          lessThanOrEqualTo(
+            tester.getRect(find.byKey(const ValueKey('chat-composer'))).top,
+          ),
+        );
+      });
+
       testWidgets('hides the name on a message chained to the one above', (
         tester,
       ) async {
