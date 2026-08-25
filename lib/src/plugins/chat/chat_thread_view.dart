@@ -416,6 +416,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
         highlightMessageId: _highlightMessageId,
         highlightRequest: _highlightRequest,
         onHighlightComplete: _clearHighlight,
+        onJumpToMessage: _jumpToMessage,
         showThreadSummaries: false,
         selectingMessages: _selectingMessages,
         selectedMessageIds: _selectedMessageIds,
@@ -532,6 +533,21 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   void _clearHighlight(int request) {
     if (!mounted || request != _highlightRequest) return;
     setState(() => _highlightMessageId = null);
+  }
+
+  void _jumpToMessage(int messageId) {
+    setState(() {
+      _highlightMessageId = messageId;
+      _highlightRequest++;
+    });
+    unawaited(
+      widget.chat.openThread(
+        widget.siteUrl,
+        widget.target,
+        targetMessageId: messageId,
+        force: true,
+      ),
+    );
   }
 
   void _syncProjection(ChatStreamState stream) {

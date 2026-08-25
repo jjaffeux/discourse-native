@@ -239,6 +239,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         onHighlightComplete: _clearHighlight,
         onOpenThread: (preview) =>
             _openThread(context, widget.siteUrl, widget.channelId, preview),
+        onJumpToMessage: _jumpToMessage,
         canCreateThread: canCreateThread,
         onReplyInThread: (message) => _replyInThread(context, message),
         selectingMessages: _selectingMessages,
@@ -275,7 +276,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
               siteUrl: widget.siteUrl,
               channel: channel!,
               chat: widget.chat,
-              onJumpToMessage: _jumpToPinned,
+              onJumpToMessage: _jumpToMessage,
             ),
           Expanded(child: content),
           if (_selectingMessages)
@@ -327,7 +328,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     setState(() => _highlightMessageId = null);
   }
 
-  void _jumpToPinned(int messageId) {
+  void _jumpToMessage(int messageId) {
     setState(() {
       _highlightMessageId = messageId;
       _highlightRequest++;
@@ -518,6 +519,7 @@ class ChatMessageStream extends StatefulWidget {
     this.highlightRequest = 0,
     this.onHighlightComplete,
     this.onOpenThread,
+    this.onJumpToMessage,
     this.onReplyInThread,
     this.canCreateThread = false,
     this.showThreadSummaries = true,
@@ -537,6 +539,7 @@ class ChatMessageStream extends StatefulWidget {
   final int highlightRequest;
   final ValueChanged<int>? onHighlightComplete;
   final ValueChanged<ChatThreadPreview>? onOpenThread;
+  final ValueChanged<int>? onJumpToMessage;
   final ValueChanged<ChatMessage>? onReplyInThread;
   final bool canCreateThread;
   final bool showThreadSummaries;
@@ -1308,6 +1311,7 @@ class _StreamState extends State<ChatMessageStream>
                         chained: chained,
                         contextThreadId: widget.target.threadId,
                         onOpenThread: widget.onOpenThread,
+                        onJumpToMessage: widget.onJumpToMessage,
                         onReplyInThread:
                             message?.thread != null || widget.canCreateThread
                             ? widget.onReplyInThread

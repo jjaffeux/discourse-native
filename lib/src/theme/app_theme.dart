@@ -348,6 +348,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     required this.success,
     required this.unreadIndicator,
     required this.love,
+    required this.primaryLowMid,
     required this.primaryHigh,
     required this.whisper,
     required this.primaryVeryHigh,
@@ -360,6 +361,10 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
   final Color unreadIndicator;
 
   final Color love;
+
+  /// Faint foregrounds such as Chat's direct-reply icon, matching core's
+  /// `--primary-low-mid` role.
+  final Color primaryLowMid;
 
   /// Muted foregrounds such as legacy GitHub onebox SVGs, matching core's
   /// `--primary-high` role.
@@ -375,6 +380,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     success: discourseSuccess,
     unreadIndicator: Color(0xFF66CCFF),
     love: discourseLove,
+    primaryLowMid: Color(0xFFBDBDBD),
     primaryHigh: Color(0xFF646464),
     whisper: Color(0xFF919191),
     primaryVeryHigh: Color(0xFF414141),
@@ -384,6 +390,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     success: Color(0xFF1CA551),
     unreadIndicator: discourseBlue,
     love: discourseLove,
+    primaryLowMid: Color(0xFF7A7A7A),
     primaryHigh: Color(0xFFA6A6A6),
     whisper: Color(0xFF909090),
     primaryVeryHigh: Color(0xFFC7C7C7),
@@ -394,6 +401,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     Color? success,
     Color? unreadIndicator,
     Color? love,
+    Color? primaryLowMid,
     Color? primaryHigh,
     Color? whisper,
     Color? primaryVeryHigh,
@@ -401,6 +409,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
     success: success ?? this.success,
     unreadIndicator: unreadIndicator ?? this.unreadIndicator,
     love: love ?? this.love,
+    primaryLowMid: primaryLowMid ?? this.primaryLowMid,
     primaryHigh: primaryHigh ?? this.primaryHigh,
     whisper: whisper ?? this.whisper,
     primaryVeryHigh: primaryVeryHigh ?? this.primaryVeryHigh,
@@ -413,6 +422,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
       success: Color.lerp(success, other.success, t)!,
       unreadIndicator: Color.lerp(unreadIndicator, other.unreadIndicator, t)!,
       love: Color.lerp(love, other.love, t)!,
+      primaryLowMid: Color.lerp(primaryLowMid, other.primaryLowMid, t)!,
       primaryHigh: Color.lerp(primaryHigh, other.primaryHigh, t)!,
       whisper: Color.lerp(whisper, other.whisper, t)!,
       primaryVeryHigh: Color.lerp(primaryVeryHigh, other.primaryVeryHigh, t)!,
@@ -485,6 +495,7 @@ abstract final class AppTheme {
       success: palette.success,
       unreadIndicator: palette.accentSubtle,
       love: palette.love,
+      primaryLowMid: palette.primaryLowMid,
       primaryHigh: palette.primaryHigh,
       whisper: palette.primaryMedium,
       primaryVeryHigh: palette.primaryVeryHigh,

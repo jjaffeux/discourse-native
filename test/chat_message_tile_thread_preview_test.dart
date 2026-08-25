@@ -14,6 +14,8 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -28,6 +30,84 @@ const _replyInThreadAction = CustomSemanticsAction(label: 'Reply in thread');
 const _copyLinkAction = CustomSemanticsAction(label: 'Copy link');
 
 void main() {
+  testWidgets(
+    'direct-reply indicator matches core and jumps to the referenced message',
+    (tester) async {
+      const reply = ChatReplyTo(
+        id: 6,
+        userId: 10,
+        excerpt: 'The earlier message',
+        username: 'kris',
+      );
+      final controller = await _controller(_message(null, replyTo: reply));
+      final jumped = <int>[];
+      addTearDown(controller.dispose);
+
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          _TestTile(
+            controller: controller,
+            onOpenThread: (_) {},
+            onJumpToMessage: jumped.add,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final target = find.byKey(ChatMessageTile.replyIndicatorKey(reply.id));
+        expect(target, findsOneWidget);
+        expect(tester.getSize(target).height, 20);
+        expect(
+          tester.widget<InkWell>(target).mouseCursor,
+          SystemMouseCursors.click,
+        );
+
+        final iconFinder = find.descendant(
+          of: target,
+          matching: find.byType(DIcon),
+        );
+        final icon = tester.widget<DIcon>(iconFinder);
+        expect(icon.icon, DIcons.share);
+        expect(icon.size, DiscourseTypography.fontDown1);
+        expect(
+          icon.color,
+          Theme.of(tester.element(target)).discourse.primaryLowMid,
+        );
+
+        final avatarFinder = find.descendant(
+          of: target,
+          matching: find.byType(ChatUserAvatar),
+        );
+        final avatar = tester.widget<ChatUserAvatar>(avatarFinder);
+        expect(avatar.size, 20);
+        expect(
+          tester.getTopLeft(avatarFinder).dx -
+              tester.getTopRight(iconFinder).dx,
+          8,
+        );
+
+        final excerpt = tester.widget<Text>(find.text(reply.excerpt));
+        final theme = Theme.of(tester.element(target));
+        expect(excerpt.style?.fontSize, DiscourseTypography.fontDown1);
+        expect(excerpt.style?.color, theme.discourse.primaryHigh);
+        expect(
+          tester.getSemantics(
+            find.bySemanticsLabel(
+              'Jump to message from @kris: The earlier message',
+            ),
+          ),
+          isSemantics(isLink: true, hasTapAction: true),
+        );
+
+        await tester.tap(target);
+        await tester.pump();
+        expect(jumped, [reply.id]);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
   testWidgets(
     'shows the latest reply and the representative participant stack',
     (tester) async {
@@ -1045,6 +1125,7 @@ ChatMessage _message(
   List<ChatReaction> reactions = const [],
   Bookmark? bookmark,
   List<String> availableFlags = const [],
+  ChatReplyTo? replyTo,
 }) => ChatMessage(
   id: 7,
   channelId: 9,
@@ -1056,6 +1137,7 @@ ChatMessage _message(
   reactions: reactions,
   bookmark: bookmark,
   availableFlags: availableFlags,
+  replyTo: replyTo,
   threadId: threadId ?? thread?.threadId,
   thread: thread,
 );
@@ -1116,6 +1198,7 @@ class _TestTile extends StatelessWidget {
     required this.controller,
     required this.onOpenThread,
     this.messageId = 7,
+    this.onJumpToMessage,
     this.onReplyInThread,
     this.contextThreadId,
     this.showThreadSummary = true,
@@ -1126,6 +1209,7 @@ class _TestTile extends StatelessWidget {
   final ShellController controller;
   final int messageId;
   final ValueChanged<ChatThreadPreview> onOpenThread;
+  final ValueChanged<int>? onJumpToMessage;
   final ValueChanged<ChatMessage>? onReplyInThread;
   final int? contextThreadId;
   final bool showThreadSummary;
@@ -1149,6 +1233,7 @@ class _TestTile extends StatelessWidget {
               chained: chained,
               contextThreadId: contextThreadId,
               onOpenThread: onOpenThread,
+              onJumpToMessage: onJumpToMessage,
               onReplyInThread: onReplyInThread,
               showThreadSummary: showThreadSummary,
             ),
