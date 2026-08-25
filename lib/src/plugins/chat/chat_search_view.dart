@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../shell/choice_menu.dart';
 import '../../shell/shell_scope.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
@@ -184,6 +186,26 @@ class _SearchControls extends StatelessWidget {
   final VoidCallback onClear;
   final ValueChanged<ChatSearchSort> onSort;
 
+  static const _sortOptions = [
+    ChoiceMenuOption(
+      value: ChatSearchSort.relevance,
+      title: 'Relevance',
+      description: 'Best matching messages first',
+      icon: DIcons.magnifyingGlass,
+    ),
+    ChoiceMenuOption(
+      value: ChatSearchSort.latest,
+      title: 'Latest',
+      description: 'Newest messages first',
+      icon: DIcons.farClock,
+    ),
+  ];
+
+  String _sortLabel(ChatSearchSort sort) => switch (sort) {
+    ChatSearchSort.relevance => 'Relevance',
+    ChatSearchSort.latest => 'Latest',
+  };
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -217,24 +239,29 @@ class _SearchControls extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<ChatSearchSort>(
-              key: const ValueKey('chat-search-sort'),
-              value: state.sort,
-              onChanged: (sort) {
-                if (sort != null) onSort(sort);
-              },
-              items: const [
-                DropdownMenuItem(
-                  value: ChatSearchSort.relevance,
-                  child: Text('Relevance'),
+          ChoiceMenuAnchor<ChatSearchSort>(
+            title: 'Sort search results',
+            value: state.sort,
+            options: _sortOptions,
+            onSelected: onSort,
+            builder: (context, openMenu) {
+              final label = _sortLabel(state.sort);
+              return DButton(
+                key: const ValueKey('chat-search-sort'),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(label),
+                    const SizedBox(width: 8),
+                    const DIcon(DIcons.chevronDown, size: 12),
+                  ],
                 ),
-                DropdownMenuItem(
-                  value: ChatSearchSort.latest,
-                  child: Text('Latest'),
-                ),
-              ],
-            ),
+                tooltip: 'Sort search results',
+                semanticLabel: 'Sort search results by $label',
+                variant: DButtonVariant.flat,
+                onPressed: openMenu,
+              );
+            },
           ),
         ],
       ),
