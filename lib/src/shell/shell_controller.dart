@@ -2384,6 +2384,7 @@ class ShellController extends FrameSafeNotifier {
   final Set<String> _topicStatusWrites = {};
   final Set<String> _topicDeletionWrites = {};
   final Map<String, Object> _topicJumpRuns = {};
+  int _topicNavigationRevision = 0;
 
   static String _topicKey(String siteUrl, int topicId) => '$siteUrl#$topicId';
 
@@ -2673,20 +2674,24 @@ class ShellController extends FrameSafeNotifier {
     final route = currentContent;
     final tab = activeTab;
     if (route?.topicId case final topicId? when tab != null && postNumber > 0) {
+      final anchors = Map<String, ForumTabAnchor>.of(tab.anchors)
+        ..remove(route!.id);
       final targeted = ContentRoute.topic(
         topicId: topicId,
-        slug: route!.slug ?? '',
+        slug: route.slug ?? '',
         title: route.title,
         subtitle: route.subtitle,
         color: route.color,
         postNumber: postNumber,
       );
+      _topicNavigationRevision++;
       _replaceActiveTab(
         tab.copyWith(
           contentStack: [
             ...tab.contentStack.take(tab.contentStack.length - 1),
             targeted,
           ],
+          anchors: anchors,
         ),
       );
       _notify();
@@ -2700,6 +2705,11 @@ class ShellController extends FrameSafeNotifier {
       );
     }
   }
+
+  /// Changes whenever an explicit same-topic navigation replaces the reader's
+  /// viewport. Topic views use this to reject positioning callbacks from the
+  /// route that was on screen before the navigation.
+  int get topicNavigationRevision => _topicNavigationRevision;
 
   /// Jumps to one one-based position in the current topic's visible stream.
   ///

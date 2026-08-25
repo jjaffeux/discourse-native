@@ -406,6 +406,37 @@ void main() {
     expect(range.$2 ~/ 2, greaterThanOrEqualTo(11));
   });
 
+  testWidgets('topic progress replaces the saved viewport anchor', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([site]),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+    controller.saveTopicScrollPost(1, 26);
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey(125)), findsOneWidget);
+
+    expect(await controller.jumpToCurrentTopicIndex(12), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(controller.currentContent?.postNumber, 12);
+    expect(controller.topicScrollPostNumber(1), 12);
+    expect(find.byKey(const ValueKey(111)), findsOneWidget);
+  });
+
   testWidgets('a prepend between initial jumps still reveals the named post', (
     tester,
   ) async {

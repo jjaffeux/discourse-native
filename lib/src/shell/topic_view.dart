@@ -96,7 +96,7 @@ class _TopicViewState extends State<TopicView> {
 
   ScrollController? _scroll;
   ListController? _list;
-  (String, int)? _topicIdentity;
+  (String, int, int)? _topicIdentity;
   String? _tabId;
   ShellController? _controller;
   Object? _loadMoreToken;
@@ -134,7 +134,7 @@ class _TopicViewState extends State<TopicView> {
 
   void _syncControllers(
     ShellController controller,
-    (String, int) topicIdentity,
+    (String, int, int) topicIdentity,
   ) {
     if (_topicIdentity == topicIdentity &&
         _tabId == controller.activeTabId &&
@@ -199,7 +199,11 @@ class _TopicViewState extends State<TopicView> {
         controller.topicScrollPostOffset(snapshot.topicId!) == 0) {
       return;
     }
-    final identity = (snapshot.siteUrl!, snapshot.topicId!);
+    final identity = (
+      snapshot.siteUrl!,
+      snapshot.topicId!,
+      snapshot.navigationRevision,
+    );
     _restoring = true;
 
     void jumpToTarget() {
@@ -258,12 +262,16 @@ class _TopicViewState extends State<TopicView> {
     );
   }
 
-  bool _isCurrent(ShellController controller, (String, int) topicIdentity) =>
+  bool _isCurrent(
+    ShellController controller,
+    (String, int, int) topicIdentity,
+  ) =>
       mounted &&
       _topicIdentity == topicIdentity &&
       _tabId == controller.activeTabId &&
       controller.currentInstance?.url == topicIdentity.$1 &&
-      controller.currentTopic?.id == topicIdentity.$2;
+      controller.currentTopic?.id == topicIdentity.$2 &&
+      controller.topicNavigationRevision == topicIdentity.$3;
 
   void _disposeControllers() {
     final scroll = _scroll;
@@ -761,7 +769,11 @@ class _TopicViewState extends State<TopicView> {
     );
     if (anchor == null) return;
 
-    final identity = (snapshot.siteUrl!, snapshot.topicId!);
+    final identity = (
+      snapshot.siteUrl!,
+      snapshot.topicId!,
+      snapshot.navigationRevision,
+    );
     final token = Object();
     _anchorRestoreToken = token;
     _restoring = true;
@@ -962,7 +974,11 @@ class _TopicViewState extends State<TopicView> {
     final postIndexes = _postIndexes(postIds);
     final siteUrl = snapshot.siteUrl!;
     _syncRecommendationsSite(siteUrl);
-    final topicIdentity = (siteUrl, snapshot.topicId!);
+    final topicIdentity = (
+      siteUrl,
+      snapshot.topicId!,
+      snapshot.navigationRevision,
+    );
     _syncControllers(controller, topicIdentity);
     final dayStarts = _dayStarts(controller, siteUrl, postIds);
     _laidOutDayStarts = dayStarts;
@@ -1564,6 +1580,7 @@ class _TopicViewSnapshot {
     required this.summaryLoading,
     required this.readTimeWordCount,
     required this.showTimeGapDays,
+    required this.navigationRevision,
   });
 
   factory _TopicViewSnapshot.from(ShellController controller) {
@@ -1608,6 +1625,7 @@ class _TopicViewSnapshot {
       showTimeGapDays: siteUrl == null
           ? SiteConfig.defaultShowTimeGapDays
           : controller.siteConfigFor(siteUrl).showTimeGapDays,
+      navigationRevision: controller.topicNavigationRevision,
     );
   }
 
@@ -1628,6 +1646,7 @@ class _TopicViewSnapshot {
   final bool summaryLoading;
   final int readTimeWordCount;
   final int showTimeGapDays;
+  final int navigationRevision;
 
   @override
   bool operator ==(Object other) =>
@@ -1648,7 +1667,8 @@ class _TopicViewSnapshot {
           summary == other.summary &&
           summaryLoading == other.summaryLoading &&
           readTimeWordCount == other.readTimeWordCount &&
-          showTimeGapDays == other.showTimeGapDays;
+          showTimeGapDays == other.showTimeGapDays &&
+          navigationRevision == other.navigationRevision;
 
   @override
   int get hashCode => Object.hash(
@@ -1668,6 +1688,7 @@ class _TopicViewSnapshot {
     summaryLoading,
     readTimeWordCount,
     showTimeGapDays,
+    navigationRevision,
   );
 }
 
