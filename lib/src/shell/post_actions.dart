@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'anonymous_flag_dialog.dart';
 import 'bookmark_ui.dart';
+import 'hover_action_toolbar.dart';
 import 'platform.dart';
 import 'post_action.dart';
 import 'post_flag_editor.dart';
@@ -635,14 +636,11 @@ class _PostActionsMenu extends StatelessWidget {
     required this.onInvoke,
   });
 
-  static const double _button = 44;
-  static const double _padding = 2;
-
   /// The follower needs a width to align its right edge against, and it has to
   /// be known before the menu is laid out — so it is computed rather than
   /// measured.
   static double widthFor(List<PostAction> actions) =>
-      actions.length * _button + _padding * 2;
+      actions.length * HoverActionButton.width;
 
   final List<PostAction> actions;
   final FocusNode firstActionFocus;
@@ -654,41 +652,21 @@ class _PostActionsMenu extends StatelessWidget {
 
     return Align(
       alignment: Alignment.centerRight,
-      child: Material(
-        color: theme.shell.floating,
-        elevation: 2,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: _padding,
-            vertical: _padding,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final (index, action) in actions.indexed)
-                IconButton(
-                  focusNode: index == 0 ? firstActionFocus : null,
-                  onPressed: action.enabled ? () => onInvoke(action) : null,
-                  icon: action.leading(context, size: 17),
-                  tooltip: action.tooltip,
-                  constraints: const BoxConstraints.tightFor(
-                    width: _button,
-                    height: _button,
-                  ),
-                  style: const ButtonStyle(
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  padding: EdgeInsets.zero,
-                  color:
-                      action.tint ??
-                      (action.destructive
-                          ? theme.colorScheme.error
-                          : theme.colorScheme.onSurfaceVariant),
-                ),
-            ],
-          ),
-        ),
+      child: HoverActionToolbar(
+        children: [
+          for (final (index, action) in actions.indexed)
+            HoverActionButton(
+              focusNode: index == 0 ? firstActionFocus : null,
+              onPressed: action.enabled ? () => onInvoke(action) : null,
+              icon: action.leading(context, size: 16),
+              tooltip: action.tooltip,
+              color:
+                  action.tint ??
+                  (action.destructive
+                      ? theme.colorScheme.error
+                      : theme.colorScheme.onSurfaceVariant),
+            ),
+        ],
       ),
     );
   }

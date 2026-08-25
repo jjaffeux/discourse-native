@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -77,7 +78,7 @@ void main() {
 
       final action = find.byTooltip('Like this post');
       expect(action, findsOneWidget);
-      expect(tester.getSize(action), const Size.square(44));
+      expect(tester.getSize(action), HoverActionButton.size);
       final menu = find
           .ancestor(
             of: action,
@@ -86,7 +87,7 @@ void main() {
             ),
           )
           .first;
-      expect(tester.getSize(menu).width, 48);
+      expect(tester.getSize(menu).width, HoverActionButton.width);
       expect(
         tester.getRect(menu).right,
         closeTo(tester.getRect(find.byType(PostActions)).right - 8, 0.01),
@@ -107,6 +108,19 @@ void main() {
       final button = find
           .ancestor(of: action, matching: find.byType(IconButton))
           .first;
+      final iconButton = tester.widget<IconButton>(button);
+      final hoverShape = iconButton.style!.shape!.resolve({
+        WidgetState.hovered,
+      });
+      expect(hoverShape, isA<RoundedRectangleBorder>());
+      expect(
+        (hoverShape! as RoundedRectangleBorder).borderRadius,
+        BorderRadius.zero,
+      );
+      expect(
+        iconButton.style!.overlayColor!.resolve({WidgetState.hovered}),
+        Theme.of(tester.element(button)).shell.hover,
+      );
       final inkWell = find.descendant(
         of: button,
         matching: find.byType(InkWell),
