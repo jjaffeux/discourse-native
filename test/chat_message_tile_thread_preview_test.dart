@@ -298,6 +298,40 @@ void main() {
     expect(replies, [same(message)]);
   });
 
+  testWidgets('hover actions are not clipped by a short chained message', (
+    tester,
+  ) async {
+    final controller = await _controller(_message(null));
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        onReplyInThread: (_) {},
+        chained: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _hoverMessage(tester);
+
+    final action = find.byTooltip('Reply in thread');
+    final actionStack = find.ancestor(
+      of: action,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Stack &&
+            widget.children.any((child) => child is Positioned),
+      ),
+    );
+    expect(
+      tester.getSize(action).height,
+      greaterThan(ChatMessageTile.minimumChainedHeight),
+    );
+    expect(tester.widget<Stack>(actionStack).clipBehavior, Clip.none);
+  });
+
   testWidgets('signed-in hover creates a chat message bookmark once', (
     tester,
   ) async {

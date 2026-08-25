@@ -272,6 +272,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                 onLongPress: () => unawaited(_showActions()),
                 onSecondaryTap: () => unawaited(_showActions()),
                 child: Stack(
+                  // Chained rows can be shorter than the 44-pixel desktop
+                  // action targets positioned over them.
+                  clipBehavior: Clip.none,
                   children: [
                     widget.child,
                     if (_hovered)
