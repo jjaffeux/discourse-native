@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
@@ -20,6 +22,92 @@ const _post = Post(
 );
 
 void main() {
+  testWidgets('reaction stays disabled until its write finishes', (
+    tester,
+  ) async {
+    final write = Completer<String?>();
+    var toggles = 0;
+    final owner = Object();
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([instance('meta.example')]),
+      api: FakeDiscourseApi(),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updater: FakeUpdater(),
+      updateStore: FakeUpdateStore(),
+    );
+    await controller.load();
+    addTearDown(controller.dispose);
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: Scaffold(
+              body: ReactionPill(
+                siteUrl: _siteUrl,
+                reaction: 'clap',
+                count: 2,
+                selected: false,
+                onTapHint: 'add this reaction',
+                interactionOwner: owner,
+                onToggle: () {
+                  toggles++;
+                  return write.future;
+                },
+                loadReactors: () async {},
+                reactorsBuilder: (_) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final reaction = find.bySemanticsLabel('2 clap reactions');
+      expect(
+        tester.getSemantics(reaction),
+        isSemantics(
+          label: '2 clap reactions',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          hasTapAction: true,
+        ),
+      );
+
+      await tester.tap(reaction);
+      await tester.pump();
+
+      expect(toggles, 1);
+      expect(
+        tester.getSemantics(reaction),
+        isSemantics(
+          label: '2 clap reactions',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: false,
+          hasTapAction: false,
+        ),
+      );
+
+      await tester.tap(reaction);
+      await tester.pump();
+      expect(toggles, 1);
+
+      write.complete(null);
+      await tester.pump();
+      expect(
+        tester.getSemantics(reaction),
+        isSemantics(isEnabled: true, hasTapAction: true),
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('reactor failure is announced and keyboard retryable', (
     tester,
   ) async {

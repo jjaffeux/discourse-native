@@ -28,37 +28,43 @@ class ReactionsRow extends StatelessWidget {
     if (reactions == null || reactions.isEmpty) return const SizedBox.shrink();
 
     final controller = ShellScope.identityOf(context);
-    return ReactionPills(
-      children: [
-        for (final entry in reactions.entries)
-          ReactionPill(
-            siteUrl: siteUrl,
-            reaction: entry.id,
-            count: entry.count,
-            selected: reactions.mine?.id == entry.id,
-            onTapHint: _tapHint(entry.id),
-            interactionOwner: controller,
-            onToggle: post.canReact
-                ? () => controller.toggleReaction(
-                    post,
-                    entry.id,
-                    siteUrl: siteUrl,
-                  )
-                : null,
-            loadReactors: () => PluginScope.require(
-              context,
-              reactionsControllerService,
-            ).load(siteUrl: siteUrl, postId: post.id, filter: entry.id),
-            reactorsBuilder: (_) =>
-                ReactorList(siteUrl: siteUrl, post: post, filter: entry.id),
-          ),
-        if (post.canReact)
-          ReactionPickerButton(
-            key: ValueKey('post-reaction-picker-${post.id}'),
-            onOpenPicker: (pickerContext) =>
-                showPostReactionPicker(pickerContext, siteUrl, post),
-          ),
-      ],
+    return ShellSelector<bool>(
+      select: (shell) => shell.postWriteInFlight(post.id, siteUrl: siteUrl),
+      builder: (context, writeInFlight, _) => ReactionPills(
+        children: [
+          for (final entry in reactions.entries)
+            ReactionPill(
+              key: ValueKey('post-reaction-${post.id}-${entry.id}'),
+              siteUrl: siteUrl,
+              reaction: entry.id,
+              count: entry.count,
+              selected: reactions.mine?.id == entry.id,
+              onTapHint: _tapHint(entry.id),
+              interactionOwner: controller,
+              enabled: !writeInFlight,
+              onToggle: post.canReact
+                  ? () => controller.toggleReaction(
+                      post,
+                      entry.id,
+                      siteUrl: siteUrl,
+                    )
+                  : null,
+              loadReactors: () => PluginScope.require(
+                context,
+                reactionsControllerService,
+              ).load(siteUrl: siteUrl, postId: post.id, filter: entry.id),
+              reactorsBuilder: (_) =>
+                  ReactorList(siteUrl: siteUrl, post: post, filter: entry.id),
+            ),
+          if (post.canReact)
+            ReactionPickerButton(
+              key: ValueKey('post-reaction-picker-${post.id}'),
+              enabled: !writeInFlight,
+              onOpenPicker: (pickerContext) =>
+                  showPostReactionPicker(pickerContext, siteUrl, post),
+            ),
+        ],
+      ),
     );
   }
 

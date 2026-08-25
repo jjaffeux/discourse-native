@@ -603,6 +603,7 @@ class _PostActionsState extends State<PostActions> {
         Object presentation,
         Object flagCatalog,
         bool bookmarkBusy,
+        bool postBusy,
       })
     >(
       select: (controller) => (
@@ -618,6 +619,10 @@ class _PostActionsState extends State<PostActions> {
           ),
           null => false,
         },
+        postBusy: controller.postWriteInFlight(
+          widget.post.id,
+          siteUrl: widget.siteUrl,
+        ),
       ),
       builder: (context, _, child) => _buildActions(context),
     );
