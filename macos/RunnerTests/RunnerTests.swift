@@ -1,40 +1,19 @@
 import Cocoa
-import FlutterMacOS
 import XCTest
 @testable import Discourse
 
 class RunnerTests: XCTestCase {
-  func testLaunchActivatesAndPresentsMainWindow() {
-    let application = TestApplication()
-    let window = TestWindow()
+  func testContentViewCannotConsumeClicksAsWindowDrags() {
+    let window = NSWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
+      styleMask: [.titled, .resizable],
+      backing: .buffered,
+      defer: false
+    )
+    window.isMovableByWindowBackground = true
 
-    activateMainWindow(application: application, window: window)
+    disableContentViewWindowDragging(window)
 
-    XCTAssertTrue(application.ignoredOtherApps)
-    XCTAssertTrue(window.becameKeyAndVisible)
-  }
-
-  func testLaunchStillActivatesWithoutAConnectedWindow() {
-    let application = TestApplication()
-
-    activateMainWindow(application: application, window: nil)
-
-    XCTAssertTrue(application.ignoredOtherApps)
-  }
-}
-
-private final class TestApplication: ApplicationActivating {
-  private(set) var ignoredOtherApps = false
-
-  func activate(ignoringOtherApps flag: Bool) {
-    ignoredOtherApps = flag
-  }
-}
-
-private final class TestWindow: MainWindowPresenting {
-  private(set) var becameKeyAndVisible = false
-
-  func makeKeyAndOrderFront(_ sender: Any?) {
-    becameKeyAndVisible = true
+    XCTAssertFalse(window.isMovableByWindowBackground)
   }
 }

@@ -18,12 +18,19 @@ class MainFlutterWindow: NSWindow {
     self.styleMask.insert(.fullSizeContentView)
     self.titlebarAppearsTransparent = true
     self.titleVisibility = .hidden
-    // Dragging the title bar is how a window is normally moved, so without one
-    // the background has to take over.
-    self.isMovableByWindowBackground = true
+    // desktop_drop installs a transparent native view across this entire
+    // content view. AppKit considers transparent views draggable window
+    // background, which can make it consume a click instead of forwarding the
+    // complete down/up pair to Flutter. Keep content dragging disabled; the
+    // retained native title-bar strip remains draggable.
+    disableContentViewWindowDragging(self)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
     super.awakeFromNib()
   }
+}
+
+func disableContentViewWindowDragging(_ window: NSWindow) {
+  window.isMovableByWindowBackground = false
 }
