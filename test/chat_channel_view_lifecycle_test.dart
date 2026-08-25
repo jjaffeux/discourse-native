@@ -13,6 +13,7 @@ import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
+import 'package:discourse_native/src/shell/loading_skeleton.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -408,6 +409,55 @@ void main() {
     // window already projected is never scanned again. This is the bound that
     // keeps repeated backscrolling from becoming progressively more expensive.
     expect(store.messageReads, 0);
+  });
+
+  testWidgets('message skeletons represent paging in either direction', (
+    tester,
+  ) async {
+    final api = _ChatApi(openPages: const {});
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    final message = _message(1);
+    controller.store
+      ..put(firstSite, _channel(lastRead: 1))
+      ..put(firstSite, message);
+    final semantics = tester.ensureSemantics();
+
+    try {
+      await tester.pumpWidget(
+        _TestStreamView(
+          controller: controller,
+          messages: [message],
+          stream: const ChatStreamState(
+            messageIds: [1],
+            loadingOlder: true,
+            loadingNewer: true,
+            fetchedOnce: true,
+            fetches: 1,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final older = find.byKey(const ValueKey('chat-loading-older-skeleton'));
+      final newer = find.byKey(const ValueKey('chat-loading-newer-skeleton'));
+      expect(older, findsOneWidget);
+      expect(newer, findsOneWidget);
+      expect(
+        find.descendant(of: older, matching: find.byType(LoadingSkeletonBlock)),
+        findsNWidgets(5),
+      );
+      expect(
+        find.descendant(of: newer, matching: find.byType(LoadingSkeletonBlock)),
+        findsNWidgets(5),
+      );
+      expect(find.bySemanticsLabel('Loading older messages'), findsOneWidget);
+      expect(find.bySemanticsLabel('Loading newer messages'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('jump to latest is a named 44 pixel keyboard target', (

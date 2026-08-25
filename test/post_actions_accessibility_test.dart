@@ -320,6 +320,24 @@ void main() {
       findsOneWidget,
     );
     expect(find.byTooltip('Delete this post'), findsOneWidget);
+
+    final editAction = find
+        .ancestor(
+          of: find.byTooltip('Edit this post'),
+          matching: find.byType(MenuItemButton),
+        )
+        .first;
+    final editButton = tester.widget<MenuItemButton>(editAction);
+    final theme = Theme.of(tester.element(editAction));
+    expect(
+      editButton.style!.backgroundColor!.resolve({WidgetState.hovered}),
+      theme.shell.hover,
+    );
+    expect(
+      editButton.style!.backgroundColor!.resolve({WidgetState.focused}),
+      theme.shell.hover,
+    );
+    expect(editButton.style!.backgroundColor!.resolve({}), Colors.transparent);
   });
 }
 

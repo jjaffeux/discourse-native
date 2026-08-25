@@ -1010,12 +1010,12 @@ class _StreamState extends State<ChatMessageStream>
     unawaited(_chat?.markReadFor(seen.siteUrl, widget.target, seen.messageId));
   }
 
-  /// How many rows sit before the newest item. The forward-paging spinner,
+  /// How many rows sit before the newest item. The forward-paging skeleton,
   /// when there is one, and this is the only place that number is decided —
   /// everything that turns a row number into an item goes through [_itemAt].
   int get _leadingRows => widget.stream.loadingNewer ? 1 : 0;
 
-  /// The item a row draws, or null for the two spinner rows.
+  /// The item a row draws, or null for the two pagination-skeleton rows.
   ///
   /// The reversal lives here and nowhere else: row `_leadingRows` is the
   /// *newest* item, and rows count backwards into the past from there.
@@ -2007,23 +2007,66 @@ class _LoadingNewerRow extends StatelessWidget {
   const _LoadingNewerRow();
 
   @override
-  Widget build(BuildContext context) => const _LoadingOlderRow();
+  Widget build(BuildContext context) => const _ChatPaginationSkeleton(
+    key: ValueKey('chat-loading-newer-skeleton'),
+    semanticsLabel: 'Loading newer messages',
+    nameWidth: 0.28,
+    lineWidth: 0.58,
+    chainedLineWidth: 0.34,
+  );
 }
 
 class _LoadingOlderRow extends StatelessWidget {
   const _LoadingOlderRow();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 24),
-    child: Center(
-      child: SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-      ),
-    ),
+  Widget build(BuildContext context) => const _ChatPaginationSkeleton(
+    key: ValueKey('chat-loading-older-skeleton'),
+    semanticsLabel: 'Loading older messages',
+    nameWidth: 0.22,
+    lineWidth: 0.66,
+    chainedLineWidth: 0.40,
   );
+}
+
+/// A compact continuation of the conversation while one adjacent page loads.
+///
+/// Keeping the avatar, header, and chained follow-up makes either edge read as
+/// incoming chat content without inserting enough speculative height to move
+/// the reader noticeably when the real page replaces it.
+class _ChatPaginationSkeleton extends StatelessWidget {
+  const _ChatPaginationSkeleton({
+    super.key,
+    required this.semanticsLabel,
+    required this.nameWidth,
+    required this.lineWidth,
+    required this.chainedLineWidth,
+  });
+
+  final String semanticsLabel;
+  final double nameWidth;
+  final double lineWidth;
+  final double chainedLineWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return LoadingSkeleton(
+      semanticsLabel: semanticsLabel,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ChatSkeletonMessage(
+              nameWidth: nameWidth,
+              lineWidths: [lineWidth],
+            ),
+            _ChatSkeletonChainedMessage(lineWidth: chainedLineWidth),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// A quiet stand-in for the bottom of a conversation while its first window

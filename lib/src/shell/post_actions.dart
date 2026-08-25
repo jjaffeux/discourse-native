@@ -790,12 +790,27 @@ class _PostActionsMenu extends StatelessWidget {
                           action.tint ??
                           (action.destructive ? theme.colorScheme.error : null),
                     ),
-                    style: action.destructive
-                        ? MenuItemButton.styleFrom(
-                            foregroundColor: theme.colorScheme.error,
-                            iconColor: theme.colorScheme.error,
-                          )
-                        : null,
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.resolveWith((
+                        states,
+                      ) {
+                        if (states.contains(WidgetState.disabled)) {
+                          return Colors.transparent;
+                        }
+                        if (states.contains(WidgetState.hovered) ||
+                            states.contains(WidgetState.focused) ||
+                            states.contains(WidgetState.pressed)) {
+                          return theme.shell.hover;
+                        }
+                        return Colors.transparent;
+                      }),
+                      foregroundColor: action.destructive
+                          ? WidgetStatePropertyAll(theme.colorScheme.error)
+                          : null,
+                      iconColor: action.destructive
+                          ? WidgetStatePropertyAll(theme.colorScheme.error)
+                          : null,
+                    ),
                     child: Tooltip(
                       message: action.tooltip,
                       child: Text(action.label),
