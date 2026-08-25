@@ -2061,10 +2061,7 @@ class _ChatPaginationSkeleton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _ChatSkeletonMessage(
-              nameWidth: nameWidth,
-              lineWidths: [lineWidth],
-            ),
+            _ChatSkeletonMessage(nameWidth: nameWidth, lineWidths: [lineWidth]),
             _ChatSkeletonChainedMessage(lineWidth: chainedLineWidth),
           ],
         ),

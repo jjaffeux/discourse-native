@@ -473,6 +473,9 @@ Two things worth knowing if you touch the lists:
 
 - The load-more footer may only appear **while actually loading**. Keying it on
   "there is more" leaves a skeleton pulsing forever at the bottom.
+- A pagination skeleton is exactly one minimum-height post. The last page can
+  replace it with even the shortest real post without shrinking the reader and
+  exposing posts above the viewport again.
 - Fetching is triggered both from a scroll notification and from building the
   last row. The scroll alone is not enough: twenty short posts may not fill the
   window, leaving nothing to scroll and the rest never fetched.

@@ -381,8 +381,9 @@ class _ChatChannelThreadsButton extends StatelessWidget {
         final unread = channel!.unreadThreadCount;
         return DButton.iconOnly(
           key: const ValueKey('chat-channel-threads-button'),
-          onPressed: () => ShellScope.read(context)
-              .openChatChannelThreads(siteUrl: siteUrl, channelId: channelId),
+          onPressed: () => ShellScope.read(
+            context,
+          ).openChatChannelThreads(siteUrl: siteUrl, channelId: channelId),
           variant: DButtonVariant.flat,
           icon: Badge(
             isLabelVisible: unread > 0,

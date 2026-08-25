@@ -209,8 +209,9 @@ class _ReactionPillState extends State<ReactionPill> {
 
       if (_panel.currentState?.isShowing ?? false) _load();
       if (error != null) {
-        ScaffoldMessenger.maybeOf(context)
-            ?.showSnackBar(SnackBar(content: Text(error)));
+        ScaffoldMessenger.maybeOf(
+          context,
+        )?.showSnackBar(SnackBar(content: Text(error)));
       }
     } finally {
       if (mounted) setState(() => _toggling = false);

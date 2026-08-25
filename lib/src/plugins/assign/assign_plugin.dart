@@ -452,8 +452,9 @@ bool _canAssignRecord(
   String siteUrl,
   bool? targetCanAssign,
 ) =>
-    ShellScope.maybeRead(context)
-        ?.canAssignForTarget(siteUrl, targetCanAssign) ??
+    ShellScope.maybeRead(
+      context,
+    )?.canAssignForTarget(siteUrl, targetCanAssign) ??
     targetCanAssign == true;
 
 String _postLabel(int? postNumber) =>

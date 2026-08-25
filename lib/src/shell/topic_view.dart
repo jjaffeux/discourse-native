@@ -2085,7 +2085,7 @@ class _EarlierPostsRow extends StatelessWidget {
           key: ValueKey('topic-loading-earlier-skeleton'),
           semanticsLabel: 'Loading earlier posts',
           nameWidthFactor: 0.22,
-          lineWidths: [0.72, 0.48],
+          lineWidthFactor: 0.72,
         )
       : const SizedBox(height: 68);
 }
@@ -2945,32 +2945,34 @@ class _LoadingPostsRow extends StatelessWidget {
     key: ValueKey('topic-loading-more-skeleton'),
     semanticsLabel: 'Loading more posts',
     nameWidthFactor: 0.3,
-    lineWidths: [0.92, 0.72],
+    lineWidthFactor: 0.92,
   );
 }
 
 /// A compact continuation of the post stream while an adjacent page loads.
 ///
-/// One post-shaped placeholder makes either edge read as incoming topic
-/// content without speculating about the height of the whole requested page.
+/// The single-line, footerless shape is exactly the minimum real-post height.
+/// A short final page can therefore replace it without shrinking the list and
+/// forcing a bottom-anchored reader back into posts they already passed.
 class _TopicPaginationSkeleton extends StatelessWidget {
   const _TopicPaginationSkeleton({
     super.key,
     required this.semanticsLabel,
     required this.nameWidthFactor,
-    required this.lineWidths,
+    required this.lineWidthFactor,
   });
 
   final String semanticsLabel;
   final double nameWidthFactor;
-  final List<double> lineWidths;
+  final double lineWidthFactor;
 
   @override
   Widget build(BuildContext context) => LoadingSkeleton(
     semanticsLabel: semanticsLabel,
     child: _TopicPostSkeleton(
       nameWidthFactor: nameWidthFactor,
-      lineWidths: lineWidths,
+      lineWidths: [lineWidthFactor],
+      showFooter: false,
     ),
   );
 }

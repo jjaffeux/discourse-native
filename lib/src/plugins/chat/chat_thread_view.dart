@@ -551,9 +551,9 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   }
 
   void _syncProjection(ChatStreamState stream) {
-    final showTimeGapDays = ShellScope.read(context)
-        .siteConfigFor(widget.siteUrl)
-        .showTimeGapDays;
+    final showTimeGapDays = ShellScope.read(
+      context,
+    ).siteConfigFor(widget.siteUrl).showTimeGapDays;
     if (identical(_projectedMessageIds, stream.messageIds) &&
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
         _projectedLastRead == stream.lastReadOnOpen &&
@@ -677,8 +677,9 @@ class _ThreadHeader extends StatelessWidget {
                     : 'Thread',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
             _NotificationLevelButton(
