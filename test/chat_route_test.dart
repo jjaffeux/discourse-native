@@ -6,11 +6,20 @@ void main() {
     test('round-trips the stable channel and thread identities', () {
       final channel = ChatRoute.channel(9);
       final thread = ChatRoute.thread(channelId: 9, threadId: 3);
+      final settings = ChatRoute.info(channelId: 9);
+      final members = ChatRoute.info(
+        channelId: 9,
+        tab: ChatChannelInfoTab.members,
+      );
 
       expect(channel.routeId, 'chat-c-9');
       expect(ChatRoute.parse(channel.routeId), channel);
       expect(thread.routeId, 'chat-c-9-t-3');
       expect(ChatRoute.parse(thread.routeId), thread);
+      expect(settings.routeId, 'chat-c-9-info-settings');
+      expect(ChatRoute.parse(settings.routeId), settings);
+      expect(members.routeId, 'chat-c-9-info-members');
+      expect(ChatRoute.parse(members.routeId), members);
     });
 
     test('rejects aliases, prefixes, suffixes, and invalid ids', () {
@@ -25,6 +34,9 @@ void main() {
         'chat-c-9-t-0',
         'chat-c-9-t-03',
         'chat-c-9-t-3-extra',
+        'chat-c-9-info',
+        'chat-c-9-info-other',
+        'chat-c-9-info-members-extra',
         'prefix-chat-c-9',
         'chat-c-9999999999999999999999999999999999999999999',
       ]) {
@@ -46,6 +58,10 @@ void main() {
       final cases = <String, (ChatRoute, int?)>{
         'https://meta.discourse.org/chat/c/-/9': (ChatRoute.channel(9), null),
         'https://meta.discourse.org/chat/c/-/9/44': (ChatRoute.channel(9), 44),
+        'https://meta.discourse.org/chat/c/bugs/9': (
+          ChatRoute.channel(9),
+          null,
+        ),
         'https://meta.discourse.org/chat/c/-/9/t/3': (
           ChatRoute.thread(channelId: 9, threadId: 3),
           null,
@@ -57,6 +73,11 @@ void main() {
         '/chat/c/-/9/t/3/44/?foo=bar#message': (
           ChatRoute.thread(channelId: 9, threadId: 3),
           44,
+        ),
+        '/chat/c/bugs/9/info/settings': (ChatRoute.info(channelId: 9), null),
+        '/chat/c/bugs/9/info/members': (
+          ChatRoute.info(channelId: 9, tab: ChatChannelInfoTab.members),
+          null,
         ),
       };
 
@@ -72,7 +93,6 @@ void main() {
       for (final value in [
         '',
         '/chat',
-        '/chat/c/slug/9',
         '/chat/c/-/0',
         '/chat/c/-/09',
         '/chat/c/-/9/0',
@@ -81,6 +101,9 @@ void main() {
         '/chat/c/-/9/t/0',
         '/chat/c/-/9/t/3/0',
         '/chat/c/-/9/t/3/44/extra',
+        '/chat/c/-/9/info',
+        '/chat/c/-/9/info/other',
+        '/chat/c/-/9/info/members/extra',
         '/t/3/44',
         'ftp://meta.discourse.org/chat/c/-/9',
         'mailto:/chat/c/-/9',

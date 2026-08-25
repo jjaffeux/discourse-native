@@ -44,6 +44,8 @@ class SiteConfig {
     this.minSearchTermLength = defaultMinSearchTermLength,
     this.logSearchQueries = true,
     this.chatSearchEnabled = false,
+    this.chatChannelRetentionDays = 0,
+    this.chatDmRetentionDays = 0,
     this.taggingEnabled = true,
     this.maxTagSearchResults = defaultMaxTagSearchResults,
     this.usePgHeadlinesForExcerpt = false,
@@ -185,6 +187,10 @@ class SiteConfig {
           defaultMinSearchTermLength,
       logSearchQueries: json['log_search_queries'] != false,
       chatSearchEnabled: json['chat_search_enabled'] == true,
+      chatChannelRetentionDays: _retentionDays(
+        json['chat_channel_retention_days'],
+      ),
+      chatDmRetentionDays: _retentionDays(json['chat_dm_retention_days']),
       taggingEnabled: json['tagging_enabled'] != false,
       maxTagSearchResults: _positiveInt(
         json['max_tag_search_results'],
@@ -270,6 +276,8 @@ class SiteConfig {
         defaultMinSearchTermLength,
     logSearchQueries: json['logSearchQueries'] != false,
     chatSearchEnabled: json['chatSearchEnabled'] == true,
+    chatChannelRetentionDays: _retentionDays(json['chatChannelRetentionDays']),
+    chatDmRetentionDays: _retentionDays(json['chatDmRetentionDays']),
     taggingEnabled: json['taggingEnabled'] != false,
     maxTagSearchResults: _positiveInt(
       json['maxTagSearchResults'],
@@ -330,6 +338,8 @@ class SiteConfig {
     'minSearchTermLength': minSearchTermLength,
     'logSearchQueries': logSearchQueries,
     'chatSearchEnabled': chatSearchEnabled,
+    'chatChannelRetentionDays': chatChannelRetentionDays,
+    'chatDmRetentionDays': chatDmRetentionDays,
     'taggingEnabled': taggingEnabled,
     'maxTagSearchResults': maxTagSearchResults,
     'usePgHeadlinesForExcerpt': usePgHeadlinesForExcerpt,
@@ -419,6 +429,8 @@ class SiteConfig {
   final int minSearchTermLength;
   final bool logSearchQueries;
   final bool chatSearchEnabled;
+  final int chatChannelRetentionDays;
+  final int chatDmRetentionDays;
   final bool taggingEnabled;
 
   /// The largest tag page `/tags/filter/search.json` will accept.
@@ -574,6 +586,8 @@ class SiteConfig {
       other.minSearchTermLength == minSearchTermLength &&
       other.logSearchQueries == logSearchQueries &&
       other.chatSearchEnabled == chatSearchEnabled &&
+      other.chatChannelRetentionDays == chatChannelRetentionDays &&
+      other.chatDmRetentionDays == chatDmRetentionDays &&
       other.taggingEnabled == taggingEnabled &&
       other.maxTagSearchResults == maxTagSearchResults &&
       other.usePgHeadlinesForExcerpt == usePgHeadlinesForExcerpt &&
@@ -624,6 +638,8 @@ class SiteConfig {
     minSearchTermLength,
     logSearchQueries,
     chatSearchEnabled,
+    chatChannelRetentionDays,
+    chatDmRetentionDays,
     taggingEnabled,
     maxTagSearchResults,
     usePgHeadlinesForExcerpt,
@@ -705,6 +721,11 @@ class SiteConfig {
   static int _showTimeGapDays(Object? raw) => switch (jsonIntOrNull(raw)) {
     final value? when value >= 0 && value <= maximumShowTimeGapDays => value,
     _ => defaultShowTimeGapDays,
+  };
+
+  static int _retentionDays(Object? raw) => switch (jsonIntOrNull(raw)) {
+    final value? when value >= 0 => value,
+    _ => 0,
   };
 
   static List<int> _categoryIds(Object? raw) {

@@ -278,6 +278,10 @@ class _ContentHeader extends StatelessWidget {
       _ => const <Widget>[],
     };
     final contentHeader = registry.contentHeaderActions(context, route);
+    final contentHeaderTitleAction = registry.contentHeaderTitleAction(
+      context,
+      route,
+    );
     final topicFlags = switch ((siteUrl, topic)) {
       (final String siteUrl, final TopicDetail topic) =>
         controller.availableTopicFlagTypes(siteUrl, topic),
@@ -340,39 +344,52 @@ class _ContentHeader extends StatelessWidget {
                   ),
               if (showRouteIdentity)
                 Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (route.isTopic && siteUrl != null)
-                        TopicTitle(
-                          route.title,
-                          siteUrl: siteUrl!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        )
-                      else
-                        Text(
-                          route.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      if (route.subtitle case final subtitle?)
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
+                  child: Semantics(
+                    button: contentHeaderTitleAction != null,
+                    label: contentHeaderTitleAction == null
+                        ? null
+                        : 'Open ${route.title} details',
+                    child: InkWell(
+                      key: contentHeaderTitleAction == null
+                          ? null
+                          : const ValueKey('content-header-title-action'),
+                      onTap: contentHeaderTitleAction,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (route.isTopic && siteUrl != null)
+                            TopicTitle(
+                              route.title,
+                              siteUrl: siteUrl!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            )
+                          else
+                            Text(
+                              route.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          if (route.subtitle case final subtitle?)
+                            Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 )
               else if (carriesSearch)

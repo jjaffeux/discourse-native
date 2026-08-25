@@ -22,6 +22,8 @@ Map<String, dynamic> settings({
   int? minSearchTermLength,
   bool? logSearchQueries,
   bool? chatSearchEnabled,
+  int? chatChannelRetentionDays,
+  int? chatDmRetentionDays,
   bool? taggingEnabled,
   int? maxTagSearchResults,
   bool? usePgHeadlinesForExcerpt,
@@ -59,6 +61,8 @@ Map<String, dynamic> settings({
   'min_search_term_length': ?minSearchTermLength,
   'log_search_queries': ?logSearchQueries,
   'chat_search_enabled': ?chatSearchEnabled,
+  'chat_channel_retention_days': ?chatChannelRetentionDays,
+  'chat_dm_retention_days': ?chatDmRetentionDays,
   'tagging_enabled': ?taggingEnabled,
   'max_tag_search_results': ?maxTagSearchResults,
   'use_pg_headlines_for_excerpt': ?usePgHeadlinesForExcerpt,
@@ -209,6 +213,23 @@ void main() {
       );
       const enabled = SiteConfig(chatSearchEnabled: true);
       expect(SiteConfig.fromJson(enabled.toJson()), enabled);
+    });
+
+    test('retains the chat history periods shown in channel settings', () {
+      final config = SiteConfig.fromSettings(
+        settings(chatChannelRetentionDays: 180, chatDmRetentionDays: 30),
+      );
+
+      expect(config.chatChannelRetentionDays, 180);
+      expect(config.chatDmRetentionDays, 30);
+      expect(SiteConfig.fromJson(config.toJson()), config);
+      expect(SiteConfig.fromSettings(const {}).chatChannelRetentionDays, 0);
+      expect(
+        SiteConfig.fromSettings(
+          settings(chatChannelRetentionDays: -1),
+        ).chatChannelRetentionDays,
+        0,
+      );
     });
 
     test('reads and bounds the post time-gap threshold', () {

@@ -470,6 +470,7 @@ class ChatChannel with Storable<ChatChannel> {
     this.slug,
     this.emoji,
     this.description,
+    this.categoryName,
     this.categoryColor,
     this.readRestricted = false,
     this.status = ChatChannelStatus.open,
@@ -536,6 +537,9 @@ class ChatChannel with Storable<ChatChannel> {
       // altogether when a channel has none.
       emoji: jsonText(json['emoji']),
       description: jsonText(json['description']),
+      categoryName: kind == ChatChannelKind.category
+          ? jsonText(chatable['name'])
+          : null,
       categoryColor: kind == ChatChannelKind.category
           ? _hexColor(chatable['color'])
           : null,
@@ -682,6 +686,10 @@ class ChatChannel with Storable<ChatChannel> {
 
   final String? description;
 
+  /// The category a public channel belongs to, as core displays it on the
+  /// routed settings page. Direct messages have no category.
+  final String? categoryName;
+
   /// The colour of the category a public channel lives in, which is what tints
   /// its glyph. Null for a direct message, which belongs to no category.
   final Color? categoryColor;
@@ -807,6 +815,7 @@ class ChatChannel with Storable<ChatChannel> {
     slug: slug,
     emoji: emoji,
     description: description,
+    categoryName: categoryName,
     categoryColor: categoryColor,
     readRestricted: readRestricted,
     status: status,
@@ -838,6 +847,7 @@ class ChatChannel with Storable<ChatChannel> {
     slug: slug,
     emoji: emoji,
     description: description,
+    categoryName: categoryName,
     categoryColor: categoryColor,
     readRestricted: readRestricted,
     status: status,
@@ -869,6 +879,7 @@ class ChatChannel with Storable<ChatChannel> {
     slug: slug,
     emoji: emoji,
     description: description,
+    categoryName: categoryName,
     categoryColor: categoryColor,
     readRestricted: readRestricted,
     status: status,
@@ -907,6 +918,7 @@ class ChatChannel with Storable<ChatChannel> {
     slug: slug,
     emoji: emoji,
     description: description,
+    categoryName: categoryName,
     categoryColor: categoryColor,
     readRestricted: readRestricted,
     status: status,
@@ -938,6 +950,7 @@ class ChatChannel with Storable<ChatChannel> {
         slug: slug,
         emoji: emoji,
         description: description,
+        categoryName: categoryName,
         categoryColor: categoryColor,
         readRestricted: readRestricted,
         status: status,
@@ -970,6 +983,7 @@ class ChatChannel with Storable<ChatChannel> {
     slug: slug,
     emoji: emoji,
     description: description,
+    categoryName: categoryName,
     categoryColor: categoryColor,
     readRestricted: readRestricted,
     status: status,
@@ -1003,6 +1017,7 @@ class ChatChannel with Storable<ChatChannel> {
     slug: slug,
     emoji: emoji,
     description: description,
+    categoryName: categoryName,
     categoryColor: categoryColor,
     readRestricted: readRestricted,
     status: status,
@@ -1043,6 +1058,7 @@ class ChatChannel with Storable<ChatChannel> {
         slug: slug,
         emoji: emoji,
         description: description,
+        categoryName: categoryName,
         categoryColor: categoryColor,
         readRestricted: readRestricted,
         status: status,
@@ -1087,6 +1103,7 @@ class ChatChannel with Storable<ChatChannel> {
     slug: slug,
     emoji: emoji,
     description: description,
+    categoryName: categoryName,
     categoryColor: categoryColor,
     readRestricted: readRestricted,
     status: status,
@@ -1159,6 +1176,7 @@ class ChatChannel with Storable<ChatChannel> {
       slug: slug,
       emoji: emoji,
       description: description,
+      categoryName: categoryName,
       categoryColor: categoryColor,
       readRestricted: readRestricted,
       status: status,
@@ -1206,6 +1224,7 @@ class ChatChannel with Storable<ChatChannel> {
       slug: incoming.slug,
       emoji: incoming.emoji,
       description: incoming.description,
+      categoryName: incoming.categoryName,
       categoryColor: incoming.categoryColor,
       readRestricted: incoming.readRestricted,
       status: incoming.status,
@@ -1273,6 +1292,7 @@ class ChatChannel with Storable<ChatChannel> {
           other.slug == slug &&
           other.emoji == emoji &&
           other.description == description &&
+          other.categoryName == categoryName &&
           other.categoryColor == categoryColor &&
           other.readRestricted == readRestricted &&
           other.status == status &&
@@ -1303,6 +1323,7 @@ class ChatChannel with Storable<ChatChannel> {
     slug,
     emoji,
     description,
+    categoryName,
     categoryColor,
     readRestricted,
     status,
