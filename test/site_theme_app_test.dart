@@ -104,6 +104,52 @@ void main() {
     );
   });
 
+  testWidgets('aggregate uses the app theme instead of a forum palette', (
+    tester,
+  ) async {
+    final forumAppearance = siteAppearance(
+      accent: const Color(0xFFAA2200),
+      alternateAccent: const Color(0xFF00AACC),
+      mode: SiteAppearanceMode.alternate,
+    );
+    final store = FakeInstanceStore([
+      const DiscourseInstance(
+        url: siteA,
+        title: 'A',
+      ).copyWith(appearance: forumAppearance),
+    ]);
+
+    await _pumpApp(tester, store: store, api: FakeDiscourseApi());
+    final controller = _controller(tester);
+    expect(_materialApp(tester).themeMode, ThemeMode.dark);
+    expect(
+      _materialApp(tester).theme?.colorScheme.primary,
+      forumAppearance.base?.tertiary,
+    );
+
+    controller.selectAggregate();
+    await tester.pump();
+
+    expect(_materialApp(tester).themeMode, ThemeMode.system);
+    expect(
+      _materialApp(tester).theme?.colorScheme.primary,
+      AppTheme.light.colorScheme.primary,
+    );
+    expect(
+      _materialApp(tester).darkTheme?.colorScheme.primary,
+      AppTheme.dark.colorScheme.primary,
+    );
+
+    controller.selectInstance(0);
+    await tester.pump();
+
+    expect(_materialApp(tester).themeMode, ThemeMode.dark);
+    expect(
+      _materialApp(tester).theme?.colorScheme.primary,
+      forumAppearance.base?.tertiary,
+    );
+  });
+
   testWidgets('mirrors forced mode and themes navigator overlays', (
     tester,
   ) async {

@@ -381,11 +381,19 @@ class _DiscourseAppState extends State<DiscourseApp>
 final class _AppThemeSelection {
   const _AppThemeSelection(this.siteUrl, this.appearance);
 
-  factory _AppThemeSelection.from(ShellController controller) =>
-      _AppThemeSelection(
-        controller.currentInstance?.url,
-        controller.currentSiteAppearance,
-      );
+  factory _AppThemeSelection.from(ShellController controller) {
+    // Aggregate is an app-owned surface rather than a view into whichever
+    // forum happened to be selected last. Returning the empty selection also
+    // makes entering and leaving Aggregate rebuild MaterialApp even though the
+    // underlying current instance intentionally stays unchanged.
+    if (controller.rootMode == ShellRootMode.aggregate) {
+      return const _AppThemeSelection(null, null);
+    }
+    return _AppThemeSelection(
+      controller.currentInstance?.url,
+      controller.currentSiteAppearance,
+    );
+  }
 
   final String? siteUrl;
   final SiteAppearance? appearance;
