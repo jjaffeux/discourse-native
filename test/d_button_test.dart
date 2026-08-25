@@ -4,6 +4,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('text buttons use core font-relative geometry', (tester) async {
+    for (final size in DButtonSize.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: Center(
+              child: DButton(
+                label: const Text('Action'),
+                onPressed: _noop,
+                size: size,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final fontSize = DButton.fontSizeFor(size);
+      final rendered = find.byType(FilledButton);
+      final style = tester.widget<FilledButton>(rendered).style!;
+
+      expect(
+        style.padding!.resolve({}),
+        EdgeInsets.symmetric(
+          horizontal: fontSize * 0.65 + 1,
+          vertical: fontSize * 0.5 + 1,
+        ),
+      );
+      expect(style.minimumSize!.resolve({}), Size.zero);
+      expect(style.textStyle!.resolve({})?.height, 1.2);
+      expect(
+        tester.getSize(rendered).height,
+        moreOrLessEquals(fontSize * 2.2 + 2, epsilon: 0.5),
+      );
+    }
+  });
+
   testWidgets('icon-only buttons stay square and follow the site radius', (
     tester,
   ) async {

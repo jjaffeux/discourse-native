@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/shell/adaptive_activity_indicator.dart';
 import 'package:discourse_native/src/shell/adaptive_dialog_action.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -110,6 +111,19 @@ void main() {
     expect(alert.actionsOverflowButtonSpacing, 8);
     expect(find.widgetWithText(FilledButton, 'Cancel'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Remove'), findsOneWidget);
+    expect(find.byType(DButton), findsNWidgets(2));
+    expect(
+      tester.widget<DButton>(find.widgetWithText(DButton, 'Cancel')).variant,
+      DButtonVariant.standard,
+    );
+    expect(
+      tester.widget<DButton>(find.widgetWithText(DButton, 'Remove')).variant,
+      DButtonVariant.danger,
+    );
+    expect(
+      tester.getSize(find.widgetWithText(DButton, 'Cancel')).height,
+      moreOrLessEquals(37.2, epsilon: 0.5),
+    );
     final cancel = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Cancel'),
     );

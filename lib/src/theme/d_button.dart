@@ -342,6 +342,8 @@ class DButton extends StatelessWidget {
   final bool _iconOnly;
 
   static const double minimumDimension = 48;
+  static const double _borderWidth = 1;
+  static const double _textLineHeight = 1.2;
 
   static double fontSizeFor(DButtonSize size) => switch (size) {
     DButtonSize.small => 13.9296,
@@ -369,8 +371,8 @@ class DButton extends StatelessWidget {
     }
 
     final style = ButtonStyle(
-      minimumSize: const WidgetStatePropertyAll(
-        Size(minimumDimension, minimumDimension),
+      minimumSize: WidgetStatePropertyAll(
+        _iconOnly ? const Size(minimumDimension, minimumDimension) : Size.zero,
       ),
       fixedSize: _iconOnly
           ? const WidgetStatePropertyAll(Size.square(minimumDimension))
@@ -382,12 +384,19 @@ class DButton extends StatelessWidget {
         _iconOnly
             ? EdgeInsets.zero
             : EdgeInsets.symmetric(
-                horizontal: fontSize * 0.65,
-                vertical: fontSize * 0.5,
+                // Core uses border-box sizing with 1px borders around its
+                // 0.5em/0.65em padding. Flutter paints borders inside the
+                // layout box, so include that space in the padding here.
+                horizontal: fontSize * 0.65 + _borderWidth,
+                vertical: fontSize * 0.5 + _borderWidth,
               ),
       ),
       textStyle: WidgetStatePropertyAll(
-        TextStyle(fontSize: fontSize, fontWeight: FontWeight.normal),
+        TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.normal,
+          height: _textLineHeight,
+        ),
       ),
       iconSize: WidgetStatePropertyAll(fontSize),
       foregroundColor: WidgetStateProperty.resolveWith(

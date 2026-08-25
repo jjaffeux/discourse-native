@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../theme/d_button.dart';
+
 /// Opens an app-owned dialog with the Discourse modal theme on every platform.
 ///
 /// [AlertDialog.adaptive] and [AdaptiveDialogAction] still remain useful to
@@ -104,27 +106,21 @@ class _MaterialDialogAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return switch (kind) {
-      AdaptiveDialogActionKind.regular => FilledButton(
+      AdaptiveDialogActionKind.regular => DButton(
         onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: colors.surfaceContainerHigh,
-          foregroundColor: colors.onSurface,
-        ),
-        child: child,
+        variant: DButtonVariant.standard,
+        label: child,
       ),
-      AdaptiveDialogActionKind.primary => FilledButton(
+      AdaptiveDialogActionKind.primary => DButton(
         onPressed: onPressed,
-        child: child,
+        variant: DButtonVariant.primary,
+        label: child,
       ),
-      AdaptiveDialogActionKind.destructive => FilledButton(
+      AdaptiveDialogActionKind.destructive => DButton(
         onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: colors.error,
-          foregroundColor: colors.onError,
-        ),
-        child: child,
+        variant: DButtonVariant.danger,
+        label: child,
       ),
     };
   }
