@@ -37,9 +37,14 @@ class ReactionPills extends Padding {
 /// The transparent smile matches Discourse chat while the surrounding square
 /// keeps the same minimum target as a reaction pill.
 class ReactionPickerButton extends StatefulWidget {
-  const ReactionPickerButton({super.key, required this.onOpenPicker});
+  const ReactionPickerButton({
+    super.key,
+    required this.onOpenPicker,
+    this.enabled = true,
+  });
 
   final Future<void> Function(BuildContext) onOpenPicker;
+  final bool enabled;
 
   @override
   State<ReactionPickerButton> createState() => _ReactionPickerButtonState();
@@ -49,7 +54,7 @@ class _ReactionPickerButtonState extends State<ReactionPickerButton> {
   bool _opening = false;
 
   Future<void> _open(BuildContext context) async {
-    if (_opening) return;
+    if (_opening || !widget.enabled) return;
     setState(() => _opening = true);
     try {
       await widget.onOpenPicker(context);
@@ -61,11 +66,13 @@ class _ReactionPickerButtonState extends State<ReactionPickerButton> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final enabled = widget.enabled && !_opening;
     return EmojiPickerAnchor(
       child: Builder(
         builder: (buttonContext) => Semantics(
           container: true,
           button: true,
+          enabled: enabled,
           label: 'Add reaction',
           child: Tooltip(
             message: 'Add reaction',
@@ -75,15 +82,21 @@ class _ReactionPickerButtonState extends State<ReactionPickerButton> {
               child: Material(
                 type: MaterialType.transparency,
                 child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
+                  cursor: enabled
+                      ? SystemMouseCursors.click
+                      : SystemMouseCursors.basic,
                   child: InkWell(
-                    onTap: _opening ? null : () => _open(buttonContext),
+                    onTap: enabled ? () => _open(buttonContext) : null,
                     borderRadius: BorderRadius.circular(14),
-                    child: Center(
-                      child: DIcon(
-                        DIcons.farFaceSmile,
-                        size: 18,
-                        color: theme.colorScheme.onSurfaceVariant,
+                    child: AnimatedOpacity(
+                      opacity: enabled ? 1 : 0.5,
+                      duration: const Duration(milliseconds: 100),
+                      child: Center(
+                        child: DIcon(
+                          DIcons.farFaceSmile,
+                          size: 18,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ),
@@ -114,6 +127,7 @@ class ReactionPill extends StatefulWidget {
     required this.interactionOwner,
     required this.loadReactors,
     required this.reactorsBuilder,
+    this.enabled = true,
     this.onToggle,
     this.visualKey,
   });
@@ -132,6 +146,9 @@ class ReactionPill extends StatefulWidget {
   /// from a controller replaced under this state must not report into the new
   /// account's scaffold.
   final Object interactionOwner;
+
+  /// False while the owning feature has an incompatible write in flight.
+  final bool enabled;
 
   /// Null makes a tap open the reactor list, for a read-only reaction.
   final Future<String?> Function()? onToggle;
@@ -153,6 +170,7 @@ class _ReactionPillState extends State<ReactionPill> {
   final GlobalKey<HoverPanelState> _panel = GlobalKey<HoverPanelState>();
   bool _hovered = false;
   bool _focused = false;
+  bool _toggling = false;
 
   void _setHovered(bool value) {
     if (_hovered == value) return;
@@ -176,21 +194,26 @@ class _ReactionPillState extends State<ReactionPill> {
   }
 
   Future<void> _toggle() async {
+    if (_toggling || !widget.enabled) return;
     final toggle = widget.onToggle;
     if (toggle == null) {
       await _openSheet();
       return;
     }
 
+    setState(() => _toggling = true);
     final owner = widget.interactionOwner;
-    final error = await toggle();
-    if (!mounted || !identical(widget.interactionOwner, owner)) return;
+    try {
+      final error = await toggle();
+      if (!mounted || !identical(widget.interactionOwner, owner)) return;
 
-    if (_panel.currentState?.isShowing ?? false) _load();
-    if (error != null) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(error)));
+      if (_panel.currentState?.isShowing ?? false) _load();
+      if (error != null) {
+        ScaffoldMessenger.maybeOf(context)
+            ?.showSnackBar(SnackBar(content: Text(error)));
+      }
+    } finally {
+      if (mounted) setState(() => _toggling = false);
     }
   }
 
@@ -200,7 +223,8 @@ class _ReactionPillState extends State<ReactionPill> {
     final label = widget.count == 1
         ? '1 ${widget.reaction} reaction'
         : '${widget.count} ${widget.reaction} reactions';
-    final background = _hovered || _focused
+    final enabled = widget.enabled && !_toggling;
+    final background = enabled && (_hovered || _focused)
         ? Color.alphaBlend(
             theme.colorScheme.onSurface.withValues(alpha: 0.08),
             theme.shell.floating,
@@ -216,9 +240,10 @@ class _ReactionPillState extends State<ReactionPill> {
       child: Semantics(
         container: true,
         button: true,
+        enabled: enabled,
         selected: widget.selected,
         label: label,
-        onTapHint: widget.onTapHint,
+        onTapHint: enabled ? widget.onTapHint : null,
         child: ConstrainedBox(
           constraints: const BoxConstraints(
             minWidth: ReactionPill.minTarget,
@@ -230,48 +255,54 @@ class _ReactionPillState extends State<ReactionPill> {
             child: Material(
               type: MaterialType.transparency,
               child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                onEnter: (_) => _setHovered(true),
-                onExit: (_) => _setHovered(false),
+                cursor: enabled
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.basic,
+                onEnter: enabled ? (_) => _setHovered(true) : null,
+                onExit: enabled ? (_) => _setHovered(false) : null,
                 child: InkWell(
-                  onTap: _toggle,
-                  onLongPress: context.isTouch ? _openSheet : null,
+                  onTap: enabled ? _toggle : null,
+                  onLongPress: enabled && context.isTouch ? _openSheet : null,
                   onFocusChange: _setFocused,
                   borderRadius: BorderRadius.circular(14),
-                  child: ExcludeSemantics(
-                    child: Container(
-                      key: widget.visualKey,
-                      padding: const EdgeInsets.fromLTRB(8, 4, 9, 4),
-                      decoration: BoxDecoration(
-                        color: background,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: widget.selected
-                              ? theme.colorScheme.primary
-                              : theme.shell.divider,
+                  child: AnimatedOpacity(
+                    opacity: enabled ? 1 : 0.5,
+                    duration: const Duration(milliseconds: 100),
+                    child: ExcludeSemantics(
+                      child: Container(
+                        key: widget.visualKey,
+                        padding: const EdgeInsets.fromLTRB(8, 4, 9, 4),
+                        decoration: BoxDecoration(
+                          color: background,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: widget.selected
+                                ? theme.colorScheme.primary
+                                : theme.shell.divider,
+                          ),
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SiteEmojiImage(
-                            siteUrl: widget.siteUrl,
-                            name: widget.reaction,
-                            size: 16,
-                            alt: ':${widget.reaction}:',
-                            style: theme.textTheme.labelSmall,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            '${widget.count}',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: widget.selected
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SiteEmojiImage(
+                              siteUrl: widget.siteUrl,
+                              name: widget.reaction,
+                              size: 16,
+                              alt: ':${widget.reaction}:',
+                              style: theme.textTheme.labelSmall,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 5),
+                            Text(
+                              '${widget.count}',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: widget.selected
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

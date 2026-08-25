@@ -121,6 +121,10 @@ class ReactionsPlugin
     final config = controller.siteConfigFor(siteUrl);
     final held = post.reactions!.mine;
     final target = held?.id ?? config.mainReaction;
+    final writeInFlight = controller.postWriteInFlight(
+      post.id,
+      siteUrl: siteUrl,
+    );
 
     void report(Future<String?> work) {
       final messenger = ScaffoldMessenger.maybeOf(context);
@@ -155,6 +159,7 @@ class ReactionsPlugin
             _ => 'React to this post',
           },
           tint: held == null ? null : Theme.of(context).discourse.love,
+          enabled: !writeInFlight,
           onInvoke: () {
             if (target == null) {
               // Nothing known to send. The picker is where a reader chooses,
@@ -171,6 +176,7 @@ class ReactionsPlugin
             placement: PostActionPlacement.toolbar,
             label: 'React',
             tooltip: 'Pick a reaction',
+            enabled: !writeInFlight,
             onInvoke: () =>
                 unawaited(showReactionPicker(context, siteUrl, post)),
           ),
