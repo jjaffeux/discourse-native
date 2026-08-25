@@ -323,6 +323,15 @@ abstract interface class ContentHeaderPlugin {
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route);
 }
 
+/// Replaces the standard route glyph with feature-owned identity artwork.
+///
+/// The shell keeps responsibility for the surrounding spacing and title. A
+/// plugin uses this when the route represents something richer than its
+/// fallback icon, such as a person whose avatar also carries live presence.
+abstract interface class ContentHeaderLeadingPlugin {
+  Widget? contentHeaderLeading(BuildContext context, ContentRoute route);
+}
+
 /// Makes the standard content title navigate to feature-owned details.
 ///
 /// The shell keeps drawing the title and its accessibility treatment; the
