@@ -782,6 +782,56 @@ void main() {
     },
   );
 
+  testWidgets('scrolling hides message actions until the pointer moves again', (
+    tester,
+  ) async {
+    final api = _ChatApi(openPages: const {});
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    final messages = [for (var id = 1; id <= 40; id++) _message(id)];
+    controller.store
+      ..put(firstSite, _channel(lastRead: 40))
+      ..putAll(firstSite, messages);
+
+    await tester.pumpWidget(
+      _TestStreamView(
+        controller: controller,
+        messages: messages,
+        stream: ChatStreamState(
+          messageIds: [for (final message in messages) message.id],
+          fetchedOnce: true,
+          fetches: 1,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    final hoveredMessage = find.byType(ChatMessageTile).hitTestable().first;
+    final pointerPosition = tester.getCenter(hoveredMessage);
+    await mouse.moveTo(pointerPosition);
+    await tester.pump();
+    expect(find.byTooltip('Copy link'), findsOneWidget);
+
+    final scroll = await tester.startGesture(pointerPosition);
+    await scroll.moveBy(const Offset(0, 200));
+    await tester.pump();
+    expect(find.byTooltip('Copy link'), findsNothing);
+    await mouse.moveBy(const Offset(0, 1));
+    await tester.pump();
+    expect(find.byTooltip('Copy link'), findsNothing);
+
+    await scroll.up();
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Copy link'), findsNothing);
+
+    await mouse.moveBy(const Offset(0, 1));
+    await tester.pump();
+    expect(find.byTooltip('Copy link'), findsOneWidget);
+  });
+
   testWidgets('a failed thread creation is explained', (tester) async {
     final api = _ChatApi(
       openPages: {

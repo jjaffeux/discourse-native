@@ -8111,11 +8111,9 @@ void main() {
       expect(copied, ['https://meta.discourse.org/t/a-real-topic/7']);
     });
 
-    testWidgets('the menu follows its post, and stays in the viewport', (
+    testWidgets('scrolling hides the post menu until the pointer moves again', (
       tester,
     ) async {
-      // One post far taller than the window, which is the case that put the
-      // menu above the fold when it was pinned to the post's top edge.
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {
@@ -8141,20 +8139,27 @@ void main() {
       final gesture = await hoverPost(tester, body: 'Top of the long post');
       expect(find.byTooltip('Reply to this post'), findsOneWidget);
 
-      final before = tester.getTopLeft(find.byTooltip('Reply to this post'));
-      final viewport = tester.getRect(find.byType(TopicView));
-      expect(before.dy, greaterThanOrEqualTo(viewport.top));
+      final scroll = await tester.startGesture(
+        tester.getCenter(find.byType(TopicView)),
+      );
+      await scroll.moveBy(const Offset(0, -400));
+      await tester.pump();
 
-      await tester.drag(find.byType(TopicView), const Offset(0, -400));
+      // The toolbar leaves before the drag ends, rather than following the post
+      // and recomputing its overlay position on every scroll tick.
+      expect(find.byTooltip('Reply to this post'), findsNothing);
+      await gesture.moveBy(const Offset(0, 1));
+      await tester.pump();
+      expect(find.byTooltip('Reply to this post'), findsNothing);
+
+      await scroll.up();
       await tester.pumpAndSettle();
 
-      // Still there, and still inside the topic rather than over the header.
-      expect(find.byTooltip('Reply to this post'), findsOneWidget);
-      final after = tester.getTopLeft(find.byTooltip('Reply to this post'));
-      expect(after.dy, greaterThanOrEqualTo(viewport.top));
-      expect(after.dy, lessThan(viewport.bottom));
+      // Ending the scroll is not enough: rows have moved under a stationary
+      // pointer, so showing an action surface now would pick one accidentally.
+      expect(find.byTooltip('Reply to this post'), findsNothing);
 
-      await gesture.moveTo(tester.getCenter(find.byType(HoverActionToolbar)));
+      await gesture.moveBy(const Offset(0, 1));
       await tester.pump();
       expect(find.byTooltip('Reply to this post'), findsOneWidget);
     });
