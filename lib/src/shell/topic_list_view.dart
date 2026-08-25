@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../plugins/plugin_scope.dart';
@@ -707,31 +708,46 @@ class _TopicRow extends StatelessWidget {
 /// than filed in a feed. This keeps their presentation and navigation exactly
 /// the same as an ordinary topic row without making them masquerade as a feed.
 class TopicListRow extends StatelessWidget {
-  const TopicListRow({super.key, required this.topic});
+  const TopicListRow({super.key, required this.topic, this.forum, this.onTap});
 
   /// One title line, one metadata line, their gap, and the row padding.
   static const double minimumHeight = 68;
 
   final Topic topic;
+  final DiscourseInstance? forum;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final owningForum = forum;
+    if (owningForum != null) {
+      return _buildRow(context, owningForum.url, owningForum);
+    }
     return ShellSelector<String?>(
       select: (controller) => controller.currentInstance?.url,
       builder: (context, siteUrl, _) {
         if (siteUrl == null) return const SizedBox.shrink();
-        final controller = ShellScope.read(context);
-        return ShellSelector<TopicCategory?>(
-          select: (controller) =>
-              controller.categoryFor(topic.categoryId, siteUrl: siteUrl),
-          builder: (context, category, _) => _TopicRowBody(
-            topic: topic,
-            category: category,
-            siteUrl: siteUrl,
-            onTap: () => controller.openTopic(topic),
-          ),
-        );
+        return _buildRow(context, siteUrl, null);
       },
+    );
+  }
+
+  Widget _buildRow(
+    BuildContext context,
+    String siteUrl,
+    DiscourseInstance? owningForum,
+  ) {
+    final controller = ShellScope.read(context);
+    return ShellSelector<TopicCategory?>(
+      select: (controller) =>
+          controller.categoryFor(topic.categoryId, siteUrl: siteUrl),
+      builder: (context, category, _) => _TopicRowBody(
+        topic: topic,
+        category: category,
+        siteUrl: siteUrl,
+        forum: owningForum,
+        onTap: onTap ?? () => controller.openTopic(topic),
+      ),
     );
   }
 }
@@ -759,12 +775,14 @@ class _TopicRowBody extends StatelessWidget {
     required this.category,
     required this.siteUrl,
     required this.onTap,
+    this.forum,
   });
 
   final Topic topic;
   final TopicCategory? category;
   final String siteUrl;
   final VoidCallback onTap;
+  final DiscourseInstance? forum;
 
   @override
   Widget build(BuildContext context) {
@@ -777,6 +795,38 @@ class _TopicRowBody extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (forum case final forum?) ...[
+              Padding(
+                padding: const EdgeInsets.only(right: 12, top: 1),
+                child: Semantics(
+                  label: forum.title,
+                  image: true,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(7),
+                    child: AvatarImage(
+                      url: forum.iconUrl,
+                      size: 28,
+                      fit: BoxFit.contain,
+                      fallback: ColoredBox(
+                        color: forum.accentColor.withValues(alpha: 0.16),
+                        child: SizedBox.square(
+                          dimension: 28,
+                          child: Center(
+                            child: Text(
+                              forum.monogram,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -846,6 +896,19 @@ class _TopicRowBody extends StatelessWidget {
                     runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
+                      if (forum case final forum?)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: Text(
+                            forum.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       if (category case final category?)
                         Padding(
                           padding: const EdgeInsets.only(right: 10),

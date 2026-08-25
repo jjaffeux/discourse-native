@@ -282,6 +282,14 @@ class Topic with Storable<Topic> {
   bool get showNewTopicDot => !isNestedView && !seen;
   bool get showNewRepliesDot => isNestedView && hasNewReplies;
 
+  /// Whether this topic still belongs in an account-wide attention feed.
+  ///
+  /// Flat lists carry an unread count, while nested topics deliberately use a
+  /// single new-replies signal. An unseen topic remains actionable even before
+  /// either shape has a reply to count.
+  bool get hasUnseenActivity =>
+      !seen || (isNestedView ? hasNewReplies : hasUnread);
+
   /// Where Discourse's own topic-list links send the reader.
   ///
   /// An unread topic starts at its first unread post. A topic already read to

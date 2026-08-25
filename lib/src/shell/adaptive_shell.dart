@@ -13,6 +13,7 @@ import '../plugins/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'aggregate_view.dart';
 import 'diagnostics_panel.dart';
 import 'empty_state.dart';
 import 'instance_actions.dart';
@@ -131,6 +132,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     if (extraModifierPressed) return false;
 
     final controller = ShellScope.read(context);
+    if (controller.rootMode == ShellRootMode.aggregate) return false;
     final tabs = controller.tabsForCurrentForum;
     if (!controller.forumTabsEnabled || tabIndex >= tabs.length) {
       return false;
@@ -177,11 +179,14 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     return ShellSelector<_ForumBoundarySnapshot>(
       select: (controller) {
         final instance = controller.currentInstance;
+        final forumMode = controller.rootMode == ShellRootMode.forum;
         final privateForum =
+            forumMode &&
             controller.loadStatus == InstanceLoadStatus.ready &&
             instance?.loginRequired == true &&
             instance?.isConnected == false;
         final unavailableForum =
+            forumMode &&
             controller.loadStatus == InstanceLoadStatus.ready &&
             instance != null &&
             controller.currentForumUnavailable;
@@ -839,12 +844,14 @@ class _CompactShell extends StatelessWidget {
                       InstanceLoadStatus loadStatus,
                       bool hasInstances,
                       MobilePane pane,
+                      ShellRootMode rootMode,
                     })
                   >(
                     select: (controller) => (
                       loadStatus: controller.loadStatus,
                       hasInstances: controller.hasInstances,
                       pane: controller.mobilePane,
+                      rootMode: controller.rootMode,
                     ),
                     builder: (context, state, _) => AnimatedSwitcher(
                       duration: const Duration(milliseconds: 220),
@@ -855,21 +862,41 @@ class _CompactShell extends StatelessWidget {
                         state.loadStatus,
                         state.hasInstances,
                         state.pane,
+                        state.rootMode,
                       )) {
-                        (InstanceLoadStatus.loading, _, _) =>
+                        (InstanceLoadStatus.loading, _, _, _) =>
                           const _ShellLoadProgress(),
-                        (InstanceLoadStatus.failed, _, _) =>
+                        (InstanceLoadStatus.failed, _, _, _) =>
                           const _ShellLoadFailure(),
-                        (InstanceLoadStatus.ready, false, _) =>
+                        (InstanceLoadStatus.ready, false, _, _) =>
                           const EmptyState(key: ValueKey(MobilePane.sidebar)),
+                        (
+                          InstanceLoadStatus.ready,
+                          true,
+                          _,
+                          ShellRootMode.aggregate,
+                        ) =>
+                          const AggregateView(
+                            key: ValueKey(ShellRootMode.aggregate),
+                          ),
                         // Only one pane is on screen at a time here, so whichever
                         // one it is carries the avatar — unless the title bar has it.
-                        (InstanceLoadStatus.ready, true, MobilePane.sidebar) =>
+                        (
+                          InstanceLoadStatus.ready,
+                          true,
+                          MobilePane.sidebar,
+                          ShellRootMode.forum,
+                        ) =>
                           InstanceSidebar(
                             key: const ValueKey(MobilePane.sidebar),
                             showUserMenu: ShellTitleBar.columnsCarryUserMenu,
                           ),
-                        (InstanceLoadStatus.ready, true, MobilePane.content) =>
+                        (
+                          InstanceLoadStatus.ready,
+                          true,
+                          MobilePane.content,
+                          ShellRootMode.forum,
+                        ) =>
                           const MainContent(
                             key: ValueKey(MobilePane.content),
                             layout: ShellLayout.compact,
@@ -887,7 +914,9 @@ class _CompactShell extends StatelessWidget {
   /// Content arrives from the right, the sidebar from the left, so the swap
   /// reads as moving in and out of a hierarchy rather than a crossfade.
   static Widget _slide(Widget child, Animation<double> animation) {
-    final fromRight = child.key == const ValueKey(MobilePane.content);
+    final fromRight =
+        child.key == const ValueKey(MobilePane.content) ||
+        child.key == const ValueKey(ShellRootMode.aggregate);
     return FadeTransition(
       opacity: animation,
       child: SlideTransition(
@@ -1063,17 +1092,26 @@ class _WideShell extends StatelessWidget {
               child: ShellPanel(
                 child:
                     ShellSelector<
-                      ({InstanceLoadStatus loadStatus, bool hasInstances})
+                      ({
+                        InstanceLoadStatus loadStatus,
+                        bool hasInstances,
+                        ShellRootMode rootMode,
+                      })
                     >(
                       select: (controller) => (
                         loadStatus: controller.loadStatus,
                         hasInstances: controller.hasInstances,
+                        rootMode: controller.rootMode,
                       ),
                       builder: (context, state, _) => switch (state
                           .loadStatus) {
                         InstanceLoadStatus.loading =>
                           const _ShellLoadProgress(),
                         InstanceLoadStatus.failed => const _ShellLoadFailure(),
+                        InstanceLoadStatus.ready
+                            when state.hasInstances &&
+                                state.rootMode == ShellRootMode.aggregate =>
+                          const AggregateView(),
                         InstanceLoadStatus.ready when state.hasInstances => Row(
                           children: [
                             SizedBox(

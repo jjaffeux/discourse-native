@@ -5,6 +5,7 @@ import 'dart:ui' show Color;
 
 import 'package:flutter/scheduler.dart';
 
+import '../data/aggregate_preferences_store.dart';
 import '../data/authenticator.dart';
 import '../data/discourse_api.dart';
 import '../data/draft_store.dart';
@@ -73,6 +74,7 @@ import '../plugins/resenha/resenha_diagnostics.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_controller.dart';
+import 'aggregate_feed_controller.dart';
 import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
 import 'composer_pills.dart';
@@ -93,7 +95,12 @@ import 'update_controller.dart';
 /// always visible alongside whichever one is showing.
 enum MobilePane { sidebar, content }
 
+/// Which app-wide surface owns the space to the right of the forum rail.
+enum ShellRootMode { forum, aggregate }
+
 enum InstanceLoadStatus { loading, ready, failed }
+
+enum AggregateTopicOpenResult { opened, tabLimitReached, unavailable }
 
 typedef TopicMoveDestination = ({int id, String title, String slug});
 typedef TopicMoveDestinationSearchResult = ({
@@ -158,6 +165,7 @@ class ShellController extends FrameSafeNotifier {
     required this.authenticator,
     required this.drafts,
     EmojiPickerStore? emojiPickerStore,
+    AggregatePreferencesStore? aggregatePreferences,
     ForumTabStore? forumTabs,
     this.forumTabsEnabled = true,
     Store? store,
@@ -172,6 +180,8 @@ class ShellController extends FrameSafeNotifier {
     this.anchorPersistDebounce = const Duration(milliseconds: 500),
     InstalledPlugins? plugins,
   }) : forumTabs = forumTabs ?? ForumTabStore.memory(),
+       aggregatePreferences =
+           aggregatePreferences ?? AggregatePreferencesStore(),
        emojiPickerStore = emojiPickerStore ?? EmojiPickerStore(),
        assert(topicLoadTimeout > Duration.zero),
        assert(anchorPersistDebounce >= Duration.zero),
@@ -186,6 +196,7 @@ class ShellController extends FrameSafeNotifier {
 
   final InstanceStore instanceStore;
   final ForumTabStore forumTabs;
+  final AggregatePreferencesStore aggregatePreferences;
 
   /// Whether the platform exposes the forum tab lifecycle.
   ///
@@ -439,6 +450,25 @@ class ShellController extends FrameSafeNotifier {
   /// listen here directly; shell listeners remain about navigation and other
   /// shell-owned state.
   late final TopicFeedController topicFeeds = _createTopicFeedController();
+
+  /// Unseen topics from the followed categories of every selected forum.
+  ///
+  /// Its notifier is intentionally independent: paging this global list
+  /// should not rebuild the rail, sidebar, forum tabs, or inactive topics.
+  late final AggregateFeedController aggregate = AggregateFeedController(
+    api: api,
+    credentials: authenticator,
+    lifecycle: lifecycle,
+    store: store,
+    preferences: aggregatePreferences,
+    readCategories: (siteUrl) =>
+        _categoriesBySite[siteUrl] ?? const <TopicCategory>[],
+    writeCategories: _mergeCategories,
+    writeUser: _acceptAggregateUser,
+    readPersonalizationVersion: _siteBookmarkVersion,
+    prepareTopic: (siteUrl, topic, version) =>
+        _prepareTopicForStore(siteUrl, topic, version),
+  );
 
   TopicFeedController _createTopicFeedController() {
     return TopicFeedController(
@@ -760,6 +790,13 @@ class ShellController extends FrameSafeNotifier {
   MobilePane _mobilePane = MobilePane.sidebar;
   MobilePane get mobilePane => _mobilePane;
 
+  ShellRootMode _rootMode = ShellRootMode.forum;
+  ShellRootMode get rootMode => _rootMode;
+
+  /// A connected forum looked up by the same canonical origin used in a
+  /// cross-forum topic reference.
+  DiscourseInstance? instanceFor(String siteUrl) => _instanceAt(siteUrl);
+
   static String _workspaceAccountIdentity(DiscourseInstance instance) =>
       instance.user == null
       ? 'anonymous'
@@ -948,6 +985,8 @@ class ShellController extends FrameSafeNotifier {
     _instances
       ..clear()
       ..addAll(stored);
+    await aggregate.loadPreferences(stored);
+    if (isDisposed) return;
     _durableInstanceOrder = [for (final instance in stored) instance.url];
     _instanceIndex = 0;
     _forumWorkspaces.clear();
@@ -995,8 +1034,10 @@ class ShellController extends FrameSafeNotifier {
 
     final previousSiteUrl = currentInstance?.url;
     final previousPane = _mobilePane;
+    final previousRootMode = _rootMode;
 
     _instances.add(instance);
+    _rootMode = ShellRootMode.forum;
     _instanceIndex = _instances.length - 1;
     _resetToInstanceDefault();
     _mobilePane = MobilePane.sidebar;
@@ -1004,6 +1045,7 @@ class ShellController extends FrameSafeNotifier {
 
     try {
       await instanceStore.save(List.of(_instances));
+      unawaited(aggregate.pruneForums(_instances));
       return true;
     } catch (_) {
       if (isDisposed) return false;
@@ -1016,6 +1058,7 @@ class ShellController extends FrameSafeNotifier {
       if (!identical(held, instance)) {
         try {
           await instanceStore.save(List.of(_instances));
+          unawaited(aggregate.pruneForums(_instances));
           return true;
         } catch (_) {
           return false;
@@ -1025,6 +1068,7 @@ class ShellController extends FrameSafeNotifier {
       final selectedSiteUrl = currentInstance?.url;
       _forgetSiteState(instance.url);
       _instances.remove(instance);
+      _rootMode = previousRootMode;
 
       if (selectedSiteUrl == instance.url) {
         final previousIndex = previousSiteUrl == null
@@ -1210,6 +1254,7 @@ class ShellController extends FrameSafeNotifier {
       clearAppearance: true,
     );
     _instances.removeAt(index);
+    if (_instances.isEmpty) _rootMode = ShellRootMode.forum;
 
     if (removingSelected) {
       // The site being read is the one going away, so there is somewhere new
@@ -1228,6 +1273,7 @@ class ShellController extends FrameSafeNotifier {
 
     try {
       await instanceStore.save(List.of(_instances));
+      unawaited(aggregate.pruneForums(_instances));
       return true;
     } catch (_) {
       if (isDisposed || !lease.isCurrent || _instanceAt(instance.url) != null) {
@@ -3822,7 +3868,16 @@ class ShellController extends FrameSafeNotifier {
     int topicId,
     int postNumber, {
     required bool caughtUp,
-  }) => _topicReads.mark(siteUrl, topicId, postNumber, caughtUp: caughtUp);
+  }) {
+    final receipt = _topicReads.mark(
+      siteUrl,
+      topicId,
+      postNumber,
+      caughtUp: caughtUp,
+    );
+    aggregate.reconcileTopic(siteUrl, topicId);
+    return receipt;
+  }
 
   /// Fetches the next batch of posts in the open topic.
   ///
@@ -9133,7 +9188,26 @@ class ShellController extends FrameSafeNotifier {
     if (index >= 0) _instances[index] = updated;
   }
 
-  void _restoreInstanceWorkspace({bool refreshAppearance = true}) {
+  void _acceptAggregateUser(
+    DiscourseInstance requestedInstance,
+    DiscourseUser user,
+  ) {
+    final held = _instanceAt(requestedInstance.url);
+    if (held == null) return;
+    _sessionUsersRefreshed.add(held.url);
+    _assignLegacyFallbackUnavailable.remove(held.url);
+    if (held.user != user) {
+      _replaceInstance(held, held.copyWith(user: user));
+      _categorySidebarCache.remove(held.url);
+      unawaited(instanceStore.save(List.of(_instances)));
+      _notify();
+    }
+  }
+
+  void _restoreInstanceWorkspace({
+    bool refreshAppearance = true,
+    bool hydrateActiveTab = true,
+  }) {
     final instance = currentInstance;
     if (instance == null) {
       search.selectSite(null);
@@ -9142,7 +9216,11 @@ class ShellController extends FrameSafeNotifier {
     }
 
     _ensureWorkspace(instance);
-    _activateInstanceWorkspace(instance, refreshAppearance: refreshAppearance);
+    _activateInstanceWorkspace(
+      instance,
+      refreshAppearance: refreshAppearance,
+      hydrateActiveTab: hydrateActiveTab,
+    );
   }
 
   void _resetToInstanceDefault({bool refreshAppearance = true}) {
@@ -9160,6 +9238,7 @@ class ShellController extends FrameSafeNotifier {
   void _activateInstanceWorkspace(
     DiscourseInstance instance, {
     required bool refreshAppearance,
+    bool hydrateActiveTab = true,
   }) {
     assert(currentInstance?.url == instance.url);
 
@@ -9200,7 +9279,7 @@ class ShellController extends FrameSafeNotifier {
     // so activation itself must apply its chat capability instead of relying
     // on a callback which only runs after network responses.
     _hydrateSelectedChat(instance);
-    if (canRead) _hydrateActiveTab(instance);
+    if (canRead && hydrateActiveTab) _hydrateActiveTab(instance);
   }
 
   void _hydrateActiveTab(DiscourseInstance instance) {
@@ -9235,6 +9314,7 @@ class ShellController extends FrameSafeNotifier {
   /// on a phone, where the sidebar and the content cannot both be visible.
   void selectInstance(int index) {
     assert(index >= 0 && index < _instances.length);
+    _rootMode = ShellRootMode.forum;
     if (index != _instanceIndex) {
       _instanceIndex = index;
       _restoreInstanceWorkspace();
@@ -9250,6 +9330,108 @@ class ShellController extends FrameSafeNotifier {
     }
     _mobilePane = MobilePane.sidebar;
     _notify();
+  }
+
+  /// Opens the app-wide topic stream and refreshes it when its snapshot is old.
+  void selectAggregate() {
+    if (!loaded || !hasInstances) return;
+    _rootMode = ShellRootMode.aggregate;
+    _mobilePane = MobilePane.content;
+    _notify();
+    unawaited(aggregate.open(_instances));
+  }
+
+  Future<void> refreshAggregate() => aggregate.refresh(_instances, force: true);
+
+  Future<void> setAggregateIncludedForums(Set<String> includedForums) async {
+    final persisted = aggregate.setIncludedForums(
+      allForums: _instances,
+      includedConnectedForums: includedForums,
+    );
+    await aggregate.refresh(_instances, force: true);
+    await persisted;
+  }
+
+  /// Opens an Aggregate row in its owning forum.
+  ///
+  /// Desktop gives a topic its own forum tab and reuses an exact existing one.
+  /// Mobile retains its single navigation context and replaces the current
+  /// forum surface, matching every other topic-list tap there.
+  AggregateTopicOpenResult openAggregateTopic(String siteUrl, int topicId) {
+    final topic = store.read<Topic>(siteUrl, topicId);
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (topic == null || index < 0) {
+      return AggregateTopicOpenResult.unavailable;
+    }
+
+    final instance = _instances[index];
+
+    if (!forumTabsEnabled) {
+      _rootMode = ShellRootMode.forum;
+      if (index != _instanceIndex) {
+        _instanceIndex = index;
+        _restoreInstanceWorkspace(hydrateActiveTab: false);
+      }
+      _mobilePane = MobilePane.content;
+      if (currentContent?.topicId == topic.id) {
+        _notify();
+      } else {
+        _openTopic(
+          topic.id,
+          topic.slug,
+          topic.title,
+          postNumber: topic.lastUnreadPostNumber,
+        );
+      }
+      return AggregateTopicOpenResult.opened;
+    }
+
+    final workspace = _ensureWorkspace(instance);
+    ForumTab? existingTopicTab;
+    for (final candidate in workspace.tabs) {
+      if (candidate.currentContent.topicId == topic.id) {
+        existingTopicTab = candidate;
+        break;
+      }
+    }
+    if (existingTopicTab == null &&
+        workspace.tabs.length >= ForumWorkspace.maximumTabs) {
+      // Aggregate remains on screen, with the previously selected forum still
+      // underneath it, so the failed click has no navigation side effect.
+      return AggregateTopicOpenResult.tabLimitReached;
+    }
+
+    _rootMode = ShellRootMode.forum;
+    if (index != _instanceIndex) {
+      _instanceIndex = index;
+      _restoreInstanceWorkspace(hydrateActiveTab: false);
+    }
+
+    if (existingTopicTab case final tab?) {
+      _putWorkspace(workspace.copyWith(activeTabId: tab.id));
+      _mobilePane = MobilePane.content;
+      _syncTopicChannels();
+      _notify();
+      _hydrateActiveTab(instance);
+      return AggregateTopicOpenResult.opened;
+    }
+
+    final tab = _newDefaultTab(instance).push(
+      ContentRoute.topic(
+        topicId: topic.id,
+        slug: topic.slug,
+        title: topic.title,
+        postNumber: topic.lastUnreadPostNumber,
+      ),
+    );
+    _putWorkspace(
+      workspace.copyWith(tabs: [...workspace.tabs, tab], activeTabId: tab.id),
+    );
+    _mobilePane = MobilePane.content;
+    _syncTopicChannels();
+    _notify();
+    _hydrateActiveTab(instance);
+    return AggregateTopicOpenResult.opened;
   }
 
   void selectDestination(SidebarDestination destination) {
@@ -9586,6 +9768,12 @@ class ShellController extends FrameSafeNotifier {
   /// Returns false when there is nothing left to unwind, which is the signal
   /// to let the platform handle the back gesture.
   bool handleBack({bool canReturnToSidebar = true}) {
+    if (_rootMode == ShellRootMode.aggregate) {
+      _rootMode = ShellRootMode.forum;
+      _mobilePane = MobilePane.sidebar;
+      _notify();
+      return true;
+    }
     if (canPopContent) {
       final tab = activeTab!;
       _replaceActiveTab(
@@ -9653,6 +9841,7 @@ class ShellController extends FrameSafeNotifier {
     accountActivity.dispose();
     draftList.dispose();
     topicFeeds.dispose();
+    aggregate.dispose();
     siteImages.dispose();
     chatNavigation.dispose();
     _observePluginLifecycle(_pluginSession.close(), 'plugins.session.close');

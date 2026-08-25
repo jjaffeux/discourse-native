@@ -43,6 +43,9 @@ class DiscourseUser {
     this.groups = const [],
     this.ignoredUsernames = const [],
     this.sidebarCategoryIds = const [],
+    this.trackedCategoryIds,
+    this.watchedCategoryIds,
+    this.watchedFirstPostCategoryIds,
     this.hasChatEnabled,
     this.chatHeaderIndicatorPreference = ChatHeaderIndicatorPreference.allNew,
     this.doNotDisturbUntil,
@@ -79,6 +82,12 @@ class DiscourseUser {
       for (final value in jsonArray(json['sidebarCategoryIds']))
         ?jsonIntOrNull(value),
     ]),
+    trackedCategoryIds: _storedCategoryIds(json, 'trackedCategoryIds'),
+    watchedCategoryIds: _storedCategoryIds(json, 'watchedCategoryIds'),
+    watchedFirstPostCategoryIds: _storedCategoryIds(
+      json,
+      'watchedFirstPostCategoryIds',
+    ),
     // Nullable only for accounts persisted before this capability was stored.
     hasChatEnabled: json['hasChatEnabled'] as bool?,
     chatHeaderIndicatorPreference: ChatHeaderIndicatorPreference.read(
@@ -133,6 +142,29 @@ class DiscourseUser {
   /// order from the site's category ordering rather than this list's order.
   final List<int> sidebarCategoryIds;
 
+  /// Direct category preferences at or above core's Tracking level.
+  ///
+  /// Null means this account was persisted before the current-user serializer
+  /// fields were retained. A fresh server response uses an empty list when the
+  /// account has no categories at that level, keeping migration state distinct
+  /// from a real empty preference.
+  final List<int>? trackedCategoryIds;
+  final List<int>? watchedCategoryIds;
+  final List<int>? watchedFirstPostCategoryIds;
+
+  Set<int>? get followedCategoryIds {
+    if (trackedCategoryIds == null ||
+        watchedCategoryIds == null ||
+        watchedFirstPostCategoryIds == null) {
+      return null;
+    }
+    return {
+      ...trackedCategoryIds!,
+      ...watchedCategoryIds!,
+      ...watchedFirstPostCategoryIds!,
+    };
+  }
+
   /// Whether the Chat plugin, its guardian and this account's own option all
   /// allow chat. Null means an older stored account has not been refreshed yet.
   final bool? hasChatEnabled;
@@ -172,6 +204,10 @@ class DiscourseUser {
     'groups': groups,
     'ignoredUsernames': ignoredUsernames,
     'sidebarCategoryIds': sidebarCategoryIds,
+    if (trackedCategoryIds != null) 'trackedCategoryIds': trackedCategoryIds,
+    if (watchedCategoryIds != null) 'watchedCategoryIds': watchedCategoryIds,
+    if (watchedFirstPostCategoryIds != null)
+      'watchedFirstPostCategoryIds': watchedFirstPostCategoryIds,
     'hasChatEnabled': hasChatEnabled,
     'chatHeaderIndicatorPreference': chatHeaderIndicatorPreference.wireName,
     'doNotDisturbUntil': doNotDisturbUntil?.toIso8601String(),
@@ -199,6 +235,12 @@ class DiscourseUser {
       listEquals(other.groups, groups) &&
       listEquals(other.ignoredUsernames, ignoredUsernames) &&
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
+      listEquals(other.trackedCategoryIds, trackedCategoryIds) &&
+      listEquals(other.watchedCategoryIds, watchedCategoryIds) &&
+      listEquals(
+        other.watchedFirstPostCategoryIds,
+        watchedFirstPostCategoryIds,
+      ) &&
       other.hasChatEnabled == hasChatEnabled &&
       other.chatHeaderIndicatorPreference == chatHeaderIndicatorPreference &&
       other.doNotDisturbUntil == doNotDisturbUntil &&
@@ -207,7 +249,7 @@ class DiscourseUser {
       other.bookmarkAutoDeletePreference == bookmarkAutoDeletePreference;
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     username,
     id,
     name,
@@ -221,11 +263,21 @@ class DiscourseUser {
     Object.hashAll(groups),
     Object.hashAll(ignoredUsernames),
     Object.hashAll(sidebarCategoryIds),
+    Object.hashAll(trackedCategoryIds ?? const <int>[]),
+    Object.hashAll(watchedCategoryIds ?? const <int>[]),
+    Object.hashAll(watchedFirstPostCategoryIds ?? const <int>[]),
     hasChatEnabled,
     chatHeaderIndicatorPreference,
     doNotDisturbUntil,
     lastChatChannelId,
     timezone,
     bookmarkAutoDeletePreference,
-  );
+  ]);
+}
+
+List<int>? _storedCategoryIds(Map<String, dynamic> json, String key) {
+  if (!json.containsKey(key)) return null;
+  return List.unmodifiable([
+    for (final value in jsonArray(json[key])) ?jsonIntOrNull(value),
+  ]);
 }

@@ -379,6 +379,11 @@ class DiscourseApi
         for (final value in jsonArray(user['sidebar_category_ids']))
           ?jsonIntOrNull(value),
       ]),
+      trackedCategoryIds: _categoryIds(user['tracked_category_ids']),
+      watchedCategoryIds: _categoryIds(user['watched_category_ids']),
+      watchedFirstPostCategoryIds: _categoryIds(
+        user['watched_first_post_category_ids'],
+      ),
       // Chat registers these on CurrentUserSerializer. `has_chat_enabled` is
       // emitted only when true, so an absent key in a fresh session answer is
       // an authoritative false rather than an unknown capability.
@@ -4469,6 +4474,10 @@ class DiscourseApi
     _client.close();
   }
 }
+
+List<int> _categoryIds(Object? value) => List.unmodifiable([
+  for (final item in jsonArray(value)) ?jsonIntOrNull(item),
+]);
 
 Iterable<Map<String, dynamic>> _flattenCategories(Object? categories) sync* {
   // Category nesting is site-controlled. Keep preorder without recursively

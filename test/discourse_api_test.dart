@@ -5327,6 +5327,42 @@ void _writeGroups() {
       expect(() => user.sidebarCategoryIds.add(13), throwsUnsupportedError);
     });
 
+    test('reads category tracking levels used by Aggregate safely', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'current_user': {
+                'id': 7,
+                'username': 'sam',
+                'tracked_category_ids': [1, '2', false],
+                'watched_category_ids': [3],
+                'watched_first_post_category_ids': ['4', null],
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final user = await api.currentUser(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+      );
+      final stored = DiscourseUser.fromJson(user.toJson());
+
+      expect(user.trackedCategoryIds, [1, 2]);
+      expect(user.watchedCategoryIds, [3]);
+      expect(user.watchedFirstPostCategoryIds, [4]);
+      expect(user.followedCategoryIds, {1, 2, 3, 4});
+      expect(stored, user);
+      expect(stored.hashCode, user.hashCode);
+      expect(
+        DiscourseUser.fromJson(const {'username': 'old'}).followedCategoryIds,
+        isNull,
+      );
+    });
+
     test('reads the current account ignored usernames safely', () async {
       final api = DiscourseApi(
         client: MockClient(

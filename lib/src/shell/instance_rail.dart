@@ -41,6 +41,25 @@ class InstanceRail extends StatelessWidget {
               right: false,
               child: Column(
                 children: [
+                  if (state.loadStatus == InstanceLoadStatus.ready &&
+                      state.instances.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(0, 12, 0, 6),
+                      child: _AggregateRailButton(
+                        selected: state.rootMode == ShellRootMode.aggregate,
+                        onTap: controller.selectAggregate,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 32,
+                      child: Divider(
+                        height: 1,
+                        color: theme.shell.railForeground.withValues(
+                          alpha: 0.18,
+                        ),
+                      ),
+                    ),
+                  ],
                   Expanded(
                     child: switch (state.loadStatus) {
                       InstanceLoadStatus.loading => Center(
@@ -87,7 +106,9 @@ class InstanceRail extends StatelessWidget {
                           final item = _RailItem(
                             instance: instance,
                             appearance: state.appearances[index],
-                            selected: index == state.selectedIndex,
+                            selected:
+                                state.rootMode == ShellRootMode.forum &&
+                                index == state.selectedIndex,
                             badgeCount: controller.railBadgeFor(instance),
                             onTap: () => controller.selectInstance(index),
                             onMoveUp: moveUp,
@@ -146,8 +167,10 @@ class InstanceRail extends StatelessWidget {
                                                 appearance:
                                                     state.appearances[index],
                                                 selected:
+                                                    state.rootMode ==
+                                                        ShellRootMode.forum &&
                                                     index ==
-                                                    state.selectedIndex,
+                                                        state.selectedIndex,
                                               ),
                                             ),
                                             child: DecoratedBox(
@@ -215,17 +238,20 @@ class _RailSnapshot {
           controller.siteAppearanceFor(instance.url),
       ],
       selectedIndex = controller.instanceIndex,
+      rootMode = controller.rootMode,
       loadStatus = controller.loadStatus;
 
   final List<DiscourseInstance> instances;
   final List<SiteAppearance?> appearances;
   final int selectedIndex;
+  final ShellRootMode rootMode;
   final InstanceLoadStatus loadStatus;
 
   @override
   bool operator ==(Object other) {
     if (other is! _RailSnapshot ||
         selectedIndex != other.selectedIndex ||
+        rootMode != other.rootMode ||
         loadStatus != other.loadStatus) {
       return false;
     }
@@ -240,10 +266,81 @@ class _RailSnapshot {
   @override
   int get hashCode => Object.hash(
     selectedIndex,
+    rootMode,
     loadStatus,
     Object.hashAll(instances.map(identityHashCode)),
     Object.hashAll(appearances),
   );
+}
+
+class _AggregateRailButton extends StatefulWidget {
+  const _AggregateRailButton({required this.selected, required this.onTap});
+
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_AggregateRailButton> createState() => _AggregateRailButtonState();
+}
+
+class _AggregateRailButtonState extends State<_AggregateRailButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final foreground = theme.shell.railForeground;
+    final markerHeight = widget.selected ? 40.0 : (_hovered ? 20.0 : 8.0);
+
+    return Stack(
+      alignment: Alignment.centerLeft,
+      children: [
+        AnimatedContainer(
+          key: const ValueKey('aggregate-rail-marker'),
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          width: 4,
+          height: markerHeight,
+          decoration: BoxDecoration(
+            color: foreground,
+            borderRadius: const BorderRadius.horizontal(
+              right: Radius.circular(4),
+            ),
+          ),
+        ),
+        Center(
+          child: Tooltip(
+            message: 'Aggregate',
+            child: InkWell(
+              key: const ValueKey('aggregate-rail-button'),
+              onTap: widget.onTap,
+              onHover: (hovered) => setState(() => _hovered = hovered),
+              borderRadius: BorderRadius.circular(16),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: widget.selected
+                      ? foreground
+                      : foreground.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(
+                    widget.selected || _hovered ? 16 : 22,
+                  ),
+                ),
+                child: DIcon(
+                  DIcons.layerGroup,
+                  size: 20,
+                  color: widget.selected ? theme.shell.rail : foreground,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _RailLoadFailure extends StatelessWidget {
