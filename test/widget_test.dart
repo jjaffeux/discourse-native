@@ -3612,7 +3612,7 @@ void main() {
       expect(tracker.userId, 7);
     });
 
-    testWidgets('the account avatar has a visible hover surface', (
+    testWidgets('the account avatar uses a hand cursor without a hover fill', (
       tester,
     ) async {
       await pumpConnected(tester);
@@ -3622,10 +3622,20 @@ void main() {
       final material = tester.widget<Material>(
         find.ancestor(of: avatar, matching: find.byType(Material)).first,
       );
-      final hover = Theme.of(tester.element(avatar)).shell.hover;
+      final theme = Theme.of(tester.element(avatar));
+      final cursor = inkWell.mouseCursor! as WidgetStateMouseCursor;
 
-      expect(inkWell.hoverColor, hover);
-      expect(inkWell.focusColor, hover);
+      expect(cursor.resolve(const {}), SystemMouseCursors.click);
+      expect(
+        cursor.resolve(const {WidgetState.disabled}),
+        SystemMouseCursors.basic,
+      );
+      expect(inkWell.hoverColor, Colors.transparent);
+      expect(inkWell.focusColor, theme.shell.hover);
+      expect(
+        inkWell.borderRadius,
+        BorderRadius.circular(theme.discourseButtons.borderRadius),
+      );
       expect(material.type, MaterialType.transparency);
     });
 

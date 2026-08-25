@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -185,8 +186,11 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                   child: InkWell(
                     key: UserMenuButton.avatarKey,
                     onTap: connecting ? null : _openMenu,
-                    borderRadius: BorderRadius.circular(22),
-                    hoverColor: theme.shell.hover,
+                    mouseCursor: WidgetStateMouseCursor.clickable,
+                    borderRadius: BorderRadius.circular(
+                      theme.discourseButtons.borderRadius,
+                    ),
+                    hoverColor: Colors.transparent,
                     focusColor: theme.shell.hover,
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(
