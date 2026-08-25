@@ -958,8 +958,8 @@ class _TopicViewState extends State<TopicView> {
       );
     }
 
-    // The footer is a spinner, so it may only appear while actually loading —
-    // otherwise it spins forever at the bottom of a topic with more to fetch.
+    // The footer is a loading skeleton, so it may only appear while actually
+    // loading — otherwise it pulses forever below a topic with more to fetch.
     final showFooter = snapshot.loadingMore;
     final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
     final showRecommendations =
@@ -2080,18 +2080,14 @@ class _EarlierPostsRow extends StatelessWidget {
   final bool loading;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 24),
-    child: Center(
-      child: SizedBox(
-        width: 20,
-        height: 20,
-        child: loading
-            ? const CircularProgressIndicator.adaptive(strokeWidth: 2)
-            : null,
-      ),
-    ),
-  );
+  Widget build(BuildContext context) => loading
+      ? const _TopicPaginationSkeleton(
+          key: ValueKey('topic-loading-earlier-skeleton'),
+          semanticsLabel: 'Loading earlier posts',
+          nameWidthFactor: 0.22,
+          lineWidths: [0.72, 0.48],
+        )
+      : const SizedBox(height: 68);
 }
 
 /// Draws whichever post the store holds under [postId].
@@ -2945,14 +2941,36 @@ class _LoadingPostsRow extends StatelessWidget {
   const _LoadingPostsRow();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 24),
-    child: Center(
-      child: SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-      ),
+  Widget build(BuildContext context) => const _TopicPaginationSkeleton(
+    key: ValueKey('topic-loading-more-skeleton'),
+    semanticsLabel: 'Loading more posts',
+    nameWidthFactor: 0.3,
+    lineWidths: [0.92, 0.72],
+  );
+}
+
+/// A compact continuation of the post stream while an adjacent page loads.
+///
+/// One post-shaped placeholder makes either edge read as incoming topic
+/// content without speculating about the height of the whole requested page.
+class _TopicPaginationSkeleton extends StatelessWidget {
+  const _TopicPaginationSkeleton({
+    super.key,
+    required this.semanticsLabel,
+    required this.nameWidthFactor,
+    required this.lineWidths,
+  });
+
+  final String semanticsLabel;
+  final double nameWidthFactor;
+  final List<double> lineWidths;
+
+  @override
+  Widget build(BuildContext context) => LoadingSkeleton(
+    semanticsLabel: semanticsLabel,
+    child: _TopicPostSkeleton(
+      nameWidthFactor: nameWidthFactor,
+      lineWidths: lineWidths,
     ),
   );
 }
