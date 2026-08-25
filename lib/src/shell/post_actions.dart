@@ -76,9 +76,8 @@ class _PostActionsState extends State<PostActions> {
   /// Set when the list moves under a stationary pointer.
   ///
   /// Rows slide beneath the cursor as you scroll, and each one entering it
-  /// would pop its own menu open — so after a scroll a *closed* menu stays
-  /// closed until the pointer is actually moved. An open one keeps following
-  /// its post instead.
+  /// would pop its own menu open. Keep every menu closed until scrolling has
+  /// stopped and the pointer itself moves again.
   bool _suppressed = false;
 
   /// A menu opened from the toolbar lives in a separate overlay. Keep the
@@ -96,21 +95,32 @@ class _PostActionsState extends State<PostActions> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // A menu pinned to a row that is moving reads as broken, and the follower
-    // would drag it across the screen. Closing is the honest response.
     final position = Scrollable.maybeOf(context)?.position;
     if (identical(position, _scroll)) return;
-    _scroll?.removeListener(_onScroll);
-    _scroll = position?..addListener(_onScroll);
+    _detachScroll();
+    _scroll = position;
+    position?.addListener(_hideForScroll);
+    position?.isScrollingNotifier.addListener(_onScrollingChanged);
+    if (position?.isScrollingNotifier.value == true) _hideForScroll();
   }
 
-  /// Follows the post it belongs to, rather than being left behind by it.
-  void _onScroll() {
-    if (_portal.isShowing) {
-      _updateAnchor();
-    } else {
-      _suppressed = true;
-    }
+  void _detachScroll() {
+    _scroll?.removeListener(_hideForScroll);
+    _scroll?.isScrollingNotifier.removeListener(_onScrollingChanged);
+  }
+
+  void _onScrollingChanged() {
+    if (_scroll?.isScrollingNotifier.value == true) _hideForScroll();
+  }
+
+  /// Stops both painting and positioning work for the duration of a scroll.
+  ///
+  /// The position listener also covers synchronous jumps, while
+  /// [ScrollPosition.isScrollingNotifier] closes the toolbar at gesture start,
+  /// before the first changed pixel arrives.
+  void _hideForScroll() {
+    _suppressed = true;
+    _closeNow(force: true);
   }
 
   /// The part of the post actually on screen, which is what the menu hangs off.
@@ -145,6 +155,7 @@ class _PostActionsState extends State<PostActions> {
   /// A real pointer movement, as opposed to a row arriving under a still one.
   void _pointerMoved(_PostActionsHoverTarget target) {
     _hoveredTargets.add(target);
+    if (_scroll?.isScrollingNotifier.value == true) return;
     _suppressed = false;
     _open();
   }
@@ -599,7 +610,7 @@ class _PostActionsState extends State<PostActions> {
 
   @override
   void dispose() {
-    _scroll?.removeListener(_onScroll);
+    _detachScroll();
     _anchor.dispose();
     _firstActionFocus.dispose();
     super.dispose();

@@ -243,9 +243,61 @@ class _ChatMessageActions extends StatefulWidget {
 
 class _ChatMessageActionsState extends State<_ChatMessageActions> {
   bool _hovered = false;
+  bool _hoverSuppressed = false;
   bool _pinning = false;
   bool _rebaking = false;
   bool _reactionPickerOpening = false;
+  ScrollPosition? _scroll;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final position = Scrollable.maybeOf(context)?.position;
+    if (identical(position, _scroll)) return;
+    _detachScroll();
+    _scroll = position;
+    position?.addListener(_hideHoverForScroll);
+    position?.isScrollingNotifier.addListener(_onScrollingChanged);
+    if (position?.isScrollingNotifier.value == true) {
+      _hoverSuppressed = true;
+      _hovered = false;
+    }
+  }
+
+  void _detachScroll() {
+    _scroll?.removeListener(_hideHoverForScroll);
+    _scroll?.isScrollingNotifier.removeListener(_onScrollingChanged);
+  }
+
+  void _onScrollingChanged() {
+    if (_scroll?.isScrollingNotifier.value == true) _hideHoverForScroll();
+  }
+
+  void _hideHoverForScroll() {
+    _hoverSuppressed = true;
+    if (_hovered) setState(() => _hovered = false);
+  }
+
+  void _pointerEntered() {
+    if (_hoverSuppressed || _hovered) return;
+    setState(() => _hovered = true);
+  }
+
+  void _pointerMoved() {
+    if (_scroll?.isScrollingNotifier.value == true) return;
+    _hoverSuppressed = false;
+    if (!_hovered) setState(() => _hovered = true);
+  }
+
+  void _pointerExited() {
+    if (_hovered) setState(() => _hovered = false);
+  }
+
+  @override
+  void dispose() {
+    _detachScroll();
+    super.dispose();
+  }
 
   void _reply() {
     widget.onReply?.call();
@@ -675,8 +727,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           child: Semantics(
             customSemanticsActions: semanticsActions,
             child: MouseRegion(
-              onEnter: (_) => setState(() => _hovered = true),
-              onExit: (_) => setState(() => _hovered = false),
+              onEnter: (_) => _pointerEntered(),
+              onHover: (_) => _pointerMoved(),
+              onExit: (_) => _pointerExited(),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onLongPress: () => unawaited(_showActions()),
