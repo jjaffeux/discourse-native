@@ -49,6 +49,8 @@ void main() {
     await pointer.moveTo(tester.getCenter(find.text('Post body')));
     await tester.pump();
 
+    await tester.tap(find.byTooltip('More actions'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Bookmark this post'));
     await tester.pumpAndSettle();
 
@@ -96,6 +98,41 @@ void main() {
 
     expect(api.createdBookmarks, hasLength(1));
     expect(find.text('Bookmarked!'), findsOneWidget);
+  });
+
+  testWidgets('an existing bookmark stays outside More actions like Core', (
+    tester,
+  ) async {
+    final (controller, _) = await _controller();
+    addTearDown(controller.dispose);
+    const bookmarkedPost = Post(
+      id: 12,
+      postNumber: 2,
+      username: 'sam',
+      cooked: '<p>Post body</p>',
+      bookmark: Bookmark(
+        id: 81,
+        bookmarkableId: 12,
+        bookmarkableType: 'Post',
+        postNumber: 2,
+      ),
+    );
+    await tester.pumpWidget(
+      _postActionsHost(
+        controller,
+        platform: TargetPlatform.macOS,
+        post: bookmarkedPost,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await pointer.addPointer(location: Offset.zero);
+    addTearDown(pointer.removePointer);
+    await pointer.moveTo(tester.getCenter(find.text('Post body')));
+    await tester.pump();
+
+    expect(find.byTooltip('Edit this post bookmark'), findsOneWidget);
   });
 
   testWidgets('editor prefill is local and cancel discards it', (tester) async {

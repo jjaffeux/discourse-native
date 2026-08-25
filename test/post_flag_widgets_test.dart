@@ -167,6 +167,7 @@ void main() {
         find.byTooltip('Privately flag this post for attention'),
         findsOneWidget,
       );
+      expect(find.byTooltip('More actions'), findsNothing);
 
       await tester.tap(
         find.byTooltip('Privately flag this post for attention'),
@@ -239,11 +240,15 @@ void main() {
     final pointer = await _hoverPost(tester);
     addTearDown(pointer.removePointer);
 
-    expect(find.byTooltip('Report illegal content by email'), findsOneWidget);
+    expect(find.byTooltip('Report illegal content by email'), findsNothing);
+    expect(find.byTooltip('More actions'), findsOneWidget);
     expect(
       find.byTooltip('Privately flag this post for attention'),
       findsNothing,
     );
+    await tester.tap(find.byTooltip('More actions'));
+    await _pumpFrames(tester);
+    expect(find.byTooltip('Report illegal content by email'), findsOneWidget);
     await tester.tap(find.byTooltip('Report illegal content by email'));
     await _pumpFrames(tester);
     expect(find.text('Report illegal content'), findsOneWidget);

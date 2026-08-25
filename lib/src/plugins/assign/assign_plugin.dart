@@ -248,11 +248,26 @@ final class AssignPlugin
     final existing = aggregate == null
         ? postAssignments?.direct
         : aggregate.forPost(post.id);
+    final currentUser = controller?.currentInstance?.url == siteUrl
+        ? controller?.currentInstance?.user
+        : null;
+    final assignedToCurrentUser = switch (existing?.assignee) {
+      final AssignmentUser assignee when currentUser != null =>
+        (assignee.id != null && assignee.id == currentUser.id) ||
+            assignee.username.toLowerCase() ==
+                currentUser.username.toLowerCase(),
+      _ => false,
+    };
 
     return PostMenuContribution(
       entries: [
         PostAction(
           icon: existing == null ? DIcons.userPlus : DIcons.pencil,
+          // Core's Assign button is collapsed unless the post is assigned to
+          // the current reader, in which case the quick action stays visible.
+          placement: assignedToCurrentUser
+              ? PostActionPlacement.toolbar
+              : PostActionPlacement.overflow,
           label: existing == null ? 'Assign post' : 'Edit assignment',
           tooltip: existing == null
               ? 'Assign this post'
@@ -435,9 +450,8 @@ bool _canAssignRecord(
   String siteUrl,
   bool? targetCanAssign,
 ) =>
-    ShellScope.maybeRead(
-      context,
-    )?.canAssignForTarget(siteUrl, targetCanAssign) ??
+    ShellScope.maybeRead(context)
+        ?.canAssignForTarget(siteUrl, targetCanAssign) ??
     targetCanAssign == true;
 
 String _postLabel(int? postNumber) =>

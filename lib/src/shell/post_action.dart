@@ -3,6 +3,23 @@ import 'package:flutter/material.dart';
 import '../theme/d_icon.dart';
 import 'emoji.dart';
 
+/// Where a post action belongs on pointer-driven layouts.
+///
+/// Touch surfaces always show the complete, labelled list. The distinction is
+/// only for the compact hover surface, where frequent reading actions deserve
+/// one-click access and everything else belongs behind progressive disclosure.
+enum PostActionPlacement {
+  /// Shown before Core's expansion ellipsis.
+  toolbar,
+
+  /// Hidden in the labelled More actions menu when at least two such actions
+  /// are available. A lone collapsed action is promoted, as it is on web.
+  overflow,
+
+  /// Kept after the expansion ellipsis. Core uses this position for Reply.
+  trailing,
+}
+
 /// One thing that can be done with a post, in whichever surface is offering it.
 ///
 /// The hover menu and the long-press sheet draw the same list rather than each
@@ -22,6 +39,7 @@ class PostAction {
     this.destructive = false,
     this.tint,
     this.emojiUrl,
+    this.placement = PostActionPlacement.toolbar,
   });
 
   final DIconData icon;
@@ -41,6 +59,11 @@ class PostAction {
   final bool enabled;
 
   final bool destructive;
+
+  /// Plugin actions are visible by default, matching Core's post-menu DAG.
+  /// Actions which correspond to Core's `post_menu_hidden_items` opt into
+  /// [PostActionPlacement.overflow].
+  final PostActionPlacement placement;
 
   /// Overrides the icon's color where the state of the post is worth saying in
   /// the icon itself — a heart already given, rather than one on offer.

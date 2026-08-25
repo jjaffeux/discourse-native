@@ -360,6 +360,18 @@ Future<TestGesture> hoverPost(
   return gesture;
 }
 
+/// Reaches a post action through Core's collapsed action set when necessary.
+Future<void> tapPostAction(WidgetTester tester, String tooltip) async {
+  final action = find.byTooltip(tooltip);
+  if (action.evaluate().isEmpty) {
+    final more = find.byTooltip('More actions');
+    expect(more, findsOneWidget);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(action);
+}
+
 void main() {
   group('forum search', () {
     testWidgets('uses the macOS title strip and current non-macOS headers', (
@@ -4005,7 +4017,7 @@ void main() {
       addTearDown(mouse.removePointer);
       await mouse.moveTo(tester.getCenter(renderedText('Second post body')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Share this post'));
+      await tapPostAction(tester, 'Share this post');
       await tester.pumpAndSettle();
 
       expect(find.text('Share post #2'), findsOneWidget);
@@ -8103,7 +8115,8 @@ void main() {
       );
 
       await hoverPost(tester);
-      await tester.tap(find.byTooltip('Edit this post'));
+      expect(find.byTooltip('Edit this post'), findsOneWidget);
+      await tapPostAction(tester, 'Edit this post');
       await tester.pumpAndSettle();
 
       expect(find.text('Edit post #1'), findsOneWidget);
@@ -8138,7 +8151,7 @@ void main() {
       );
 
       await hoverPost(tester);
-      await tester.tap(find.byTooltip('Edit this post'));
+      await tapPostAction(tester, 'Edit this post');
       await tester.pumpAndSettle();
 
       // Not a rule of ours — the site refuses an unchanged edit — but there is
@@ -8156,7 +8169,7 @@ void main() {
       await openTopic(tester, post: mine());
 
       await hoverPost(tester);
-      await tester.tap(find.byTooltip('Edit this post'));
+      await tapPostAction(tester, 'Edit this post');
       await tester.pumpAndSettle();
 
       // The field is empty, and saving that would blank the post rather than
@@ -8188,7 +8201,7 @@ void main() {
       );
 
       final gesture = await hoverPost(tester);
-      await tester.tap(find.byTooltip('Delete this post'));
+      await tapPostAction(tester, 'Delete this post');
       await tester.pumpAndSettle();
 
       // Nothing to confirm: the undo is the next thing in the same menu.
@@ -8202,6 +8215,9 @@ void main() {
       await gesture.moveTo(tester.getCenter(renderedText('First post body')));
       await tester.pumpAndSettle();
 
+      expect(find.byTooltip('More actions'), findsOneWidget);
+      await tester.tap(find.byTooltip('More actions'));
+      await tester.pumpAndSettle();
       expect(find.byTooltip('Put this post back'), findsOneWidget);
       expect(find.byTooltip('Delete this post'), findsNothing);
     });
@@ -8225,9 +8241,7 @@ void main() {
       );
 
       final gesture = await hoverPost(tester);
-      await tester.tap(
-        find.byTooltip('Allow community members to edit this post'),
-      );
+      await tapPostAction(tester, 'Allow community members to edit this post');
       await tester.pumpAndSettle();
 
       expect(api.postWikiUpdates, const [(postId: 1, wiki: true)]);
@@ -8246,7 +8260,7 @@ void main() {
       await tester.pump();
       await gesture.moveTo(tester.getCenter(renderedText('First post body')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Return this to ordinary post editing'));
+      await tapPostAction(tester, 'Return this to ordinary post editing');
       await tester.pumpAndSettle();
 
       expect(api.postWikiUpdates, const [
@@ -8307,7 +8321,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final gesture = await hoverPost(tester, body: 'Lockable body');
-      await tester.tap(find.byTooltip('Prevent further edits to this post'));
+      await tapPostAction(tester, 'Prevent further edits to this post');
       await tester.pumpAndSettle();
       expect(api.postLockUpdates, const [(postId: 1, locked: true)]);
       expect(find.text('locked'), findsOneWidget);
@@ -8323,7 +8337,7 @@ void main() {
       await tester.pump();
       await gesture.moveTo(tester.getCenter(renderedText('Lockable body')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Allow this post to be edited again'));
+      await tapPostAction(tester, 'Allow this post to be edited again');
       await tester.pumpAndSettle();
 
       expect(api.postLockUpdates, const [
@@ -8384,7 +8398,7 @@ void main() {
 
       expect(find.text('hidden'), findsOneWidget);
       await hoverPost(tester, body: 'Hidden body');
-      await tester.tap(find.byTooltip('Restore this hidden post'));
+      await tapPostAction(tester, 'Restore this hidden post');
       await tester.pumpAndSettle();
 
       expect(api.postsUnhidden, [1]);
@@ -8445,9 +8459,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final gesture = await hoverPost(tester, body: 'Official body');
-      await tester.tap(
-        find.byTooltip('Mark this as an official moderator post'),
-      );
+      await tapPostAction(tester, 'Mark this as an official moderator post');
       await tester.pumpAndSettle();
       expect(api.postTypeUpdates, const [
         (postId: 1, postType: Post.moderatorPostType),
@@ -8465,8 +8477,9 @@ void main() {
       await tester.pump();
       await gesture.moveTo(tester.getCenter(renderedText('Official body')));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byTooltip('Remove the moderator styling from this post'),
+      await tapPostAction(
+        tester,
+        'Remove the moderator styling from this post',
       );
       await tester.pumpAndSettle();
 
@@ -8535,7 +8548,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final gesture = await hoverPost(tester, body: 'Noticeable body');
-      await tester.tap(find.byTooltip('Add a staff notice above this post'));
+      await tapPostAction(tester, 'Add a staff notice above this post');
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('post-notice-text')),
@@ -8562,7 +8575,7 @@ void main() {
       await tester.pump();
       await gesture.moveTo(tester.getCenter(renderedText('Noticeable body')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Change or remove the staff notice'));
+      await tapPostAction(tester, 'Change or remove the staff notice');
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('post-notice-delete')));
       await tester.pumpAndSettle();
@@ -8632,7 +8645,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await hoverPost(tester, body: 'Owned body');
-      await tester.tap(find.byTooltip('Assign this post to another account'));
+      await tapPostAction(tester, 'Assign this post to another account');
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('topic-change-owner-search')),
@@ -8708,7 +8721,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await hoverPost(tester, body: 'Deleted reply body');
-      await tester.tap(find.byTooltip('Permanently delete this post'));
+      await tapPostAction(tester, 'Permanently delete this post');
       await tester.pumpAndSettle();
       expect(api.permanentDeletionChecks, [2]);
       expect(
@@ -8764,7 +8777,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await hoverPost(tester, body: 'Cooldown reply body');
-      await tester.tap(find.byTooltip('Permanently delete this post'));
+      await tapPostAction(tester, 'Permanently delete this post');
       await tester.pumpAndSettle();
 
       expect(api.permanentDeletionChecks, [2]);
@@ -8817,7 +8830,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await hoverPost(tester, body: 'Deleted opening body');
-      await tester.tap(find.byTooltip('Permanently delete this post'));
+      await tapPostAction(tester, 'Permanently delete this post');
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('post-permanent-delete-confirmation')),
@@ -9166,7 +9179,7 @@ void main() {
       final api = await openTopic(tester, post: mine());
 
       await hoverPost(tester);
-      await tester.tap(find.byTooltip('Delete this post'));
+      await tapPostAction(tester, 'Delete this post');
       await tester.pumpAndSettle();
 
       expect(api.deleted, [1]);
@@ -9193,7 +9206,7 @@ void main() {
       );
 
       await hoverPost(tester);
-      await tester.tap(find.byTooltip('Put this post back'));
+      await tapPostAction(tester, 'Put this post back');
       await tester.pumpAndSettle();
 
       expect(api.recovered, [1]);
@@ -9210,7 +9223,7 @@ void main() {
       );
 
       await hoverPost(tester);
-      await tester.tap(find.byTooltip('Delete this post'));
+      await tapPostAction(tester, 'Delete this post');
       await tester.pumpAndSettle();
 
       expect(api.deleted, [1]);
@@ -9827,7 +9840,7 @@ void main() {
       );
 
       final gesture = await hoverPost(tester);
-      await tester.tap(find.byTooltip('Edit this post'));
+      await tapPostAction(tester, 'Edit this post');
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'First post body!');
@@ -10647,7 +10660,7 @@ void main() {
       );
 
       final gesture = await hoverPost(tester);
-      await tester.tap(find.byTooltip('Edit this post'));
+      await tapPostAction(tester, 'Edit this post');
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'First post body!');

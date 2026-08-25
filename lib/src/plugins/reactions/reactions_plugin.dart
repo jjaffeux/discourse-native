@@ -140,6 +140,7 @@ class ReactionsPlugin
       entries: [
         PostAction(
           icon: held == null ? DIcons.farHeart : DIcons.heart,
+          placement: PostActionPlacement.toolbar,
           emojiUrl: held == null
               ? null
               : controller.emojiUrlFor(siteUrl, held.id),
@@ -167,6 +168,7 @@ class ReactionsPlugin
         if (target != null && config.offeredReactions.isNotEmpty)
           PostAction(
             icon: DIcons.farFaceSmile,
+            placement: PostActionPlacement.toolbar,
             label: 'React',
             tooltip: 'Pick a reaction',
             onInvoke: () =>

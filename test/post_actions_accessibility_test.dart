@@ -244,6 +244,83 @@ void main() {
       semantics.dispose();
     }
   });
+
+  testWidgets('core hidden actions use one labelled More actions menu', (
+    tester,
+  ) async {
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([
+        instance('meta.example').copyWith(
+          user: const DiscourseUser(username: 'reader', name: 'Reader'),
+        ),
+      ]),
+      api: FakeDiscourseApi(),
+      authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updater: FakeUpdater(),
+      updateStore: FakeUpdateStore(),
+    );
+    await controller.load();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: const Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 240,
+                height: 100,
+                child: PostActions(
+                  siteUrl: _siteUrl,
+                  post: Post(
+                    id: 1,
+                    postNumber: 1,
+                    username: 'author',
+                    cooked: '<p>Post body</p>',
+                    canLike: true,
+                    canEdit: true,
+                    canWiki: true,
+                    canDelete: true,
+                  ),
+                  child: Center(child: Text('Post body')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await pointer.addPointer(location: Offset.zero);
+    addTearDown(pointer.removePointer);
+    await pointer.moveTo(tester.getCenter(find.text('Post body')));
+    await tester.pump();
+
+    expect(find.byTooltip('Like this post'), findsOneWidget);
+    expect(find.byTooltip('More actions'), findsOneWidget);
+    expect(find.byTooltip('Edit this post'), findsNothing);
+    expect(find.byTooltip('Delete this post'), findsNothing);
+    expect(
+      tester.getSize(find.byType(HoverActionToolbar)),
+      const Size(HoverActionButton.width * 2, HoverActionButton.height),
+    );
+
+    await tester.tap(find.byTooltip('More actions'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Edit this post'), findsOneWidget);
+    expect(
+      find.byTooltip('Allow community members to edit this post'),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Delete this post'), findsOneWidget);
+  });
 }
 
 FocusNode _focusButton(WidgetTester tester, Finder button) {
