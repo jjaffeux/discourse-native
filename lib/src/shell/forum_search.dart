@@ -255,6 +255,13 @@ class _ForumSearchState extends State<ForumSearch> {
         final panelWidth = anchorWidth.clamp(280.0, 520.0);
         final showLeadingIcon = anchorWidth >= 140;
         final showShortcut = anchorWidth >= 180;
+        // Header actions may legitimately squeeze the field down to a compact
+        // text-only affordance. Keep the field usable there, then add one or
+        // both trailing actions only when their fixed 44px targets fit.
+        final showClear = search.query.isNotEmpty && anchorWidth >= 64;
+        final showAdvanced = search.query.isEmpty
+            ? anchorWidth >= 72
+            : anchorWidth >= 112;
 
         return MenuAnchor(
           controller: _menu,
@@ -367,8 +374,8 @@ class _ForumSearchState extends State<ForumSearch> {
                               ),
                             ),
                           ),
-                        )
-                      else
+                        ),
+                      if (showClear)
                         IconButton(
                           key: const ValueKey('forum-search-clear'),
                           tooltip: 'Clear search',
@@ -387,17 +394,18 @@ class _ForumSearchState extends State<ForumSearch> {
                           padding: EdgeInsets.zero,
                           icon: const DIcon(DIcons.xmark, size: 14),
                         ),
-                      IconButton(
-                        key: const ValueKey('forum-search-advanced'),
-                        tooltip: 'Advanced search',
-                        onPressed: () => _openFullSearch(expanded: true),
-                        constraints: const BoxConstraints.tightFor(width: 44),
-                        style: const ButtonStyle(
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      if (showAdvanced)
+                        IconButton(
+                          key: const ValueKey('forum-search-advanced'),
+                          tooltip: 'Advanced search',
+                          onPressed: () => _openFullSearch(expanded: true),
+                          constraints: const BoxConstraints.tightFor(width: 44),
+                          style: const ButtonStyle(
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          padding: EdgeInsets.zero,
+                          icon: const DIcon(DIcons.filter, size: 14),
                         ),
-                        padding: EdgeInsets.zero,
-                        icon: const DIcon(DIcons.filter, size: 14),
-                      ),
                     ],
                   ),
                 ),
