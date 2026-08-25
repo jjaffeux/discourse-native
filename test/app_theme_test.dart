@@ -101,6 +101,8 @@ void main() {
       expect(scheme.outline, source.contentBorderColor);
       expect(scheme.outlineVariant, source.contentBorderColor);
       expect(scheme.surfaceTint, source.tertiary);
+      expect(theme.discourse.primaryLowMid, source.primaryLowMid);
+      expect(theme.discourse.primaryHigh, source.primaryHigh);
     });
 
     test('repairs low-contrast Material foreground roles', () {

@@ -567,6 +567,49 @@ void main() {
     },
   );
 
+  testWidgets('a direct-reply indicator fetches and highlights its message', (
+    tester,
+  ) async {
+    const reply = ChatReplyTo(
+      id: 1,
+      userId: 2,
+      excerpt: 'Message 1',
+      username: 'sam',
+    );
+    final page = (
+      messages: [
+        _message(1),
+        _message(2, authorId: 3, replyTo: reply),
+      ],
+      canLoadMorePast: false,
+      canLoadMoreFuture: false,
+      targetMessageId: null,
+    );
+    final api = _ChatApi(
+      openPages: {
+        firstSite: [page, page],
+      },
+    );
+    final controller = await _controller(api, sites: const [firstSite]);
+    addTearDown(controller.dispose);
+    controller.store.put(firstSite, _channel(lastRead: 2));
+
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ChatMessageTile.replyIndicatorKey(reply.id)));
+    await tester.pumpAndSettle();
+
+    expect(api.targetMessageIds.last, reply.id);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-message-highlight')),
+        matching: find.byKey(const ValueKey('chat-message-1')),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('the pinned bar jumps to a pin and opens the complete list', (
     tester,
   ) async {
@@ -1287,6 +1330,7 @@ ChatMessage _message(
   int authorId = 2,
   DateTime? deletedAt,
   int? deletedById,
+  ChatReplyTo? replyTo,
 }) => ChatMessage(
   id: id,
   channelId: 9,
@@ -1295,6 +1339,7 @@ ChatMessage _message(
   createdAt: createdAt ?? DateTime.utc(2026, 1, 1).add(Duration(minutes: id)),
   deletedAt: deletedAt,
   deletedById: deletedById,
+  replyTo: replyTo,
   threadId: thread?.threadId,
   thread: thread,
 );

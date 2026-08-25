@@ -43,6 +43,7 @@ class ChatMessageTile extends StatelessWidget {
     required this.chained,
     this.contextThreadId,
     this.onOpenThread,
+    this.onJumpToMessage,
     this.onReplyInThread,
     this.showThreadSummary = true,
     this.onSelect,
@@ -74,6 +75,9 @@ class ChatMessageTile extends StatelessWidget {
   /// presentation widget.
   final ValueChanged<ChatThreadPreview>? onOpenThread;
 
+  /// Jumps to the message named by this message's direct-reply indicator.
+  final ValueChanged<int>? onJumpToMessage;
+
   /// Opens or creates this message's thread from the adaptive action surface.
   final ValueChanged<ChatMessage>? onReplyInThread;
 
@@ -103,6 +107,9 @@ class ChatMessageTile extends StatelessWidget {
   static Key actionsKey(int messageId) =>
       ValueKey<String>('chat-message-actions-$messageId');
 
+  static Key replyIndicatorKey(int messageId) =>
+      ValueKey<String>('chat-reply-indicator-$messageId');
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ChatMessage?>(
@@ -119,6 +126,7 @@ class ChatMessageTile extends StatelessWidget {
           message: message,
           chained: chained,
           onOpenThread: onOpenThread,
+          onJumpToMessage: onJumpToMessage,
           showThreadSummary: showThreadSummary,
         );
         if (selecting) {
@@ -865,6 +873,7 @@ class _Tile extends StatelessWidget {
     required this.message,
     required this.chained,
     required this.onOpenThread,
+    required this.onJumpToMessage,
     required this.showThreadSummary,
   });
 
@@ -872,6 +881,7 @@ class _Tile extends StatelessWidget {
   final ChatMessage message;
   final bool chained;
   final ValueChanged<ChatThreadPreview>? onOpenThread;
+  final ValueChanged<int>? onJumpToMessage;
   final bool showThreadSummary;
 
   @override
@@ -890,7 +900,13 @@ class _Tile extends StatelessWidget {
           // Above the message rather than beside it, which is where Discourse
           // puts it: it is context for what follows, not part of it.
           if (message.replyTo case final reply? when !chained)
-            _ReplyIndicator(siteUrl: siteUrl, reply: reply),
+            _ReplyIndicator(
+              siteUrl: siteUrl,
+              reply: reply,
+              onJump: onJumpToMessage == null
+                  ? null
+                  : () => onJumpToMessage!(reply.id),
+            ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1119,44 +1135,67 @@ class _Header extends StatelessWidget {
 
 /// What this message is answering, one line above it.
 class _ReplyIndicator extends StatelessWidget {
-  const _ReplyIndicator({required this.siteUrl, required this.reply});
+  const _ReplyIndicator({
+    required this.siteUrl,
+    required this.reply,
+    required this.onJump,
+  });
 
   final String siteUrl;
   final ChatReplyTo reply;
+  final VoidCallback? onJump;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.only(left: ChatMessageTile.gutter, bottom: 2),
-      child: Row(
-        children: [
-          DIcon(
-            DIcons.reply,
-            size: 12,
-            color: theme.colorScheme.onSurfaceVariant,
+    return Semantics(
+      link: onJump != null,
+      enabled: onJump != null,
+      label: 'Jump to message from @${reply.username}: ${reply.excerpt}',
+      onTap: onJump,
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.only(
+            left: ChatMessageTile.gutter,
+            bottom: 2,
           ),
-          const SizedBox(width: 6),
-          ChatUserAvatar(
-            siteUrl: siteUrl,
-            userId: reply.userId,
-            url: reply.avatarUrl,
-            size: 16,
-            fallback: ColoredBox(color: theme.shell.floating),
-          ),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              reply.excerpt,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+          child: InkWell(
+            key: ChatMessageTile.replyIndicatorKey(reply.id),
+            onTap: onJump,
+            mouseCursor: onJump == null
+                ? MouseCursor.defer
+                : SystemMouseCursors.click,
+            child: Row(
+              children: [
+                DIcon(
+                  DIcons.share,
+                  size: DiscourseTypography.fontDown1,
+                  color: theme.discourse.primaryLowMid,
+                ),
+                const SizedBox(width: 8),
+                ChatUserAvatar(
+                  siteUrl: siteUrl,
+                  userId: reply.userId,
+                  url: reply.avatarUrl,
+                  size: 20,
+                  fallback: ColoredBox(color: theme.shell.floating),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    reply.excerpt,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.discourse.primaryHigh,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
