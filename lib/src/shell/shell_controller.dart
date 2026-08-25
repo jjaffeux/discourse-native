@@ -2671,7 +2671,7 @@ class ShellController extends FrameSafeNotifier {
     return true;
   }
 
-  void openCurrentTopicPost(int postNumber) {
+  void openCurrentTopicPost(int postNumber, {bool loadAroundPost = false}) {
     final route = currentContent;
     final tab = activeTab;
     if (route?.topicId case final topicId? when tab != null && postNumber > 0) {
@@ -2700,7 +2700,7 @@ class ShellController extends FrameSafeNotifier {
         loadTopic(
           topicId,
           route.slug ?? '',
-          force: true,
+          force: loadAroundPost,
           postNumber: postNumber,
         ),
       );
@@ -2749,6 +2749,7 @@ class ShellController extends FrameSafeNotifier {
 
     try {
       var target = store.read<Post>(instance.url, targetId);
+      final loadAroundPost = target == null;
       if (target == null) {
         final credential = await _readSessionValue(
           lease,
@@ -2772,7 +2773,7 @@ class ShellController extends FrameSafeNotifier {
         );
       }
       if (!isCurrent()) return false;
-      openCurrentTopicPost(target.postNumber);
+      openCurrentTopicPost(target.postNumber, loadAroundPost: loadAroundPost);
       return true;
     } catch (error, stackTrace) {
       if (isCurrent()) {
@@ -3152,7 +3153,7 @@ class ShellController extends FrameSafeNotifier {
 
     final key = _topicKey(instance.url, topicId);
     if (_topicsLoading.contains(key)) {
-      if (force) {
+      if (force || postNumber != null) {
         _topicRefreshPending.add(key);
         if (postNumber != null) {
           _topicRefreshPostNumbers[key] = postNumber;

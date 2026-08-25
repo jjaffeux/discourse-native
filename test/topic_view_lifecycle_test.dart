@@ -285,9 +285,10 @@ void main() {
     tester,
   ) async {
     final site = instance('meta.example');
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
     final controller = ShellController(
       instanceStore: FakeInstanceStore([site]),
-      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      api: api,
       authenticator: FakeAuthenticator(),
       drafts: FakeDraftStore(),
       trackers: FakeSiteTracker.reset(),
@@ -308,7 +309,7 @@ void main() {
         ),
       )
       ..putAll(site.url, [
-        for (var id = 4; id <= 6; id++)
+        for (var id = 3; id <= 5; id++)
           Post(
             id: id,
             postNumber: id,
@@ -342,6 +343,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(controller.currentTopicHasEarlier, isTrue);
+    expect(controller.currentTopicHasMore, isTrue);
     final scroll = tester
         .widget<SuperListView>(find.byType(SuperListView))
         .controller!;
@@ -411,9 +413,10 @@ void main() {
     tester,
   ) async {
     final site = instance('meta.example');
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
     final controller = ShellController(
       instanceStore: FakeInstanceStore([site]),
-      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      api: api,
       authenticator: FakeAuthenticator(),
       drafts: FakeDraftStore(),
       trackers: FakeSiteTracker.reset(),
@@ -436,6 +439,7 @@ void main() {
     expect(controller.currentContent?.postNumber, 12);
     expect(controller.topicScrollPostNumber(1), 12);
     expect(find.byKey(const ValueKey(111)), findsOneWidget);
+    expect(api.topicPostNumbersOpened, isEmpty);
   });
 
   testWidgets('a prepend between initial jumps still reveals the named post', (

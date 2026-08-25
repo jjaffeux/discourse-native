@@ -962,10 +962,10 @@ class _TopicViewState extends State<TopicView> {
     // loading — otherwise it pulses forever below a topic with more to fetch.
     final showFooter = snapshot.loadingMore;
     final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
-    final showRecommendations =
-        !snapshot.hasMore && snapshot.recommendations?.isNotEmpty == true;
+    final hasRecommendations = snapshot.recommendations?.isNotEmpty == true;
+    final showRecommendations = !snapshot.hasMore && hasRecommendations;
     final showRecommendationsPanel =
-        widget.showRecommendationsPanel && showRecommendations;
+        widget.showRecommendationsPanel && hasRecommendations;
 
     // Which posts are on screen, and in what order. The posts themselves are
     // in the store; each tile watches its own, so an edit or a deletion redraws
