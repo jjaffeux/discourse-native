@@ -48,8 +48,9 @@ class ChatChannelInfoView extends StatelessWidget {
             channel.status != ChatChannelStatus.open) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!context.mounted) return;
-            ShellScope.read(context)
-                .openChatChannelInfo(siteUrl: siteUrl, channelId: channelId);
+            ShellScope.read(
+              context,
+            ).openChatChannelInfo(siteUrl: siteUrl, channelId: channelId);
           });
           return const Center(child: CircularProgressIndicator.adaptive());
         }
@@ -164,8 +165,9 @@ class _ChannelSettings extends StatelessWidget {
   final ChatController chat;
 
   void _notice(BuildContext context, String message) {
-    ScaffoldMessenger.maybeOf(context)
-        ?.showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _changeNotifications(
@@ -261,15 +263,15 @@ class _ChannelSettings extends StatelessWidget {
                                       key: const ValueKey(
                                         'chat-channel-settings-channel-link',
                                       ),
-                                      onTap: () =>
-                                          ShellScope.read(context)
-                                              .openChatChannel(channel.id),
+                                      onTap: () => ShellScope.read(
+                                        context,
+                                      ).openChatChannel(channel.id),
                                       child: Text(
                                         '/chat/c/${channel.slug ?? '-'}/${channel.id}',
                                         style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
                                         ),
                                       ),
                                     ),
@@ -394,7 +396,8 @@ class _ChannelSettings extends StatelessWidget {
                               if (canEdit)
                                 _InfoRow(
                                   label: 'Threading',
-                                  description: 'Replies create separate conversations alongside the main channel.',
+                                  description:
+                                      'Replies create separate conversations alongside the main channel.',
                                   action: Switch.adaptive(
                                     key: const ValueKey(
                                       'chat-channel-threading-switch',
@@ -489,12 +492,12 @@ class _ChannelSettings extends StatelessWidget {
                                   ? null
                                   : () => unawaited(_leave(context, channel)),
                               style: FilledButton.styleFrom(
-                                backgroundColor: Theme.of(context)
-                                    .colorScheme
-                                    .error,
-                                foregroundColor: Theme.of(context)
-                                    .colorScheme
-                                    .onError,
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.error,
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.onError,
                               ),
                               icon: const DIcon(DIcons.rightFromBracket),
                               label: Text(
@@ -533,8 +536,9 @@ class _InfoSection extends StatelessWidget {
       children: [
         Text(
           title,
-          style: Theme.of(context).textTheme.titleSmall
-              ?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 10),
         ...children,

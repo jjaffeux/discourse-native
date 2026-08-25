@@ -553,11 +553,13 @@ class _TopicPinButton extends StatelessWidget {
   final TopicDetail topic;
 
   Future<void> _change(BuildContext context, bool pinned) async {
-    final error = await ShellScope.read(context)
-        .updateTopicPinPreference(siteUrl, topic.id, pinned);
+    final error = await ShellScope.read(
+      context,
+    ).updateTopicPinPreference(siteUrl, topic.id, pinned);
     if (error == null || !context.mounted) return;
-    ScaffoldMessenger.maybeOf(context)
-        ?.showSnackBar(SnackBar(content: Text(error)));
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(error)));
   }
 
   @override
@@ -625,8 +627,9 @@ class _TopicStatusButton extends StatelessWidget {
       enabled,
     );
     if (error == null || !context.mounted) return;
-    ScaffoldMessenger.maybeOf(context)
-        ?.showSnackBar(SnackBar(content: Text(error)));
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(error)));
   }
 
   Future<void> _changeDeletion(BuildContext context, bool deleted) async {
@@ -658,8 +661,9 @@ class _TopicStatusButton extends StatelessWidget {
     final error = await controller.setTopicDeleted(siteUrl, topic.id, deleted);
     if (!context.mounted) return;
     if (error != null) {
-      ScaffoldMessenger.maybeOf(context)
-          ?.showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(error)));
       return;
     }
     // Core redirects an ordinary author after deletion because the topic is no
