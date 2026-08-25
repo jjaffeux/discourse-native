@@ -51,7 +51,7 @@ void main() {
 
     await tester.tap(find.byTooltip('More actions'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Bookmark this post'));
+    await tester.tap(find.widgetWithText(MenuItemButton, 'Bookmark'));
     await tester.pumpAndSettle();
 
     expect(api.createdBookmarks, hasLength(1));

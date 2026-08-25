@@ -52,7 +52,7 @@ class PostAction {
   /// For the sheet, which has room for words.
   final String label;
 
-  /// For the menu, which does not.
+  /// For icon-only buttons in the compact hover toolbar.
   final String tooltip;
 
   /// False while another write owns the same target.
