@@ -1,0 +1,100 @@
+import Component from "@glimmer/component";
+import { tracked } from "@glimmer/tracking";
+import { concat } from "@ember/helper";
+import { on } from "@ember/modifier";
+import { action } from "@ember/object";
+import { trustHTML } from "@ember/template";
+import dConcatClass from "discourse/ui-kit/helpers/d-concat-class";
+import { i18n } from "discourse-i18n";
+import LazyIframe from "./lazy-iframe";
+
+export default class LazyVideo extends Component {
+  @tracked isLoaded = false;
+
+  get thumbnailStyle() {
+    const color = this.args.videoAttributes.dominantColor;
+    if (color?.match(/^[0-9A-Fa-f]+$/)) {
+      return trustHTML(`background-color: #${color};`);
+    }
+  }
+
+  @action
+  loadEmbed() {
+    if (!this.isLoaded) {
+      this.isLoaded = true;
+      this.args.onLoadedVideo?.();
+    }
+  }
+
+  @action
+  onKeyPress(event) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      this.loadEmbed();
+    }
+  }
+
+  <template>
+    <div
+      data-video-id={{@videoAttributes.id}}
+      data-video-title={{@videoAttributes.title}}
+      data-video-start-time={{@videoAttributes.startTime}}
+      data-video-list-id={{@videoAttributes.listId}}
+      data-provider-name={{@videoAttributes.providerName}}
+      class={{dConcatClass
+        "lazy-video-container"
+        (concat @videoAttributes.providerName "-onebox")
+        (if this.isLoaded "video-loaded")
+      }}
+    >
+      {{#if this.isLoaded}}
+        <LazyIframe
+          @providerName={{@videoAttributes.providerName}}
+          @title={{@videoAttributes.title}}
+          @videoId={{@videoAttributes.id}}
+          @startTime={{@videoAttributes.startTime}}
+          @listId={{@videoAttributes.listId}}
+        />
+      {{else}}
+        <div
+          {{on "click" this.loadEmbed}}
+          {{on "keypress" this.onKeyPress}}
+          role="button"
+          tabindex="0"
+          aria-label={{i18n
+            "lazy_videos.play_video"
+            title=@videoAttributes.title
+          }}
+          style={{this.thumbnailStyle}}
+          class={{dConcatClass "video-thumbnail" @videoAttributes.providerName}}
+        >
+          <img
+            src={{@videoAttributes.thumbnail}}
+            title={{@videoAttributes.title}}
+            loading="lazy"
+            class={{concat @videoAttributes.providerName "-thumbnail"}}
+          />
+          <div
+            class={{dConcatClass
+              "icon"
+              (concat @videoAttributes.providerName "-icon")
+            }}
+          ></div>
+        </div>
+        <div class="title-container">
+          <div class="title-wrapper">
+            <a
+              href={{@videoAttributes.url}}
+              title={{@videoAttributes.title}}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="title-link"
+            >
+              {{@videoAttributes.title}}
+            </a>
+          </div>
+        </div>
+      {{/if}}
+    </div>
+  </template>
+}

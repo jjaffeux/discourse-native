@@ -1368,6 +1368,20 @@ keeps its anchor and gets its title fetched instead —
 share a line with the prose around it and wrap at word boundaries. A custom
 widget factory injects the pull request's status glyph ahead of that text.
 
+YouTube is the media exception. [`youtube_video.dart`](lib/src/shell/youtube_video.dart)
+claims both the default lazy-video container and core Onebox's older iframe
+fallback. Posts and canonical chat messages already share `CookedHtml`, so both
+show the same full-width native thumbnail, title, play action and external link.
+The platform WebView does not exist until Play is pressed; after that the state
+is kept alive while the item scrolls offscreen so playback is not reset.
+
+Playback uses YouTube's official iframe, never an extracted media stream. The
+wrapper supplies the source forum's origin as the referrer/client identity,
+allows iframe navigation, and prevents a link from replacing the app's
+top-level WebView — safe links are handed to the system browser instead.
+`webview_all` is confined to `YoutubePlayerSurface`, keeping Discourse markup
+parsing and the native poster independent of the platform package.
+
 The parsers never mutate the DOM they are handed; a body remainder is
 serialized back to a string. The document belongs to the caller's `HtmlWidget`.
 
@@ -1443,13 +1457,13 @@ dart run tool/markup_contract.dart --update    # accept, then read the diff
 It is a drift detector, not a source of styling — the SCSS is snapshotted
 because it is where the class names the parser matches on are given meaning.
 
-The three snapshots cover oneboxes, mention and hashtag markup, and the poll
-skeleton and web-client handoff. Each names what to re-read when it drifts,
-because "check whether the onebox parsers still handle it" is wrong advice for
-a hashtag or a poll. A path that has *moved* fails harder than one that changed
-— upstream put the JS under `frontend/` at some point, and a check that quietly
-reported no drift because it could not find the file would be worse than no
-check.
+The four snapshot families cover oneboxes (including YouTube's server and lazy
+player handoff), mention and hashtag markup, polls, and local dates. Each names
+what to re-read when it drifts, because "check whether the onebox parsers still
+handle it" is wrong advice for a hashtag or a poll. A path that has *moved*
+fails harder than one that changed — upstream put the JS under `frontend/` at
+some point, and a check that quietly reported no drift because it could not
+find the file would be worse than no check.
 
 ### Avatars
 
@@ -1731,6 +1745,7 @@ lib/
       instance_sidebar.dart    per-instance navigation
       main_content.dart        the single main region
       cooked_html.dart         renders a post's cooked HTML
+      youtube_video.dart       lazy native preview + inline iframe player
       emoji.dart               draws img.emoji, and resolves its src
       post_footer.dart         picks what a post's footer is, per plugin
       post_likes.dart          the like count under a post, and who liked it
@@ -1770,12 +1785,11 @@ is the default for Flutter 3.44 projects.
 ## Linux
 
 `webkit2gtk-4.1` and `libsoup-3.0` are hard requirements, not optional extras.
-`desktop_webview_window` links them into the binary, so a machine without them
-cannot start the app at all — `ld.so` fails at exec and a desktop launcher shows
-nothing. They are also what makes signing in work: the web view intercepts the
-`discourse://auth_redirect` callback in-process, so unlike a system-browser flow
-there is no URL scheme to register with the desktop and no site setting to
-change.
+The authentication window and inline YouTube surface both link them into the
+binary, so a machine without them cannot start the app at all — `ld.so` fails at
+exec and a desktop launcher shows nothing. WebKitGTK lets the sign-in window
+intercept the `discourse://auth_redirect` callback in-process and supplies the
+inline iframe used only after a YouTube preview is activated.
 
 Linux does not use libsecret or require a Secret Service. API keys and unsent
 draft mirrors are stored in

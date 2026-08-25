@@ -163,6 +163,22 @@ const List<String> oneboxWatched = [
   // The `--gh-status-*` classes and their colors, read by the pull request
   // oneboxes and their inline variants.
   'plugins/discourse-github/assets/stylesheets/common/github-pr-status.scss',
+  // Core's direct iframe fallback and the default lazy-video replacement are
+  // both parsed by youtube_video.dart. The component files define the data
+  // attributes, time conversion and iframe parameters mirrored natively.
+  'lib/onebox/engine/youtube_onebox.rb',
+  'plugins/discourse-lazy-videos/lib/discourse_lazy_videos/lazy_youtube.rb',
+  'plugins/discourse-lazy-videos/assets/javascripts/lib/'
+      'lazy-video-attributes.js',
+  'plugins/discourse-lazy-videos/assets/javascripts/discourse/components/'
+      'lazy-video.gjs',
+  'plugins/discourse-lazy-videos/assets/javascripts/discourse/components/'
+      'lazy-iframe.gjs',
+  'plugins/discourse-lazy-videos/assets/stylesheets/lazy-videos.scss',
+  // Chat wraps the same top-level lazy container in a collapser on the web.
+  // Native intentionally recognises the same marker but keeps it full-width.
+  'plugins/chat/assets/javascripts/discourse/components/'
+      'chat-message-collapser.gjs',
   // Where the class names the parsers match on are given meaning.
   'app/assets/stylesheets/common/base/onebox.scss',
   // Post-processing that rewrites onebox markup after the template runs,
