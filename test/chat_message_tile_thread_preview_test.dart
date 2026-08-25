@@ -4,11 +4,15 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
+import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -349,6 +353,57 @@ void main() {
       isSemantics(onTapHint: 'show who reacted'),
     );
   });
+
+  testWidgets(
+    'hover toolbar adds the first reaction through the emoji picker',
+    (tester) async {
+      final api = FakeDiscourseApi(
+        emojisBySite: const {
+          _siteUrl: [
+            SiteEmoji(
+              name: 'wave',
+              url: 'https://meta.example/images/emoji/wave.png',
+            ),
+          ],
+        },
+      );
+      final controller = await _controller(_message(null), api: api);
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _TestTile(controller: controller, onOpenThread: (_) {}),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReactionPickerButton), findsNothing);
+      await _hoverMessage(tester);
+
+      final action = find.byTooltip('Add reaction');
+      expect(action, findsOneWidget);
+      expect(tester.getSize(action), HoverActionButton.size);
+      expect(
+        tester
+            .widget<DIcon>(
+              find.descendant(of: action, matching: find.byType(DIcon)),
+            )
+            .icon,
+        DIcons.farFaceSmile,
+      );
+
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EmojiPicker), findsOneWidget);
+      await tester.tap(find.byTooltip(':wave:'));
+      await tester.pumpAndSettle();
+
+      expect(api.chatReactionsSet, hasLength(1));
+      expect(api.chatReactionsSet.single.channelId, 9);
+      expect(api.chatReactionsSet.single.messageId, 7);
+      expect(api.chatReactionsSet.single.emoji, 'wave');
+      expect(api.chatReactionsSet.single.action, ChatReactionAction.add);
+      expect(find.bySemanticsLabel('1 wave reaction'), findsOneWidget);
+    },
+  );
 
   testWidgets('hover shows a compact action for the exact message', (
     tester,
