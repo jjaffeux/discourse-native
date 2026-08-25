@@ -11,6 +11,7 @@ import '../../shell/bookmark_ui.dart';
 import '../../shell/cooked_html.dart';
 import '../../shell/emoji_picker.dart';
 import '../../shell/hover_action_toolbar.dart';
+import '../../shell/platform.dart';
 import '../../shell/post_flag_editor.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/shell_scope.dart';
@@ -732,7 +733,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
               onExit: (_) => _pointerExited(),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onLongPress: () => unawaited(_showActions()),
+                onLongPress: context.isTouch
+                    ? () => unawaited(_showActions())
+                    : null,
                 onSecondaryTap: () => unawaited(_showActions()),
                 child: Stack(
                   // Chained rows can be shorter than the 44-pixel desktop

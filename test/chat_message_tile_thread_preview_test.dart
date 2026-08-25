@@ -636,7 +636,11 @@ void main() {
     );
 
     await tester.pumpWidget(
-      _TestTile(controller: controller, onOpenThread: (_) {}),
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        platform: TargetPlatform.android,
+      ),
     );
     await tester.pumpAndSettle();
     expect(controller.store.read<ChatMessage>(_siteUrl, 7)?.raw, 'before');
@@ -685,7 +689,11 @@ void main() {
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(
-      _TestTile(controller: controller, onOpenThread: (_) {}),
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        platform: TargetPlatform.android,
+      ),
     );
     await tester.pumpAndSettle();
     await tester.longPress(find.byKey(_messageTileKey));
@@ -710,7 +718,11 @@ void main() {
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(
-      _TestTile(controller: controller, onOpenThread: (_) {}),
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        platform: TargetPlatform.android,
+      ),
     );
     await tester.pumpAndSettle();
     await tester.longPress(find.byKey(_messageTileKey));
@@ -1123,6 +1135,28 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(replies, [same(message)]);
+    expect(find.text('Message actions'), findsNothing);
+  });
+
+  testWidgets('a desktop long press does not open message actions', (
+    tester,
+  ) async {
+    final message = _message(_thread());
+    final controller = await _controller(message);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        onReplyInThread: (_) {},
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byKey(_messageTileKey));
+    await tester.pumpAndSettle();
+
     expect(find.text('Message actions'), findsNothing);
   });
 
