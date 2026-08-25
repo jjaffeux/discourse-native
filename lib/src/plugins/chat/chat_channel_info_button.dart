@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../shell/shell_sheet.dart';
 import '../../shell/user_card.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
@@ -34,9 +35,10 @@ class ChatChannelInfoButton extends StatelessWidget {
         if (channel == null || !channel.membership.following) {
           return const SizedBox.shrink();
         }
-        return IconButton(
+        return DButton.iconOnly(
           key: const ValueKey('chat-channel-info-button'),
           tooltip: 'Channel info',
+          variant: DButtonVariant.flat,
           onPressed: () => unawaited(
             showShellSheet<void>(
               context: context,
@@ -164,9 +166,8 @@ class _ChannelInfoState extends State<_ChannelInfo> {
       enabled,
     );
     if (!mounted || error == null) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(SnackBar(content: Text(error)));
   }
 
   @override
@@ -265,9 +266,8 @@ class _ChannelInfoState extends State<_ChannelInfo> {
             ],
             Text(
               _loaded ? 'Members ($_totalRows)' : 'Members',
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(context).textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             TextField(

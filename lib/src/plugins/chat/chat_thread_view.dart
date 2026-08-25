@@ -12,6 +12,7 @@ import '../../shell/shell_scope.dart';
 import '../../shell/title_bar.dart';
 import '../../shell/user_menu_button.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
@@ -534,9 +535,9 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   }
 
   void _syncProjection(ChatStreamState stream) {
-    final showTimeGapDays = ShellScope.read(
-      context,
-    ).siteConfigFor(widget.siteUrl).showTimeGapDays;
+    final showTimeGapDays = ShellScope.read(context)
+        .siteConfigFor(widget.siteUrl)
+        .showTimeGapDays;
     if (identical(_projectedMessageIds, stream.messageIds) &&
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
         _projectedLastRead == stream.lastReadOnOpen &&
@@ -641,7 +642,7 @@ class _ThreadHeader extends StatelessWidget {
         child: Row(
           children: [
             if (leading == _HeaderAction.back)
-              IconButton(
+              DButton.iconOnly(
                 tooltip: 'Back',
                 onPressed: () => shell.handleBack(
                   canReturnToSidebar: ShellLayout.forWidth(
@@ -649,6 +650,7 @@ class _ThreadHeader extends StatelessWidget {
                   ).isCompact,
                 ),
                 icon: const DIcon(DIcons.arrowLeft, size: 20),
+                variant: DButtonVariant.flat,
               )
             else
               const SizedBox(width: 12),
@@ -659,9 +661,8 @@ class _ThreadHeader extends StatelessWidget {
                     : 'Thread',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                style: Theme.of(context).textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
             _NotificationLevelButton(
@@ -670,7 +671,7 @@ class _ThreadHeader extends StatelessWidget {
               thread: thread,
             ),
             if (chat.canEditThreadTitle(siteUrl, thread))
-              IconButton(
+              DButton.iconOnly(
                 tooltip: 'Thread settings',
                 onPressed: () => unawaited(
                   showChatThreadSettings(
@@ -682,12 +683,14 @@ class _ThreadHeader extends StatelessWidget {
                   ),
                 ),
                 icon: const DIcon(DIcons.gear, size: 18),
+                variant: DButtonVariant.flat,
               ),
             if (showClose)
-              IconButton(
+              DButton.iconOnly(
                 tooltip: 'Close thread',
                 onPressed: () => shell.handleBack(canReturnToSidebar: false),
                 icon: const DIcon(DIcons.xmark, size: 18),
+                variant: DButtonVariant.flatClose,
               ),
             const SizedBox(width: 4),
           ],
@@ -754,10 +757,11 @@ class _NotificationLevelButton extends StatelessWidget {
           chatControllerService,
         ).updateThreadNotificationLevel(siteUrl, target, level),
       ),
-      builder: (context, openMenu) => IconButton(
+      builder: (context, openMenu) => DButton.iconOnly(
         tooltip: 'Thread notifications',
         onPressed: openMenu,
         icon: DIcon(_iconFor(current), size: 18),
+        variant: DButtonVariant.flat,
       ),
     );
   }

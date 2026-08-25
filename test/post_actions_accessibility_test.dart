@@ -5,6 +5,7 @@ import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -106,20 +107,27 @@ void main() {
       );
 
       final button = find
-          .ancestor(of: action, matching: find.byType(IconButton))
+          .ancestor(of: action, matching: find.byType(DButton))
           .first;
-      final iconButton = tester.widget<IconButton>(button);
-      final hoverShape = iconButton.style!.shape!.resolve({
+      final filledButton = tester.widget<FilledButton>(
+        find.descendant(of: button, matching: find.byType(FilledButton)),
+      );
+      final hoverShape = filledButton.style!.shape!.resolve({
         WidgetState.hovered,
       });
       expect(hoverShape, isA<RoundedRectangleBorder>());
+      final theme = Theme.of(tester.element(button));
       expect(
         (hoverShape! as RoundedRectangleBorder).borderRadius,
-        BorderRadius.zero,
+        BorderRadius.circular(theme.discourseButtons.borderRadius),
       );
       expect(
-        iconButton.style!.overlayColor!.resolve({WidgetState.hovered}),
-        Theme.of(tester.element(button)).shell.hover,
+        filledButton.style!.backgroundColor!.resolve({WidgetState.hovered}),
+        theme.shell.hover,
+      );
+      expect(
+        filledButton.style!.fixedSize!.resolve({}),
+        const Size.square(DButton.minimumDimension),
       );
       final inkWell = find.descendant(
         of: button,
@@ -353,8 +361,8 @@ FocusNode _focusButton(WidgetTester tester, Finder button) {
 }
 
 FocusNode _buttonFocus(WidgetTester tester, Finder tooltip) {
-  final button = tester.widget<IconButton>(
-    find.ancestor(of: tooltip, matching: find.byType(IconButton)).first,
+  final button = tester.widget<DButton>(
+    find.ancestor(of: tooltip, matching: find.byType(DButton)).first,
   );
   return button.focusNode!;
 }

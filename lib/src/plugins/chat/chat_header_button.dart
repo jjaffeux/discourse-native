@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/discourse_user.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
@@ -95,10 +96,11 @@ class ChatHeaderButton extends StatelessWidget {
                   ? 'Chat, unread messages'
                   : 'Chat';
 
-              return IconButton(
+              return DButton.iconOnly(
                 key: buttonKey,
                 tooltip: tooltip,
                 onPressed: () => unawaited(controller.openChat()),
+                variant: DButtonVariant.flat,
                 icon: ExcludeSemantics(
                   child: Stack(
                     clipBehavior: Clip.none,

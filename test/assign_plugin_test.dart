@@ -2,6 +2,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -213,6 +214,10 @@ void main() {
         ),
       ),
       findsOneWidget,
+    );
+    expect(
+      tester.widget(find.byKey(const Key('assign-topic-header'))),
+      isA<DButton>(),
     );
   });
 

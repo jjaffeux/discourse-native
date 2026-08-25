@@ -23,8 +23,8 @@ class ShellTitleBar extends StatelessWidget {
   /// Whether search, chat and account actions are drawn in the reserved strip.
   final bool showControls;
 
-  /// Enough room for the traffic lights plus a little breathing space.
-  static const double height = 38;
+  /// Enough room for the traffic lights and the shared action target.
+  static const double height = 48;
 
   static bool get isSupported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;

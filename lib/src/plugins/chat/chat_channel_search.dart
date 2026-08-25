@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../shell/shell_scope.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
@@ -37,9 +38,10 @@ class ChatChannelSearchButton extends StatelessWidget {
         );
         return ValueListenableBuilder<ScopedChatSearchState>(
           valueListenable: search.scopedRef(siteUrl, channelId),
-          builder: (context, state, _) => IconButton(
+          builder: (context, state, _) => DButton.iconOnly(
             key: const ValueKey('chat-channel-search-button'),
             onPressed: () => search.toggleScoped(siteUrl, channelId),
+            variant: DButtonVariant.flat,
             icon: DIcon(
               DIcons.magnifyingGlass,
               size: 18,

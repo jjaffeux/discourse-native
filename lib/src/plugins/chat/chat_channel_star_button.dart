@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
@@ -34,7 +35,7 @@ class ChatChannelStarButton extends StatelessWidget {
           builder: (context, _) {
             final starred = channel.membership.starred;
             final busy = chat.channelStarWriteInFlight(siteUrl, channel.id);
-            return IconButton(
+            return DButton.iconOnly(
               key: const ValueKey('chat-channel-star-button'),
               tooltip: starred
                   ? 'Remove from starred channels'
@@ -42,6 +43,8 @@ class ChatChannelStarButton extends StatelessWidget {
               onPressed: busy
                   ? null
                   : () => unawaited(_change(context, chat, !starred)),
+              loading: busy,
+              variant: DButtonVariant.flat,
               icon: busy
                   ? const SizedBox.square(
                       dimension: 18,
@@ -62,8 +65,7 @@ class ChatChannelStarButton extends StatelessWidget {
   ) async {
     final error = await chat.updateChannelStarred(siteUrl, channelId, starred);
     if (error == null || !context.mounted) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(SnackBar(content: Text(error)));
   }
 }

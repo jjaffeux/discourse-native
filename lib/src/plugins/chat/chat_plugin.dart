@@ -4,6 +4,7 @@ import '../../models/content_route.dart';
 import '../../models/sidebar.dart';
 import '../../models/user_card.dart';
 import '../../shell/shell_scope.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
@@ -347,11 +348,11 @@ class _ChatChannelThreadsButton extends StatelessWidget {
           return const SizedBox.shrink();
         }
         final unread = channel!.unreadThreadCount;
-        return IconButton(
+        return DButton.iconOnly(
           key: const ValueKey('chat-channel-threads-button'),
-          onPressed: () => ShellScope.read(
-            context,
-          ).openChatChannelThreads(siteUrl: siteUrl, channelId: channelId),
+          onPressed: () => ShellScope.read(context)
+              .openChatChannelThreads(siteUrl: siteUrl, channelId: channelId),
+          variant: DButtonVariant.flat,
           icon: Badge(
             isLabelVisible: unread > 0,
             label: Text(unread > 99 ? '99+' : '$unread'),

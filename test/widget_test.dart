@@ -74,6 +74,7 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/cupertino.dart';
@@ -3877,6 +3878,7 @@ void main() {
       bool canDeleteTopic = false,
       bool canRecoverTopic = false,
       bool canFlagTopic = false,
+      bool canCreatePost = false,
       List<PostActionSummary> topicActions = const [],
     }) => topicPayload(
       id: 7,
@@ -3899,6 +3901,7 @@ void main() {
       canDeleteTopic: canDeleteTopic,
       canRecoverTopic: canRecoverTopic,
       canFlagTopic: canFlagTopic,
+      canCreatePost: canCreatePost,
       topicActions: topicActions,
     );
 
@@ -3920,6 +3923,69 @@ void main() {
       // The cooked HTML is rendered, not shown as markup.
       expect(renderedText('First post body'), findsOneWidget);
       expect(renderedText('<p>'), findsNothing);
+    });
+
+    testWidgets('every icon in the topic action toolbar uses DButton', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(id: 1, username: 'reader');
+      const spam = PostFlagType(
+        id: 8,
+        nameKey: 'spam',
+        name: 'Spam',
+        description: 'Promotional content',
+        appliesTo: ['Topic'],
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: detail(
+            pinned: true,
+            canCloseTopic: true,
+            canFlagTopic: true,
+            canCreatePost: true,
+            topicActions: const [PostActionSummary(id: 8, canAct: true)],
+          ),
+        },
+        categoryPostActionCatalog: const SitePostActionCatalog(
+          topicFlags: [spam],
+        ),
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: reader)],
+        api: api,
+        authenticator: authenticator,
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pumpAndSettle();
+
+      for (final tooltip in [
+        'Share this topic',
+        'Flag this topic',
+        'Topic actions',
+        'Pinned topic options',
+        'Topic notifications',
+        'Bookmark this topic',
+        'Reply to this topic',
+      ]) {
+        final trigger = find.byTooltip(tooltip);
+        expect(trigger, findsOneWidget, reason: tooltip);
+        final button = find.ancestor(
+          of: trigger,
+          matching: find.byType(DButton),
+        );
+        expect(button, findsOneWidget, reason: tooltip);
+        expect(
+          tester.getSize(button),
+          const Size.square(DButton.minimumDimension),
+          reason: tooltip,
+        );
+      }
     });
 
     testWidgets('topic sharing copies and hands off core’s canonical link', (

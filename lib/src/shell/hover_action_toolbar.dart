@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 
 /// The compact desktop action surface shared by hovered posts and messages.
 ///
@@ -11,8 +11,6 @@ import '../theme/app_theme.dart';
 /// different toolbars again.
 class HoverActionToolbar extends StatelessWidget {
   const HoverActionToolbar({super.key, required this.children});
-
-  static const double radius = 4;
 
   final List<Widget> children;
 
@@ -26,7 +24,9 @@ class HoverActionToolbar extends StatelessWidget {
       shadowColor: Colors.black.withValues(alpha: 0.35),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(radius),
+        borderRadius: BorderRadius.circular(
+          theme.discourseButtons.borderRadius,
+        ),
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
@@ -46,9 +46,8 @@ class HoverActionButton extends StatelessWidget {
     this.color,
   });
 
-  /// Mirrors the web chat toolbar's compact, slightly horizontal controls.
-  static const double width = 36;
-  static const double height = 32;
+  static const double width = DButton.minimumDimension;
+  static const double height = DButton.minimumDimension;
   static const Size size = Size(width, height);
 
   final String tooltip;
@@ -61,45 +60,17 @@ class HoverActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return IconButton(
+    return DButton.iconOnly(
       focusNode: focusNode,
       onPressed: onPressed,
-      icon: icon,
       tooltip: tooltip,
-      constraints: const BoxConstraints.tightFor(width: width, height: height),
-      style: ButtonStyle(
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-        ),
-        overlayColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.disabled)) {
-            return Colors.transparent;
-          }
-          if (states.contains(WidgetState.hovered) ||
-              states.contains(WidgetState.focused) ||
-              states.contains(WidgetState.pressed)) {
-            return theme.shell.hover;
-          }
-          return Colors.transparent;
-        }),
-        side: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.disabled)) {
-            return BorderSide.none;
-          }
-          if (states.contains(WidgetState.focused)) {
-            return BorderSide(color: theme.colorScheme.primary, width: 2);
-          }
-          if (states.contains(WidgetState.hovered) ||
-              states.contains(WidgetState.pressed)) {
-            return BorderSide(color: theme.colorScheme.outline);
-          }
-          return BorderSide.none;
-        }),
+      variant: color == theme.colorScheme.error
+          ? DButtonVariant.transparentDanger
+          : DButtonVariant.flat,
+      icon: IconTheme.merge(
+        data: IconThemeData(color: color ?? theme.colorScheme.onSurfaceVariant),
+        child: icon,
       ),
-      padding: EdgeInsets.zero,
-      color: color ?? theme.colorScheme.onSurfaceVariant,
     );
   }
 }
