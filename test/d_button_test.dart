@@ -84,6 +84,36 @@ void main() {
       );
     }
   });
+
+  testWidgets('buttons use a pointer cursor when enabled', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(
+          body: Column(
+            children: [
+              DButton(label: Text('Action'), onPressed: _noop),
+              DButton.iconOnly(
+                tooltip: 'Icon action',
+                onPressed: _noop,
+                icon: Icon(Icons.add),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    for (final button in tester.widgetList<FilledButton>(
+      find.byType(FilledButton),
+    )) {
+      expect(button.style!.mouseCursor!.resolve({}), SystemMouseCursors.click);
+      expect(
+        button.style!.mouseCursor!.resolve({WidgetState.disabled}),
+        SystemMouseCursors.basic,
+      );
+    }
+  });
 }
 
 void _noop() {}
