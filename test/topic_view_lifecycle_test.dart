@@ -4,6 +4,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/loading_skeleton.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -579,6 +580,136 @@ void main() {
       expect(tester.getTopLeft(anchoredPost).dy, closeTo(topBeforePrepend, 1));
     },
   );
+
+  testWidgets('loading earlier posts uses a post skeleton', (tester) async {
+    final site = instance('meta.example');
+    final posts = {
+      for (var number = 1; number <= 6; number++)
+        number: Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: '<p>Post $number</p>',
+        ),
+    };
+    final postGate = Completer<void>();
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      postsById: posts,
+      postGate: postGate,
+    );
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (var id = 1; id <= 6; id++) id],
+          postsCount: 6,
+        ),
+      )
+      ..putAll(site.url, [for (var id = 4; id <= 6; id++) posts[id]!]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One', postNumber: 5),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pump();
+    await tester.pump();
+
+    expect(api.postFetches, [
+      [1, 2, 3],
+    ]);
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    list.controller!.jumpTo(list.controller!.position.minScrollExtent);
+    await tester.pump();
+    final skeleton = find.byKey(
+      const ValueKey('topic-loading-earlier-skeleton'),
+    );
+    expect(skeleton, findsOneWidget);
+    expect(
+      find.descendant(
+        of: skeleton,
+        matching: find.byType(LoadingSkeletonBlock),
+      ),
+      findsNWidgets(8),
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    postGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(skeleton, findsNothing);
+    expect(controller.currentPostIds, [1, 2, 3, 4, 5, 6]);
+  });
+
+  testWidgets('loading later posts uses a post skeleton', (tester) async {
+    final site = instance('meta.example');
+    final posts = {
+      for (var number = 1; number <= 26; number++)
+        number: Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: List.filled(8, '<p>Long post $number</p>').join(),
+        ),
+    };
+    final postGate = Completer<void>();
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      postsById: posts,
+      postGate: postGate,
+    );
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (var id = 1; id <= 26; id++) id],
+          postsCount: 26,
+        ),
+      )
+      ..putAll(site.url, [for (var id = 1; id <= 20; id++) posts[id]!]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
+    await tester.pump();
+    await tester.pump();
+    list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
+    await tester.pump();
+
+    expect(api.postFetches, [
+      [for (var id = 21; id <= 26; id++) id],
+    ]);
+    final skeleton = find.byKey(const ValueKey('topic-loading-more-skeleton'));
+    expect(skeleton, findsOneWidget);
+    expect(
+      find.descendant(
+        of: skeleton,
+        matching: find.byType(LoadingSkeletonBlock),
+      ),
+      findsNWidgets(8),
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    postGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(skeleton, findsNothing);
+    expect(controller.currentPostIds, [for (var id = 1; id <= 26; id++) id]);
+  });
 
   testWidgets('a pull retries a failed earlier page in a short topic', (
     tester,

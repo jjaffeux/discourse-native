@@ -472,7 +472,7 @@ as another account cannot reuse private media from the previous session.
 Two things worth knowing if you touch the lists:
 
 - The load-more footer may only appear **while actually loading**. Keying it on
-  "there is more" leaves a spinner running forever at the bottom.
+  "there is more" leaves a skeleton pulsing forever at the bottom.
 - Fetching is triggered both from a scroll notification and from building the
   last row. The scroll alone is not enough: twenty short posts may not fill the
   window, leaving nothing to scroll and the rest never fetched.
