@@ -10,6 +10,7 @@ import '../../models/post_flag.dart';
 import '../../shell/bookmark_ui.dart';
 import '../../shell/cooked_html.dart';
 import '../../shell/emoji_picker.dart';
+import '../../shell/hover_action_toolbar.dart';
 import '../../shell/post_flag_editor.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/shell_scope.dart';
@@ -639,146 +640,102 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                       Positioned(
                         top: 4,
                         right: 12,
-                        child: Material(
-                          color: Theme.of(context).colorScheme.surfaceContainer,
-                          borderRadius: BorderRadius.circular(8),
-                          elevation: 2,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (widget.onReply != null)
-                                IconButton(
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 44,
-                                    height: 44,
-                                  ),
-                                  tooltip: 'Reply in thread',
-                                  onPressed: _reply,
-                                  icon: const DIcon(DIcons.reply, size: 16),
-                                ),
-                              if (widget.canCopyLink)
-                                IconButton(
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 44,
-                                    height: 44,
-                                  ),
-                                  tooltip: 'Copy link',
-                                  onPressed: () => unawaited(_copyLink()),
-                                  icon: const DIcon(DIcons.link, size: 16),
-                                ),
-                              if (canEdit)
-                                IconButton(
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 44,
-                                    height: 44,
-                                  ),
-                                  tooltip: 'Edit',
-                                  onPressed: () => unawaited(_edit()),
-                                  icon: const DIcon(DIcons.pencil, size: 16),
-                                ),
-                              if (widget.onSelect != null)
-                                IconButton(
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 44,
-                                    height: 44,
-                                  ),
-                                  tooltip: 'Select',
-                                  onPressed: widget.onSelect,
-                                  icon: const DIcon(DIcons.list, size: 16),
-                                ),
-                              if (widget.canBookmark)
-                                IconButton(
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 44,
-                                    height: 44,
-                                  ),
-                                  tooltip: bookmarkLabel,
-                                  onPressed: bookmarkBusy
-                                      ? null
-                                      : () => unawaited(_bookmark()),
-                                  icon: bookmarkBusy
-                                      ? const SizedBox.square(
-                                          dimension: 16,
-                                          child:
-                                              CircularProgressIndicator.adaptive(
-                                                strokeWidth: 2,
-                                              ),
-                                        )
-                                      : DIcon(
-                                          _bookmarkIcon(
-                                            widget.message.bookmark,
-                                          ),
-                                          size: 16,
-                                        ),
-                                ),
-                              if (canPin)
-                                IconButton(
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 44,
-                                    height: 44,
-                                  ),
-                                  tooltip: widget.message.pinned
-                                      ? 'Unpin'
-                                      : 'Pin',
-                                  onPressed: _pinning
-                                      ? null
-                                      : () => unawaited(_togglePin()),
-                                  icon: _pinning
-                                      ? const SizedBox.square(
-                                          dimension: 16,
-                                          child:
-                                              CircularProgressIndicator.adaptive(
-                                                strokeWidth: 2,
-                                              ),
-                                        )
-                                      : const DIcon(DIcons.thumbtack, size: 16),
-                                ),
-                              if (flagTypes.isNotEmpty)
-                                IconButton(
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 44,
-                                    height: 44,
-                                  ),
-                                  tooltip: 'Flag',
-                                  onPressed: () => unawaited(_flag(flagTypes)),
-                                  icon: const DIcon(DIcons.flag, size: 16),
-                                ),
-                              if (canDelete)
-                                IconButton(
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 44,
-                                    height: 44,
-                                  ),
-                                  tooltip: 'Delete',
-                                  color: Theme.of(context).colorScheme.error,
-                                  onPressed: () => unawaited(_delete()),
-                                  icon: const DIcon(DIcons.trashCan, size: 16),
-                                ),
-                              if (canRebake)
-                                IconButton(
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 44,
-                                    height: 44,
-                                  ),
-                                  tooltip: 'Rebuild HTML',
-                                  onPressed: _rebaking
-                                      ? null
-                                      : () => unawaited(_rebake()),
-                                  icon: _rebaking
-                                      ? const SizedBox.square(
-                                          dimension: 16,
-                                          child:
-                                              CircularProgressIndicator.adaptive(
-                                                strokeWidth: 2,
-                                              ),
-                                        )
-                                      : const DIcon(
-                                          DIcons.arrowsRotate,
-                                          size: 16,
-                                        ),
-                                ),
-                            ],
-                          ),
+                        child: HoverActionToolbar(
+                          children: [
+                            if (widget.onReply != null)
+                              HoverActionButton(
+                                tooltip: 'Reply in thread',
+                                onPressed: _reply,
+                                icon: const DIcon(DIcons.reply, size: 16),
+                              ),
+                            if (widget.canCopyLink)
+                              HoverActionButton(
+                                tooltip: 'Copy link',
+                                onPressed: () => unawaited(_copyLink()),
+                                icon: const DIcon(DIcons.link, size: 16),
+                              ),
+                            if (canEdit)
+                              HoverActionButton(
+                                tooltip: 'Edit',
+                                onPressed: () => unawaited(_edit()),
+                                icon: const DIcon(DIcons.pencil, size: 16),
+                              ),
+                            if (widget.onSelect != null)
+                              HoverActionButton(
+                                tooltip: 'Select',
+                                onPressed: widget.onSelect,
+                                icon: const DIcon(DIcons.list, size: 16),
+                              ),
+                            if (widget.canBookmark)
+                              HoverActionButton(
+                                tooltip: bookmarkLabel,
+                                onPressed: bookmarkBusy
+                                    ? null
+                                    : () => unawaited(_bookmark()),
+                                icon: bookmarkBusy
+                                    ? const SizedBox.square(
+                                        dimension: 16,
+                                        child:
+                                            CircularProgressIndicator.adaptive(
+                                              strokeWidth: 2,
+                                            ),
+                                      )
+                                    : DIcon(
+                                        _bookmarkIcon(widget.message.bookmark),
+                                        size: 16,
+                                      ),
+                              ),
+                            if (canPin)
+                              HoverActionButton(
+                                tooltip: widget.message.pinned
+                                    ? 'Unpin'
+                                    : 'Pin',
+                                onPressed: _pinning
+                                    ? null
+                                    : () => unawaited(_togglePin()),
+                                icon: _pinning
+                                    ? const SizedBox.square(
+                                        dimension: 16,
+                                        child:
+                                            CircularProgressIndicator.adaptive(
+                                              strokeWidth: 2,
+                                            ),
+                                      )
+                                    : const DIcon(DIcons.thumbtack, size: 16),
+                              ),
+                            if (flagTypes.isNotEmpty)
+                              HoverActionButton(
+                                tooltip: 'Flag',
+                                onPressed: () => unawaited(_flag(flagTypes)),
+                                icon: const DIcon(DIcons.flag, size: 16),
+                              ),
+                            if (canDelete)
+                              HoverActionButton(
+                                tooltip: 'Delete',
+                                color: Theme.of(context).colorScheme.error,
+                                onPressed: () => unawaited(_delete()),
+                                icon: const DIcon(DIcons.trashCan, size: 16),
+                              ),
+                            if (canRebake)
+                              HoverActionButton(
+                                tooltip: 'Rebuild HTML',
+                                onPressed: _rebaking
+                                    ? null
+                                    : () => unawaited(_rebake()),
+                                icon: _rebaking
+                                    ? const SizedBox.square(
+                                        dimension: 16,
+                                        child:
+                                            CircularProgressIndicator.adaptive(
+                                              strokeWidth: 2,
+                                            ),
+                                      )
+                                    : const DIcon(
+                                        DIcons.arrowsRotate,
+                                        size: 16,
+                                      ),
+                              ),
+                          ],
                         ),
                       ),
                   ],

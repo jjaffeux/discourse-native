@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
+import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -268,7 +269,7 @@ void main() {
     );
   });
 
-  testWidgets('hover shows a 44 pixel action for the exact message', (
+  testWidgets('hover shows a compact action for the exact message', (
     tester,
   ) async {
     final message = _message(_thread());
@@ -289,7 +290,7 @@ void main() {
 
     final action = find.byTooltip('Reply in thread');
     expect(action, findsOneWidget);
-    expect(tester.getSize(action), const Size.square(44));
+    expect(tester.getSize(action), HoverActionButton.size);
     expect(
       tester.getSemantics(action),
       isSemantics(
@@ -356,7 +357,7 @@ void main() {
 
     final action = find.byTooltip('Copy link');
     expect(action, findsOneWidget);
-    expect(tester.getSize(action), const Size.square(44));
+    expect(tester.getSize(action), HoverActionButton.size);
 
     await tester.tap(action);
     await tester.pumpAndSettle();
@@ -462,7 +463,7 @@ void main() {
 
     final action = find.byTooltip('Bookmark');
     expect(action, findsOneWidget);
-    expect(tester.getSize(action), const Size.square(44));
+    expect(tester.getSize(action), HoverActionButton.size);
 
     await tester.tap(action);
     await tester.pumpAndSettle();
@@ -751,7 +752,7 @@ void main() {
     await _hoverMessage(tester);
     final action = find.byTooltip('Edit bookmark');
     expect(action, findsOneWidget);
-    expect(tester.getSize(action), const Size.square(44));
+    expect(tester.getSize(action), HoverActionButton.size);
   });
 
   testWidgets('the hover bookmark action disables while its write is active', (
