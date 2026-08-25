@@ -157,12 +157,13 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
             _scheduleRevealSelected();
           }
           const addWidth = ForumTabsBar.minimumActionTarget;
-          const gap = 1.0;
+          const tabGap = 1.0;
+          const newTabGap = 4.0;
           final tabViewportWidth = math.max(
             0.0,
-            constraints.maxWidth - addWidth - gap,
+            constraints.maxWidth - addWidth - newTabGap,
           );
-          final gapsWidth = math.max(0, widget.items.length - 1) * gap;
+          final gapsWidth = math.max(0, widget.items.length - 1) * tabGap;
           final equalShare = widget.items.isEmpty
               ? 70.0
               : (tabViewportWidth - gapsWidth) / widget.items.length;
@@ -208,12 +209,12 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                             ),
                           ),
                           if (index != widget.items.length - 1)
-                            const SizedBox(width: gap),
+                            const SizedBox(width: tabGap),
                         ],
                       ],
                     ),
                   ),
-                  const SizedBox(width: gap),
+                  const SizedBox(width: newTabGap),
                   SizedBox(
                     key: _addKey,
                     child: _NewTabButton(onPressed: widget.onAdd),
@@ -228,24 +229,39 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   }
 }
 
-class _NewTabButton extends StatelessWidget {
+class _NewTabButton extends StatefulWidget {
   const _NewTabButton({required this.onPressed});
 
   final VoidCallback? onPressed;
 
   @override
+  State<_NewTabButton> createState() => _NewTabButtonState();
+}
+
+class _NewTabButtonState extends State<_NewTabButton> {
+  final WidgetStatesController _states = WidgetStatesController();
+
+  @override
+  void dispose() {
+    _states.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final label = onPressed == null
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final label = widget.onPressed == null
         ? 'Close a tab before opening another'
         : 'Open a new tab';
     return Semantics(
       key: const ValueKey('forum-tabs-add'),
       container: true,
       button: true,
-      enabled: onPressed != null,
+      enabled: widget.onPressed != null,
       label: label,
-      onTap: onPressed,
+      onTap: widget.onPressed,
       child: ExcludeSemantics(
         child: Tooltip(
           message: label,
@@ -254,27 +270,46 @@ class _NewTabButton extends StatelessWidget {
             width: ForumTabsBar.minimumActionTarget,
             height: ForumTabsBar.minimumActionTarget,
             child: IconButton(
+              statesController: _states,
               constraints: const BoxConstraints.expand(),
               padding: EdgeInsets.zero,
-              style: ButtonStyle(
-                shape: WidgetStatePropertyAll(
-                  RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                ),
-                foregroundColor: WidgetStateProperty.resolveWith(
-                  (states) => states.contains(WidgetState.hovered)
-                      ? theme.colorScheme.onSurface
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-                backgroundColor: WidgetStateProperty.resolveWith(
-                  (states) => states.contains(WidgetState.hovered)
-                      ? theme.shell.hover
-                      : Colors.transparent,
-                ),
+              style: const ButtonStyle(
+                overlayColor: WidgetStatePropertyAll(Colors.transparent),
+                splashFactory: NoSplash.splashFactory,
               ),
-              onPressed: onPressed,
-              icon: const DIcon(DIcons.plus, size: 16),
+              onPressed: widget.onPressed,
+              icon: ValueListenableBuilder<Set<WidgetState>>(
+                valueListenable: _states,
+                builder: (context, states, _) {
+                  final emphasized =
+                      states.contains(WidgetState.hovered) ||
+                      states.contains(WidgetState.focused) ||
+                      states.contains(WidgetState.pressed);
+                  return AnimatedContainer(
+                    key: const ValueKey('forum-tabs-add-surface'),
+                    width: 32,
+                    height: 32,
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 100),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: emphasized
+                          ? theme.shell.hover
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: DIcon(
+                      DIcons.plus,
+                      size: 16,
+                      color: emphasized
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ),

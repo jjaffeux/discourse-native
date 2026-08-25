@@ -81,7 +81,7 @@ void main() {
     );
 
     final addRect = tester.getRect(add);
-    expect(addRect.left, ordinaryRect.right + 1);
+    expect(addRect.left, ordinaryRect.right + 4);
     expect(
       addRect.center.dy,
       barRect.top + 4 + (shellHeaderHeight - 4 - bottomDivider.width) / 2,
@@ -163,6 +163,37 @@ void main() {
 
     expect(_decoration(tester, surface).color, theme.shell.selected);
     expect(tester.getSize(surface), const Size.square(26));
+  });
+
+  testWidgets('keeps the add hover surface compact and clear of the last tab', (
+    tester,
+  ) async {
+    await _pumpBar(tester, items: const [first], selectedId: first.id);
+
+    const addKey = ValueKey('forum-tabs-add');
+    const surfaceKey = ValueKey('forum-tabs-add-surface');
+    final tab = find.byKey(const ValueKey('forum-tab-item-topic-1'));
+    final add = find.byKey(addKey);
+    final surface = find.byKey(surfaceKey);
+    final theme = Theme.of(tester.element(add));
+
+    expect(
+      tester.getSize(add),
+      const Size.square(ForumTabsBar.minimumActionTarget),
+    );
+    expect(tester.getSize(surface), const Size.square(32));
+    expect(tester.getRect(add).left, tester.getRect(tab).right + 4);
+    expect(tester.getRect(surface).left, tester.getRect(tab).right + 10);
+    expect(_decoration(tester, surface).color, Colors.transparent);
+
+    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(pointer.removePointer);
+    await pointer.addPointer();
+    await pointer.moveTo(tester.getCenter(add));
+    await tester.pumpAndSettle();
+
+    expect(_decoration(tester, surface).color, theme.shell.hover);
+    expect(tester.getSize(surface), const Size.square(32));
   });
 
   testWidgets('renders prefixes, unread badges, and ellipsized labels', (
@@ -275,7 +306,7 @@ void main() {
     );
     expect(scrollable.position.maxScrollExtent, greaterThan(0));
     expect(scrollable.position.pixels, 0);
-    expect(initialAddRect.left, initialLastTabRect.right + 1);
+    expect(initialAddRect.left, initialLastTabRect.right + 4);
     expect(initialAddRect.left, greaterThan(initialViewportRect.right));
     expect(find.byKey(const ValueKey('forum-tab-badge-tab-3')), findsNothing);
     for (final item in items) {
@@ -295,7 +326,7 @@ void main() {
       tester
               .getRect(find.byKey(ValueKey('forum-tab-item-${items.last.id}')))
               .right +
-          1,
+          4,
     );
 
     await _pumpBar(tester, items: items, selectedId: items.last.id, width: 320);
@@ -310,7 +341,7 @@ void main() {
     );
     expect(lastTabRect.left, greaterThanOrEqualTo(viewportRect.left));
     expect(lastTabRect.right, lessThanOrEqualTo(viewportRect.right));
-    expect(tester.getRect(add).left, lastTabRect.right + 1);
+    expect(tester.getRect(add).left, lastTabRect.right + 4);
     expect(tester.getRect(add).right, lessThanOrEqualTo(viewportRect.right));
   });
 
