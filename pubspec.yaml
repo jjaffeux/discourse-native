@@ -35,6 +35,14 @@ dependencies:
   pointycastle: ^4.0.0
   flutter_svg: ^2.3.0
   flutter_widget_from_html_core: ^0.17.2
+  # The YouTube player stays behind our own surface and only exists after the
+  # user presses play. This is pinned because every supported platform crosses
+  # a native ABI; upgrades need playback and scrolling smoke tests on each one.
+  webview_all: 1.3.10
+  # Direct imports configure inline/autoplay policy before the native WebView
+  # is created. Keep these in lockstep with the umbrella package.
+  webview_all_linux: 1.3.10
+  webview_all_wkwebview: 1.3.10
   # Used directly to read onebox markup out of cooked posts; also the DOM
   # flutter_widget_from_html_core hands to its custom builders.
   html: ^0.15.6

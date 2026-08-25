@@ -17,6 +17,7 @@ import 'open_link.dart';
 import 'quote.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
+import 'youtube_video.dart';
 
 /// Draws Discourse's `cooked` HTML.
 ///
@@ -73,6 +74,7 @@ class CookedHtml extends StatelessWidget {
           hashtagWidgetBuilder(element, textStyle, siteUrl: siteUrl) ??
           imageGridWidgetBuilder(element, siteUrl: siteUrl) ??
           lightboxWidgetBuilder(element, siteUrl: siteUrl) ??
+          youtubeVideoWidgetBuilder(element, siteUrl: siteUrl) ??
           oneboxWidgetBuilder(element, siteUrl: siteUrl) ??
           quoteWidgetBuilder(element, siteUrl: siteUrl) ??
           codeBlockWidgetBuilder(element) ??
