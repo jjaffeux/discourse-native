@@ -279,6 +279,7 @@ class _ContentHeader extends StatelessWidget {
       _ => const <Widget>[],
     };
     final contentHeader = registry.contentHeaderActions(context, route);
+    final contentHeaderLeading = registry.contentHeaderLeading(context, route);
     final contentHeaderTitleAction = registry.contentHeaderTitleAction(
       context,
       route,
@@ -324,7 +325,13 @@ class _ContentHeader extends StatelessWidget {
               else
                 const SizedBox(width: 8),
               if (showRouteIdentity)
-                if (route.color case final color?)
+                if (contentHeaderLeading case final leading?)
+                  Padding(
+                    key: const ValueKey('content-header-leading'),
+                    padding: const EdgeInsets.only(right: 8),
+                    child: leading,
+                  )
+                else if (route.color case final color?)
                   Container(
                     width: 12,
                     height: 12,

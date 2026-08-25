@@ -251,6 +251,14 @@ final class PluginRegistry implements PluginDataDecoder {
           ...plugin.contentHeaderActions(context, route),
       ];
 
+  Widget? contentHeaderLeading(BuildContext context, ContentRoute route) {
+    for (final plugin in plugins.whereType<ContentHeaderLeadingPlugin>()) {
+      final leading = plugin.contentHeaderLeading(context, route);
+      if (leading != null) return leading;
+    }
+    return null;
+  }
+
   VoidCallback? contentHeaderTitleAction(
     BuildContext context,
     ContentRoute route,

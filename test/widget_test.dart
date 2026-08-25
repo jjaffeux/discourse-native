@@ -13168,6 +13168,44 @@ void main() {
     });
 
     group('a channel', () {
+      testWidgets('shows a direct-message avatar and its live presence', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          direct: [dm(12)],
+          presence: const ChatPresence(userIds: {2}, lastMessageId: 47),
+          messages: {key(12): page(const [])},
+        );
+        await tester.tap(sidebarDestination('hawk'));
+        await tester.pumpAndSettle();
+
+        final leading = find.byKey(const ValueKey('content-header-leading'));
+        expect(
+          find.descendant(of: leading, matching: find.byType(ChatUserAvatar)),
+          findsOneWidget,
+        );
+        final ring = find.descendant(
+          of: leading,
+          matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
+        );
+        expect(ring, findsOneWidget);
+
+        FakeSiteTracker.built.single.deliverPluginMessage(
+          '/presence/chat/online',
+          {
+            'leaving_user_ids': [2],
+          },
+        );
+        await tester.pump();
+
+        expect(ring, findsNothing);
+        expect(
+          find.descendant(of: leading, matching: find.byType(ChatUserAvatar)),
+          findsOneWidget,
+        );
+      });
+
       testWidgets('the channel title opens routed settings and Back returns', (
         tester,
       ) async {

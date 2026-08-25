@@ -22,6 +22,7 @@ import 'chat_my_threads_view.dart';
 import 'chat_route.dart';
 import 'chat_search_view.dart';
 import 'chat_thread_view.dart';
+import 'chat_user_avatar.dart';
 import 'chat_user_card.dart';
 
 /// `chat`, as this app knows it.
@@ -61,6 +62,7 @@ class ChatPlugin
         ContentPlugin,
         ContentChromePlugin,
         ContentHeaderPlugin,
+        ContentHeaderLeadingPlugin,
         ContentHeaderTitlePlugin,
         ShellHeaderPlugin,
         UserCardRecordPlugin<ChatUserCardData>,
@@ -299,6 +301,27 @@ class ChatPlugin
   }
 
   @override
+  Widget? contentHeaderLeading(BuildContext context, ContentRoute route) {
+    final chatRoute = ChatRoute.parse(route.id);
+    final siteUrl = ShellScope.read(context).currentInstance?.url;
+    if (siteUrl == null || chatRoute == null || chatRoute.isThread) return null;
+
+    final chat = PluginScope.require(context, chatControllerService);
+    final channel = chat.channel(siteUrl, chatRoute.channelId);
+    if (channel == null ||
+        channel.avatarUrl == null ||
+        channel.users.length != 1) {
+      return null;
+    }
+
+    return _ChatChannelHeaderAvatar(
+      siteUrl: siteUrl,
+      channelId: channel.id,
+      fallbackIcon: route.icon,
+    );
+  }
+
+  @override
   VoidCallback? contentHeaderTitleAction(
     BuildContext context,
     ContentRoute route,
@@ -358,6 +381,49 @@ class ChatPlugin
             : null,
         badge: channel.badge,
       );
+}
+
+class _ChatChannelHeaderAvatar extends StatelessWidget {
+  const _ChatChannelHeaderAvatar({
+    required this.siteUrl,
+    required this.channelId,
+    required this.fallbackIcon,
+  });
+
+  final String siteUrl;
+  final int channelId;
+  final DIconData fallbackIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    final chat = PluginScope.require(context, chatControllerService);
+    return ValueListenableBuilder<ChatChannel?>(
+      valueListenable: chat.channelRef(siteUrl, channelId),
+      builder: (context, channel, _) {
+        final user = channel != null && channel.users.length == 1
+            ? channel.users.single
+            : null;
+        if (channel?.isDirectMessage != true || user?.avatarUrl == null) {
+          return DIcon(
+            fallbackIcon,
+            size: 18,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          );
+        }
+        return ChatUserAvatar(
+          siteUrl: siteUrl,
+          userId: user!.id,
+          url: user.avatarUrl,
+          size: 18,
+          fallback: DIcon(
+            DIcons.user,
+            size: 14,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _ChatChannelThreadsButton extends StatelessWidget {
