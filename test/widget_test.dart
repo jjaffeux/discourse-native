@@ -5210,6 +5210,98 @@ void main() {
       expect(renderedText('Related topic body'), findsOneWidget);
     });
 
+    testWidgets('reserves the recommendations panel while a topic loads', (
+      tester,
+    ) async {
+      const recommendations = TopicRecommendations(
+        suggested: [
+          Topic(id: 8, title: 'A suggested topic', slug: 'a-suggested-topic'),
+        ],
+      );
+      final topicGate = Completer<void>();
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(recommendations: recommendations)},
+        topicGate: topicGate,
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pump();
+      final semantics = tester.ensureSemantics();
+
+      final loadingPanel = find.byKey(
+        const ValueKey('topic-recommendations-loading-skeleton'),
+      );
+      expect(loadingPanel, findsOneWidget);
+      expect(find.bySemanticsLabel('Loading more topics'), findsOneWidget);
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('topic-recommendations-panel')))
+            .width,
+        320,
+      );
+      final loadingPostWidth = tester
+          .getSize(find.byKey(const ValueKey('topic-loading-skeleton')))
+          .width;
+
+      topicGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(loadingPanel, findsNothing);
+      expect(find.text('A suggested topic'), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(SuperListView)).width,
+        loadingPostWidth,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('keeps the panel width while final-page topics load', (
+      tester,
+    ) async {
+      const recommendations = TopicRecommendations(
+        suggested: [
+          Topic(id: 8, title: 'Suggested at the end', slug: 'suggested-end'),
+        ],
+      );
+      final postGate = Completer<void>();
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: detail(stream: [1, 2]),
+        },
+        postsById: {2: post(2, 2, 'Last post body')},
+        postRecommendations: {7: recommendations},
+        postGate: postGate,
+      );
+
+      await pumpShell(tester, desktop, api: api);
+      await tester.tap(find.text('A real topic'));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(api.postFetches, [
+        [2],
+      ]);
+      final loadingPanel = find.byKey(
+        const ValueKey('topic-recommendations-loading-skeleton'),
+      );
+      expect(loadingPanel, findsOneWidget);
+      final loadingPostWidth = tester.getSize(find.byType(SuperListView)).width;
+
+      postGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(loadingPanel, findsNothing);
+      expect(find.text('Suggested at the end'), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(SuperListView)).width,
+        loadingPostWidth,
+      );
+    });
+
     testWidgets('remembers a collapsed topics panel for the forum', (
       tester,
     ) async {
