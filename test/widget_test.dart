@@ -12521,6 +12521,53 @@ void main() {
         expect(find.byKey(const ValueKey('chat-search-field')), findsOneWidget);
       });
 
+      testWidgets('keeps the improved search sort menu inside the viewport', (
+        tester,
+      ) async {
+        final previous = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await pumpChat(
+            tester,
+            config: const SiteConfig(chatSearchEnabled: true),
+          );
+
+          await tester.tap(sidebarDestination('Search'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('chat-search-sort')));
+          await tester.pumpAndSettle();
+
+          final surface = find.byKey(const ValueKey('choice-menu-surface'));
+          expect(surface, findsOneWidget);
+          expect(
+            tester.getRect(surface).right,
+            lessThanOrEqualTo(desktop.width - 12),
+          );
+          expect(find.text('Sort search results'), findsOneWidget);
+          expect(find.text('Best matching messages first'), findsOneWidget);
+          expect(find.text('Newest messages first'), findsOneWidget);
+          expect(find.byType(DropdownButton<ChatSearchSort>), findsNothing);
+
+          await tester.tap(
+            find.byKey(
+              const ValueKey(('choice-menu-option', ChatSearchSort.latest)),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(surface, findsNothing);
+          expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('chat-search-sort')),
+              matching: find.text('Latest'),
+            ),
+            findsOneWidget,
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = previous;
+        }
+      });
+
       testWidgets('toggles the inline search bar from a channel header', (
         tester,
       ) async {
