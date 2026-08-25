@@ -22,7 +22,7 @@ void main() {
     icon: DIcons.comments,
   );
 
-  testWidgets('matches the shared shell header geometry and keeps add fixed', (
+  testWidgets('matches shell geometry and places add after the final tab', (
     tester,
   ) async {
     await _pumpBar(
@@ -80,7 +80,7 @@ void main() {
     );
 
     final addRect = tester.getRect(add);
-    expect(addRect.right, 495);
+    expect(addRect.left, ordinaryRect.right + 1);
     expect(
       addRect.center.dy,
       barRect.top + 4 + (shellHeaderHeight - 4 - bottomDivider.width) / 2,
@@ -244,7 +244,9 @@ void main() {
     expect(find.byKey(const ValueKey('forum-tabs-add')), findsOneWidget);
   });
 
-  testWidgets('scrolls overflowing tabs while add stays fixed', (tester) async {
+  testWidgets('scrolls overflowing tabs with add after the final tab', (
+    tester,
+  ) async {
     final items = [
       for (var index = 0; index < 8; index++)
         ForumTabItem(
@@ -264,8 +266,16 @@ void main() {
     final scrollable = _scrollable(tester);
     final add = find.byKey(const ValueKey('forum-tabs-add'));
     final initialAddRect = tester.getRect(add);
+    final initialLastTabRect = tester.getRect(
+      find.byKey(ValueKey('forum-tab-item-${items.last.id}')),
+    );
+    final initialViewportRect = tester.getRect(
+      find.byKey(const ValueKey('forum-tabs-scroll')),
+    );
     expect(scrollable.position.maxScrollExtent, greaterThan(0));
     expect(scrollable.position.pixels, 0);
+    expect(initialAddRect.left, initialLastTabRect.right + 1);
+    expect(initialAddRect.left, greaterThan(initialViewportRect.right));
     expect(find.byKey(const ValueKey('forum-tab-badge-tab-3')), findsNothing);
     for (final item in items) {
       expect(find.byKey(ValueKey('forum-tab-${item.id}')), findsOneWidget);
@@ -278,7 +288,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(scrollable.position.pixels, greaterThan(0));
-    expect(tester.getRect(add), initialAddRect);
+    expect(tester.getRect(add).left, lessThan(initialAddRect.left));
+    expect(
+      tester.getRect(add).left,
+      tester
+              .getRect(find.byKey(ValueKey('forum-tab-item-${items.last.id}')))
+              .right +
+          1,
+    );
 
     await _pumpBar(tester, items: items, selectedId: items.last.id, width: 320);
     await tester.pumpAndSettle();
@@ -292,7 +309,8 @@ void main() {
     );
     expect(lastTabRect.left, greaterThanOrEqualTo(viewportRect.left));
     expect(lastTabRect.right, lessThanOrEqualTo(viewportRect.right));
-    expect(tester.getRect(add), initialAddRect);
+    expect(tester.getRect(add).left, lastTabRect.right + 1);
+    expect(tester.getRect(add).right, lessThanOrEqualTo(viewportRect.right));
   });
 
   testWidgets('exposes a named tab bar, selected tabs, and close actions', (

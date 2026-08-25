@@ -58,7 +58,7 @@ class ForumTabItem {
 ///
 /// The caller owns the lifecycle. Tabs share the available width between the
 /// experiment's 88px and 205px bounds, then scroll horizontally when they no
-/// longer fit. The add action stays fixed and reachable at the trailing edge.
+/// longer fit. The add action follows the last tab in the scrolling strip.
 class ForumTabsBar extends StatefulWidget {
   ForumTabsBar({
     super.key,
@@ -92,6 +92,7 @@ class ForumTabsBar extends StatefulWidget {
 
 class _ForumTabsBarState extends State<ForumTabsBar> {
   final Map<String, GlobalKey> _itemKeys = {};
+  final GlobalKey _addKey = GlobalKey();
   double? _lastViewportWidth;
 
   @override
@@ -117,13 +118,15 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   void _scheduleRevealSelected() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final selectedContext = _itemKeys[widget.selectedId]?.currentContext;
-      if (selectedContext == null) return;
+      final revealContext = widget.items.last.id == widget.selectedId
+          ? _addKey.currentContext
+          : _itemKeys[widget.selectedId]?.currentContext;
+      if (revealContext == null) return;
       final reducedMotion =
-          MediaQuery.maybeOf(selectedContext)?.disableAnimations ?? false;
+          MediaQuery.maybeOf(revealContext)?.disableAnimations ?? false;
       unawaited(
         Scrollable.ensureVisible(
-          selectedContext,
+          revealContext,
           alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
           duration: reducedMotion
               ? Duration.zero
@@ -167,53 +170,56 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
             205.0,
           );
 
-          return Row(
-            children: [
-              Expanded(
-                child: ClipRect(
-                  child: SingleChildScrollView(
-                    key: const ValueKey('forum-tabs-scroll'),
-                    scrollDirection: Axis.horizontal,
-                    child: Semantics(
-                      role: SemanticsRole.tabBar,
-                      container: true,
-                      explicitChildNodes: true,
-                      label: 'Open tabs in ${widget.forumName}',
-                      child: Row(
-                        children: [
-                          for (
-                            var index = 0;
-                            index < widget.items.length;
-                            index++
-                          ) ...[
-                            SizedBox(
-                              key: _itemKeys.putIfAbsent(
-                                widget.items[index].id,
-                                GlobalKey.new,
-                              ),
-                              width: tabWidth,
-                              child: _ForumTab(
-                                item: widget.items[index],
-                                selected:
-                                    widget.items[index].id == widget.selectedId,
-                                onSelect: () =>
-                                    widget.onSelect(widget.items[index].id),
-                                onClose: () =>
-                                    widget.onClose(widget.items[index].id),
-                              ),
+          return ClipRect(
+            child: SingleChildScrollView(
+              key: const ValueKey('forum-tabs-scroll'),
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Semantics(
+                    role: SemanticsRole.tabBar,
+                    container: true,
+                    explicitChildNodes: true,
+                    label: 'Open tabs in ${widget.forumName}',
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (
+                          var index = 0;
+                          index < widget.items.length;
+                          index++
+                        ) ...[
+                          SizedBox(
+                            key: _itemKeys.putIfAbsent(
+                              widget.items[index].id,
+                              GlobalKey.new,
                             ),
-                            if (index != widget.items.length - 1)
-                              const SizedBox(width: gap),
-                          ],
+                            width: tabWidth,
+                            child: _ForumTab(
+                              item: widget.items[index],
+                              selected:
+                                  widget.items[index].id == widget.selectedId,
+                              onSelect: () =>
+                                  widget.onSelect(widget.items[index].id),
+                              onClose: () =>
+                                  widget.onClose(widget.items[index].id),
+                            ),
+                          ),
+                          if (index != widget.items.length - 1)
+                            const SizedBox(width: gap),
                         ],
-                      ),
+                      ],
                     ),
                   ),
-                ),
+                  const SizedBox(width: gap),
+                  SizedBox(
+                    key: _addKey,
+                    child: _NewTabButton(onPressed: widget.onAdd),
+                  ),
+                ],
               ),
-              const SizedBox(width: gap),
-              _NewTabButton(onPressed: widget.onAdd),
-            ],
+            ),
           );
         },
       ),
