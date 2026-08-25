@@ -8,10 +8,12 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'platform.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu.dart';
 
 typedef _AccountAvatarSnapshot = ({
+  bool showAccountControls,
   String? siteUrl,
   String? avatarUrl,
   String? username,
@@ -94,6 +96,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
       final instance = controller.currentInstance;
       final user = instance?.user;
       return (
+        showAccountControls: controller.rootMode == ShellRootMode.forum,
         siteUrl: instance?.url,
         avatarUrl: user?.avatarUrl,
         username: user?.username,
@@ -103,6 +106,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
     },
     builder: (context, account, _) {
       final theme = Theme.of(context);
+      if (!account.showAccountControls) return const SizedBox.shrink();
       final siteUrl = account.siteUrl;
       if (siteUrl == null) return const SizedBox.shrink();
       if (account.username == null) {
