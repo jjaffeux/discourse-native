@@ -43,6 +43,7 @@ void main() {
 
     expect(ForumTabsBar.height, shellHeaderHeight);
     expect(tester.getSize(bar).height, shellHeaderHeight);
+    expect(tester.getSize(bar).width, 500);
     expect(
       tester.getSize(add),
       const Size.square(ForumTabsBar.minimumActionTarget),
@@ -432,13 +433,17 @@ Future<void> _pumpBar(
           alignment: Alignment.topLeft,
           child: SizedBox(
             width: width,
-            child: ForumTabsBar(
-              forumName: 'Discourse Meta',
-              items: items,
-              selectedId: selectedId,
-              onAdd: addEnabled ? (onAdd ?? () {}) : null,
-              onSelect: onSelect ?? (_) {},
-              onClose: onClose ?? (_) {},
+            child: Column(
+              children: [
+                ForumTabsBar(
+                  forumName: 'Discourse Meta',
+                  items: items,
+                  selectedId: selectedId,
+                  onAdd: addEnabled ? (onAdd ?? () {}) : null,
+                  onSelect: onSelect ?? (_) {},
+                  onClose: onClose ?? (_) {},
+                ),
+              ],
             ),
           ),
         ),
