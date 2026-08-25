@@ -15,6 +15,7 @@ import '../../shell/platform.dart';
 import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../gifs/gif.dart';
@@ -583,7 +584,7 @@ class _ChatComposerState extends State<ChatComposer> {
                     ? EmojiPickerAnchor(
                         child: Center(
                           child: Builder(
-                            builder: (buttonContext) => IconButton(
+                            builder: (buttonContext) => DButton.iconOnly(
                               key: const ValueKey('chat-composer-emoji'),
                               onPressed:
                                   _pickingGif ||
@@ -602,7 +603,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                 size: 18,
                               ),
                               tooltip: 'Add emoji',
-                              color: theme.colorScheme.onSurfaceVariant,
+                              variant: DButtonVariant.flat,
                             ),
                           ),
                         ),
@@ -615,7 +616,7 @@ class _ChatComposerState extends State<ChatComposer> {
                   shell.siteConfigFor(composer.target.siteUrl).gifsEnabled,
               builder: (context, gifsEnabled, _) => gifsEnabled
                   ? Center(
-                      child: IconButton(
+                      child: DButton.iconOnly(
                         key: const ValueKey('chat-composer-gif'),
                         onPressed:
                             _pickingGif ||
@@ -629,7 +630,7 @@ class _ChatComposerState extends State<ChatComposer> {
                             : () => unawaited(_pickGif()),
                         icon: const DIcon(DIcons.gif, size: 18),
                         tooltip: 'Send GIF',
-                        color: theme.colorScheme.onSurfaceVariant,
+                        variant: DButtonVariant.flat,
                       ),
                     )
                   : const SizedBox.shrink(),
@@ -637,7 +638,7 @@ class _ChatComposerState extends State<ChatComposer> {
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: composer.text,
               builder: (context, _, _) => Center(
-                child: IconButton(
+                child: DButton.iconOnly(
                   key: const ValueKey('chat-composer-send'),
                   onPressed:
                       _pickingGif ||
@@ -650,7 +651,7 @@ class _ChatComposerState extends State<ChatComposer> {
                       : () => _send(composer),
                   icon: const DIcon(DIcons.paperPlane, size: 18),
                   tooltip: 'Send message',
-                  color: theme.colorScheme.primary,
+                  variant: DButtonVariant.transparentPrimary,
                 ),
               ),
             ),

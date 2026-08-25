@@ -20,6 +20,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -109,7 +110,7 @@ void main() {
 
     field.focusNode!.unfocus();
     await tester.pump();
-    expect(tester.widget<IconButton>(sendFinder).onPressed, isNull);
+    expect(tester.widget<DButton>(sendFinder).onPressed, isNull);
     await tester.tap(sendFinder);
     await tester.pump();
 
@@ -268,7 +269,16 @@ void main() {
       'chat-composer-gif',
       'chat-composer-send',
     ]) {
-      final button = tester.getRect(find.byKey(ValueKey(key)));
+      final finder = find.byKey(ValueKey(key));
+      final dButton = tester.widget<DButton>(finder);
+      final button = tester.getRect(finder);
+      expect(
+        dButton.variant,
+        key == 'chat-composer-send'
+            ? DButtonVariant.transparentPrimary
+            : DButtonVariant.flat,
+      );
+      expect(button.size, const Size.square(DButton.minimumDimension));
       expect(button.height, lessThan(composer.height));
       expect(button.center.dy, composer.center.dy);
     }
@@ -503,7 +513,7 @@ void main() {
     await tester.enterText(field, '**hello** chat');
     await tester.pump();
     final send = find.byKey(const ValueKey('chat-composer-send'));
-    expect(tester.widget<IconButton>(send).onPressed, isNotNull);
+    expect(tester.widget<DButton>(send).onPressed, isNotNull);
     await tester.tap(send);
     await tester.pumpAndSettle();
 
@@ -914,7 +924,7 @@ TextField _field(WidgetTester tester) => tester.widget(_composerField());
 
 String _text(WidgetTester tester) => _field(tester).controller!.text;
 
-IconButton _button(WidgetTester tester, String key) =>
+DButton _button(WidgetTester tester, String key) =>
     tester.widget(find.byKey(ValueKey(key)));
 
 Future<void> _openGifPicker(WidgetTester tester) async {
