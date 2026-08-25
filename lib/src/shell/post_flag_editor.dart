@@ -41,25 +41,64 @@ Future<void> showPostFlagEditor({
   );
 }
 
+/// Opens core's topic-level flag composer.
+Future<void> showTopicFlagEditor({
+  required BuildContext context,
+  required String siteUrl,
+  required TopicDetail topic,
+  required List<PostFlagType> flagTypes,
+}) async {
+  final controller = ShellScope.read(context);
+  final firstPost = topic.stream.isEmpty
+      ? null
+      : controller.store.read<Post>(siteUrl, topic.stream.first);
+  final minimum = controller
+      .siteConfigFor(siteUrl)
+      .minPersonalMessagePostLength;
+
+  await showShellSheet<void>(
+    context: context,
+    title: 'Thanks for keeping our community civil!',
+    dialogOnDesktop: true,
+    builder: (sheetContext) => PostFlagEditor(
+      siteUrl: siteUrl,
+      targetUsername: firstPost?.username ?? '',
+      targetNoun: 'topic',
+      flagTypes: flagTypes,
+      minimumMessageLength: minimum,
+      save: (type, {message}) =>
+          controller.createTopicFlag(siteUrl, topic, type, message: message),
+      onComplete: () => Navigator.of(sheetContext).pop(),
+      submitLabel: 'Flag Topic',
+    ),
+  );
+}
+
 /// The stateful part of the flag composer, public so its validation and
 /// accessibility behavior can be exercised without opening a route.
 class PostFlagEditor extends StatefulWidget {
   const PostFlagEditor({
     super.key,
     required this.siteUrl,
-    required this.post,
+    this.post,
+    this.targetUsername,
     required this.flagTypes,
     required this.minimumMessageLength,
     required this.save,
     required this.onComplete,
-  });
+    this.submitLabel = 'Flag Post',
+    this.targetNoun = 'post',
+  }) : assert(post != null || targetUsername != null);
 
   final String siteUrl;
-  final Post post;
+  final Post? post;
+  final String? targetUsername;
   final List<PostFlagType> flagTypes;
   final int minimumMessageLength;
   final PostFlagSaver save;
   final VoidCallback onComplete;
+  final String submitLabel;
+  final String targetNoun;
 
   @override
   State<PostFlagEditor> createState() => _PostFlagEditorState();
@@ -144,9 +183,11 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
     });
   }
 
+  String get _username => widget.targetUsername ?? widget.post?.username ?? '';
+
   String _title(PostFlagType type) => type.name
-      .replaceAll('{{username}}', widget.post.username)
-      .replaceAll('%{username}', widget.post.username);
+      .replaceAll('{{username}}', _username)
+      .replaceAll('%{username}', _username);
 
   String _description(BuildContext context, PostFlagType type) {
     if (context.isTouch && type.shortDescription.isNotEmpty) {
@@ -156,15 +197,17 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
   }
 
   String get _messageLabel => switch (_selected?.nameKey) {
-    'notify_user' => 'Message to @${widget.post.username}',
+    'notify_user' => 'Message to @$_username',
     'illegal' => 'Describe the illegal content',
     _ => 'Message to the moderators',
   };
 
   String get _messageHint => switch (_selected?.nameKey) {
-    'notify_user' => 'Explain constructively how this post can be improved.',
-    'illegal' => 'Explain precisely what is illegal about this post.',
-    _ => 'Explain why this post needs moderator attention.',
+    'notify_user' =>
+      'Explain constructively how this ${widget.targetNoun} can be improved.',
+    'illegal' =>
+      'Explain precisely what is illegal about this ${widget.targetNoun}.',
+    _ => 'Explain why this ${widget.targetNoun} needs moderator attention.',
   };
 
   String get _messageCounter {
@@ -297,7 +340,9 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
                         )
                       : const DIcon(DIcons.flag, size: 16),
                   label: Text(
-                    selected?.requireMessage == true ? 'Message' : 'Flag Post',
+                    selected?.requireMessage == true
+                        ? 'Message'
+                        : widget.submitLabel,
                   ),
                 ),
               ),

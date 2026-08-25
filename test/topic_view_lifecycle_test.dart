@@ -954,6 +954,92 @@ void main() {
       [for (var id = 1; id <= 20; id++) id],
     ]);
   });
+
+  test(
+    'topic progress resolves an unloaded stream id before jumping',
+    () async {
+      final site = instance('meta.example');
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': []},
+        postsById: const {
+          300: Post(
+            id: 300,
+            postNumber: 12,
+            username: 'sam',
+            cooked: '<p>Target</p>',
+          ),
+        },
+      );
+      final controller = _controller(site, api);
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.store
+        ..put(
+          site.url,
+          const TopicDetail(
+            id: 1,
+            title: 'One',
+            stream: [100, 200, 300],
+            postsCount: 3,
+          ),
+        )
+        ..put(
+          site.url,
+          const Post(
+            id: 100,
+            postNumber: 1,
+            username: 'sam',
+            cooked: '<p>First</p>',
+          ),
+        );
+      controller.pushContent(
+        ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+      );
+
+      expect(await controller.jumpToCurrentTopicIndex(3), isTrue);
+
+      expect(api.postFetches, const [
+        [300],
+      ]);
+      expect(controller.currentContent?.postNumber, 12);
+      expect(controller.store.read<Post>(site.url, 300)?.postNumber, 12);
+    },
+  );
+
+  testWidgets('topic progress opens a stream-position navigator', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+
+    final progress = find.byKey(const ValueKey('topic-progress-button'));
+    expect(progress, findsOneWidget);
+    expect(find.textContaining('/ 30'), findsOneWidget);
+
+    await tester.tap(progress);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Topic progress'), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-progress-slider')), findsOneWidget);
+    expect(find.text('First post'), findsOneWidget);
+    expect(find.text('Latest post'), findsOneWidget);
+
+    await tester.tap(find.text('Latest post'));
+    await tester.pumpAndSettle();
+
+    expect(controller.currentContent?.postNumber, 30);
+    expect(find.byKey(const ValueKey('topic-progress-slider')), findsNothing);
+  });
 }
 
 ShellController _controller(DiscourseInstance site, FakeDiscourseApi api) =>

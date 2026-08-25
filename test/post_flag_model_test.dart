@@ -48,6 +48,16 @@ void main() {
           },
           {'id': 2, 'name_key': 'like', 'name': 'Like', 'is_flag': false},
         ],
+        'topic_flag_types': [
+          {
+            'id': 8,
+            'name_key': 'spam',
+            'name': 'Spam',
+            'description': '<p>Promotional topic</p>',
+            'is_flag': true,
+            'applies_to': ['Topic'],
+          },
+        ],
       });
 
       expect(catalog.postFlags.map((type) => type.id), [3, 91, 7]);
@@ -57,6 +67,8 @@ void main() {
       expect(catalog.postFlags[1].requireMessage, isTrue);
       expect(catalog.postFlags[1].appliesToPost, isTrue);
       expect(catalog.postFlags.last.appliesToPost, isFalse);
+      expect(catalog.topicFlags.single.id, 8);
+      expect(catalog.topicFlags.single.appliesToTopic, isTrue);
       expect(
         () => catalog.postFlags.add(catalog.postFlags.first),
         throwsUnsupportedError,

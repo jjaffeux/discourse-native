@@ -8,6 +8,36 @@ import 'json.dart';
 import 'post_flag.dart';
 import 'topic.dart';
 
+@immutable
+class PostNotice {
+  const PostNotice({required this.type, this.raw, this.cooked});
+
+  static PostNotice? fromJson(Object? value) {
+    final json = jsonObject(value);
+    final type = jsonText(json['type']);
+    if (type == null) return null;
+    return PostNotice(
+      type: type,
+      raw: jsonText(json['raw']),
+      cooked: jsonText(json['cooked']),
+    );
+  }
+
+  final String type;
+  final String? raw;
+  final String? cooked;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PostNotice &&
+      other.type == type &&
+      other.raw == raw &&
+      other.cooked == cooked;
+
+  @override
+  int get hashCode => Object.hash(type, raw, cooked);
+}
+
 /// One post in a topic.
 @immutable
 class Post with Storable<Post> {
@@ -16,6 +46,7 @@ class Post with Storable<Post> {
     required this.postNumber,
     required this.username,
     required this.cooked,
+    this.userId,
     this.name,
     this.avatarUrl,
     this.createdAt,
@@ -25,6 +56,11 @@ class Post with Storable<Post> {
     this.canEdit = false,
     this.canDelete = false,
     this.canRecover = false,
+    this.canPermanentlyDelete = false,
+    this.wiki = false,
+    this.canWiki = false,
+    this.locked = false,
+    this.notice,
     this.hidden = false,
     this.deletedAt,
     this.userDeleted = false,
@@ -46,6 +82,7 @@ class Post with Storable<Post> {
   /// notices a topic collects — closed, pinned, invited — are 3; and private
   /// whispers are 4.
   static const int regularPostType = 1;
+  static const int moderatorPostType = 2;
   static const int smallActionPostType = 3;
   static const int whisperPostType = 4;
 
@@ -67,6 +104,7 @@ class Post with Storable<Post> {
       id: jsonInt(json['id']),
       postNumber: jsonInt(json['post_number']),
       username: jsonString(json['username']),
+      userId: jsonIntOrNull(json['user_id']),
       name: jsonText(json['name']),
       // Server-rendered HTML. Discourse does the markdown, oneboxing, emoji
       // and mention rendering, which is far too much to redo client side.
@@ -83,6 +121,11 @@ class Post with Storable<Post> {
       canEdit: json['can_edit'] == true,
       canDelete: json['can_delete'] == true,
       canRecover: json['can_recover'] == true,
+      canPermanentlyDelete: json['can_permanently_delete'] == true,
+      wiki: json['wiki'] == true,
+      canWiki: json['can_wiki'] == true,
+      locked: json['locked'] == true,
+      notice: PostNotice.fromJson(json['notice']),
       hidden: json['hidden'] == true,
       // Only staff are ever shown a deleted post; for everyone else Discourse
       // leaves it out of the stream entirely.
@@ -148,6 +191,7 @@ class Post with Storable<Post> {
   final int id;
   final int postNumber;
   final String username;
+  final int? userId;
   final String? name;
 
   /// HTML as the site rendered it.
@@ -165,6 +209,11 @@ class Post with Storable<Post> {
   /// Whether this reader may delete it, and — once it is gone — put it back.
   final bool canDelete;
   final bool canRecover;
+  final bool canPermanentlyDelete;
+  final bool wiki;
+  final bool canWiki;
+  final bool locked;
+  final PostNotice? notice;
 
   /// Whether Discourse has temporarily hidden this post after flagging.
   ///
@@ -260,6 +309,8 @@ class Post with Storable<Post> {
   /// action codes without making those values part of this core model.
   bool get isSmallAction => postType == smallActionPostType;
 
+  bool get isModeratorAction => postType == moderatorPostType;
+
   /// A private aside visible only to the site's configured whisper groups.
   bool get isWhisper => postType == whisperPostType;
 
@@ -350,6 +401,10 @@ class Post with Storable<Post> {
     bool? canUnlike,
     List<PostInboundLink>? inboundLinks,
     bool? hidden,
+    bool? wiki,
+    bool? locked,
+    PostNotice? notice,
+    bool clearNotice = false,
     List<PostActionSummary>? postActions,
     Bookmark? bookmark,
     bool clearBookmark = false,
@@ -358,6 +413,7 @@ class Post with Storable<Post> {
     id: id,
     postNumber: postNumber,
     username: username,
+    userId: userId,
     cooked: cooked,
     name: name,
     avatarUrl: avatarUrl,
@@ -368,6 +424,11 @@ class Post with Storable<Post> {
     canEdit: canEdit,
     canDelete: canDelete,
     canRecover: canRecover,
+    canPermanentlyDelete: canPermanentlyDelete,
+    wiki: wiki ?? this.wiki,
+    canWiki: canWiki,
+    locked: locked ?? this.locked,
+    notice: clearNotice ? null : (notice ?? this.notice),
     hidden: hidden ?? this.hidden,
     deletedAt: deletedAt,
     userDeleted: userDeleted,
@@ -396,6 +457,7 @@ class Post with Storable<Post> {
           other.id == id &&
           other.postNumber == postNumber &&
           other.username == username &&
+          other.userId == userId &&
           other.name == name &&
           other.cooked == cooked &&
           other.avatarUrl == avatarUrl &&
@@ -406,6 +468,11 @@ class Post with Storable<Post> {
           other.canEdit == canEdit &&
           other.canDelete == canDelete &&
           other.canRecover == canRecover &&
+          other.canPermanentlyDelete == canPermanentlyDelete &&
+          other.wiki == wiki &&
+          other.canWiki == canWiki &&
+          other.locked == locked &&
+          other.notice == notice &&
           other.hidden == hidden &&
           other.deletedAt == deletedAt &&
           other.userDeleted == userDeleted &&
@@ -427,6 +494,7 @@ class Post with Storable<Post> {
     id,
     postNumber,
     username,
+    userId,
     name,
     cooked,
     avatarUrl,
@@ -437,6 +505,11 @@ class Post with Storable<Post> {
     canEdit,
     canDelete,
     canRecover,
+    canPermanentlyDelete,
+    wiki,
+    canWiki,
+    locked,
+    notice,
     hidden,
     deletedAt,
     userDeleted,
@@ -512,6 +585,17 @@ typedef TopicPostsPayload = ({
   TopicRecommendations? recommendations,
 });
 
+/// One status toggle accepted by `PUT /t/{id}/status`.
+enum TopicStatusProperty {
+  closed('closed'),
+  archived('archived'),
+  visible('visible');
+
+  const TopicStatusProperty(this.wireName);
+
+  final String wireName;
+}
+
 /// A topic, and the order its posts go in.
 ///
 /// Deliberately holds no [Post]. The posts live in the [Store] under their own
@@ -543,7 +627,25 @@ class TopicDetail with Storable<TopicDetail> {
     this.participants = const [],
     this.links = const [],
     this.notificationLevel = TopicNotificationLevel.normal,
+    this.pinned = false,
+    this.unpinned = false,
+    this.pinnedGlobally = false,
+    this.closed = false,
     this.archived = false,
+    this.visible = true,
+    this.deletedAt,
+    this.canCloseTopic = false,
+    this.canArchiveTopic = false,
+    this.canToggleTopicVisibility = false,
+    this.canDeleteTopic = false,
+    this.canRecoverTopic = false,
+    this.canPermanentlyDelete = false,
+    this.canFlagTopic = false,
+    this.canReplyAsNewTopic = false,
+    this.canEditStaffNotes = false,
+    this.canMovePosts = false,
+    this.canSplitMergeTopic = false,
+    this.topicActions = const [],
     this.draft,
     this.draftSequence = 0,
     this.bookmarks = const [],
@@ -619,7 +721,29 @@ class TopicDetail with Storable<TopicDetail> {
         notificationLevel: TopicNotificationLevel.fromJson(
           details['notification_level'],
         ),
+        pinned: json['pinned'] == true,
+        unpinned: json['unpinned'] == true,
+        pinnedGlobally: json['pinned_globally'] == true,
+        closed: json['closed'] == true,
         archived: json['archived'] == true,
+        visible: json['visible'] != false,
+        deletedAt: jsonDate(json['deleted_at']),
+        canCloseTopic: details['can_close_topic'] == true,
+        canArchiveTopic: details['can_archive_topic'] == true,
+        canToggleTopicVisibility:
+            details['can_toggle_topic_visibility'] == true,
+        canDeleteTopic: details['can_delete'] == true,
+        canRecoverTopic: details['can_recover'] == true,
+        canPermanentlyDelete: details['can_permanently_delete'] == true,
+        canFlagTopic: details['can_flag_topic'] == true,
+        canReplyAsNewTopic: details['can_reply_as_new_topic'] == true,
+        canEditStaffNotes: details['can_edit_staff_notes'] == true,
+        canMovePosts: details['can_move_posts'] == true,
+        canSplitMergeTopic: details['can_split_merge_topic'] == true,
+        topicActions: List.unmodifiable([
+          for (final action in jsonObjects(json['actions_summary']))
+            if (jsonInt(action['id']) > 0) PostActionSummary.fromJson(action),
+        ]),
         // The topic payload already carries any draft for it, so opening a
         // composer needs no request of its own.
         draft: ComposerDraft.decode(json['draft']),
@@ -684,8 +808,92 @@ class TopicDetail with Storable<TopicDetail> {
   /// How closely this reader follows the topic.
   final TopicNotificationLevel notificationLevel;
 
+  /// This account's choice for a topic the site offers as pinnable.
+  ///
+  /// Core sends neither flag for an ordinary topic. A topic is eligible for
+  /// the footer control only when either `pinned` or `unpinned` is present and
+  /// true, matching the web app's `PinnedButton.isHidden` contract.
+  final bool pinned;
+  final bool unpinned;
+  final bool pinnedGlobally;
+
+  bool get hasPinPreference => pinned || unpinned;
+
+  TopicDetail withPinPreference(bool nextPinned) =>
+      copyWith(pinned: nextPinned, unpinned: !nextPinned);
+
+  final bool closed;
+
   /// Archived topics reject poll writes even when their posts remain visible.
   final bool archived;
+
+  final bool visible;
+  final DateTime? deletedAt;
+  final bool canCloseTopic;
+  final bool canArchiveTopic;
+  final bool canToggleTopicVisibility;
+  final bool canDeleteTopic;
+  final bool canRecoverTopic;
+  final bool canPermanentlyDelete;
+  final bool canFlagTopic;
+  final bool canReplyAsNewTopic;
+  final bool canEditStaffNotes;
+  final bool canMovePosts;
+  final bool canSplitMergeTopic;
+  final List<PostActionSummary> topicActions;
+
+  bool get canSelectPosts => canSplitMergeTopic || canMovePosts;
+
+  bool canFlagWith(int typeId) =>
+      canFlagTopic &&
+      topicActions.any((action) => action.id == typeId && action.canAct);
+
+  TopicDetail withTopicFlag(int typeId) => copyWith(
+    topicActions: [
+      for (final action in topicActions)
+        PostActionSummary(
+          id: action.id,
+          count: action.count + (action.id == typeId ? 1 : 0),
+          acted: action.id == typeId || action.acted,
+          canAct: false,
+          canUndo: action.id == typeId || action.canUndo,
+        ),
+    ],
+  );
+
+  bool canChangeStatus(TopicStatusProperty property) => switch (property) {
+    TopicStatusProperty.closed => canCloseTopic,
+    TopicStatusProperty.archived => canArchiveTopic,
+    TopicStatusProperty.visible => canToggleTopicVisibility,
+  };
+
+  bool statusValue(TopicStatusProperty property) => switch (property) {
+    TopicStatusProperty.closed => closed,
+    TopicStatusProperty.archived => archived,
+    TopicStatusProperty.visible => visible,
+  };
+
+  bool get hasStatusActions =>
+      canCloseTopic ||
+      canArchiveTopic ||
+      canToggleTopicVisibility ||
+      canDeleteTopic ||
+      canRecoverTopic ||
+      canSelectPosts;
+
+  TopicDetail withStatus(TopicStatusProperty property, bool enabled) =>
+      copyWith(
+        closed: property == TopicStatusProperty.closed ? enabled : null,
+        archived: property == TopicStatusProperty.archived ? enabled : null,
+        visible: property == TopicStatusProperty.visible ? enabled : null,
+      );
+
+  TopicDetail withDeletion(bool deleted, DateTime changedAt) => copyWith(
+    deletedAt: deleted ? changedAt : null,
+    clearDeletedAt: !deleted,
+    canDeleteTopic: !deleted,
+    canRecoverTopic: deleted,
+  );
 
   /// A reply left unfinished here, wherever it was started.
   final ComposerDraft? draft;
@@ -860,7 +1068,25 @@ class TopicDetail with Storable<TopicDetail> {
     participants: participants,
     links: links,
     notificationLevel: notificationLevel,
+    pinned: pinned,
+    unpinned: unpinned,
+    pinnedGlobally: pinnedGlobally,
+    closed: closed,
     archived: archived,
+    visible: visible,
+    deletedAt: deletedAt,
+    canCloseTopic: canCloseTopic,
+    canArchiveTopic: canArchiveTopic,
+    canToggleTopicVisibility: canToggleTopicVisibility,
+    canDeleteTopic: canDeleteTopic,
+    canRecoverTopic: canRecoverTopic,
+    canPermanentlyDelete: canPermanentlyDelete,
+    canFlagTopic: canFlagTopic,
+    canReplyAsNewTopic: canReplyAsNewTopic,
+    canEditStaffNotes: canEditStaffNotes,
+    canMovePosts: canMovePosts,
+    canSplitMergeTopic: canSplitMergeTopic,
+    topicActions: topicActions,
     draft: draft,
     draftSequence: draftSequence,
     bookmarks: bookmarks,
@@ -913,12 +1139,21 @@ class TopicDetail with Storable<TopicDetail> {
     int? draftSequence,
     List<Bookmark>? bookmarks,
     bool? archived,
+    bool? closed,
+    bool? visible,
+    DateTime? deletedAt,
+    bool clearDeletedAt = false,
     int? categoryId,
     bool clearCategory = false,
     List<TopicTag>? tags,
     bool? canEdit,
     bool? canEditTags,
+    bool? canDeleteTopic,
+    bool? canRecoverTopic,
     TopicNotificationLevel? notificationLevel,
+    bool? pinned,
+    bool? unpinned,
+    List<PostActionSummary>? topicActions,
     TopicRecommendations? recommendations,
     PluginData? plugins,
   }) => TopicDetail(
@@ -945,7 +1180,27 @@ class TopicDetail with Storable<TopicDetail> {
     participants: participants,
     links: links,
     notificationLevel: notificationLevel ?? this.notificationLevel,
+    pinned: pinned ?? this.pinned,
+    unpinned: unpinned ?? this.unpinned,
+    pinnedGlobally: pinnedGlobally,
+    closed: closed ?? this.closed,
     archived: archived ?? this.archived,
+    visible: visible ?? this.visible,
+    deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
+    canCloseTopic: canCloseTopic,
+    canArchiveTopic: canArchiveTopic,
+    canToggleTopicVisibility: canToggleTopicVisibility,
+    canDeleteTopic: canDeleteTopic ?? this.canDeleteTopic,
+    canRecoverTopic: canRecoverTopic ?? this.canRecoverTopic,
+    canPermanentlyDelete: canPermanentlyDelete,
+    canFlagTopic: canFlagTopic,
+    canReplyAsNewTopic: canReplyAsNewTopic,
+    canEditStaffNotes: canEditStaffNotes,
+    canMovePosts: canMovePosts,
+    canSplitMergeTopic: canSplitMergeTopic,
+    topicActions: topicActions == null
+        ? this.topicActions
+        : List.unmodifiable(topicActions),
     draft: clearDraft ? null : (draft ?? this.draft),
     draftSequence: draftSequence ?? this.draftSequence,
     bookmarks: bookmarks == null
@@ -980,7 +1235,25 @@ class TopicDetail with Storable<TopicDetail> {
           listEquals(other.participants, participants) &&
           listEquals(other.links, links) &&
           other.notificationLevel == notificationLevel &&
+          other.pinned == pinned &&
+          other.unpinned == unpinned &&
+          other.pinnedGlobally == pinnedGlobally &&
+          other.closed == closed &&
           other.archived == archived &&
+          other.visible == visible &&
+          other.deletedAt == deletedAt &&
+          other.canCloseTopic == canCloseTopic &&
+          other.canArchiveTopic == canArchiveTopic &&
+          other.canToggleTopicVisibility == canToggleTopicVisibility &&
+          other.canDeleteTopic == canDeleteTopic &&
+          other.canRecoverTopic == canRecoverTopic &&
+          other.canPermanentlyDelete == canPermanentlyDelete &&
+          other.canFlagTopic == canFlagTopic &&
+          other.canReplyAsNewTopic == canReplyAsNewTopic &&
+          other.canEditStaffNotes == canEditStaffNotes &&
+          other.canMovePosts == canMovePosts &&
+          other.canSplitMergeTopic == canSplitMergeTopic &&
+          listEquals(other.topicActions, topicActions) &&
           other.draft == draft &&
           other.draftSequence == draftSequence &&
           listEquals(other.bookmarks, bookmarks) &&
@@ -1010,7 +1283,25 @@ class TopicDetail with Storable<TopicDetail> {
     Object.hashAll(participants),
     Object.hashAll(links),
     notificationLevel,
+    pinned,
+    unpinned,
+    pinnedGlobally,
+    closed,
     archived,
+    visible,
+    deletedAt,
+    canCloseTopic,
+    canArchiveTopic,
+    canToggleTopicVisibility,
+    canDeleteTopic,
+    canRecoverTopic,
+    canPermanentlyDelete,
+    canFlagTopic,
+    canReplyAsNewTopic,
+    canEditStaffNotes,
+    canMovePosts,
+    canSplitMergeTopic,
+    Object.hashAll(topicActions),
     draft,
     draftSequence,
     Object.hashAll(bookmarks),

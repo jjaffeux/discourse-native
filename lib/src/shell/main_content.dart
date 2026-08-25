@@ -6,6 +6,7 @@ import '../models/bookmark.dart';
 import '../models/category_feed.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
+import '../models/post_flag.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../plugins/plugin_scope.dart';
@@ -22,6 +23,7 @@ import 'composer_panel.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
 import 'forum_tabs_bar.dart';
+import 'post_flag_editor.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -30,6 +32,7 @@ import 'title_bar.dart';
 import 'topic_create_button.dart';
 import 'topic_filter_page.dart';
 import 'topic_list_view.dart';
+import 'topic_share.dart';
 import 'topic_title.dart';
 import 'topic_view.dart';
 import 'user_menu_button.dart';
@@ -274,6 +277,11 @@ class _ContentHeader extends StatelessWidget {
       _ => const <Widget>[],
     };
     final contentHeader = registry.contentHeaderActions(context, route);
+    final topicFlags = switch ((siteUrl, topic)) {
+      (final String siteUrl, final TopicDetail topic) =>
+        controller.availableTopicFlagTypes(siteUrl, topic),
+      _ => const <PostFlagType>[],
+    };
 
     // On compact the main region has replaced the sidebar, so back always has
     // somewhere to go. On wider layouts it only matters inside the stack.
@@ -380,6 +388,69 @@ class _ContentHeader extends StatelessWidget {
               ],
               ...contentHeader,
               ...topicHeader,
+              if (route.isTopic && siteUrl != null && topic != null)
+                IconButton(
+                  key: const ValueKey('topic-share-button'),
+                  onPressed: () {
+                    final instance = controller.currentInstance;
+                    if (instance == null || instance.url != siteUrl) return;
+                    unawaited(
+                      showTopicShareSheet(
+                        context: context,
+                        title: topic!.title,
+                        url: topicShareUrl(
+                          siteUrl: siteUrl!,
+                          topicId: topic!.id,
+                          slug: route.slug,
+                          config: instance.config,
+                          username: instance.user?.username,
+                        ),
+                        onReplyAsNewTopic: topic!.canReplyAsNewTopic
+                            ? () => controller.openReplyAsNewTopic(
+                                topicContinuationMarkdown(
+                                  title: topic!.title,
+                                  url: topicShareUrl(
+                                    siteUrl: siteUrl!,
+                                    topicId: topic!.id,
+                                    slug: route.slug,
+                                    config: instance.config,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+                    );
+                  },
+                  icon: const DIcon(DIcons.upRightFromSquare, size: 18),
+                  tooltip: 'Share this topic',
+                ),
+              if (route.isTopic &&
+                  siteUrl != null &&
+                  topic != null &&
+                  topicFlags.isNotEmpty)
+                IconButton(
+                  key: const ValueKey('topic-flag-button'),
+                  onPressed:
+                      controller.topicFlagWriteInFlight(siteUrl!, topic!.id)
+                      ? null
+                      : () => unawaited(
+                          showTopicFlagEditor(
+                            context: context,
+                            siteUrl: siteUrl!,
+                            topic: topic!,
+                            flagTypes: topicFlags,
+                          ),
+                        ),
+                  icon: const DIcon(DIcons.flag, size: 18),
+                  tooltip: 'Flag this topic',
+                ),
+              if (route.isTopic && siteUrl != null && topic != null)
+                _TopicStatusButton(siteUrl: siteUrl!, topic: topic!),
+              if (route.isTopic &&
+                  siteUrl != null &&
+                  topic != null &&
+                  controller.currentInstance?.user != null)
+                _TopicPinButton(siteUrl: siteUrl!, topic: topic!),
               if (route.isTopic &&
                   isConnected &&
                   siteUrl != null &&
@@ -441,6 +512,261 @@ class _ContentHeader extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _TopicPinButton extends StatelessWidget {
+  const _TopicPinButton({required this.siteUrl, required this.topic});
+
+  final String siteUrl;
+  final TopicDetail topic;
+
+  Future<void> _change(BuildContext context, bool pinned) async {
+    final error = await ShellScope.read(
+      context,
+    ).updateTopicPinPreference(siteUrl, topic.id, pinned);
+    if (error == null || !context.mounted) return;
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(error)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!topic.hasPinPreference) return const SizedBox.shrink();
+    final options = [
+      ChoiceMenuOption(
+        value: true,
+        title: topic.pinnedGlobally ? 'Pinned globally' : 'Pinned',
+        description: 'Keep this topic at the top of its list',
+        icon: DIcons.thumbtack,
+      ),
+      const ChoiceMenuOption(
+        value: false,
+        title: 'Unpinned',
+        description: 'Do not keep this topic at the top',
+        icon: DIcons.thumbtack,
+      ),
+    ];
+    return ShellSelector<bool>(
+      select: (controller) =>
+          controller.topicPinWriteInFlight(siteUrl, topic.id),
+      builder: (context, busy, _) => ChoiceMenuAnchor<bool>(
+        title: 'Pinned topic options',
+        value: topic.pinned,
+        options: options,
+        enabled: !busy,
+        onSelected: (pinned) => unawaited(_change(context, pinned)),
+        builder: (context, openMenu) => IconButton(
+          key: const ValueKey('topic-pin-button'),
+          tooltip: 'Pinned topic options',
+          onPressed: openMenu,
+          icon: busy
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                )
+              : const DIcon(DIcons.thumbtack, size: 18),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopicStatusButton extends StatelessWidget {
+  const _TopicStatusButton({required this.siteUrl, required this.topic});
+
+  final String siteUrl;
+  final TopicDetail topic;
+
+  Future<void> _change(
+    BuildContext context,
+    TopicStatusProperty status,
+    bool enabled,
+  ) async {
+    final controller = ShellScope.read(context);
+    final error = await controller.updateTopicStatus(
+      siteUrl,
+      topic.id,
+      status,
+      enabled,
+    );
+    if (error == null || !context.mounted) return;
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(error)));
+  }
+
+  Future<void> _changeDeletion(BuildContext context, bool deleted) async {
+    final controller = ShellScope.read(context);
+    if (deleted) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Delete topic?'),
+          content: const Text(
+            'This removes the topic and all of its replies. Staff may be able '
+            'to recover it later.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const ValueKey('topic-delete-confirm'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !context.mounted) return;
+    }
+    final error = await controller.setTopicDeleted(siteUrl, topic.id, deleted);
+    if (!context.mounted) return;
+    if (error != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    // Core redirects an ordinary author after deletion because the topic is no
+    // longer readable to them. Staff keep it in place so Recover is available.
+    if (deleted && controller.currentInstance?.user?.staff != true) {
+      controller.handleBack(canReturnToSidebar: false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!topic.hasStatusActions) return const SizedBox.shrink();
+    return ShellSelector<bool>(
+      select: (controller) =>
+          controller.topicStatusWriteInFlight(siteUrl, topic.id) ||
+          controller.topicDeletionWriteInFlight(siteUrl, topic.id) ||
+          controller.topicPostSelectionWriteInFlight(siteUrl, topic.id),
+      builder: (context, busy, _) => MenuAnchor(
+        menuChildren: [
+          if (topic.canSelectPosts)
+            MenuItemButton(
+              key: const ValueKey('topic-select-posts'),
+              onPressed: busy
+                  ? null
+                  : () {
+                      final controller = ShellScope.read(context);
+                      controller.setTopicPostSelectionEnabled(
+                        siteUrl,
+                        topic.id,
+                        !controller.topicPostSelectionEnabled(
+                          siteUrl,
+                          topic.id,
+                        ),
+                      );
+                    },
+              leadingIcon: const DIcon(DIcons.list, size: 16),
+              child: const Text('Select posts'),
+            ),
+          if (topic.canSelectPosts &&
+              (topic.canCloseTopic ||
+                  topic.canArchiveTopic ||
+                  topic.canToggleTopicVisibility ||
+                  topic.canDeleteTopic ||
+                  topic.canRecoverTopic))
+            const Divider(height: 1),
+          if (topic.canCloseTopic)
+            MenuItemButton(
+              key: const ValueKey('topic-status-closed'),
+              onPressed: busy
+                  ? null
+                  : () => unawaited(
+                      _change(
+                        context,
+                        TopicStatusProperty.closed,
+                        !topic.closed,
+                      ),
+                    ),
+              leadingIcon: const DIcon(DIcons.lock, size: 16),
+              child: Text(topic.closed ? 'Open topic' : 'Close topic'),
+            ),
+          if (topic.canArchiveTopic)
+            MenuItemButton(
+              key: const ValueKey('topic-status-archived'),
+              onPressed: busy
+                  ? null
+                  : () => unawaited(
+                      _change(
+                        context,
+                        TopicStatusProperty.archived,
+                        !topic.archived,
+                      ),
+                    ),
+              leadingIcon: DIcon(
+                topic.archived ? DIcons.folderOpen : DIcons.folder,
+                size: 16,
+              ),
+              child: Text(topic.archived ? 'Unarchive topic' : 'Archive topic'),
+            ),
+          if (topic.canToggleTopicVisibility)
+            MenuItemButton(
+              key: const ValueKey('topic-status-visible'),
+              onPressed: busy
+                  ? null
+                  : () => unawaited(
+                      _change(
+                        context,
+                        TopicStatusProperty.visible,
+                        !topic.visible,
+                      ),
+                    ),
+              leadingIcon: DIcon(
+                topic.visible ? DIcons.farEyeSlash : DIcons.farEye,
+                size: 16,
+              ),
+              child: Text(
+                topic.visible ? 'Make topic unlisted' : 'Make topic visible',
+              ),
+            ),
+          if ((topic.canDeleteTopic || topic.canRecoverTopic) &&
+              (topic.canCloseTopic ||
+                  topic.canArchiveTopic ||
+                  topic.canToggleTopicVisibility))
+            const Divider(height: 1),
+          if (topic.canDeleteTopic)
+            MenuItemButton(
+              key: const ValueKey('topic-status-delete'),
+              onPressed: busy
+                  ? null
+                  : () => unawaited(_changeDeletion(context, true)),
+              leadingIcon: const DIcon(DIcons.trashCan, size: 16),
+              child: Text(
+                'Delete topic',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          if (topic.canRecoverTopic)
+            MenuItemButton(
+              key: const ValueKey('topic-status-recover'),
+              onPressed: busy
+                  ? null
+                  : () => unawaited(_changeDeletion(context, false)),
+              leadingIcon: const DIcon(DIcons.arrowRotateLeft, size: 16),
+              child: const Text('Recover topic'),
+            ),
+        ],
+        builder: (context, menu, _) => IconButton(
+          key: const ValueKey('topic-status-button'),
+          tooltip: 'Topic actions',
+          onPressed: busy ? null : menu.open,
+          icon: busy
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                )
+              : const DIcon(DIcons.gear, size: 18),
+        ),
       ),
     );
   }

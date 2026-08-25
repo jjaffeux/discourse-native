@@ -15,9 +15,13 @@ import 'bookmark_ui.dart';
 import 'platform.dart';
 import 'post_action.dart';
 import 'post_flag_editor.dart';
+import 'post_notice_editor.dart';
+import 'post_permanent_delete.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
+import 'topic_change_owner.dart';
+import 'topic_share.dart';
 
 /// What can be done with one post, kept out of the way until it is wanted.
 ///
@@ -232,7 +236,29 @@ class _PostActionsState extends State<PostActions> {
             ),
           ),
         ),
-      if (_postShareUrl(controller) case final url?)
+      if (postUrl case final url?)
+        PostAction(
+          icon: DIcons.upRightFromSquare,
+          label: 'Share',
+          tooltip: 'Share this post',
+          onInvoke: () => unawaited(
+            showPostShareSheet(
+              context: context,
+              topicTitle: topicTitle!,
+              url: url,
+              postNumber: post.postNumber,
+              onReplyAsNewTopic: topic?.canReplyAsNewTopic == true
+                  ? () => controller.openReplyAsNewTopic(
+                      topicContinuationMarkdown(
+                        title: topic!.title,
+                        url: _postCanonicalUrl(controller)!,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+        ),
+      if (postUrl case final url?)
         PostAction(
           icon: DIcons.link,
           label: 'Copy link',
@@ -255,6 +281,26 @@ class _PostActionsState extends State<PostActions> {
           label: 'Edit',
           tooltip: 'Edit this post',
           onInvoke: () => controller.openEdit(post),
+        ),
+      if (post.canWiki)
+        PostAction(
+          icon: DIcons.farPenToSquare,
+          label: post.wiki ? 'Remove wiki' : 'Make wiki',
+          tooltip: post.wiki
+              ? 'Return this to ordinary post editing'
+              : 'Allow community members to edit this post',
+          onInvoke: () =>
+              _report(controller, controller.setPostWiki(post, !post.wiki)),
+        ),
+      if (controller.canLockPost(post))
+        PostAction(
+          icon: post.locked ? DIcons.unlock : DIcons.lock,
+          label: post.locked ? 'Unlock post' : 'Lock post',
+          tooltip: post.locked
+              ? 'Allow this post to be edited again'
+              : 'Prevent further edits to this post',
+          onInvoke: () =>
+              _report(controller, controller.setPostLocked(post, !post.locked)),
         ),
       if (availableFlags.isNotEmpty)
         PostAction(
@@ -282,6 +328,57 @@ class _PostActionsState extends State<PostActions> {
             postUrl: postUrl,
           ),
         ),
+      if (controller.canUnhidePost(post))
+        PostAction(
+          icon: DIcons.farEye,
+          label: 'Unhide post',
+          tooltip: 'Restore this hidden post',
+          onInvoke: () => _report(controller, controller.unhidePost(post)),
+        ),
+      if (controller.canTogglePostType(post))
+        PostAction(
+          icon: DIcons.flag,
+          label: post.isModeratorAction
+              ? 'Revert to regular post'
+              : 'Convert to moderator post',
+          tooltip: post.isModeratorAction
+              ? 'Remove the moderator styling from this post'
+              : 'Mark this as an official moderator post',
+          onInvoke: () => _report(controller, controller.togglePostType(post)),
+        ),
+      if (controller.canEditPostNotice(post))
+        PostAction(
+          icon: DIcons.user,
+          label: post.notice == null ? 'Add post notice' : 'Change post notice',
+          tooltip: post.notice == null
+              ? 'Add a staff notice above this post'
+              : 'Change or remove the staff notice',
+          onInvoke: () => showPostNoticeEditor(
+            context: context,
+            controller: controller,
+            post: post,
+          ),
+        ),
+      if (controller.canChangeTopicPostOwner(post))
+        PostAction(
+          icon: DIcons.user,
+          label: 'Change owner',
+          tooltip: 'Assign this post to another account',
+          onInvoke: () {
+            final topic = controller.currentTopic;
+            if (topic == null) return;
+            unawaited(
+              showTopicChangeOwner(
+                context: context,
+                controller: controller,
+                siteUrl: widget.siteUrl,
+                topicId: topic.id,
+                selectedPosts: [post],
+                usesTopicSelection: false,
+              ),
+            );
+          },
+        ),
       if (post.postNumber == 1 &&
           controller.currentTopic?.canEdit != true &&
           controller.currentTopic?.canEditTags == true)
@@ -290,6 +387,20 @@ class _PostActionsState extends State<PostActions> {
           label: 'Edit tags',
           tooltip: 'Edit topic tags',
           onInvoke: controller.openTagsEdit,
+        ),
+      if (controller.canPermanentlyDeletePost(post))
+        PostAction(
+          icon: DIcons.trashCan,
+          label: 'Permanently delete',
+          tooltip: 'Permanently delete this post',
+          destructive: true,
+          onInvoke: () => unawaited(
+            showPostPermanentDelete(
+              context: context,
+              controller: controller,
+              post: post,
+            ),
+          ),
         ),
       if (post.canRecover)
         PostAction(
@@ -325,12 +436,30 @@ class _PostActionsState extends State<PostActions> {
       return null;
     }
 
-    final slug = route?.slug?.isNotEmpty == true ? route!.slug! : 'topic';
-    final postNumber = widget.post.postNumber > 1
-        ? '/${widget.post.postNumber}'
-        : '';
-    final url = '${widget.siteUrl}/t/$slug/${topic.id}$postNumber';
-    return instance!.config.shareUrl(url, username: instance.user?.username);
+    return postShareUrl(
+      siteUrl: widget.siteUrl,
+      topicId: topic.id,
+      postNumber: widget.post.postNumber,
+      slug: route?.slug,
+      config: instance!.config,
+      username: instance.user?.username,
+    );
+  }
+
+  String? _postCanonicalUrl(ShellController controller) {
+    final topic = controller.currentTopic;
+    final route = controller.currentContent;
+    if (controller.currentInstance?.url != widget.siteUrl ||
+        topic == null ||
+        route?.topicId != topic.id) {
+      return null;
+    }
+    return postCanonicalUrl(
+      siteUrl: widget.siteUrl,
+      topicId: topic.id,
+      postNumber: widget.post.postNumber,
+      slug: route?.slug,
+    );
   }
 
   Future<void> _copyLink(ShellController controller, String url) async {

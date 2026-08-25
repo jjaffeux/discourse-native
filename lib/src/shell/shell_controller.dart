@@ -94,6 +94,12 @@ enum MobilePane { sidebar, content }
 
 enum InstanceLoadStatus { loading, ready, failed }
 
+typedef TopicMoveDestination = ({int id, String title, String slug});
+typedef TopicMoveDestinationSearchResult = ({
+  List<TopicMoveDestination> destinations,
+  String? error,
+});
+typedef TopicPostMoveResult = ({String? destinationUrl, String? error});
 typedef _WriteCredential = ({String? apiKey, WriteException? failure});
 typedef _SessionValue<T> = ({T value});
 typedef _CategorySidebarCache = ({
@@ -1541,6 +1547,23 @@ class ShellController extends FrameSafeNotifier {
     return List.unmodifiable(available);
   }
 
+  /// Topic-specific reasons both the catalog and this topic summary permit.
+  ///
+  /// Core localizes these separately from post reasons and the topic's
+  /// top-level `actions_summary` is the personalized authority for each id.
+  List<PostFlagType> availableTopicFlagTypes(
+    String siteUrl,
+    TopicDetail topic,
+  ) {
+    final catalog =
+        _postActionCatalogs[siteUrl]?.topicFlags ?? const <PostFlagType>[];
+    return List.unmodifiable([
+      for (final type in catalog)
+        if (type.enabled && type.appliesToTopic && topic.canFlagWith(type.id))
+          type,
+    ]);
+  }
+
   /// The list currently filling the main region, if the destination has one.
   /// Which feed the main region is showing.
   ///
@@ -2357,6 +2380,10 @@ class ShellController extends FrameSafeNotifier {
   final Map<String, int> _topicNotificationRevisions = {};
   final Map<String, Future<void>> _topicNotificationTails = {};
   final Map<String, TopicNotificationLevel> _topicNotificationConfirmed = {};
+  final Set<String> _topicPinWrites = {};
+  final Set<String> _topicStatusWrites = {};
+  final Set<String> _topicDeletionWrites = {};
+  final Map<String, Object> _topicJumpRuns = {};
 
   static String _topicKey(String siteUrl, int topicId) => '$siteUrl#$topicId';
 
@@ -2384,6 +2411,18 @@ class ShellController extends FrameSafeNotifier {
 
   List<int> _topicStream(String siteUrl, TopicDetail detail) =>
       _topicSummaryStreams[_topicKey(siteUrl, detail.id)] ?? detail.stream;
+
+  /// Every id in the active topic projection, including unloaded posts.
+  ///
+  /// Core's progress control counts its filtered stream. A top-replies
+  /// summary therefore has its own positions rather than borrowing the full
+  /// topic's count.
+  List<int> get currentTopicStreamIds {
+    final instance = currentInstance;
+    final detail = currentTopic;
+    if (instance == null || detail == null) return const [];
+    return _topicStream(instance.url, detail);
+  }
 
   /// The contiguous ids of the posts on screen, in reading order.
   ///
@@ -2662,6 +2701,85 @@ class ShellController extends FrameSafeNotifier {
     }
   }
 
+  /// Jumps to one one-based position in the current topic's visible stream.
+  ///
+  /// Core's timeline addresses the stream by post id, not by assuming its
+  /// index is also a post number: deleted and hidden posts make those diverge.
+  /// Resolve an unloaded id through the same bounded post endpoint as the web
+  /// client, then reuse the numbered topic route for the around-post window.
+  Future<bool> jumpToCurrentTopicIndex(int index) async {
+    final instance = currentInstance;
+    final route = currentContent;
+    final topic = currentTopic;
+    final tabId = activeTabId;
+    if (instance == null ||
+        route?.topicId == null ||
+        topic == null ||
+        tabId == null ||
+        currentTopicStreamIds.isEmpty) {
+      return false;
+    }
+
+    final stream = currentTopicStreamIds;
+    final boundedIndex = index.clamp(1, stream.length);
+    final targetId = stream[boundedIndex - 1];
+    final key = _topicKey(instance.url, topic.id);
+    final token = Object();
+    final lease = lifecycle.capture(instance.url);
+    _topicJumpRuns[key] = token;
+
+    bool isCurrent() =>
+        identical(_topicJumpRuns[key], token) &&
+        lease.isCurrent &&
+        !isDisposed &&
+        activeTabId == tabId &&
+        currentInstance?.url == instance.url &&
+        currentContent?.topicId == topic.id;
+
+    try {
+      var target = store.read<Post>(instance.url, targetId);
+      if (target == null) {
+        final credential = await _readSessionValue(
+          lease,
+          () => authenticator.apiKeyFor(instance.url),
+        );
+        if (credential == null || !isCurrent()) return false;
+        final bookmarkVersion = _bookmarkVersion(instance.url, topic.id);
+        final fetched = await api.posts(
+          siteUrl: instance.url,
+          topicId: topic.id,
+          ids: [targetId],
+          apiKey: credential.value,
+        );
+        if (!isCurrent()) return false;
+        target = fetched.where((post) => post.id == targetId).firstOrNull;
+        if (target == null) return false;
+        lease.commit(
+          () => _putTopicPosts(instance.url, topic.id, [
+            target!,
+          ], bookmarkVersionAtDispatch: bookmarkVersion),
+        );
+      }
+      if (!isCurrent()) return false;
+      openCurrentTopicPost(target.postNumber);
+      return true;
+    } catch (error, stackTrace) {
+      if (isCurrent()) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'topic.jumpToIndex',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      return false;
+    } finally {
+      if (identical(_topicJumpRuns[key], token)) {
+        final _ = _topicJumpRuns.remove(key);
+      }
+    }
+  }
+
   /// Opens a Discourse Chat URL natively when its site and channel are
   /// available to a connected account.
   ///
@@ -2741,6 +2859,45 @@ class ShellController extends FrameSafeNotifier {
     );
   }
 
+  /// Opens the web-equivalent active-thread index for one known channel.
+  bool openChatChannelThreads({
+    required String siteUrl,
+    required int channelId,
+  }) {
+    if (channelId <= 0) return false;
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0 || !_instances[index].isConnected) return false;
+    final chat = _chatPlugin;
+    final channel = chat?.channel(siteUrl, channelId);
+    if (channel?.threadingEnabled != true) return false;
+    if (index != _instanceIndex) selectInstance(index);
+
+    final routeId = ChatPlugin.channelThreadsRouteId(channelId);
+    if (currentContent?.id != routeId) {
+      final currentChatRoute = switch (currentContent?.id) {
+        final id? => ChatRoute.parse(id),
+        null => null,
+      };
+      if (currentChatRoute?.channelId != channelId ||
+          currentChatRoute?.isThread == true) {
+        selectDestination(ChatPlugin.destination(channel!));
+      }
+      pushContent(
+        ContentRoute(
+          id: routeId,
+          title: 'Threads',
+          subtitle: channel!.title,
+          icon: DIcons.comments,
+        ),
+      );
+    }
+    if (_mobilePane != MobilePane.content) {
+      _mobilePane = MobilePane.content;
+      _notify();
+    }
+    return true;
+  }
+
   /// Reveals a result in a mounted channel pane without changing the durable
   /// content route. Expanded thread workspaces keep their thread pane open.
   bool revealChatChannelMessage({
@@ -2781,11 +2938,19 @@ class ShellController extends FrameSafeNotifier {
     };
     if (route.isThread) {
       if (currentRoute != route) {
+        final currentThreadsChannelId = switch (currentContent?.id) {
+          final id? => ChatPlugin.channelIdFromThreadsRoute(id),
+          null => null,
+        };
+        final preservesThreadList =
+            currentContent?.id == ChatPlugin.myThreadsRouteId ||
+            currentThreadsChannelId == route.channelId;
         // Thread-to-thread and cross-channel navigation both begin from the
-        // channel root. This prevents a notification trail from accumulating
-        // indistinguishable thread screens in Back history.
+        // channel root. A deliberate thread index is the exception: opening
+        // its row should let Back return to that index, as it does on web.
         if (currentRoute?.threadId != null ||
-            currentRoute?.channelId != route.channelId) {
+            !preservesThreadList &&
+                currentRoute?.channelId != route.channelId) {
           selectDestination(ChatPlugin.destination(channel));
         }
         pushContent(
@@ -3326,6 +3491,237 @@ class ShellController extends FrameSafeNotifier {
     });
   }
 
+  bool topicPinWriteInFlight(String siteUrl, int topicId) =>
+      _topicPinWrites.contains(_topicKey(siteUrl, topicId));
+
+  /// Dismisses or restores a personalized topic pin, as core's footer does.
+  Future<String?> updateTopicPinPreference(
+    String siteUrl,
+    int topicId,
+    bool pinned,
+  ) async {
+    if (isDisposed || topicId <= 0) {
+      return 'This topic can no longer be changed.';
+    }
+    final held = store.read<TopicDetail>(siteUrl, topicId);
+    if (held == null || !held.hasPinPreference) {
+      return 'This topic does not offer a pin preference.';
+    }
+    if (held.pinned == pinned) return null;
+
+    final key = _topicKey(siteUrl, topicId);
+    if (!_topicPinWrites.add(key)) {
+      return 'Another pin change is still finishing.';
+    }
+    final heldRow = store.read<Topic>(siteUrl, topicId);
+    final lease = lifecycle.capture(siteUrl);
+
+    void project(bool nextPinned, bool nextUnpinned) {
+      lease.commit(() {
+        store.update<TopicDetail>(
+          siteUrl,
+          topicId,
+          (topic) => topic.copyWith(pinned: nextPinned, unpinned: nextUnpinned),
+        );
+        store.update<Topic>(
+          siteUrl,
+          topicId,
+          (topic) => topic.copyWith(pinned: nextPinned),
+        );
+        _notify();
+      });
+    }
+
+    void rollback() {
+      lease.commit(() {
+        store.update<TopicDetail>(
+          siteUrl,
+          topicId,
+          (topic) =>
+              topic.copyWith(pinned: held.pinned, unpinned: held.unpinned),
+        );
+        if (heldRow != null) store.put(siteUrl, heldRow);
+        _notify();
+      });
+    }
+
+    project(pinned, !pinned);
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent || isDisposed) return null;
+      if (credential.failure case final failure?) {
+        rollback();
+        return failure.message;
+      }
+      final clientId = await authenticator.clientId();
+      if (!lease.isCurrent || isDisposed) return null;
+      await api.updateTopicPinForUser(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+        topicId: topicId,
+        pinned: pinned,
+        clientId: clientId,
+      );
+      return null;
+    } on WriteException catch (error) {
+      if (lease.isCurrent && !isDisposed) rollback();
+      return error.message;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent && !isDisposed) {
+        _reportOperationalError(error, stackTrace, 'topic.updatePinPreference');
+        rollback();
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      _topicPinWrites.remove(key);
+      if (!isDisposed) _notify();
+    }
+  }
+
+  bool topicStatusWriteInFlight(String siteUrl, int topicId) =>
+      _topicStatusWrites.contains(_topicKey(siteUrl, topicId));
+
+  /// Applies one status offered by the topic serializer's guardian gates.
+  ///
+  /// Statuses share one per-topic lock. Core's admin menu does not need two
+  /// overlapping mutations, and serializing them prevents a slower close from
+  /// painting over a later archive when the responses arrive out of order.
+  Future<String?> updateTopicStatus(
+    String siteUrl,
+    int topicId,
+    TopicStatusProperty status,
+    bool enabled,
+  ) async {
+    if (isDisposed || topicId <= 0) {
+      return 'This topic can no longer be changed.';
+    }
+    final held = store.read<TopicDetail>(siteUrl, topicId);
+    if (held == null || !held.canChangeStatus(status)) {
+      return 'This topic can no longer be changed that way.';
+    }
+    if (held.statusValue(status) == enabled) return null;
+
+    final key = _topicKey(siteUrl, topicId);
+    if (!_topicStatusWrites.add(key)) {
+      return 'Another topic action is still finishing.';
+    }
+    final lease = lifecycle.capture(siteUrl);
+    _notify();
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent || isDisposed) return null;
+      if (credential.failure case final failure?) return failure.message;
+      final clientId = await authenticator.clientId();
+      if (!lease.isCurrent || isDisposed) return null;
+      await api.updateTopicStatus(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+        topicId: topicId,
+        status: status,
+        enabled: enabled,
+        clientId: clientId,
+      );
+      if (!lease.isCurrent || isDisposed) return null;
+      lease.commit(() {
+        store.update<TopicDetail>(
+          siteUrl,
+          topicId,
+          (topic) => topic.withStatus(status, enabled),
+        );
+        if (status == TopicStatusProperty.closed) {
+          store.update<Topic>(
+            siteUrl,
+            topicId,
+            (topic) => topic.copyWith(closed: enabled),
+          );
+        }
+        _notify();
+      });
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent && !isDisposed) {
+        _reportOperationalError(error, stackTrace, 'topic.updateStatus');
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      _topicStatusWrites.remove(key);
+      if (!isDisposed) _notify();
+    }
+  }
+
+  bool topicDeletionWriteInFlight(String siteUrl, int topicId) =>
+      _topicDeletionWrites.contains(_topicKey(siteUrl, topicId));
+
+  /// Deletes or recovers a topic only when its personalized guardian allows it.
+  Future<String?> setTopicDeleted(
+    String siteUrl,
+    int topicId,
+    bool deleted,
+  ) async {
+    if (isDisposed || topicId <= 0) {
+      return 'This topic can no longer be changed.';
+    }
+    final held = store.read<TopicDetail>(siteUrl, topicId);
+    final allowed = deleted
+        ? held?.canDeleteTopic == true
+        : held?.canRecoverTopic == true;
+    if (held == null || !allowed) {
+      return deleted
+          ? 'This topic cannot be deleted.'
+          : 'This topic cannot be recovered.';
+    }
+    final key = _topicKey(siteUrl, topicId);
+    if (!_topicDeletionWrites.add(key)) {
+      return 'Another topic action is still finishing.';
+    }
+    final lease = lifecycle.capture(siteUrl);
+    _notify();
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent || isDisposed) return null;
+      if (credential.failure case final failure?) return failure.message;
+      final clientId = await authenticator.clientId();
+      if (!lease.isCurrent || isDisposed) return null;
+      if (deleted) {
+        await api.deleteTopic(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: topicId,
+          clientId: clientId,
+        );
+      } else {
+        await api.recoverTopic(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: topicId,
+          clientId: clientId,
+        );
+      }
+      if (!lease.isCurrent || isDisposed) return null;
+      lease.commit(() {
+        store.update<TopicDetail>(
+          siteUrl,
+          topicId,
+          (topic) => topic.withDeletion(deleted, DateTime.now().toUtc()),
+        );
+        _notify();
+      });
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent && !isDisposed) {
+        _reportOperationalError(error, stackTrace, 'topic.setDeleted');
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      _topicDeletionWrites.remove(key);
+      if (!isDisposed) _notify();
+    }
+  }
+
   void _putTopicPosts(
     String siteUrl,
     int topicId,
@@ -3572,6 +3968,9 @@ class ShellController extends FrameSafeNotifier {
       if (tabId != activeTabId) return null;
     }
     if (composer.target.isNewTopic) {
+      if (composer.target.originTopicId case final topicId?) {
+        return currentContent?.topicId == topicId ? composer : null;
+      }
       return currentContent?.isTopic == false &&
               currentFeedId == composer.target.originFeedId
           ? composer
@@ -3789,6 +4188,167 @@ class ShellController extends FrameSafeNotifier {
     _composer = composer;
     _notify();
     _startComposerDraftRestore(composer);
+  }
+
+  /// Starts a new topic from the topic on screen and preserves the backlink
+  /// core inserts at the top of that composer.
+  Future<void> openReplyAsNewTopic(String continuation) async {
+    final instance = currentInstance;
+    final route = currentContent;
+    final detail = currentTopic;
+    final tabId = activeTabId;
+    if (instance == null ||
+        route?.topicId == null ||
+        detail?.canReplyAsNewTopic != true ||
+        tabId == null ||
+        continuation.trim().isEmpty) {
+      return;
+    }
+
+    final siteUrl = instance.url;
+    final sourceTopicId = detail!.id;
+    final lease = lifecycle.capture(siteUrl);
+    await Future.wait<void>([
+      loadCategories(siteUrl),
+      _ensureTopicComposerCapabilities(siteUrl),
+    ]);
+    if (!lease.isCurrent ||
+        activeTabId != tabId ||
+        currentInstance?.url != siteUrl ||
+        currentContent?.topicId != sourceTopicId ||
+        currentTopic?.canReplyAsNewTopic != true) {
+      return;
+    }
+
+    final category = topicComposerCategories(siteUrl)
+        .where((item) => item.id == detail.categoryId && item.canCreateTopic)
+        .firstOrNull;
+    _replaceComposer();
+    final target = ComposerTarget(
+      siteUrl: siteUrl,
+      tabId: tabId,
+      topicId: 0,
+      slug: '',
+      topicTitle: 'New topic',
+      mode: ComposerMode.newTopic,
+      originTopicId: sourceTopicId,
+      initialCategoryId: category?.id,
+    );
+    final composer = _buildTextComposer(
+      target,
+      persistsDraft: true,
+      minimumRequiredTags: category?.minimumRequiredTags ?? 0,
+    );
+    _composer = composer;
+    _notify();
+    _startComposerDraftRestore(composer);
+
+    try {
+      await _composerDraftRestore;
+    } catch (_) {
+      // Draft restoration is best effort; the continuation action remains
+      // useful even when local persistence is unavailable.
+    }
+    if (!lease.isCurrent ||
+        !identical(_composer, composer) ||
+        activeTabId != tabId ||
+        currentContent?.topicId != sourceTopicId) {
+      return;
+    }
+    if (!composer.text.text.contains(continuation.trim())) {
+      composer.prependBlock(continuation);
+    }
+    composer.focus.requestFocus();
+  }
+
+  /// Inserts core's canonical chat transcript into a new-topic draft while
+  /// leaving the channel or thread workspace underneath it.
+  Future<String?> openChatQuote(
+    String siteUrl,
+    int channelId,
+    String markdown,
+  ) async {
+    final route = currentContent;
+    final chatRoute = route == null ? null : ChatRoute.parse(route.id);
+    final tabId = activeTabId;
+    final feedId = currentFeedId;
+    final channel = _chatPlugin?.channel(siteUrl, channelId);
+    if (markdown.trim().isEmpty ||
+        channelId <= 0 ||
+        currentInstance?.url != siteUrl ||
+        currentInstance?.user == null ||
+        chatRoute?.channelId != channelId ||
+        tabId == null ||
+        feedId == null ||
+        channel == null) {
+      return 'The topic composer is no longer available here.';
+    }
+
+    final routeId = route!.id;
+    final lease = lifecycle.capture(siteUrl);
+    await Future.wait<void>([
+      loadCategories(siteUrl),
+      _ensureTopicComposerCapabilities(siteUrl),
+    ]);
+    if (!lease.isCurrent ||
+        currentInstance?.url != siteUrl ||
+        currentContent?.id != routeId ||
+        activeTabId != tabId ||
+        currentFeedId != feedId) {
+      return 'The topic composer is no longer available here.';
+    }
+
+    final category = channel.isCategoryChannel
+        ? topicComposerCategories(siteUrl)
+              .where(
+                (item) => item.id == channel.chatableId && item.canCreateTopic,
+              )
+              .firstOrNull
+        : null;
+    var composer = visibleComposer;
+    final reusable =
+        composer != null &&
+        composer.target.isNewTopic &&
+        composer.target.siteUrl == siteUrl &&
+        composer.target.tabId == tabId &&
+        composer.target.originFeedId == feedId;
+    if (!reusable) {
+      _replaceComposer();
+      final target = ComposerTarget(
+        siteUrl: siteUrl,
+        tabId: tabId,
+        topicId: 0,
+        slug: '',
+        topicTitle: 'New topic',
+        mode: ComposerMode.newTopic,
+        originFeedId: feedId,
+        initialCategoryId: category?.id,
+      );
+      composer = _buildTextComposer(
+        target,
+        persistsDraft: true,
+        minimumRequiredTags: category?.minimumRequiredTags ?? 0,
+      );
+      _composer = composer;
+      _notify();
+      _startComposerDraftRestore(composer);
+    }
+
+    try {
+      await _composerDraftRestore;
+    } catch (_) {
+      // A local draft failure must not turn a canonical transcript into a
+      // dead action.
+    }
+    if (!lease.isCurrent ||
+        !identical(_composer, composer) ||
+        currentContent?.id != routeId ||
+        activeTabId != tabId) {
+      return 'The topic composer is no longer available here.';
+    }
+    composer.insertBlock(markdown);
+    composer.focus.requestFocus();
+    return null;
   }
 
   Future<TopicTagSearch> searchComposerTags(
@@ -4217,6 +4777,340 @@ class ShellController extends FrameSafeNotifier {
   ///
   /// Guarded on the site's own answer for the same reason as [openEdit]: the
   /// button being hidden is not a permission check.
+  bool topicPostSelectionEnabled(String siteUrl, int topicId) =>
+      _topicPostSelections.containsKey(_topicKey(siteUrl, topicId));
+
+  Set<int> selectedTopicPostIds(String siteUrl, int topicId) =>
+      Set.unmodifiable(
+        _topicPostSelections[_topicKey(siteUrl, topicId)] ?? const <int>{},
+      );
+
+  List<Post> selectedTopicPosts(String siteUrl, int topicId) {
+    final detail = store.read<TopicDetail>(siteUrl, topicId);
+    final selected = _topicPostSelections[_topicKey(siteUrl, topicId)];
+    if (detail == null || selected == null || selected.isEmpty) return const [];
+    return List.unmodifiable([
+      for (final id in detail.stream)
+        if (selected.contains(id)) ?store.read<Post>(siteUrl, id),
+    ]);
+  }
+
+  bool topicPostSelectionWriteInFlight(String siteUrl, int topicId) =>
+      _topicPostSelectionWrites.contains(_topicKey(siteUrl, topicId));
+
+  void setTopicPostSelectionEnabled(String siteUrl, int topicId, bool enabled) {
+    final key = _topicKey(siteUrl, topicId);
+    if (enabled) {
+      final topic = store.read<TopicDetail>(siteUrl, topicId);
+      if (topic == null || !topic.canSelectPosts) return;
+      if (_topicPostSelections.containsKey(key)) return;
+      _topicPostSelections[key] = <int>{};
+    } else {
+      if (_topicPostSelectionWrites.contains(key) ||
+          _topicPostSelections.remove(key) == null) {
+        return;
+      }
+    }
+    _notify();
+  }
+
+  void toggleTopicPostSelected(String siteUrl, int topicId, int postId) {
+    final key = _topicKey(siteUrl, topicId);
+    final selected = _topicPostSelections[key];
+    final topic = store.read<TopicDetail>(siteUrl, topicId);
+    if (selected == null ||
+        topic == null ||
+        !topic.canSelectPosts ||
+        _topicPostSelectionWrites.contains(key) ||
+        !topic.stream.contains(postId) ||
+        store.read<Post>(siteUrl, postId) == null) {
+      return;
+    }
+    if (!selected.remove(postId)) selected.add(postId);
+    _notify();
+  }
+
+  void selectAllLoadedTopicPosts(String siteUrl, int topicId) {
+    final key = _topicKey(siteUrl, topicId);
+    final selected = _topicPostSelections[key];
+    final topic = store.read<TopicDetail>(siteUrl, topicId);
+    if (selected == null ||
+        topic == null ||
+        !topic.canSelectPosts ||
+        _topicPostSelectionWrites.contains(key)) {
+      return;
+    }
+    selected
+      ..clear()
+      ..addAll(
+        topic.stream.where((id) => store.read<Post>(siteUrl, id) != null),
+      );
+    _notify();
+  }
+
+  void clearSelectedTopicPosts(String siteUrl, int topicId) {
+    final key = _topicKey(siteUrl, topicId);
+    final selected = _topicPostSelections[key];
+    if (selected == null ||
+        selected.isEmpty ||
+        _topicPostSelectionWrites.contains(key)) {
+      return;
+    }
+    selected.clear();
+    _notify();
+  }
+
+  Future<String?> deleteSelectedTopicPosts(String siteUrl, int topicId) {
+    final posts = selectedTopicPosts(siteUrl, topicId);
+    final topic = store.read<TopicDetail>(siteUrl, topicId);
+    if (topic == null ||
+        !topic.canSelectPosts ||
+        posts.isEmpty ||
+        posts.any((post) => !post.canDelete)) {
+      return Future.value();
+    }
+    return _mutateSelectedTopicPosts(
+      siteUrl,
+      topicId,
+      posts,
+      (apiKey, ids) =>
+          api.deletePosts(siteUrl: siteUrl, apiKey: apiKey, postIds: ids),
+    );
+  }
+
+  Future<String?> mergeSelectedTopicPosts(String siteUrl, int topicId) {
+    final posts = selectedTopicPosts(siteUrl, topicId);
+    final topic = store.read<TopicDetail>(siteUrl, topicId);
+    if (topic == null ||
+        !topic.canSelectPosts ||
+        posts.length < 2 ||
+        posts.any((post) => !post.canDelete) ||
+        posts.map((post) => post.username).toSet().length != 1) {
+      return Future.value();
+    }
+    return _mutateSelectedTopicPosts(
+      siteUrl,
+      topicId,
+      posts,
+      (apiKey, ids) =>
+          api.mergePosts(siteUrl: siteUrl, apiKey: apiKey, postIds: ids),
+    );
+  }
+
+  Future<TopicMoveDestinationSearchResult> searchTopicMoveDestinations(
+    String siteUrl,
+    int topicId,
+    String term,
+  ) async {
+    final topic = store.read<TopicDetail>(siteUrl, topicId);
+    final trimmed = term.trim();
+    if (topic == null || !topic.canMovePosts || trimmed.isEmpty) {
+      return (destinations: const <TopicMoveDestination>[], error: null);
+    }
+    final lease = lifecycle.capture(siteUrl);
+    final credential = await _credentialForWrite(siteUrl);
+    if (!lease.isCurrent) {
+      return (destinations: const <TopicMoveDestination>[], error: null);
+    }
+    if (credential.failure case final failure?) {
+      return (
+        destinations: const <TopicMoveDestination>[],
+        error: failure.message,
+      );
+    }
+    try {
+      final results = await api.searchPosts(
+        siteUrl: siteUrl,
+        term: trimmed,
+        typeFilter: 'topic',
+        searchForId: true,
+        restrictToArchetype: 'regular',
+        apiKey: credential.apiKey,
+      );
+      if (!lease.isCurrent) {
+        return (destinations: const <TopicMoveDestination>[], error: null);
+      }
+      final seen = <int>{};
+      return (
+        destinations: List<TopicMoveDestination>.unmodifiable([
+          for (final hit in results.hits)
+            if (hit.topicId != topicId &&
+                !hit.privateMessage &&
+                seen.add(hit.topicId))
+              (id: hit.topicId, title: hit.topicTitle, slug: hit.topicSlug),
+        ]),
+        error: results.error,
+      );
+    } on WriteException catch (error) {
+      return (
+        destinations: const <TopicMoveDestination>[],
+        error: error.message,
+      );
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'topic.selectedPosts.searchDestination',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      return (
+        destinations: const <TopicMoveDestination>[],
+        error: const WriteException(WriteFailure.unreachable).message,
+      );
+    }
+  }
+
+  Future<TopicPostMoveResult> moveSelectedTopicPostsToExisting(
+    String siteUrl,
+    int topicId,
+    int destinationTopicId, {
+    bool chronologicalOrder = false,
+  }) async {
+    final topic = store.read<TopicDetail>(siteUrl, topicId);
+    final posts = selectedTopicPosts(siteUrl, topicId);
+    if (topic == null ||
+        !topic.canMovePosts ||
+        posts.isEmpty ||
+        destinationTopicId <= 0 ||
+        destinationTopicId == topicId) {
+      return (
+        destinationUrl: null,
+        error: const WriteException(WriteFailure.forbidden).message,
+      );
+    }
+    String? destinationUrl;
+    final error = await _mutateSelectedTopicPosts(siteUrl, topicId, posts, (
+      apiKey,
+      ids,
+    ) async {
+      destinationUrl = await api.movePosts(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        topicId: topicId,
+        postIds: ids,
+        destinationTopicId: destinationTopicId,
+        chronologicalOrder: chronologicalOrder,
+      );
+    });
+    return (
+      destinationUrl: error == null ? destinationUrl : null,
+      error: error,
+    );
+  }
+
+  Future<TopicPostMoveResult> moveSelectedTopicPostsToNew(
+    String siteUrl,
+    int topicId, {
+    required String title,
+    int? categoryId,
+    List<int> tagIds = const [],
+  }) async {
+    final topic = store.read<TopicDetail>(siteUrl, topicId);
+    final posts = selectedTopicPosts(siteUrl, topicId);
+    final allSelected = topic != null && posts.length == topic.stream.length;
+    if (topic == null ||
+        !topic.canMovePosts ||
+        posts.isEmpty ||
+        allSelected ||
+        posts.first.postType != Post.regularPostType ||
+        title.trim().isEmpty) {
+      return (
+        destinationUrl: null,
+        error: const WriteException(WriteFailure.forbidden).message,
+      );
+    }
+    String? destinationUrl;
+    final error = await _mutateSelectedTopicPosts(siteUrl, topicId, posts, (
+      apiKey,
+      ids,
+    ) async {
+      destinationUrl = await api.movePosts(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        topicId: topicId,
+        postIds: ids,
+        title: title,
+        categoryId: categoryId,
+        tagIds: tagIds,
+      );
+    });
+    return (
+      destinationUrl: error == null ? destinationUrl : null,
+      error: error,
+    );
+  }
+
+  bool canChangeSelectedTopicPostOwner(String siteUrl, int topicId) {
+    if (currentInstance?.url != siteUrl ||
+        currentInstance?.user?.canChangePostOwner != true) {
+      return false;
+    }
+    final posts = selectedTopicPosts(siteUrl, topicId);
+    return posts.isNotEmpty &&
+        posts.map((post) => post.username).toSet().length == 1;
+  }
+
+  Future<String?> changeSelectedTopicPostOwner(
+    String siteUrl,
+    int topicId,
+    String username,
+  ) {
+    final posts = selectedTopicPosts(siteUrl, topicId);
+    final trimmedUsername = username.trim();
+    if (!canChangeSelectedTopicPostOwner(siteUrl, topicId) ||
+        trimmedUsername.isEmpty ||
+        posts.first.username == trimmedUsername) {
+      return Future.value(const WriteException(WriteFailure.forbidden).message);
+    }
+    return _mutateSelectedTopicPosts(
+      siteUrl,
+      topicId,
+      posts,
+      (apiKey, ids) => api.changePostOwners(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        topicId: topicId,
+        postIds: ids,
+        username: trimmedUsername,
+      ),
+    );
+  }
+
+  /// Reassigns one post directly from its admin menu.
+  ///
+  /// The account-level serializer flag is the same gate web uses here. The
+  /// topic route still accepts a post-id array, so the direct action sends a
+  /// one-element selection and authoritatively re-reads that post afterwards.
+  bool canChangeTopicPostOwner(Post post) {
+    final topic = currentTopic;
+    return currentInstance?.user?.canChangePostOwner == true &&
+        topic != null &&
+        topic.stream.contains(post.id);
+  }
+
+  Future<String?> changeTopicPostOwner(Post post, String username) {
+    final topic = currentTopic;
+    final trimmedUsername = username.trim();
+    if (!canChangeTopicPostOwner(post) ||
+        topic == null ||
+        trimmedUsername.isEmpty ||
+        trimmedUsername == post.username) {
+      return Future.value(const WriteException(WriteFailure.forbidden).message);
+    }
+    return _mutatePost(
+      post,
+      (siteUrl, apiKey) => api.changePostOwners(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        topicId: topic.id,
+        postIds: [post.id],
+        username: trimmedUsername,
+      ),
+    );
+  }
+
   Future<String?> deletePost(Post post) async {
     if (!post.canDelete) return null;
     final siteUrl = currentInstance?.url;
@@ -4242,6 +5136,129 @@ class ShellController extends FrameSafeNotifier {
     return error;
   }
 
+  /// Whether core advertised permanent deletion for this already-deleted
+  /// target. The opening post takes its permission from topic details; replies
+  /// carry it on their own serializer, exactly as the web model does.
+  bool canPermanentlyDeletePost(Post post) {
+    final topic = currentTopic;
+    return post.isDeleted &&
+        topic != null &&
+        topic.stream.contains(post.id) &&
+        (post.postNumber == 1
+            ? topic.deletedAt != null && topic.canPermanentlyDelete
+            : post.canPermanentlyDelete);
+  }
+
+  /// Runs core's just-in-time cooldown/different-admin preflight.
+  ///
+  /// Null means the confirmation may be shown; a non-null string is either the
+  /// server's localized refusal reason or a transport/account failure.
+  Future<String?> checkPermanentPostDeletion(Post post) async {
+    if (!canPermanentlyDeletePost(post)) {
+      return 'This post cannot be permanently deleted.';
+    }
+    final instance = currentInstance;
+    if (instance == null) return 'This post can no longer be changed.';
+    final lease = lifecycle.capture(instance.url);
+    final credential = await _credentialForWrite(instance.url);
+    if (!lease.isCurrent || isDisposed) {
+      return 'Your connection changed. Reopen the action and try again.';
+    }
+    if (credential.failure case final failure?) return failure.message;
+    try {
+      final clientId = await authenticator.clientId();
+      if (!lease.isCurrent || isDisposed) {
+        return 'Your connection changed. Reopen the action and try again.';
+      }
+      final result = await api.checkPermanentPostDeletion(
+        siteUrl: instance.url,
+        apiKey: credential.apiKey!,
+        postId: post.id,
+        clientId: clientId,
+      );
+      if (!lease.isCurrent || isDisposed) {
+        return 'Your connection changed. Reopen the action and try again.';
+      }
+      return result.allowed
+          ? null
+          : result.reason ?? 'This post cannot be permanently deleted yet.';
+    } catch (error, stackTrace) {
+      if (lease.isCurrent && !isDisposed) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'post.permanentDeletionCheck',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    }
+  }
+
+  Future<String?> permanentlyDeletePost(Post post) async {
+    final topic = currentTopic;
+    if (!canPermanentlyDeletePost(post) || topic == null) {
+      return 'This post cannot be permanently deleted.';
+    }
+    if (post.postNumber != 1) {
+      return _mutatePost(
+        post,
+        (siteUrl, apiKey) => api.permanentlyDeletePost(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          topicId: topic.id,
+          postId: post.id,
+        ),
+      );
+    }
+
+    final instance = currentInstance;
+    if (instance == null) return 'This topic can no longer be changed.';
+    final siteUrl = instance.url;
+    final key = _topicKey(siteUrl, topic.id);
+    if (!_topicDeletionWrites.add(key)) {
+      return 'Another topic action is still finishing.';
+    }
+    final lease = lifecycle.capture(siteUrl);
+    _notify();
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent || isDisposed) return null;
+      if (credential.failure case final failure?) return failure.message;
+      final clientId = await authenticator.clientId();
+      if (!lease.isCurrent || isDisposed) return null;
+      await api.permanentlyDeleteTopic(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+        topicId: topic.id,
+        clientId: clientId,
+      );
+      if (!lease.isCurrent || isDisposed) return null;
+      lease.commit(() {
+        for (final postId in topic.stream) {
+          store.remove<Post>(siteUrl, postId);
+        }
+        store.remove<TopicDetail>(siteUrl, topic.id);
+        store.remove<Topic>(siteUrl, topic.id);
+        _notify();
+      });
+      if (currentContent?.topicId == topic.id) {
+        handleBack(canReturnToSidebar: false);
+      }
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent && !isDisposed) {
+        _reportOperationalError(error, stackTrace, 'topic.permanentlyDelete');
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      _topicDeletionWrites.remove(key);
+      if (!isDisposed) _notify();
+    }
+  }
+
   /// Puts a deleted post back.
   Future<String?> recoverPost(Post post) async {
     if (!post.canRecover) return null;
@@ -4254,6 +5271,91 @@ class ShellController extends FrameSafeNotifier {
       post,
       (siteUrl, apiKey) =>
           api.recoverPost(siteUrl: siteUrl, apiKey: apiKey, postId: post.id),
+    );
+  }
+
+  /// Changes whether the site treats this as a collaboratively editable post.
+  Future<String?> setPostWiki(Post post, bool wiki) {
+    if (!post.canWiki || post.wiki == wiki) return Future.value();
+    return _mutatePost(
+      post,
+      (siteUrl, apiKey) => api.updatePostWiki(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postId: post.id,
+        wiki: wiki,
+      ),
+    );
+  }
+
+  bool canLockPost(Post post) =>
+      currentInstance?.user?.staff == true && post.userId != null;
+
+  Future<String?> setPostLocked(Post post, bool locked) {
+    if (!canLockPost(post) || post.locked == locked) return Future.value();
+    return _mutatePost(
+      post,
+      (siteUrl, apiKey) => api.updatePostLocked(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postId: post.id,
+        locked: locked,
+      ),
+    );
+  }
+
+  bool canUnhidePost(Post post) =>
+      currentInstance?.user?.staff == true && post.hidden;
+
+  Future<String?> unhidePost(Post post) {
+    if (!canUnhidePost(post)) return Future.value();
+    return _mutatePost(
+      post,
+      (siteUrl, apiKey) =>
+          api.unhidePost(siteUrl: siteUrl, apiKey: apiKey, postId: post.id),
+    );
+  }
+
+  bool canTogglePostType(Post post) =>
+      currentInstance?.user?.staff == true && !post.isWhisper;
+
+  Future<String?> togglePostType(Post post) {
+    if (!canTogglePostType(post)) return Future.value();
+    final nextType = post.isModeratorAction
+        ? Post.regularPostType
+        : Post.moderatorPostType;
+    return _mutatePost(
+      post,
+      (siteUrl, apiKey) => api.updatePostType(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postId: post.id,
+        postType: nextType,
+      ),
+    );
+  }
+
+  bool canEditPostNotice(Post post) {
+    final instance = currentInstance;
+    final topic = currentTopic;
+    return instance != null &&
+        topic?.canEditStaffNotes == true &&
+        topic!.stream.contains(post.id);
+  }
+
+  Future<String?> setPostNotice(Post post, String? notice) {
+    if (!canEditPostNotice(post)) return Future.value();
+    final trimmed = notice?.trim();
+    final next = trimmed == null || trimmed.isEmpty ? null : trimmed;
+    if (next == post.notice?.raw) return Future.value();
+    return _mutatePost(
+      post,
+      (siteUrl, apiKey) => api.updatePostNotice(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postId: post.id,
+        notice: next,
+      ),
     );
   }
 
@@ -4342,6 +5444,90 @@ class ShellController extends FrameSafeNotifier {
       }
     } finally {
       lease.commit(() => _endPostWrite(siteUrl, held.id));
+    }
+  }
+
+  bool topicFlagWriteInFlight(String siteUrl, int topicId) =>
+      _topicFlagWrites.contains(_topicKey(siteUrl, topicId));
+
+  /// Privately flags a topic using core's topic-id post-action bridge.
+  Future<String?> createTopicFlag(
+    String siteUrl,
+    TopicDetail topic,
+    PostFlagType flagType, {
+    String? message,
+  }) async {
+    final instance = _instanceAt(siteUrl);
+    final held = store.read<TopicDetail>(siteUrl, topic.id);
+    final currentType = _postActionCatalogs[siteUrl]?.topicFlags
+        .where((type) => type.id == flagType.id)
+        .firstOrNull;
+    if (instance?.isConnected != true) {
+      return const WriteException(WriteFailure.forbidden).message;
+    }
+    if (held == null ||
+        currentType == null ||
+        !currentType.enabled ||
+        !currentType.appliesToTopic ||
+        !held.canFlagWith(currentType.id)) {
+      return 'This topic can no longer be flagged.';
+    }
+
+    final submittedMessage = currentType.requireMessage ? message ?? '' : null;
+    final length = submittedMessage?.length ?? 0;
+    final minimum = siteConfigFor(siteUrl).minPersonalMessagePostLength;
+    if (currentType.requireMessage &&
+        (length < minimum || length > PostFlagType.maximumMessageLength)) {
+      return 'Your message must be between $minimum and '
+          '${PostFlagType.maximumMessageLength} characters.';
+    }
+
+    final key = _topicKey(siteUrl, held.id);
+    if (!_topicFlagWrites.add(key)) {
+      return 'Another flag on this topic is still being saved.';
+    }
+    _notify();
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent) {
+        return 'Your connection changed. Reopen the flag form and try again.';
+      }
+      if (credential.failure case final failure?) return failure.message;
+
+      try {
+        await api.createTopicFlag(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: held.id,
+          postActionTypeId: currentType.id,
+          message: submittedMessage,
+        );
+        if (!lease.isCurrent) {
+          return 'Your connection changed. Reopen the flag form and try again.';
+        }
+        lease.commit(() {
+          store.update<TopicDetail>(
+            siteUrl,
+            held.id,
+            (current) => current.withTopicFlag(currentType.id),
+          );
+          _notify();
+        });
+        return null;
+      } on WriteException catch (error) {
+        return error.message;
+      } catch (error, stackTrace) {
+        if (lease.isCurrent) {
+          _reportOperationalError(error, stackTrace, 'topic.flag');
+        }
+        return const WriteException(WriteFailure.unreachable).message;
+      }
+    } finally {
+      lease.commit(() {
+        _topicFlagWrites.remove(key);
+        _notify();
+      });
     }
   }
 
@@ -4695,6 +5881,9 @@ class ShellController extends FrameSafeNotifier {
   /// One write at a time per post, whichever kind it is. Keyed by site and post
   /// because topic 7's post 3 on two sites are two different posts.
   final Set<String> _postWritesInFlight = {};
+  final Map<String, Set<int>> _topicPostSelections = {};
+  final Set<String> _topicPostSelectionWrites = {};
+  final Set<String> _topicFlagWrites = {};
 
   final Set<String> _topicBookmarkWritesInFlight = {};
   final Set<String> _chatBookmarkWritesInFlight = {};
@@ -5462,6 +6651,126 @@ class ShellController extends FrameSafeNotifier {
     } finally {
       lease.commit(() => _endPostWrite(siteUrl, post.id));
     }
+  }
+
+  Future<String?> _mutateSelectedTopicPosts(
+    String siteUrl,
+    int topicId,
+    List<Post> posts,
+    Future<void> Function(String apiKey, List<int> ids) write,
+  ) async {
+    final topicKey = _topicKey(siteUrl, topicId);
+    final postKeys = [for (final post in posts) _postKey(siteUrl, post.id)];
+    if (_topicPostSelectionWrites.contains(topicKey) ||
+        postKeys.any(_postWritesInFlight.contains)) {
+      return null;
+    }
+    final lease = lifecycle.capture(siteUrl);
+    _topicPostSelectionWrites.add(topicKey);
+    for (final key in postKeys) {
+      _postWritesInFlight.add(key);
+      if (_postRefreshRequests.remove(key) != null) {
+        _postRefreshPending.add(key);
+      }
+    }
+    _notify();
+
+    var succeeded = false;
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent) return null;
+      if (credential.failure case final failure?) return failure.message;
+      final ids = List<int>.unmodifiable(posts.map((post) => post.id));
+      try {
+        await write(credential.apiKey!, ids);
+      } on WriteException catch (error) {
+        return error.message;
+      } catch (error, stackTrace) {
+        if (lease.isCurrent) {
+          _reportOperationalError(
+            error,
+            stackTrace,
+            'topic.selectedPosts.mutate',
+          );
+        }
+        return const WriteException(WriteFailure.unreachable).message;
+      }
+      if (!lease.isCurrent) return null;
+      await _refreshSelectedTopicPosts(
+        siteUrl,
+        topicId,
+        ids,
+        credential.apiKey,
+        lease,
+      );
+      succeeded = true;
+      return null;
+    } finally {
+      lease.commit(() {
+        _topicPostSelectionWrites.remove(topicKey);
+        if (succeeded) _topicPostSelections.remove(topicKey);
+        for (final post in posts) {
+          _endPostWrite(siteUrl, post.id);
+        }
+        _notify();
+      });
+    }
+  }
+
+  Future<void> _refreshSelectedTopicPosts(
+    String siteUrl,
+    int topicId,
+    List<int> postIds,
+    String? apiKey,
+    SiteLease lease,
+  ) async {
+    final freshById = <int, Post>{};
+    try {
+      for (var start = 0; start < postIds.length; start += 20) {
+        final end = start + 20 < postIds.length ? start + 20 : postIds.length;
+        final fetched = await api.posts(
+          siteUrl: siteUrl,
+          topicId: topicId,
+          ids: postIds.sublist(start, end),
+          apiKey: apiKey,
+        );
+        for (final post in fetched) {
+          if (postIds.contains(post.id)) freshById[post.id] = post;
+        }
+      }
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'topic.selectedPosts.refreshAfterWrite',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      return;
+    }
+
+    lease.commit(() {
+      for (final postId in postIds) {
+        final fresh = freshById[postId];
+        if (fresh == null) {
+          store.remove<Post>(siteUrl, postId);
+          store.update<TopicDetail>(
+            siteUrl,
+            topicId,
+            (detail) => detail.withoutPostId(postId),
+          );
+        } else {
+          store.put(siteUrl, fresh);
+          store.update<TopicDetail>(
+            siteUrl,
+            topicId,
+            (detail) => detail.withPostId(postId),
+          );
+        }
+      }
+      _notify();
+    });
   }
 
   /// Re-reads one post and puts whatever came back into the topic on screen.
@@ -7681,6 +8990,9 @@ class ShellController extends FrameSafeNotifier {
     _userCardsLoading.removeWhere((key) => key.startsWith('$siteUrl@'));
     _userCardErrors.removeWhere((key, _) => key.startsWith('$siteUrl@'));
     _postWritesInFlight.removeWhere((key) => key.startsWith('$siteUrl~'));
+    _topicPostSelections.removeWhere((key, _) => key.startsWith('$siteUrl#'));
+    _topicPostSelectionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _topicFlagWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicBookmarkWritesInFlight.removeWhere(
       (key) => key.startsWith('$siteUrl#'),
     );
@@ -7711,6 +9023,10 @@ class ShellController extends FrameSafeNotifier {
     _topicNotificationConfirmed.removeWhere(
       (key, _) => key.startsWith('$siteUrl#'),
     );
+    _topicPinWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _topicStatusWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _topicDeletionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _topicJumpRuns.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _topicReads.forget(siteUrl);
 
     _categorised.remove(siteUrl);
@@ -8239,6 +9555,13 @@ class ShellController extends FrameSafeNotifier {
     _topicNotificationRevisions.clear();
     _topicNotificationTails.clear();
     _topicNotificationConfirmed.clear();
+    _topicPinWrites.clear();
+    _topicStatusWrites.clear();
+    _topicDeletionWrites.clear();
+    _topicPostSelections.clear();
+    _topicPostSelectionWrites.clear();
+    _topicFlagWrites.clear();
+    _topicJumpRuns.clear();
     _topicReads.dispose();
     for (final instance in _instances) {
       lifecycle.invalidate(instance.url);

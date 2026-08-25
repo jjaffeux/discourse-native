@@ -41,6 +41,7 @@ class ComposerTarget {
     this.chatThreadId,
     ComposerMode? mode,
     this.originFeedId,
+    this.originTopicId,
     this.initialCategoryId,
     this.initialTags = const [],
   }) : mode =
@@ -56,6 +57,7 @@ class ComposerTarget {
   final int? chatChannelId;
   final int? chatThreadId;
   final String? originFeedId;
+  final int? originTopicId;
   final int? initialCategoryId;
   final List<TopicTag> initialTags;
 
@@ -104,6 +106,7 @@ class ComposerTarget {
         chatThreadId: chatThreadId,
         mode: mode,
         originFeedId: originFeedId,
+        originTopicId: originTopicId,
         initialCategoryId: initialCategoryId,
         initialTags: initialTags,
       );
@@ -745,6 +748,13 @@ class ComposerController extends ChangeNotifier {
       ),
       composing: TextRange.empty,
     );
+  }
+
+  /// Prepends a block without discarding a restored new-topic draft.
+  void prependBlock(String markdown) {
+    if (_disposed || markdown.trim().isEmpty) return;
+    text.selection = const TextSelection.collapsed(offset: 0);
+    insertBlock(markdown);
   }
 
   static String _separatorAfter(String before) {

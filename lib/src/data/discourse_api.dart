@@ -362,6 +362,7 @@ class DiscourseApi
       canAssignGlobally: user.containsKey('can_assign_globally')
           ? user['can_assign_globally'] == true
           : null,
+      canChangePostOwner: user['can_change_post_owner'] == true,
       staff:
           user['staff'] == true ||
           user['admin'] == true ||
@@ -756,6 +757,8 @@ class DiscourseApi
     required String siteUrl,
     required String term,
     String? typeFilter,
+    bool searchForId = false,
+    String? restrictToArchetype,
     String? apiKey,
     String? clientId,
   }) async {
@@ -767,9 +770,14 @@ class DiscourseApi
       );
     }
     final body = await _getObject(
-      Uri.parse(
-        '$siteUrl/search/query.json',
-      ).replace(queryParameters: {'term': term, 'type_filter': ?typeFilter}),
+      Uri.parse('$siteUrl/search/query.json').replace(
+        queryParameters: {
+          'term': term,
+          'type_filter': ?typeFilter,
+          if (searchForId) 'search_for_id': 'true',
+          'restrict_to_archetype': ?restrictToArchetype,
+        },
+      ),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
@@ -970,6 +978,100 @@ class DiscourseApi
       apiKey: apiKey,
       clientId: clientId,
       body: {'notification_level': notificationLevel.value},
+    );
+  }
+
+  /// Changes this account's pin preference through the same two routes as web.
+  Future<void> updateTopicPinForUser({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required bool pinned,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    await _write(
+      Uri.parse('$siteUrl/t/$topicId/${pinned ? 're-pin' : 'clear-pin'}'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
+
+  /// Changes one guardian-approved topic status through core's admin route.
+  Future<void> updateTopicStatus({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required TopicStatusProperty status,
+    required bool enabled,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    await _write(
+      Uri.parse('$siteUrl/t/$topicId/status'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'status': status.wireName, 'enabled': enabled},
+    );
+  }
+
+  /// Soft-deletes a topic through its first post, as core's topic model does.
+  Future<void> deleteTopic({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    await _write(
+      Uri.parse('$siteUrl/t/$topicId.json'),
+      siteUrl: siteUrl,
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'context': '/t/$topicId'},
+    );
+  }
+
+  /// Irreversibly deletes a soft-deleted topic after core's preflight accepts
+  /// the current administrator and cooldown.
+  Future<void> permanentlyDeleteTopic({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    await _write(
+      Uri.parse('$siteUrl/t/$topicId.json'),
+      siteUrl: siteUrl,
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'context': '/t/$topicId', 'force_destroy': true},
+    );
+  }
+
+  /// Recovers a soft-deleted topic through core's topic-specific route.
+  Future<void> recoverTopic({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    await _write(
+      Uri.parse('$siteUrl/t/$topicId/recover.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'context': '/t/$topicId'},
     );
   }
 
@@ -2028,6 +2130,278 @@ class DiscourseApi
     );
   }
 
+  /// Rechecks the server-only permanent-deletion constraints.
+  ///
+  /// The serializer flag only says the action is worth offering. Core still
+  /// applies its five-minute/different-admin constraint immediately before the
+  /// destructive write and returns a localized reason when it refuses.
+  Future<({bool allowed, String? reason})> checkPermanentPostDeletion({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    final body = await _getObject(
+      Uri.parse('$siteUrl/posts/$postId/permanently_delete_check.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return (
+      allowed: body['can_permanently_delete'] == true,
+      reason: jsonText(body['reason']),
+    );
+  }
+
+  /// Irreversibly deletes one soft-deleted reply.
+  Future<void> permanentlyDeletePost({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required int postId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    _requirePositiveId(postId, 'postId');
+    await _write(
+      Uri.parse('$siteUrl/posts/$postId.json'),
+      siteUrl: siteUrl,
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'context': '/t/$topicId', 'force_destroy': true},
+    );
+  }
+
+  /// Deletes the posts selected in a topic's moderation mode.
+  Future<void> deletePosts({
+    required String siteUrl,
+    required String apiKey,
+    required List<int> postIds,
+    String? clientId,
+  }) async {
+    _validateSelectedPostIds(postIds);
+    await _write(
+      Uri.parse('$siteUrl/posts/destroy_many.json'),
+      siteUrl: siteUrl,
+      method: 'DELETE',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'post_ids': postIds, 'agree_with_first_reply_flag': true},
+    );
+  }
+
+  /// Merges selected replies into the first selected post.
+  Future<void> mergePosts({
+    required String siteUrl,
+    required String apiKey,
+    required List<int> postIds,
+    String? clientId,
+  }) async {
+    _validateSelectedPostIds(postIds, minimum: 2);
+    await _write(
+      Uri.parse('$siteUrl/posts/merge_posts.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'post_ids': postIds},
+    );
+  }
+
+  /// Moves selected posts to an existing topic or splits them into a new one.
+  Future<String> movePosts({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required List<int> postIds,
+    int? destinationTopicId,
+    String? title,
+    int? categoryId,
+    List<int> tagIds = const [],
+    bool chronologicalOrder = false,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    _validateSelectedPostIds(postIds);
+    if (destinationTopicId != null) {
+      _requirePositiveId(destinationTopicId, 'destinationTopicId');
+    }
+    if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
+    if (tagIds.any((id) => id <= 0)) {
+      throw ArgumentError.value(tagIds, 'tagIds', 'must contain positive ids');
+    }
+    final trimmedTitle = title?.trim();
+    if ((destinationTopicId == null) ==
+        (trimmedTitle == null || trimmedTitle.isEmpty)) {
+      throw ArgumentError(
+        'Exactly one of destinationTopicId or a non-empty title is required.',
+      );
+    }
+    if (destinationTopicId == topicId) {
+      throw ArgumentError.value(
+        destinationTopicId,
+        'destinationTopicId',
+        'must differ from topicId',
+      );
+    }
+
+    final body = await _write(
+      Uri.parse('$siteUrl/t/$topicId/move-posts.json'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'post_ids': postIds,
+        'destination_topic_id': ?destinationTopicId,
+        if (trimmedTitle != null && trimmedTitle.isNotEmpty)
+          'title': trimmedTitle,
+        'category_id': ?categoryId,
+        if (tagIds.isNotEmpty) 'tag_ids': tagIds,
+        if (destinationTopicId != null)
+          'chronological_order': chronologicalOrder,
+      },
+    );
+    final url = jsonText(body['url']);
+    if (body['success'] != true || url == null) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return url;
+  }
+
+  /// Reassigns posts by one author to another account.
+  Future<void> changePostOwners({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required List<int> postIds,
+    required String username,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    _validateSelectedPostIds(postIds);
+    final trimmedUsername = username.trim();
+    if (trimmedUsername.isEmpty) {
+      throw ArgumentError.value(
+        username.length,
+        'username',
+        'must not be empty',
+      );
+    }
+    final body = await _write(
+      Uri.parse('$siteUrl/t/$topicId/change-owner.json'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'post_ids': postIds, 'username': trimmedUsername},
+    );
+    if (body['success'] != true) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+  }
+
+  /// Makes a post collaboratively editable, or returns it to ordinary edits.
+  Future<void> updatePostWiki({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required bool wiki,
+    String? clientId,
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    await _write(
+      Uri.parse('$siteUrl/posts/$postId/wiki.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'wiki': wiki},
+    );
+  }
+
+  /// Prevents or permits further edits to one post.
+  Future<void> updatePostLocked({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required bool locked,
+    String? clientId,
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    await _write(
+      Uri.parse('$siteUrl/posts/$postId/locked.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'locked': locked},
+    );
+  }
+
+  /// Restores a post automatically hidden by the flagging system.
+  Future<void> unhidePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    await _write(
+      Uri.parse('$siteUrl/posts/$postId/unhide.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
+
+  /// Converts an ordinary post to a moderator post, or reverts it.
+  Future<void> updatePostType({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required int postType,
+    String? clientId,
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    if (postType != Post.regularPostType &&
+        postType != Post.moderatorPostType) {
+      throw ArgumentError.value(postType, 'postType', 'must be 1 or 2');
+    }
+    await _write(
+      Uri.parse('$siteUrl/posts/$postId/post_type.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'post_type': postType},
+    );
+  }
+
+  /// Adds, changes, or removes the staff notice shown above a post.
+  Future<void> updatePostNotice({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? notice,
+    String? clientId,
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    final trimmed = notice?.trim();
+    await _write(
+      Uri.parse('$siteUrl/posts/$postId/notice.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {if (trimmed != null && trimmed.isNotEmpty) 'notice': trimmed},
+    );
+  }
+
   /// Likes a post, and returns it as the site now holds it.
   ///
   /// Safe to retry: a second like from the same account is refused as one it
@@ -2087,6 +2461,36 @@ class DiscourseApi
       throw const WriteException(WriteFailure.unreachable);
     }
     return post;
+  }
+
+  /// Privately flags a topic through core's first-post action bridge.
+  ///
+  /// The id is deliberately the topic id and `flag_topic` selects the bridge;
+  /// sending the first loaded post id instead would lose core's topic-level
+  /// visibility and permission checks.
+  Future<void> createTopicFlag({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required int postActionTypeId,
+    String? message,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    _requirePositiveId(postActionTypeId, 'postActionTypeId');
+    await _write(
+      Uri.parse('$siteUrl/post_actions.json'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'id': topicId,
+        'post_action_type_id': postActionTypeId,
+        'flag_topic': true,
+        'message': ?message,
+      },
+    );
   }
 
   /// Takes a like back, and returns the post as the site now holds it.
@@ -3140,6 +3544,18 @@ class DiscourseApi
 
   static void _requirePositiveId(int value, String name) {
     if (value <= 0) throw RangeError.value(value, name, 'Must be positive.');
+  }
+
+  static void _validateSelectedPostIds(List<int> postIds, {int minimum = 1}) {
+    if (postIds.length < minimum ||
+        postIds.any((id) => id <= 0) ||
+        postIds.toSet().length != postIds.length) {
+      throw ArgumentError.value(
+        postIds,
+        'postIds',
+        'must contain at least $minimum unique positive ids',
+      );
+    }
   }
 
   static void _validateReactionName(String reaction) {

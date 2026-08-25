@@ -57,6 +57,8 @@ final class PostFlagType {
   final bool system;
 
   bool get appliesToPost => appliesTo.contains('Post');
+  bool get appliesToTopic => appliesTo.contains('Topic');
+  bool get appliesToChatMessage => appliesTo.contains('Chat::Message');
   bool get isIllegal => nameKey == 'illegal';
 
   @override
@@ -93,7 +95,10 @@ final class PostFlagType {
 /// requested or failed to load.
 @immutable
 final class SitePostActionCatalog {
-  const SitePostActionCatalog({this.postFlags = const []});
+  const SitePostActionCatalog({
+    this.postFlags = const [],
+    this.topicFlags = const [],
+  });
 
   factory SitePostActionCatalog.fromJson(Map<String, dynamic> json) =>
       SitePostActionCatalog(
@@ -101,16 +106,24 @@ final class SitePostActionCatalog {
           for (final item in jsonObjects(json['post_action_types']))
             ?PostFlagType.tryParse(item),
         ]),
+        topicFlags: List.unmodifiable([
+          for (final item in jsonObjects(json['topic_flag_types']))
+            ?PostFlagType.tryParse(item),
+        ]),
       );
 
   final List<PostFlagType> postFlags;
+  final List<PostFlagType> topicFlags;
 
   @override
   bool operator ==(Object other) =>
-      other is SitePostActionCatalog && listEquals(other.postFlags, postFlags);
+      other is SitePostActionCatalog &&
+      listEquals(other.postFlags, postFlags) &&
+      listEquals(other.topicFlags, topicFlags);
 
   @override
-  int get hashCode => Object.hashAll(postFlags);
+  int get hashCode =>
+      Object.hash(Object.hashAll(postFlags), Object.hashAll(topicFlags));
 }
 
 /// One personalized row from a post's `actions_summary`.

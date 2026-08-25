@@ -45,6 +45,7 @@ const _topicOnly = PostFlagType(
 );
 const _catalog = SitePostActionCatalog(
   postFlags: [_offTopic, _notifyUser, _disabled, _topicOnly],
+  topicFlags: [_topicOnly],
 );
 
 Post _post({
@@ -109,6 +110,16 @@ Future<({ShellController shell, FakeDiscourseApi api})> _shell({
   }
   expect(shell.postFlagTypesFor(_siteUrl), _catalog.postFlags);
   shell.store.put(_siteUrl, _post());
+  shell.store.put(
+    _siteUrl,
+    const TopicDetail(
+      id: 7,
+      title: 'A topic',
+      stream: [42],
+      canFlagTopic: true,
+      topicActions: [PostActionSummary(id: 92, canAct: true)],
+    ),
+  );
   return (shell: shell, api: api);
 }
 
@@ -145,6 +156,26 @@ void main() {
     expect(shell.availablePostFlagTypes(_siteUrl, held), isEmpty);
     expect(shell.postWriteInFlight(42, siteUrl: _siteUrl), isFalse);
   });
+
+  test(
+    'topic flagging intersects its own catalog and action summary',
+    () async {
+      final (:shell, :api) = await _shell();
+      addTearDown(shell.dispose);
+      final topic = shell.store.read<TopicDetail>(_siteUrl, 7)!;
+
+      expect(shell.availableTopicFlagTypes(_siteUrl, topic), [_topicOnly]);
+      expect(await shell.createTopicFlag(_siteUrl, topic, _topicOnly), isNull);
+
+      expect(api.topicFlagsCreated, [
+        (topicId: 7, postActionTypeId: 92, message: null),
+      ]);
+      final held = shell.store.read<TopicDetail>(_siteUrl, 7)!;
+      expect(shell.availableTopicFlagTypes(_siteUrl, held), isEmpty);
+      expect(held.topicActions.single.acted, isTrue);
+      expect(shell.topicFlagWriteInFlight(_siteUrl, 7), isFalse);
+    },
+  );
 
   test('required explanations are validated and forwarded unchanged', () async {
     final (:shell, :api) = await _shell(flagResponse: _actedPost());

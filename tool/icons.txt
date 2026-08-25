@@ -77,6 +77,8 @@ bookmark
 far-bookmark
 heart
 far-heart
+star
+far-star
 user
 users
 user-plus

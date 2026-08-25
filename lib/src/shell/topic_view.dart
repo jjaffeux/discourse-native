@@ -29,7 +29,10 @@ import 'shell_scope.dart';
 import 'small_action.dart';
 import 'stream_day_separator.dart';
 import 'time_gap.dart';
+import 'topic_change_owner.dart';
 import 'topic_list_view.dart';
+import 'topic_move_posts.dart';
+import 'topic_progress.dart';
 import 'user_card.dart';
 
 /// A topic and its posts.
@@ -120,6 +123,7 @@ class _TopicViewState extends State<TopicView> {
   Object? _dayJumpToken;
   Timer? _readTimer;
   ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _seen;
+  int? _progressPosition;
   TopicPostIndexProjection? _postIndexProjection;
 
   TopicPostIndexProjection _postIndexes(List<int> postIds) {
@@ -166,6 +170,7 @@ class _TopicViewState extends State<TopicView> {
     _floatingDayOffset = 0;
     _dayJumpToken = null;
     _seen = null;
+    _progressPosition = null;
     _scroll = ScrollController();
     _list = ListController()..addListener(_noteExtentsChanged);
     _noteExtentsChanged();
@@ -626,6 +631,9 @@ class _TopicViewState extends State<TopicView> {
       );
       if (post == null) continue;
 
+      final streamIndex = snapshot.streamIds.indexOf(post.id);
+      if (streamIndex >= 0) _setProgressPosition(streamIndex + 1);
+
       final seen = (
         siteUrl: snapshot.siteUrl!,
         topicId: snapshot.topicId!,
@@ -638,6 +646,11 @@ class _TopicViewState extends State<TopicView> {
       _readTimer = Timer(_readInterval, _creditReaderNow);
       return;
     }
+  }
+
+  void _setProgressPosition(int position) {
+    if (_progressPosition == position || !mounted) return;
+    setState(() => _progressPosition = position);
   }
 
   void _creditReaderNow() {
@@ -1102,22 +1115,50 @@ class _TopicViewState extends State<TopicView> {
     return Row(
       children: [
         Expanded(
-          child: Stack(
-            clipBehavior: Clip.hardEdge,
+          child: Column(
             children: [
-              Positioned.fill(child: postStream),
-              if (floatingDay != null)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: _floatingDayOffset,
-                  child: StreamDaySeparator(
-                    key: ValueKey(('topic-floating-day', floatingDay)),
-                    day: floatingDay,
-                    floating: true,
-                    onTap: () => _jumpToDayStart(floatingDay),
-                  ),
+              _TopicPostSelectionToolbar(
+                siteUrl: siteUrl,
+                topic: snapshot.topic!,
+              ),
+              Expanded(
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    Positioned.fill(child: postStream),
+                    if (floatingDay != null)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        top: _floatingDayOffset,
+                        child: StreamDaySeparator(
+                          key: ValueKey(('topic-floating-day', floatingDay)),
+                          day: floatingDay,
+                          floating: true,
+                          onTap: () => _jumpToDayStart(floatingDay),
+                        ),
+                      ),
+                    if (_progressPosition case final position?
+                        when snapshot.streamIds.length > 1)
+                      Positioned(
+                        right: 16,
+                        bottom: 16,
+                        child: TopicProgressButton(
+                          position: position,
+                          total: snapshot.streamIds.length,
+                          onPressed: () => unawaited(
+                            showTopicProgress(
+                              context: context,
+                              controller: controller,
+                              position: position,
+                              total: snapshot.streamIds.length,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         ),
@@ -1130,6 +1171,241 @@ class _TopicViewState extends State<TopicView> {
             onCollapsedChanged: _setRecommendationsPanelCollapsed,
           ),
       ],
+    );
+  }
+}
+
+class _TopicPostSelectionToolbar extends StatelessWidget {
+  const _TopicPostSelectionToolbar({
+    required this.siteUrl,
+    required this.topic,
+  });
+
+  final String siteUrl;
+  final TopicDetail topic;
+
+  Future<bool> _confirm(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required String action,
+    bool destructive = false,
+  }) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: ValueKey('topic-selected-${action.toLowerCase()}-confirm'),
+              style: destructive
+                  ? FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.error,
+                    )
+                  : null,
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(action),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+
+  Future<void> _delete(
+    BuildContext context,
+    ShellController controller,
+    int count,
+  ) async {
+    final confirmed = await _confirm(
+      context,
+      title: 'Delete selected posts?',
+      message: 'Delete $count selected ${count == 1 ? 'post' : 'posts'}?',
+      action: 'Delete',
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+    final error = await controller.deleteSelectedTopicPosts(siteUrl, topic.id);
+    if (error != null && context.mounted) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  Future<void> _merge(
+    BuildContext context,
+    ShellController controller,
+    int count,
+  ) async {
+    final confirmed = await _confirm(
+      context,
+      title: 'Merge selected posts?',
+      message: 'Merge $count posts by the same author into one post?',
+      action: 'Merge',
+    );
+    if (!confirmed || !context.mounted) return;
+    final error = await controller.mergeSelectedTopicPosts(siteUrl, topic.id);
+    if (error != null && context.mounted) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ShellSelector<
+      ({bool enabled, bool busy, List<Post> selected, int loaded})
+    >(
+      select: (controller) => (
+        enabled: controller.topicPostSelectionEnabled(siteUrl, topic.id),
+        busy: controller.topicPostSelectionWriteInFlight(siteUrl, topic.id),
+        selected: controller.selectedTopicPosts(siteUrl, topic.id),
+        loaded: topic.stream
+            .where((id) => controller.store.read<Post>(siteUrl, id) != null)
+            .length,
+      ),
+      builder: (context, state, _) {
+        if (!state.enabled) return const SizedBox.shrink();
+        final controller = ShellScope.read(context);
+        final selected = state.selected;
+        final canDelete =
+            selected.isNotEmpty && selected.every((post) => post.canDelete);
+        final canMerge =
+            selected.length > 1 &&
+            canDelete &&
+            selected.map((post) => post.username).toSet().length == 1;
+        final canChangeOwner = controller.canChangeSelectedTopicPostOwner(
+          siteUrl,
+          topic.id,
+        );
+        final count = selected.length;
+        final theme = Theme.of(context);
+        return Material(
+          key: const ValueKey('topic-selected-posts-toolbar'),
+          color: theme.colorScheme.surfaceContainer,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: theme.shell.divider)),
+            ),
+            child: SizedBox(
+              height: 52,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    if (state.busy) ...[
+                      const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    Text(
+                      '$count ${count == 1 ? 'post' : 'posts'} selected',
+                      key: const ValueKey('topic-selected-posts-count'),
+                      style: theme.textTheme.labelLarge,
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      key: const ValueKey('topic-selected-posts-all'),
+                      onPressed: state.busy || state.loaded == 0
+                          ? null
+                          : () => controller.selectAllLoadedTopicPosts(
+                              siteUrl,
+                              topic.id,
+                            ),
+                      child: const Text('Select all loaded'),
+                    ),
+                    TextButton(
+                      key: const ValueKey('topic-selected-posts-clear'),
+                      onPressed: state.busy || selected.isEmpty
+                          ? null
+                          : () => controller.clearSelectedTopicPosts(
+                              siteUrl,
+                              topic.id,
+                            ),
+                      child: const Text('Clear'),
+                    ),
+                    TextButton.icon(
+                      key: const ValueKey('topic-selected-posts-move'),
+                      onPressed:
+                          state.busy || selected.isEmpty || !topic.canMovePosts
+                          ? null
+                          : () => unawaited(
+                              showTopicMovePosts(
+                                context: context,
+                                controller: controller,
+                                siteUrl: siteUrl,
+                                topic: topic,
+                                selectedPosts: selected,
+                              ),
+                            ),
+                      icon: const DIcon(DIcons.rightFromBracket, size: 15),
+                      label: const Text('Move'),
+                    ),
+                    TextButton.icon(
+                      key: const ValueKey('topic-selected-posts-change-owner'),
+                      onPressed: state.busy || !canChangeOwner
+                          ? null
+                          : () => unawaited(
+                              showTopicChangeOwner(
+                                context: context,
+                                controller: controller,
+                                siteUrl: siteUrl,
+                                topicId: topic.id,
+                                selectedPosts: selected,
+                              ),
+                            ),
+                      icon: const DIcon(DIcons.user, size: 15),
+                      label: const Text('Change owner'),
+                    ),
+                    TextButton.icon(
+                      key: const ValueKey('topic-selected-posts-merge'),
+                      onPressed: state.busy || !canMerge
+                          ? null
+                          : () => unawaited(
+                              _merge(context, controller, selected.length),
+                            ),
+                      icon: const DIcon(DIcons.layerGroup, size: 15),
+                      label: const Text('Merge'),
+                    ),
+                    TextButton.icon(
+                      key: const ValueKey('topic-selected-posts-delete'),
+                      onPressed: state.busy || !canDelete
+                          ? null
+                          : () => unawaited(
+                              _delete(context, controller, selected.length),
+                            ),
+                      icon: const DIcon(DIcons.trashCan, size: 15),
+                      label: const Text('Delete'),
+                    ),
+                    TextButton(
+                      key: const ValueKey('topic-selected-posts-cancel'),
+                      onPressed: state.busy
+                          ? null
+                          : () => controller.setTopicPostSelectionEnabled(
+                              siteUrl,
+                              topic.id,
+                              false,
+                            ),
+                      child: const Text('Cancel'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1275,6 +1551,7 @@ class _TopicViewSnapshot {
     required this.topic,
     required this.siteUrl,
     required this.postIds,
+    required this.streamIds,
     required this.loading,
     required this.loadingMore,
     required this.loadingEarlier,
@@ -1315,6 +1592,7 @@ class _TopicViewSnapshot {
       topic: controller.currentTopic,
       siteUrl: siteUrl,
       postIds: postIds,
+      streamIds: controller.currentTopicStreamIds,
       loading: controller.currentTopicLoading,
       loadingMore: controller.loadingMorePosts,
       loadingEarlier: controller.loadingEarlierPosts,
@@ -1337,6 +1615,7 @@ class _TopicViewSnapshot {
   final TopicDetail? topic;
   final String? siteUrl;
   final List<int> postIds;
+  final List<int> streamIds;
   final bool loading;
   final bool loadingMore;
   final bool loadingEarlier;
@@ -1358,6 +1637,7 @@ class _TopicViewSnapshot {
           identical(topic, other.topic) &&
           siteUrl == other.siteUrl &&
           listEquals(postIds, other.postIds) &&
+          listEquals(streamIds, other.streamIds) &&
           loading == other.loading &&
           loadingMore == other.loadingMore &&
           loadingEarlier == other.loadingEarlier &&
@@ -1376,6 +1656,7 @@ class _TopicViewSnapshot {
     identityHashCode(topic),
     siteUrl,
     Object.hashAll(postIds),
+    Object.hashAll(streamIds),
     loading,
     loadingMore,
     loadingEarlier,
@@ -1871,7 +2152,28 @@ class _PostTileState extends State<_PostTile> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ShellSelector<({bool enabled, bool selected, bool busy})>(
+        select: (controller) => (
+          enabled: controller.topicPostSelectionEnabled(
+            widget.siteUrl,
+            widget.topic.id,
+          ),
+          selected: controller
+              .selectedTopicPostIds(widget.siteUrl, widget.topic.id)
+              .contains(widget.post.id),
+          busy: controller.topicPostSelectionWriteInFlight(
+            widget.siteUrl,
+            widget.topic.id,
+          ),
+        ),
+        builder: (context, selection, _) => _build(context, selection),
+      );
+
+  Widget _build(
+    BuildContext context,
+    ({bool enabled, bool selected, bool busy}) selection,
+  ) {
     final theme = Theme.of(context);
     final post = widget.post;
 
@@ -1898,6 +2200,21 @@ class _PostTileState extends State<_PostTile> {
               children: [
                 Row(
                   children: [
+                    if (selection.enabled) ...[
+                      Checkbox(
+                        key: ValueKey('topic-post-select-${post.id}'),
+                        value: selection.selected,
+                        onChanged: selection.busy
+                            ? null
+                            : (_) => ShellScope.read(context)
+                                  .toggleTopicPostSelected(
+                                    widget.siteUrl,
+                                    widget.topic.id,
+                                    post.id,
+                                  ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
                     UserCardTarget(
                       username: post.username,
                       siteUrl: widget.siteUrl,
@@ -1972,6 +2289,34 @@ class _PostTileState extends State<_PostTile> {
                               color: theme.colorScheme.error,
                             ),
                           ],
+                          if (post.wiki) ...[
+                            const SizedBox(width: 6),
+                            _Tag(
+                              label: 'wiki',
+                              color: theme.colorScheme.primary,
+                            ),
+                          ],
+                          if (post.locked) ...[
+                            const SizedBox(width: 6),
+                            _Tag(
+                              label: 'locked',
+                              color: theme.colorScheme.secondary,
+                            ),
+                          ],
+                          if (post.hidden) ...[
+                            const SizedBox(width: 6),
+                            _Tag(
+                              label: 'hidden',
+                              color: theme.colorScheme.error,
+                            ),
+                          ],
+                          if (post.isModeratorAction) ...[
+                            const SizedBox(width: 6),
+                            _Tag(
+                              label: 'moderator',
+                              color: theme.colorScheme.primary,
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1996,6 +2341,14 @@ class _PostTileState extends State<_PostTile> {
                       ),
                   ],
                 ),
+                if (post.notice case final notice?) ...[
+                  const SizedBox(height: 10),
+                  _PostNoticeBanner(
+                    siteUrl: widget.siteUrl,
+                    post: post,
+                    notice: notice,
+                  ),
+                ],
                 const SizedBox(height: 10),
                 PostTextSelection(
                   post: post,
@@ -2040,6 +2393,65 @@ class _PostTileState extends State<_PostTile> {
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: TopicView.minimumPostHeight),
       child: tile,
+    );
+  }
+}
+
+class _PostNoticeBanner extends StatelessWidget {
+  const _PostNoticeBanner({
+    required this.siteUrl,
+    required this.post,
+    required this.notice,
+  });
+
+  final String siteUrl;
+  final Post post;
+  final PostNotice notice;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cooked = notice.cooked;
+    final label = switch (notice.type) {
+      'new_user' => 'This is this user’s first post.',
+      'returning_user' => 'This user is returning after a long absence.',
+      _ => notice.raw ?? 'Staff notice',
+    };
+    return Container(
+      key: ValueKey('post-notice-${post.id}'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DIcon(
+            DIcons.user,
+            size: 16,
+            color: theme.colorScheme.onSecondaryContainer,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: cooked == null || cooked.isEmpty
+                ? Text(
+                    label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSecondaryContainer,
+                    ),
+                  )
+                : CookedHtml(
+                    html: cooked,
+                    siteUrl: siteUrl,
+                    post: post,
+                    textStyle: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

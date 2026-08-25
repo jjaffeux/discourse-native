@@ -112,6 +112,36 @@ void main() {
       expect(payload.detail.canCreatePost, isTrue);
     });
 
+    test('retains personalized topic flag actions and consumes one', () {
+      final payload = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A flaggable topic',
+        'details': {'can_flag_topic': true},
+        'actions_summary': [
+          {'id': 4, 'can_act': true},
+          {'id': 8, 'count': 2, 'can_act': true},
+        ],
+      }, site);
+
+      expect(payload.detail.canFlagWith(4), isTrue);
+      expect(payload.detail.canFlagWith(8), isTrue);
+      final flagged = payload.detail.withTopicFlag(8);
+      expect(flagged.canFlagWith(4), isFalse);
+      expect(flagged.canFlagWith(8), isFalse);
+      expect(flagged.topicActions.last.count, 3);
+      expect(flagged.topicActions.last.acted, isTrue);
+    });
+
+    test('reads the guardian reply-as-new-topic capability', () {
+      final payload = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A real topic',
+        'details': {'can_reply_as_new_topic': true},
+      }, site);
+
+      expect(payload.detail.canReplyAsNewTopic, isTrue);
+    });
+
     test('reads the topic map summary and details', () {
       final payload = TopicDetail.parse(const {
         'id': 7,
@@ -236,6 +266,86 @@ void main() {
       }, site);
 
       expect(payload.detail.notificationLevel, TopicNotificationLevel.watching);
+    });
+
+    test('reads status values and their guardian capabilities', () {
+      final payload = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A moderated topic',
+        'closed': true,
+        'archived': true,
+        'visible': false,
+        'details': {
+          'can_close_topic': true,
+          'can_archive_topic': true,
+          'can_toggle_topic_visibility': true,
+        },
+      }, site);
+
+      expect(payload.detail.closed, isTrue);
+      expect(payload.detail.archived, isTrue);
+      expect(payload.detail.visible, isFalse);
+      expect(payload.detail.hasStatusActions, isTrue);
+      expect(
+        payload.detail.canChangeStatus(TopicStatusProperty.closed),
+        isTrue,
+      );
+      expect(
+        payload.detail.withStatus(TopicStatusProperty.visible, true).visible,
+        isTrue,
+      );
+    });
+
+    test('reads and projects topic delete and recovery capabilities', () {
+      final payload = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A deleted topic',
+        'deleted_at': '2026-08-25T12:00:00.000Z',
+        'details': {'can_delete': false, 'can_recover': true},
+      }, site);
+
+      expect(payload.detail.deletedAt, DateTime.utc(2026, 8, 25, 12));
+      expect(payload.detail.canDeleteTopic, isFalse);
+      expect(payload.detail.canRecoverTopic, isTrue);
+      expect(payload.detail.hasStatusActions, isTrue);
+
+      final recovered = payload.detail.withDeletion(
+        false,
+        DateTime.utc(2026, 8, 25, 13),
+      );
+      expect(recovered.deletedAt, isNull);
+      expect(recovered.canDeleteTopic, isTrue);
+      expect(recovered.canRecoverTopic, isFalse);
+    });
+
+    test('reads and updates the current account pin preference', () {
+      final payload = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A pinned topic',
+        'pinned': true,
+        'unpinned': false,
+        'pinned_globally': true,
+      }, site);
+
+      expect(payload.detail.pinned, isTrue);
+      expect(payload.detail.unpinned, isFalse);
+      expect(payload.detail.pinnedGlobally, isTrue);
+      expect(payload.detail.hasPinPreference, isTrue);
+
+      final dismissed = payload.detail.withPinPreference(false);
+      expect(dismissed.pinned, isFalse);
+      expect(dismissed.unpinned, isTrue);
+      expect(dismissed.pinnedGlobally, isTrue);
+      expect(dismissed.withPinPreference(true).pinned, isTrue);
+    });
+
+    test('an ordinary topic does not invent a pin preference', () {
+      final payload = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'An ordinary topic',
+      }, site);
+
+      expect(payload.detail.hasPinPreference, isFalse);
     });
 
     test('unknown notification levels safely read as normal', () {

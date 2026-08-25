@@ -38,6 +38,7 @@ class DiscourseUser {
     this.canCreatePoll,
     this.canAssign,
     this.canAssignGlobally,
+    this.canChangePostOwner = false,
     this.staff = false,
     this.groups = const [],
     this.ignoredUsernames = const [],
@@ -66,6 +67,7 @@ class DiscourseUser {
     canCreatePoll: json['canCreatePoll'] as bool?,
     canAssign: json['canAssign'] as bool?,
     canAssignGlobally: json['canAssignGlobally'] as bool?,
+    canChangePostOwner: json['canChangePostOwner'] == true,
     staff: json['staff'] == true,
     groups: List.unmodifiable(
       jsonArray(json['groups']).map(jsonText).whereType<String>(),
@@ -110,6 +112,9 @@ class DiscourseUser {
   /// Individual topic and post payloads remain authoritative for a target.
   final bool? canAssign;
   final bool? canAssignGlobally;
+
+  /// Core's account-level guardian for reassigning post authorship.
+  final bool canChangePostOwner;
 
   /// Whether the current account is an administrator or moderator.
   final bool staff;
@@ -162,6 +167,7 @@ class DiscourseUser {
     'canCreatePoll': canCreatePoll,
     'canAssign': canAssign,
     'canAssignGlobally': canAssignGlobally,
+    'canChangePostOwner': canChangePostOwner,
     'staff': staff,
     'groups': groups,
     'ignoredUsernames': ignoredUsernames,
@@ -188,6 +194,7 @@ class DiscourseUser {
       other.canCreatePoll == canCreatePoll &&
       other.canAssign == canAssign &&
       other.canAssignGlobally == canAssignGlobally &&
+      other.canChangePostOwner == canChangePostOwner &&
       other.staff == staff &&
       listEquals(other.groups, groups) &&
       listEquals(other.ignoredUsernames, ignoredUsernames) &&
@@ -209,6 +216,7 @@ class DiscourseUser {
     canCreatePoll,
     canAssign,
     canAssignGlobally,
+    canChangePostOwner,
     staff,
     Object.hashAll(groups),
     Object.hashAll(ignoredUsernames),

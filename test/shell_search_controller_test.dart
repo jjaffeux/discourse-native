@@ -552,6 +552,8 @@ class _SearchApi extends FakeDiscourseApi {
     required String siteUrl,
     required String term,
     String? typeFilter,
+    bool searchForId = false,
+    String? restrictToArchetype,
     String? apiKey,
     String? clientId,
   }) {
