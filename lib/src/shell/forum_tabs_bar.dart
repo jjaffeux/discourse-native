@@ -143,6 +143,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
 
     return Container(
       key: const ValueKey('forum-tabs-bar'),
+      width: double.infinity,
       height: ForumTabsBar.height,
       padding: const EdgeInsets.fromLTRB(0, 4, 5, 0),
       decoration: BoxDecoration(

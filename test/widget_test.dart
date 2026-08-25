@@ -3612,6 +3612,33 @@ void main() {
       expect(tracker.userId, 7);
     });
 
+    testWidgets('the account avatar uses a hand cursor without a hover fill', (
+      tester,
+    ) async {
+      await pumpConnected(tester);
+
+      final avatar = find.byKey(UserMenuButton.avatarKey);
+      final inkWell = tester.widget<InkWell>(avatar);
+      final material = tester.widget<Material>(
+        find.ancestor(of: avatar, matching: find.byType(Material)).first,
+      );
+      final theme = Theme.of(tester.element(avatar));
+      final cursor = inkWell.mouseCursor! as WidgetStateMouseCursor;
+
+      expect(cursor.resolve(const {}), SystemMouseCursors.click);
+      expect(
+        cursor.resolve(const {WidgetState.disabled}),
+        SystemMouseCursors.basic,
+      );
+      expect(inkWell.hoverColor, Colors.transparent);
+      expect(inkWell.focusColor, theme.shell.hover);
+      expect(
+        inkWell.borderRadius,
+        BorderRadius.circular(theme.discourseButtons.borderRadius),
+      );
+      expect(material.type, MaterialType.transparency);
+    });
+
     testWidgets('a notification arriving marks the avatar', (tester) async {
       final tracker = await pumpConnected(tester);
 

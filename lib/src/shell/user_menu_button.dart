@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -100,6 +102,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
       );
     },
     builder: (context, account, _) {
+      final theme = Theme.of(context);
       final siteUrl = account.siteUrl;
       if (siteUrl == null) return const SizedBox.shrink();
       if (account.username == null) {
@@ -178,19 +181,27 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               child: Tooltip(
                 message: tooltip,
                 excludeFromSemantics: true,
-                child: InkWell(
-                  key: UserMenuButton.avatarKey,
-                  onTap: connecting ? null : _openMenu,
-                  borderRadius: BorderRadius.circular(22),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      minWidth: 44,
-                      minHeight: 44,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    key: UserMenuButton.avatarKey,
+                    onTap: connecting ? null : _openMenu,
+                    mouseCursor: WidgetStateMouseCursor.clickable,
+                    borderRadius: BorderRadius.circular(
+                      theme.discourseButtons.borderRadius,
                     ),
-                    child: Center(
-                      widthFactor: 1,
-                      heightFactor: 1,
-                      child: ExcludeSemantics(child: avatar),
+                    hoverColor: Colors.transparent,
+                    focusColor: theme.shell.hover,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
+                      ),
+                      child: Center(
+                        widthFactor: 1,
+                        heightFactor: 1,
+                        child: ExcludeSemantics(child: avatar),
+                      ),
                     ),
                   ),
                 ),
