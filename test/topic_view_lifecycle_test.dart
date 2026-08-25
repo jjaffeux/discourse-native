@@ -639,7 +639,7 @@ void main() {
         of: skeleton,
         matching: find.byType(LoadingSkeletonBlock),
       ),
-      findsNWidgets(8),
+      findsNWidgets(4),
     );
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
@@ -704,7 +704,7 @@ void main() {
         of: skeleton,
         matching: find.byType(LoadingSkeletonBlock),
       ),
-      findsNWidgets(8),
+      findsNWidgets(4),
     );
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
@@ -713,6 +713,76 @@ void main() {
 
     expect(skeleton, findsNothing);
     expect(controller.currentPostIds, [for (var id = 1; id <= 26; id++) id]);
+  });
+
+  testWidgets('a short final page does not move the posts already in view', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final posts = {
+      for (var number = 1; number <= 21; number++)
+        number: Post(
+          id: number,
+          postNumber: number,
+          username: 'sam',
+          cooked: '<p>Post $number</p>',
+        ),
+    };
+    final postGate = Completer<void>();
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      postsById: posts,
+      postGate: postGate,
+    );
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (var id = 1; id <= 21; id++) id],
+          postsCount: 21,
+        ),
+      )
+      ..putAll(site.url, [for (var id = 1; id <= 20; id++) posts[id]!]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
+    await tester.pump();
+    await tester.pump();
+    list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
+    await tester.pump();
+
+    expect(api.postFetches, [
+      [21],
+    ]);
+    expect(
+      find.byKey(const ValueKey('topic-loading-more-skeleton')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('topic-loading-more-skeleton')))
+          .height,
+      TopicView.minimumPostHeight,
+    );
+    final anchor = find.byKey(const ValueKey(20));
+    expect(anchor, findsOneWidget);
+    final topBeforeAppend = tester.getTopLeft(anchor).dy;
+
+    postGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(controller.currentPostIds, [for (var id = 1; id <= 21; id++) id]);
+    expect(tester.getTopLeft(anchor).dy, closeTo(topBeforeAppend, 1));
   });
 
   testWidgets('a pull retries a failed earlier page in a short topic', (
