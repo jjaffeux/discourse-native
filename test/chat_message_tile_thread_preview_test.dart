@@ -13,6 +13,7 @@ import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -782,11 +783,17 @@ void main() {
 
     final action = find.byTooltip('Bookmark');
     expect(action, findsOneWidget);
-    final button = tester.widget<IconButton>(
-      find.ancestor(of: action, matching: find.byType(IconButton)),
+    final button = tester.widget<DButton>(
+      find.ancestor(of: action, matching: find.byType(DButton)),
     );
     expect(button.onPressed, isNull);
-    expect(button.icon, isA<SizedBox>());
+    expect(
+      find.descendant(
+        of: action,
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
 
     api.response.complete(91);
     expect((await write).saved, isTrue);

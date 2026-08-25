@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/site_appearance.dart';
 import 'color_contrast.dart';
+import 'd_button.dart';
 
 /// The tertiary color of Discourse's default light scheme.
 const Color discourseBlue = Color(0xFF0088CC);
@@ -652,7 +653,17 @@ abstract final class AppTheme {
       ).noDefault(),
       // The backdrop the panels sit on, visible above them and behind the rail.
       scaffoldBackgroundColor: shell.rail,
-      extensions: [shell, code, discourse],
+      extensions: [
+        shell,
+        code,
+        discourse,
+        DiscourseButtonTheme.fromColors(
+          resolvedColorScheme,
+          borderRadius: borderRadius,
+          hover: shell.hover,
+          success: discourse.success,
+        ),
+      ],
       dividerTheme: DividerThemeData(
         color: shell.divider,
         thickness: 1,

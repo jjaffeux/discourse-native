@@ -12,6 +12,7 @@ import '../models/topic_feed.dart';
 import '../plugins/plugin_scope.dart';
 import '../plugins/site_plugin.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
@@ -307,12 +308,13 @@ class _ContentHeader extends StatelessWidget {
           return Row(
             children: [
               if (showBack)
-                IconButton(
+                DButton.iconOnly(
                   onPressed: () => controller.handleBack(
                     canReturnToSidebar: layout.isCompact,
                   ),
                   icon: const DIcon(DIcons.arrowLeft, size: 20),
                   tooltip: 'Back',
+                  variant: DButtonVariant.flat,
                 )
               else
                 const SizedBox(width: 8),
@@ -389,7 +391,7 @@ class _ContentHeader extends StatelessWidget {
               ...contentHeader,
               ...topicHeader,
               if (route.isTopic && siteUrl != null && topic != null)
-                IconButton(
+                DButton.iconOnly(
                   key: const ValueKey('topic-share-button'),
                   onPressed: () {
                     final instance = controller.currentInstance;
@@ -423,12 +425,13 @@ class _ContentHeader extends StatelessWidget {
                   },
                   icon: const DIcon(DIcons.upRightFromSquare, size: 18),
                   tooltip: 'Share this topic',
+                  variant: DButtonVariant.flat,
                 ),
               if (route.isTopic &&
                   siteUrl != null &&
                   topic != null &&
                   topicFlags.isNotEmpty)
-                IconButton(
+                DButton.iconOnly(
                   key: const ValueKey('topic-flag-button'),
                   onPressed:
                       controller.topicFlagWriteInFlight(siteUrl!, topic!.id)
@@ -443,6 +446,11 @@ class _ContentHeader extends StatelessWidget {
                         ),
                   icon: const DIcon(DIcons.flag, size: 18),
                   tooltip: 'Flag this topic',
+                  loading: controller.topicFlagWriteInFlight(
+                    siteUrl!,
+                    topic!.id,
+                  ),
+                  variant: DButtonVariant.flat,
                 ),
               if (route.isTopic && siteUrl != null && topic != null)
                 _TopicStatusButton(siteUrl: siteUrl!, topic: topic!),
@@ -460,7 +468,7 @@ class _ContentHeader extends StatelessWidget {
                   siteUrl != null &&
                   topic != null &&
                   controller.currentInstance?.user != null)
-                IconButton(
+                DButton.iconOnly(
                   onPressed: bookmarkBusy
                       ? null
                       : () => unawaited(
@@ -489,12 +497,15 @@ class _ContentHeader extends StatelessWidget {
                   tooltip: topic!.hasBookmarks
                       ? 'Manage ${topic!.bookmarks.length} topic bookmark${topic!.bookmarks.length == 1 ? '' : 's'}'
                       : 'Bookmark this topic',
+                  loading: bookmarkBusy,
+                  variant: DButtonVariant.flat,
                 ),
               if (route.isTopic && canReply)
-                IconButton(
+                DButton.iconOnly(
                   onPressed: () => controller.openReply(),
                   icon: const DIcon(DIcons.reply, size: 20),
                   tooltip: 'Reply to this topic',
+                  variant: DButtonVariant.flat,
                 ),
               if (!route.isTopic && showCreateTopicAction)
                 _TopicCreateAction(controller: controller),
@@ -524,13 +535,11 @@ class _TopicPinButton extends StatelessWidget {
   final TopicDetail topic;
 
   Future<void> _change(BuildContext context, bool pinned) async {
-    final error = await ShellScope.read(
-      context,
-    ).updateTopicPinPreference(siteUrl, topic.id, pinned);
+    final error = await ShellScope.read(context)
+        .updateTopicPinPreference(siteUrl, topic.id, pinned);
     if (error == null || !context.mounted) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(SnackBar(content: Text(error)));
   }
 
   @override
@@ -559,10 +568,12 @@ class _TopicPinButton extends StatelessWidget {
         options: options,
         enabled: !busy,
         onSelected: (pinned) => unawaited(_change(context, pinned)),
-        builder: (context, openMenu) => IconButton(
+        builder: (context, openMenu) => DButton.iconOnly(
           key: const ValueKey('topic-pin-button'),
           tooltip: 'Pinned topic options',
           onPressed: openMenu,
+          loading: busy,
+          variant: DButtonVariant.flat,
           icon: busy
               ? const SizedBox.square(
                   dimension: 18,
@@ -594,9 +605,8 @@ class _TopicStatusButton extends StatelessWidget {
       enabled,
     );
     if (error == null || !context.mounted) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(SnackBar(content: Text(error)));
   }
 
   Future<void> _changeDeletion(BuildContext context, bool deleted) async {
@@ -628,9 +638,8 @@ class _TopicStatusButton extends StatelessWidget {
     final error = await controller.setTopicDeleted(siteUrl, topic.id, deleted);
     if (!context.mounted) return;
     if (error != null) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.maybeOf(context)
+          ?.showSnackBar(SnackBar(content: Text(error)));
       return;
     }
     // Core redirects an ordinary author after deletion because the topic is no
@@ -756,10 +765,12 @@ class _TopicStatusButton extends StatelessWidget {
               child: const Text('Recover topic'),
             ),
         ],
-        builder: (context, menu, _) => IconButton(
+        builder: (context, menu, _) => DButton.iconOnly(
           key: const ValueKey('topic-status-button'),
           tooltip: 'Topic actions',
           onPressed: busy ? null : menu.open,
+          loading: busy,
+          variant: DButtonVariant.flat,
           icon: busy
               ? const SizedBox.square(
                   dimension: 18,
@@ -825,10 +836,11 @@ class _TopicNotificationLevelButton extends StatelessWidget {
       onSelected: (level) => unawaited(
         controller.updateTopicNotificationLevel(siteUrl, topic.id, level),
       ),
-      builder: (context, openMenu) => IconButton(
+      builder: (context, openMenu) => DButton.iconOnly(
         tooltip: 'Topic notifications',
         onPressed: openMenu,
         icon: DIcon(_iconFor(topic.notificationLevel), size: 18),
+        variant: DButtonVariant.flat,
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../shell/shell_sheet.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
@@ -37,9 +38,11 @@ class ChatChannelNotificationButton extends StatelessWidget {
               siteUrl,
               channelId,
             );
-            return IconButton(
+            return DButton.iconOnly(
               key: const ValueKey('chat-channel-notification-button'),
               tooltip: 'Channel notifications',
+              loading: busy,
+              variant: DButtonVariant.flat,
               onPressed: busy
                   ? null
                   : () => unawaited(
@@ -89,9 +92,8 @@ class _ChannelNotificationSettings extends StatelessWidget {
   final int channelId;
 
   void _notice(BuildContext context, String message) {
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _change(

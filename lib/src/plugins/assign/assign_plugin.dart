@@ -9,6 +9,7 @@ import '../../shell/pill.dart';
 import '../../shell/post_action.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../site_plugin_api.dart';
@@ -138,11 +139,12 @@ final class AssignPlugin
         label: summary,
         onTap: openAssignments,
         child: ExcludeSemantics(
-          child: IconButton(
+          child: DButton.iconOnly(
             key: const Key('assign-topic-header'),
             icon: const DIcon(DIcons.userPlus),
             tooltip: hasAssignments ? 'View assignments' : 'Assign topic',
             onPressed: openAssignments,
+            variant: DButtonVariant.flat,
           ),
         ),
       ),
