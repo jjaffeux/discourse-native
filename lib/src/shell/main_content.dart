@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../models/bookmark.dart';
 import '../models/category_feed.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
@@ -13,6 +14,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
+import 'bookmark_ui.dart';
 import 'categories_page.dart';
 import 'choice_menu.dart';
 import 'composer_controller.dart';
@@ -98,6 +100,7 @@ class _MainContentBody extends StatelessWidget {
                 topic: state.topic,
                 canPop: state.canPop,
                 canReply: state.canReply,
+                bookmarkBusy: state.bookmarkBusy,
                 showCreateTopicAction: pluginContent == null,
                 isConnected: state.isConnected,
                 registry: registry,
@@ -239,6 +242,7 @@ class _ContentHeader extends StatelessWidget {
     required this.topic,
     required this.canPop,
     required this.canReply,
+    required this.bookmarkBusy,
     required this.showCreateTopicAction,
     required this.isConnected,
     required this.registry,
@@ -250,6 +254,7 @@ class _ContentHeader extends StatelessWidget {
   final TopicDetail? topic;
   final bool canPop;
   final bool canReply;
+  final bool bookmarkBusy;
   final bool showCreateTopicAction;
   final bool isConnected;
   final PluginRegistry registry;
@@ -380,6 +385,40 @@ class _ContentHeader extends StatelessWidget {
                   siteUrl != null &&
                   topic != null)
                 _TopicNotificationLevelButton(siteUrl: siteUrl!, topic: topic!),
+              if (route.isTopic &&
+                  siteUrl != null &&
+                  topic != null &&
+                  controller.currentInstance?.user != null)
+                IconButton(
+                  onPressed: bookmarkBusy
+                      ? null
+                      : () => unawaited(
+                          showTopicBookmarkMenu(
+                            context: context,
+                            controller: controller,
+                            siteUrl: siteUrl!,
+                            topic: topic!,
+                          ),
+                        ),
+                  icon: bookmarkBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : DIcon(
+                          topic!.topicBookmark?.reminderAt != null
+                              ? DIcons.discourseBookmarkClock
+                              : topic!.hasBookmarks
+                              ? DIcons.bookmark
+                              : DIcons.farBookmark,
+                          size: 20,
+                        ),
+                  tooltip: topic!.hasBookmarks
+                      ? 'Manage ${topic!.bookmarks.length} topic bookmark${topic!.bookmarks.length == 1 ? '' : 's'}'
+                      : 'Bookmark this topic',
+                ),
               if (route.isTopic && canReply)
                 IconButton(
                   onPressed: () => controller.openReply(),
@@ -728,6 +767,7 @@ class _MainContentSnapshot {
     required this.composer,
     required this.canPop,
     required this.canReply,
+    required this.bookmarkBusy,
     required this.isConnected,
     required this.canAssignLegacyTargets,
     required this.filterCategories,
@@ -743,6 +783,14 @@ class _MainContentSnapshot {
         composer: controller.visibleComposer,
         canPop: controller.canPopContent,
         canReply: controller.canReplyHere,
+        bookmarkBusy: switch (controller.currentTopic) {
+          final topic? => controller.bookmarkWriteInFlight(
+            topicId: topic.id,
+            targetType: BookmarkTargetType.topic,
+            targetId: topic.id,
+          ),
+          null => false,
+        },
         isConnected: controller.currentInstance?.isConnected == true,
         canAssignLegacyTargets: switch (controller.currentInstance?.url) {
           final siteUrl? => controller.canAssignForTarget(siteUrl, null),
@@ -773,6 +821,7 @@ class _MainContentSnapshot {
   final ComposerController? composer;
   final bool canPop;
   final bool canReply;
+  final bool bookmarkBusy;
   final bool isConnected;
   final bool canAssignLegacyTargets;
   final List<TopicCategory> filterCategories;
@@ -788,6 +837,7 @@ class _MainContentSnapshot {
       identical(composer, other.composer) &&
       canPop == other.canPop &&
       canReply == other.canReply &&
+      bookmarkBusy == other.bookmarkBusy &&
       isConnected == other.isConnected &&
       canAssignLegacyTargets == other.canAssignLegacyTargets &&
       identical(filterCategories, other.filterCategories) &&
@@ -802,6 +852,7 @@ class _MainContentSnapshot {
     identityHashCode(composer),
     canPop,
     canReply,
+    bookmarkBusy,
     isConnected,
     canAssignLegacyTargets,
     identityHashCode(filterCategories),

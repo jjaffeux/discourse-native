@@ -9,8 +9,8 @@ import 'data/byte_cache_store.dart';
 import 'data/emoji_cache.dart';
 import 'data/media_request_coordinator.dart';
 import 'diagnostics/diagnostics.dart';
+import 'foundation/timezone_environment.dart';
 import 'plugins/bundled_plugin_manifest.dart';
-import 'plugins/local_dates/local_date_environment.dart';
 import 'plugins/plugin_manifest.dart';
 import 'plugins/resenha/resenha_diagnostics.dart';
 import 'plugins/resenha/resenha_sdk_diagnostics.dart';
@@ -119,10 +119,6 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   late final DiagnosticsController _diagnostics;
   ResenhaDiagnosticsController? _resenhaDiagnostics;
 
-  bool get _hasLocalDates => _manifest.modules.any(
-    (module) => module.descriptor.id == const PluginId('discourse-local-dates'),
-  );
-
   bool get _hasResenha => _manifest.modules.any(
     (module) => module.descriptor.id == const PluginId('resenha'),
   );
@@ -133,9 +129,8 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   }
 
   @override
-  Future<void> initializeLocalDates() => _hasLocalDates
-      ? LocalDateEnvironment.instance.initialize()
-      : Future<void>.value();
+  Future<void> initializeLocalDates() =>
+      TimezoneEnvironment.instance.initialize();
 
   @override
   void installBoundedHttpOverrides() {

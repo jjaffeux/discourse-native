@@ -543,6 +543,7 @@ class FakeDiscourseApi implements DiscourseApi {
     this.chatSendFailure,
     this.chatSendGate,
     this.chatSentMessageId = 1,
+    this.composerUploadResult,
     this.chatReactionFailure,
     this.chatReactionGate,
     this.chatReactorsById = const {},
@@ -599,6 +600,28 @@ class FakeDiscourseApi implements DiscourseApi {
 
   /// Usernames passed to [bookmarks], in order.
   final List<String> bookmarksRequested = [];
+  int _nextBookmarkId = 1000;
+  final List<
+    ({
+      BookmarkTargetType targetType,
+      int targetId,
+      String? name,
+      DateTime? reminderAt,
+      BookmarkAutoDeletePreference? autoDeletePreference,
+    })
+  >
+  createdBookmarks = [];
+  final List<
+    ({
+      int bookmarkId,
+      String? name,
+      DateTime? reminderAt,
+      BookmarkAutoDeletePreference autoDeletePreference,
+    })
+  >
+  updatedBookmarks = [];
+  final List<int> deletedBookmarks = [];
+  final List<int> clearedBookmarkTopics = [];
 
   /// Ids passed to [markNotificationRead], in order.
   final List<int> markedRead = [];
@@ -1016,11 +1039,15 @@ class FakeDiscourseApi implements DiscourseApi {
   final WriteException? chatSendFailure;
   final Completer<void>? chatSendGate;
   final int? chatSentMessageId;
+  final ComposerUploadResult? composerUploadResult;
+  final List<({String siteUrl, String filename, ComposerUploadType uploadType})>
+  composerUploads = [];
   final List<
     ({
       String siteUrl,
       int channelId,
       String message,
+      List<int> uploadIds,
       int? threadId,
       String? stagedId,
       DateTime? clientCreatedAt,
@@ -1156,6 +1183,75 @@ class FakeDiscourseApi implements DiscourseApi {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return (reminders: reminderList, bookmarks: result);
+  }
+
+  @override
+  Future<int> createBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required BookmarkTargetType targetType,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+    String? clientId,
+  }) async {
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+    createdBookmarks.add((
+      targetType: targetType,
+      targetId: targetId,
+      name: name,
+      reminderAt: reminderAt,
+      autoDeletePreference: autoDeletePreference,
+    ));
+    return _nextBookmarkId++;
+  }
+
+  @override
+  Future<void> updateBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required int bookmarkId,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+    String? clientId,
+  }) async {
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+    updatedBookmarks.add((
+      bookmarkId: bookmarkId,
+      name: name,
+      reminderAt: reminderAt,
+      autoDeletePreference: autoDeletePreference,
+    ));
+  }
+
+  @override
+  Future<bool?> deleteBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required int bookmarkId,
+    required BookmarkTargetType targetType,
+    String? clientId,
+  }) async {
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+    deletedBookmarks.add(bookmarkId);
+    return true;
+  }
+
+  @override
+  Future<void> deleteTopicBookmarks({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) async {
+    final failure = writeFailure;
+    if (failure != null) throw failure;
+    clearedBookmarkTopics.add(topicId);
   }
 
   @override
@@ -2156,6 +2252,7 @@ class FakeDiscourseApi implements DiscourseApi {
     required String apiKey,
     required int channelId,
     required String message,
+    List<int> uploadIds = const [],
     int? threadId,
     String? stagedId,
     DateTime? clientCreatedAt,
@@ -2165,6 +2262,7 @@ class FakeDiscourseApi implements DiscourseApi {
       siteUrl: siteUrl,
       channelId: channelId,
       message: message,
+      uploadIds: List.unmodifiable(uploadIds),
       threadId: threadId,
       stagedId: stagedId,
       clientCreatedAt: clientCreatedAt,
@@ -2427,8 +2525,21 @@ class FakeDiscourseApi implements DiscourseApi {
     required ComposerUploadFile file,
     required void Function(double progress) onProgress,
     required Future<void> abortTrigger,
+    ComposerUploadType uploadType = ComposerUploadType.composer,
     String? clientId,
-  }) => throw UnimplementedError('No uploads configured for this fake.');
+  }) async {
+    composerUploads.add((
+      siteUrl: siteUrl,
+      filename: file.name,
+      uploadType: uploadType,
+    ));
+    final result = composerUploadResult;
+    if (result == null) {
+      throw UnimplementedError('No uploads configured for this fake.');
+    }
+    onProgress(1);
+    return result;
+  }
 
   @override
   Future<Map<String, String>> lookupUploadUrls({

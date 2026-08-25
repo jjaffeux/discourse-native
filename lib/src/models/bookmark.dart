@@ -3,6 +3,44 @@ import 'package:flutter/foundation.dart';
 import 'json.dart';
 import 'notification.dart';
 
+/// The records the native client can bookmark in place.
+enum BookmarkTargetType {
+  post('Post'),
+  topic('Topic'),
+  chatMessage('Chat::Message');
+
+  const BookmarkTargetType(this.wireName);
+
+  final String wireName;
+
+  static BookmarkTargetType? read(Object? value) {
+    for (final type in values) {
+      if (value == type.wireName) return type;
+    }
+    return null;
+  }
+}
+
+/// What core should do with a bookmark after the event associated with it.
+enum BookmarkAutoDeletePreference {
+  never(0),
+  whenReminderSent(1),
+  onOwnerReply(2),
+  clearReminder(3);
+
+  const BookmarkAutoDeletePreference(this.wireValue);
+
+  final int wireValue;
+
+  static BookmarkAutoDeletePreference read(Object? value) {
+    final wire = jsonIntOrNull(value);
+    for (final preference in values) {
+      if (preference.wireValue == wire) return preference;
+    }
+    return clearReminder;
+  }
+}
+
 /// One row of the bookmarks tab.
 ///
 /// Discourse serialises a bookmark through whichever serializer the bookmarked
@@ -15,11 +53,15 @@ import 'notification.dart';
 class Bookmark {
   const Bookmark({
     required this.id,
+    this.bookmarkableId,
+    this.bookmarkableType,
+    this.postNumber,
     this.title = '',
     this.name,
     this.author,
     this.path,
     this.reminderAt,
+    this.autoDeletePreference = BookmarkAutoDeletePreference.clearReminder,
   });
 
   factory Bookmark.fromJson(Map<String, dynamic> json) {
@@ -27,12 +69,56 @@ class Bookmark {
 
     return Bookmark(
       id: jsonInt(json['id']),
+      bookmarkableId: jsonIntOrNull(json['bookmarkable_id']),
+      bookmarkableType: jsonText(json['bookmarkable_type']),
+      postNumber: jsonIntOrNull(json['post_number']),
       title: jsonTitle(json['title'], json['fancy_title']),
       name: jsonText(json['name']),
       author: jsonText(user['username']),
       path: _path(json['bookmarkable_url']),
       reminderAt: jsonDate(json['reminder_at']),
+      autoDeletePreference: BookmarkAutoDeletePreference.read(
+        json['auto_delete_preference'],
+      ),
     );
+  }
+
+  /// The compact bookmark metadata attached to a post serializer.
+  static Bookmark? fromPostJson(Map<String, dynamic> json) {
+    if (json['bookmarked'] != true) return null;
+    final bookmarkId = jsonIntOrNull(json['bookmark_id']);
+    final postId = jsonIntOrNull(json['id']);
+    if (bookmarkId == null || bookmarkId <= 0 || postId == null) return null;
+    return Bookmark(
+      id: bookmarkId,
+      bookmarkableId: postId,
+      bookmarkableType: BookmarkTargetType.post.wireName,
+      postNumber: jsonIntOrNull(json['post_number']),
+      name: jsonText(json['bookmark_name']),
+      reminderAt: jsonDate(json['bookmark_reminder_at']),
+      autoDeletePreference: BookmarkAutoDeletePreference.read(
+        json['bookmark_auto_delete_preference'],
+      ),
+    );
+  }
+
+  /// The complete bookmark object attached by `Chat::MessageSerializer`.
+  static Bookmark? fromChatMessageJson(Map<String, dynamic> json) {
+    final raw = json['bookmark'];
+    if (raw is! Map<String, dynamic>) return null;
+    final bookmarkId = jsonIntOrNull(raw['id']);
+    final messageId = jsonIntOrNull(json['id']);
+    final targetId = jsonIntOrNull(raw['bookmarkable_id']);
+    if (bookmarkId == null ||
+        bookmarkId <= 0 ||
+        messageId == null ||
+        messageId <= 0 ||
+        targetId != messageId ||
+        jsonText(raw['bookmarkable_type']) !=
+            BookmarkTargetType.chatMessage.wireName) {
+      return null;
+    }
+    return Bookmark.fromJson(raw);
   }
 
   /// Where the bookmark points, with a topic link taken back off whatever host
@@ -67,6 +153,15 @@ class Bookmark {
 
   final int id;
 
+  /// The server-side target. Unknown plugin types are retained for activity
+  /// rows even though native creation is limited to the types above.
+  final int? bookmarkableId;
+  final String? bookmarkableType;
+  final int? postNumber;
+
+  BookmarkTargetType? get coreTargetType =>
+      BookmarkTargetType.read(bookmarkableType);
+
   /// The title of the thing bookmarked, or empty when the site sent none.
   final String title;
 
@@ -87,6 +182,56 @@ class Bookmark {
 
   /// When the reminder is due, for the bookmarks that have one set.
   final DateTime? reminderAt;
+
+  final BookmarkAutoDeletePreference autoDeletePreference;
+
+  Bookmark copyWith({
+    String? name,
+    bool clearName = false,
+    DateTime? reminderAt,
+    bool clearReminder = false,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+  }) => Bookmark(
+    id: id,
+    bookmarkableId: bookmarkableId,
+    bookmarkableType: bookmarkableType,
+    postNumber: postNumber,
+    title: title,
+    name: clearName ? null : (name ?? this.name),
+    author: author,
+    path: path,
+    reminderAt: clearReminder ? null : (reminderAt ?? this.reminderAt),
+    autoDeletePreference: autoDeletePreference ?? this.autoDeletePreference,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Bookmark &&
+          other.id == id &&
+          other.bookmarkableId == bookmarkableId &&
+          other.bookmarkableType == bookmarkableType &&
+          other.postNumber == postNumber &&
+          other.title == title &&
+          other.name == name &&
+          other.author == author &&
+          other.path == path &&
+          other.reminderAt == reminderAt &&
+          other.autoDeletePreference == autoDeletePreference;
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    bookmarkableId,
+    bookmarkableType,
+    postNumber,
+    title,
+    name,
+    author,
+    path,
+    reminderAt,
+    autoDeletePreference,
+  );
 }
 
 /// What `/u/{username}/user-menu-bookmarks.json` answers with.

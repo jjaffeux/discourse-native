@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -15,6 +18,7 @@ import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -110,6 +114,129 @@ void main() {
     await tester.pump();
 
     expect(field.focusNode!.hasFocus, isFalse);
+  });
+
+  testWidgets(
+    'the whole channel accepts an image and sends it as a chat attachment',
+    (tester) async {
+      const upload = ComposerUploadResult(
+        id: 73,
+        originalFilename: 'photo.png',
+        shortUrl: 'upload://photo',
+        url: 'https://chat.example/uploads/photo.png',
+        thumbnailUrl:
+            'data:image/png;base64,'
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
+            'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+        width: 640,
+        height: 480,
+      );
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        composerUploadResult: upload,
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      final targetFinder = find.byKey(
+        const ValueKey('chat-upload-drop-target'),
+      );
+      final target = tester.widget<DropTarget>(targetFinder);
+      final position = tester.getCenter(targetFinder);
+      target.onDragEntered!(
+        DropEventDetails(localPosition: position, globalPosition: position),
+      );
+      await tester.pump();
+
+      final overlay = find.byKey(const ValueKey('chat-upload-drop-overlay'));
+      expect(overlay, findsOneWidget);
+      expect(find.text('Drop images to upload to #design'), findsOneWidget);
+      expect(
+        tester.getRect(overlay),
+        tester.getRect(find.byType(ChatUploadDropRegion)),
+      );
+
+      final file = DropItemFile(
+        '/tmp/photo.png',
+        bytes: Uint8List.fromList(const [1, 2, 3]),
+      );
+      expect(file.name, 'photo.png');
+      tester.widget<DropTarget>(targetFinder).onDragDone!(
+        DropDoneDetails(
+          files: [file],
+          localPosition: position,
+          globalPosition: position,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(overlay, findsNothing);
+      expect(_text(tester), isEmpty);
+      expect(fixture.api.composerUploads, hasLength(1));
+      expect(
+        fixture.api.composerUploads.single.uploadType,
+        ComposerUploadType.chatComposer,
+      );
+      expect(find.text('photo.png'), findsOneWidget);
+      expect(find.text('Ready to send'), findsNothing);
+      final thumbnailFinder = find.byKey(
+        const ValueKey('composer-upload-thumbnail-73'),
+      );
+      final thumbnail = tester.widget<SiteImage>(thumbnailFinder);
+      expect(thumbnail.url, upload.previewUrl);
+      expect(thumbnail.siteUrl, _site);
+      expect(thumbnail.fit, BoxFit.cover);
+      expect(tester.getSize(thumbnailFinder), const Size.square(32));
+      expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
+
+      await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.chatMessagesSent.single.message, isEmpty);
+      expect(fixture.api.chatMessagesSent.single.uploadIds, [73]);
+      expect(thumbnailFinder, findsNothing);
+    },
+  );
+
+  testWidgets('the channel drop target honors the site upload setting', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      config: const SiteConfig(chatUploadsEnabled: false),
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+
+    final targetFinder = find.byKey(const ValueKey('chat-upload-drop-target'));
+    final target = tester.widget<DropTarget>(targetFinder);
+    final position = tester.getCenter(targetFinder);
+    target.onDragEntered!(
+      DropEventDetails(localPosition: position, globalPosition: position),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('chat-upload-drop-overlay')),
+      findsNothing,
+    );
+    target.onDragDone!(
+      DropDoneDetails(
+        files: [
+          DropItemFile(
+            '/tmp/photo.png',
+            bytes: Uint8List.fromList(const [1, 2, 3]),
+          ),
+        ],
+        localPosition: position,
+        globalPosition: position,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(fixture.api.composerUploads, isEmpty);
   });
 
   testWidgets('adds only the compact Send GIF action when enabled', (
@@ -727,6 +854,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   WriteException? sendFailure,
   int? sentMessageId,
   SiteEmojiCatalog? emojiCatalog,
+  ComposerUploadResult? composerUploadResult,
   ChatChannelStatus channelStatus = ChatChannelStatus.open,
 }) async {
   final api = FakeDiscourseApi(
@@ -735,6 +863,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     chatSendGate: sendGate,
     chatSendFailure: sendFailure,
     chatSentMessageId: sentMessageId ?? 1,
+    composerUploadResult: composerUploadResult,
     emojiCatalogsBySite: {_site: ?emojiCatalog},
   );
   final authenticator = FakeAuthenticator()..keys[_site] = 'key';

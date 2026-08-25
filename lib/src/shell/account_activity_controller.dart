@@ -74,6 +74,9 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, Future<void>> _replyNotificationTasks = {};
   final Map<String, Future<void>> _chatNotificationTasks = {};
   final Map<String, Future<void>> _bookmarkTasks = {};
+  final Map<String, DiscourseInstance> _pendingBookmarks = {};
+  final Map<String, Completer<void>> _pendingBookmarkWaiters = {};
+  final Map<String, Completer<void>> _replayingBookmarkWaiters = {};
   final Map<String, Object> _notificationRequests = {};
   final Map<String, Object> _replyNotificationRequests = {};
   final Map<String, Object> _chatNotificationRequests = {};
@@ -414,12 +417,71 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
   }
 
-  Future<void> loadBookmarks(DiscourseInstance instance) =>
-      _coalescedActivityLoad(
-        instance.url,
-        tasks: _bookmarkTasks,
-        start: () => _loadBookmarks(instance),
+  Future<void> loadBookmarks(DiscourseInstance instance, {bool force = false}) {
+    final active = _bookmarkTasks[instance.url];
+    if (active != null) {
+      if (!force) return active;
+      _pendingBookmarks[instance.url] = instance;
+      return _pendingBookmarkWaiters
+          .putIfAbsent(instance.url, Completer<void>.new)
+          .future;
+    }
+    return _startBookmarksLoad(instance);
+  }
+
+  Future<void> _startBookmarksLoad(DiscourseInstance instance) {
+    final result = Completer<void>();
+    final task = result.future;
+    _bookmarkTasks[instance.url] = task;
+    try {
+      unawaited(
+        _loadBookmarks(instance).then<void>(
+          (_) {
+            _finishBookmarksLoad(instance.url, task);
+            if (!result.isCompleted) result.complete();
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            _finishBookmarksLoad(instance.url, task);
+            if (!result.isCompleted) result.completeError(error, stackTrace);
+          },
+        ),
       );
+    } catch (error, stackTrace) {
+      _finishBookmarksLoad(instance.url, task);
+      result.completeError(error, stackTrace);
+    }
+    return task;
+  }
+
+  void _finishBookmarksLoad(String siteUrl, Future<void> task) {
+    if (!identical(_bookmarkTasks[siteUrl], task)) return;
+    final _ = _bookmarkTasks.remove(siteUrl);
+    final pending = _pendingBookmarks.remove(siteUrl);
+    final waiter = _pendingBookmarkWaiters.remove(siteUrl);
+    if (pending == null || waiter == null || isDisposed) {
+      if (waiter != null && !waiter.isCompleted) waiter.complete();
+      return;
+    }
+
+    _replayingBookmarkWaiters[siteUrl] = waiter;
+    final replay = _startBookmarksLoad(pending);
+    unawaited(
+      replay.then<void>(
+        (_) {
+          if (identical(_replayingBookmarkWaiters[siteUrl], waiter)) {
+            _replayingBookmarkWaiters.remove(siteUrl);
+          }
+          if (!waiter.isCompleted) waiter.complete();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (identical(_replayingBookmarkWaiters[siteUrl], waiter)) {
+            _replayingBookmarkWaiters.remove(siteUrl);
+          }
+          if (!waiter.isCompleted) waiter.completeError(error, stackTrace);
+        },
+      ),
+    );
+  }
 
   Future<void> _loadBookmarks(DiscourseInstance instance) async {
     if (isDisposed) return;
@@ -636,6 +698,13 @@ final class AccountActivityController extends FrameSafeNotifier {
     _replyNotificationTasks.remove(siteUrl)?.ignore();
     _chatNotificationTasks.remove(siteUrl)?.ignore();
     _bookmarkTasks.remove(siteUrl)?.ignore();
+    _pendingBookmarks.remove(siteUrl);
+    _pendingBookmarkWaiters.remove(siteUrl)?.complete();
+    final replayingBookmarkWaiter = _replayingBookmarkWaiters.remove(siteUrl);
+    if (replayingBookmarkWaiter != null &&
+        !replayingBookmarkWaiter.isCompleted) {
+      replayingBookmarkWaiter.complete();
+    }
     _notificationRequests.remove(siteUrl);
     _replyNotificationRequests.remove(siteUrl);
     _chatNotificationRequests.remove(siteUrl);
@@ -746,9 +815,18 @@ final class AccountActivityController extends FrameSafeNotifier {
     for (final waiter in _replayingTotalsWaiters.values) {
       if (!waiter.isCompleted) waiter.complete(null);
     }
+    for (final waiter in _pendingBookmarkWaiters.values) {
+      if (!waiter.isCompleted) waiter.complete();
+    }
+    for (final waiter in _replayingBookmarkWaiters.values) {
+      if (!waiter.isCompleted) waiter.complete();
+    }
     _pendingTotalsWaiters.clear();
     _replayingTotalsWaiters.clear();
     _pendingTotals.clear();
+    _pendingBookmarkWaiters.clear();
+    _replayingBookmarkWaiters.clear();
+    _pendingBookmarks.clear();
     _totalsTasks.clear();
     _notificationTasks.clear();
     _replyNotificationTasks.clear();

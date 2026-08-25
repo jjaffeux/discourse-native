@@ -5,6 +5,8 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/emoji_picker_store.dart';
+import '../../models/bookmark.dart';
+import '../../shell/bookmark_ui.dart';
 import '../../shell/cooked_html.dart';
 import '../../shell/emoji_picker.dart';
 import '../../shell/relative_time.dart';
@@ -105,10 +107,17 @@ class ChatMessageTile extends StatelessWidget {
             !message.isDeleted &&
             !message.isOptimistic &&
             (message.threadId == null || message.thread != null);
-        return canReplyInThread
+        final chat = PluginScope.require(context, chatControllerService);
+        final canBookmark = chat.canBookmarkMessage(siteUrl, message);
+        return canReplyInThread || canBookmark
             ? _ChatMessageActions(
                 focusKey: actionsKey(message.id),
-                onReply: () => onReplyInThread!(message),
+                siteUrl: siteUrl,
+                message: message,
+                onReply: canReplyInThread
+                    ? () => onReplyInThread!(message)
+                    : null,
+                canBookmark: canBookmark,
                 child: tile,
               )
             : tile;
@@ -125,12 +134,18 @@ class _OpenChatMessageActionsIntent extends Intent {
 class _ChatMessageActions extends StatefulWidget {
   const _ChatMessageActions({
     required this.focusKey,
+    required this.siteUrl,
+    required this.message,
     required this.onReply,
+    required this.canBookmark,
     required this.child,
   });
 
   final Key focusKey;
-  final VoidCallback onReply;
+  final String siteUrl;
+  final ChatMessage message;
+  final VoidCallback? onReply;
+  final bool canBookmark;
   final Widget child;
 
   @override
@@ -141,26 +156,93 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   bool _hovered = false;
 
   void _reply() {
-    widget.onReply();
+    widget.onReply?.call();
   }
 
-  Future<void> _showActions() => showShellSheet<void>(
+  Future<void> _bookmark() => showChatMessageBookmarkMenu(
     context: context,
-    title: 'Message actions',
-    padding: EdgeInsets.zero,
-    builder: (sheetContext) => ListTile(
-      minTileHeight: 52,
-      leading: const DIcon(DIcons.reply, size: 18),
-      title: const Text('Reply in thread'),
-      onTap: () {
-        Navigator.of(sheetContext).pop();
-        _reply();
-      },
-    ),
+    controller: ShellScope.read(context),
+    siteUrl: widget.siteUrl,
+    message: widget.message,
   );
+
+  Future<void> _showActions() {
+    final shell = ShellScope.read(context);
+    final bookmarkBusy = shell.bookmarkWriteInFlight(
+      siteUrl: widget.siteUrl,
+      topicId: 0,
+      targetType: BookmarkTargetType.chatMessage,
+      targetId: widget.message.id,
+    );
+    final bookmarkLabel = widget.message.bookmark == null
+        ? 'Bookmark'
+        : 'Edit bookmark';
+    return showShellSheet<void>(
+      context: context,
+      title: 'Message actions',
+      padding: EdgeInsets.zero,
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.onReply != null)
+            ListTile(
+              minTileHeight: 52,
+              leading: const DIcon(DIcons.reply, size: 18),
+              title: const Text('Reply in thread'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _reply();
+              },
+            ),
+          if (widget.canBookmark)
+            ListTile(
+              minTileHeight: 52,
+              leading: bookmarkBusy
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                    )
+                  : DIcon(_bookmarkIcon(widget.message.bookmark), size: 18),
+              title: Text(bookmarkLabel),
+              subtitle: bookmarkBusy ? const Text('Saving…') : null,
+              enabled: !bookmarkBusy,
+              onTap: bookmarkBusy
+                  ? null
+                  : () {
+                      Navigator.of(sheetContext).pop();
+                      unawaited(_bookmark());
+                    },
+            ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    return ShellSelector<bool>(
+      select: (shell) => shell.bookmarkWriteInFlight(
+        siteUrl: widget.siteUrl,
+        topicId: 0,
+        targetType: BookmarkTargetType.chatMessage,
+        targetId: widget.message.id,
+      ),
+      builder: (context, bookmarkBusy, _) =>
+          _build(context, bookmarkBusy: bookmarkBusy),
+    );
+  }
+
+  Widget _build(BuildContext context, {required bool bookmarkBusy}) {
+    final bookmarkLabel = widget.message.bookmark == null
+        ? 'Bookmark'
+        : 'Edit bookmark';
+    final semanticsActions = <CustomSemanticsAction, VoidCallback>{
+      if (widget.onReply != null)
+        const CustomSemanticsAction(label: 'Reply in thread'): _reply,
+      if (widget.canBookmark && !bookmarkBusy)
+        CustomSemanticsAction(label: bookmarkLabel): () =>
+            unawaited(_bookmark()),
+    };
     return Shortcuts(
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.f10, shift: true):
@@ -181,9 +263,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         child: Focus(
           key: widget.focusKey,
           child: Semantics(
-            customSemanticsActions: {
-              const CustomSemanticsAction(label: 'Reply in thread'): _reply,
-            },
+            customSemanticsActions: semanticsActions,
             child: MouseRegion(
               onEnter: (_) => setState(() => _hovered = true),
               onExit: (_) => setState(() => _hovered = false),
@@ -192,6 +272,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                 onLongPress: () => unawaited(_showActions()),
                 onSecondaryTap: () => unawaited(_showActions()),
                 child: Stack(
+                  // Chained rows can be shorter than the 44-pixel desktop
+                  // action targets positioned over them.
+                  clipBehavior: Clip.none,
                   children: [
                     widget.child,
                     if (_hovered)
@@ -202,14 +285,45 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                           color: Theme.of(context).colorScheme.surfaceContainer,
                           borderRadius: BorderRadius.circular(8),
                           elevation: 2,
-                          child: IconButton(
-                            constraints: const BoxConstraints.tightFor(
-                              width: 44,
-                              height: 44,
-                            ),
-                            tooltip: 'Reply in thread',
-                            onPressed: _reply,
-                            icon: const DIcon(DIcons.reply, size: 16),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (widget.onReply != null)
+                                IconButton(
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 44,
+                                    height: 44,
+                                  ),
+                                  tooltip: 'Reply in thread',
+                                  onPressed: _reply,
+                                  icon: const DIcon(DIcons.reply, size: 16),
+                                ),
+                              if (widget.canBookmark)
+                                IconButton(
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 44,
+                                    height: 44,
+                                  ),
+                                  tooltip: bookmarkLabel,
+                                  onPressed: bookmarkBusy
+                                      ? null
+                                      : () => unawaited(_bookmark()),
+                                  icon: bookmarkBusy
+                                      ? const SizedBox.square(
+                                          dimension: 16,
+                                          child:
+                                              CircularProgressIndicator.adaptive(
+                                                strokeWidth: 2,
+                                              ),
+                                        )
+                                      : DIcon(
+                                          _bookmarkIcon(
+                                            widget.message.bookmark,
+                                          ),
+                                          size: 16,
+                                        ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
@@ -346,6 +460,20 @@ class _Tile extends StatelessWidget {
                   ],
                 ),
               ),
+              if (message.bookmark case final bookmark?)
+                Padding(
+                  padding: const EdgeInsets.only(left: 6, top: 2),
+                  child: Semantics(
+                    label: bookmark.reminderAt == null
+                        ? 'Bookmarked chat message'
+                        : 'Chat message bookmarked with a reminder',
+                    child: DIcon(
+                      _bookmarkIcon(bookmark),
+                      size: 14,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
             ],
           ),
         ],
@@ -975,6 +1103,13 @@ List<ChatMessageAuthor> _visibleParticipants(
 ) => participants.length <= 3
     ? participants
     : [participants[0], participants[1], participants.last];
+
+DIconData _bookmarkIcon(Bookmark? bookmark) {
+  if (bookmark == null) return DIcons.farBookmark;
+  return bookmark.reminderAt == null
+      ? DIcons.bookmark
+      : DIcons.discourseBookmarkClock;
+}
 
 /// The same shape `TopicView` gives a post's staff tag.
 class _Tag extends StatelessWidget {

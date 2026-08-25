@@ -38,6 +38,7 @@ class SiteConfig {
     this.authorizedExtensions = defaultAuthorizedExtensions,
     this.authorizedExtensionsForStaff = const [],
     this.simultaneousUploads = defaultSimultaneousUploads,
+    this.chatUploadsEnabled = true,
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
     this.minSearchTermLength = defaultMinSearchTermLength,
@@ -57,6 +58,7 @@ class SiteConfig {
     this.allowAllUsersToFlagIllegalContent = false,
     this.contactEmail,
     this.illegalContentReportEmail,
+    this.suggestWeekendsInDatePickers = true,
     this.resenha = const ResenhaClientConfig(),
   });
 
@@ -175,6 +177,7 @@ class SiteConfig {
         const [],
       ),
       simultaneousUploads: _simultaneousUploads(json['simultaneous_uploads']),
+      chatUploadsEnabled: json['chat_allow_uploads'] != false,
       maxImageWidth: _positiveInt(json['max_image_width'], 690),
       maxImageHeight: _positiveInt(json['max_image_height'], 500),
       minSearchTermLength:
@@ -210,6 +213,8 @@ class SiteConfig {
       illegalContentReportEmail: _nonemptyText(
         json['email_address_to_report_illegal_content'],
       ),
+      suggestWeekendsInDatePickers:
+          json['suggest_weekends_in_date_pickers'] != false,
       resenha: ResenhaClientConfig.fromSettings(json),
     );
   }
@@ -257,6 +262,7 @@ class SiteConfig {
       const [],
     ),
     simultaneousUploads: _simultaneousUploads(json['simultaneousUploads']),
+    chatUploadsEnabled: json['chatUploadsEnabled'] != false,
     maxImageWidth: _positiveInt(json['maxImageWidth'], 690),
     maxImageHeight: _positiveInt(json['maxImageHeight'], 500),
     minSearchTermLength:
@@ -290,6 +296,7 @@ class SiteConfig {
         json['allowAllUsersToFlagIllegalContent'] == true,
     contactEmail: _nonemptyText(json['contactEmail']),
     illegalContentReportEmail: _nonemptyText(json['illegalContentReportEmail']),
+    suggestWeekendsInDatePickers: json['suggestWeekendsInDatePickers'] != false,
     resenha: jsonObject(json['resenha']).isEmpty
         ? const ResenhaClientConfig()
         : ResenhaClientConfig.fromJson(jsonObject(json['resenha'])),
@@ -317,6 +324,7 @@ class SiteConfig {
     'authorizedExtensions': authorizedExtensions,
     'authorizedExtensionsForStaff': authorizedExtensionsForStaff,
     'simultaneousUploads': simultaneousUploads,
+    'chatUploadsEnabled': chatUploadsEnabled,
     'maxImageWidth': maxImageWidth,
     'maxImageHeight': maxImageHeight,
     'minSearchTermLength': minSearchTermLength,
@@ -336,6 +344,7 @@ class SiteConfig {
     'allowAllUsersToFlagIllegalContent': allowAllUsersToFlagIllegalContent,
     'contactEmail': contactEmail,
     'illegalContentReportEmail': illegalContentReportEmail,
+    'suggestWeekendsInDatePickers': suggestWeekendsInDatePickers,
     'resenha': resenha.toJson(),
   };
 
@@ -404,6 +413,7 @@ class SiteConfig {
   final List<String> authorizedExtensions;
   final List<String> authorizedExtensionsForStaff;
   final int simultaneousUploads;
+  final bool chatUploadsEnabled;
   final int maxImageWidth;
   final int maxImageHeight;
   final int minSearchTermLength;
@@ -447,6 +457,8 @@ class SiteConfig {
 
   String? get anonymousFlagReportEmail =>
       illegalContentReportEmail ?? contactEmail;
+
+  final bool suggestWeekendsInDatePickers;
 
   final ResenhaClientConfig resenha;
 
@@ -556,6 +568,7 @@ class SiteConfig {
         authorizedExtensionsForStaff,
       ) &&
       other.simultaneousUploads == simultaneousUploads &&
+      other.chatUploadsEnabled == chatUploadsEnabled &&
       other.maxImageWidth == maxImageWidth &&
       other.maxImageHeight == maxImageHeight &&
       other.minSearchTermLength == minSearchTermLength &&
@@ -579,6 +592,7 @@ class SiteConfig {
           allowAllUsersToFlagIllegalContent &&
       other.contactEmail == contactEmail &&
       other.illegalContentReportEmail == illegalContentReportEmail &&
+      other.suggestWeekendsInDatePickers == suggestWeekendsInDatePickers &&
       other.resenha == resenha &&
       listEquals(other.offeredReactions, offeredReactions);
 
@@ -604,6 +618,7 @@ class SiteConfig {
     Object.hashAll(authorizedExtensions),
     Object.hashAll(authorizedExtensionsForStaff),
     simultaneousUploads,
+    chatUploadsEnabled,
     maxImageWidth,
     maxImageHeight,
     minSearchTermLength,
@@ -623,6 +638,7 @@ class SiteConfig {
     allowAllUsersToFlagIllegalContent,
     contactEmail,
     illegalContentReportEmail,
+    suggestWeekendsInDatePickers,
     resenha,
     Object.hashAll(offeredReactions),
   ]);

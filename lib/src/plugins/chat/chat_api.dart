@@ -103,6 +103,7 @@ abstract interface class ChatApi {
     required String apiKey,
     required int channelId,
     required String message,
+    List<int> uploadIds = const [],
     int? threadId,
     String? stagedId,
     DateTime? clientCreatedAt,

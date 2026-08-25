@@ -13,7 +13,7 @@ import 'cooked_dom.dart';
 import 'cooked_html.dart';
 import 'image_decode.dart';
 import 'lightbox.dart';
-import 'site_url.dart';
+import 'site_image.dart';
 
 /// Renders `[grid]` galleries — the mosaic, and the carousel.
 ///
@@ -426,8 +426,9 @@ class ImageGridTile extends StatelessWidget {
             child: ExcludeSemantics(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: Image.network(
-                  resolveSiteUrl(src, siteUrl),
+                child: SiteImage(
+                  url: src,
+                  siteUrl: siteUrl,
                   fit: fit,
                   width: double.infinity,
                   height: double.infinity,

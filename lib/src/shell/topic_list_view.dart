@@ -792,6 +792,18 @@ class _TopicRowBody extends StatelessWidget {
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
+                      if (topic.bookmarked)
+                        Semantics(
+                          label: 'Bookmarked',
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: DIcon(
+                              DIcons.bookmark,
+                              size: 14,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ),
                       Flexible(
                         child: TopicTitle(
                           topic.title,

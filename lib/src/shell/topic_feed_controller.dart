@@ -8,6 +8,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/incoming_topics.dart';
+import '../models/topic.dart';
 import '../models/topic_feed.dart';
 
 typedef TopicFeedLoaded =
@@ -34,6 +35,8 @@ final class TopicFeedController extends FrameSafeNotifier {
     required this.lifecycle,
     required this.store,
     this.onFeedLoaded,
+    this.readPersonalizationVersion,
+    this.prepareTopicForStore,
   });
 
   /// Core's default topic-list page size. A `topic_ids` filter narrows that
@@ -46,6 +49,9 @@ final class TopicFeedController extends FrameSafeNotifier {
   final SiteLifecycle lifecycle;
   final Store store;
   final TopicFeedLoaded? onFeedLoaded;
+  final int Function(String siteUrl)? readPersonalizationVersion;
+  final Topic Function(String siteUrl, Topic incoming, int? versionAtDispatch)?
+  prepareTopicForStore;
 
   final Map<_FeedKey, TopicFeed> _feeds = {};
   final Map<String, String> _filterQueries = {};
@@ -122,6 +128,9 @@ final class TopicFeedController extends FrameSafeNotifier {
     final existing = _feeds[key];
 
     final lease = lifecycle.capture(instance.url);
+    final personalizationVersion = readPersonalizationVersion?.call(
+      instance.url,
+    );
     final revision = Object();
     _revisions[key] = revision;
     _pageRequests.remove(key);
@@ -144,7 +153,7 @@ final class TopicFeedController extends FrameSafeNotifier {
       );
       _commit(lease, () {
         if (!identical(_revisions[key], revision)) return;
-        store.putAll(instance.url, list.topics);
+        _putTopics(instance.url, list.topics, personalizationVersion);
         _feeds[key] = TopicFeed.of(list);
         _rows.remove(key);
         notifySafely();
@@ -219,6 +228,9 @@ final class TopicFeedController extends FrameSafeNotifier {
     final ids = incoming.topicIds(destinationId, limit: incomingPageSize);
     if (ids.isEmpty) return;
     final lease = lifecycle.capture(instance.url);
+    final personalizationVersion = readPersonalizationVersion?.call(
+      instance.url,
+    );
     final feedRevision = _revisions[key];
 
     bool requestIsCurrent() =>
@@ -240,7 +252,7 @@ final class TopicFeedController extends FrameSafeNotifier {
 
       _commit(lease, () {
         if (!requestIsCurrent()) return;
-        store.putAll(instance.url, list.topics);
+        _putTopics(instance.url, list.topics, personalizationVersion);
         final held = _feeds[key] ?? feed;
         final arrived = [for (final topic in list.topics) topic.id];
         final prepended = arrived.toSet();
@@ -285,6 +297,9 @@ final class TopicFeedController extends FrameSafeNotifier {
     if (_pageRequests.containsKey(key)) return;
 
     final lease = lifecycle.capture(instance.url);
+    final personalizationVersion = readPersonalizationVersion?.call(
+      instance.url,
+    );
     final feedRevision = _revisions[key];
     final pageRequest = Object();
     _pageRequests[key] = pageRequest;
@@ -309,7 +324,7 @@ final class TopicFeedController extends FrameSafeNotifier {
 
       _commit(lease, () {
         if (!requestIsCurrent()) return;
-        store.putAll(instance.url, next.topics);
+        _putTopics(instance.url, next.topics, personalizationVersion);
         final held = _feeds[key];
         if (held == null) return;
         final seen = held.topicIds.toSet();
@@ -373,6 +388,23 @@ final class TopicFeedController extends FrameSafeNotifier {
       if (!entry.value.isCompleted) entry.value.complete();
     }
     if (_feeds.length != before) notifySafely();
+  }
+
+  void _putTopics(
+    String siteUrl,
+    Iterable<Topic> topics,
+    int? versionAtDispatch,
+  ) {
+    final prepare = prepareTopicForStore;
+    store.putAll(
+      siteUrl,
+      prepare == null
+          ? topics
+          : [
+              for (final topic in topics)
+                prepare(siteUrl, topic, versionAtDispatch),
+            ],
+    );
   }
 
   void _commit(SiteLease lease, void Function() mutation) {

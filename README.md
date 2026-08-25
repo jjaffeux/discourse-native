@@ -145,6 +145,23 @@ plugin's own bookmarkable — and only the base's keys are common to all of them
 Navigation goes through `bookmarkable_url`, which every one of them builds, so a
 bookmark on something this app has never heard of still opens.
 
+Posts and topics also expose the complete core bookmark lifecycle. Their
+personalized serializers populate one shared `Bookmark` record; post actions
+and the topic header create, edit and delete through `/bookmarks`, while the
+topic payload's `bookmarks` array drives the grouped list even for posts outside
+the loaded stream. Notes, reminder presets/custom wall times and the four
+auto-delete preferences match the web client. Reminder authoring prefers the
+account's IANA timezone, then the device zone, then UTC; the process-wide
+timezone database is shared with Local Dates.
+
+Bookmark writes update the post, topic detail and cached list row together,
+then force both a topic reconciliation and a user-menu bookmark refresh. Reads
+capture a per-topic bookmark generation, so a response sent before the write
+may refresh ordinary content but cannot put its older personalized bookmark
+state over the confirmed result. An ambiguous create is never repeated: the
+topic is read again because a timed-out first request may already have created
+the one bookmark the target permits.
+
 ### Topic lists
 
 `latest`, `new`, `unread`, `top` and `messages` all share one envelope
@@ -342,6 +359,15 @@ order.
 Post bodies are the `cooked` field — HTML the site already rendered, with its
 markdown, oneboxes, mentions and emoji resolved. `flutter_widget_from_html_core`
 draws it; reimplementing any of that client side would be a mistake.
+
+Post, composer, grid, lightbox, onebox, and chat-upload images share one
+site-image loader. That matters when a site enables secure uploads: Discourse
+answers an anonymous `/secure-uploads/…` request with a 404 even though the
+authenticated upload itself succeeded. The loader sends the user API identity
+only to the forum origin, follows redirects explicitly, and never forwards
+those headers to the signed object-store or CDN URL. Its encoded-byte cache is
+memory-only and is discarded with the site's account lifecycle, so reconnecting
+as another account cannot reuse private media from the previous session.
 
 Two things worth knowing if you touch the lists:
 

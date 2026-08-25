@@ -47,6 +47,12 @@ class ShellScope extends InheritedNotifier<ShellController> {
   static ShellController identityOf(BuildContext context) =>
       _ShellControllerIdentity.of(context);
 
+  /// The controller identity without subscribing to ordinary shell changes,
+  /// or null for cooked fragments rendered outside the application shell.
+  static ShellController? maybeIdentityOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_ShellControllerIdentity>()
+      ?.controller;
+
   /// The controller, or null where the shell is not an ancestor — widgets that
   /// also render outside it, such as a quote in a test.
   static ShellController? maybeOf(BuildContext context) =>

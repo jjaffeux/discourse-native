@@ -103,6 +103,15 @@ abstract class ByteCache<T extends Object> {
   @protected
   T? decode(http.Response response);
 
+  /// Extra headers for one request in a manually-followed redirect chain.
+  ///
+  /// The default is deliberately empty. A cache for private site media can
+  /// authenticate the forum-origin hop while withholding credentials from a
+  /// CDN redirect by inspecting [url] for every hop. [original] is the cache
+  /// key and is supplied for policies that also need the source URL.
+  @protected
+  Map<String, String> requestHeaders(Uri url, Uri original) => const {};
+
   /// Already-known result, so a rebuild paints without going async again.
   bool isCached(String url) => _cache.containsKey(url) && !_cooledDown(url);
 
@@ -421,6 +430,7 @@ abstract class ByteCache<T extends Object> {
             // Sites are friendlier to a request that identifies itself.
             ..headers['User-Agent'] = DiscourseApi.userAgent
             ..followRedirects = false;
+      request.headers.addAll(requestHeaders(url, original));
       response = _client.send(request);
       final streamed = await response.timeout(remaining);
       if (streamed.statusCode == 429) {

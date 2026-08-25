@@ -85,7 +85,16 @@ const _keys = [
   'color',
   'text_color',
   'bookmarkable_url',
+  'bookmarkable_id',
   'bookmarkable_type',
+  'bookmarked',
+  'bookmarks',
+  'bookmark_id',
+  'bookmark_name',
+  'bookmark_reminder_at',
+  'bookmark_auto_delete_preference',
+  'reminder_at',
+  'auto_delete_preference',
   'more_topics_url',
   'archetype',
   'site_settings',
@@ -260,6 +269,7 @@ void main() {
         json,
       );
       probe('TopicMapLink', () => TopicMapLink.fromJson(json), json);
+      probe('TopicDetail', () => TopicDetail.parse(json, site), json);
       probe('TopicList', () => TopicList.fromJson(json, site), json);
       probe(
         'TopicRecommendations',

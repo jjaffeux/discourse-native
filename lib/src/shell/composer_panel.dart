@@ -23,17 +23,20 @@ import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
+import 'composer_drop.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
 import 'composer_quotes.dart';
 import 'composer_suggestions.dart';
 import 'emoji_composer.dart';
 import 'emoji_picker.dart';
+import 'image_decode.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
+import 'site_image.dart';
 
 /// The contents of the floating reply composer.
 ///
@@ -1003,6 +1006,7 @@ class ComposerEditor extends StatefulWidget {
     required this.textStyle,
     required this.hintStyle,
     this.autofocus = true,
+    this.enableDropTarget = true,
     this.onSuggestionAction,
   });
 
@@ -1011,6 +1015,7 @@ class ComposerEditor extends StatefulWidget {
   final TextStyle? textStyle;
   final TextStyle? hintStyle;
   final bool autofocus;
+  final bool enableDropTarget;
   final ComposerSuggestionActionHandler? onSuggestionAction;
 
   @override
@@ -1228,62 +1233,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   void _dropImages(DropDoneDetails details) {
     _moveDropCaret(details.globalPosition);
-    if (details.files.any((item) => item is DropItemDirectory)) {
+    if (dropContainsDirectory(details.files)) {
       widget.composer.showNotice('Folders cannot be uploaded here.');
     }
-    final files = details.files
-        .whereType<DropItemFile>()
-        .map(
-          (item) => ComposerUploadFile(
-            name: item.name,
-            length: () => _droppedFileLength(item),
-            openRead: () => _openDroppedFile(item),
-          ),
-        )
-        .toList();
+    final files = composerUploadFilesFromDrop(details.files);
     setState(() => _dragging = false);
     widget.composer.addDroppedImages(
       files,
       widget.composer.text.selection.extentOffset,
     );
-  }
-
-  Stream<List<int>> _openDroppedFile(DropItemFile item) async* {
-    final bookmark = item.extraAppleBookmark;
-    var scoped = false;
-    if (bookmark != null && bookmark.isNotEmpty) {
-      scoped = await DesktopDrop.instance.startAccessingSecurityScopedResource(
-        bookmark: bookmark,
-      );
-    }
-    try {
-      yield* item.openRead();
-    } finally {
-      if (scoped) {
-        await DesktopDrop.instance.stopAccessingSecurityScopedResource(
-          bookmark: bookmark!,
-        );
-      }
-    }
-  }
-
-  Future<int> _droppedFileLength(DropItemFile item) async {
-    final bookmark = item.extraAppleBookmark;
-    var scoped = false;
-    if (bookmark != null && bookmark.isNotEmpty) {
-      scoped = await DesktopDrop.instance.startAccessingSecurityScopedResource(
-        bookmark: bookmark,
-      );
-    }
-    try {
-      return await item.length();
-    } finally {
-      if (scoped) {
-        await DesktopDrop.instance.stopAccessingSecurityScopedResource(
-          bookmark: bookmark!,
-        );
-      }
-    }
   }
 
   bool get _hasPointerDownPill =>
@@ -1831,7 +1789,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
           ),
         ),
         child: DropTarget(
-          enable: !context.isTouch,
+          enable: widget.enableDropTarget && !context.isTouch,
           onDragEntered: (details) {
             _moveDropCaret(details.globalPosition);
             if (!_dragging) setState(() => _dragging = true);
@@ -2279,18 +2237,28 @@ class ComposerUploadQueue extends StatelessWidget {
         itemBuilder: (context, index) {
           final upload = composer.uploads[index];
           final failed = upload.status == ComposerUploadStatus.failed;
+          final completed = upload.status == ComposerUploadStatus.completed;
+          final thumbnail = completed ? upload.result : null;
           return SizedBox(
             height: failed ? 52 : 40,
             child: Row(
               children: [
                 const SizedBox(width: 10),
-                Icon(
-                  failed ? Icons.error_outline : Icons.image_outlined,
-                  size: 18,
-                  color: failed
-                      ? theme.colorScheme.error
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
+                if (thumbnail != null)
+                  _ComposerUploadThumbnail(
+                    siteUrl: composer.target.siteUrl,
+                    filename: upload.file.name,
+                    uploadId: thumbnail.id,
+                    url: thumbnail.previewUrl,
+                  )
+                else
+                  Icon(
+                    failed ? Icons.error_outline : Icons.image_outlined,
+                    size: 18,
+                    color: failed
+                        ? theme.colorScheme.error
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -2316,7 +2284,7 @@ class ComposerUploadQueue extends StatelessWidget {
                             ),
                           ),
                         )
-                      else
+                      else if (!completed)
                         Padding(
                           padding: const EdgeInsets.only(top: 3),
                           child: LinearProgressIndicator(
@@ -2334,6 +2302,13 @@ class ComposerUploadQueue extends StatelessWidget {
                     tooltip: 'Retry upload',
                     visualDensity: VisualDensity.compact,
                   ),
+                  IconButton(
+                    onPressed: () => composer.removeUpload(upload.id),
+                    icon: const Icon(Icons.close, size: 17),
+                    tooltip: 'Remove upload',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ] else if (completed) ...[
                   IconButton(
                     onPressed: () => composer.removeUpload(upload.id),
                     icon: const Icon(Icons.close, size: 17),
@@ -2361,6 +2336,56 @@ class ComposerUploadQueue extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _ComposerUploadThumbnail extends StatelessWidget {
+  const _ComposerUploadThumbnail({
+    required this.siteUrl,
+    required this.filename,
+    required this.uploadId,
+    required this.url,
+  });
+
+  static const double size = 32;
+
+  final String siteUrl;
+  final String filename;
+  final int uploadId;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Icon(
+      Icons.image_outlined,
+      size: 18,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(5),
+      child: ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: SiteImage(
+          key: ValueKey('composer-upload-thumbnail-$uploadId'),
+          url: url,
+          siteUrl: siteUrl,
+          fit: BoxFit.cover,
+          width: size,
+          height: size,
+          cacheWidth: imagePhysicalPixels(context, size),
+          cacheHeight: imagePhysicalPixels(context, size),
+          semanticLabel: 'Preview of $filename',
+          loadingBuilder: (_) => SizedBox.square(
+            dimension: size,
+            child: Center(child: fallback),
+          ),
+          errorBuilder: (_, _, _) => SizedBox.square(
+            dimension: size,
+            child: Center(child: fallback),
+          ),
+        ),
       ),
     );
   }

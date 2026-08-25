@@ -5444,6 +5444,7 @@ void _writeGroups() {
             sent = request;
             return http.Response(
               jsonEncode({
+                'id': 73,
                 'original_filename': 'photo.png',
                 'url': '/uploads/default/original/photo.png',
                 'short_url': 'upload://abc123',
@@ -5487,6 +5488,7 @@ void _writeGroups() {
         expect(multipart, contains('composer'));
         expect(multipart, contains('name="file"; filename="photo.png"'));
         expect(progress, orderedEquals([0.5, 1.0, 1.0]));
+        expect(result.id, 73);
         expect(result.shortUrl, 'upload://abc123');
         expect(result.markdownWidth, 690);
         expect(
@@ -5495,6 +5497,37 @@ void _writeGroups() {
         );
       },
     );
+
+    test('uses the chat upload security context when requested', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'id': 74,
+              'original_filename': 'chat.png',
+              'url': '/uploads/default/original/chat.png',
+              'short_url': 'upload://chat',
+            }),
+            200,
+          );
+        }),
+      );
+
+      final result = await api.uploadComposerImage(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'key',
+        file: _uploadFile,
+        uploadType: ComposerUploadType.chatComposer,
+        onProgress: (_) {},
+        abortTrigger: Completer<void>().future,
+      );
+
+      expect(result.id, 74);
+      final multipart = latin1.decode(sent.bodyBytes);
+      expect(multipart, contains('chat-composer'));
+    });
 
     test('surfaces a 422 server message', () async {
       final api = DiscourseApi(

@@ -6,7 +6,7 @@ import '../../../../theme/d_icon.dart';
 import '../../../../theme/d_icons.dart';
 import '../../../cooked_dom.dart';
 import '../../../image_decode.dart';
-import '../../../site_url.dart';
+import '../../../site_image.dart';
 import '../../markup.dart';
 import '../../onebox.dart';
 
@@ -130,8 +130,9 @@ class _Thumbnail extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         child: AspectRatio(
           aspectRatio: thumbnail.aspectRatio ?? 1,
-          child: Image.network(
-            resolveSiteUrl(thumbnail.src, siteUrl),
+          child: SiteImage(
+            url: thumbnail.src,
+            siteUrl: siteUrl,
             fit: BoxFit.cover,
             cacheWidth: imagePhysicalPixels(context, 88),
             errorBuilder: (context, error, stackTrace) {

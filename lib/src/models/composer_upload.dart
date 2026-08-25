@@ -19,6 +19,7 @@ class ComposerUploadFile {
 @immutable
 class ComposerUploadResult {
   const ComposerUploadResult({
+    required this.id,
     required this.originalFilename,
     required this.shortUrl,
     required this.url,
@@ -29,6 +30,7 @@ class ComposerUploadResult {
     this.thumbnailUrl,
   });
 
+  final int id;
   final String originalFilename;
   final String shortUrl;
   final String url;
@@ -43,6 +45,16 @@ class ComposerUploadResult {
   String get previewUrl => thumbnailUrl ?? url;
 }
 
+/// The upload security context Discourse applies to a composer attachment.
+enum ComposerUploadType {
+  composer('composer'),
+  chatComposer('chat-composer');
+
+  const ComposerUploadType(this.wireName);
+
+  final String wireName;
+}
+
 final class ComposerUploadException implements Exception {
   const ComposerUploadException(this.message, {this.statusCode});
 
@@ -53,9 +65,10 @@ final class ComposerUploadException implements Exception {
   String toString() => 'ComposerUploadException($statusCode, $message)';
 }
 
-enum ComposerUploadStatus { uploading, retrying, failed, cancelled }
+enum ComposerUploadStatus { uploading, retrying, completed, failed, cancelled }
 
-/// One visible queue row. Successful uploads are inserted and removed.
+/// One visible queue row. Topic successes are inserted into Markdown and
+/// removed; chat successes remain as completed attachments until send.
 @immutable
 class ComposerUploadItem {
   const ComposerUploadItem({
@@ -64,6 +77,7 @@ class ComposerUploadItem {
     required this.progress,
     required this.status,
     this.error,
+    this.result,
   });
 
   final int id;
@@ -71,18 +85,22 @@ class ComposerUploadItem {
   final double progress;
   final ComposerUploadStatus status;
   final String? error;
+  final ComposerUploadResult? result;
 
   ComposerUploadItem copyWith({
     double? progress,
     ComposerUploadStatus? status,
     String? error,
     bool clearError = false,
+    ComposerUploadResult? result,
+    bool clearResult = false,
   }) => ComposerUploadItem(
     id: id,
     file: file,
     progress: progress ?? this.progress,
     status: status ?? this.status,
     error: clearError ? null : error ?? this.error,
+    result: clearResult ? null : result ?? this.result,
   );
 }
 

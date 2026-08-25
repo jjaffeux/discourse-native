@@ -12,11 +12,11 @@ import 'image_grid.dart';
 import 'inline_code.dart';
 import 'lightbox.dart';
 import 'mention.dart';
-import 'oneboxes/inline.dart';
 import 'oneboxes/onebox.dart';
 import 'open_link.dart';
 import 'quote.dart';
 import 'shell_scope.dart';
+import 'site_image.dart';
 
 /// Draws Discourse's `cooked` HTML.
 ///
@@ -133,7 +133,7 @@ class CookedHtml extends StatelessWidget {
       baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
       textStyle: style,
       renderMode: RenderMode.column,
-      factoryBuilder: InlineOneboxWidgetFactory.new,
+      factoryBuilder: () => SiteImageWidgetFactory(siteUrl: resolvedSiteUrl),
       customWidgetBuilder: _customWidget(
         style,
         resolvedSiteUrl,

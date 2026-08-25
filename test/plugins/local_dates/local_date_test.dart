@@ -28,12 +28,13 @@ void main() {
       expect(environment.canonicalTimezone('US/Eastern'), 'US/Eastern');
     });
 
-    test('uses device, account, then UTC reader-zone precedence', () {
+    test('uses account, device, then UTC reader-zone precedence', () {
       environment.setDeviceTimezone(null);
       expect(environment.readerTimezone('Europe/Paris'), 'Europe/Paris');
       expect(environment.readerTimezone('not/a-zone'), 'Etc/UTC');
       environment.setDeviceTimezone('Asia/Tokyo');
-      expect(environment.readerTimezone('Europe/Paris'), 'Asia/Tokyo');
+      expect(environment.readerTimezone('Europe/Paris'), 'Europe/Paris');
+      expect(environment.readerTimezone('not/a-zone'), 'Asia/Tokyo');
     });
 
     test('a stale timezone detection cannot replace a newer result', () async {

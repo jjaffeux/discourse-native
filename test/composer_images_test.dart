@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('writes core upload markdown with sanitized alt and thumbnail size', () {
     const upload = ComposerUploadResult(
+      id: 1,
       originalFilename: 'a [wide]| photo.png',
       shortUrl: 'upload://abc123',
       url: 'https://example.com/original.png',
@@ -27,6 +28,7 @@ void main() {
     expect(
       uploadImageMarkdown(
         const ComposerUploadResult(
+          id: 2,
           originalFilename: 'photo.jpeg',
           shortUrl: 'upload://one',
           url: 'https://example.com/photo.jpeg',
@@ -39,6 +41,7 @@ void main() {
     expect(
       uploadImageMarkdown(
         const ComposerUploadResult(
+          id: 3,
           originalFilename: 'photo.jpeg',
           shortUrl: 'upload://two',
           url: 'https://example.com/photo.jpeg',

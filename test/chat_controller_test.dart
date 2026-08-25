@@ -4,6 +4,8 @@ import 'dart:math';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
@@ -23,6 +25,7 @@ ChatMessage message(
   int second = 0,
   int minute = 0,
   List<ChatReaction> reactions = const [],
+  Bookmark? bookmark,
 }) => ChatMessage(
   id: id,
   channelId: 9,
@@ -30,6 +33,7 @@ ChatMessage message(
   author: const ChatMessageAuthor(id: 2, username: 'sam'),
   createdAt: DateTime.utc(2026, 5, 5, 10, minute, second),
   reactions: reactions,
+  bookmark: bookmark,
 );
 
 ChatMessagePage page(
@@ -315,6 +319,43 @@ void main() {
   // The controller uses frame-safe notifiers, whose scheduler-phase check needs
   // a binding even in these non-widget tests.
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'a read dispatched before a bookmark mutation preserves local state',
+    () async {
+      final api = _BookmarkReadRaceApi();
+      final credentials = FakeApiCredentialReader()..keys[site] = 'key';
+      final store = Store()
+        ..put(site, channel(9))
+        ..put(site, message(42));
+      final chat = ChatController(
+        api: api,
+        credentials: credentials,
+        store: store,
+      );
+      addTearDown(chat.dispose);
+
+      final staleRead = chat.openChannel(site, 9, force: true);
+      await api.firstStarted.future;
+      const bookmark = Bookmark(
+        id: 81,
+        bookmarkableId: 42,
+        bookmarkableType: 'Chat::Message',
+      );
+      chat.putMessageBookmark(site, 42, bookmark);
+      api.firstResponse.complete(page([message(42)]));
+      await staleRead;
+
+      expect(store.read<ChatMessage>(site, 42)?.bookmark, bookmark);
+
+      final authoritativeRead = chat.openChannel(site, 9, force: true);
+      await api.secondStarted.future;
+      api.secondResponse.complete(page([message(42)]));
+      await authoritativeRead;
+
+      expect(store.read<ChatMessage>(site, 42)?.bookmark, isNull);
+    },
+  );
 
   group('loading a site’s channels', () {
     test(
@@ -1701,6 +1742,36 @@ void main() {
     });
 
     test(
+      'stages and sends an upload-only message with its upload id',
+      () async {
+        const upload = ComposerUploadResult(
+          id: 73,
+          originalFilename: 'photo.png',
+          shortUrl: 'upload://photo',
+          url: 'https://meta.discourse.org/uploads/photo.png',
+          width: 640,
+          height: 480,
+        );
+        final subject = build(currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+
+        final sending = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('', uploads: const [upload]),
+        )!;
+
+        final local = subject.store.read<ChatMessage>(site, sending.localId)!;
+        expect(local.optimisticRaw, isEmpty);
+        expect(local.uploads.single.originalFilename, 'photo.png');
+        expect(local.uploads.single.url, upload.url);
+        expect(await sending.settled, ChatSendResult.sent);
+        expect(subject.api.chatMessagesSent.single.message, isEmpty);
+        expect(subject.api.chatMessagesSent.single.uploadIds, [73]);
+      },
+    );
+
+    test(
       'preserves source, correlates, serializes, and performs no message GET',
       () async {
         final gate = Completer<void>();
@@ -1724,16 +1795,15 @@ void main() {
         )!;
         await Future<void>.delayed(Duration.zero);
 
-        expect(subject.api.chatMessagesSent, [
-          (
-            siteUrl: site,
-            channelId: 9,
-            message: '  hello chat  ',
-            threadId: null,
-            stagedId: 'native-${now.microsecondsSinceEpoch}-0',
-            clientCreatedAt: now,
-          ),
-        ]);
+        expect(subject.api.chatMessagesSent, hasLength(1));
+        final sent = subject.api.chatMessagesSent.single;
+        expect(sent.siteUrl, site);
+        expect(sent.channelId, 9);
+        expect(sent.message, '  hello chat  ');
+        expect(sent.uploadIds, isEmpty);
+        expect(sent.threadId, isNull);
+        expect(sent.stagedId, 'native-${now.microsecondsSinceEpoch}-0');
+        expect(sent.clientCreatedAt, now);
         expect(subject.api.chatMessagesRequested, isEmpty);
         expect(subject.chat.stream(site, 9).messageIds, isEmpty);
         expect(subject.chat.stream(site, 9).localMessageIds, [-1, -2]);
@@ -4231,5 +4301,38 @@ final class _PagingRaceApi extends FakeDiscourseApi {
       return newPage.future;
     }
     throw StateError('Unexpected chat page before $before');
+  }
+}
+
+final class _BookmarkReadRaceApi extends FakeDiscourseApi {
+  final Completer<void> firstStarted = Completer<void>();
+  final Completer<ChatMessagePage> firstResponse = Completer<ChatMessagePage>();
+  final Completer<void> secondStarted = Completer<void>();
+  final Completer<ChatMessagePage> secondResponse =
+      Completer<ChatMessagePage>();
+  int calls = 0;
+
+  @override
+  Future<ChatMessagePage> chatMessages({
+    required String siteUrl,
+    required int channelId,
+    int? before,
+    int? after,
+    int? targetMessageId,
+    bool fromLastRead = false,
+    int pageSize = 50,
+    String? apiKey,
+    String? clientId,
+  }) {
+    calls++;
+    if (calls == 1) {
+      firstStarted.complete();
+      return firstResponse.future;
+    }
+    if (calls == 2) {
+      secondStarted.complete();
+      return secondResponse.future;
+    }
+    throw StateError('Unexpected chat message request $calls');
   }
 }

@@ -8,7 +8,7 @@ import '../cooked_dom.dart';
 import '../cooked_html.dart';
 import '../image_decode.dart';
 import '../open_link.dart';
-import '../site_url.dart';
+import '../site_image.dart';
 import 'discourse/category/block.dart';
 import 'discourse/topic/block.dart';
 import 'discourse/user/block.dart';
@@ -363,8 +363,9 @@ class _Header extends StatelessWidget {
     return Row(
       children: [
         if (icon != null) ...[
-          Image.network(
-            resolveSiteUrl(icon!, siteUrl),
+          SiteImage(
+            url: icon!,
+            siteUrl: siteUrl,
             width: 16,
             height: 16,
             cacheWidth: imagePhysicalPixels(context, 16),
@@ -408,8 +409,9 @@ class _Thumbnail extends StatelessWidget {
     // reflow when the image lands.
     final image = AspectRatio(
       aspectRatio: thumbnail.aspectRatio ?? 1,
-      child: Image.network(
-        resolveSiteUrl(thumbnail.src, siteUrl),
+      child: SiteImage(
+        url: thumbnail.src,
+        siteUrl: siteUrl,
         fit: BoxFit.cover,
         cacheWidth: imagePhysicalPixels(context, width),
         errorBuilder: (context, error, stackTrace) {

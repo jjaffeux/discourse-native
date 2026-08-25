@@ -326,6 +326,8 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   int _focusComposerRequest = 0;
   int? _highlightMessageId;
   int _highlightRequest = 0;
+  final ChatUploadDropController _uploadDropController =
+      ChatUploadDropController();
 
   @override
   void initState() {
@@ -427,39 +429,48 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       content = const SizedBox.shrink();
     }
 
-    return Column(
-      children: [
-        if (stream.notice case final notice?)
-          Semantics(
-            liveRegion: true,
-            child: Container(
-              key: const ValueKey('chat-thread-notice'),
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              child: Text(
-                notice,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+    return ChatUploadDropRegion(
+      controller: _uploadDropController,
+      title: 'Drop images to upload to this thread',
+      child: Column(
+        children: [
+          if (stream.notice case final notice?)
+            Semantics(
+              liveRegion: true,
+              child: Container(
+                key: const ValueKey('chat-thread-notice'),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                color: Theme.of(context).colorScheme.secondaryContainer,
+                child: Text(
+                  notice,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSecondaryContainer,
+                  ),
                 ),
               ),
             ),
-          ),
-        Expanded(child: content),
-        if (!stream.threadUnavailable && (stream.error == null || hasMessages))
-          ChatComposer(
-            key: ValueKey((
-              widget.siteUrl,
-              widget.target.channelId,
-              widget.target.threadId,
-              'composer',
-            )),
-            siteUrl: widget.siteUrl,
-            channelId: widget.target.channelId,
-            threadId: widget.target.threadId,
-            focusRequest: _focusComposerRequest,
-          ),
-      ],
+          Expanded(child: content),
+          if (!stream.threadUnavailable &&
+              (stream.error == null || hasMessages))
+            ChatComposer(
+              key: ValueKey((
+                widget.siteUrl,
+                widget.target.channelId,
+                widget.target.threadId,
+                'composer',
+              )),
+              siteUrl: widget.siteUrl,
+              channelId: widget.target.channelId,
+              threadId: widget.target.threadId,
+              focusRequest: _focusComposerRequest,
+              uploadDropController: _uploadDropController,
+            ),
+        ],
+      ),
     );
   }
 
