@@ -643,6 +643,12 @@ abstract final class AppTheme {
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
+    final menuItemHoverColor = Color.alphaBlend(
+      resolvedColorScheme.onSurface.withValues(
+        alpha: brightness == Brightness.dark ? 0.10 : 0.06,
+      ),
+      shell.floating,
+    );
 
     return ThemeData(
       colorScheme: resolvedColorScheme,
@@ -700,14 +706,16 @@ abstract final class AppTheme {
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
-          overlayColor: WidgetStateProperty.resolveWith((states) {
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.hovered) ||
                 states.contains(WidgetState.focused) ||
                 states.contains(WidgetState.pressed)) {
-              return shell.hover;
+              return menuItemHoverColor;
             }
             return Colors.transparent;
           }),
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          mouseCursor: WidgetStateMouseCursor.clickable,
         ),
       ),
       dropdownMenuTheme: DropdownMenuThemeData(
