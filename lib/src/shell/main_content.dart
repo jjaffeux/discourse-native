@@ -19,6 +19,7 @@ import 'adaptive_shell.dart';
 import 'bookmark_ui.dart';
 import 'categories_page.dart';
 import 'choice_menu.dart';
+import 'command_menu.dart';
 import 'composer_controller.dart';
 import 'composer_panel.dart';
 import 'draft_list.dart';
@@ -603,6 +604,8 @@ class _TopicPinButton extends StatelessWidget {
   }
 }
 
+enum _TopicCommand { selectPosts, closed, archived, visible, delete, recover }
+
 class _TopicStatusButton extends StatelessWidget {
   const _TopicStatusButton({required this.siteUrl, required this.topic});
 
@@ -666,126 +669,107 @@ class _TopicStatusButton extends StatelessWidget {
     }
   }
 
+  void _selectCommand(BuildContext context, _TopicCommand command) {
+    switch (command) {
+      case _TopicCommand.selectPosts:
+        final controller = ShellScope.read(context);
+        controller.setTopicPostSelectionEnabled(
+          siteUrl,
+          topic.id,
+          !controller.topicPostSelectionEnabled(siteUrl, topic.id),
+        );
+      case _TopicCommand.closed:
+        unawaited(_change(context, TopicStatusProperty.closed, !topic.closed));
+      case _TopicCommand.archived:
+        unawaited(
+          _change(context, TopicStatusProperty.archived, !topic.archived),
+        );
+      case _TopicCommand.visible:
+        unawaited(
+          _change(context, TopicStatusProperty.visible, !topic.visible),
+        );
+      case _TopicCommand.delete:
+        unawaited(_changeDeletion(context, true));
+      case _TopicCommand.recover:
+        unawaited(_changeDeletion(context, false));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!topic.hasStatusActions) return const SizedBox.shrink();
+    final hasStatusCommands =
+        topic.canCloseTopic ||
+        topic.canArchiveTopic ||
+        topic.canToggleTopicVisibility;
+    final hasPriorToDestructive = topic.canSelectPosts || hasStatusCommands;
+    final options = [
+      if (topic.canSelectPosts)
+        const CommandMenuOption(
+          value: _TopicCommand.selectPosts,
+          label: 'Select posts',
+          icon: DIcons.list,
+          key: ValueKey('topic-select-posts'),
+        ),
+      if (topic.canCloseTopic)
+        CommandMenuOption(
+          value: _TopicCommand.closed,
+          label: topic.closed ? 'Open topic' : 'Close topic',
+          icon: DIcons.lock,
+          key: const ValueKey('topic-status-closed'),
+          dividerBefore: topic.canSelectPosts,
+        ),
+      if (topic.canArchiveTopic)
+        CommandMenuOption(
+          value: _TopicCommand.archived,
+          label: topic.archived ? 'Unarchive topic' : 'Archive topic',
+          icon: topic.archived ? DIcons.folderOpen : DIcons.folder,
+          key: const ValueKey('topic-status-archived'),
+          dividerBefore: topic.canSelectPosts && !topic.canCloseTopic,
+        ),
+      if (topic.canToggleTopicVisibility)
+        CommandMenuOption(
+          value: _TopicCommand.visible,
+          label: topic.visible ? 'Make topic unlisted' : 'Make topic visible',
+          icon: topic.visible ? DIcons.farEyeSlash : DIcons.farEye,
+          key: const ValueKey('topic-status-visible'),
+          dividerBefore:
+              topic.canSelectPosts &&
+              !topic.canCloseTopic &&
+              !topic.canArchiveTopic,
+        ),
+      if (topic.canDeleteTopic)
+        CommandMenuOption(
+          value: _TopicCommand.delete,
+          label: 'Delete topic',
+          icon: DIcons.trashCan,
+          key: const ValueKey('topic-status-delete'),
+          dividerBefore: hasPriorToDestructive,
+          destructive: true,
+        ),
+      if (topic.canRecoverTopic)
+        CommandMenuOption(
+          value: _TopicCommand.recover,
+          label: 'Recover topic',
+          icon: DIcons.arrowRotateLeft,
+          key: const ValueKey('topic-status-recover'),
+          dividerBefore: !topic.canDeleteTopic && hasPriorToDestructive,
+        ),
+    ];
     return ShellSelector<bool>(
       select: (controller) =>
           controller.topicStatusWriteInFlight(siteUrl, topic.id) ||
           controller.topicDeletionWriteInFlight(siteUrl, topic.id) ||
           controller.topicPostSelectionWriteInFlight(siteUrl, topic.id),
-      builder: (context, busy, _) => MenuAnchor(
-        menuChildren: [
-          if (topic.canSelectPosts)
-            MenuItemButton(
-              key: const ValueKey('topic-select-posts'),
-              onPressed: busy
-                  ? null
-                  : () {
-                      final controller = ShellScope.read(context);
-                      controller.setTopicPostSelectionEnabled(
-                        siteUrl,
-                        topic.id,
-                        !controller.topicPostSelectionEnabled(
-                          siteUrl,
-                          topic.id,
-                        ),
-                      );
-                    },
-              leadingIcon: const DIcon(DIcons.list, size: 16),
-              child: const Text('Select posts'),
-            ),
-          if (topic.canSelectPosts &&
-              (topic.canCloseTopic ||
-                  topic.canArchiveTopic ||
-                  topic.canToggleTopicVisibility ||
-                  topic.canDeleteTopic ||
-                  topic.canRecoverTopic))
-            const Divider(height: 1),
-          if (topic.canCloseTopic)
-            MenuItemButton(
-              key: const ValueKey('topic-status-closed'),
-              onPressed: busy
-                  ? null
-                  : () => unawaited(
-                      _change(
-                        context,
-                        TopicStatusProperty.closed,
-                        !topic.closed,
-                      ),
-                    ),
-              leadingIcon: const DIcon(DIcons.lock, size: 16),
-              child: Text(topic.closed ? 'Open topic' : 'Close topic'),
-            ),
-          if (topic.canArchiveTopic)
-            MenuItemButton(
-              key: const ValueKey('topic-status-archived'),
-              onPressed: busy
-                  ? null
-                  : () => unawaited(
-                      _change(
-                        context,
-                        TopicStatusProperty.archived,
-                        !topic.archived,
-                      ),
-                    ),
-              leadingIcon: DIcon(
-                topic.archived ? DIcons.folderOpen : DIcons.folder,
-                size: 16,
-              ),
-              child: Text(topic.archived ? 'Unarchive topic' : 'Archive topic'),
-            ),
-          if (topic.canToggleTopicVisibility)
-            MenuItemButton(
-              key: const ValueKey('topic-status-visible'),
-              onPressed: busy
-                  ? null
-                  : () => unawaited(
-                      _change(
-                        context,
-                        TopicStatusProperty.visible,
-                        !topic.visible,
-                      ),
-                    ),
-              leadingIcon: DIcon(
-                topic.visible ? DIcons.farEyeSlash : DIcons.farEye,
-                size: 16,
-              ),
-              child: Text(
-                topic.visible ? 'Make topic unlisted' : 'Make topic visible',
-              ),
-            ),
-          if ((topic.canDeleteTopic || topic.canRecoverTopic) &&
-              (topic.canCloseTopic ||
-                  topic.canArchiveTopic ||
-                  topic.canToggleTopicVisibility))
-            const Divider(height: 1),
-          if (topic.canDeleteTopic)
-            MenuItemButton(
-              key: const ValueKey('topic-status-delete'),
-              onPressed: busy
-                  ? null
-                  : () => unawaited(_changeDeletion(context, true)),
-              leadingIcon: const DIcon(DIcons.trashCan, size: 16),
-              child: Text(
-                'Delete topic',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
-          if (topic.canRecoverTopic)
-            MenuItemButton(
-              key: const ValueKey('topic-status-recover'),
-              onPressed: busy
-                  ? null
-                  : () => unawaited(_changeDeletion(context, false)),
-              leadingIcon: const DIcon(DIcons.arrowRotateLeft, size: 16),
-              child: const Text('Recover topic'),
-            ),
-        ],
-        builder: (context, menu, _) => DButton.iconOnly(
+      builder: (context, busy, _) => CommandMenuAnchor<_TopicCommand>(
+        title: 'Topic actions',
+        options: options,
+        enabled: !busy,
+        onSelected: (command) => _selectCommand(context, command),
+        builder: (context, openMenu) => DButton.iconOnly(
           key: const ValueKey('topic-status-button'),
           tooltip: 'Topic actions',
-          onPressed: busy ? null : menu.open,
+          onPressed: openMenu,
           loading: busy,
           variant: DButtonVariant.flat,
           icon: busy

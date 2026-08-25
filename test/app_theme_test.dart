@@ -389,11 +389,23 @@ void main() {
       expect(menu.backgroundColor!.resolve({}), theme.shell.floating);
       expect(menu.elevation!.resolve({}), 8);
       expect(menu.padding!.resolve({}), const EdgeInsets.all(6));
+      final menuButton = theme.menuButtonTheme.style!;
+      final hoverColor = Color.alphaBlend(
+        theme.colorScheme.onSurface.withValues(
+          alpha: theme.brightness == Brightness.dark ? 0.10 : 0.06,
+        ),
+        theme.shell.floating,
+      );
       expect(
-        theme.menuButtonTheme.style!.overlayColor!.resolve({
-          WidgetState.hovered,
-        }),
-        theme.shell.hover,
+        menuButton.backgroundColor!.resolve({WidgetState.hovered}),
+        hoverColor,
+      );
+      expect(menuButton.backgroundColor!.resolve({}), Colors.transparent);
+      expect(menuButton.overlayColor!.resolve({}), Colors.transparent);
+      expect(menuButton.mouseCursor!.resolve({}), SystemMouseCursors.click);
+      expect(
+        menuButton.mouseCursor!.resolve({WidgetState.disabled}),
+        SystemMouseCursors.basic,
       );
       expect(
         theme.dropdownMenuTheme.menuStyle!.backgroundColor!.resolve({}),
