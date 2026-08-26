@@ -3,6 +3,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
@@ -13,6 +14,43 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/fakes.dart';
 
 void main() {
+  testWidgets('only the rendered date is clickable', (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: StreamDaySeparator(
+            day: DateTime(2020, 1, 2),
+            onTap: () => taps++,
+          ),
+        ),
+      ),
+    );
+
+    final separator = find.byType(StreamDaySeparator);
+    final button = find.descendant(
+      of: separator,
+      matching: find.byType(InkWell),
+    );
+    final date = find.descendant(
+      of: separator,
+      matching: find.text('2 January 2020'),
+    );
+    final separatorRect = tester.getRect(separator);
+    final buttonRect = tester.getRect(button);
+
+    expect(buttonRect.height, lessThan(separatorRect.height));
+
+    await tester.tapAt(Offset(separatorRect.center.dx, separatorRect.top + 1));
+    await tester.pump();
+    expect(taps, 0);
+
+    await tester.tap(date);
+    await tester.pump();
+    expect(taps, 1);
+  });
+
   testWidgets('calls out a gap strictly longer than the site threshold', (
     tester,
   ) async {
