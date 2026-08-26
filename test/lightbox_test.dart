@@ -1,4 +1,6 @@
+import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/shell/image_download.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
@@ -340,6 +342,35 @@ void main() {
       expect(find.dIcon(DIcons.download), findsOneWidget);
     });
 
+    testWidgets('downloads the upload instead of opening its URL', (
+      tester,
+    ) async {
+      final downloader = _FakeImageDownloader();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LightboxGallery(
+            images: [parse(singleImage)],
+            initialIndex: 0,
+            siteUrl: 'https://meta.discourse.org',
+            imageDownloader: downloader,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.dIcon(DIcons.download));
+      await tester.pump();
+
+      expect(
+        downloader.url,
+        'https://meta.discourse.org/uploads/short-url/xyz.png?dl=1',
+      );
+      expect(downloader.title, 'screenshot.png');
+      expect(downloader.siteUrl, 'https://meta.discourse.org');
+      expect(downloader.calls, 1);
+      expect(find.text('Saved screenshot.png.'), findsOneWidget);
+    });
+
     testWidgets('puts top controls on dark surfaces', (tester) async {
       await pumpCooked(tester, singleImage);
       await tester.tap(thumbnail());
@@ -451,4 +482,26 @@ void main() {
       expect(find.byType(LightboxThumbnail), findsNothing);
     });
   });
+}
+
+final class _FakeImageDownloader implements LightboxImageDownloader {
+  int calls = 0;
+  String? url;
+  String? title;
+  String? siteUrl;
+
+  @override
+  Future<ImageDownloadOutcome> download({
+    required String url,
+    required String? title,
+    required String? siteUrl,
+    required SiteImageRepository? repository,
+    Rect? sharePositionOrigin,
+  }) async {
+    calls++;
+    this.url = url;
+    this.title = title;
+    this.siteUrl = siteUrl;
+    return ImageDownloadOutcome.saved;
+  }
 }
