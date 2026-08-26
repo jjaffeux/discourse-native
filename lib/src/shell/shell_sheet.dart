@@ -20,16 +20,22 @@ import 'platform.dart';
 /// rather than at the far bottom edge of a large window: on a pointer platform
 /// it is then centered as a dialog, and stays a sheet everywhere a finger is
 /// the only way in.
+///
+/// Pass [footerBuilder] for actions that must remain reachable while a long
+/// body scrolls. The footer stays outside the body's scroll view and accounts
+/// for the bottom safe area on touch platforms.
 Future<T?> showShellSheet<T>({
   required BuildContext context,
   required String title,
   required WidgetBuilder builder,
+  WidgetBuilder? footerBuilder,
   bool nested = false,
   bool dialogOnDesktop = false,
   EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
     horizontal: 24,
     vertical: 16,
   ),
+  EdgeInsetsGeometry footerPadding = const EdgeInsets.fromLTRB(24, 12, 24, 16),
 }) {
   if (dialogOnDesktop && !context.isTouch) {
     return showDialog<T>(
@@ -41,8 +47,10 @@ Future<T?> showShellSheet<T>({
           child: _SheetBody(
             title: title,
             builder: builder,
+            footerBuilder: footerBuilder,
             nested: nested,
             padding: padding,
+            footerPadding: footerPadding,
             // A dialog is already lifted clear of the keyboard and of the
             // screen edges by its own inset padding.
             insetsBottom: false,
@@ -59,8 +67,10 @@ Future<T?> showShellSheet<T>({
     builder: (context) => _SheetBody(
       title: title,
       builder: builder,
+      footerBuilder: footerBuilder,
       nested: nested,
       padding: padding,
+      footerPadding: footerPadding,
     ),
   );
 }
@@ -69,15 +79,19 @@ class _SheetBody extends StatelessWidget {
   const _SheetBody({
     required this.title,
     required this.builder,
+    required this.footerBuilder,
     required this.nested,
     required this.padding,
+    required this.footerPadding,
     this.insetsBottom = true,
   });
 
   final String title;
   final WidgetBuilder builder;
+  final WidgetBuilder? footerBuilder;
   final bool nested;
   final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry footerPadding;
 
   /// Whether this body has to keep itself clear of the keyboard and of the
   /// bottom edge, as a sheet running to that edge does.
@@ -134,11 +148,25 @@ class _SheetBody extends StatelessWidget {
               // The sheet runs to the bottom edge, so the last row of a full one
               // would otherwise sit under the home indicator.
               padding: EdgeInsets.only(
-                bottom: insetsBottom ? MediaQuery.paddingOf(context).bottom : 0,
+                bottom: footerBuilder == null && insetsBottom
+                    ? MediaQuery.paddingOf(context).bottom
+                    : 0,
               ),
               child: Padding(padding: padding, child: builder(context)),
             ),
           ),
+          if (footerBuilder case final footerBuilder?) ...[
+            Divider(color: theme.shell.divider, height: 1),
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: insetsBottom ? MediaQuery.paddingOf(context).bottom : 0,
+              ),
+              child: Padding(
+                padding: footerPadding,
+                child: footerBuilder(context),
+              ),
+            ),
+          ],
         ],
       ),
     );

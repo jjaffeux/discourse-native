@@ -168,7 +168,23 @@ class _AggregateViewState extends State<AggregateView> {
           context: context,
           title: 'Aggregate filters',
           dialogOnDesktop: true,
-          builder: (sheetContext) => StatefulBuilder(
+          footerBuilder: (footerContext) => Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(footerContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () => Navigator.of(
+                  footerContext,
+                ).pop((includedForums: {...selected}, queries: {...queries})),
+                child: const Text('Save filters'),
+              ),
+            ],
+          ),
+          builder: (_) => StatefulBuilder(
             builder: (context, setSheetState) {
               final connected = forums
                   .where((forum) => forum.isConnected)
@@ -205,97 +221,57 @@ class _AggregateViewState extends State<AggregateView> {
                       ),
                     ],
                   ),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 520),
-                    child: ListView(
-                      shrinkWrap: true,
+                  for (final forum in forums)
+                    Column(
+                      key: ValueKey('aggregate-filter-row-${forum.url}'),
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (final forum in forums)
-                          Column(
-                            key: ValueKey('aggregate-filter-row-${forum.url}'),
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              CheckboxListTile(
-                                key: ValueKey('aggregate-filter-${forum.url}'),
-                                contentPadding: EdgeInsets.zero,
-                                value:
-                                    forum.isConnected &&
-                                    selected.contains(forum.url),
-                                onChanged: forum.isConnected
-                                    ? (checked) => setSheetState(() {
-                                        selected = {...selected};
-                                        if (checked ?? false) {
-                                          selected.add(forum.url);
-                                        } else {
-                                          selected.remove(forum.url);
-                                        }
-                                      })
-                                    : null,
-                                title: Text(forum.title),
-                                subtitle: Text(
-                                  forum.isConnected
-                                      ? forum.host
-                                      : 'Sign in to include',
-                                ),
-                              ),
-                              TopicFilterInput(
-                                key: ValueKey(
-                                  'aggregate-filter-editor-${forum.url}',
-                                ),
-                                siteUrl: forum.url,
-                                initialQuery: queries[forum.url]!,
-                                options: controller.aggregate.filterOptionsFor(
-                                  forum.url,
-                                ),
-                                categories: controller.filterCategoriesFor(
-                                  forum.url,
-                                ),
-                                onSubmitted: (query) async {
-                                  queries[forum.url] = query;
-                                },
-                                onChanged: (query) =>
-                                    queries[forum.url] = query,
-                                inputKey: ValueKey(
-                                  'aggregate-query-${forum.url}',
-                                ),
-                                clearKey: ValueKey(
-                                  'aggregate-query-clear-${forum.url}',
-                                ),
-                                hintText: 'Filter this forum',
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  0,
-                                  0,
-                                  12,
-                                ),
-                                enabled:
-                                    forum.isConnected &&
-                                    selected.contains(forum.url),
-                                preferSuggestionsAbove: true,
-                              ),
-                            ],
+                        CheckboxListTile(
+                          key: ValueKey('aggregate-filter-${forum.url}'),
+                          contentPadding: EdgeInsets.zero,
+                          value:
+                              forum.isConnected && selected.contains(forum.url),
+                          onChanged: forum.isConnected
+                              ? (checked) => setSheetState(() {
+                                  selected = {...selected};
+                                  if (checked ?? false) {
+                                    selected.add(forum.url);
+                                  } else {
+                                    selected.remove(forum.url);
+                                  }
+                                })
+                              : null,
+                          title: Text(forum.title),
+                          subtitle: Text(
+                            forum.isConnected
+                                ? forum.host
+                                : 'Sign in to include',
                           ),
+                        ),
+                        TopicFilterInput(
+                          key: ValueKey('aggregate-filter-editor-${forum.url}'),
+                          siteUrl: forum.url,
+                          initialQuery: queries[forum.url]!,
+                          options: controller.aggregate.filterOptionsFor(
+                            forum.url,
+                          ),
+                          categories: controller.filterCategoriesFor(forum.url),
+                          onSubmitted: (query) async {
+                            queries[forum.url] = query;
+                          },
+                          onChanged: (query) => queries[forum.url] = query,
+                          inputKey: ValueKey('aggregate-query-${forum.url}'),
+                          clearKey: ValueKey(
+                            'aggregate-query-clear-${forum.url}',
+                          ),
+                          hintText: 'Filter this forum',
+                          padding: const EdgeInsets.fromLTRB(16, 0, 0, 12),
+                          enabled:
+                              forum.isConnected && selected.contains(forum.url),
+                          preferSuggestionsAbove: true,
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: () => Navigator.of(sheetContext).pop((
-                          includedForums: {...selected},
-                          queries: {...queries},
-                        )),
-                        child: const Text('Apply'),
-                      ),
-                    ],
-                  ),
                 ],
               );
             },
