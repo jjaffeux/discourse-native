@@ -18,14 +18,15 @@ import 'shell_scope.dart';
 /// Presentation data for one tab in a forum's horizontal tab bar.
 ///
 /// Prefix precedence matches the instance sidebar: avatar, emoji, category
-/// colour, then [icon]. Emoji URLs are resolved by the caller because custom
-/// emoji belong to the forum that owns the tab.
+/// colour, then [icon]. When none are provided, the label uses the available
+/// prefix space. Emoji URLs are resolved by the caller because custom emoji
+/// belong to the forum that owns the tab.
 @immutable
 class ForumTabItem {
   const ForumTabItem({
     required this.id,
     required this.title,
-    required this.icon,
+    this.icon,
     this.color,
     this.parentColor,
     this.iconColor,
@@ -41,7 +42,7 @@ class ForumTabItem {
 
   final String id;
   final String title;
-  final DIconData icon;
+  final DIconData? icon;
   final Color? color;
   final Color? parentColor;
   final Color? iconColor;
@@ -367,7 +368,7 @@ class _ForumTabState extends State<_ForumTab> {
         '${badge.count == 1 ? 'unread item' : 'unread items'}';
   }
 
-  Widget _prefix(BuildContext context, Color foreground) {
+  Widget? _prefix(BuildContext context, Color foreground) {
     final item = widget.item;
     final theme = Theme.of(context);
 
@@ -426,7 +427,11 @@ class _ForumTabState extends State<_ForumTab> {
       );
     }
 
-    return DIcon(item.icon, size: 15, color: item.iconColor ?? foreground);
+    if (item.icon case final icon?) {
+      return DIcon(icon, size: 15, color: item.iconColor ?? foreground);
+    }
+
+    return null;
   }
 
   Widget _badge(BuildContext context) {
@@ -472,16 +477,17 @@ class _ForumTabState extends State<_ForumTab> {
     );
   }
 
-  bool _badgeFits(double selectWidth) {
+  bool _badgeFits(double selectWidth, {required bool hasPrefix}) {
     final badge = widget.item.badge;
     if (!badge.isVisible) return false;
-    if (badge.dot) return selectWidth >= 45;
+    // Select padding consumes 14px. A prefix and its gap consume another 22px.
+    final leadingWidth = hasPrefix ? 36 : 14;
+    if (badge.dot) return selectWidth >= leadingWidth + 8;
     final estimatedBadgeWidth = math.max(
       19,
       badge.count.toString().length * 6 + 10,
     );
-    // Select padding, prefix and its gap consume 36px before label or badge.
-    return selectWidth >= 36 + estimatedBadgeWidth;
+    return selectWidth >= leadingWidth + estimatedBadgeWidth;
   }
 
   @override
@@ -490,6 +496,7 @@ class _ForumTabState extends State<_ForumTab> {
     final foreground = widget.selected || _hovered
         ? theme.colorScheme.onSurface
         : theme.colorScheme.onSurfaceVariant;
+    final prefix = _prefix(context, foreground);
     final closeLabel = 'Close ${widget.item.title}';
 
     return Semantics(
@@ -537,13 +544,13 @@ class _ForumTabState extends State<_ForumTab> {
                             padding: const EdgeInsets.fromLTRB(9, 0, 5, 0),
                             child: Row(
                               children: [
-                                SizedBox.square(
-                                  dimension: 15,
-                                  child: Center(
-                                    child: _prefix(context, foreground),
+                                if (prefix != null) ...[
+                                  SizedBox.square(
+                                    dimension: 15,
+                                    child: Center(child: prefix),
                                   ),
-                                ),
-                                const SizedBox(width: 7),
+                                  const SizedBox(width: 7),
+                                ],
                                 Expanded(
                                   child: Text(
                                     widget.item.title,
@@ -558,7 +565,10 @@ class _ForumTabState extends State<_ForumTab> {
                                         ),
                                   ),
                                 ),
-                                if (_badgeFits(constraints.maxWidth))
+                                if (_badgeFits(
+                                  constraints.maxWidth,
+                                  hasPrefix: prefix != null,
+                                ))
                                   _badge(context),
                               ],
                             ),

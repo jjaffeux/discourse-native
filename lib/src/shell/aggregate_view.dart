@@ -309,11 +309,7 @@ class _AggregateTabsBar extends StatelessWidget {
       forumName: 'Aggregate',
       items: [
         for (var index = 0; index < tabs.length; index++)
-          ForumTabItem(
-            id: tabs[index].id,
-            title: 'Aggregate ${index + 1}',
-            icon: DIcons.layerGroup,
-          ),
+          ForumTabItem(id: tabs[index].id, title: 'Aggregate ${index + 1}'),
       ],
       selectedId: controller.activeAggregateTabId,
       onAdd: controller.canCreateAggregateTab
