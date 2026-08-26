@@ -3609,7 +3609,7 @@ void main() {
   group('live counters', () {
     const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
 
-    final dot = find.byKey(UserMenuButton.unreadDotKey);
+    final avatarBadge = find.byKey(UserMenuButton.unreadDotKey);
 
     /// A site that is already signed in, so the counter channels have an
     /// account to be named after.
@@ -3666,10 +3666,33 @@ void main() {
       expect(material.type, MaterialType.transparency);
     });
 
+    testWidgets('the account avatar carries a legible success count', (
+      tester,
+    ) async {
+      await pumpConnected(
+        tester,
+        totals: const NotificationTotals(unreadNotifications: 3),
+      );
+
+      final badge = tester.widget<Container>(avatarBadge);
+      final decoration = badge.decoration! as BoxDecoration;
+      final theme = Theme.of(tester.element(avatarBadge));
+      final size = tester.getSize(avatarBadge);
+
+      expect(decoration.color, theme.discourse.success);
+      expect(decoration.color, isNot(theme.colorScheme.error));
+      expect(size.width, greaterThanOrEqualTo(20));
+      expect(size.height, greaterThanOrEqualTo(20));
+      expect(
+        find.descendant(of: avatarBadge, matching: find.text('3')),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('a notification arriving marks the avatar', (tester) async {
       final tracker = await pumpConnected(tester);
 
-      expect(dot, findsNothing);
+      expect(avatarBadge, findsNothing);
 
       tracker.deliverNotification(const {
         'all_unread_notifications_count': 1,
@@ -3677,7 +3700,7 @@ void main() {
       });
       await tester.pumpAndSettle();
 
-      expect(dot, findsOneWidget);
+      expect(avatarBadge, findsOneWidget);
     });
 
     testWidgets('reading them somewhere else takes the mark away', (
@@ -3688,7 +3711,7 @@ void main() {
         totals: const NotificationTotals(unreadNotifications: 3),
       );
 
-      expect(dot, findsOneWidget);
+      expect(avatarBadge, findsOneWidget);
 
       tracker.deliverNotification(const {
         'all_unread_notifications_count': 0,
@@ -3696,7 +3719,7 @@ void main() {
       });
       await tester.pumpAndSettle();
 
-      expect(dot, findsNothing);
+      expect(avatarBadge, findsNothing);
     });
 
     testWidgets('the counts move with it, not just the mark', (tester) async {
@@ -3704,9 +3727,20 @@ void main() {
         tester,
         totals: const NotificationTotals(unreadNotifications: 3),
       );
+      final railBadge = find.byKey(
+        const ValueKey('instance-rail-badge-https://meta.discourse.org'),
+      );
 
-      // The rail badge, which is everything addressed to this account.
-      expect(find.text('3'), findsOneWidget);
+      // The current account repeats the same addressed total at the site and
+      // account levels.
+      expect(
+        find.descendant(of: railBadge, matching: find.text('3')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: avatarBadge, matching: find.text('3')),
+        findsOneWidget,
+      );
 
       tracker.deliverNotification(const {
         'all_unread_notifications_count': 5,
@@ -3714,7 +3748,14 @@ void main() {
       });
       await tester.pumpAndSettle();
 
-      expect(find.text('5'), findsOneWidget);
+      expect(
+        find.descendant(of: railBadge, matching: find.text('5')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: avatarBadge, matching: find.text('5')),
+        findsOneWidget,
+      );
       // And the private messages counted once, under their own name.
       expect(find.text('2'), findsOneWidget);
     });
@@ -3722,7 +3763,7 @@ void main() {
     testWidgets('a filling review queue marks it too', (tester) async {
       final tracker = await pumpConnected(tester);
 
-      expect(dot, findsNothing);
+      expect(avatarBadge, findsNothing);
 
       // Published on a channel of its own, and only to staff.
       tracker.deliverReviewableCounts(const {
@@ -3731,7 +3772,7 @@ void main() {
       });
       await tester.pumpAndSettle();
 
-      expect(dot, findsOneWidget);
+      expect(avatarBadge, findsOneWidget);
     });
 
     testWidgets('a site with nobody signed in has no counters to track', (
@@ -3741,7 +3782,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(FakeSiteTracker.built.first.userId, isNull);
-      expect(dot, findsNothing);
+      expect(avatarBadge, findsNothing);
     });
   });
 
@@ -5773,8 +5814,8 @@ void main() {
       // New and Unread into a single Topics destination.
       expect(find.text('12'), findsNothing);
       expect(find.text('7'), findsNothing);
-      // Rail badge is things addressed to you: 3 + 2.
-      expect(find.text('5'), findsOneWidget);
+      // Rail and account badges both show things addressed to you: 3 + 2.
+      expect(find.text('5'), findsNWidgets(2));
       // All of it from the one totals call.
       expect(api.totalsCalls, 1);
     });
