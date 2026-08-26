@@ -8812,6 +8812,11 @@ class ShellController extends FrameSafeNotifier
     if (openedAnotherTab) unawaited(aggregate.open(_instances));
   }
 
+  void closeOtherAggregateTabs(String id) {
+    if (!forumTabsEnabled || !aggregate.closeOtherTabs(id)) return;
+    unawaited(aggregate.open(_instances));
+  }
+
   Future<void> setAggregateForumFilters({
     required Set<String> includedForums,
     required Map<String, String> queries,
@@ -9050,6 +9055,30 @@ class ShellController extends FrameSafeNotifier
 
     _putWorkspace(replacement);
     if (closedActive) {
+      _syncTopicChannels();
+      _hydrateActiveTab(instance);
+    }
+    _notify();
+  }
+
+  /// Keeps one tab in the selected forum and closes every sibling tab.
+  void closeOtherTabs(String id) {
+    if (!forumTabsEnabled) return;
+    final instance = currentInstance;
+    final workspace = currentWorkspace;
+    if (instance == null || workspace == null || workspace.tabs.length == 1) {
+      return;
+    }
+    final kept = workspace.tabById(id);
+    if (kept == null) return;
+
+    if (_composer case final composer? when composer.target.tabId != id) {
+      closeComposer();
+    }
+
+    final activeChanged = workspace.activeTabId != id;
+    _putWorkspace(workspace.copyWith(tabs: [kept], activeTabId: id));
+    if (activeChanged) {
       _syncTopicChannels();
       _hydrateActiveTab(instance);
     }

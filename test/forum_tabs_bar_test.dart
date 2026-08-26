@@ -8,7 +8,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart'
-    show kDoubleTapMinTime, kDoubleTapTimeout;
+    show kDoubleTapMinTime, kDoubleTapTimeout, kSecondaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -209,6 +209,67 @@ void main() {
 
     expect(_decoration(tester, surface).color, theme.shell.selected);
     expect(tester.getSize(surface), const Size.square(26));
+  });
+
+  testWidgets('shows close actions on right click without selecting the tab', (
+    tester,
+  ) async {
+    final selected = <String>[];
+    final closed = <String>[];
+    final closedOthers = <String>[];
+    await _pumpBar(
+      tester,
+      items: const [first, second],
+      selectedId: first.id,
+      onSelect: selected.add,
+      onClose: closed.add,
+      onCloseOthers: closedOthers.add,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('forum-tab-chat-2')),
+      buttons: kSecondaryButton,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Close tab'), findsOneWidget);
+    expect(find.text('Close other tabs'), findsOneWidget);
+    expect(selected, isEmpty);
+
+    await tester.tap(
+      find.byKey(const ValueKey('forum-tab-menu-close-others-chat-2')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(closed, isEmpty);
+    expect(closedOthers, [second.id]);
+
+    await tester.tap(
+      find.byKey(const ValueKey('forum-tab-chat-2')),
+      buttons: kSecondaryButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('forum-tab-menu-close-chat-2')));
+    await tester.pumpAndSettle();
+
+    expect(closed, [second.id]);
+  });
+
+  testWidgets('keeps close-other visible but disabled for the only tab', (
+    tester,
+  ) async {
+    await _pumpBar(tester, items: const [first], selectedId: first.id);
+
+    await tester.tap(
+      find.byKey(const ValueKey('forum-tab-topic-1')),
+      buttons: kSecondaryButton,
+    );
+    await tester.pumpAndSettle();
+
+    final closeOthers = tester.widget<MenuItemButton>(
+      find.byKey(const ValueKey('forum-tab-menu-close-others-topic-1')),
+    );
+    expect(closeOthers.onPressed, isNull);
   });
 
   testWidgets('keeps the add hover surface compact and clear of the last tab', (
@@ -500,6 +561,7 @@ Future<void> _pumpBar(
   bool addEnabled = true,
   ValueChanged<String>? onSelect,
   ValueChanged<String>? onClose,
+  ValueChanged<String>? onCloseOthers,
   void Function(String id, String title)? onRename,
   double width = 500,
 }) async {
@@ -520,6 +582,7 @@ Future<void> _pumpBar(
                   onAdd: addEnabled ? (onAdd ?? () {}) : null,
                   onSelect: onSelect ?? (_) {},
                   onClose: onClose ?? (_) {},
+                  onCloseOthers: onCloseOthers ?? (_) {},
                   onRename: onRename,
                 ),
               ],

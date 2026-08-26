@@ -321,6 +321,7 @@ class _AggregateTabsBar extends StatelessWidget {
       onSelect: controller.selectAggregateTab,
       onClose: controller.closeAggregateTab,
       onRename: controller.renameAggregateTab,
+      onCloseOthers: controller.closeOtherAggregateTabs,
     );
   }
 }
@@ -429,8 +430,9 @@ class _AggregateTopicRow extends StatelessWidget {
                 'That topic is no longer available.',
             };
             if (message != null) {
-              ScaffoldMessenger.maybeOf(context)
-                  ?.showSnackBar(SnackBar(content: Text(message)));
+              ScaffoldMessenger.maybeOf(
+                context,
+              )?.showSnackBar(SnackBar(content: Text(message)));
             }
           },
         );
