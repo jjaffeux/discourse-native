@@ -1678,7 +1678,9 @@ activates a fresh tab rooted at **Topics**. Sidebar selections, deeper
 navigation, and Back change only the active tab's content stack; inactive tabs
 keep their route and logical list or topic scroll anchor. Closing the active tab
 selects a neighbour, while closing the last tab immediately creates a fresh
-Topics tab.
+Topics tab. Tabs can be dragged onto one another to reorder them; the active
+context stays selected and the new order is restored after launch. The
+app-wide Aggregate workspace uses the same tab ordering interaction.
 
 Workspaces are isolated by forum and account. Switching forums restores that
 workspace's tab list and active tab, and versioned local persistence restores

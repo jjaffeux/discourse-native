@@ -34,9 +34,10 @@ final class AggregateTopicRef {
 /// A saved work context in the app-wide Aggregate surface.
 @immutable
 final class AggregateFeedTab {
-  const AggregateFeedTab({required this.id});
+  const AggregateFeedTab({required this.id, this.name});
 
   final String id;
+  final String? name;
 }
 
 @immutable
@@ -145,7 +146,8 @@ final class AggregateFeedController extends FrameSafeNotifier {
   AggregateFeedState get state => _activeTab.state;
   String get activeTabId => _activeTabId;
   List<AggregateFeedTab> get tabs => List.unmodifiable([
-    for (final tab in _tabs.values) AggregateFeedTab(id: tab.id),
+    for (final tab in _tabs.values)
+      AggregateFeedTab(id: tab.id, name: tab.name),
   ]);
   bool get canCreateTab => _tabs.length < AggregatePreferencesStore.maximumTabs;
 
@@ -166,6 +168,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
     )) {
       final tab = _AggregateTabSession(
         id: saved.id,
+        name: saved.name,
         excludedForums: saved.excludedForums.intersection(valid),
         queries: {
           for (final MapEntry(:key, :value) in saved.queries.entries)
@@ -258,6 +261,35 @@ final class AggregateFeedController extends FrameSafeNotifier {
       unawaited(_persistTabs());
       notifySafely();
     }
+    return true;
+  }
+
+  bool moveTab(String id, int newIndex) {
+    if (_tabs.length < 2) return false;
+    final entries = _tabs.entries.toList();
+    final oldIndex = entries.indexWhere((entry) => entry.key == id);
+    if (oldIndex < 0) return false;
+    final destination = newIndex.clamp(0, entries.length - 1);
+    if (oldIndex == destination) return true;
+
+    final moved = entries.removeAt(oldIndex);
+    entries.insert(destination, moved);
+    _tabs
+      ..clear()
+      ..addEntries(entries);
+    unawaited(_persistTabs());
+    notifySafely();
+    return true;
+  }
+
+  bool renameTab(String id, String name) {
+    final tab = _tabs[id];
+    final normalized = AggregatePreferencesStore.normalizeTabName(name);
+    if (tab == null || normalized == null) return false;
+    if (tab.name == normalized) return true;
+    tab.name = normalized;
+    unawaited(_persistTabs());
+    notifySafely();
     return true;
   }
 
@@ -639,12 +671,14 @@ final class AggregateFeedController extends FrameSafeNotifier {
 final class _AggregateTabSession {
   _AggregateTabSession({
     required this.id,
+    this.name,
     Set<String> excludedForums = const {},
     Map<String, String> queries = const {},
   }) : excludedForums = Set.unmodifiable(excludedForums),
        queries = Map.unmodifiable(queries);
 
   final String id;
+  String? name;
   Set<String> excludedForums;
   Map<String, String> queries;
   AggregateFeedState state = const AggregateFeedState();
@@ -656,6 +690,7 @@ final class _AggregateTabSession {
 
   AggregateTabPreferences get preferences => AggregateTabPreferences(
     id: id,
+    name: name,
     excludedForums: excludedForums,
     queries: queries,
   );
