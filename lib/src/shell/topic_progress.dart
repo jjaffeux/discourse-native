@@ -12,58 +12,72 @@ class TopicProgressButton extends StatelessWidget {
     super.key,
     required this.position,
     required this.total,
+    required this.visible,
     required this.onPressed,
   });
 
   final int position;
   final int total;
+  final bool visible;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final boundedPosition = position.clamp(1, total);
-    return Tooltip(
-      message: 'Topic progress',
-      child: Semantics(
-        button: true,
-        label: 'Topic progress, post $boundedPosition of $total',
-        child: Material(
-          color: theme.shell.floating,
-          elevation: 3,
-          borderRadius: BorderRadius.circular(4),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            key: const ValueKey('topic-progress-button'),
-            onTap: onPressed,
-            child: SizedBox(
-              width: 82,
-              height: 40,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: FractionallySizedBox(
-                        widthFactor: boundedPosition / total,
-                        child: ColoredBox(
-                          key: const ValueKey('topic-progress-fill'),
-                          color: theme.colorScheme.primary.withValues(
-                            alpha: 0.18,
+    return AnimatedOpacity(
+      key: const ValueKey('topic-progress-fade'),
+      opacity: visible ? 1 : 0,
+      duration: kThemeAnimationDuration,
+      curve: Curves.easeInOut,
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: ExcludeSemantics(
+          excluding: !visible,
+          child: Tooltip(
+            message: 'Topic progress',
+            child: Semantics(
+              button: true,
+              label: 'Topic progress, post $boundedPosition of $total',
+              child: Material(
+                color: theme.shell.floating,
+                elevation: 3,
+                borderRadius: BorderRadius.circular(4),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  key: const ValueKey('topic-progress-button'),
+                  onTap: onPressed,
+                  child: SizedBox(
+                    width: 82,
+                    height: 40,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: boundedPosition / total,
+                              child: ColoredBox(
+                                key: const ValueKey('topic-progress-fill'),
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.18,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        Center(
+                          child: Text(
+                            '$boundedPosition / $total',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Center(
-                    child: Text(
-                      '$boundedPosition / $total',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
