@@ -145,8 +145,9 @@ void main() {
           '{"version":3,"active_tab_id":"first","tabs":['
           '{"id":"first","excluded_forums":[],"queries":{}}]}';
 
-    final restored = await AggregatePreferencesStore(persistence: persistence)
-        .load();
+    final restored = await AggregatePreferencesStore(
+      persistence: persistence,
+    ).load();
 
     expect(restored.tabs.single.id, 'first');
     expect(restored.tabs.single.name, isNull);
