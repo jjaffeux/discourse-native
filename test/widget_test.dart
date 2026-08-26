@@ -12561,6 +12561,24 @@ void main() {
         expect(shortcut, findsNothing);
       });
 
+      testWidgets('is hidden on Aggregate', (tester) async {
+        await pumpChat(tester);
+        expect(shortcut, findsOneWidget);
+
+        final controller = ShellScope.read(
+          tester.element(find.byType(ShellTitleBar)),
+        );
+        controller.selectAggregate();
+        await tester.pump();
+
+        expect(shortcut, findsNothing);
+
+        controller.selectInstance(0);
+        await tester.pump();
+
+        expect(shortcut, findsOneWidget);
+      });
+
       testWidgets('draws a quiet dot for ordinary public activity', (
         tester,
       ) async {

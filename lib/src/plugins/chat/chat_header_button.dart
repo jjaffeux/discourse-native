@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/discourse_user.dart';
+import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
@@ -15,6 +16,7 @@ import 'chat_route.dart';
 import 'chat_shell_extension.dart';
 
 typedef _ChatHeaderSnapshot = ({
+  bool showShortcut,
   String? siteUrl,
   DiscourseUser? user,
   bool chatActive,
@@ -49,6 +51,7 @@ class ChatHeaderButton extends StatelessWidget {
     select: (controller) {
       final instance = controller.currentInstance;
       return (
+        showShortcut: controller.rootMode == ShellRootMode.forum,
         siteUrl: instance?.url,
         user: instance?.user,
         chatActive:
@@ -56,6 +59,7 @@ class ChatHeaderButton extends StatelessWidget {
       );
     },
     builder: (context, account, _) {
+      if (!account.showShortcut) return const SizedBox.shrink();
       final siteUrl = account.siteUrl;
       final user = account.user;
       if (siteUrl == null || user == null) return const SizedBox.shrink();
