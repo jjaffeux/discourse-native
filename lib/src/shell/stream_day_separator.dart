@@ -104,10 +104,7 @@ class _StreamDaySeparatorState extends State<StreamDaySeparator> {
               borderRadius: BorderRadius.circular(4),
               onTap: onTap,
               onFocusChange: _setFocused,
-              child: SizedBox(
-                height: StreamDaySeparator.height,
-                child: Center(child: date),
-              ),
+              child: date,
             ),
           ),
         ),

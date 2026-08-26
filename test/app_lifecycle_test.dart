@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
@@ -193,7 +194,7 @@ void main() {
     expect(secondApi.closeCalls, 1);
   });
 
-  testWidgets('closes a replaced app-owned Resenha diagnostics controller', (
+  testWidgets('leaves an injected plugin diagnostics capability caller-owned', (
     tester,
   ) async {
     final key = GlobalKey();
@@ -235,20 +236,25 @@ void main() {
       trackers: trackers,
       updater: updater,
       updateStore: updateStore,
-      resenhaDiagnostics: diagnostics,
       initialRootMode: ShellRootMode.forum,
+      diagnosticsPlugins: [ResenhaDiagnosticsPlugin(controller: diagnostics)],
     );
 
     await tester.pumpWidget(app(first));
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(first.captureEnabled, isTrue);
 
     await tester.pumpWidget(app(second));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
-    expect(bridgeReleased.isCompleted, isTrue);
-    expect(first.captureEnabled, isFalse);
+    expect(bridgeReleased.isCompleted, isFalse);
+    expect(first.captureEnabled, isTrue);
     expect(second.captureEnabled, isFalse);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await first.close();
+    await second.close();
+    expect(bridgeReleased.isCompleted, isTrue);
   });
 
   testWidgets('releases replaced diagnostics without replacing the shell', (

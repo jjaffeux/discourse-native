@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -13,7 +14,7 @@ import '../chat/chat_preview.dart';
 import '../site_plugin_api.dart';
 import 'local_date.dart';
 import 'local_date_composer_editor.dart';
-import 'local_date_composer_parser.dart';
+import 'local_date_composer_pill.dart';
 import 'local_date_composer_sheet.dart';
 import 'local_date_environment.dart';
 import 'local_date_widget.dart';
@@ -21,6 +22,9 @@ import 'local_date_widget.dart';
 class LocalDatesPlugin
     implements
         ChatMessagePreviewPlugin,
+        BookmarkReminderPlugin,
+        ComposerShortcutPlugin,
+        ComposerSyntaxPlugin,
         ComposerToolbarPlugin,
         CookedElementPlugin {
   const LocalDatesPlugin();
@@ -32,8 +36,152 @@ class LocalDatesPlugin
   String get previewFeatureId => 'discourse-local-dates';
 
   @override
+  String get syntaxId => 'local-dates';
+
+  @override
+  List<Object> parseComposerSyntax(String source) =>
+      parseLocalDateComposerBlocks(source);
+
+  @override
+  int startOf(Object value) => (value as LocalDateComposerBlock).start;
+
+  @override
+  int endOf(Object value) => (value as LocalDateComposerBlock).end;
+
+  @override
+  String sourceOf(Object value) => (value as LocalDateComposerBlock).source;
+
+  @override
+  int caretAfter(Object value, String document) =>
+      (value as LocalDateComposerBlock).end;
+
+  @override
+  TextEditingValue moveCaretAfter(Object value, TextEditingValue document) =>
+      document.copyWith(
+        selection: TextSelection.collapsed(offset: endOf(value)),
+        composing: TextRange.empty,
+      );
+
+  @override
+  bool get supportsHover => false;
+
+  @override
+  bool get protectsAdjacentDelete => false;
+
+  @override
+  bool get hidesCursorWhenSelected => false;
+
+  @override
+  TextInputFormatter? get inputFormatter => null;
+
+  @override
+  bool needsRawSource(
+    Object value,
+    TextEditingValue document, {
+    required bool suppressCollapsedCaret,
+  }) => localDateBlockNeedsRawSource(
+    block: value as LocalDateComposerBlock,
+    value: document,
+    suppressCollapsedCaret: suppressCollapsedCaret,
+  );
+
+  @override
+  List<InlineSpan> buildCollapsedSpans({
+    required Object value,
+    required TextStyle baseStyle,
+    required Locale locale,
+    required String? accountTimezone,
+    required int maximumOptions,
+    required GlobalKey pillKey,
+    required bool highlighted,
+    required bool hovered,
+    required bool followedByLineBreak,
+  }) => buildCollapsedLocalDateSpans(
+    block: value as LocalDateComposerBlock,
+    baseStyle: baseStyle,
+    locale: locale,
+    accountTimezone: accountTimezone,
+    pillKey: pillKey,
+    highlighted: highlighted,
+  );
+
+  @override
+  Future<void> editComposerSyntax(
+    BuildContext context,
+    ComposerController composer,
+    Object value,
+  ) => openLocalDateComposer(
+    context,
+    composer,
+    block: value as LocalDateComposerBlock,
+  );
+
+  @override
+  void removeComposerSyntax(
+    BuildContext context,
+    ComposerController composer,
+    Object value,
+  ) => removeLocalDateComposer(
+    context,
+    composer,
+    value as LocalDateComposerBlock,
+  );
+
+  @override
+  Map<ShortcutActivator, VoidCallback> composerShortcuts(
+    BuildContext context,
+    ComposerController composer,
+  ) {
+    final controller = ShellScope.maybeRead(context);
+    if (controller == null ||
+        !controller.siteConfigFor(composer.target.siteUrl).localDatesEnabled) {
+      return const {};
+    }
+    return {
+      const SingleActivator(
+        LogicalKeyboardKey.period,
+        shift: true,
+        meta: true,
+      ): () =>
+          insertCurrentLocalDate(context, composer),
+      const SingleActivator(
+        LogicalKeyboardKey.period,
+        shift: true,
+        control: true,
+      ): () =>
+          insertCurrentLocalDate(context, composer),
+    };
+  }
+
+  @override
   Widget? cookedElement(String? siteUrl, dom.Element element) =>
       localDateWidgetBuilder(element, siteUrl: siteUrl);
+
+  @override
+  DateTime? futureBookmarkReminder(
+    String cooked, {
+    required String? accountTimezone,
+  }) {
+    final root = dom.Element.html(cooked);
+    final now = DateTime.now();
+    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    for (final element in root.querySelectorAll('span.discourse-local-date')) {
+      final spec = LocalDateSpec.fromDataAttributes(
+        element.attributes.map((key, value) => MapEntry('$key', value)),
+        fallbackText: element.text,
+      );
+      final resolved = const LocalDateFormatter().resolve(
+        spec,
+        locale: locale,
+        accountTimezone: accountTimezone,
+        now: now,
+      );
+      if (resolved != null && resolved.source.isAfter(now)) {
+        return resolved.source.toUtc();
+      }
+    }
+    return null;
+  }
 
   @override
   ChatPreviewInspection inspect(ChatPreviewRequest request) {

@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/api_credentials.dart';
-import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -11,8 +11,8 @@ import '../foundation/calendar_day.dart';
 import '../models/post.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
-import '../plugins/plugin_scope.dart';
-import '../plugins/site_plugin.dart';
+import '../plugin_api/plugin_registry.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -2247,7 +2247,7 @@ class _StoredPost extends StatelessWidget {
         // frame before the stream that named it is rewritten without it.
         if (post == null) return const SizedBox.shrink();
         final registry =
-            PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
+            PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
         if (post.isSmallAction || registry.isSmallAction(post)) {
           return SmallActionTile(post: post, siteUrl: siteUrl);
         }
@@ -2511,7 +2511,8 @@ class _PostTileState extends State<_PostTile> {
                     post: post,
                   ),
                 ),
-                ...(PluginScope.maybeOf(context)?.registry ?? pluginRegistry)
+                ...(PluginScope.maybeOf(context)?.registry ??
+                        PluginRegistry.empty)
                     .postDecorations(
                       context,
                       widget.siteUrl,
@@ -2822,7 +2823,7 @@ class _TopicMap extends StatelessWidget {
     final theme = Theme.of(context);
     final readTime = _readTimeMinutes;
     final pluginActions =
-        (PluginScope.maybeOf(context)?.registry ?? pluginRegistry)
+        (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
             .topicMapActions(context, siteUrl, topic);
 
     return Container(

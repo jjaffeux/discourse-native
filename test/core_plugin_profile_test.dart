@@ -1,5 +1,7 @@
+import 'package:discourse_native/src/plugins/chat/chat_shell_extension.dart';
 import 'package:discourse_native/src/plugins/core_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_shell_extension.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';

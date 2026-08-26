@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
-import '../plugins/plugin_data.dart';
+import '../plugin_api/plugin_data.dart';
 import 'json.dart';
 import 'topic_filter.dart';
 import 'topic_tag.dart';

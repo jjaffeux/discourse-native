@@ -18,7 +18,7 @@ void main() {
       'installDiagnosticsSink',
       'installRecordingHttpOverrides',
       'installGlobalErrorHandlers',
-      'createResenhaDiagnostics',
+      'initializePlugins',
       'initializePersistentMediaCache',
       'launchApplication',
     ]);
@@ -42,7 +42,7 @@ void main() {
       'installDiagnosticsSink',
       'installRecordingHttpOverrides',
       'installGlobalErrorHandlers',
-      'createResenhaDiagnostics',
+      'initializePlugins',
       'initializePersistentMediaCache',
       'reportError',
       'launchApplication',
@@ -57,9 +57,7 @@ void main() {
   });
 
   test('records and forwards a fatal error after handlers install', () async {
-    final host = _RecordingBootstrapHost(
-      failureStage: 'createResenhaDiagnostics',
-    );
+    final host = _RecordingBootstrapHost(failureStage: 'initializePlugins');
 
     final forwarded = await _startAndCaptureFatalError(host);
 
@@ -76,7 +74,7 @@ void main() {
       'installDiagnosticsSink',
       'installRecordingHttpOverrides',
       'installGlobalErrorHandlers',
-      'createResenhaDiagnostics',
+      'initializePlugins',
       'reportUnhandledError',
     ]);
     expect(host.launched.isCompleted, isFalse);
@@ -145,8 +143,8 @@ final class _RecordingBootstrapHost implements AppBootstrapHost {
   }
 
   @override
-  Future<void> createResenhaDiagnostics() async {
-    _record('createResenhaDiagnostics');
+  Future<void> initializePlugins() async {
+    _record('initializePlugins');
   }
 
   @override

@@ -7,6 +7,7 @@ import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics.dart';
+import 'package:discourse_native/src/plugins/resenha/resenha_diagnostics_plugin.dart';
 import 'package:discourse_native/src/shell/diagnostics_panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -118,6 +119,10 @@ void main() {
       find.byKey(const ValueKey('resenha-capture-rail-indicator')),
       findsNothing,
     );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await resenha.close();
+    await diagnostics.close();
   });
 
   testWidgets('docks at its preferred width and becomes a responsive overlay', (
@@ -734,8 +739,11 @@ Future<void> _pumpApp(
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
       diagnostics: diagnostics,
-      resenhaDiagnostics: resenhaDiagnostics,
       initialRootMode: ShellRootMode.forum,
+      diagnosticsPlugins: [
+        if (resenhaDiagnostics != null)
+          ResenhaDiagnosticsPlugin(controller: resenhaDiagnostics),
+      ],
     ),
   );
   if (settle) {

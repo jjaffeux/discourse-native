@@ -426,14 +426,14 @@ class _DiagnosticsButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final diagnostics = DiagnosticsScope.read(context);
-    final resenhaDiagnostics = DiagnosticsScope.maybeReadResenha(context);
+    final pluginDiagnostics = DiagnosticsScope.pluginsOf(context);
 
     return ListenableBuilder(
       listenable: Listenable.merge([
         diagnostics.panelListenable,
         diagnostics.unseenErrorsListenable,
-        if (resenhaDiagnostics != null)
-          resenhaDiagnostics.captureEnabledListenable,
+        for (final plugin in pluginDiagnostics)
+          plugin.diagnosticsStatusListenable,
       ]),
       builder: (context, _) {
         final open = diagnostics.isPanelOpen;
@@ -441,11 +441,13 @@ class _DiagnosticsButton extends StatelessWidget {
         final baseTooltip = unseen == 0
             ? 'Diagnostics'
             : 'Diagnostics, $unseen unseen ${unseen == 1 ? 'error' : 'errors'}';
-        final recording =
-            resenhaDiagnostics?.captureEnabledListenable.value ?? false;
-        final tooltip = recording
-            ? '$baseTooltip, Resenha capture recording'
-            : baseTooltip;
+        final recordingLabels = [
+          for (final plugin in pluginDiagnostics)
+            if (plugin.isDiagnosticsRecording) plugin.diagnosticsRecordingLabel,
+        ].whereType<String>();
+        final tooltip = recordingLabels.isEmpty
+            ? baseTooltip
+            : '$baseTooltip, ${recordingLabels.join(', ')}';
 
         return Semantics(
           button: true,
@@ -490,7 +492,7 @@ class _DiagnosticsButton extends StatelessWidget {
                         child: _UnreadBadge(count: unseen),
                       ),
                     ),
-                  if (recording)
+                  if (recordingLabels.isNotEmpty)
                     Positioned(
                       key: const ValueKey('resenha-capture-rail-indicator'),
                       right: -3,

@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/gifs/gif_picker_controller.dart';
+import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';

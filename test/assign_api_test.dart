@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/plugin_transport.dart';
 import 'package:discourse_native/src/plugins/assign/assign_api.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:flutter_test/flutter_test.dart';

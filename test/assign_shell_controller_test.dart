@@ -145,6 +145,7 @@ void main() {
       );
       final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
       final shell = ShellController(
+        plugins: installedPlugins,
         instanceStore: FakeInstanceStore([
           instance('meta.discourse.org').copyWith(
             user: const DiscourseUser(username: 'reader', canAssign: true),
@@ -230,6 +231,7 @@ void main() {
 Future<ShellController> _loadShell(FakeDiscourseApi api) async {
   final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
   final shell = ShellController(
+    plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
       instance(
         'meta.discourse.org',

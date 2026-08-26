@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../../plugin_api/composer_syntax.dart';
+import '../../shell/markdown_editing_controller.dart';
+
 /// A source attribute exactly as it appeared in a `[poll ...]` opener.
 ///
 /// [raw] includes the whitespace which separated the attribute from the one
@@ -56,6 +59,73 @@ class PollMarkupAttribute {
 
   static bool _needsQuote(String value) =>
       value.isEmpty || value.contains(RegExp(r'''[\s\]]'''));
+}
+
+/// Typed compatibility helpers for Poll-owned tests and widgets.
+///
+/// Core exposes only opaque composer syntax occurrences; importing Poll opts a
+/// caller into these casts without making the editor import Poll itself.
+extension PollComposerEditing on MarkdownEditingController {
+  List<PollComposerBlock> get pollBlocks => [
+    for (final occurrence in syntaxBlocks)
+      if (occurrence.plugin.syntaxId == 'poll')
+        occurrence.value as PollComposerBlock,
+  ];
+
+  ComposerSyntaxOccurrence? _pollOccurrence(PollComposerBlock block) {
+    for (final occurrence in syntaxBlocks) {
+      if (occurrence.plugin.syntaxId == 'poll' &&
+          (identical(occurrence.value, block) ||
+              occurrence.start == block.start &&
+                  occurrence.end == block.end &&
+                  occurrence.source == block.source)) {
+        return occurrence;
+      }
+    }
+    return null;
+  }
+
+  int pollCaretAfter(PollComposerBlock block) {
+    final occurrence = _pollOccurrence(block);
+    if (occurrence != null) return syntaxCaretAfter(occurrence);
+    var offset = block.end;
+    if (offset >= text.length) return offset;
+    if (text.codeUnitAt(offset) == 0x0D &&
+        offset + 1 < text.length &&
+        text.codeUnitAt(offset + 1) == 0x0A) {
+      return offset + 2;
+    }
+    return text.codeUnitAt(offset) == 0x0A ? offset + 1 : offset;
+  }
+
+  PollComposerBlock? collapsedPollAtOffset(int offset) {
+    final occurrence = collapsedSyntaxAtOffset(offset);
+    return occurrence?.plugin.syntaxId == 'poll'
+        ? occurrence!.value as PollComposerBlock
+        : null;
+  }
+
+  bool isPollCollapsed(PollComposerBlock block) {
+    final occurrence = _pollOccurrence(block);
+    return occurrence != null && isSyntaxCollapsed(occurrence);
+  }
+
+  void keepPollCollapsedForPointerEdit(PollComposerBlock block) {
+    final occurrence = _pollOccurrence(block);
+    if (occurrence != null) keepSyntaxCollapsedForPointerEdit(occurrence);
+  }
+
+  void releasePollPointerEdit(PollComposerBlock block) {
+    final occurrence = _pollOccurrence(block);
+    if (occurrence != null) releaseSyntaxPointerEdit(occurrence);
+  }
+
+  PollComposerBlock? get keyboardSelectedPoll {
+    final occurrence = keyboardSelectedSyntax;
+    return occurrence?.plugin.syntaxId == 'poll'
+        ? occurrence!.value as PollComposerBlock
+        : null;
+  }
 }
 
 /// The subset of poll types the composer can project without losing source.

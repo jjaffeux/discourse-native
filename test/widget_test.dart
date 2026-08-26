@@ -28,6 +28,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
@@ -175,6 +176,7 @@ Future<void> pumpShell(
       updater: updater ?? FakeUpdater(),
       updateStore: updateStore ?? FakeUpdateStore(),
       initialRootMode: ShellRootMode.forum,
+      pluginManifest: bundledPluginManifestWithoutDiagnostics,
     ),
   );
   if (beforeSettle != null) {
@@ -9613,6 +9615,7 @@ void main() {
         drafts: FakeDraftStore(),
         trackers: FakeSiteTracker.reset(),
         updateStore: FakeUpdateStore(),
+        plugins: installedPlugins,
       );
       addTearDown(controller.dispose);
       return controller;

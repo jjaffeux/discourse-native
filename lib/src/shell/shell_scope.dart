@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../plugins/plugin_scope.dart';
+import '../plugin_api/plugin_scope.dart';
 import 'shell_controller.dart';
 
 /// Makes the [ShellController] available to the widgets below it.
@@ -18,7 +18,6 @@ class ShellScope extends InheritedNotifier<ShellController> {
          child: PluginScope(
            session: controller.pluginSession,
            registry: controller.plugins.registry,
-           resolveService: controller.pluginService,
            child: _ShellControllerIdentity(
              controller: controller,
              child: child,

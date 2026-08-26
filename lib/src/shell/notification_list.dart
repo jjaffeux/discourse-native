@@ -276,7 +276,7 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
     if (path == null) return;
 
     final url = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
-    if (await controller.openChatUrl(url)) {
+    if (await controller.openPluginUrl(url)) {
       if (mounted) widget.onOpened();
       return;
     }

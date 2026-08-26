@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
+import 'package:discourse_native/src/plugins/poll/poll_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -175,7 +176,7 @@ void main() {
           }),
         );
 
-        final response = await api.votePoll(
+        final response = await PollApi(api).votePoll(
           siteUrl: 'https://forum.example',
           apiKey: 'secret',
           postId: 42,
@@ -208,7 +209,7 @@ void main() {
         }),
       );
 
-      final response = await api.removePollVote(
+      final response = await PollApi(api).removePollVote(
         siteUrl: 'https://forum.example',
         apiKey: 'secret',
         postId: 42,
@@ -236,7 +237,7 @@ void main() {
       );
 
       expect(
-        api.votePoll(
+        PollApi(api).votePoll(
           siteUrl: 'https://forum.example',
           apiKey: 'secret',
           postId: 42,

@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -144,6 +145,7 @@ Future<void> _pump(
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
       initialRootMode: ShellRootMode.forum,
+      pluginManifest: bundledPluginManifestWithoutDiagnostics,
     ),
   );
   await tester.pumpAndSettle();

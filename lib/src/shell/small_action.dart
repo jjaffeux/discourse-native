@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
-import '../plugins/plugin_scope.dart';
-import '../plugins/site_plugin.dart';
+import '../plugin_api/plugin_registry.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -25,7 +25,7 @@ class SmallActionDescription {
 
   /// The description for [post], or null if it is not a small action.
   static SmallActionDescription? of(Post post, {PluginRegistry? registry}) {
-    if ((registry ?? pluginRegistry).smallAction(post)
+    if ((registry ?? PluginRegistry.empty).smallAction(post)
         case final contribution?) {
       return SmallActionDescription(
         icon: contribution.icon,

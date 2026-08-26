@@ -706,7 +706,7 @@ what replaces all of this on a site that has reactions.
 Discourse core is a floor, not a ceiling. A given site may have reactions,
 solved, assign, chat, voting — or none of them, and the same rail can hold one
 of each. The mechanism for that is
-[`SitePlugin`](lib/src/plugins/site_plugin.dart), and it turns on one rule:
+[`SitePlugin`](lib/src/plugin_api/site_plugin_api.dart), and it turns on one rule:
 
 > **The record decides whether a feature is drawn. Site config decides only how
 > to draw it, or what to offer inside it.**
@@ -741,15 +741,13 @@ path, so the next thing that asks for categories retries. Signing out drops the
 settings: on a `login_required` site they were only readable as that account.
 
 Adding the next one is a module under `lib/src/plugins/<name>/` owning its
-models, its state and its widgets, the narrow capability interfaces it actually
-contributes, an entry in the `const sitePlugins` list, and its endpoints on
-`DiscourseApi` beside everything else's. `PluginRegistry` owns ordered
-fallthrough and additive dispatch, so a feature that only owns navigation does
-not also carry no-op post, composer, and live-topic hooks. The API is the one
-deliberate exception to the module owning its own code:
-`FakeDiscourseApi implements DiscourseApi` is what turns a new call into a
-compile error until the fake grows a knob for it, and that is worth more than
-the tidier boundary.
+models, state, widgets, typed HTTP contract, and the narrow capability
+interfaces it actually contributes, plus an entry in
+`bundledPluginManifest`. `PluginRegistry` owns ordered UI dispatch, while
+`PluginSession` owns typed services and host-facing capabilities.
+`DiscourseApi` contains only core endpoints; plugins adapt the shared
+`PluginApiTransport` themselves. Production core never imports
+`lib/src/plugins`, and an architecture test enforces that dependency direction.
 
 ### Reactions
 
@@ -825,7 +823,7 @@ write of this reader's own is skipped; its own answer is already on the way.
 `chat` gives a site channels and direct messages to read alongside its topics.
 It is the first optional feature here that owns *navigation* and a *screen*
 rather than decorating a record, so it contributes the sidebar and content
-capabilities to [`PluginRegistry`](lib/src/plugins/site_plugin.dart) without
+capabilities to [`PluginRegistry`](lib/src/plugin_api/plugin_registry.dart) without
 special-casing chat in the shell.
 
 The native workflow covers followed channels, direct messages, search,
@@ -1733,11 +1731,13 @@ lib/
     app.dart                   root widget, owns the ShellController
     data/
       discourse_api.dart       site lookup over HTTP
+      plugin_transport.dart    bounded wire transport for plugin adapters
       instance_store.dart      persistence via shared_preferences
     models/                    instance, sidebar and content-route types
+    plugin_api/                stable extension seams and runtime
     plugins/
-      site_plugin.dart         the SitePlugin seam and the const registry
-      reactions/               discourse-reactions: models, state, widgets
+      bundled_plugin_manifest.dart  full-build composition root
+      reactions/               plugin-owned models, API, state and widgets
     shell/
       adaptive_shell.dart      breakpoints and column assembly
       instance_rail.dart       far-left instance column

@@ -1,4 +1,4 @@
-import '../../data/discourse_api_contracts.dart' show PluginApiTransport;
+import '../../data/plugin_transport.dart';
 import '../../models/json.dart';
 import 'gif.dart';
 import 'gifs_api.dart';

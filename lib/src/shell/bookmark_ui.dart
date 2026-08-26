@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../data/bookmark_reminder_store.dart';
@@ -9,12 +8,10 @@ import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
 import '../models/bookmark_reminder.dart';
 import '../models/post.dart';
-import '../plugins/chat/chat_message.dart';
-import '../plugins/local_dates/local_date.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
-import 'cooked_dom.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -59,20 +56,20 @@ Future<void> showChatMessageBookmarkMenu({
   required BuildContext context,
   required ShellController controller,
   required String siteUrl,
-  required ChatMessage message,
+  required int messageId,
+  required Bookmark? bookmark,
+  required String cooked,
 }) async {
   final result = await showShellSheet<_QuickMenuResult>(
     context: context,
-    title: message.bookmark == null
-        ? 'Bookmark chat message'
-        : 'Chat message bookmark',
+    title: bookmark == null ? 'Bookmark chat message' : 'Chat message bookmark',
     dialogOnDesktop: true,
     builder: (_) => _BookmarkQuickSheet(
       controller: controller,
       topicId: 0,
       targetType: BookmarkTargetType.chatMessage,
-      targetId: message.id,
-      initialBookmark: message.bookmark,
+      targetId: messageId,
+      initialBookmark: bookmark,
     ),
   );
   if (result == null || !context.mounted) return;
@@ -82,7 +79,7 @@ Future<void> showChatMessageBookmarkMenu({
     siteUrl: siteUrl,
     topicId: 0,
     bookmark: result.bookmark,
-    cooked: message.cooked,
+    cooked: cooked,
   );
 }
 
@@ -461,6 +458,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
   DateTime? _postDate;
   String? _error;
   bool _busy = false;
+  bool _suggestionsLoaded = false;
   _RelativeUnit _relativeUnit = _RelativeUnit.days;
   final BookmarkReminderStore _store = const BookmarkReminderStore();
 
@@ -470,17 +468,28 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     _name = TextEditingController(text: widget.bookmark.name ?? '');
     _preference = widget.bookmark.autoDeletePreference;
     _reminder = widget.bookmark.reminderAt;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_suggestionsLoaded) return;
+    _suggestionsLoaded = true;
     unawaited(_loadSuggestions());
   }
 
   Future<void> _loadSuggestions() async {
+    final registry = PluginScope.of(context).registry;
     final user = widget.controller.currentUserFor(widget.siteUrl);
     final last = user == null
         ? null
         : await _store.read(widget.siteUrl, user.username);
     final postDate = widget.cooked == null
         ? null
-        : _futureDateInPost(widget.cooked!, accountTimezone: user?.timezone);
+        : registry.futureBookmarkReminder(
+            widget.cooked!,
+            accountTimezone: user?.timezone,
+          );
     if (!mounted) return;
     setState(() {
       _lastCustom = last?.isAfter(DateTime.now()) == true ? last : null;
@@ -1017,32 +1026,4 @@ String _formatReminder(
 tz.TZDateTime tzDate(DateTime instant, tz.Location location) {
   // Kept at this seam so the UI never relies on the device-local DateTime zone.
   return tz.TZDateTime.from(instant, location);
-}
-
-DateTime? _futureDateInPost(String cooked, {required String? accountTimezone}) {
-  final root = dom.Element.html(cooked);
-  final now = DateTime.now();
-  final locale = WidgetsBinding.instance.platformDispatcher.locale;
-  final elements = descendantsWhere(
-    root,
-    (candidate) =>
-        candidate.localName == 'span' &&
-        candidate.classes.contains('discourse-local-date'),
-  );
-  for (final element in elements) {
-    final spec = LocalDateSpec.fromDataAttributes(
-      element.attributes.map((key, value) => MapEntry(key.toString(), value)),
-      fallbackText: element.text,
-    );
-    final resolved = const LocalDateFormatter().resolve(
-      spec,
-      locale: locale,
-      accountTimezone: accountTimezone,
-      now: now,
-    );
-    if (resolved != null && resolved.source.isAfter(now)) {
-      return resolved.source.toUtc();
-    }
-  }
-  return null;
 }

@@ -9,7 +9,7 @@ import '../data/diagnostics_panel_width_store.dart';
 import '../data/sidebar_width_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/diagnostics_scope.dart';
-import '../plugins/plugin_scope.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -272,7 +272,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           if (diagnostics == null) return framedShell(shell);
           final panel = DiagnosticsPanel(
             controller: diagnostics,
-            resenhaController: DiagnosticsScope.maybeReadResenha(context),
+            plugins: DiagnosticsScope.pluginsOf(context),
             onClose: diagnostics.closePanel,
           );
 

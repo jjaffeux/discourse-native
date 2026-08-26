@@ -12,6 +12,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -543,6 +544,7 @@ Future<({ShellController shell, _WorkspaceApi api})> _fixture({
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),
     ownsApi: false,
+    plugins: installedPlugins,
   );
   await shell.load();
   await shell.chat.loadChannels(_siteUrl);

@@ -3,15 +3,12 @@ import 'package:flutter/services.dart';
 
 import '../diagnostics/diagnostic_event.dart';
 import '../diagnostics/diagnostics_controller.dart';
-import '../diagnostics/resenha_report_exporter.dart';
-import '../plugins/resenha/resenha_diagnostics.dart';
-import '../plugins/resenha/resenha_diagnostics_report.dart';
+import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'diagnostics_text.dart';
-import 'resenha_diagnostics_view.dart';
 
 /// The initial width used by both the docked diagnostics sidebar and the
 /// non-phone overlay.
@@ -32,16 +29,12 @@ class DiagnosticsPanel extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onClose,
-    this.resenhaController,
-    this.resenhaReportExporter,
-    this.resenhaClipboardByteLimit = resenhaDiagnosticsClipboardByteLimit,
+    this.plugins = const [],
   });
 
   final DiagnosticsController controller;
   final VoidCallback onClose;
-  final ResenhaDiagnosticsController? resenhaController;
-  final ResenhaReportExporter? resenhaReportExporter;
-  final int resenhaClipboardByteLimit;
+  final List<DiagnosticsPlugin> plugins;
 
   @override
   State<DiagnosticsPanel> createState() => _DiagnosticsPanelState();
@@ -50,10 +43,7 @@ class DiagnosticsPanel extends StatefulWidget {
 class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
   final TextEditingController _search = TextEditingController();
   final ScrollController _timeline = ScrollController();
-  ResenhaDiagnosticsReport? _resenhaReport;
-  late final ResenhaReportExporter _resenhaReportExporter =
-      widget.resenhaReportExporter ?? NativeResenhaReportExporter();
-  bool _showResenha = false;
+  DiagnosticsPlugin? _selectedPlugin;
 
   @override
   void didUpdateWidget(DiagnosticsPanel oldWidget) {
@@ -61,11 +51,14 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
     if (!identical(widget.controller, oldWidget.controller)) {
       _search.text = widget.controller.panelState.query;
     }
-    if (!identical(widget.controller, oldWidget.controller) ||
-        !identical(widget.resenhaController, oldWidget.resenhaController)) {
-      _resenhaReport = null;
+    if (!widget.plugins.contains(_selectedPlugin)) {
+      final selectedId = _selectedPlugin?.diagnosticsId;
+      _selectedPlugin = selectedId == null
+          ? null
+          : widget.plugins
+                .where((plugin) => plugin.diagnosticsId == selectedId)
+                .firstOrNull;
     }
-    if (widget.resenhaController == null) _showResenha = false;
   }
 
   @override
@@ -84,7 +77,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape) {
-          if (!_showResenha &&
+          if (_selectedPlugin == null &&
               widget.controller.panelState.selectedEventId != null) {
             widget.controller.selectEvent(null);
           } else {
@@ -121,8 +114,8 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                 children: [
                   _PanelHeader(
                     frozen: panelState.frozen,
-                    showingDetail: !_showResenha && selected != null,
-                    showGeneralActions: !_showResenha,
+                    showingDetail: _selectedPlugin == null && selected != null,
+                    showGeneralActions: _selectedPlugin == null,
                     onBack: () => widget.controller.selectEvent(null),
                     onToggleFrozen: () =>
                         widget.controller.setFrozen(!panelState.frozen),
@@ -131,18 +124,21 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                     onClose: widget.onClose,
                   ),
                   Divider(height: 1, color: theme.shell.divider),
-                  if (widget.resenhaController != null) ...[
+                  if (widget.plugins.isNotEmpty) ...[
                     _DiagnosticsTabs(
-                      showResenha: _showResenha,
-                      onChanged: (showResenha) {
-                        setState(() => _showResenha = showResenha);
-                      },
+                      plugins: widget.plugins,
+                      selected: _selectedPlugin,
+                      onChanged: (plugin) =>
+                          setState(() => _selectedPlugin = plugin),
                     ),
                     Divider(height: 1, color: theme.shell.divider),
                   ],
                   Expanded(
-                    child: _showResenha
-                        ? _buildResenhaTimeline(widget.resenhaController!)
+                    child: _selectedPlugin != null
+                        ? _selectedPlugin!.buildDiagnostics(
+                            context,
+                            widget.controller,
+                          )
                         : selected == null
                         ? _buildTimeline(context)
                         : _EventDetail(
@@ -156,40 +152,6 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildResenhaTimeline(ResenhaDiagnosticsController controller) {
-    final report = _resenhaReport ??= ResenhaDiagnosticsReport(
-      diagnostics: widget.controller,
-      resenha: controller,
-    );
-    return ResenhaDiagnosticsView(
-      stateListenable: controller.stateListenable,
-      eventsListenable: Listenable.merge([
-        controller.eventsListenable,
-        widget.controller.eventsListenable,
-      ]),
-      readState: () {
-        final state = controller.state;
-        return ResenhaDiagnosticsUiState(
-          enabled: state.enabled,
-          captureId: state.captureId,
-          startedAtUtc: state.startedAtUtc,
-          retainedBytes: state.retainedBytes,
-          droppedRecords: state.droppedRecords,
-          truncated: state.truncated,
-        );
-      },
-      readEvents: () => report.events,
-      startCapture: controller.startCapture,
-      stopCapture: controller.stopCapture,
-      clear: controller.clear,
-      buildJsonReport: report.buildJson,
-      buildClipboardReport: report.buildClipboard,
-      writeJsonReportTo: report.writeJsonTo,
-      exporter: _resenhaReportExporter,
-      clipboardByteLimit: widget.resenhaClipboardByteLimit,
     );
   }
 
@@ -484,10 +446,15 @@ class _PanelHeader extends StatelessWidget {
 }
 
 class _DiagnosticsTabs extends StatelessWidget {
-  const _DiagnosticsTabs({required this.showResenha, required this.onChanged});
+  const _DiagnosticsTabs({
+    required this.plugins,
+    required this.selected,
+    required this.onChanged,
+  });
 
-  final bool showResenha;
-  final ValueChanged<bool> onChanged;
+  final List<DiagnosticsPlugin> plugins;
+  final DiagnosticsPlugin? selected;
+  final ValueChanged<DiagnosticsPlugin?> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -495,15 +462,22 @@ class _DiagnosticsTabs extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: SizedBox(
         width: double.infinity,
-        child: SegmentedButton<bool>(
+        child: SegmentedButton<int>(
           key: const ValueKey('diagnostics-top-level-tabs'),
-          segments: const [
-            ButtonSegment(value: false, label: Text('General')),
-            ButtonSegment(value: true, label: Text('Resenha')),
+          segments: [
+            const ButtonSegment(value: 0, label: Text('General')),
+            for (var index = 0; index < plugins.length; index++)
+              ButtonSegment(
+                value: index + 1,
+                label: Text(plugins[index].diagnosticsLabel),
+              ),
           ],
-          selected: {showResenha},
+          selected: {selected == null ? 0 : plugins.indexOf(selected!) + 1},
           showSelectedIcon: false,
-          onSelectionChanged: (selection) => onChanged(selection.first),
+          onSelectionChanged: (selection) {
+            final index = selection.first;
+            onChanged(index == 0 ? null : plugins[index - 1]);
+          },
         ),
       ),
     );

@@ -5,6 +5,8 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'poll_composer_parser.dart';
 
+export 'poll_composer_parser.dart';
+
 const TextStyle _pollHiddenSource = TextStyle(
   color: Colors.transparent,
   fontSize: 0,

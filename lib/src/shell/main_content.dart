@@ -9,8 +9,9 @@ import '../models/post.dart';
 import '../models/post_flag.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
-import '../plugins/plugin_scope.dart';
-import '../plugins/site_plugin.dart';
+import '../plugin_api/plugin_registry.dart';
+import '../plugin_api/plugin_scope.dart';
+import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
@@ -57,7 +58,7 @@ class MainContent extends StatelessWidget {
         registry:
             registry ??
             PluginScope.maybeOf(context)?.registry ??
-            pluginRegistry,
+            PluginRegistry.empty,
       ),
     );
   }
