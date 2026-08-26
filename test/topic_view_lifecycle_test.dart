@@ -1242,6 +1242,69 @@ void main() {
     },
   );
 
+  testWidgets('restored topic progress stays hidden once scrolling is idle', (
+    tester,
+  ) async {
+    final site = instance('meta.example');
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+    final controller = _controller(site, api);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        const TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [100, 101],
+          postsCount: 2,
+        ),
+      )
+      ..putAll(site.url, const [
+        Post(id: 100, postNumber: 1, username: 'sam', cooked: '<p>First</p>'),
+        Post(id: 101, postNumber: 2, username: 'sam', cooked: '<p>Second</p>'),
+      ]);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+    controller.saveTopicScrollPost(1, 2);
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+
+    final progress = find.byKey(const ValueKey('topic-progress-button'));
+    final fade = find.descendant(
+      of: find.byKey(const ValueKey('topic-progress-fade')),
+      matching: find.byType(FadeTransition),
+    );
+    final listener = tester.widget<NotificationListener<ScrollNotification>>(
+      find
+          .descendant(
+            of: find.byType(TopicView),
+            matching: find.byType(NotificationListener<ScrollNotification>),
+          )
+          .first,
+    );
+    listener.onNotification!(
+      ScrollStartNotification(
+        metrics: FixedScrollMetrics(
+          minScrollExtent: 0,
+          maxScrollExtent: 0,
+          pixels: 0,
+          viewportDimension: 600,
+          axisDirection: AxisDirection.down,
+          devicePixelRatio: 1,
+        ),
+        context: tester.element(find.byType(TopicView)),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<FadeTransition>(fade).opacity.value, 0);
+    expect(progress.hitTestable(), findsNothing);
+  });
+
   testWidgets('topic progress fades in only while scrolling', (tester) async {
     final site = instance('meta.example');
     final api = FakeDiscourseApi(feeds: const {'/latest.json': []});

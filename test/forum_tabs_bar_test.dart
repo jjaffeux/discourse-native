@@ -387,6 +387,31 @@ void main() {
     expect(urgentIcon.size, 15);
   });
 
+  testWidgets('keeps unread dots beside the tab title', (tester) async {
+    const item = ForumTabItem(
+      id: 'chat-2',
+      title: 'Team chat',
+      icon: DIcons.comments,
+      badge: SidebarBadge.dot(),
+    );
+    await _pumpBar(tester, items: const [item], selectedId: item.id);
+
+    final titleFinder = find.text(item.title);
+    final title = tester.widget<Text>(titleFinder);
+    final titleContext = tester.element(titleFinder);
+    final titlePainter = TextPainter(
+      text: TextSpan(text: item.title, style: title.style),
+      textDirection: Directionality.of(titleContext),
+      textScaler: MediaQuery.textScalerOf(titleContext),
+    )..layout();
+    final titleEnd = tester.getTopLeft(titleFinder).dx + titlePainter.width;
+    final dot = tester.getRect(
+      find.byKey(const ValueKey('forum-tab-badge-chat-2')),
+    );
+
+    expect(dot.left - titleEnd, inInclusiveRange(0, 8));
+  });
+
   testWidgets('does not render an OPEN label or opened-tab totals', (
     tester,
   ) async {

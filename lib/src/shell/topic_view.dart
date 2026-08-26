@@ -95,6 +95,7 @@ class _TopicViewState extends State<TopicView> {
   static const Duration _readInterval = Duration(milliseconds: 500);
 
   ScrollController? _scroll;
+  ScrollPosition? _scrollPosition;
   ListController? _list;
   (String, int, int)? _topicIdentity;
   String? _tabId;
@@ -176,7 +177,10 @@ class _TopicViewState extends State<TopicView> {
     _progressPosition = null;
     _scrolling = false;
     _pendingScrolling = false;
-    _scroll = ScrollController();
+    _scroll = ScrollController(
+      onAttach: _attachScrollPosition,
+      onDetach: _detachScrollPosition,
+    );
     _list = ListController()..addListener(_noteExtentsChanged);
     _noteExtentsChanged();
   }
@@ -281,6 +285,9 @@ class _TopicViewState extends State<TopicView> {
   void _disposeControllers() {
     final scroll = _scroll;
     final list = _list;
+    final position = _scrollPosition;
+    position?.isScrollingNotifier.removeListener(_onScrollActivityChanged);
+    _scrollPosition = null;
     if (scroll == null && list == null) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -666,6 +673,25 @@ class _TopicViewState extends State<TopicView> {
     setState(() => _progressPosition = position);
   }
 
+  void _attachScrollPosition(ScrollPosition position) {
+    final previous = _scrollPosition;
+    previous?.isScrollingNotifier.removeListener(_onScrollActivityChanged);
+    _scrollPosition = position;
+    position.isScrollingNotifier.addListener(_onScrollActivityChanged);
+    _onScrollActivityChanged();
+  }
+
+  void _detachScrollPosition(ScrollPosition position) {
+    position.isScrollingNotifier.removeListener(_onScrollActivityChanged);
+    if (!identical(_scrollPosition, position)) return;
+    _scrollPosition = null;
+    _setScrolling(false);
+  }
+
+  void _onScrollActivityChanged() {
+    _setScrolling(_scrollPosition?.isScrollingNotifier.value ?? false);
+  }
+
   void _setScrolling(bool scrolling) {
     _pendingScrolling = scrolling;
     if (_scrollingUpdateScheduled || !mounted) return;
@@ -1042,11 +1068,6 @@ class _TopicViewState extends State<TopicView> {
     final postStream = NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification.depth == 0) {
-          if (notification is ScrollStartNotification) {
-            _setScrolling(true);
-          } else if (notification is ScrollEndNotification) {
-            _setScrolling(false);
-          }
           // SuperSliverList publishes its new visible range during layout,
           // after the scroll notification. Looking synchronously here reads
           // the previous viewport and repeatedly credits the old post.
