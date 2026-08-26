@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/avatar_loader.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
@@ -102,6 +103,45 @@ void main() {
       _materialApp(tester).theme?.colorScheme.primary,
       first.base?.tertiary,
     );
+  });
+
+  testWidgets('rail notification badges use each forum success colour', (
+    tester,
+  ) async {
+    const firstSuccess = Color(0xFF167A34);
+    const secondSuccess = Color(0xFF008A5A);
+    final first = _appearanceWithSuccess(firstSuccess);
+    final second = _appearanceWithSuccess(secondSuccess);
+    const user = DiscourseUser(id: 7, username: 'sam');
+    final store = FakeInstanceStore([
+      const DiscourseInstance(
+        url: siteA,
+        title: 'A',
+        user: user,
+      ).copyWith(appearance: first),
+      const DiscourseInstance(
+        url: siteB,
+        title: 'B',
+        user: user,
+      ).copyWith(appearance: second),
+    ]);
+    final authenticator = FakeAuthenticator()
+      ..keys[siteA] = 'a-key'
+      ..keys[siteB] = 'b-key';
+
+    await _pumpApp(
+      tester,
+      store: store,
+      api: FakeDiscourseApi(
+        totals: const NotificationTotals(unreadNotifications: 3),
+      ),
+      authenticator: authenticator,
+    );
+    _controller(tester).selectInstance(1);
+    await tester.pumpAndSettle();
+
+    expect(_railBadgeBackground(tester, host: 'a.example'), firstSuccess);
+    expect(_railBadgeBackground(tester, host: 'b.example'), secondSuccess);
   });
 
   testWidgets('aggregate uses the app theme instead of a forum palette', (
@@ -431,6 +471,29 @@ Finder _railItem({required String host}) => find.descendant(
   of: find.byKey(ValueKey<String>('https://$host')),
   matching: find.byType(RawTooltip),
 );
+
+SiteAppearance _appearanceWithSuccess(Color success) {
+  final json = sitePalette().toJson()..['success'] = success.toARGB32();
+  return SiteAppearance(
+    base: ResolvedSitePalette.fromJson(json),
+    mode: SiteAppearanceMode.base,
+  );
+}
+
+Color _railBadgeBackground(WidgetTester tester, {required String host}) {
+  final badge = find.byKey(
+    ValueKey<String>('instance-rail-badge-https://$host'),
+  );
+  expect(badge, findsOneWidget);
+  final container = find.descendant(
+    of: badge,
+    matching: find.byType(Container),
+  );
+  expect(container, findsOneWidget);
+  final decoration = tester.widget<Container>(container).decoration;
+  expect(decoration, isA<BoxDecoration>());
+  return (decoration! as BoxDecoration).color!;
+}
 
 Color _railAvatarBackground(
   WidgetTester tester, {
