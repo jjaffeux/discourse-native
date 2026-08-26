@@ -9,6 +9,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/topic_tag.dart';
+import '../plugin_api/composer_syntax.dart';
 import 'composer_autocomplete.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
@@ -220,6 +221,7 @@ class ComposerController extends ChangeNotifier {
     String Function(String name)? resolveEmoji,
     ComposerPills? pills,
     ComposerQuoteContentsFormatter? formatQuoteContents,
+    List<ComposerSyntaxPlugin> syntaxPlugins = const [],
     this.imageUploader,
     ComposerUploadUrlResolver? resolveUploadUrls,
     this.canUploadImage,
@@ -235,6 +237,7 @@ class ComposerController extends ChangeNotifier {
          resolveEmoji: resolveEmoji,
          pills: pills,
          formatQuoteContents: formatQuoteContents,
+         syntaxPlugins: syntaxPlugins,
          pollMaximumOptions: pollMaximumOptions,
          localDateAccountTimezone: localDateAccountTimezone,
          resolveUploadUrls: resolveUploadUrls,

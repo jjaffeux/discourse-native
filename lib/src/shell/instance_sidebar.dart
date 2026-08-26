@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../data/sidebar_section_store.dart';
 import '../models/sidebar.dart';
-import '../plugins/chat/chat_user_avatar.dart';
-import '../plugins/plugin_scope.dart';
-import '../plugins/site_plugin.dart';
+import '../plugin_api/plugin_scope.dart';
+import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -705,13 +704,16 @@ class _DestinationTileState extends State<_DestinationTile> {
       final siteUrl = ShellScope.read(context).currentInstance?.url;
       final userId = destination.avatarUserId;
       if (siteUrl != null && userId != null) {
-        return ChatUserAvatar(
+        final fallback = ColoredBox(color: theme.shell.floating);
+        final avatar = PluginScope.of(context).registry.userAvatar(
+          context,
           siteUrl: siteUrl,
           userId: userId,
           url: url,
           size: 22,
-          fallback: ColoredBox(color: theme.shell.floating),
+          fallback: fallback,
         );
+        if (avatar != null) return avatar;
       }
       return ClipOval(
         child: SizedBox(

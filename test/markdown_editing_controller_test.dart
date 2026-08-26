@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_pills.dart';
@@ -39,6 +40,7 @@ void main() {
       text: source,
       resolveEmoji: resolveEmoji,
       pills: pills,
+      syntaxPlugins: pluginRegistry.composerSyntaxPlugins,
     );
     addTearDown(controller.dispose);
 

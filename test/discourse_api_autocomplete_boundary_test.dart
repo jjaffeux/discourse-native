@@ -4,7 +4,10 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
+import 'package:discourse_native/src/plugins/poll/poll_api.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -33,13 +36,13 @@ void main() {
         }),
       );
 
-      final past = await api.chatMessages(
+      final past = await ChatApiClient(api).chatMessages(
         siteUrl: 'https://example.com',
         channelId: 1,
         before: 13,
         pageSize: 5,
       );
-      final future = await api.chatMessages(
+      final future = await ChatApiClient(api).chatMessages(
         siteUrl: 'https://example.com',
         channelId: 1,
         after: 0xCAFE,
@@ -63,20 +66,20 @@ void main() {
     );
 
     final invalidCalls = <Future<void> Function()>[
-      () => api.markChatChannelRead(
+      () => ChatApiClient(api).markChatChannelRead(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 0,
         messageId: 1,
       ),
-      () => api.markChatChannelRead(
+      () => ChatApiClient(api).markChatChannelRead(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 1,
         messageId: -1,
       ),
       () async {
-        await api.sendChatMessage(
+        await ChatApiClient(api).sendChatMessage(
           siteUrl: 'https://example.com',
           apiKey: 'key',
           channelId: -1,
@@ -84,7 +87,7 @@ void main() {
         );
       },
       () async {
-        await api.sendChatMessage(
+        await ChatApiClient(api).sendChatMessage(
           siteUrl: 'https://example.com',
           apiKey: 'key',
           channelId: 1,
@@ -92,7 +95,7 @@ void main() {
         );
       },
       () async {
-        await api.sendChatMessage(
+        await ChatApiClient(api).sendChatMessage(
           siteUrl: 'https://example.com',
           apiKey: 'key',
           channelId: 1,
@@ -100,14 +103,14 @@ void main() {
           message: 'hello',
         );
       },
-      () => api.markChatThreadRead(
+      () => ChatApiClient(api).markChatThreadRead(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 1,
         threadId: 0,
         messageId: 2,
       ),
-      () => api.markChatThreadRead(
+      () => ChatApiClient(api).markChatThreadRead(
         siteUrl: 'https://example.com',
         apiKey: 'key',
         channelId: 1,
@@ -209,7 +212,7 @@ void main() {
           );
         },
         () async {
-          await api.toggleReaction(
+          await ReactionsApiClient(api, api.models).toggleReaction(
             siteUrl: 'https://example.com',
             apiKey: 'key',
             postId: 0,
@@ -217,7 +220,7 @@ void main() {
           );
         },
         () async {
-          await api.toggleReaction(
+          await ReactionsApiClient(api, api.models).toggleReaction(
             siteUrl: 'https://example.com',
             apiKey: 'key',
             postId: 1,
@@ -225,7 +228,7 @@ void main() {
           );
         },
         () async {
-          await api.votePoll(
+          await PollApi(api).votePoll(
             siteUrl: 'https://example.com',
             apiKey: 'key',
             postId: 0,
@@ -234,7 +237,7 @@ void main() {
           );
         },
         () async {
-          await api.removePollVote(
+          await PollApi(api).removePollVote(
             siteUrl: 'https://example.com',
             apiKey: 'key',
             postId: 0,
@@ -446,7 +449,7 @@ void main() {
       postId: 1,
       limit: PostLikers.maximumPageSize,
     );
-    await api.postReactors(
+    await ReactionsApiClient(api, api.models).postReactors(
       siteUrl: 'https://example.com',
       postId: 1,
       limit: PostReactors.maximumPageSize,
@@ -466,19 +469,28 @@ void main() {
       throwsRangeError,
     );
     await expectLater(
-      api.postReactors(siteUrl: 'https://example.com', postId: -1),
+      ReactionsApiClient(
+        api,
+        api.models,
+      ).postReactors(siteUrl: 'https://example.com', postId: -1),
       throwsRangeError,
     );
     await expectLater(
-      api.postReactors(siteUrl: 'https://example.com', postId: 1, limit: 0),
+      ReactionsApiClient(
+        api,
+        api.models,
+      ).postReactors(siteUrl: 'https://example.com', postId: 1, limit: 0),
       throwsRangeError,
     );
     await expectLater(
-      api.postReactors(siteUrl: 'https://example.com', postId: 1, reaction: ''),
+      ReactionsApiClient(
+        api,
+        api.models,
+      ).postReactors(siteUrl: 'https://example.com', postId: 1, reaction: ''),
       throwsArgumentError,
     );
     await expectLater(
-      api.postReactors(
+      ReactionsApiClient(api, api.models).postReactors(
         siteUrl: 'https://example.com',
         postId: 1,
         reaction: 'x' * (DiscourseApi.maximumSearchTermLength + 1),

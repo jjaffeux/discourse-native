@@ -1,4 +1,4 @@
-import '../../data/discourse_api_contracts.dart';
+import '../../data/plugin_transport.dart';
 import 'ai_summary.dart';
 
 /// Typed client for discourse-ai's topic summarization route.

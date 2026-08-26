@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/plugins/gifs/gifs_api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -31,7 +32,7 @@ void main() {
         );
         addTearDown(api.close);
 
-        final categories = await api.gifCategories(
+        final categories = await GifsApiClient(api).gifCategories(
           siteUrl: 'https://forum.example',
           apiKey: 'secret',
           clientId: 'native-client',
@@ -79,7 +80,7 @@ void main() {
         );
         addTearDown(api.close);
 
-        final page = await api.searchGifs(
+        final page = await GifsApiClient(api).searchGifs(
           siteUrl: 'https://forum.example',
           apiKey: 'secret',
           clientId: 'native-client',
@@ -117,7 +118,7 @@ void main() {
         String position = '0',
       }) async {
         await expectLater(
-          api.searchGifs(
+          GifsApiClient(api).searchGifs(
             siteUrl: 'https://forum.example',
             apiKey: 'secret',
             query: query,
@@ -145,7 +146,7 @@ void main() {
 
           try {
             await expectLater(
-              api.searchGifs(
+              GifsApiClient(api).searchGifs(
                 siteUrl: 'https://forum.example',
                 apiKey: 'secret',
                 query: 'cat',

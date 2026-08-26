@@ -1,13 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../data/emoji_cache.dart';
 import '../models/composer_upload.dart';
-import '../plugins/local_dates/local_date_composer_parser.dart';
-import '../plugins/local_dates/local_date_composer_pill.dart';
-import '../plugins/poll/poll_composer_parser.dart';
-import '../plugins/poll/poll_composer_pill.dart';
+import '../plugin_api/composer_syntax.dart';
 import 'composer_image.dart';
 import 'composer_images.dart';
 import 'composer_pills.dart';
@@ -37,6 +35,7 @@ class MarkdownEditingController extends TextEditingController {
     this.resolveEmoji,
     this.pills,
     this.formatQuoteContents,
+    this.syntaxPlugins = const [],
     this.pollMaximumOptions = 20,
     this.localDateAccountTimezone,
     this.resolveUploadUrls,
@@ -68,6 +67,8 @@ class MarkdownEditingController extends TextEditingController {
   ComposerQuoteContentsResolver? _quoteContentsResolver;
   Object? _quoteContentsResolverContext;
 
+  final List<ComposerSyntaxPlugin> syntaxPlugins;
+
   final int pollMaximumOptions;
   final String? localDateAccountTimezone;
   final ComposerUploadUrlResolver? resolveUploadUrls;
@@ -97,22 +98,27 @@ class MarkdownEditingController extends TextEditingController {
     if (newValue.text != current.text) {
       _keyboardSelectedProjection = null;
       _keyboardSelectionDocument = null;
-      if (_caretSuppressedPoll case final poll?) {
-        if (!_stillContainsPoll(newValue.text, poll)) {
-          _caretSuppressedPoll = null;
+      if (_caretSuppressedSyntax case final syntax?) {
+        if (!_stillContainsSyntax(newValue.text, syntax)) {
+          _caretSuppressedSyntax = null;
         }
       }
     } else if (_keyboardSelectedProjection != null &&
         _keyboardSelectionDocument == current.text) {
       newValue = current;
-    } else if (_caretSuppressedPoll case final poll?
-        when _stillContainsPoll(current.text, poll) &&
-            pollBlockNeedsRawSource(block: poll, value: newValue)) {
+    } else if (_caretSuppressedSyntax case final syntax?
+        when syntax.plugin.protectsAdjacentDelete &&
+            _stillContainsSyntax(current.text, syntax) &&
+            syntax.plugin.needsRawSource(
+              syntax.value,
+              newValue,
+              suppressCollapsedCaret: false,
+            )) {
       // EditableText turns consecutive clicks into word and paragraph ranges
       // on pointer-down. Keep that transient native selection out of the poll.
       newValue = newValue.copyWith(
         selection: TextSelection.collapsed(
-          offset: _lineBreakEnd(current.text, poll.end),
+          offset: syntax.plugin.caretAfter(syntax.value, current.text),
         ),
         composing: TextRange.empty,
       );
@@ -141,22 +147,25 @@ class MarkdownEditingController extends TextEditingController {
       ? _keyboardSelectedProjection as ComposerImageBlock
       : null;
 
-  PollComposerBlock? get keyboardSelectedPoll =>
+  ComposerSyntaxOccurrence? get keyboardSelectedSyntax =>
       _keyboardSelectionDocument == text &&
-          _keyboardSelectedProjection is PollComposerBlock
-      ? _keyboardSelectedProjection as PollComposerBlock
-      : null;
-
-  LocalDateComposerBlock? get keyboardSelectedLocalDate =>
-      _keyboardSelectionDocument == text &&
-          _keyboardSelectedProjection is LocalDateComposerBlock
-      ? _keyboardSelectedProjection as LocalDateComposerBlock
+          _keyboardSelectedProjection is ComposerSyntaxOccurrence
+      ? _keyboardSelectedProjection as ComposerSyntaxOccurrence
       : null;
 
   void selectPillForKeyboard(Object projection) {
     if (projection is! ComposerImageBlock &&
-        projection is! PollComposerBlock &&
-        projection is! LocalDateComposerBlock) {
+        projection is! ComposerSyntaxOccurrence) {
+      for (final occurrence in _syntaxBlocksFor(text)) {
+        if (identical(occurrence.value, projection) ||
+            occurrence.value == projection) {
+          projection = occurrence;
+          break;
+        }
+      }
+    }
+    if (projection is! ComposerImageBlock &&
+        projection is! ComposerSyntaxOccurrence) {
       throw ArgumentError.value(projection, 'projection');
     }
     if (_keyboardSelectionDocument == text &&
@@ -243,88 +252,89 @@ class MarkdownEditingController extends TextEditingController {
     return _imageBlocks = blocks;
   }
 
-  String? _pollScanned;
-  List<PollComposerBlock> _pollBlocks = const [];
-  Set<int> _collapsedPollStarts = const {};
-  PollComposerBlock? _caretSuppressedPoll;
-  int? _hoveredPollStart;
-  final Map<int, GlobalKey> _pollPillKeys = {};
+  String? _syntaxScanned;
+  List<ComposerSyntaxOccurrence> _syntaxBlocks = const [];
+  Set<String> _collapsedSyntaxKeys = const {};
+  ComposerSyntaxOccurrence? _caretSuppressedSyntax;
+  String? _hoveredSyntaxKey;
+  final Map<String, GlobalKey> _syntaxPillKeys = {};
 
-  /// Safely projectable poll occurrences in the current raw document.
-  List<PollComposerBlock> get pollBlocks =>
-      List.unmodifiable(_pollBlocksFor(text));
+  List<ComposerSyntaxOccurrence> get syntaxBlocks =>
+      List.unmodifiable(_syntaxBlocksFor(text));
 
-  PollComposerBlock? pollAtOffset(int offset) =>
-      pollBlockAtComposerOffset(_pollBlocksFor(text), offset);
+  List<TextInputFormatter> get syntaxInputFormatters {
+    final formatters = <TextInputFormatter>[];
+    for (final plugin in syntaxPlugins) {
+      final formatter = plugin.inputFormatter;
+      if (formatter != null) formatters.add(formatter);
+    }
+    return formatters;
+  }
 
-  bool isPollCollapsed(PollComposerBlock block) =>
-      _collapsedPollStarts.contains(block.start);
+  ComposerSyntaxOccurrence? syntaxAtOffset(int offset) {
+    for (final block in _syntaxBlocksFor(text)) {
+      if (offset >= block.start && offset < block.end) return block;
+    }
+    return null;
+  }
 
-  bool isPollHovered(PollComposerBlock block) =>
-      _hoveredPollStart == block.start;
+  bool isSyntaxCollapsed(ComposerSyntaxOccurrence block) =>
+      _collapsedSyntaxKeys.contains(_syntaxKey(block));
 
-  /// Updates hover from the editor-level mouse region because EditableText
-  /// deliberately keeps its embedded WidgetSpans out of pointer hit testing.
-  void updatePollHoverAtGlobalPosition(Offset? globalPosition) {
+  bool isSyntaxHovered(ComposerSyntaxOccurrence block) =>
+      _hoveredSyntaxKey == _syntaxKey(block);
+
+  void updateSyntaxHoverAtGlobalPosition(Offset? globalPosition) {
     final hovered = globalPosition == null
         ? null
-        : collapsedPollAtGlobalPosition(globalPosition)?.start;
-    if (_hoveredPollStart == hovered) return;
-    _hoveredPollStart = hovered;
+        : collapsedSyntaxAtGlobalPosition(globalPosition);
+    final key = hovered == null ? null : _syntaxKey(hovered);
+    if (_hoveredSyntaxKey == key) return;
+    _hoveredSyntaxKey = key;
     artworkArrived();
   }
 
-  /// The first editable offset on the line following [block].
-  ///
-  /// Newly inserted polls always own this real line ending. Older drafts can
-  /// end at the closing tag; their projection supplies the visual break while
-  /// keeping the saved source byte-for-byte unchanged.
-  int pollCaretAfter(PollComposerBlock block) => _lineBreakEnd(text, block.end);
+  int syntaxCaretAfter(ComposerSyntaxOccurrence block) =>
+      block.plugin.caretAfter(block.value, text);
 
-  void keepPollCollapsedForPointerEdit(PollComposerBlock block) {
-    if (_sameProjection(_caretSuppressedPoll, block)) return;
-    _caretSuppressedPoll = block;
+  void keepSyntaxCollapsedForPointerEdit(ComposerSyntaxOccurrence block) {
+    if (_sameProjection(_caretSuppressedSyntax, block)) return;
+    _caretSuppressedSyntax = block;
     artworkArrived();
   }
 
-  void releasePollPointerEdit(PollComposerBlock block) {
-    if (!_sameProjection(_caretSuppressedPoll, block)) return;
-    _caretSuppressedPoll = null;
+  void releaseSyntaxPointerEdit(ComposerSyntaxOccurrence block) {
+    if (!_sameProjection(_caretSuppressedSyntax, block)) return;
+    _caretSuppressedSyntax = null;
     artworkArrived();
   }
 
-  PollComposerBlock? collapsedPollAtOffset(int offset) {
-    final block = pollAtOffset(offset);
-    return block != null && offset > block.start && isPollCollapsed(block)
+  ComposerSyntaxOccurrence? collapsedSyntaxAtOffset(int offset) {
+    final block = syntaxAtOffset(offset);
+    return block != null && offset > block.start && isSyntaxCollapsed(block)
         ? block
         : null;
   }
 
-  /// The collapsed poll whose visible pill contains [globalPosition].
-  ///
-  /// EditableText deliberately keeps embedded widgets out of pointer hit
-  /// testing. Their render boxes normally provide the most precise hit target;
-  /// the field can fall back to the editable source offset when platform
-  /// layout reports stale widget geometry.
-  PollComposerBlock? collapsedPollAtGlobalPosition(Offset globalPosition) {
-    for (final block in _pollBlocksFor(text)) {
-      if (!isPollCollapsed(block)) continue;
-      final rect = collapsedPollGlobalRect(block);
+  ComposerSyntaxOccurrence? collapsedSyntaxAtGlobalPosition(
+    Offset globalPosition,
+  ) {
+    for (final block in _syntaxBlocksFor(text)) {
+      if (!isSyntaxCollapsed(block)) continue;
+      final rect = collapsedSyntaxGlobalRect(block);
       if (rect?.contains(globalPosition) == true) return block;
     }
     return null;
   }
 
-  /// The collapsed block-shaped poll immediately left of [globalPosition].
-  ///
-  /// RenderEditable can map points after a WidgetSpan back into its hidden
-  /// source offsets. Checking the laid-out pill separately lets the composer
-  /// treat the rest of that visual row as the following caret line instead of
-  /// mistaking it for activation of the pill itself.
-  PollComposerBlock? collapsedPollBeforeGlobalPosition(Offset globalPosition) {
-    for (final block in _pollBlocksFor(text)) {
-      if (!isPollCollapsed(block)) continue;
-      final rect = collapsedPollGlobalRect(block);
+  ComposerSyntaxOccurrence? collapsedBlockSyntaxBeforeGlobalPosition(
+    Offset globalPosition,
+  ) {
+    for (final block in _syntaxBlocksFor(text)) {
+      if (!block.plugin.protectsAdjacentDelete || !isSyntaxCollapsed(block)) {
+        continue;
+      }
+      final rect = collapsedSyntaxGlobalRect(block);
       if (rect != null &&
           globalPosition.dx >= rect.right &&
           globalPosition.dy >= rect.top &&
@@ -335,90 +345,32 @@ class MarkdownEditingController extends TextEditingController {
     return null;
   }
 
-  Rect? collapsedPollGlobalRect(PollComposerBlock block) {
-    if (!isPollCollapsed(block)) return null;
-    final renderObject = _pollPillKeys[block.start]?.currentContext
+  Rect? collapsedSyntaxGlobalRect(ComposerSyntaxOccurrence block) {
+    if (!isSyntaxCollapsed(block)) return null;
+    final renderObject = _syntaxPillKeys[_syntaxKey(block)]?.currentContext
         ?.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) return null;
     return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 
-  List<PollComposerBlock> _pollBlocksFor(String source) {
-    if (_pollScanned == source) return _pollBlocks;
-    final blocks = parsePollComposerBlocks(source);
-    _retainPillKeys(_pollPillKeys, _pollBlocks, blocks, (block) => block.start);
-    _pollScanned = source;
-    return _pollBlocks = blocks;
-  }
-
-  String? _localDateScanned;
-  List<LocalDateComposerBlock> _localDateBlocks = const [];
-  Set<int> _collapsedLocalDateStarts = const {};
-  LocalDateComposerBlock? _caretSuppressedLocalDate;
-  final Map<int, GlobalKey> _localDatePillKeys = {};
-
-  List<LocalDateComposerBlock> get localDateBlocks =>
-      List.unmodifiable(_localDateBlocksFor(text));
-
-  LocalDateComposerBlock? localDateAtOffset(int offset) =>
-      localDateBlockAtComposerOffset(_localDateBlocksFor(text), offset);
-
-  bool isLocalDateCollapsed(LocalDateComposerBlock block) =>
-      _collapsedLocalDateStarts.contains(block.start);
-
-  void keepLocalDateCollapsedForPointerEdit(LocalDateComposerBlock block) {
-    if (_sameProjection(_caretSuppressedLocalDate, block)) return;
-    _caretSuppressedLocalDate = block;
-    artworkArrived();
-  }
-
-  void releaseLocalDatePointerEdit(LocalDateComposerBlock block) {
-    if (!_sameProjection(_caretSuppressedLocalDate, block)) return;
-    _caretSuppressedLocalDate = null;
-    artworkArrived();
-  }
-
-  LocalDateComposerBlock? collapsedLocalDateAtOffset(int offset) {
-    final block = localDateAtOffset(offset);
-    return block != null && offset > block.start && isLocalDateCollapsed(block)
-        ? block
-        : null;
-  }
-
-  LocalDateComposerBlock? collapsedLocalDateAtGlobalPosition(
-    Offset globalPosition,
-  ) {
-    for (final block in _localDateBlocksFor(text)) {
-      if (!isLocalDateCollapsed(block)) continue;
-      final rect = collapsedLocalDateGlobalRect(block);
-      if (rect?.contains(globalPosition) == true) return block;
-    }
-    return null;
-  }
-
-  Rect? collapsedLocalDateGlobalRect(LocalDateComposerBlock block) {
-    if (!isLocalDateCollapsed(block)) return null;
-    final renderObject = _localDatePillKeys[block.start]?.currentContext
-        ?.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
-    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
-  }
-
-  List<LocalDateComposerBlock> _localDateBlocksFor(String source) {
-    if (_localDateScanned == source) return _localDateBlocks;
-    _localDateScanned = source;
-    final blocks = parseLocalDateComposerBlocks(
-      source,
-      knownCodeRanges: _codeRangesFor(source),
+  List<ComposerSyntaxOccurrence> _syntaxBlocksFor(String source) {
+    if (_syntaxScanned == source) return _syntaxBlocks;
+    final blocks = <ComposerSyntaxOccurrence>[
+      for (final plugin in syntaxPlugins)
+        for (final value in plugin.parseComposerSyntax(source))
+          ComposerSyntaxOccurrence(plugin, value),
+    ]..sort((a, b) => a.start.compareTo(b.start));
+    final live = {for (final block in blocks) _syntaxKey(block): block};
+    final held = {for (final block in _syntaxBlocks) _syntaxKey(block): block};
+    _syntaxPillKeys.removeWhere(
+      (key, _) => !_sameProjection(held[key], live[key]),
     );
-    _retainPillKeys(
-      _localDatePillKeys,
-      _localDateBlocks,
-      blocks,
-      (block) => block.start,
-    );
-    return _localDateBlocks = blocks;
+    _syntaxScanned = source;
+    return _syntaxBlocks = blocks;
   }
+
+  static String _syntaxKey(ComposerSyntaxOccurrence block) =>
+      '${block.plugin.syntaxId}:${block.start}';
 
   String? _quoteScanned;
   List<ComposerQuoteBlock> _quoteBlocks = const [];
@@ -668,61 +620,39 @@ class MarkdownEditingController extends TextEditingController {
       ),
     );
 
-    final pollBlocks = _pollBlocksFor(source);
-    final collapsedPolls = [
-      for (final block in pollBlocks)
-        if (!pollBlockNeedsRawSource(
-          block: block,
-          value: value,
-          suppressCollapsedCaret: _sameProjection(_caretSuppressedPoll, block),
-        ))
-          block,
-    ];
-    _collapsedPollStarts = {for (final block in collapsedPolls) block.start};
-    if (!_collapsedPollStarts.contains(_hoveredPollStart)) {
-      _hoveredPollStart = null;
-    }
-    final pollProjection = Object.hash(
-      pollMaximumOptions,
-      Object.hashAll(
-        collapsedPolls.map(
-          (block) => Object.hash(
-            block.start,
-            block.end,
-            isPillSelectedForKeyboard(block),
-            isPollHovered(block),
-          ),
-        ),
-      ),
-    );
-
     final locale = Localizations.localeOf(context);
-    final localDateBlocks = _localDateBlocksFor(source);
-    final collapsedLocalDates = [
-      for (final block in localDateBlocks)
-        if (!localDateBlockNeedsRawSource(
-          block: block,
-          value: value,
+    final syntaxBlocks = _syntaxBlocksFor(source);
+    final collapsedSyntax = [
+      for (final block in syntaxBlocks)
+        if (!block.plugin.needsRawSource(
+          block.value,
+          value,
           suppressCollapsedCaret: _sameProjection(
-            _caretSuppressedLocalDate,
+            _caretSuppressedSyntax,
             block,
           ),
         ))
           block,
     ];
-    _collapsedLocalDateStarts = {
-      for (final block in collapsedLocalDates) block.start,
+    _collapsedSyntaxKeys = {
+      for (final block in collapsedSyntax) _syntaxKey(block),
     };
-    final localDateProjection = Object.hash(
+    if (!_collapsedSyntaxKeys.contains(_hoveredSyntaxKey)) {
+      _hoveredSyntaxKey = null;
+    }
+    final syntaxProjection = Object.hash(
       locale,
+      pollMaximumOptions,
       localDateAccountTimezone,
       Object.hashAll(
-        collapsedLocalDates.map(
+        collapsedSyntax.map(
           (block) => Object.hash(
+            block.plugin.syntaxId,
             block.start,
             block.end,
             block.source,
             isPillSelectedForKeyboard(block),
+            isSyntaxHovered(block),
           ),
         ),
       ),
@@ -772,8 +702,7 @@ class MarkdownEditingController extends TextEditingController {
           revealed: revealed,
           artwork: _artwork,
           quoteProjection: quoteProjection,
-          pollProjection: pollProjection,
-          localDateProjection: localDateProjection,
+          syntaxProjection: syntaxProjection,
           imageProjection: imageProjection,
         )) {
       return cached.span;
@@ -835,37 +764,25 @@ class MarkdownEditingController extends TextEditingController {
           block.end,
           () => _buildQuoteSpans(block, _displayedContentsFor(block), base),
         ),
-      for (final block in collapsedPolls)
+      for (final block in collapsedSyntax)
         _SpanProjection(
           block.start,
           block.end,
-          () => buildCollapsedPollSpans(
-            block: block,
-            baseStyle: base,
-            pillKey: _pollPillKeys.putIfAbsent(
-              block.start,
-              () => GlobalKey(debugLabel: 'poll-pill-${block.start}'),
-            ),
-            maximumOptions: pollMaximumOptions,
-            highlighted: isPillSelectedForKeyboard(block),
-            hovered: isPollHovered(block),
-            followedByLineBreak: pollCaretAfter(block) > block.end,
-          ),
-        ),
-      for (final block in collapsedLocalDates)
-        _SpanProjection(
-          block.start,
-          block.end,
-          () => buildCollapsedLocalDateSpans(
-            block: block,
+          () => block.plugin.buildCollapsedSpans(
+            value: block.value,
             baseStyle: base,
             locale: locale,
             accountTimezone: localDateAccountTimezone,
-            pillKey: _localDatePillKeys.putIfAbsent(
-              block.start,
-              () => GlobalKey(debugLabel: 'local-date-pill-${block.start}'),
+            maximumOptions: pollMaximumOptions,
+            pillKey: _syntaxPillKeys.putIfAbsent(
+              _syntaxKey(block),
+              () => GlobalKey(
+                debugLabel: '${block.plugin.syntaxId}-pill-${block.start}',
+              ),
             ),
             highlighted: isPillSelectedForKeyboard(block),
+            hovered: isSyntaxHovered(block),
+            followedByLineBreak: syntaxCaretAfter(block) > block.end,
           ),
         ),
       for (final image in collapsedImages)
@@ -919,8 +836,7 @@ class MarkdownEditingController extends TextEditingController {
       revealed: revealed,
       artwork: _artwork,
       quoteProjection: quoteProjection,
-      pollProjection: pollProjection,
-      localDateProjection: localDateProjection,
+      syntaxProjection: syntaxProjection,
       imageProjection: imageProjection,
       span: span,
     );
@@ -1123,10 +1039,7 @@ class MarkdownEditingController extends TextEditingController {
       switch ((first, second)) {
         (ComposerImageBlock a, ComposerImageBlock b) =>
           a.start == b.start && a.end == b.end && a.source == b.source,
-        (PollComposerBlock a, PollComposerBlock b) =>
-          a.start == b.start && a.end == b.end && a.source == b.source,
-        (LocalDateComposerBlock a, LocalDateComposerBlock b) =>
-          a.start == b.start && a.end == b.end && a.source == b.source,
+        (ComposerSyntaxOccurrence a, ComposerSyntaxOccurrence b) => a.sameAs(b),
         (ComposerQuoteBlock a, ComposerQuoteBlock b) =>
           a.start == b.start && a.end == b.end && a.source == b.source,
         _ => false,
@@ -1159,22 +1072,14 @@ class MarkdownEditingController extends TextEditingController {
     keys.removeWhere((start, _) => !_sameProjection(was[start], now[start]));
   }
 
-  static bool _stillContainsPoll(String source, PollComposerBlock block) =>
+  static bool _stillContainsSyntax(
+    String source,
+    ComposerSyntaxOccurrence block,
+  ) =>
       block.start >= 0 &&
       block.end <= source.length &&
       block.start <= block.end &&
       source.substring(block.start, block.end) == block.source;
-
-  static int _lineBreakEnd(String source, int offset) {
-    if (offset >= source.length) return offset;
-    if (source.codeUnitAt(offset) == 0x0A) return offset + 1;
-    if (source.codeUnitAt(offset) != 0x0D ||
-        offset + 1 >= source.length ||
-        source.codeUnitAt(offset + 1) != 0x0A) {
-      return offset;
-    }
-    return offset + 2;
-  }
 
   /// A shortcode drawn as its artwork, or null to draw it as text.
   ///
@@ -1461,8 +1366,7 @@ class _CachedMarkdownSpan {
     required this.revealed,
     required this.artwork,
     required this.quoteProjection,
-    required this.pollProjection,
-    required this.localDateProjection,
+    required this.syntaxProjection,
     required this.imageProjection,
     required this.span,
   });
@@ -1474,8 +1378,7 @@ class _CachedMarkdownSpan {
   final int revealed;
   final int artwork;
   final int quoteProjection;
-  final int pollProjection;
-  final int localDateProjection;
+  final int syntaxProjection;
   final int imageProjection;
   final TextSpan span;
 
@@ -1487,8 +1390,7 @@ class _CachedMarkdownSpan {
     required int revealed,
     required int artwork,
     required int quoteProjection,
-    required int pollProjection,
-    required int localDateProjection,
+    required int syntaxProjection,
     required int imageProjection,
   }) =>
       this.source == source &&
@@ -1498,8 +1400,7 @@ class _CachedMarkdownSpan {
       this.revealed == revealed &&
       this.artwork == artwork &&
       this.quoteProjection == quoteProjection &&
-      this.pollProjection == pollProjection &&
-      this.localDateProjection == localDateProjection &&
+      this.syntaxProjection == syntaxProjection &&
       this.imageProjection == imageProjection;
 }
 

@@ -6,8 +6,8 @@ import 'package:flutter/services.dart';
 import '../models/bookmark.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
-import '../plugins/plugin_scope.dart';
-import '../plugins/site_plugin.dart';
+import '../plugin_api/plugin_registry.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -218,7 +218,8 @@ class _PostActionsState extends State<PostActions> {
   List<PostAction> _actions(BuildContext context, ShellController controller) {
     final post = widget.post;
     final topic = controller.currentTopic;
-    final registry = PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
+    final registry =
+        PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final contribution = registry.postMenu(context, widget.siteUrl, post);
     final instance = controller.currentInstance;
     final availableFlags =

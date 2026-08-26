@@ -11,6 +11,7 @@ import '../site_plugin_api.dart';
 import 'reaction.dart';
 import 'reaction_picker.dart';
 import 'reactions_row.dart';
+import 'reactions_shell_extension.dart';
 
 /// `discourse-reactions`, as this app knows it.
 ///

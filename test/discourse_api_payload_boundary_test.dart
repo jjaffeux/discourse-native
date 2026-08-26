@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -229,7 +230,9 @@ void main() {
       siteUrl: siteUrl,
       names: const ['sam'],
     );
-    final page = await api.chatMessages(siteUrl: siteUrl, channelId: 9);
+    final page = await ChatApiClient(
+      api,
+    ).chatMessages(siteUrl: siteUrl, channelId: 9);
 
     expect(mentions, {'sam'});
     expect(page.canLoadMorePast, isFalse);

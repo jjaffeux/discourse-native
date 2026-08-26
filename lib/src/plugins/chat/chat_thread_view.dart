@@ -25,6 +25,7 @@ import 'chat_controller.dart';
 import 'chat_header_button.dart';
 import 'chat_message.dart';
 import 'chat_route.dart';
+import 'chat_shell_extension.dart';
 import 'chat_stream.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';

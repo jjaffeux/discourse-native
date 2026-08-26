@@ -74,7 +74,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
 
     final controller = widget.controller;
     final absolute = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
-    if (await controller.openChatUrl(absolute)) {
+    if (await controller.openPluginUrl(absolute)) {
       if (mounted) widget.onOpened();
       return;
     }

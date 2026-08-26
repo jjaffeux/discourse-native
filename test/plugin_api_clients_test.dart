@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/plugin_transport.dart';
 import 'package:discourse_native/src/plugins/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api_client.dart';
 import 'package:discourse_native/src/plugins/poll/poll_api.dart';

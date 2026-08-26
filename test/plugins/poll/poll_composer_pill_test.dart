@@ -1,6 +1,6 @@
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
-import 'package:discourse_native/src/plugins/poll/poll_composer_parser.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
+import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
 import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
@@ -90,7 +90,10 @@ void main() {
   testWidgets('before and after carets flank an EOF poll on separate lines', (
     tester,
   ) async {
-    final controller = MarkdownEditingController(text: source);
+    final controller = MarkdownEditingController(
+      text: source,
+      syntaxPlugins: const [PollPlugin()],
+    );
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(
@@ -142,7 +145,10 @@ void main() {
     // nothing to measure in release.
     for (final trailing in const [' ', '  ', '\t', ' \t ']) {
       final text = '$source$trailing';
-      final controller = MarkdownEditingController(text: text);
+      final controller = MarkdownEditingController(
+        text: text,
+        syntaxPlugins: const [PollPlugin()],
+      );
       addTearDown(controller.dispose);
       await tester.pumpWidget(
         MaterialApp(
@@ -241,7 +247,10 @@ void main() {
   testWidgets(
     'the editable projection collapses and reveals without changing raw',
     (tester) async {
-      final controller = MarkdownEditingController(text: source);
+      final controller = MarkdownEditingController(
+        text: source,
+        syntaxPlugins: const [PollPlugin()],
+      );
       addTearDown(controller.dispose);
       await tester.pumpWidget(
         MaterialApp(
@@ -290,7 +299,9 @@ void main() {
   testWidgets('a verified insertion remains in EditableText undo history', (
     tester,
   ) async {
-    final controller = MarkdownEditingController();
+    final controller = MarkdownEditingController(
+      syntaxPlugins: const [PollPlugin()],
+    );
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(
@@ -340,7 +351,10 @@ void main() {
       ('$source\n', 1),
       ('$source\r\n', 2),
     ]) {
-      final controller = MarkdownEditingController(text: document);
+      final controller = MarkdownEditingController(
+        text: document,
+        syntaxPlugins: const [PollPlugin()],
+      );
       final projected = controller.pollBlocks.single;
       expect(
         controller.pollCaretAfter(projected),
@@ -353,7 +367,10 @@ void main() {
   testWidgets('resolves a collapsed poll from its editable source offset', (
     tester,
   ) async {
-    final controller = MarkdownEditingController(text: source);
+    final controller = MarkdownEditingController(
+      text: source,
+      syntaxPlugins: const [PollPlugin()],
+    );
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(
@@ -420,7 +437,10 @@ void main() {
   });
 
   test('a pointer-held poll clamps native range selection to its end', () {
-    final controller = MarkdownEditingController(text: source);
+    final controller = MarkdownEditingController(
+      text: source,
+      syntaxPlugins: const [PollPlugin()],
+    );
     addTearDown(controller.dispose);
     final projected = controller.pollBlocks.single;
     controller.keepPollCollapsedForPointerEdit(projected);
@@ -445,7 +465,10 @@ void main() {
   });
 
   test('a source edit cannot revive a stale keyboard pill selection', () {
-    final controller = MarkdownEditingController(text: source);
+    final controller = MarkdownEditingController(
+      text: source,
+      syntaxPlugins: const [PollPlugin()],
+    );
     addTearDown(controller.dispose);
     controller.selectPillForKeyboard(controller.pollBlocks.single);
 

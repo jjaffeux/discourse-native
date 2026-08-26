@@ -6,9 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
-import '../plugins/chat/chat_plugin.dart';
-import '../plugins/chat/chat_route.dart';
-import '../plugins/chat/chat_user_avatar.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -377,13 +375,16 @@ class _ForumTabState extends State<_ForumTab> {
       final siteUrl = ShellScope.read(context).currentInstance?.url;
       final userId = item.avatarUserId;
       if (siteUrl != null && userId != null) {
-        return ChatUserAvatar(
+        final fallback = ColoredBox(color: theme.shell.floating);
+        final avatar = PluginScope.of(context).registry.userAvatar(
+          context,
           siteUrl: siteUrl,
           userId: userId,
           url: url,
           size: 15,
-          fallback: ColoredBox(color: theme.shell.floating),
+          fallback: fallback,
         );
+        if (avatar != null) return avatar;
       }
       return ClipOval(
         child: SizedBox.square(
@@ -758,36 +759,36 @@ class CurrentForumTabsBar extends StatelessWidget {
           }
 
           final controller = ShellScope.read(context);
+          final registry = PluginScope.of(context).registry;
           return ListenableBuilder(
-            listenable: controller.chat,
+            listenable: Listenable.merge(
+              registry.forumTabListenables(context, siteUrl),
+            ),
             builder: (context, _) {
               ForumTabItem itemFor(ForumTab tab) {
                 final route = tab.currentContent;
-                final chatRoute = ChatRoute.parse(route.id);
-                if (chatRoute != null) {
-                  final channel = controller.chat.channel(
-                    siteUrl,
-                    chatRoute.channelId,
+                final destination = registry.forumTabDestination(
+                  context,
+                  siteUrl,
+                  tab,
+                );
+                if (destination != null) {
+                  final emoji = destination.emoji;
+                  return ForumTabItem(
+                    id: tab.id,
+                    title: destination.label,
+                    icon: destination.icon,
+                    color: destination.color,
+                    parentColor: destination.parentColor,
+                    iconColor: destination.iconColor,
+                    avatarUrl: destination.avatarUrl,
+                    avatarUserId: destination.avatarUserId,
+                    emojiUrl: emoji == null
+                        ? null
+                        : controller.emojiUrlFor(siteUrl, emoji),
+                    emojiName: emoji,
+                    badge: destination.badge ?? SidebarBadge.none,
                   );
-                  if (channel != null) {
-                    final destination = ChatPlugin.destination(channel);
-                    final emoji = destination.emoji;
-                    return ForumTabItem(
-                      id: tab.id,
-                      title: destination.label,
-                      icon: destination.icon,
-                      color: destination.color,
-                      parentColor: destination.parentColor,
-                      iconColor: destination.iconColor,
-                      avatarUrl: destination.avatarUrl,
-                      avatarUserId: destination.avatarUserId,
-                      emojiUrl: emoji == null
-                          ? null
-                          : controller.emojiUrlFor(siteUrl, emoji),
-                      emojiName: emoji,
-                      badge: destination.badge ?? SidebarBadge.none,
-                    );
-                  }
                 }
 
                 return ForumTabItem(

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../models/post.dart';
@@ -13,8 +14,9 @@ import '../site_plugin_api.dart';
 import 'poll.dart';
 import 'poll_card.dart';
 import 'poll_composer_editor.dart';
-import 'poll_composer_parser.dart';
+import 'poll_composer_pill.dart';
 import 'poll_composer_sheet.dart';
+import 'poll_shell_extension.dart';
 
 /// Discourse's bundled Poll plugin as an optional, payload-gated feature.
 class PollPlugin
@@ -22,12 +24,111 @@ class PollPlugin
         SitePlugin,
         PostRecordPlugin<Polls>,
         PostBodyPlugin,
+        ComposerSyntaxPlugin,
         ComposerToolbarPlugin,
         TopicLivePlugin {
   const PollPlugin();
 
   @override
   String get name => 'poll';
+
+  @override
+  String get syntaxId => 'poll';
+
+  @override
+  List<Object> parseComposerSyntax(String source) =>
+      parsePollComposerBlocks(source);
+
+  @override
+  int startOf(Object value) => (value as PollComposerBlock).start;
+
+  @override
+  int endOf(Object value) => (value as PollComposerBlock).end;
+
+  @override
+  String sourceOf(Object value) => (value as PollComposerBlock).source;
+
+  @override
+  bool needsRawSource(
+    Object value,
+    TextEditingValue document, {
+    required bool suppressCollapsedCaret,
+  }) => pollBlockNeedsRawSource(
+    block: value as PollComposerBlock,
+    value: document,
+    suppressCollapsedCaret: suppressCollapsedCaret,
+  );
+
+  @override
+  int caretAfter(Object value, String document) {
+    final end = (value as PollComposerBlock).end;
+    if (end >= document.length) return end;
+    if (document.codeUnitAt(end) == 0x0D &&
+        end + 1 < document.length &&
+        document.codeUnitAt(end + 1) == 0x0A) {
+      return end + 2;
+    }
+    return document.codeUnitAt(end) == 0x0A ? end + 1 : end;
+  }
+
+  @override
+  TextEditingValue moveCaretAfter(Object value, TextEditingValue document) {
+    final block = value as PollComposerBlock;
+    final mutation = replaceVerifiedPoll(
+      current: document,
+      expectedDocument: document.text,
+      expectedBlock: block,
+      replacement: block.source,
+    );
+    return mutation.applied ? mutation.value : document;
+  }
+
+  @override
+  bool get supportsHover => true;
+
+  @override
+  bool get protectsAdjacentDelete => true;
+
+  @override
+  bool get hidesCursorWhenSelected => true;
+
+  @override
+  List<InlineSpan> buildCollapsedSpans({
+    required Object value,
+    required TextStyle baseStyle,
+    required Locale locale,
+    required String? accountTimezone,
+    required int maximumOptions,
+    required GlobalKey pillKey,
+    required bool highlighted,
+    required bool hovered,
+    required bool followedByLineBreak,
+  }) => buildCollapsedPollSpans(
+    block: value as PollComposerBlock,
+    baseStyle: baseStyle,
+    pillKey: pillKey,
+    maximumOptions: maximumOptions,
+    highlighted: highlighted,
+    hovered: hovered,
+    followedByLineBreak: followedByLineBreak,
+  );
+
+  @override
+  Future<void> editComposerSyntax(
+    BuildContext context,
+    ComposerController composer,
+    Object value,
+  ) => openPollComposer(context, composer, block: value as PollComposerBlock);
+
+  @override
+  Future<void> removeComposerSyntax(
+    BuildContext context,
+    ComposerController composer,
+    Object value,
+  ) => removePollComposer(context, composer, value as PollComposerBlock);
+
+  @override
+  TextInputFormatter get inputFormatter => const PollComposerInputFormatter();
 
   @override
   PluginDataKey<Polls> get record => pollsDataKey;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/content_route.dart';
+import '../../models/forum_workspace.dart';
 import '../../models/sidebar.dart';
 import '../../models/user_card.dart';
 import '../../shell/shell_scope.dart';
@@ -21,6 +22,7 @@ import 'chat_header_button.dart';
 import 'chat_my_threads_view.dart';
 import 'chat_route.dart';
 import 'chat_search_view.dart';
+import 'chat_shell_extension.dart';
 import 'chat_thread_view.dart';
 import 'chat_user_avatar.dart';
 import 'chat_user_card.dart';
@@ -64,7 +66,9 @@ class ChatPlugin
         ContentHeaderPlugin,
         ContentHeaderLeadingPlugin,
         ContentHeaderTitlePlugin,
+        ForumTabPlugin,
         ShellHeaderPlugin,
+        UserAvatarPlugin,
         UserCardRecordPlugin<ChatUserCardData>,
         UserCardActionPlugin {
   const ChatPlugin();
@@ -191,6 +195,41 @@ class ChatPlugin
   @override
   Listenable sidebarListenable(BuildContext context) =>
       PluginScope.require(context, chatControllerService);
+
+  @override
+  SidebarDestination? forumTabDestination(
+    BuildContext context,
+    String siteUrl,
+    ForumTab tab,
+  ) {
+    final route = ChatRoute.parse(tab.currentContent.id);
+    if (route == null) return null;
+    final channel = PluginScope.require(
+      context,
+      chatControllerService,
+    ).channel(siteUrl, route.channelId);
+    return channel == null ? null : destination(channel);
+  }
+
+  @override
+  Listenable forumTabListenable(BuildContext context, String siteUrl) =>
+      PluginScope.require(context, chatControllerService);
+
+  @override
+  Widget userAvatar(
+    BuildContext context, {
+    required String siteUrl,
+    required int userId,
+    required String url,
+    required double size,
+    required Widget fallback,
+  }) => ChatUserAvatar(
+    siteUrl: siteUrl,
+    userId: userId,
+    url: url,
+    size: size,
+    fallback: fallback,
+  );
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {

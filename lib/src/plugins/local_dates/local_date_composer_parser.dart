@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../shell/markdown_editing_controller.dart';
 import '../../shell/markdown_highlight.dart';
 import 'local_date_environment.dart';
 
@@ -64,6 +65,29 @@ class LocalDateMarkupAttribute {
 
   static bool _needsQuote(String value) =>
       value.isEmpty || value.contains(_unquotedValuePattern);
+}
+
+/// Typed compatibility helpers for Local Dates-owned tests and widgets.
+extension LocalDateComposerEditing on MarkdownEditingController {
+  List<LocalDateComposerBlock> get localDateBlocks => [
+    for (final occurrence in syntaxBlocks)
+      if (occurrence.plugin.syntaxId == 'local-dates')
+        occurrence.value as LocalDateComposerBlock,
+  ];
+
+  LocalDateComposerBlock? collapsedLocalDateAtOffset(int offset) {
+    final occurrence = collapsedSyntaxAtOffset(offset);
+    return occurrence?.plugin.syntaxId == 'local-dates'
+        ? occurrence!.value as LocalDateComposerBlock
+        : null;
+  }
+
+  LocalDateComposerBlock? get keyboardSelectedLocalDate {
+    final occurrence = keyboardSelectedSyntax;
+    return occurrence?.plugin.syntaxId == 'local-dates'
+        ? occurrence!.value as LocalDateComposerBlock
+        : null;
+  }
 }
 
 enum LocalDateComposerKind { date, range }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';

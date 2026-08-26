@@ -12,6 +12,7 @@ import '../plugin_scope.dart';
 import '../plugin_services.dart';
 import 'chat_controller.dart';
 import 'chat_route.dart';
+import 'chat_shell_extension.dart';
 
 typedef _ChatHeaderSnapshot = ({
   String? siteUrl,

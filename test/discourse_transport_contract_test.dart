@@ -7,6 +7,7 @@ import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/origin_cooldown.dart';
 import 'package:discourse_native/src/data/site_appearance_loader.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -463,7 +464,7 @@ void main() {
       );
 
       await expectLater(
-        api.sendChatMessage(
+        ChatApiClient(api).sendChatMessage(
           siteUrl: 'https://example.com',
           apiKey: 'secret',
           clientId: 'client',
@@ -502,7 +503,7 @@ void main() {
         );
         final clientCreatedAt = DateTime.parse('2026-08-11T16:15:16.123+02:00');
 
-        final messageId = await api.sendChatMessage(
+        final messageId = await ChatApiClient(api).sendChatMessage(
           siteUrl: 'https://example.com',
           apiKey: 'secret',
           clientId: 'client',

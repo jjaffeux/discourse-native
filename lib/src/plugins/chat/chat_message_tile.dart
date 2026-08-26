@@ -347,7 +347,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     context: context,
     controller: ShellScope.read(context),
     siteUrl: widget.siteUrl,
-    message: widget.message,
+    messageId: widget.message.id,
+    bookmark: widget.message.bookmark,
+    cooked: widget.message.cooked,
   );
 
   Future<void> _pickReaction([BuildContext? anchorContext]) async {

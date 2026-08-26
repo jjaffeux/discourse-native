@@ -1,4 +1,4 @@
-import '../../data/discourse_api_contracts.dart';
+import '../../data/plugin_transport.dart';
 import '../../models/json.dart';
 import 'assignment.dart';
 

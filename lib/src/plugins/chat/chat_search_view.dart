@@ -12,6 +12,7 @@ import '../plugin_services.dart';
 import 'chat_message_tile.dart';
 import 'chat_search.dart';
 import 'chat_search_controller.dart';
+import 'chat_shell_extension.dart';
 
 class ChatSearchView extends StatefulWidget {
   const ChatSearchView({super.key, required this.siteUrl});

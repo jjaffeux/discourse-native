@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/post.dart';
 import '../models/post_flag.dart';
-import '../plugins/plugin_scope.dart';
-import '../plugins/site_plugin.dart';
+import '../plugin_api/plugin_registry.dart';
+import '../plugin_api/plugin_scope.dart';
 import 'post_likes.dart';
 import 'shell_scope.dart';
 
@@ -31,7 +31,8 @@ class PostFooter extends StatelessWidget {
   }
 
   Widget _buildFooter(BuildContext context, List<PostFlagType> catalog) {
-    final registry = PluginScope.maybeOf(context)?.registry ?? pluginRegistry;
+    final registry =
+        PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final engagement =
         registry.postFooter(siteUrl, post) ??
         PostLikes(siteUrl: siteUrl, post: post);

@@ -25,6 +25,7 @@ import 'chat_message.dart';
 import 'chat_message_tile.dart';
 import 'chat_pinned_bar.dart';
 import 'chat_route.dart';
+import 'chat_shell_extension.dart';
 import 'chat_stream.dart';
 import 'chat_stream_target.dart';
 

@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import '../diagnostics/diagnostic_event.dart';
 import '../diagnostics/resenha_report_exporter.dart';
-import '../plugins/resenha/resenha_diagnostics_report.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
+import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -29,6 +30,7 @@ void main() {
     var toggles = 0;
     final owner = Object();
     final controller = ShellController(
+      plugins: installedPlugins,
       instanceStore: FakeInstanceStore([instance('meta.example')]),
       api: FakeDiscourseApi(),
       authenticator: FakeAuthenticator(),
@@ -115,6 +117,7 @@ void main() {
     final api = FakeDiscourseApi(reactorsById: responses);
     final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
     final controller = ShellController(
+      plugins: installedPlugins,
       instanceStore: FakeInstanceStore([instance('meta.example')]),
       api: api,
       authenticator: authenticator,

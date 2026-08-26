@@ -109,6 +109,7 @@ Future<({ShellController shell, FakeSiteTracker tracker})> _loadShell(
   final authenticator = FakeAuthenticator();
   authenticator.keys[_site] = 'api-key';
   final shell = ShellController(
+    plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
       instance(
         'meta.discourse.org',
@@ -167,6 +168,7 @@ void main() {
       final api = _GatedCurrentUserApi();
       final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
       final shell = ShellController(
+        plugins: installedPlugins,
         instanceStore: FakeInstanceStore([
           instance('meta.discourse.org').copyWith(
             user: const DiscourseUser(
@@ -216,6 +218,7 @@ void main() {
         ..keys[_site] = 'meta-key'
         ..keys[_site2] = 'community-key';
       final shell = ShellController(
+        plugins: installedPlugins,
         instanceStore: FakeInstanceStore([
           instance('meta.discourse.org').copyWith(
             user: const DiscourseUser(id: 1, username: 'stored-reader'),

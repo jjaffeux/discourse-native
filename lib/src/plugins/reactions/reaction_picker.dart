@@ -11,6 +11,7 @@ import '../../shell/shell_controller.dart';
 import '../../shell/shell_scope.dart';
 import '../../shell/shell_sheet.dart';
 import 'reaction.dart';
+import 'reactions_shell_extension.dart';
 
 /// Opens the policy-aware chooser for a post reaction affordance.
 ///

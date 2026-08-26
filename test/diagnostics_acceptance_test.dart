@@ -11,6 +11,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -322,7 +323,7 @@ void main() {
       final siteUrl = 'http://${server.address.address}:${server.port}';
       final credentials = FakeApiCredentialReader()..keys[siteUrl] = 'api-key';
       final chat = ChatController(
-        api: api,
+        api: ChatApiClient(api),
         credentials: credentials,
         store: Store(),
       );

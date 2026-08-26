@@ -9,6 +9,7 @@ import '../../theme/d_icons.dart';
 import '../plugin_scope.dart';
 import '../plugin_services.dart';
 import 'chat_controller.dart';
+import 'chat_shell_extension.dart';
 import 'chat_thread.dart';
 import 'chat_user_avatar.dart';
 

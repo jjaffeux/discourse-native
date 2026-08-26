@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -22,6 +23,43 @@ abstract interface class ResenhaReportExporter {
 }
 
 typedef ResenhaReportWriter = FutureOr<void> Function(StringSink output);
+
+final class ResenhaClipboardReport {
+  const ResenhaClipboardReport(this.text, {required this.truncated});
+
+  final String text;
+  final bool truncated;
+}
+
+ResenhaClipboardReport boundResenhaReportForClipboard(
+  String report, {
+  required int byteLimit,
+}) {
+  if (utf8.encode(report).length <= byteLimit) {
+    return ResenhaClipboardReport(report, truncated: false);
+  }
+
+  final marker = jsonEncode({
+    'kind': 'export_metadata',
+    'truncated': true,
+    'reason': 'clipboard_limit',
+    'fullReportBytes': utf8.encode(report).length,
+    'message': 'Recent records only. Use Share/Save for the full report.',
+  });
+  final retained = <String>[];
+  var retainedBytes = utf8.encode('$marker\n').length;
+  final lines = const LineSplitter().convert(report);
+  for (final line in lines.reversed) {
+    final lineBytes = utf8.encode('$line\n').length;
+    if (retainedBytes + lineBytes > byteLimit) break;
+    retained.add(line);
+    retainedBytes += lineBytes;
+  }
+  return ResenhaClipboardReport(
+    '$marker\n${retained.reversed.join('\n')}',
+    truncated: true,
+  );
+}
 
 /// File-capable exporters can consume a report incrementally, keeping a full
 /// 50 MiB capture out of the Dart heap.
