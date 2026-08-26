@@ -501,6 +501,8 @@ class _ForumTabState extends State<_ForumTab> {
       label: _selectionSemanticsLabel,
       onTap: widget.onSelect,
       child: MouseRegion(
+        key: ValueKey('forum-tab-pointer-${widget.item.id}'),
+        cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: DecoratedBox(

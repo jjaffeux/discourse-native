@@ -136,6 +136,20 @@ void main() {
     expect(find.byTooltip('Close A long-running topic'), findsOneWidget);
   });
 
+  testWidgets('shows the click cursor across each tab', (tester) async {
+    await _pumpBar(tester, items: const [first, second], selectedId: first.id);
+
+    for (final item in const [first, second]) {
+      final hoverRegion = find.byKey(ValueKey('forum-tab-pointer-${item.id}'));
+
+      expect(hoverRegion, findsOneWidget);
+      expect(
+        tester.widget<MouseRegion>(hoverRegion).cursor,
+        SystemMouseCursors.click,
+      );
+    }
+  });
+
   testWidgets('keeps the close hover surface compact inside its hit target', (
     tester,
   ) async {
