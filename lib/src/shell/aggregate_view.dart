@@ -309,7 +309,10 @@ class _AggregateTabsBar extends StatelessWidget {
       forumName: 'Aggregate',
       items: [
         for (var index = 0; index < tabs.length; index++)
-          ForumTabItem(id: tabs[index].id, title: 'Aggregate ${index + 1}'),
+          ForumTabItem(
+            id: tabs[index].id,
+            title: tabs[index].name ?? 'Aggregate ${index + 1}',
+          ),
       ],
       selectedId: controller.activeAggregateTabId,
       onAdd: controller.canCreateAggregateTab
@@ -317,6 +320,7 @@ class _AggregateTabsBar extends StatelessWidget {
           : null,
       onSelect: controller.selectAggregateTab,
       onClose: controller.closeAggregateTab,
+      onRename: controller.renameAggregateTab,
     );
   }
 }
