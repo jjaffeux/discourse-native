@@ -8807,6 +8807,11 @@ class ShellController extends FrameSafeNotifier
     if (openedAnotherTab) unawaited(aggregate.open(_instances));
   }
 
+  void moveAggregateTab(String id, int newIndex) {
+    if (!forumTabsEnabled) return;
+    aggregate.moveTab(id, newIndex);
+  }
+
   Future<void> setAggregateForumFilters({
     required Set<String> includedForums,
     required Map<String, String> queries,
@@ -8963,6 +8968,23 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     _mobilePane = MobilePane.content;
+    _notify();
+  }
+
+  /// Moves one of the selected forum's tabs without changing its active tab.
+  void moveTab(String id, int newIndex) {
+    if (!forumTabsEnabled) return;
+    final workspace = currentWorkspace;
+    if (workspace == null || workspace.tabs.length < 2) return;
+    final oldIndex = workspace.tabs.indexWhere((tab) => tab.id == id);
+    if (oldIndex < 0) return;
+    final destination = newIndex.clamp(0, workspace.tabs.length - 1);
+    if (oldIndex == destination) return;
+
+    final reordered = List<ForumTab>.of(workspace.tabs);
+    final moved = reordered.removeAt(oldIndex);
+    reordered.insert(destination, moved);
+    _putWorkspace(workspace.copyWith(tabs: reordered));
     _notify();
   }
 

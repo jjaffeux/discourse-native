@@ -261,6 +261,24 @@ final class AggregateFeedController extends FrameSafeNotifier {
     return true;
   }
 
+  bool moveTab(String id, int newIndex) {
+    if (_tabs.length < 2) return false;
+    final entries = _tabs.entries.toList();
+    final oldIndex = entries.indexWhere((entry) => entry.key == id);
+    if (oldIndex < 0) return false;
+    final destination = newIndex.clamp(0, entries.length - 1);
+    if (oldIndex == destination) return true;
+
+    final moved = entries.removeAt(oldIndex);
+    entries.insert(destination, moved);
+    _tabs
+      ..clear()
+      ..addEntries(entries);
+    unawaited(_persistTabs());
+    notifySafely();
+    return true;
+  }
+
   bool closeTab(String id) {
     final closing = _tabs[id];
     if (closing == null) return false;

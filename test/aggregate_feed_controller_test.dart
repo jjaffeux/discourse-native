@@ -230,17 +230,57 @@ void main() {
     expect(controller.state.topics.single.topicId, 2);
     expect(api.paths, [openPath, uxPath]);
   });
+
+  test('reorders aggregate tabs without changing the active tab', () async {
+    final persistence = MemoryAggregatePreferencesPersistence();
+    final api = _AggregateApi(pages: const {});
+    final credentials = FakeApiCredentialReader();
+    final controller = _controller(
+      api,
+      credentials,
+      preferences: AggregatePreferencesStore(persistence: persistence),
+    );
+    addTearDown(controller.dispose);
+    final firstTabId = controller.activeTabId;
+    final secondTabId = controller.createTab()!;
+    final thirdTabId = controller.createTab()!;
+
+    expect(controller.moveTab(firstTabId, 2), isTrue);
+    expect(controller.tabs.map((tab) => tab.id), [
+      secondTabId,
+      thirdTabId,
+      firstTabId,
+    ]);
+    expect(controller.activeTabId, thirdTabId);
+
+    await Future<void>.delayed(Duration.zero);
+    final restored = _controller(
+      api,
+      credentials,
+      preferences: AggregatePreferencesStore(persistence: persistence),
+    );
+    addTearDown(restored.dispose);
+    await restored.loadPreferences(const []);
+
+    expect(restored.tabs.map((tab) => tab.id), [
+      secondTabId,
+      thirdTabId,
+      firstTabId,
+    ]);
+    expect(restored.activeTabId, thirdTabId);
+  });
 }
 
 AggregateFeedController _controller(
   DiscourseApi api,
-  FakeApiCredentialReader credentials,
-) => AggregateFeedController(
+  FakeApiCredentialReader credentials, {
+  AggregatePreferencesStore? preferences,
+}) => AggregateFeedController(
   api: api,
   credentials: credentials,
   lifecycle: SiteLifecycle(),
   store: Store(),
-  preferences: AggregatePreferencesStore.memory(),
+  preferences: preferences ?? AggregatePreferencesStore.memory(),
   readPersonalizationVersion: (_) => 0,
   prepareTopic: (_, topic, _) => topic,
 );

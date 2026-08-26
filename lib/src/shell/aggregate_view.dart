@@ -321,6 +321,7 @@ class _AggregateTabsBar extends StatelessWidget {
           : null,
       onSelect: controller.selectAggregateTab,
       onClose: controller.closeAggregateTab,
+      onReorder: controller.moveAggregateTab,
     );
   }
 }
