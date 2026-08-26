@@ -124,6 +124,9 @@ class _TopicViewState extends State<TopicView> {
   Timer? _readTimer;
   ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _seen;
   int? _progressPosition;
+  bool _scrolling = false;
+  bool _pendingScrolling = false;
+  bool _scrollingUpdateScheduled = false;
   TopicPostIndexProjection? _postIndexProjection;
 
   TopicPostIndexProjection _postIndexes(List<int> postIds) {
@@ -171,6 +174,8 @@ class _TopicViewState extends State<TopicView> {
     _dayJumpToken = null;
     _seen = null;
     _progressPosition = null;
+    _scrolling = false;
+    _pendingScrolling = false;
     _scroll = ScrollController();
     _list = ListController()..addListener(_noteExtentsChanged);
     _noteExtentsChanged();
@@ -661,6 +666,17 @@ class _TopicViewState extends State<TopicView> {
     setState(() => _progressPosition = position);
   }
 
+  void _setScrolling(bool scrolling) {
+    _pendingScrolling = scrolling;
+    if (_scrollingUpdateScheduled || !mounted) return;
+    _scrollingUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollingUpdateScheduled = false;
+      if (!mounted || _scrolling == _pendingScrolling) return;
+      setState(() => _scrolling = _pendingScrolling);
+    });
+  }
+
   void _creditReaderNow() {
     _readTimer?.cancel();
     _readTimer = null;
@@ -1026,6 +1042,11 @@ class _TopicViewState extends State<TopicView> {
     final postStream = NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification.depth == 0) {
+          if (notification is ScrollStartNotification) {
+            _setScrolling(true);
+          } else if (notification is ScrollEndNotification) {
+            _setScrolling(false);
+          }
           // SuperSliverList publishes its new visible range during layout,
           // after the scroll notification. Looking synchronously here reads
           // the previous viewport and repeatedly credits the old post.
@@ -1187,6 +1208,7 @@ class _TopicViewState extends State<TopicView> {
                         child: TopicProgressButton(
                           position: position,
                           total: snapshot.streamIds.length,
+                          visible: _scrolling,
                           onPressed: () => unawaited(
                             showTopicProgress(
                               context: context,
