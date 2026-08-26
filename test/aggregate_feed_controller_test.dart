@@ -117,6 +117,7 @@ void main() {
       tabs: [
         AggregateTabPreferences(
           id: 'first',
+          name: 'Open work',
           queries: {_firstUrl: 'status:open'},
         ),
         AggregateTabPreferences(
@@ -131,10 +132,24 @@ void main() {
     final restored = await store.load();
 
     expect(restored.tabs.map((tab) => tab.id), ['first', 'second']);
+    expect(restored.tabs.map((tab) => tab.name), ['Open work', null]);
     expect(restored.activeTabId, 'second');
     expect(restored.tabs.first.queries, {_firstUrl: 'status:open'});
     expect(restored.tabs.last.excludedForums, {_firstUrl});
     expect(restored.tabs.last.queries, {_secondUrl: 'tag:ux'});
+  });
+
+  test('loads unnamed version three tabs', () async {
+    final persistence = MemoryAggregatePreferencesPersistence()
+      ..value =
+          '{"version":3,"active_tab_id":"first","tabs":['
+          '{"id":"first","excluded_forums":[],"queries":{}}]}';
+
+    final restored = await AggregatePreferencesStore(persistence: persistence)
+        .load();
+
+    expect(restored.tabs.single.id, 'first');
+    expect(restored.tabs.single.name, isNull);
   });
 
   test('forum selection and blank filters use only included forums', () async {
@@ -230,17 +245,37 @@ void main() {
     expect(controller.state.topics.single.topicId, 2);
     expect(api.paths, [openPath, uxPath]);
   });
+
+  test('renames and persists an aggregate tab', () async {
+    final persistence = MemoryAggregatePreferencesPersistence();
+    final preferences = AggregatePreferencesStore(persistence: persistence);
+    final controller = _controller(
+      _AggregateApi(pages: const {}),
+      FakeApiCredentialReader(),
+      preferences: preferences,
+    );
+    addTearDown(controller.dispose);
+
+    final id = controller.activeTabId;
+    expect(controller.renameTab(id, '  Product   triage  '), isTrue);
+    expect(controller.tabs.single.name, 'Product triage');
+    expect(controller.renameTab(id, '   '), isFalse);
+
+    final restored = await preferences.load();
+    expect(restored.tabs.single.name, 'Product triage');
+  });
 }
 
 AggregateFeedController _controller(
   DiscourseApi api,
-  FakeApiCredentialReader credentials,
-) => AggregateFeedController(
+  FakeApiCredentialReader credentials, {
+  AggregatePreferencesStore? preferences,
+}) => AggregateFeedController(
   api: api,
   credentials: credentials,
   lifecycle: SiteLifecycle(),
   store: Store(),
-  preferences: AggregatePreferencesStore.memory(),
+  preferences: preferences ?? AggregatePreferencesStore.memory(),
   readPersonalizationVersion: (_) => 0,
   prepareTopic: (_, topic, _) => topic,
 );

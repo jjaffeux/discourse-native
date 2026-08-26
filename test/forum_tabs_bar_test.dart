@@ -7,6 +7,8 @@ import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart'
+    show kDoubleTapMinTime, kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -148,6 +150,36 @@ void main() {
         SystemMouseCursors.click,
       );
     }
+  });
+
+  testWidgets('renames a tab inline after a double click', (tester) async {
+    final renamed = <(String, String)>[];
+    await _pumpBar(
+      tester,
+      items: const [first, second],
+      selectedId: first.id,
+      onRename: (id, title) => renamed.add((id, title)),
+    );
+
+    await tester.tap(find.text(first.title));
+    await tester.pump(kDoubleTapMinTime);
+    await tester.tap(find.text(first.title));
+    await tester.pump();
+
+    final editor = find.byKey(const ValueKey('forum-tab-rename-topic-1'));
+    expect(editor, findsOneWidget);
+    expect(
+      tester.widget<TextField>(editor).controller!.selection,
+      TextSelection(baseOffset: 0, extentOffset: first.title.length),
+    );
+
+    await tester.enterText(editor, 'Release planning');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(renamed, [(first.id, 'Release planning')]);
+    expect(editor, findsNothing);
+    await tester.pump(kDoubleTapTimeout);
   });
 
   testWidgets('keeps the close hover surface compact inside its hit target', (
@@ -468,6 +500,7 @@ Future<void> _pumpBar(
   bool addEnabled = true,
   ValueChanged<String>? onSelect,
   ValueChanged<String>? onClose,
+  void Function(String id, String title)? onRename,
   double width = 500,
 }) async {
   await tester.pumpWidget(
@@ -487,6 +520,7 @@ Future<void> _pumpBar(
                   onAdd: addEnabled ? (onAdd ?? () {}) : null,
                   onSelect: onSelect ?? (_) {},
                   onClose: onClose ?? (_) {},
+                  onRename: onRename,
                 ),
               ],
             ),
