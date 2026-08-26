@@ -30,9 +30,10 @@ class MainFlutterWindow: NSWindow {
     // retained native title-bar strip remains draggable.
     disableContentViewWindowDragging(self)
 
-    let launchScreen = LaunchScreenView(
-      icon: NSApplication.shared.applicationIconImage
-    )
+    guard let launchLogo = NSImage(named: NSImage.Name("LaunchLogo")) else {
+      fatalError("LaunchLogo is missing from the macOS asset catalog")
+    }
+    let launchScreen = LaunchScreenView(logo: launchLogo)
     launchScreen.frame = flutterViewController.view.bounds
     launchScreen.autoresizingMask = [.width, .height]
     flutterViewController.view.addSubview(launchScreen)
@@ -80,8 +81,8 @@ class MainFlutterWindow: NSWindow {
 }
 
 final class LaunchScreenView: NSView {
-  // Mirrors the diagonal background emitted by tool/generate_app_icons.sh so
-  // the centered icon's plate extends naturally across the whole window.
+  // Mirrors the diagonal app-icon background while leaving the centered mark
+  // free of the icon's rounded plate and border.
   static let backgroundStart = NSColor(
     srgbRed: 80 / 255,
     green: 50 / 255,
@@ -95,11 +96,11 @@ final class LaunchScreenView: NSView {
     alpha: 1
   )
 
-  let iconView: NSImageView
+  let logoView: NSImageView
   let gradientLayer = CAGradientLayer()
 
-  init(icon: NSImage) {
-    iconView = NSImageView(image: icon)
+  init(logo: NSImage) {
+    logoView = NSImageView(image: logo)
     super.init(frame: .zero)
 
     gradientLayer.colors = [
@@ -111,14 +112,14 @@ final class LaunchScreenView: NSView {
     wantsLayer = true
     layer = gradientLayer
 
-    iconView.imageScaling = .scaleProportionallyUpOrDown
-    iconView.translatesAutoresizingMaskIntoConstraints = false
-    addSubview(iconView)
+    logoView.imageScaling = .scaleProportionallyUpOrDown
+    logoView.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(logoView)
     NSLayoutConstraint.activate([
-      iconView.centerXAnchor.constraint(equalTo: centerXAnchor),
-      iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
-      iconView.widthAnchor.constraint(equalToConstant: 192),
-      iconView.heightAnchor.constraint(equalTo: iconView.widthAnchor),
+      logoView.centerXAnchor.constraint(equalTo: centerXAnchor),
+      logoView.centerYAnchor.constraint(equalTo: centerYAnchor),
+      logoView.widthAnchor.constraint(equalToConstant: 192),
+      logoView.heightAnchor.constraint(equalTo: logoView.widthAnchor),
     ])
   }
 

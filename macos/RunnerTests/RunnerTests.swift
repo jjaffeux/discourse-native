@@ -39,18 +39,18 @@ class RunnerTests: XCTestCase {
     XCTAssertTrue(window.didZoom)
   }
 
-  func testLaunchScreenCentersAppIconOnItsFullWindowGradient() {
-    let icon = NSImage(size: NSSize(width: 32, height: 32))
-    let launchScreen = LaunchScreenView(icon: icon)
+  func testLaunchScreenCentersBareLogoOnItsFullWindowGradient() {
+    let logo = NSImage(size: NSSize(width: 32, height: 32))
+    let launchScreen = LaunchScreenView(logo: logo)
     launchScreen.frame = NSRect(x: 0, y: 0, width: 800, height: 600)
 
     launchScreen.layoutSubtreeIfNeeded()
 
-    XCTAssertTrue(launchScreen.iconView.image === icon)
-    XCTAssertEqual(launchScreen.iconView.imageScaling, .scaleProportionallyUpOrDown)
-    XCTAssertEqual(launchScreen.iconView.frame.size, NSSize(width: 192, height: 192))
-    XCTAssertEqual(launchScreen.iconView.frame.midX, launchScreen.bounds.midX)
-    XCTAssertEqual(launchScreen.iconView.frame.midY, launchScreen.bounds.midY)
+    XCTAssertTrue(launchScreen.logoView.image === logo)
+    XCTAssertEqual(launchScreen.logoView.imageScaling, .scaleProportionallyUpOrDown)
+    XCTAssertEqual(launchScreen.logoView.frame.size, NSSize(width: 192, height: 192))
+    XCTAssertEqual(launchScreen.logoView.frame.midX, launchScreen.bounds.midX)
+    XCTAssertEqual(launchScreen.logoView.frame.midY, launchScreen.bounds.midY)
     XCTAssertEqual(launchScreen.gradientLayer.frame, launchScreen.bounds)
     XCTAssertEqual(launchScreen.gradientLayer.colors?.count, 2)
   }
