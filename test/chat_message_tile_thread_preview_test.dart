@@ -13,6 +13,7 @@ import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_pill.dart';
 import 'package:discourse_native/src/plugins/site_plugin.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -316,6 +317,60 @@ void main() {
       findsNothing,
     );
     expect(find.text('5 replies'), findsNothing);
+  });
+
+  for (final chained in [false, true]) {
+    testWidgets(
+      'shows the edited marker after the ${chained ? 'chained' : 'regular'} message body',
+      (tester) async {
+        final message = _message(null, edited: true);
+        final controller = await _controller(message);
+        addTearDown(controller.dispose);
+
+        await tester.pumpWidget(
+          _TestTile(
+            controller: controller,
+            onOpenThread: (_) {},
+            chained: chained,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final marker = find.byKey(
+          ChatMessageTile.editedIndicatorKey(message.id),
+        );
+        final text = tester.widget<Text>(marker);
+        final theme = Theme.of(tester.element(marker));
+
+        expect(text.data, '(edited)');
+        expect(text.style?.fontSize, DiscourseTypography.fontDown2);
+        expect(text.style?.color, theme.discourse.whisper);
+        expect(
+          tester.getTopLeft(marker).dy,
+          greaterThanOrEqualTo(
+            tester.getBottomLeft(find.byType(CookedHtml)).dy,
+          ),
+        );
+      },
+    );
+  }
+
+  testWidgets('does not show an edited marker for an unedited message', (
+    tester,
+  ) async {
+    final message = _message(null);
+    final controller = await _controller(message);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _TestTile(controller: controller, onOpenThread: (_) {}),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(ChatMessageTile.editedIndicatorKey(message.id)),
+      findsNothing,
+    );
   });
 
   testWidgets('reaction permissions follow live channel changes', (
@@ -1211,6 +1266,7 @@ ChatMessage _message(
   int authorId = 99,
   int? threadId,
   DateTime? deletedAt,
+  bool edited = false,
   bool pinned = false,
   List<ChatReaction> reactions = const [],
   Bookmark? bookmark,
@@ -1223,6 +1279,7 @@ ChatMessage _message(
   cooked: '<p>Root message</p>',
   author: ChatMessageAuthor(id: authorId, username: '', name: 'Root author'),
   deletedAt: deletedAt,
+  edited: edited,
   pinned: pinned,
   reactions: reactions,
   bookmark: bookmark,
