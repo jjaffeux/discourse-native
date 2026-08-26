@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -27,6 +29,7 @@ final class PlatformPushRegistrationProvider
   PlatformPushRegistrationProvider({
     MethodChannel? channel,
     TargetPlatform? platform,
+    this.registrationTimeout = const Duration(seconds: 15),
   }) : _channel =
            channel ??
            const MethodChannel('org.discourse.native/push_notifications'),
@@ -38,6 +41,7 @@ final class PlatformPushRegistrationProvider
 
   final MethodChannel _channel;
   final TargetPlatform _platform;
+  final Duration registrationTimeout;
 
   @override
   Future<PushRegistration?> registration() async {
@@ -49,12 +53,16 @@ final class PlatformPushRegistrationProvider
     if (pushUrl == null) return null;
 
     try {
-      final token = await _channel.invokeMethod<String>('registrationToken');
+      final token = await _channel
+          .invokeMethod<String>('registrationToken')
+          .timeout(registrationTimeout);
       if (token == null || token.isEmpty) return null;
       return PushRegistration(clientId: token, pushUrl: pushUrl);
     } on MissingPluginException {
       return null;
     } on PlatformException {
+      return null;
+    } on TimeoutException {
       return null;
     }
   }

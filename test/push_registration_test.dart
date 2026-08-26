@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/data/push_registration.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -78,4 +80,20 @@ void main() {
 
     expect(await provider.registration(), isNull);
   });
+
+  test(
+    'keeps sign-in available when APNs registration never answers',
+    () async {
+      final never = Completer<String?>();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (_) => never.future);
+      final provider = PlatformPushRegistrationProvider(
+        channel: channel,
+        platform: TargetPlatform.macOS,
+        registrationTimeout: const Duration(milliseconds: 10),
+      );
+
+      expect(await provider.registration(), isNull);
+    },
+  );
 }

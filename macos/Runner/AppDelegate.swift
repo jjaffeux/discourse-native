@@ -5,7 +5,6 @@ import UserNotifications
 @main
 class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
   override func applicationDidFinishLaunching(_ notification: Notification) {
-    super.applicationDidFinishLaunching(notification)
     UNUserNotificationCenter.current().delegate = self
   }
 
@@ -65,6 +64,7 @@ func discourseUrl(in userInfo: [AnyHashable: Any]) -> String? {
 
 final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
   static let shared = MacOSPushNotifications()
+  private static let registrationTimeout: TimeInterval = 15
 
   private var registrationChannel: FlutterMethodChannel?
   private var notificationOpenChannel: FlutterEventChannel?
@@ -74,6 +74,7 @@ final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
   private var token: String?
   private var pendingResults: [FlutterResult] = []
   private var registrationInProgress = false
+  private var registrationTimeoutWorkItem: DispatchWorkItem?
 
   private override init() {
     super.init()
@@ -168,6 +169,16 @@ final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
       guard !self.registrationInProgress else { return }
       self.registrationInProgress = true
 
+      let timeout = DispatchWorkItem { [weak self] in
+        guard let self, self.registrationInProgress else { return }
+        self.finish(with: nil)
+      }
+      self.registrationTimeoutWorkItem = timeout
+      DispatchQueue.main.asyncAfter(
+        deadline: .now() + Self.registrationTimeout,
+        execute: timeout
+      )
+
       UNUserNotificationCenter.current().requestAuthorization(
         options: [.alert, .badge, .sound]
       ) { granted, error in
@@ -185,6 +196,14 @@ final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
   private func finish(with token: String?) {
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
+      guard self.registrationInProgress else {
+        // A successful APNs reply which arrives just after the timeout is still
+        // useful for the next caller. A late failure must not erase a token.
+        if let token { self.token = token }
+        return
+      }
+      self.registrationTimeoutWorkItem?.cancel()
+      self.registrationTimeoutWorkItem = nil
       self.token = token
       self.registrationInProgress = false
       let results = self.pendingResults
